@@ -1,0 +1,34 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node.js (not used in this project, but for safety)
+node_modules/
+npm-debug.log
+package-lock.json
+yarn.lock
+
+# Build artifacts
+dist/
+build/
+*.zip
+
+# Local development
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+*.tmp
+*.bak
+.cache/
+
+# Logs
+*.log
