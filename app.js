@@ -1046,8 +1046,11 @@ async function pobierzWypelnionyPDF(){
     if(previewEl){
       if(window._lastPdfUrl) URL.revokeObjectURL(window._lastPdfUrl);
       window._lastPdfUrl=url;
-      previewEl.innerHTML='<p style="text-align:center;font-size:12px;color:#666;margin:8px">Podgląd wygenerowanego PDF — przewiń aby zobaczyć wszystkie strony</p>'
-        +'<iframe src="'+url+'#view=FitH" style="width:100%;height:1100px;border:1px solid #ddd;border-radius:4px"></iframe>';
+      previewEl.innerHTML=
+  '<div style="text-align:center;font-size:13px;color:#555;margin:10px 0 14px 0;font-weight:500">Podgląd wydruku DT-1 / DT-1A</div>'
+  + '<div style="background:#b8b8b8;padding:24px;border-radius:8px;overflow:auto">'
+  + '<iframe src="'+url+'#toolbar=0&navpanes=0&scrollbar=0&view=FitH" style="display:block;width:100%;height:1250px;border:0;background:white;border-radius:4px;box-shadow:0 0 12px rgba(0,0,0,.25)"></iframe>'
+  + '</div>';
     } else {
       URL.revokeObjectURL(url);
     }
