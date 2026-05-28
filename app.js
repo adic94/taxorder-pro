@@ -961,17 +961,44 @@ async function pobierzWypelnionyPDF(){
     tfp(f1,'Miejscowość',miasto,fnt,8);
     tfp(f1,'16 Kod pocztowy',kod,fnt,8);
     tfp(f1,'Poczta',miasto,fnt,8);
-    tfp(f1,'fill_15',yr,fnt,9);
-    tfp(f1,'85 Nazwisko',tp('tp-nazwisko'),fnt,8);
-    tfp(f1,'Data wypełnienia',today,fnt,8);
-    tfp(f1,'fill_11',String(groups.length),fnt,10);
-    tfp(f1,'80',total.toFixed(2).replace('.',','),fnt,9);
-    tfp(f1,'81',String(r1),fnt,9);
-    tfp(f1,'82',String(r2),fnt,9);
-    const rodzajPodatnika = tp('tp-rodzaj')==='fizyczny' ? WYB[2] : WYB[1];
-    rgp(f1,'Group2',rodzajPodatnika);
-    const celNr={'DEKLARACJA SKLADANA DO 15 LUTEGO':1,'POWSTANIE OBOWIAZKU W TRAKCIE ROKU':2,'WYGASNIECIE OBOWIAZKU W TRAKCIE ROKU':3,'ZMIANA MIEJSCA ZAMIESZKANIA LUB SIEDZIBY':4,'KOREKTA DEKLARACJI':5,'PRZEDLUZENIE WYCOFANIA':6}[tp('tp-cel')]||1;
-    rgp(f1,'Group3',WYB[celNr]);
+    // ===== DT-1: rok, podatnik, cel deklaracji =====
+
+// 4. Rok
+tfp(f1, '3 Status', yr, fnt, 10);
+
+// NIE wpisujemy roku do poz. 19
+// Poz. 19 uzupełnia się tylko przy zmianie miejsca zamieszkania/siedziby.
+const celVal = tp('tp-cel') || '1';
+const celStr = String(celVal).toLowerCase();
+
+const celNr =
+  celStr.includes('roczna') || celStr.includes('15 lutego') || celStr === '1' ? 1 :
+  celStr.includes('powstanie') || celStr === '2' ? 2 :
+  celStr.includes('wyga') || celStr === '3' ? 3 :
+  celStr.includes('zmiana') || celStr === '4' ? 4 :
+  celStr.includes('korekta') || celStr === '5' ? 5 :
+  celStr.includes('wycofania') || celStr === '6' ? 6 : 1;
+
+// 19. Poprzedni organ — tylko przy poz. 18 = 4
+tfp(f1, 'fill_15', celNr === 4 ? (tp('tp-poprzedni-organ') || '') : '', fnt, 7);
+
+tfp(f1, '85 Nazwisko', tp('tp-nazwisko'), fnt, 8);
+tfp(f1, 'Data wypełnienia', today, fnt, 8);
+tfp(f1, 'fill_11', String(groups.length), fnt, 10);
+tfp(f1, '80', total.toFixed(2).replace('.', ','), fnt, 9);
+tfp(f1, '81', String(r1), fnt, 9);
+tfp(f1, '82', String(r2), fnt, 9);
+
+// 6. Rodzaj podatnika
+const rodzajVal = tp('tp-rodzaj') || 'prawny';
+const rodzajPodatnika = String(rodzajVal).toLowerCase().includes('fiz')
+  ? WYB[2]
+  : WYB[1];
+
+rgp(f1, 'Group2', rodzajPodatnika);
+
+// 18. Przyczyna złożenia deklaracji
+rgp(f1, 'Group3', WYB[celNr]);
     Object.entries(CAT_NUMS).forEach(([cat,nums])=>{const d=cats[cat];tfp(f1,String(nums.b),d?String(d.cnt):'',fnt,9);tfp(f1,String(nums.e),d?d.amt.toFixed(2).replace('.',','):'',fnt,9);});
     f1.flatten();
     const dt1Bytes=await dt1Doc.save();
@@ -988,10 +1015,15 @@ async function pobierzWypelnionyPDF(){
         doc.registerFontkit(fontkit);
         const fa=fontBytes?await doc.embedFont(fontBytes):null;
         const fm=doc.getForm();
-        tfp(fm,'pesel',nip,fa,9);
-        tfp(fm,'numer załącznika',`${attNo}/${groups.length}`,fa,12);
-        tfp(fm,'Text2',nazwa,fa,7);
-        rgp(fm,'Group1',rodzajPodatnika);
+        tfp(fm, 'pesel', nip, fa, 9);
+tfp(fm, 'numer załącznika', `${attNo}/${groups.length}`, fa, 12);
+
+// 6. Nazwa pełna podatnika — dla spółki pole jest po lewej stronie
+tfp(fm, 'Text1', nazwa, fa, 7);
+tfp(fm, 'Text2', '', fa, 7);
+
+// 5. Rodzaj podatnika
+rgp(fm, 'Group1', rodzajPodatnika);
         grp.forEach((v,i)=>{
           const[sfx,vnum]=SFXS[i];
           const dmc=v.dmc?(v.dmc/1000):0;
@@ -1019,10 +1051,26 @@ async function pobierzWypelnionyPDF(){
           const DF={'':  {rej:'Data rejestracji',  nab:'Dzien nabycia',  zb:'data zbycia1',wyc:'data wycofania',  dop:'data dopuszczenia',  wyr:'data wyrejestrowania'},
                     '2': {rej:'Data rejestracji22',nab:'Dzien nabycia2', zb:'data zbycia2',wyc:'data wycofania2', dop:'data dopuszczenia2', wyr:'data wyrejestrowania2'},
                     '3': {rej:'Data rejestracji3', nab:'Dzien nabycia3', zb:'data zbycia3',wyc:'data wycofania3', dop:'data dopuszczenia3', wyr:'data wyrejestrowania3'}}[sfx];
-          tfp(fm,DF.rej,v.dataRejestracji||'',fa,7);tfp(fm,DF.nab,v.dataNabycia||'',fa,7);
+          tfp(fm, DF.rej, v.dataPierwszejRejestracji || v.dataRejestracji || v.dataPierwszejRej || '', fa, 7);tfp(fm,DF.nab,v.dataNabycia||'',fa,7);
           tfp(fm,DF.zb,v.dataZbycia||'',fa,7);tfp(fm,DF.wyc,'',fa,7);tfp(fm,DF.dop,'',fa,7);tfp(fm,DF.wyr,'',fa,7);
-          rgp(fm,sfx===''?'Group3':sfx==='2'?'Group22':'Group23',WYB[1]);
-          rgp(fm,sfx===''?'Group2':sfx==='2'?'Group32':'Group33',TYP[v.typ_nr||1]||WYB[1]);
+          // B.1.1 Dane dotyczące własności albo współwłasności
+// Domyślnie: 1. właściciel
+const ownGroup = sfx === '' ? 'Group3' : sfx === '2' ? 'Group22' : 'Group23';
+const ownNr = v.wlasnosc_nr || v.wlasnoscNr || 1;
+rgp(fm, ownGroup, WYB[ownNr] || WYB[1]);
+
+// B.1.2 Rodzaj środka transportowego
+const typTxt = String(v.typ || '').toLowerCase();
+
+let typNr = 1; // samochód ciężarowy
+if (typTxt.includes('ciągnik') || typTxt.includes('ciagnik')) typNr = 2;
+if (typTxt.includes('balast')) typNr = 3;
+if (typTxt.includes('przyczepa')) typNr = 4;
+if (typTxt.includes('naczepa')) typNr = 5;
+if (typTxt.includes('autobus')) typNr = 6;
+
+const typGroup = sfx === '' ? 'Group2' : sfx === '2' ? 'Group32' : 'Group33';
+rgp(fm, typGroup, WYB[typNr]);
           const zawNr=v.zawieszenie==='równoważne z pneumatycznym'?2:v.zawieszenie==='inny system zawieszenia'?3:1;
           rgp(fm,sfx===''?'Group4':sfx==='2'?'Group42':'Group43',ZAW[zawNr]||WYB[1]);
           const eL=v.euro_nr!=null?v.euro_nr:((v.euro||'').includes('6')?6:(v.euro||'').includes('5')?5:(v.euro||'').includes('4')?4:(v.euro||'').includes('3')?3:(v.euro||'').includes('2')?2:(v.euro||'').includes('1')?1:0);
