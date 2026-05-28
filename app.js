@@ -3114,7 +3114,11 @@ function switchCompany(companyId){
   loadCompanyState(companyId);
   updateCompanyUI();
   refreshAll();
-  toast('✓ Przełączono: '+COMPANIES[companyId].shortName);
+if (document.getElementById('page-formularze')?.classList.contains('active')) {
+  const c = document.getElementById('forms-container');
+  if (c) c.innerHTML = '';
+}
+toast('✓ Przełączono: '+COMPANIES[companyId].shortName);
 }
 
 function updateCompanyUI(){
