@@ -1641,7 +1641,7 @@ async function runOCR(){
     bar.style.width='85%';
     const rawText=result.data.text||'';
     // Spróbuj też OCR w 180° (dowód może być odwrócony)
-    let rawText180='';
+    rawText180='';
     try{
       const img=document.getElementById('ocr-img');
       if(img&&img.src){
