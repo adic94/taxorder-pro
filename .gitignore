@@ -9,8 +9,12 @@ Thumbs.db
 *.swo
 *~
 
-# Node.js (not used in this project, but for safety)
+# Wrangler (not needed for Cloudflare Pages)
+wrangler.jsonc
+.wrangler/
 node_modules/
+
+# Node.js
 npm-debug.log
 package-lock.json
 yarn.lock
