@@ -80,7 +80,20 @@ function showPage(id) {
   if(tnb) tnb.classList.add('active');
   if(id==='pojazdy') renderVeh();
   if(id==='kalkulator') renderKalkulator();
-  if(id==='formularze') renderFormularze();
+  if(id==='formularze') {
+  const c = document.getElementById('forms-container');
+  if (c) {
+    c.innerHTML = `
+      <div class="ibox" style="max-width:900px;margin:20px auto">
+        <i class="ti ti-file-description"></i>
+        <div>
+          <strong>Podgląd urzędowego formularza DT-1 / DT-1A</strong><br>
+          Kliknij zielony przycisk „Pobierz oryginalne PDF MF z danymi”, aby wygenerować właściwy formularz na oryginalnym druku Ministerstwa Finansów.
+        </div>
+      </div>
+    `;
+  }
+}
   if(id==='pd') updatePD();
   if(id==='dash') renderDash();
   if(id==='walidacja') { runValidation(); }
@@ -1046,10 +1059,10 @@ async function pobierzWypelnionyPDF(){
     if(previewEl){
       if(window._lastPdfUrl) URL.revokeObjectURL(window._lastPdfUrl);
       window._lastPdfUrl=url;
-      previewEl.innerHTML=
-  '<div style="text-align:center;font-size:13px;color:#555;margin:10px 0 14px 0;font-weight:500">Podgląd wydruku DT-1 / DT-1A</div>'
-  + '<div style="background:#b8b8b8;padding:24px;border-radius:8px;overflow:auto">'
-  + '<iframe src="'+url+'#toolbar=0&navpanes=0&scrollbar=0&view=FitH" style="display:block;width:100%;height:1250px;border:0;background:white;border-radius:4px;box-shadow:0 0 12px rgba(0,0,0,.25)"></iframe>'
+      previewEl.innerHTML =
+  '<div style="text-align:center;font-size:13px;color:#555;margin:10px 0 14px 0;font-weight:600">Oryginalny PDF MF — DT-1 / DT-1A z naniesionymi danymi</div>'
+  + '<div style="background:#9f9f9f;padding:24px;border-radius:8px;overflow:auto">'
+  + '<iframe src="'+url+'#toolbar=1&navpanes=0&scrollbar=1&view=FitH" style="display:block;width:100%;height:1250px;border:0;background:white;border-radius:4px;box-shadow:0 0 18px rgba(0,0,0,.35)"></iframe>'
   + '</div>';
     } else {
       URL.revokeObjectURL(url);
@@ -1065,10 +1078,8 @@ async function pobierzWypelnionyPDF(){
 
 
 function printFormularze() {
-  renderFormularze();
-  setTimeout(() => window.print(), 500);
+  pobierzWypelnionyPDF();
 }
-
 
 // Synchronizuj rok i przyczynę między zakładkami
 function syncTaxYear() {
