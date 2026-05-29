@@ -1761,23 +1761,6 @@ async function runOCR(){
     bar.style.width='70%';
     bar.style.width='85%';
     const rawText=result.data.text||'';
-    // Spróbuj też OCR w 180° (dowód może być odwrócony)
-    let rawText180='';
-    try{
-      const img=document.getElementById('ocr-img');
-      if(img&&img.src){
-        const canvas=document.createElement('canvas');
-        const ctx=canvas.getContext('2d');
-        canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;
-        ctx.translate(canvas.width/2,canvas.height/2);
-        ctx.rotate(Math.PI);
-        ctx.drawImage(img,-img.naturalWidth/2,-img.naturalHeight/2);
-        const rotated180=canvas.toDataURL('image/jpeg',0.95);
-        const r180=await tesseractWorker.recognize(rotated180);
-        rawText180=r180.data.text||'';
-      }
-    }catch(e2){console.warn('Rotacja 180 nieudana:',e2);}
-    // Połącz oba teksty
     const combinedText='---0---\n'+rawText+'\n---180---\n'+rawText180+rawTextCrops+(window._ocrPage2Text?'\n---page2---\n'+window._ocrPage2Text:'');
     const conf=result.data.confidence||0;
 
