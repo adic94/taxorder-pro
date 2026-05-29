@@ -80,20 +80,7 @@ function showPage(id) {
   if(tnb) tnb.classList.add('active');
   if(id==='pojazdy') renderVeh();
   if(id==='kalkulator') renderKalkulator();
-  if(id==='formularze') {
-  const c = document.getElementById('forms-container');
-  if (c) {
-    c.innerHTML = `
-      <div class="ibox" style="max-width:900px;margin:20px auto">
-        <i class="ti ti-file-description"></i>
-        <div>
-          <strong>Podgląd urzędowego formularza DT-1 / DT-1A</strong><br>
-          Kliknij zielony przycisk „Pobierz oryginalne PDF MF z danymi”, aby wygenerować właściwy formularz na oryginalnym druku Ministerstwa Finansów.
-        </div>
-      </div>
-    `;
-  }
-}
+  if(id==='formularze') renderFormularze();
   if(id==='pd') updatePD();
   if(id==='dash') renderDash();
   if(id==='walidacja') { runValidation(); }
@@ -267,15 +254,23 @@ function tp(id) { return (document.getElementById(id)||{}).value||''; }
 
 function renderFormularze() {
   try {
+  // ── Dane firmy z aktualnie wybranej ──────────────────────────
+  const co = typeof getCurrentCompany==='function' ? getCurrentCompany() : {};
   const selT = getSelTax();
-  const taxable = selT.filter(v=>v.cat);
-  const total = totalTax();
+  // Filtruj TYLKO pojazdy wybranej firmy
+  const taxable = selT.filter(v => v.cat && (
+    !co.wlasciciel || !v.wlasciciel ||
+    v.wlasciciel === co.wlasciciel ||
+    v.wlasciciel === co.shortName   ||
+    v.wlasciciel === co.id
+  ));
+  const total = taxable.reduce((s,v)=>s+(v.amount||0),0);
   const r1 = Math.round(total/2), r2 = Math.round(total)-r1;
   const cats = {};
-  selT.forEach(v=>{ if(!v.cat)return; if(!cats[v.cat])cats[v.cat]={count:0,amount:0}; cats[v.cat].count++;cats[v.cat].amount+=v.amount; });
+  taxable.forEach(v=>{ if(!cats[v.cat])cats[v.cat]={count:0,amount:0}; cats[v.cat].count++;cats[v.cat].amount+=v.amount; });
   const groups = [];
   for(let i=0;i<taxable.length;i+=3) groups.push(taxable.slice(i,i+3));
-  const yr = document.getElementById('taxYear').value;
+  const yr = (document.getElementById('taxYear')||document.getElementById('taxYearDT1')||{}).value||'2026';
   const today = new Date().toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit',year:'numeric'});
 
   const info = document.getElementById('form-info');
@@ -309,14 +304,8 @@ function renderFormularze() {
     ['D.15','Trzy osie i więcej',[76,77,78,79],'Przyczepy i naczepy ≥12t'],
   ];
 
-  const celMap = {
-    'DEKLARACJA SKLADANA DO 15 LUTEGO': '1',
-    'POWSTANIE OBOWIAZKU W TRAKCIE ROKU': '2',
-    'WYGASNIECIE OBOWIAZKU W TRAKCIE ROKU': '3',
-    'ZMIANA MIEJSCA ZAMIESZKANIA LUB SIEDZIBY': '4',
-    'KOREKTA DEKLARACJI': '5',
-  };
-  const celNr = celMap[tp('tp-cel')] || '1';
+  // tp-cel select ma wartości '1'..'6' (numeryczne)
+  const celNr = (document.getElementById('tp-cel')||{}).value || '1';
 
   // ====================================================================
   // DT-1(5) — FORMULARZ GŁÓWNY
@@ -337,7 +326,7 @@ function renderFormularze() {
         <td style="border:0.5px solid #000;border-left:none;padding:2px 4px;font-size:6pt;width:20%">3. Status</td>
       </tr>
       <tr>
-        <td style="border:0.5px solid #000;border-top:none;padding:3px 6px;font-size:10pt;font-weight:bold;letter-spacing:2px">${tp('tp-nip')}</td>
+        <td style="border:0.5px solid #000;border-top:none;padding:3px 6px;font-size:10pt;font-weight:bold;letter-spacing:2px">${(co.nip||tp('tp-nip'))}</td>
         <td style="border:0.5px solid #000;border-left:none;border-top:none;padding:3px 6px"></td>
         <td style="border:0.5px solid #000;border-left:none;border-top:none;padding:3px 6px"></td>
       </tr>
@@ -358,7 +347,7 @@ function renderFormularze() {
     <div style="background:#2a2a2a;color:#fff;font-size:7pt;font-family:Arial,sans-serif;font-weight:bold;padding:2px 5px;margin-bottom:0">A. MIEJSCE SKŁADANIA DEKLARACJI</div>
     <div style="border:0.5px solid #000;border-top:none;padding:3px 5px;margin-bottom:2px">
       <span style="font-size:6pt;font-weight:bold">5. Nazwa i adres siedziby organu podatkowego</span><br>
-      <span style="font-size:8pt;font-weight:bold">${tp('tp-organ')||'PREZYDENT M.ST. WARSZAWY, CENTRUM OBSŁUGI PODATNIKA, UL. OBOZOWA 57, 01-161 WARSZAWA, POLSKA'}</span>
+      <span style="font-size:8pt;font-weight:bold">${(co.organ||tp('tp-organ'))||'PREZYDENT M.ST. WARSZAWY, CENTRUM OBSŁUGI PODATNIKA, UL. OBOZOWA 57, 01-161 WARSZAWA, POLSKA'}</span>
     </div>
 
     <!-- B. DANE PODATNIKA -->
@@ -372,7 +361,7 @@ function renderFormularze() {
     </div>
     <div style="border:0.5px solid #000;border-top:none;padding:3px 5px;margin-bottom:0">
       <div style="font-size:6pt;font-weight:bold">7. Nazwa pełna * / Nazwisko, pierwsze imię, data urodzenia **</div>
-      <div style="font-size:9pt;font-weight:bold;margin-top:2px">${tp('tp-nazwa')}</div>
+      <div style="font-size:9pt;font-weight:bold;margin-top:2px">${co.name||tp('tp-nazwa')}</div>
     </div>
 
     <!-- Adres -->
@@ -386,13 +375,13 @@ function renderFormularze() {
           <td style="border-bottom:0.5px solid #000;padding:2px 4px"><div style="font-size:6pt">11. Gmina</div><div style="font-weight:bold">BIAŁOŁĘKA</div></td>
         </tr>
         <tr>
-          <td colspan="2" style="border-right:0.5px solid #000;padding:2px 4px"><div style="font-size:6pt">12. Ulica</div><div style="font-weight:bold">${tp('tp-ulica')}</div></td>
+          <td colspan="2" style="border-right:0.5px solid #000;padding:2px 4px"><div style="font-size:6pt">12. Ulica</div><div style="font-weight:bold">${(co.ulica||tp('tp-ulica'))}</div></td>
           <td style="border-right:0.5px solid #000;padding:2px 4px"><div style="font-size:6pt">13. Nr domu</div><div style="font-weight:bold">${tp('tp-dom')}</div></td>
           <td style="padding:2px 4px"><div style="font-size:6pt">14. Nr lokalu</div><div style="font-weight:bold">${tp('tp-lokal')||'—'}</div></td>
         </tr>
         <tr>
-          <td colspan="2" style="border-right:0.5px solid #000;border-top:0.5px solid #000;padding:2px 4px"><div style="font-size:6pt">15. Miejscowość</div><div style="font-weight:bold">${tp('tp-miasto')}</div></td>
-          <td style="border-right:0.5px solid #000;border-top:0.5px solid #000;padding:2px 4px"><div style="font-size:6pt">16. Kod pocztowy</div><div style="font-weight:bold">${tp('tp-kod')}</div></td>
+          <td colspan="2" style="border-right:0.5px solid #000;border-top:0.5px solid #000;padding:2px 4px"><div style="font-size:6pt">15. Miejscowość</div><div style="font-weight:bold">${(co.miasto||tp('tp-miasto'))}</div></td>
+          <td style="border-right:0.5px solid #000;border-top:0.5px solid #000;padding:2px 4px"><div style="font-size:6pt">16. Kod pocztowy</div><div style="font-weight:bold">${(co.kod||tp('tp-kod'))}</div></td>
           <td style="border-top:0.5px solid #000;padding:2px 4px"><div style="font-size:6pt">17. Poczta</div><div style="font-weight:bold">${tp('tp-miasto')}</div></td>
         </tr>
       </table>
@@ -410,6 +399,11 @@ function renderFormularze() {
         ${box(celNr==='5')}&nbsp;5. korekta deklaracji &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         ${box(celNr==='6')}&nbsp;6. przedłużenie okresu czasowego wycofania pojazdu z ruchu
       </div>
+    </div>
+    <div style="border:0.5px solid #000;border-top:none;padding:3px 5px;font-size:7.5pt;margin-bottom:2px">
+      <div style="font-size:6pt;font-weight:bold">19. Nazwa i adres siedziby organu podatkowego, w którym poprzednio składano deklarację na podatek od środków transportowych
+        <span style="font-size:5.5pt;font-style:italic">(należy wypełnić w przypadku zaznaczenia kwadratu nr 4 w poz.18)</span></div>
+      <div style="min-height:12px;font-size:8pt">${celNr==='4' ? (co.organ||'') : ''}</div>
     </div>
 
     <!-- D. DANE DOTYCZĄCE -->
@@ -898,236 +892,301 @@ function euroSet(form,lvl,sfx){
 }
 
 async function pobierzWypelnionyPDF(){
-  // Upewnij się że pliki PDF i biblioteki są załadowane
+  // ── załaduj pliki jeśli nie w pamięci ──────────────────────────
   if(!window._DT1_PDF_BYTES){
     toast('⏳ Ładowanie plików PDF...');
     try{ await loadAssets(); }
     catch(e){ toast('❌ Brak pliku DT1formularz.pdf — upewnij się że wszystkie pliki są w tym samym folderze co index.html'); return; }
   }
-  const selT=typeof getSelTax==='function'?getSelTax():[];
-  const taxable=selT.filter(v=>v.cat);
-  if(!taxable.length){toast('⚠ Zaznacz pojazdy — użyj "Zaznacz wszystkie opodatkowane"');return;}
 
-  const btn=document.getElementById('btn-pobierz-pdf');
-  const setBtn=t=>{if(btn){btn.disabled=!!t;btn.innerHTML=t||'<i class="ti ti-file-download"></i>Pobierz oryginalne PDF MF z danymi';}};
+  // ── pobierz dane firmy z aktualnie wybranej firmy (COMPANIES) ──
+  const co = typeof getCurrentCompany==='function' ? getCurrentCompany() : {};
+  if(!co||!co.nip){ toast('⚠ Wybierz firmę z listy'); return; }
+
+  // ── pojazdy: TYLKO pojazdy wybranej firmy ze statusem opodatkowanym ──
+  const selT = typeof getSelTax==='function' ? getSelTax() : [];
+  // filtruj po właścicielu firmy
+  const taxable = selT.filter(v => v.cat && (
+    !co.wlasciciel || !v.wlasciciel ||
+    v.wlasciciel === co.wlasciciel ||
+    v.wlasciciel === co.shortName   ||
+    v.wlasciciel === co.id
+  ));
+  if(!taxable.length){
+    toast('⚠ Brak opodatkowanych pojazdów dla ' + co.shortName + ' — użyj "Zaznacz wszystkie opodatkowane"');
+    return;
+  }
+
+  const btn = document.getElementById('btn-pobierz-pdf');
+  const setBtn = t => { if(btn){ btn.disabled=!!t; btn.innerHTML = t || '<i class="ti ti-file-download"></i>Pobierz oryginalne PDF MF z danymi'; } };
   setBtn('<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> Inicjalizuję...');
 
   try{
-    // Sprawdź dostępność bibliotek
-    if(typeof PDFLib==='undefined')throw new Error('pdf-lib nie załadowany — otwórz plik lokalnie (nie przez Claude)');
-    if(typeof fontkit==='undefined')throw new Error('fontkit nie załadowany — otwórz plik lokalnie (nie przez Claude)');
+    if(typeof PDFLib==='undefined') throw new Error('pdf-lib nie załadowany — otwórz plik lokalnie (nie przez Claude)');
+    if(typeof fontkit==='undefined') throw new Error('fontkit nie załadowany — otwórz plik lokalnie');
 
-    const {PDFDocument}=PDFLib;
+    const {PDFDocument} = PDFLib;
     setBtn('<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> Ładuję czcionkę...');
-    const fontBytes=await loadPolishFont();
+    const fontBytes = await loadPolishFont();
 
-    // Dane podatnika
-    const tp=id=>(document.getElementById(id)||{}).value||'';
-    const co=typeof getCurrentCompany==='function'?getCurrentCompany():{};
-    const yr=(document.getElementById('taxYear')||{}).value||'2026';
-    const nip=tp('tp-nip')||co.nip||'', nazwa=tp('tp-nazwa')||co.name||'';
-    const organ=tp('tp-organ')||co.organ||'', woj=tp('tp-woj')||co.woj||'MAZOWIECKIE';
-    const ulica=tp('tp-ulica')||co.ulica||'', dom=tp('tp-dom')||co.dom||'';
-    const lokal=tp('tp-lokal')||co.lokal||'', miasto=tp('tp-miasto')||co.miasto||'';
-    const kod=tp('tp-kod')||co.kod||'';
-    const today=new Date().toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit',year:'numeric'});
+    // ── rok i przyczyna złożenia z UI ────────────────────────────
+    const yr  = (document.getElementById('taxYear')||document.getElementById('taxYearDT1')||{}).value || '2026';
+    // tp-cel ma wartości '1'..'6'
+    const celNr = parseInt((document.getElementById('tp-cel')||{}).value||'1') || 1;
+    // podatnik: wszystkie 6 firm to "nie będący osobą fizyczną" → pozycja 1
+    const rodzajPodatnika = WYB[1];
+    const today = new Date().toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit',year:'numeric'});
 
-    const total=typeof totalTax==='function'?totalTax():taxable.reduce((s,v)=>s+(v.amount||0),0);
-    const r1=Math.round(total/2),r2=Math.round(total)-r1;
-    const cats={};
-    taxable.forEach(v=>{if(!cats[v.cat])cats[v.cat]={cnt:0,amt:0};cats[v.cat].cnt++;cats[v.cat].amt+=v.amount||0;});
-    const groups=[];
-    for(let i=0;i<taxable.length;i+=3)groups.push(taxable.slice(i,i+3));
+    // ── dane firmy (poz A–C DT-1) ──────────────────────────────
+    const nip    = co.nip    || '';
+    const nazwa  = co.name   || '';  // poz 7
+    const organ  = co.organ  || '';  // poz 5
+    const kraj   = co.kraj   || 'Polska';
+    const woj    = co.woj    || 'MAZOWIECKIE';
+    const powiat = co.powiat || 'WARSZAWA';
+    const gmina  = co.gmina  || '';
+    const ulica  = co.ulica  || '';
+    const dom    = co.dom    || '';
+    const lokal  = co.lokal  || '';
+    const miasto = co.miasto || '';
+    const kod    = co.kod    || '';
 
-    console.log(`[PDF] ${taxable.length} pojazdów → ${groups.length} DT-1/A`);
+    // ── podsumowanie podatku ──────────────────────────────────────
+    const total = taxable.reduce((s,v) => s + (v.amount||0), 0);
+    const r1 = Math.round(total/2), r2 = Math.round(total) - r1;
+    const cats = {};
+    taxable.forEach(v => {
+      if(!cats[v.cat]) cats[v.cat] = {cnt:0, amt:0};
+      cats[v.cat].cnt++;
+      cats[v.cat].amt += v.amount||0;
+    });
+    const groups = [];
+    for(let i=0; i<taxable.length; i+=3) groups.push(taxable.slice(i,i+3));
+    console.log(`[PDF] Firma: ${co.shortName} | ${taxable.length} pojazdów → ${groups.length} DT-1/A`);
 
-    // ====== DT-1 ======
+    // ═══════════════════════════════════════════════════════════
+    // DT-1 — FORMULARZ GŁÓWNY
+    // ═══════════════════════════════════════════════════════════
     setBtn('<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> Wypełniam DT-1...');
-    const dt1Doc=await PDFDocument.load(window._DT1_PDF_BYTES,{ignoreEncryption:true});
-    dt1Doc.registerFontkit(fontkit); // MUSI być przed embedFont
-    const fnt=fontBytes?await dt1Doc.embedFont(fontBytes):null;
-    const f1=dt1Doc.getForm();
+    const dt1Doc = await PDFDocument.load(window._DT1_PDF_BYTES, {ignoreEncryption:true});
+    dt1Doc.registerFontkit(fontkit);
+    const fnt = fontBytes ? await dt1Doc.embedFont(fontBytes) : null;
+    const f1  = dt1Doc.getForm();
 
-    tfp(f1,'PESEL',nip,fnt,10);
-    tfp(f1,'5 Nazwa i adres siedziby organu podatkowego',organ,fnt,7);
-    tfp(f1,'nazwa - nazwisko',nazwa,fnt,8);
-    tfp(f1,'8 Kraj','Polska',fnt,8);
-    tfp(f1,'9 Województwo',woj,fnt,8);
-    tfp(f1,'10 Powiat','WARSZAWA',fnt,8);
-    tfp(f1,'Gmina','BIAŁOŁĘKA',fnt,8);
-    tfp(f1,'12 Ulica',ulica,fnt,8);
-    tfp(f1,'13 Nr domu',dom,fnt,8);
-    tfp(f1,'14 Nr lokalu',lokal||'—',fnt,8);
-    tfp(f1,'Miejscowość',miasto,fnt,8);
-    tfp(f1,'16 Kod pocztowy',kod,fnt,8);
-    tfp(f1,'Poczta',miasto,fnt,8);
-    // ===== DT-1: rok, podatnik, cel deklaracji =====
+    // poz 1 — NIP
+    tfp(f1, 'PESEL', nip, fnt, 10);
+    // poz 4 — rok
+    tfp(f1, 'fill_15', yr, fnt, 9);
+    // poz 5 — organ podatkowy (A)
+    tfp(f1, '5 Nazwa i adres siedziby organu podatkowego', organ, fnt, 7);
+    // poz 6 — rodzaj podatnika: ☑ 1. nie będący osobą fizyczną
+    rgp(f1, 'Group2', rodzajPodatnika);
+    // poz 7 — nazwa pełna
+    tfp(f1, 'nazwa - nazwisko', nazwa, fnt, 8);
+    // poz 8–17 adres siedziby
+    tfp(f1, '8 Kraj',        kraj,   fnt, 8);
+    tfp(f1, '9 Województwo', woj,    fnt, 8);
+    tfp(f1, '10 Powiat',     powiat, fnt, 8);
+    tfp(f1, 'Gmina',         gmina,  fnt, 8);
+    tfp(f1, '12 Ulica',      ulica,  fnt, 8);
+    tfp(f1, '13 Nr domu',    dom,    fnt, 8);
+    tfp(f1, '14 Nr lokalu',  lokal||'—', fnt, 8);
+    tfp(f1, 'Miejscowość',   miasto, fnt, 8);
+    tfp(f1, '16 Kod pocztowy', kod,  fnt, 8);
+    tfp(f1, 'Poczta',         miasto, fnt, 8);
+    // poz 18 — przyczyna złożenia (checkbox 1..6)
+    rgp(f1, 'Group3', WYB[celNr]);
+    // poz 19 — nazwa organu poprzednio skł. dekl. (tylko gdy celNr===4)
+    // pozostaw puste (nigdy nie wpisuj roku!)
+    tfp(f1, '19 Nazwa i adres siedziby organu podatkowego w którym poprzednio', '', fnt, 7);
+    // Sekcja D — liczba pojazdów i kwoty per kategoria
+    Object.entries(CAT_NUMS).forEach(([cat, nums]) => {
+      const d = cats[cat];
+      tfp(f1, String(nums.b), d ? String(d.cnt)                        : '', fnt, 9);
+      tfp(f1, String(nums.e), d ? d.amt.toFixed(2).replace('.',',')    : '', fnt, 9);
+    });
+    // Sekcja E — sumy
+    tfp(f1, '80', total.toFixed(2).replace('.',','), fnt, 9);
+    tfp(f1, '81', String(r1), fnt, 9);
+    tfp(f1, '82', String(r2), fnt, 9);
+    // Sekcja F — liczba załączników
+    tfp(f1, 'fill_11', String(groups.length), fnt, 10);
+    // Sekcja G — podpis
+    tfp(f1, 'Data wypełnienia', today, fnt, 8);
 
-// 4. Rok
-tfp(f1, '3 Status', yr, fnt, 10);
-
-// NIE wpisujemy roku do poz. 19
-// Poz. 19 uzupełnia się tylko przy zmianie miejsca zamieszkania/siedziby.
-const celVal = tp('tp-cel') || '1';
-const celStr = String(celVal).toLowerCase();
-
-const celNr =
-  celStr.includes('roczna') || celStr.includes('15 lutego') || celStr === '1' ? 1 :
-  celStr.includes('powstanie') || celStr === '2' ? 2 :
-  celStr.includes('wyga') || celStr === '3' ? 3 :
-  celStr.includes('zmiana') || celStr === '4' ? 4 :
-  celStr.includes('korekta') || celStr === '5' ? 5 :
-  celStr.includes('wycofania') || celStr === '6' ? 6 : 1;
-
-// 19. Poprzedni organ — tylko przy poz. 18 = 4
-tfp(f1, 'fill_15', celNr === 4 ? (tp('tp-poprzedni-organ') || '') : '', fnt, 7);
-
-tfp(f1, '85 Nazwisko', tp('tp-nazwisko'), fnt, 8);
-tfp(f1, 'Data wypełnienia', today, fnt, 8);
-tfp(f1, 'fill_11', String(groups.length), fnt, 10);
-tfp(f1, '80', total.toFixed(2).replace('.', ','), fnt, 9);
-tfp(f1, '81', String(r1), fnt, 9);
-tfp(f1, '82', String(r2), fnt, 9);
-
-// 6. Rodzaj podatnika
-const rodzajVal = tp('tp-rodzaj') || 'prawny';
-const rodzajPodatnika = String(rodzajVal).toLowerCase().includes('fiz')
-  ? WYB[2]
-  : WYB[1];
-
-rgp(f1, 'Group2', rodzajPodatnika);
-
-// 18. Przyczyna złożenia deklaracji
-rgp(f1, 'Group3', WYB[celNr]);
-    Object.entries(CAT_NUMS).forEach(([cat,nums])=>{const d=cats[cat];tfp(f1,String(nums.b),d?String(d.cnt):'',fnt,9);tfp(f1,String(nums.e),d?d.amt.toFixed(2).replace('.',','):'',fnt,9);});
     f1.flatten();
-    const dt1Bytes=await dt1Doc.save();
-    const allBytes=[dt1Bytes];
+    const dt1Bytes  = await dt1Doc.save();
+    const allBytes  = [dt1Bytes];
 
-    // ====== DT-1/A ======
-    const dt1aTemplate=window._DT1A_PDF_BYTES;
-    const SFXS=[['',1],['2',2],['3',3]];
-    for(let gi=0;gi<groups.length;gi++){
+    // ═══════════════════════════════════════════════════════════
+    // DT-1/A — ZAŁĄCZNIKI (1 na każde 3 pojazdy)
+    // ═══════════════════════════════════════════════════════════
+    const dt1aTemplate = window._DT1A_PDF_BYTES;
+    const SFXS = [['',1], ['2',2], ['3',3]];
+
+    for(let gi=0; gi<groups.length; gi++){
       setBtn(`<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> Załącznik ${gi+1}/${groups.length}...`);
       try{
-        const grp=groups[gi],attNo=gi+1;
-        const doc=await PDFDocument.load(dt1aTemplate,{ignoreEncryption:true});
+        const grp   = groups[gi];
+        const attNo = gi + 1;
+        const doc   = await PDFDocument.load(dt1aTemplate, {ignoreEncryption:true});
         doc.registerFontkit(fontkit);
-        const fa=fontBytes?await doc.embedFont(fontBytes):null;
-        const fm=doc.getForm();
-        tfp(fm, 'pesel', nip, fa, 9);
-tfp(fm, 'numer załącznika', `${attNo}/${groups.length}`, fa, 12);
+        const fa = fontBytes ? await doc.embedFont(fontBytes) : null;
+        const fm = doc.getForm();
 
-// 6. Nazwa pełna podatnika — dla spółki pole jest po lewej stronie
-tfp(fm, 'Text1', nazwa, fa, 7);
-tfp(fm, 'Text2', '', fa, 7);
+        // ── Nagłówek załącznika ──
+        tfp(fm, 'pesel',           nip,                     fa, 9);
+        tfp(fm, 'numer załącznika', `${attNo}/${groups.length}`, fa, 12);
+        // A. Dane podatnika
+        // poz 5 — rodzaj podatnika (zawsze "nie będący os. fiz.")
+        rgp(fm, 'Group1', rodzajPodatnika);
+        // poz 6 — nazwa pełna firmy
+        tfp(fm, 'Text2', nazwa, fa, 7);
 
-// 5. Rodzaj podatnika
-rgp(fm, 'Group1', rodzajPodatnika);
-        grp.forEach((v,i)=>{
-          const[sfx,vnum]=SFXS[i];
-          const dmc=v.dmc?(v.dmc/1000):0;
-          const dmcI=Math.floor(dmc).toString();
-          const dmcD=Math.round((dmc%1)*100).toString().padStart(2,'0');
-          const dmcZ=v.dmcZespolu>0?(v.dmcZespolu/1000).toFixed(2).replace('.',','):'';
-          const kwI=Math.floor(v.amount||0).toString();
-          const kwD=Math.round(((v.amount||0)%1)*100).toString().padStart(2,'0');
-          const vf=`5 Numer Identyfikacyjny VIN  nadwozia podwozia lub ramy ${vnum}1`;
-          tfp(fm,`4 Numer rejestracyjny pojazdu${sfx}`,v.nrRej,fa,9);
-          tfp(fm,vf,v.vin,fa,7);
-          tfp(fm,`6 Marka typ model pojazdu${sfx}`,`${v.marka||''} ${v.model||''}`,fa,8);
-          tfp(fm,`rok produkcji${sfx}`,String(v.rok||''),fa,8);
-          const dI=sfx===''?'Text3':sfx==='2'?'Text32':'Text33';
-          const dD=sfx===''?'Text4':sfx==='2'?'Text42':'Text43';
-          const dZ=sfx===''?'Text3-111':sfx==='2'?'Text3-122':'Text3-3';
-          const dZd=sfx===''?'Text4-111':sfx==='2'?'Text4-1222':'Text4-33';
-          const oF=sfx===''?'Text4-1':sfx==='2'?'Text4-12':'Text4-13';
-          const kI=sfx===''?'Text6':sfx==='2'?'Text62':'Text63';
-          const kD=sfx===''?'Text7':sfx==='2'?'Text72':'Text73';
-          tfp(fm,dI,dmcI,fa,9);tfp(fm,dD,dmcD,fa,9);
-          if(dmcZ){const dZparts=dmcZ.split(',');tfp(fm,dZ,dZparts[0],fa,9);tfp(fm,dZd,dZparts[1]||'00',fa,9);}
-          tfp(fm,oF,String(v.osie||2),fa,10);
-          tfp(fm,kI,kwI,fa,9);tfp(fm,kD,kwD,fa,9);
-          const DF={'':  {rej:'Data rejestracji',  nab:'Dzien nabycia',  zb:'data zbycia1',wyc:'data wycofania',  dop:'data dopuszczenia',  wyr:'data wyrejestrowania'},
-                    '2': {rej:'Data rejestracji22',nab:'Dzien nabycia2', zb:'data zbycia2',wyc:'data wycofania2', dop:'data dopuszczenia2', wyr:'data wyrejestrowania2'},
-                    '3': {rej:'Data rejestracji3', nab:'Dzien nabycia3', zb:'data zbycia3',wyc:'data wycofania3', dop:'data dopuszczenia3', wyr:'data wyrejestrowania3'}}[sfx];
-          tfp(fm, DF.rej, v.dataPierwszejRejestracji || v.dataRejestracji || v.dataPierwszejRej || '', fa, 7);tfp(fm,DF.nab,v.dataNabycia||'',fa,7);
-          tfp(fm,DF.zb,v.dataZbycia||'',fa,7);tfp(fm,DF.wyc,'',fa,7);tfp(fm,DF.dop,'',fa,7);tfp(fm,DF.wyr,'',fa,7);
-          // B.1.1 Dane dotyczące własności albo współwłasności
-// Domyślnie: 1. właściciel
-const ownGroup = sfx === '' ? 'Group3' : sfx === '2' ? 'Group22' : 'Group23';
-const ownNr = v.wlasnosc_nr || v.wlasnoscNr || 1;
-rgp(fm, ownGroup, WYB[ownNr] || WYB[1]);
+        // ── B. Dane środków transportowych (maks. 3 pojazdy) ──
+        grp.forEach((v, i) => {
+          const [sfx, vnum] = SFXS[i];
 
-// B.1.2 Rodzaj środka transportowego
-const typTxt = String(v.typ || '').toLowerCase();
+          // DMC pojazdu (w tonach: cała część i setne)
+          const dmc  = v.dmc ? (v.dmc / 1000) : 0;
+          const dmcI = Math.floor(dmc).toString();
+          const dmcD = Math.round((dmc % 1) * 100).toString().padStart(2,'0');
 
-let typNr = 1; // samochód ciężarowy
-if (typTxt.includes('ciągnik') || typTxt.includes('ciagnik')) typNr = 2;
-if (typTxt.includes('balast')) typNr = 3;
-if (typTxt.includes('przyczepa')) typNr = 4;
-if (typTxt.includes('naczepa')) typNr = 5;
-if (typTxt.includes('autobus')) typNr = 6;
+          // DMC zespołu
+          const dmcZraw = v.dmcZespolu > 0 ? (v.dmcZespolu / 1000).toFixed(2) : '';
+          const dmcZparts = dmcZraw ? dmcZraw.split('.') : [];
 
-const typGroup = sfx === '' ? 'Group2' : sfx === '2' ? 'Group32' : 'Group33';
-rgp(fm, typGroup, WYB[typNr]);
-          const zawNr=v.zawieszenie==='równoważne z pneumatycznym'?2:v.zawieszenie==='inny system zawieszenia'?3:1;
-          rgp(fm,sfx===''?'Group4':sfx==='2'?'Group42':'Group43',ZAW[zawNr]||WYB[1]);
-          const eL=v.euro_nr!=null?v.euro_nr:((v.euro||'').includes('6')?6:(v.euro||'').includes('5')?5:(v.euro||'').includes('4')?4:(v.euro||'').includes('3')?3:(v.euro||'').includes('2')?2:(v.euro||'').includes('1')?1:0);
-          euroSet(fm,eL,sfx);
+          // Kwota podatku (zł i gr)
+          const kwI = Math.floor(v.amount || 0).toString();
+          const kwD = Math.round(((v.amount||0) % 1) * 100).toString().padStart(2,'0');
+
+          // ── poz B.1.1 — własność (zawsze: właściciel = WYB[1]) ──
+          rgp(fm, sfx==='' ? 'Group3' : sfx==='2' ? 'Group22' : 'Group23', WYB[1]);
+
+          // ── poz B.1.2 — rodzaj środka transportowego ──
+          // Mapowanie: v.typ_nr: 1=samochód cięż, 2=ciągnik siodłowy, 3=ciągnik balastu, 4=przyczepa, 5=naczepa, 6=autobus
+          rgp(fm, sfx==='' ? 'Group2' : sfx==='2' ? 'Group32' : 'Group33', TYP[v.typ_nr||1] || WYB[1]);
+
+          // ── poz B.1.3 — data pierwszej rejestracji ──
+          // Szukaj w v.dataRejestracji lub v.firstRegistrationDate
+          const dataRej = v.dataRejestracji || v.firstRegistrationDate || '';
+          const DF = {
+            '':  {rej:'Data rejestracji',   nab:'Dzien nabycia',  zb:'data zbycia1', wyc:'data wycofania',  dop:'data dopuszczenia',  wyr:'data wyrejestrowania'},
+            '2': {rej:'Data rejestracji22', nab:'Dzien nabycia2', zb:'data zbycia2', wyc:'data wycofania2', dop:'data dopuszczenia2', wyr:'data wyrejestrowania2'},
+            '3': {rej:'Data rejestracji3',  nab:'Dzien nabycia3', zb:'data zbycia3', wyc:'data wycofania3', dop:'data dopuszczenia3', wyr:'data wyrejestrowania3'},
+          }[sfx];
+          tfp(fm, DF.rej, dataRej,        fa, 7);
+          tfp(fm, DF.nab, v.dataNabycia||'', fa, 7);
+          tfp(fm, DF.zb,  v.dataZbycia||'', fa, 7);
+          tfp(fm, DF.wyc, '', fa, 7);
+          tfp(fm, DF.dop, '', fa, 7);
+          tfp(fm, DF.wyr, '', fa, 7);
+
+          // ── poz B.1.4 — numer rejestracyjny ──
+          tfp(fm, `4 Numer rejestracyjny pojazdu${sfx}`, v.nrRej || '', fa, 9);
+
+          // ── poz B.1.5 — VIN ──
+          tfp(fm, `5 Numer Identyfikacyjny VIN  nadwozia podwozia lub ramy ${vnum}1`, v.vin || '', fa, 7);
+
+          // ── poz B.1.6 — Marka / typ / model ──
+          const markaModel = [v.marka||'', v.model||v.typ||''].filter(Boolean).join(' ').trim();
+          tfp(fm, `6 Marka typ model pojazdu${sfx}`, markaModel, fa, 8);
+
+          // ── poz B.1.7 — rok produkcji ──
+          tfp(fm, `rok produkcji${sfx}`, String(v.rok||''), fa, 8);
+
+          // ── poz 13 — DMC pojazdu (tony) ──
+          const dI = sfx===''  ? 'Text3'  : sfx==='2' ? 'Text32' : 'Text33';
+          const dD = sfx===''  ? 'Text4'  : sfx==='2' ? 'Text42' : 'Text43';
+          tfp(fm, dI, dmcI, fa, 9);
+          tfp(fm, dD, dmcD, fa, 9);
+
+          // ── poz 15 — DMC zespołu ──
+          const dZ  = sfx==='' ? 'Text3-111' : sfx==='2' ? 'Text3-122' : 'Text3-3';
+          const dZd = sfx==='' ? 'Text4-111' : sfx==='2' ? 'Text4-1222': 'Text4-33';
+          if(dmcZparts.length){
+            tfp(fm, dZ,  dmcZparts[0]||'', fa, 9);
+            tfp(fm, dZd, dmcZparts[1]||'00', fa, 9);
+          }
+
+          // ── poz 16 — liczba osi ──
+          const oF = sfx==='' ? 'Text4-1' : sfx==='2' ? 'Text4-12' : 'Text4-13';
+          tfp(fm, oF, String(v.osie || 2), fa, 10);
+
+          // ── poz 17 — rodzaj zawieszenia ──
+          const zawNr = v.zawieszenie==='równoważne z pneumatycznym'?2 : v.zawieszenie==='inny system zawieszenia'?3 : 1;
+          rgp(fm, sfx===''?'Group4':sfx==='2'?'Group42':'Group43', ZAW[zawNr]||WYB[1]);
+
+          // ── poz 20 — norma Euro ──
+          const eL = v.euro_nr != null ? v.euro_nr :
+            ((v.euro||'').match(/6/)?6:(v.euro||'').match(/5/)?5:(v.euro||'').match(/4/)?4:
+             (v.euro||'').match(/3/)?3:(v.euro||'').match(/2/)?2:(v.euro||'').match(/1/)?1:0);
+          euroSet(fm, eL, sfx);
+
+          // ── poz 21 — kwota podatku ──
+          const kI = sfx==='' ? 'Text6' : sfx==='2' ? 'Text62' : 'Text63';
+          const kD = sfx==='' ? 'Text7' : sfx==='2' ? 'Text72' : 'Text73';
+          tfp(fm, kI, kwI, fa, 9);
+          tfp(fm, kD, kwD, fa, 9);
         });
+
         fm.flatten();
         allBytes.push(await doc.save());
-        console.log(`[PDF] Zał. ${attNo}/${groups.length} gotowy`);
-      }catch(e2){
-        console.error(`[PDF] Zał. ${gi+1} błąd:`,e2.message);
-        // Kontynuuj z pozostałymi załącznikami
+        console.log(`[PDF] Zał. ${attNo}/${groups.length} gotowy — ${grp.map(v=>v.nrRej).join(',')}`);
+      } catch(e2){
+        console.error(`[PDF] Zał. ${gi+1} błąd:`, e2.message);
+        // kontynuuj z następnym
       }
     }
 
-    // ====== SCAL ======
+    // ── Scal wszystkie strony ────────────────────────────────────
     setBtn('<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> Scalanie PDF...');
-    const finalDoc=await PDFDocument.create();
+    const finalDoc = await PDFDocument.create();
     for(const bytes of allBytes){
       try{
-        const src=await PDFDocument.load(bytes);
-        const pages=await finalDoc.copyPages(src,src.getPageIndices());
-        pages.forEach(p=>finalDoc.addPage(p));
-      }catch(e3){console.error('[PDF] Merge error:',e3);}
+        const src   = await PDFDocument.load(bytes);
+        const pages = await finalDoc.copyPages(src, src.getPageIndices());
+        pages.forEach(p => finalDoc.addPage(p));
+      } catch(e3){ console.error('[PDF] Merge error:', e3); }
     }
-    const finalBytes=await finalDoc.save();
-    const blob=new Blob([finalBytes],{type:'application/pdf'});
-    const url=URL.createObjectURL(blob);
-    // Pobierz
-    const a=document.createElement('a');a.href=url;
-    a.download=`DT-1_${nip.replace(/\D/g,'')}_${yr}.pdf`;
-    document.body.appendChild(a);a.click();document.body.removeChild(a);
-    // Podgląd PDF w iframe
-    const previewEl=document.getElementById('forms-container');
+    const finalBytes = await finalDoc.save();
+    const blob = new Blob([finalBytes], {type:'application/pdf'});
+    const url  = URL.createObjectURL(blob);
+
+    // Pobierz plik
+    const a = document.createElement('a'); a.href = url;
+    a.download = `DT-1_${nip.replace(/\D/g,'')}_${yr}.pdf`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+
+    // Podgląd w iframe
+    const previewEl = document.getElementById('forms-container');
     if(previewEl){
       if(window._lastPdfUrl) URL.revokeObjectURL(window._lastPdfUrl);
-      window._lastPdfUrl=url;
+      window._lastPdfUrl = url;
       previewEl.innerHTML =
-  '<div style="text-align:center;font-size:13px;color:#555;margin:10px 0 14px 0;font-weight:600">Oryginalny PDF MF — DT-1 / DT-1A z naniesionymi danymi</div>'
-  + '<div style="background:#9f9f9f;padding:24px;border-radius:8px;overflow:auto">'
-  + '<iframe src="'+url+'#toolbar=1&navpanes=0&scrollbar=1&view=FitH" style="display:block;width:100%;height:1250px;border:0;background:white;border-radius:4px;box-shadow:0 0 18px rgba(0,0,0,.35)"></iframe>'
-  + '</div>';
+        '<p style="text-align:center;font-size:12px;color:#666;margin:8px">Podgląd wygenerowanego PDF — przewiń aby zobaczyć wszystkie strony</p>'
+        + `<iframe src="${url}#view=FitH" style="width:100%;height:1100px;border:1px solid #ddd;border-radius:4px"></iframe>`;
     } else {
       URL.revokeObjectURL(url);
     }
-    toast(`✅ Pobrano: DT-1 + ${allBytes.length-1} × DT-1/A | ${taxable.length} pojazdów | polskie znaki ✓`);
 
-  }catch(err){
-    console.error('[PDF]',err);
+    toast(`✅ DT-1 + ${allBytes.length-1} × DT-1/A | ${taxable.length} poj. ${co.shortName} | polskie znaki ✓`);
+
+  } catch(err){
+    console.error('[PDF]', err);
     toast('❌ ' + err.message);
-  }finally{setBtn(null);}
+  } finally {
+    setBtn(null);
+  }
 }
 
 
 
 function printFormularze() {
-  pobierzWypelnionyPDF();
+  renderFormularze();
+  setTimeout(() => window.print(), 500);
 }
+
 
 // Synchronizuj rok i przyczynę między zakładkami
 function syncTaxYear() {
@@ -1703,7 +1762,7 @@ async function runOCR(){
     bar.style.width='85%';
     const rawText=result.data.text||'';
     // Spróbuj też OCR w 180° (dowód może być odwrócony)
-    rawText180='';
+    let rawText180='';
     try{
       const img=document.getElementById('ocr-img');
       if(img&&img.src){
@@ -3049,12 +3108,12 @@ window.renderVeh=renderVehWithDocs;
 
 // ==================== FIRMY (Multi-Firma) ====================
 const COMPANIES = {
-  mtoilet:{id:'mtoilet',shortName:'mToilet',name:'MTOILET SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',nip:'5361938486',regon:'367263453',krs:'0000766937',ulica:'TORUŃSKA',dom:'31',lokal:'',kod:'03-226',miasto:'WARSZAWA',woj:'MAZOWIECKIE',organ:'Prezydent m.st. Warszawy — Dzielnica Białołęka',color:'#185FA5',wlasciciel:'mToilet'},
-  gcon:{id:'gcon',shortName:'G-CON',name:'G-CON SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',nip:'5223036167',regon:'362307353',krs:'0000572114',ulica:'EUGENIUSZA BOCHEŃSKIEGO "DUBAŃCA"',dom:'6',lokal:'',kod:'04-478',miasto:'WARSZAWA',woj:'MAZOWIECKIE',organ:'Prezydent m.st. Warszawy — Dzielnica Rembertów',color:'#3B6D11',wlasciciel:'GCON'},
-  grental:{id:'grental',shortName:'G-Rental',name:'G-RENTAL SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',nip:'9522192210',regon:'381803583',krs:'0000765416',ulica:'EUGENIUSZA BOCHEŃSKIEGO "DUBAŃCA"',dom:'6',lokal:'',kod:'04-478',miasto:'WARSZAWA',woj:'MAZOWIECKIE',organ:'Prezydent m.st. Warszawy — Dzielnica Rembertów',color:'#BA7517',wlasciciel:'GRENTAL'},
-  kjrsupply:{id:'kjrsupply',shortName:'KJR Supply',name:'KJR SUPPLY SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',nip:'5223116423',regon:'369535413',krs:'0000722764',ulica:'MAGENTA',dom:'142',lokal:'',kod:'04-429',miasto:'WARSZAWA',woj:'MAZOWIECKIE',organ:'Prezydent m.st. Warszawy — Dzielnica Wawer',color:'#7C3AED',wlasciciel:'KJR Supply'},
-  nwkinvest:{id:'nwkinvest',shortName:'NWK Invest',name:'NWK INVEST SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',nip:'5361920285',regon:'362208763',krs:'0000573479',ulica:'MACIEJKI',dom:'3',lokal:'',kod:'05-140',miasto:'JACHRANKA',woj:'MAZOWIECKIE',organ:'Burmistrz Gminy Serock',color:'#A32D2D',wlasciciel:'NWK Invest'},
-  wolund:{id:'wolund',shortName:'Wolund',name:'WOLUND SYNERGY SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',nip:'5253006751',regon:'',krs:'0001111249',ulica:'ADAMA MICKIEWICZA',dom:'37',lokal:'58',kod:'01-625',miasto:'WARSZAWA',woj:'MAZOWIECKIE',organ:'Prezydent m.st. Warszawy — Dzielnica Żoliborz',color:'#0891B2',wlasciciel:'Wolund'}
+  mtoilet:{id:'mtoilet',gmina:'BIAŁOŁĘKA',powiat:'WARSZAWA',kraj:'Polska',shortName:'mToilet',name:'MTOILET SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',nip:'5361938486',regon:'367263453',krs:'0000766937',ulica:'TORUŃSKA',dom:'31',lokal:'',kod:'03-226',miasto:'WARSZAWA',woj:'MAZOWIECKIE',organ:'Prezydent m.st. Warszawy — Dzielnica Białołęka',color:'#185FA5',wlasciciel:'mToilet'},
+  gcon:{id:'gcon',gmina:'REMBERTÓW',powiat:'WARSZAWA',kraj:'Polska',shortName:'G-CON',name:'G-CON SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',nip:'5223036167',regon:'362307353',krs:'0000572114',ulica:'EUGENIUSZA BOCHEŃSKIEGO "DUBAŃCA"',dom:'6',lokal:'',kod:'04-478',miasto:'WARSZAWA',woj:'MAZOWIECKIE',organ:'Prezydent m.st. Warszawy — Dzielnica Rembertów',color:'#3B6D11',wlasciciel:'GCON'},
+  grental:{id:'grental',gmina:'REMBERTÓW',powiat:'WARSZAWA',kraj:'Polska',shortName:'G-Rental',name:'G-RENTAL SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',nip:'9522192210',regon:'381803583',krs:'0000765416',ulica:'EUGENIUSZA BOCHEŃSKIEGO "DUBAŃCA"',dom:'6',lokal:'',kod:'04-478',miasto:'WARSZAWA',woj:'MAZOWIECKIE',organ:'Prezydent m.st. Warszawy — Dzielnica Rembertów',color:'#BA7517',wlasciciel:'GRENTAL'},
+  kjrsupply:{id:'kjrsupply',gmina:'WAWER',powiat:'WARSZAWA',kraj:'Polska',shortName:'KJR Supply',name:'KJR SUPPLY SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',nip:'5223116423',regon:'369535413',krs:'0000722764',ulica:'MAGENTA',dom:'142',lokal:'',kod:'04-429',miasto:'WARSZAWA',woj:'MAZOWIECKIE',organ:'Prezydent m.st. Warszawy — Dzielnica Wawer',color:'#7C3AED',wlasciciel:'KJR Supply'},
+  nwkinvest:{id:'nwkinvest',gmina:'SEROCK',powiat:'LEGIONOWSKI',kraj:'Polska',shortName:'NWK Invest',name:'NWK INVEST SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',nip:'5361920285',regon:'362208763',krs:'0000573479',ulica:'MACIEJKI',dom:'3',lokal:'',kod:'05-140',miasto:'JACHRANKA',woj:'MAZOWIECKIE',organ:'Burmistrz Gminy Serock',color:'#A32D2D',wlasciciel:'NWK Invest'},
+  wolund:{id:'wolund',gmina:'ŻOLIBORZ',powiat:'WARSZAWA',kraj:'Polska',shortName:'Wolund',name:'WOLUND SYNERGY SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',nip:'5253006751',regon:'',krs:'0001111249',ulica:'ADAMA MICKIEWICZA',dom:'37',lokal:'58',kod:'01-625',miasto:'WARSZAWA',woj:'MAZOWIECKIE',organ:'Prezydent m.st. Warszawy — Dzielnica Żoliborz',color:'#0891B2',wlasciciel:'Wolund'}
 };
 let currentCompanyId=localStorage.getItem('dt1_current_company')||'mtoilet';
 let companyStates=JSON.parse(localStorage.getItem('dt1_company_states')||'{}');
@@ -3114,11 +3173,7 @@ function switchCompany(companyId){
   loadCompanyState(companyId);
   updateCompanyUI();
   refreshAll();
-if (document.getElementById('page-formularze')?.classList.contains('active')) {
-  const c = document.getElementById('forms-container');
-  if (c) c.innerHTML = '';
-}
-toast('✓ Przełączono: '+COMPANIES[companyId].shortName);
+  toast('✓ Przełączono: '+COMPANIES[companyId].shortName);
 }
 
 function updateCompanyUI(){
@@ -3220,20 +3275,112 @@ const CEPIK_TOKEN_URL = 'https://api-cpa.gov.pl/token';
 const CEPIK_API_URL   = 'https://api.cepik.gov.pl';
 
 // Mapa prefiksów → województwa
-const WOJ_MAP = {W:'14',WA:'14',WB:'14',WD:'02',WE:'10',WF:'08',WG:'14',
-  WK:'12',WL:'06',WN:'28',WO:'16',WP:'30',WR:'18',WS:'24',WT:'26',WZ:'32',
-  K:'12',G:'22',P:'30',B:'20',C:'04',D:'02',E:'10',F:'08',L:'06',
-  N:'28',O:'16',R:'18',S:'24',T:'26',Z:'32'};
+// Mapa prefiksów tablic rejestracyjnych → kody województw (wg CEPiK)
+// Format: GUS 2-cyfrowy kod województwa
+const WOJ_MAP = {
+  // Mazowieckie (14) — Warszawa i okolice
+  'W':'14','WA':'14','WB':'14','WC':'14','WD':'14','WE':'14','WF':'14',
+  'WG':'14','WH':'14','WI':'14','WJ':'14','WK':'14','WL':'14','WM':'14',
+  'WN':'14','WO':'14','WP':'14','WR':'14','WS':'14','WT':'14','WU':'14',
+  'WW':'14','WX':'14','WY':'14','WZ':'14',
+  // Dolnośląskie (02)
+  'D':'02','DA':'02','DB':'02','DC':'02','DD':'02','DE':'02','DG':'02',
+  'DH':'02','DI':'02','DJ':'02','DK':'02','DL':'02','DM':'02','DN':'02',
+  'DO':'02','DP':'02','DR':'02','DS':'02','DT':'02','DU':'02','DW':'02',
+  'DY':'02','DZ':'02','DZI':'02',
+  // Kujawsko-Pomorskie (04)
+  'C':'04','CA':'04','CB':'04','CC':'04','CE':'04','CF':'04','CH':'04',
+  'CI':'04','CK':'04','CM':'04','CN':'04','CO':'04','CT':'04','CW':'04',
+  // Lubelskie (06)
+  'L':'06','LA':'06','LB':'06','LE':'06','LH':'06','LL':'06','LR':'06',
+  'LS':'06','LT':'06','LU':'06','LW':'06','LZ':'06',
+  // Lubuskie (08)
+  'F':'08','FG':'08','FK':'08','FN':'08','FRZ':'08','FS':'08','FZ':'08',
+  // Łódzkie (10)
+  'E':'10','EA':'10','EB':'10','EC':'10','ED':'10','EK':'10','EL':'10',
+  'EP':'10','ER':'10','ES':'10','ET':'10','EW':'10',
+  // Małopolskie (12)
+  'K':'12','KA':'12','KCH':'12','KDA':'12','KGO':'12','KI':'12','KK':'12',
+  'KKR':'12','KL':'12','KM':'12','KMY':'12','KN':'12','KNS':'12','KNT':'12',
+  'KO':'12','KOL':'12','KOS':'12','KP':'12','KPR':'12','KR':'12','KS':'12',
+  'KSU':'12','KT':'12','KTA':'12','KW':'12','KWA':'12','KZ':'12',
+  // Podkarpackie (18)
+  'R':'18','RC':'18','RD':'18','RE':'18','RI':'18','RJ':'18','RK':'18',
+  'RL':'18','RM':'18','RN':'18','RP':'18','RS':'18','RT':'18','RZ':'18',
+  // Podlaskie (20)
+  'B':'20','BA':'20','BBI':'20','BE':'20','BG':'20','BH':'20','BI':'20',
+  'BK':'20','BL':'20','BM':'20','BMN':'20','BO':'20','BS':'20','BSK':'20',
+  'BW':'20','BZ':'20',
+  // Pomorskie (22)
+  'G':'22','GA':'22','GB':'22','GCZ':'22','GD':'22','GDA':'22','GE':'22',
+  'GK':'22','GL':'22','GM':'22','GN':'22','GNM':'22','GS':'22','GSZ':'22',
+  'GT':'22','GW':'22','GWE':'22',
+  // Śląskie (24)
+  'S':'24','SB':'24','SBE':'24','SC':'24','SCH':'24','SCI':'24','SF':'24',
+  'SFR':'24','SG':'24','SI':'24','SK':'24','SKL':'24','SL':'24','SM':'24',
+  'SMs':'24','SMY':'24','SN':'24','SO':'24','SP':'24','SR':'24','SS':'24',
+  'ST':'24','STA':'24','SU':'24','SW':'24','SWS':'24','SY':'24','SZ':'24',
+  // Świętokrzyskie (26)
+  'T':'26','TA':'26','TBU':'26','TJ':'26','TK':'26','TKI':'26','TM':'26',
+  'TN':'26','TO':'26','TP':'26','TS':'26','TSA':'26','TW':'26',
+  // Warmińsko-Mazurskie (28)
+  'N':'28','NA':'28','NB':'28','ND':'28','NE':'28','NEL':'28','NGI':'28',
+  'NI':'28','NIL':'28','NK':'28','NKE':'28','NL':'28','NLI':'28','NM':'28',
+  'NMR':'28','NO':'28','NOL':'28','NP':'28','NPZ':'28','NS':'28','NSZ':'28',
+  'NW':'28','NWE':'28',
+  // Wielkopolskie (30)
+  'P':'30','PC':'30','PCA':'30','PCH':'30','PGN':'30','PGO':'30','PK':'30',
+  'PKE':'30','PKL':'30','PKN':'30','PKR':'30','PL':'30','PLE':'30','PLI':'30',
+  'PM':'30','PMS':'30','PNT':'30','PO':'30','POB':'30','POS':'30','POT':'30',
+  'PP':'30','PPL':'30','PPZ':'30','PR':'30','PS':'30','PSK':'30','PSR':'30',
+  'PTA':'30','PTU':'30','PW':'30','PWA':'30','PWL':'30','PZ':'30','PZL':'30',
+  // Zachodniopomorskie (32)
+  'Z':'32','ZBI':'32','ZCA':'32','ZCH':'32','ZDR':'32','ZGL':'32','ZGR':'32',
+  'ZGY':'32','ZK':'32','ZKA':'32','ZKL':'32','ZKO':'32','ZLB':'32','ZMY':'32',
+  'ZPY':'32','ZS':'32','ZSD':'32','ZSL':'32','ZSW':'32','ZSZ':'32','ZWA':'32',
+  // Opole (16)
+  'O':'16','OB':'16','OBR':'16','OGL':'16','OK':'16','OKL':'16','OKR':'16',
+  'ON':'16','ONY':'16','OP':'16','OPO':'16','OS':'16','OST':'16','OT':'16',
+};
 
 const CEPIK_FIELDS = {
-  'marka':'marka','model':'model','numer-vin':'vin',
-  'dopuszczalna-masa-calkowita':'dmc',
-  'dopuszczalna-masa-calkowita-zespolu-pojazdow':'dmcZespolu',
-  'liczba-osi':'osie','rok-produkcji':'rok',
-  'data-pierwszej-rejestracji-w-kraju':'dataRejestracji',
-  'masa-wlasna':'masaWlasna','rodzaj-paliwa':'paliwo',
-  'pojemnosc-skokowa':'pojemnosc','moc-netto':'mocKW',
-  'kategoria':'kategoria','rodzaj-zawieszenia-osi-napedzanych':'zawieszenie'
+  // Identyfikacja
+  'numer-rejestracyjny'          : 'nrRej',
+  'numer-vin'                    : 'vin',
+  // Dane techniczne — wg swagger api.cepik.gov.pl
+  'marka'                        : 'marka',
+  'model'                        : 'model',
+  'typ'                          : 'typ',
+  'wariant'                      : 'wariant',
+  'rok-produkcji'                : 'rok',
+  'data-pierwszej-rejestracji-w-kraju' : 'dataRejestracji',
+  'data-pierwszej-rejestracji'   : 'dataRejestracji',
+  // Masy
+  'dopuszczalna-masa-calkowita'                  : 'dmc',
+  'dopuszczalna-masa-calkowita-zespolu-pojazdow' : 'dmcZespolu',
+  'masa-wlasna'                  : 'masaWlasna',
+  // Silnik
+  'rodzaj-paliwa'                : 'paliwo',
+  'pojemnosc-skokowa'            : 'pojemnosc',
+  'moc-netto'                    : 'mocKW',
+  'moc-maksymalna'               : 'mocKW',
+  'norma-emisji-spalin'          : 'euroNorma',
+  // Klasyfikacja
+  'kategoria'                    : 'kategoria',
+  'rodzaj-pojazdu'               : 'rodzajPojazdu',
+  'przeznaczenie'                : 'przeznaczenie',
+  'kod-rodzaju-pojazdu'          : 'kodRodzaju',
+  // Osi i zawieszenie
+  'liczba-osi'                   : 'osie',
+  'rodzaj-zawieszenia-osi-napedzanych' : 'zawieszenie',
+  'rodzaj-zawieszenia'           : 'zawieszenie',
+  // Miejsca
+  'liczba-miejsc-siedzacych'     : 'liczbaMiejsc',
+  'liczba-miejsc-ogolna'         : 'liczbaMiejscOgolem',
+  // Status
+  'status'                       : 'statusRejestracji',
+  'wojewodztwo-rejestracji'      : 'woj',
+  'rodzaj-nadwozia'              : 'nadwozie',
 };
 const CEPIK_LABELS = {
   marka:'Marka (D.1)',model:'Model (D.2)',vin:'VIN (E)',dmc:'DMC kg (F.1)',
@@ -3503,7 +3650,13 @@ async function cepikFetch(nrRej, woj) {
       headers: { 'Accept': 'application/vnd.api+json', 'Authorization': 'Bearer '+token },
       mode: 'cors'
     });
-    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const errText = await resp.text().catch(()=>'');
+    if(!resp.ok) {
+      if(resp.status===403||errText.includes('API-ERR-100007')){
+        throw new Error('API-ERR-100007: Brak uprawnień do wyszukiwania po nr rej. Wymagany rozszerzony dostęp CEPiK (złóż wniosek: apicepik@cyfra.gov.pl)');
+      }
+      throw new Error('HTTP '+resp.status+': '+errText.slice(0,200));
+    }
     data = await resp.json();
   }
 
@@ -3518,8 +3671,11 @@ function parseCepikAttrs(attrs) {
   Object.entries(CEPIK_FIELDS).forEach(([apiKey,vehKey])=>{
     const val=attrs[apiKey];
     if(val===undefined||val===null||val==='')return;
-    if(['dmc','dmcZespolu','masaWlasna','pojemnosc','mocKW'].includes(vehKey))
-      out[vehKey]=parseFloat(String(val).replace(/[\s]/g,''))||null;
+    if(['dmc','dmcZespolu','masaWlasna','pojemnosc','mocKW'].includes(vehKey)){
+      const numStr=String(val).replace(/[\s,]/g,'').replace(/\.(?=.*\.)/g,'');
+      out[vehKey]=parseFloat(numStr)||null;
+      // CEPiK zwraca DMC w kg — konwertuj do kg (bez zmian)
+    }
     else if(['osie','rok'].includes(vehKey))
       out[vehKey]=parseInt(val)||null;
     else if(vehKey==='zawieszenie')
