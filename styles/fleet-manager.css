@@ -1,0 +1,334 @@
+/**
+ * Stylizacja Fleet Manager
+ * Rozszerzenie istniejącego style.css
+ */
+
+/* ==================== DASHBOARD ====================*/
+
+.fleet-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.fleet-stat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.fleet-stat-card:hover {
+  border-color: var(--blue);
+  box-shadow: 0 2px 8px rgba(24, 95, 165, 0.1);
+}
+
+.fleet-stat-card.alert-card {
+  border-color: var(--red);
+}
+
+.stat-icon {
+  font-size: 32px;
+  color: var(--text2);
+  margin-bottom: 8px;
+}
+
+.stat-icon.alert-icon {
+  color: var(--red);
+}
+
+.stat-number {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--blue);
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.stat-sub {
+  font-size: 11px;
+  color: var(--text2);
+}
+
+/* ==================== SEKCJA ALERTÓW ====================*/
+
+.fleet-today-section {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-title i {
+  font-size: 18px;
+  color: var(--text2);
+}
+
+.alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.alert-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius);
+  border-left: 4px solid var(--border);
+  background: var(--bg3);
+}
+
+.alert-item.alert-high {
+  border-left-color: var(--red);
+  background: #fef2f2;
+}
+
+.alert-item.alert-medium {
+  border-left-color: var(--amber);
+  background: #fffbf0;
+}
+
+.alert-item.alert-low {
+  border-left-color: var(--blue);
+  background: #f0f9ff;
+}
+
+.alert-left {
+  font-size: 20px;
+  min-width: 24px;
+  text-align: center;
+}
+
+.alert-item.alert-high .alert-left {
+  color: var(--red);
+}
+
+.alert-item.alert-medium .alert-left {
+  color: var(--amber);
+}
+
+.alert-item.alert-low .alert-left {
+  color: var(--blue);
+}
+
+.alert-content {
+  flex: 1;
+}
+
+.alert-message {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.alert-time {
+  font-size: 11px;
+  color: var(--text2);
+}
+
+.alert-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text2);
+}
+
+/* ==================== SEKCJA SZYBKICH AKCJI ====================*/
+
+.fleet-quick-actions {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+}
+
+.actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg3);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.action-btn:hover {
+  background: var(--blue);
+  color: white;
+  border-color: var(--blue);
+}
+
+.action-btn i {
+  font-size: 24px;
+}
+
+/* ==================== MODAL ====================*/
+
+.modal-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--bg2);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--text2);
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/* ==================== FORMULARZE ====================*/
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text2);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-family: var(--font);
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: var(--blue);
+  outline: none;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* ==================== TABELE ====================*/
+
+.tbl-wrap table tr.row-warning td {
+  background: var(--amber-light);
+}
+
+.tbl-wrap table tr.row-warning:hover td {
+  background: #f5deb3;
+}
+
+/* ==================== RESPONSYWNOŚĆ ====================*/
+
+@media (max-width: 768px) {
+  .fleet-stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .actions-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
