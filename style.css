@@ -17,13 +17,13 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .app{display:flex;flex-direction:column;min-height:100vh}
 
 /* TOPBAR */
-.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;gap:12px;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 .75rem;display:flex;align-items:center;gap:6px;height:48px;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
 .brand{font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px;color:var(--text)}
 .brand .ti{font-size:20px;color:var(--blue)}
 .brand-badge{font-size:10px;background:var(--blue-light);color:var(--blue);padding:2px 7px;border-radius:999px;font-weight:600}
-.topnav{display:flex;gap:4px;margin-left:1.5rem;flex:1}
-.tnb{background:none;border:none;padding:7px 14px;border-radius:var(--radius);font-size:13px;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:6px;font-family:var(--font);font-weight:500;transition:all .15s}
-.tnb .ti{font-size:16px}
+.topnav{display:flex;gap:2px;margin-left:.5rem;flex:1;min-width:0}
+.tnb{background:none;border:none;padding:5px 9px;border-radius:var(--radius);font-size:11px;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:4px;font-family:var(--font);font-weight:500;transition:all .15s;white-space:nowrap}
+.tnb .ti{font-size:14px}
 .tnb:hover{background:var(--bg3);color:var(--text)}
 .tnb.active{background:var(--blue-light);color:var(--blue)}
 .tnb .badge{font-size:10px;background:var(--blue);color:#fff;padding:1px 6px;border-radius:999px;margin-left:2px}
