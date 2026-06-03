@@ -1,0 +1,11 @@
+﻿{
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "C:\\Users\\acichocki\\Desktop\\Narzędzia\\node-v24.16.0-win-x64\\npx.cmd",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest"
+      ]
+    }
+  }
+}
