@@ -1,13 +1,13 @@
 // TaxOrder Fleet Manager
 // Storage Adapter v2
-// Etap: localStorage teraz, Supabase póŸniej
+// Etap: localStorage teraz, Supabase pï¿½niej
 
 const Storage = {
   getJson(key, fallback) {
     try {
       return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
     } catch (e) {
-      console.error("B³¹d odczytu localStorage:", key, e);
+      console.error("Bï¿½ï¿½d odczytu localStorage:", key, e);
       return fallback;
     }
   },
