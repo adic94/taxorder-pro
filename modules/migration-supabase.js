@@ -27,8 +27,8 @@ window.TaxOrderMigration = {
       suspension_type: v.zawieszenie || null,
       dmc_team_kg: v.dmcZespolu ? Number(v.dmcZespolu) : null,
       taxable_months: v.months ? Number(v.months) : 12,
-      dt1_category: v.cat || null,
-      dt1_tax_amount: v.amount ? Number(v.amount) : null,
+      dt1_category: (typeof getCat === "function" ? getCat(v) : v.cat) || null,
+      dt1_tax_amount: (typeof getRate === "function" && typeof getCat === "function" ? Number(getRate(getCat(v), v)) : (v.amount ? Number(v.amount) : null)),
       raw_data: v
     }));
 
