@@ -2608,6 +2608,12 @@ function doLogin(){
   applyRoleAccess(u.role);
   sessionStorage.setItem('dt1_user_email',u.email);
   if(typeof loadCompanyState==='function'){loadCompanyState(currentCompanyId);updateCompanyUI();}
+  if(window.TaxOrderFleetCloud && typeof window.TaxOrderFleetCloud.loadVehicles === 'function'){
+    window.TaxOrderFleetCloud.loadVehicles().then(()=>{
+      if(typeof refreshAll==='function') refreshAll();
+      console.log('[FleetCloud] Automatycznie zaladowano pojazdy po starcie');
+    });
+  }
   renderDash();renderVeh();updateCounters();
 }
 
