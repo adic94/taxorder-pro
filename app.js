@@ -951,6 +951,12 @@ async function pobierzWypelnionyPDF(){
     tfp(f1,'Miejscowość',miasto,fnt,8);
     tfp(f1,'16 Kod pocztowy',kod,fnt,8);
     tfp(f1,'Poczta',miasto,fnt,8);
+    page1.drawText(yr, {
+      x: 297,
+      y: 690,
+      size: 10,
+      font: fnt || undefined
+    });
     tfp(f1,'fill_15','',fnt,9); // pole 19 ma być puste
     tfp(f1,'fill_11',tp('tp-imie'),fnt,8); // pole 84 Imię
     tfp(f1,'85 Nazwisko',tp('tp-nazwisko'),fnt,8);
