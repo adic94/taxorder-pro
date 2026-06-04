@@ -2983,6 +2983,9 @@ const COMPANIES = {
 };
 let currentCompanyId=localStorage.getItem('dt1_current_company')||'mtoilet';
 let companyStates=JSON.parse(localStorage.getItem('dt1_company_states')||'{}');
+
+// Udostêpnienie danych floty dla modu³ów zewnêtrznych, np. migracji Supabase
+window.getTaxOrderVehicles = function(){ return vehs || []; };
 function getCurrentCompany(){return COMPANIES[currentCompanyId];}
 
 function saveCompanyState(){
