@@ -951,12 +951,6 @@ async function pobierzWypelnionyPDF(){
     tfp(f1,'Miejscowość',miasto,fnt,8);
     tfp(f1,'16 Kod pocztowy',kod,fnt,8);
     tfp(f1,'Poczta',miasto,fnt,8);
-    page1.drawText(yr, {
-  x: 280,
-  y: 704,
-  size: 10,
-  font: fnt || undefined
-});
     tfp(f1,'fill_15','',fnt,9); // pole 19 ma być puste
     tfp(f1,'fill_11',tp('tp-imie'),fnt,8); // pole 84 Imię
     tfp(f1,'85 Nazwisko',tp('tp-nazwisko'),fnt,8);
@@ -995,7 +989,7 @@ async function pobierzWypelnionyPDF(){
         const fa=fontBytes?await doc.embedFont(fontBytes):null;
         const fm=doc.getForm();
         tfp(fm,'pesel',nip,fa,9);
-        tfp(fm,'numer załącznika',`${attNo}/${groups.length}`,fa,12);
+        tfp(fm,'numer załącznika',String(attNo),fa,12);
         tfp(fm,'Text2',nazwa,fa,7);
         rgp(fm,'Group1',rodzajPodatnika);
         grp.forEach((v,i)=>{
