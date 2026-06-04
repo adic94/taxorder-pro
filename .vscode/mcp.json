@@ -1,8 +1,8 @@
 ﻿{
-  "servers": {
+  "mcpServers": {
     "supabase": {
       "type": "http",
-      "url": "https://mcp.supabase.com/mcp?project_ref=opeqckxxdqicszfycolb&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching%2Cstorage"
+      "url": "https://mcp.supabase.com/mcp?project_ref=opeqckxxdqicszfycolb&features=docs,account,database,debugging,development,functions,branching,storage"
     },
     "chrome-devtools": {
       "command": "C:\\Users\\acichocki\\Desktop\\Narzędzia\\node-v24.16.0-win-x64\\npx.cmd",
