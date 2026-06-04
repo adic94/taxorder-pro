@@ -952,8 +952,8 @@ async function pobierzWypelnionyPDF(){
     tfp(f1,'16 Kod pocztowy',kod,fnt,8);
     tfp(f1,'Poczta',miasto,fnt,8);
     page1.drawText(yr, {
-      x: 290,
-      y: 500,
+      x: 283,
+      y: 638,
       size: 10,
       font: fnt || undefined
     });
@@ -3849,7 +3849,7 @@ window.addEventListener('load', () => {
   }
 
   // Uruchom auto-połączenie z CEPiK w tle (nie blokuje UI)
-  setTimeout(async () => {
+  if(false) setTimeout(async () => {
     try {
       if(isCepikTokenValid()) {
         // Token jest w localStorage i ważny — tylko zaplanuj refresh
