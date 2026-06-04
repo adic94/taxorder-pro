@@ -46,6 +46,12 @@
     }
 
     console.log("[FleetCloud] Pobrano pojazdy z Supabase:", mapped.length);
+    
+    if (!mapped || mapped.length === 0) {
+      console.warn("[FleetCloud] Supabase zwrócił 0 pojazdów — zachowuję lokalną flotę z app.js");
+      return { ok: false, count: 0, vehicles: [] };
+    }
     return { ok: true, count: mapped.length, vehicles: mapped };
   }
 };
+
