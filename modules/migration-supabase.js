@@ -1,13 +1,13 @@
-ï»¿window.TaxOrderMigration = {
+window.TaxOrderMigration = {
   async migrateVehiclesFromLocalStorage() {
     const companyId = "c2b40585-e8ca-4928-8d7b-db82600979bf";
     const states = JSON.parse(localStorage.getItem("dt1_company_states") || "{}");
     const currentCompany = localStorage.getItem("dt1_current_company") || "mtoilet";
     const state = states[currentCompany] || {};
-    const vehicles = state.vehs || window.vehs || [];
+    const vehicles = (typeof window.getTaxOrderVehicles === "function" ? window.getTaxOrderVehicles() : []) || state.vehs || [];
 
     if (!vehicles.length) {
-      console.warn("[Migracja] Brak pojazdÃ³w do migracji");
+      console.warn("[Migracja] Brak pojazdów do migracji");
       return { ok: false, count: 0 };
     }
 
@@ -38,7 +38,7 @@
       .select();
 
     if (error) {
-      console.error("[Migracja] BÅ‚Ä…d migracji pojazdÃ³w:", error);
+      console.error("[Migracja] B³¹d migracji pojazdów:", error);
       return { ok: false, error };
     }
 
