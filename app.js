@@ -952,16 +952,16 @@ async function pobierzWypelnionyPDF(){
     tfp(f1,'16 Kod pocztowy',kod,fnt,8);
     tfp(f1,'Poczta',miasto,fnt,8);
     page1.drawText(yr, {
-      x: 283,
-      y: 674,
+      x: 290,
+      y: 500,
       size: 10,
       font: fnt || undefined
     });
     tfp(f1,'fill_15','',fnt,9); // pole 19 ma być puste
-    tfp(f1,'fill_11',tp('tp-imie'),fnt,8); // pole 84 Imię
+    tfp(f1,'fill_11',String(groups.length),fnt,10); // pole 83 liczba załączników
     tfp(f1,'85 Nazwisko',tp('tp-nazwisko'),fnt,8);
     tfp(f1,'Data wypełnienia',today,fnt,8);
-    tfp(f1,'fill_12',String(groups.length),fnt,10); // pole 83 liczba załączników
+    tfp(f1,'fill_12',tp('tp-imie'),fnt,8); // pole 84 Imię
     tfp(f1,'80',total.toFixed(2).replace('.',','),fnt,9);
     tfp(f1,'81',String(r1),fnt,9);
     tfp(f1,'82',String(r2),fnt,9);
