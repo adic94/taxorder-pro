@@ -2986,6 +2986,13 @@ let companyStates=JSON.parse(localStorage.getItem('dt1_company_states')||'{}');
 
 // Udostêpnienie danych floty dla modu³ów zewnêtrznych, np. migracji Supabase
 window.getTaxOrderVehicles = function(){ return vehs || []; };
+window.setTaxOrderVehicles = function(list){
+  vehs.splice(0, vehs.length, ...(list || []).map((v,i)=>({...v,id:i})));
+  selected.clear();
+  if (typeof renderVeh === "function") renderVeh();
+  if (typeof updateCounters === "function") updateCounters();
+  if (typeof renderDash === "function") renderDash();
+};
 function getCurrentCompany(){return COMPANIES[currentCompanyId];}
 
 function saveCompanyState(){
