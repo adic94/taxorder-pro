@@ -957,10 +957,19 @@ async function pobierzWypelnionyPDF(){
     tfp(f1,'80',total.toFixed(2).replace('.',','),fnt,9);
     tfp(f1,'81',String(r1),fnt,9);
     tfp(f1,'82',String(r2),fnt,9);
-    const rodzajPodatnika = tp('tp-rodzaj')==='fizyczny' ? WYB[2] : WYB[1];
+    const rodzajPodatnika = tp('tp-rodzaj')==='fizyczny' ? 'Wyb贸r2' : 'Wyb贸r1';
     rgp(f1,'Group2',rodzajPodatnika);
-    const celNr={'DEKLARACJA SKLADANA DO 15 LUTEGO':1,'POWSTANIE OBOWIAZKU W TRAKCIE ROKU':2,'WYGASNIECIE OBOWIAZKU W TRAKCIE ROKU':3,'ZMIANA MIEJSCA ZAMIESZKANIA LUB SIEDZIBY':4,'KOREKTA DEKLARACJI':5,'PRZEDLUZENIE WYCOFANIA':6}[tp('tp-cel')]||1;
-    rgp(f1,'Group3',WYB[celNr]);
+
+    const celNr={
+      'DEKLARACJA SKLADANA DO 15 LUTEGO':'Wyb贸r1',
+      'POWSTANIE OBOWIAZKU W TRAKCIE ROKU':'Wyb贸r2',
+      'WYGASNIECIE OBOWIAZKU W TRAKCIE ROKU':'Wyb贸r3',
+      'ZMIANA MIEJSCA ZAMIESZKANIA LUB SIEDZIBY':'Wyb贸r5',
+      'KOREKTA DEKLARACJI':'Wyb贸r6',
+      'PRZEDLUZENIE WYCOFANIA':'Wyb贸r7'
+    }[tp('tp-cel')]||'Wyb贸r1';
+
+    rgp(f1,'Group3',celNr);
     Object.entries(CAT_NUMS).forEach(([cat,nums])=>{const d=cats[cat];tfp(f1,String(nums.b),d?String(d.cnt):'',fnt,9);tfp(f1,String(nums.e),d?d.amt.toFixed(2).replace('.',','):'',fnt,9);});
     f1.flatten();
     const dt1Bytes=await dt1Doc.save();
@@ -2990,7 +2999,7 @@ const COMPANIES = {
 let currentCompanyId=localStorage.getItem('dt1_current_company')||'mtoilet';
 let companyStates=JSON.parse(localStorage.getItem('dt1_company_states')||'{}');
 
-// Udost阷nienie danych floty dla modu丑w zewn阾rznych, np. migracji Supabase
+// Udost锟絧nienie danych floty dla modu锟斤拷w zewn锟絫rznych, np. migracji Supabase
 window.getTaxOrderVehicles = function(){ return vehs || []; };
 window.setTaxOrderVehicles = function(list){
   vehs.splice(0, vehs.length, ...(list || []).map((v,i)=>({...v,id:i})));
