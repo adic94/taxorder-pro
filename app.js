@@ -952,8 +952,8 @@ async function pobierzWypelnionyPDF(){
     tfp(f1,'16 Kod pocztowy',kod,fnt,8);
     tfp(f1,'Poczta',miasto,fnt,8);
     page1.drawText(yr, {
-      x: 297,
-      y: 690,
+      x: 283,
+      y: 674,
       size: 10,
       font: fnt || undefined
     });
