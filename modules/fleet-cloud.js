@@ -49,3 +49,62 @@
     return { ok: true, count: mapped.length, vehicles: mapped };
   }
 };
+window.TaxOrderFleetCloud = window.TaxOrderFleetCloud || {};
+
+window.TaxOrderFleetCloud.vehicleToDbPatch = function(v) {
+  const cat = typeof getCat === "function" ? getCat(v) : v.cat;
+  const tax = typeof getRate === "function" && typeof getCat === "function"
+    ? Number(getRate(cat, v))
+    : Number(v.amount || 0);
+
+  return {
+    registration_number: v.nrRej || "",
+    vin: v.vin || null,
+    brand: v.marka || null,
+    model: v.model || null,
+    production_year: v.rok ? Number(v.rok) : null,
+    vehicle_type: v.typ || null,
+    dmc_kg: v.dmc ? Number(v.dmc) : null,
+    euro_standard: v.euro || null,
+    ownership_status: v.status || null,
+    owner_name: v.wlasciciel || null,
+    axles_count: v.osie ? Number(v.osie) : null,
+    suspension_type: v.zawieszenie || null,
+    dmc_team_kg: v.dmcZespolu ? Number(v.dmcZespolu) : null,
+    taxable_months: v.miesiacePodatku ? Number(v.miesiacePodatku) : 12,
+    dt1_category: cat || null,
+    dt1_tax_amount: tax || null,
+    raw_data: {
+      ...v,
+      cat,
+      amount: tax
+    }
+  };
+};
+
+window.TaxOrderFleetCloud.saveVehicle = async function(v) {
+  if (!v) return { ok: false, error: "Brak pojazdu" };
+
+  const patch = window.TaxOrderFleetCloud.vehicleToDbPatch(v);
+
+  let query = window.supabaseClient
+    .from("vehicles")
+    .update(patch)
+    .eq("company_id", window.TaxOrderFleetCloud.companyId);
+
+  if (v.dbId) {
+    query = query.eq("id", v.dbId);
+  } else {
+    query = query.eq("registration_number", v.nrRej);
+  }
+
+  const { data, error } = await query.select();
+
+  if (error) {
+    console.error("[FleetCloud] Błąd zapisu pojazdu:", v.nrRej, error);
+    return { ok: false, error };
+  }
+
+  console.log("[FleetCloud] Zapisano pojazd:", v.nrRej, data);
+  return { ok: true, data };
+};
