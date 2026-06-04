@@ -950,7 +950,8 @@ async function pobierzWypelnionyPDF(){
     tfp(f1,'Miejscowość',miasto,fnt,8);
     tfp(f1,'16 Kod pocztowy',kod,fnt,8);
     tfp(f1,'Poczta',miasto,fnt,8);
-    tfp(f1,'fill_15',yr,fnt,9);
+    tfp(f1,'fill_15','',fnt,9);
+    tfp(f1,'fill_12',yr,fnt,9);
     tfp(f1,'85 Nazwisko',tp('tp-nazwisko'),fnt,8);
     tfp(f1,'Data wypełnienia',today,fnt,8);
     tfp(f1,'fill_11',String(groups.length),fnt,10);
