@@ -2594,7 +2594,7 @@ function expJson() {
 }
 
 // ==================== LOGIN SYSTEM ====================
-const DEFAULT_USERS = [{id:1,name:'Administrator',email:'admin@mtoilet.pl',passwordHash:btoa('admin123'),role:'admin',tel:'',active:true},{id:2,name:'Kierownik Floty',email:'kierownik@mtoilet.pl',passwordHash:btoa('kierownik123'),role:'kierownik',tel:'',active:true}];
+const DEFAULT_USERS = [{id:1,name:'Administrator',email:'adamus1000@gmail.com',passwordHash:btoa('asdasd'),role:'admin',tel:'',active:true},{id:2,name:'Kierownik Floty',email:'kierownik@mtoilet.pl',passwordHash:btoa('kierownik123'),role:'kierownik',tel:'',active:true}];
 const ROLE_LABELS = {admin:'Administrator',kierownik:'Kierownik',ksiegowy:'Księgowy',mechanik:'Mechanik'};
 const ROLE_COLORS = {admin:'pill-red',kierownik:'pill-blue',ksiegowy:'pill-green',mechanik:'pill-amber'};
 const ROLE_TABS = {
