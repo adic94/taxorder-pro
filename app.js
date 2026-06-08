@@ -232,7 +232,7 @@ function updateCounters() {
   const pdTotalEl = document.getElementById('pd-total'); if(pdTotalEl) pdTotalEl.textContent = fmt2(pdTax)+' zł';
 }
 
-function refreshAll() { renderVeh(); renderKalkulator(); updateCounters(); }
+function refreshAll() { renderVeh(); renderKalkulator(); updateCounters(); renderDash(); }
 function updateAll() { updateCounters(); renderKalkulator(); }
 
 // ==================== DASH ====================
