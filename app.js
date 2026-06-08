@@ -951,7 +951,11 @@ async function pobierzWypelnionyPDF(){
     tfp(f1,'Miejscowość',miasto,fnt,8);
     tfp(f1,'16 Kod pocztowy',kod,fnt,8);
     tfp(f1,'Poczta',miasto,fnt,8);
-    tfp(f1,'3 Status',yr,fnt,10); // pole 4 Rok w aktywnym PDF ma błędną nazwę "3 Status"
+    page1.drawText(yr, {
+      x: 283,
+      y: 638,
+      size: 10,
+      font: fnt || undefined
     });
     tfp(f1,'fill_15','',fnt,9); // pole 19 ma być puste
     tfp(f1,'fill_11',String(groups.length),fnt,10); // pole 83 liczba załączników
