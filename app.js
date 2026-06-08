@@ -2609,29 +2609,62 @@ let editUserId = null;
 
 function saveUsers(){localStorage.setItem('dt1_users',JSON.stringify(users));}
 
-function doLogin(){
+async function doLogin(){
   const email=(document.getElementById('login-email')?.value||'').trim().toLowerCase();
   const pass=document.getElementById('login-pass')?.value||'';
   const errEl=document.getElementById('login-err');
-  if(!email||!pass){showLoginErr('Wpisz e-mail i hasło');return;}
+
+  if(!email||!pass){
+    showLoginErr('Wpisz e-mail i hasło');
+    return;
+  }
+
   const u=users.find(x=>x.email.toLowerCase()===email&&x.passwordHash===btoa(pass)&&x.active);
-  if(!u){showLoginErr('Błędny e-mail lub hasło');return;}
+
+  if(!u){
+    showLoginErr('Błędny e-mail lub hasło');
+    return;
+  }
+
+  if(window.TaxOrderAuth && typeof window.TaxOrderAuth.login === 'function'){
+    const authResult = await window.TaxOrderAuth.login(email, pass);
+
+    if(!authResult.ok){
+      showLoginErr(
+        'Błąd logowania Supabase: ' +
+        (authResult.error?.message || 'brak sesji')
+      );
+      return;
+    }
+  }
+
   currentUser=u;
+
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
   document.getElementById('user-avatar').textContent=u.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
   document.getElementById('user-name').textContent=u.name;
   document.getElementById('user-role-lbl').textContent=ROLE_LABELS[u.role]||u.role;
+
   applyRoleAccess(u.role);
   sessionStorage.setItem('dt1_user_email',u.email);
-  if(typeof loadCompanyState==='function'){loadCompanyState(currentCompanyId);updateCompanyUI();}
-  if(window.TaxOrderFleetCloud && typeof window.TaxOrderFleetCloud.loadVehicles === 'function'){
-    window.TaxOrderFleetCloud.loadVehicles().then(()=>{
-      if(typeof refreshAll==='function') refreshAll();
-      console.log('[FleetCloud] Automatycznie zaladowano pojazdy po starcie');
-    });
+
+  if(typeof loadCompanyState==='function'){
+    loadCompanyState(currentCompanyId);
+    updateCompanyUI();
   }
-  renderDash();renderVeh();updateCounters();
+
+  if(window.TaxOrderFleetCloud && typeof window.TaxOrderFleetCloud.loadVehicles === 'function'){
+    await window.TaxOrderFleetCloud.loadVehicles();
+
+    if(typeof refreshAll==='function') refreshAll();
+
+    console.log('[FleetCloud] Automatycznie zaladowano pojazdy po zalogowaniu Supabase Auth');
+  }
+
+  renderDash();
+  renderVeh();
+  updateCounters();
 }
 
 function showLoginErr(msg){
