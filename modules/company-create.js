@@ -7,150 +7,94 @@
       .slice(0, 40);
   }
 
-  function ensureCompanyCreateModal(){
+  function ensureModal(){
     if(document.getElementById('company-create-modal')) return;
 
     const modal = document.createElement('div');
     modal.id = 'company-create-modal';
-    modal.className = ''; modal.style.display = 'none'; modal.style.position = 'fixed'; modal.style.inset = '0'; modal.style.background = 'rgba(0,0,0,.35)'; modal.style.zIndex = '999999'; modal.style.alignItems = 'center'; modal.style.justifyContent = 'center'; modal.style.padding = '20px';
+    modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:999999;align-items:center;justify-content:center;padding:20px;';
+
     modal.innerHTML = `
-      <div style="background:var(--bg2);border-radius:14px;width:720px;max-width:95vw;max-height:90vh;overflow:auto;box-shadow:0 8px 40px rgba(0,0,0,.25)">
-        <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-          <strong>Dodaj firmę</strong>
-          <button onclick="TaxOrderCompanyCreate.close()" style="border:none;background:none;font-size:24px;cursor:pointer">×</button>
+      <div style="background:white;border-radius:14px;width:720px;max-width:95vw;max-height:90vh;overflow:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);padding:20px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <h2 style="margin:0;font-size:18px">Dodaj firmę</h2>
+          <button type="button" id="cc-close" style="border:none;background:none;font-size:26px;cursor:pointer">×</button>
         </div>
 
-        <div style="padding:20px 22px">
-          <div class="fg">
-            <div class="f">
-              <label>Nazwa skrócona</label>
-              <input id="cc-short-name" class="fi" placeholder="np. G-CON">
-            </div>
-            <div class="f">
-              <label>Slug</label>
-              <input id="cc-slug" class="fi" placeholder="np. gcon">
-            </div>
-            <div class="f full">
-              <label>Pełna nazwa</label>
-              <input id="cc-name" class="fi" placeholder="Pełna nazwa spółki">
-            </div>
-            <div class="f">
-              <label>NIP</label>
-              <input id="cc-nip" class="fi" placeholder="10 cyfr">
-            </div>
-            <div class="f">
-              <label>REGON</label>
-              <input id="cc-regon" class="fi">
-            </div>
-            <div class="f">
-              <label>KRS</label>
-              <input id="cc-krs" class="fi">
-            </div>
-            <div class="f">
-              <label>Ulica</label>
-              <input id="cc-street" class="fi">
-            </div>
-            <div class="f">
-              <label>Nr budynku</label>
-              <input id="cc-building-no" class="fi">
-            </div>
-            <div class="f">
-              <label>Kod pocztowy</label>
-              <input id="cc-postal-code" class="fi">
-            </div>
-            <div class="f">
-              <label>Miasto</label>
-              <input id="cc-city" class="fi">
-            </div>
-            <div class="f">
-              <label>Województwo</label>
-              <input id="cc-woj" class="fi" value="MAZOWIECKIE">
-            </div>
-            <div class="f">
-              <label>Kolor</label>
-              <input id="cc-color" class="fi" type="color" value="#185FA5">
-            </div>
-            <div class="f full">
-              <label>Organ podatkowy</label>
-              <input id="cc-organ" class="fi" placeholder="np. Prezydent m.st. Warszawy">
-            </div>
-            <div class="f full">
-              <label>Etykieta właściciela pojazdów</label>
-              <input id="cc-owner-label" class="fi" placeholder="np. GCON">
-            </div>
-          </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <input id="cc-short-name" class="fi" placeholder="Nazwa skrócona, np. G-CON">
+          <input id="cc-slug" class="fi" placeholder="Slug, np. gcon">
+          <input id="cc-name" class="fi" placeholder="Pełna nazwa" style="grid-column:1/-1">
+          <input id="cc-nip" class="fi" placeholder="NIP">
+          <input id="cc-regon" class="fi" placeholder="REGON">
+          <input id="cc-krs" class="fi" placeholder="KRS">
+          <input id="cc-color" class="fi" type="color" value="#185FA5">
+          <input id="cc-street" class="fi" placeholder="Ulica">
+          <input id="cc-building-no" class="fi" placeholder="Nr budynku">
+          <input id="cc-postal-code" class="fi" placeholder="Kod pocztowy">
+          <input id="cc-city" class="fi" placeholder="Miasto">
+          <input id="cc-woj" class="fi" placeholder="Województwo" value="MAZOWIECKIE">
+          <input id="cc-owner-label" class="fi" placeholder="Etykieta właściciela pojazdów">
+          <input id="cc-organ" class="fi" placeholder="Organ podatkowy" style="grid-column:1/-1">
         </div>
 
-        <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end">
-          <button class="btn btn-gray" onclick="TaxOrderCompanyCreate.close()">Anuluj</button>
-          <button class="btn btn-green" onclick="TaxOrderCompanyCreate.save()">
-            <i class="ti ti-device-floppy"></i>Zapisz firmę
-          </button>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+          <button class="btn btn-gray" type="button" id="cc-cancel">Anuluj</button>
+          <button class="btn btn-green" type="button" id="cc-save">Zapisz firmę</button>
         </div>
       </div>
     `;
 
     document.body.appendChild(modal);
 
-    const shortName = document.getElementById('cc-short-name');
-    const slug = document.getElementById('cc-slug');
+    document.getElementById('cc-close').addEventListener('click', close);
+    document.getElementById('cc-cancel').addEventListener('click', close);
+    document.getElementById('cc-save').addEventListener('click', save);
 
-    if(shortName && slug){
-      shortName.addEventListener('input', function(){
-        if(!slug.dataset.touched){
-          slug.value = slugify(shortName.value);
-        }
-      });
+    document.getElementById('cc-short-name').addEventListener('input', function(){
+      const slug = document.getElementById('cc-slug');
+      if(slug && !slug.dataset.touched) slug.value = slugify(this.value);
+    });
 
-      slug.addEventListener('input', function(){
-        slug.dataset.touched = '1';
-      });
-    }
+    document.getElementById('cc-slug').addEventListener('input', function(){
+      this.dataset.touched = '1';
+    });
   }
 
   function open(){
-    ensureCompanyCreateModal();
-    const m=document.getElementById('company-create-modal'); m.className=''; m.style.display='flex'; m.style.position='fixed'; m.style.inset='0'; m.style.background='rgba(0,0,0,.35)'; m.style.zIndex='999999'; m.style.alignItems='center'; m.style.justifyContent='center'; m.style.padding='20px';
+    ensureModal();
+    document.getElementById('company-create-modal').style.display = 'flex';
   }
 
   function close(){
-    const m=document.getElementById('company-create-modal'); if(m)m.style.display='none';
+    const modal = document.getElementById('company-create-modal');
+    if(modal) modal.style.display = 'none';
   }
 
-  function getVal(id){
+  function val(id){
     return document.getElementById(id)?.value?.trim() || '';
   }
 
   async function save(){
-    if(!window.supabaseClient){
-      alert('Brak połączenia z Supabase');
-      return;
-    }
-
     const row = {
-      slug: slugify(getVal('cc-slug') || getVal('cc-short-name')),
-      short_name: getVal('cc-short-name'),
-      name: getVal('cc-name'),
-      nip: getVal('cc-nip').replace(/\D/g, ''),
-      regon: getVal('cc-regon'),
-      krs: getVal('cc-krs'),
-      street: getVal('cc-street'),
-      building_no: getVal('cc-building-no'),
-      postal_code: getVal('cc-postal-code'),
-      city: getVal('cc-city'),
-      woj: getVal('cc-woj'),
-      organ: getVal('cc-organ'),
-      color: getVal('cc-color') || '#185FA5',
-      owner_label: getVal('cc-owner-label') || getVal('cc-short-name')
+      slug: slugify(val('cc-slug') || val('cc-short-name')),
+      short_name: val('cc-short-name'),
+      name: val('cc-name'),
+      nip: val('cc-nip').replace(/\D/g, ''),
+      regon: val('cc-regon'),
+      krs: val('cc-krs'),
+      city: val('cc-city'),
+      street: val('cc-street'),
+      building_no: val('cc-building-no'),
+      postal_code: val('cc-postal-code'),
+      woj: val('cc-woj'),
+      organ: val('cc-organ'),
+      color: val('cc-color') || '#185FA5',
+      owner_label: val('cc-owner-label') || val('cc-short-name')
     };
 
     if(!row.slug || !row.short_name || !row.name){
-      alert('Uzupełnij: nazwa skrócona, slug i pełna nazwa.');
-      return;
-    }
-
-    if(row.nip && row.nip.length !== 10){
-      alert('NIP powinien mieć 10 cyfr.');
+      alert('Uzupełnij nazwę skróconą, slug i pełną nazwę.');
       return;
     }
 
@@ -161,8 +105,8 @@
       .single();
 
     if(result.error){
-      console.error('[CompanyCreate] Błąd zapisu:', result.error);
-      alert('Błąd zapisu firmy: ' + result.error.message);
+      alert('Błąd zapisu: ' + result.error.message);
+      console.error(result.error);
       return;
     }
 
@@ -172,41 +116,40 @@
       await window.TaxOrderCompaniesReadOnly.loadAndRenderCompanies();
     }
 
-    if(typeof toast === 'function'){
-      toast('✓ Firma dodana');
-    } else {
-      alert('Firma dodana');
-    }
+    alert('Firma dodana');
   }
 
   function injectButton(){
-    const grid = document.getElementById('companies-grid');
-    if(!grid) return;
-
     if(document.getElementById('company-create-btn')) return;
 
-    const wrapper = document.createElement('div');
-    wrapper.id = 'company-create-btn-wrap';
-    wrapper.style.gridColumn = '1 / -1';
-    wrapper.style.marginBottom = '10px';
+    const page = document.getElementById('page-firmy');
+    if(!page) return;
 
-    wrapper.innerHTML = `
-      <button id="company-create-btn" class="btn btn-green" onclick="TaxOrderCompanyCreate.open()">
-        <i class="ti ti-plus"></i>Dodaj firmę
-      </button>
-    `;
+    const title = page.querySelector('.pg-title') || page.firstElementChild;
+    if(!title) return;
 
-    grid.prepend(wrapper);
+    const btn = document.createElement('button');
+    btn.id = 'company-create-btn';
+    btn.type = 'button';
+    btn.className = 'btn btn-green';
+    btn.style.margin = '10px 0';
+    btn.innerHTML = '<i class="ti ti-plus"></i>Dodaj firmę';
+    btn.addEventListener('click', open);
+
+    title.insertAdjacentElement('afterend', btn);
   }
 
   function start(){
     document.addEventListener('click', function(e){
-      if(!e.target.closest('#tnb-firmy')) return;
-
-      setTimeout(function(){
-        injectButton();
-      }, 400);
+      if(e.target.closest('#tnb-firmy')){
+        setTimeout(injectButton, 500);
+      }
     });
+
+    setInterval(function(){
+      const page = document.getElementById('page-firmy');
+      if(page && page.classList.contains('active')) injectButton();
+    }, 1000);
 
     console.log('[CompanyCreate] Aktywne');
   }
@@ -224,4 +167,3 @@
     start();
   }
 })();
-
