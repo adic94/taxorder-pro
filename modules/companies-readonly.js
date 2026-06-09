@@ -41,6 +41,11 @@
           REGON: ${c.regon || '—'}<br>
           ${c.street || ''} ${c.building_no || ''}, ${c.postal_code || ''} ${c.city || ''}
         </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn btn-red" type="button" onclick="window.TaxOrderCompaniesReadOnly.deleteCompany('${c.id}', '${c.short_name || c.slug || ''}')">
+            Usuń
+          </button>
+        </div>
       </div>
     `).join('');
   }
@@ -50,9 +55,42 @@
     renderCompaniesPanel();
   }
 
-  window.TaxOrderCompaniesReadOnly = {
+  async function deleteCompany(id, name){
+  if(!id){
+    alert('Brak ID firmy');
+    return;
+  }
+
+  if(!confirm('Czy na pewno usunąć firmę: ' + (name || id) + '?')){
+    return;
+  }
+
+  const result = await window.supabaseClient
+    .from('companies')
+    .delete()
+    .eq('id', id);
+
+  if(result.error){
+    console.error('[CompaniesReadOnly] Błąd usuwania:', result.error);
+    alert('Błąd usuwania: ' + result.error.message);
+    return;
+  }
+
+  if(typeof toast === 'function'){
+    toast('✓ Firma usunięta');
+  }
+
+  await loadAndRenderCompanies();
+}
+
+window.TaxOrderCompaniesReadOnly = {
     loadCompanies,
     renderCompaniesPanel,
-    loadAndRenderCompanies
+    loadAndRenderCompanies,
+    deleteCompany
   };
 })();
+
+
+
+
