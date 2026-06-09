@@ -12,7 +12,7 @@
 
     const modal = document.createElement('div');
     modal.id = 'company-create-modal';
-    modal.className = 'modal-bg hidden';
+    modal.className = ''; modal.style.display = 'none'; modal.style.position = 'fixed'; modal.style.inset = '0'; modal.style.background = 'rgba(0,0,0,.35)'; modal.style.zIndex = '999999'; modal.style.alignItems = 'center'; modal.style.justifyContent = 'center'; modal.style.padding = '20px';
     modal.innerHTML = `
       <div style="background:var(--bg2);border-radius:14px;width:720px;max-width:95vw;max-height:90vh;overflow:auto;box-shadow:0 8px 40px rgba(0,0,0,.25)">
         <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
@@ -110,11 +110,11 @@
 
   function open(){
     ensureCompanyCreateModal();
-    document.getElementById('company-create-modal').classList.remove('hidden');
+    const m=document.getElementById('company-create-modal'); m.className=''; m.style.display='flex'; m.style.position='fixed'; m.style.inset='0'; m.style.background='rgba(0,0,0,.35)'; m.style.zIndex='999999'; m.style.alignItems='center'; m.style.justifyContent='center'; m.style.padding='20px';
   }
 
   function close(){
-    document.getElementById('company-create-modal')?.classList.add('hidden');
+    const m=document.getElementById('company-create-modal'); if(m)m.style.display='none';
   }
 
   function getVal(id){
@@ -224,3 +224,4 @@
     start();
   }
 })();
+
