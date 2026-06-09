@@ -2609,33 +2609,41 @@ let editUserId = null;
 
 function saveUsers(){localStorage.setItem('dt1_users',JSON.stringify(users));}
 
-async function doLogin(){
+sync function doLogin(){
   const email=(document.getElementById('login-email')?.value||'').trim().toLowerCase();
   const pass=document.getElementById('login-pass')?.value||'';
-  const errEl=document.getElementById('login-err');
 
   if(!email||!pass){
     showLoginErr('Wpisz e-mail i hasło');
     return;
   }
 
-  const u=users.find(x=>x.email.toLowerCase()===email&&x.passwordHash===btoa(pass)&&x.active);
-
-  if(!u){
-    showLoginErr('Błędny e-mail lub hasło');
-    return;
-  }
+  let supabaseUser = null;
 
   if(window.TaxOrderAuth && typeof window.TaxOrderAuth.login === 'function'){
     const authResult = await window.TaxOrderAuth.login(email, pass);
 
     if(!authResult.ok){
-      showLoginErr(
-        'Błąd logowania Supabase: ' +
-        (authResult.error?.message || 'brak sesji')
-      );
+      showLoginErr('Błąd logowania Supabase: ' + (authResult.error?.message || 'brak sesji'));
       return;
     }
+
+    supabaseUser = authResult.user;
+  }
+
+  let u = users.find(x =>
+    x.email.toLowerCase() === email &&
+    x.active
+  );
+
+  if(!u){
+    u = {
+      id: supabaseUser?.id || email,
+      email: email,
+      name: supabaseUser?.user_metadata?.name || email,
+      role: 'admin',
+      active: true
+    };
   }
 
   currentUser=u;
@@ -2670,6 +2678,56 @@ async function doLogin(){
 function showLoginErr(msg){
   const el=document.getElementById('login-err');
   if(el){el.style.display='flex';el.innerHTML=`<i class="ti ti-alert-circle"></i>${msg}`;}
+}
+  
+async function resetPasswordFlow(){
+  const email=(document.getElementById('login-email')?.value||'').trim().toLowerCase();
+
+  if(!email){
+    showLoginErr('Najpierw wpisz adres e-mail.');
+    return;
+  }
+
+  if(!window.TaxOrderAuth || typeof window.TaxOrderAuth.resetPassword !== 'function'){
+    showLoginErr('Reset hasła nie jest jeszcze dostępny.');
+    return;
+  }
+
+  const result = await window.TaxOrderAuth.resetPassword(email);
+
+  if(!result.ok){
+    showLoginErr('Nie udało się wysłać linku resetującego: ' + (result.error?.message || 'błąd'));
+    return;
+  }
+
+  showLoginErr('Wysłano link do ustawienia nowego hasła na adres: ' + email);
+}
+
+async function showNewPasswordModal(){
+  const newPassword = prompt('Wpisz nowe hasło:');
+
+  if(!newPassword || newPassword.length < 6){
+    alert('Hasło musi mieć minimum 6 znaków.');
+    return;
+  }
+
+  const result = await window.TaxOrderAuth.updatePassword(newPassword);
+
+  if(!result.ok){
+    alert('Nie udało się zmienić hasła: ' + (result.error?.message || 'błąd'));
+    return;
+  }
+
+  alert('Hasło zostało zmienione. Możesz się teraz zalogować nowym hasłem.');
+  await window.supabaseClient.auth.signOut();
+}
+
+if(window.supabaseClient){
+  window.supabaseClient.auth.onAuthStateChange((event, session) => {
+    if(event === 'PASSWORD_RECOVERY'){
+      showNewPasswordModal();
+    }
+  });
 }
 
 function doLogout(){
