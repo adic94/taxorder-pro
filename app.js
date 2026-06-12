@@ -2722,11 +2722,25 @@ async function showNewPasswordModal(){
   await window.supabaseClient.auth.signOut();
 }
 
+function isPasswordRecoveryUrl(){
+  return window.location.hash.includes('type=recovery') ||
+         window.location.search.includes('type=recovery') ||
+         window.location.hash.includes('access_token=');
+}
+
 if(window.supabaseClient){
   window.supabaseClient.auth.onAuthStateChange((event, session) => {
     if(event === 'PASSWORD_RECOVERY'){
       showNewPasswordModal();
     }
+  });
+
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      if(isPasswordRecoveryUrl()){
+        showNewPasswordModal();
+      }
+    }, 800);
   });
 }
 
