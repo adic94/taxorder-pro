@@ -2723,9 +2723,35 @@ async function showNewPasswordModal(){
 }
 
 function isPasswordRecoveryUrl(){
-  return window.location.hash.includes('type=recovery') ||
-         window.location.search.includes('type=recovery') ||
-         window.location.hash.includes('access_token=');
+  const h = window.location.hash || '';
+  const q = window.location.search || '';
+  return h.includes('type=recovery') ||
+         q.includes('type=recovery') ||
+         h.includes('access_token=') ||
+         q.includes('code=');
+}
+
+async function handlePasswordRecoveryUrl(){
+  if(!isPasswordRecoveryUrl()) return;
+
+  try{
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+
+    if(code && window.supabaseClient?.auth?.exchangeCodeForSession){
+      const { error } = await window.supabaseClient.auth.exchangeCodeForSession(code);
+      if(error){
+        console.error('[PasswordRecovery] exchangeCodeForSession error:', error.message);
+      }
+    }
+
+    await showNewPasswordModal();
+
+    window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+  }catch(e){
+    console.error('[PasswordRecovery] Błąd obsługi linku resetu:', e);
+    alert('Nie udało się obsłużyć linku resetu hasła: ' + (e.message || e));
+  }
 }
 
 if(window.supabaseClient){
@@ -2737,10 +2763,8 @@ if(window.supabaseClient){
 
   window.addEventListener('load', () => {
     setTimeout(() => {
-      if(isPasswordRecoveryUrl()){
-        showNewPasswordModal();
-      }
-    }, 800);
+      handlePasswordRecoveryUrl();
+    }, 1200);
   });
 }
 
