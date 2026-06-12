@@ -2703,68 +2703,120 @@ async function resetPasswordFlow(){
   showLoginErr('Wysłano link do ustawienia nowego hasła na adres: ' + email);
 }
 
-async function showNewPasswordModal(){
-  const newPassword = prompt('Wpisz nowe hasło:');
-
-  if(!newPassword || newPassword.length < 6){
-    alert('Hasło musi mieć minimum 6 znaków.');
-    return;
-  }
-
-  const result = await window.TaxOrderAuth.updatePassword(newPassword);
-
-  if(!result.ok){
-    alert('Nie udało się zmienić hasła: ' + (result.error?.message || 'błąd'));
-    return;
-  }
-
-  alert('Hasło zostało zmienione. Możesz się teraz zalogować nowym hasłem.');
-  await window.supabaseClient.auth.signOut();
+function showNewPasswordModal() {
+  const loginScreen = document.getElementById('login-screen');
+  if (loginScreen) loginScreen.style.display = 'none';
+  const modal = document.getElementById('pwd-reset-modal');
+  if (!modal) { _showNewPasswordFallback(); return; }
+  modal.style.display = 'flex';
+  const np = document.getElementById('pwd-new');
+  const cp = document.getElementById('pwd-confirm');
+  const errEl = document.getElementById('pwd-reset-err');
+  if (np) np.value = '';
+  if (cp) cp.value = '';
+  if (errEl) errEl.style.display = 'none';
+  [np, cp].forEach(el => { if (el) el.onkeydown = (e) => { if (e.key === 'Enter') submitNewPassword(); }; });
+  if (np) setTimeout(() => np.focus(), 100);
 }
 
-function isPasswordRecoveryUrl(){
+async function submitNewPassword() {
+  const newPassword = (document.getElementById('pwd-new')?.value || '').trim();
+  const confirm = (document.getElementById('pwd-confirm')?.value || '').trim();
+  const errEl = document.getElementById('pwd-reset-err');
+  const btn = document.getElementById('pwd-reset-submit');
+  const showErr = (msg) => {
+    if (errEl) { errEl.style.display = 'flex'; errEl.innerHTML = '<i class="ti ti-alert-circle"></i>' + msg; }
+  };
+  if (!newPassword || newPassword.length < 6) { showErr('Hasło musi mieć minimum 6 znaków.'); return; }
+  if (newPassword !== confirm) { showErr('Hasła nie są takie same.'); return; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i>Zmieniam hasło...'; }
+  if (errEl) errEl.style.display = 'none';
+  try {
+    if (window.TaxOrderAuth?.updatePassword) {
+      const result = await window.TaxOrderAuth.updatePassword(newPassword);
+      if (!result.ok) throw new Error(result.error?.message || 'błąd');
+    } else if (window.supabaseClient?.auth?.updateUser) {
+      const { error } = await window.supabaseClient.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+    } else {
+      throw new Error('Brak metody aktualizacji hasła');
+    }
+    const modal = document.getElementById('pwd-reset-modal');
+    if (modal) modal.style.display = 'none';
+    toast('✅ Hasło zostało zmienione — możesz się zalogować');
+    if (window.supabaseClient?.auth?.signOut) await window.supabaseClient.auth.signOut();
+    const loginScreenEl = document.getElementById('login-screen');
+    if (loginScreenEl) loginScreenEl.style.display = 'flex';
+    const appEl = document.getElementById('app');
+    if (appEl) appEl.style.display = 'none';
+    showLoginErr('✅ Hasło zostało zmienione. Zaloguj się nowym hasłem.');
+  } catch (err) {
+    showErr('Nie udało się zmienić hasła: ' + (err.message || 'błąd'));
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-check"></i>Ustaw nowe hasło'; }
+  }
+}
+
+async function _showNewPasswordFallback() {
+  const newPassword = prompt('Wpisz nowe hasło (min. 6 znaków):');
+  if (!newPassword || newPassword.length < 6) { alert('Hasło musi mieć minimum 6 znaków.'); return; }
+  try {
+    if (window.supabaseClient?.auth?.updateUser) {
+      const { error } = await window.supabaseClient.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+    }
+    alert('Hasło zostało zmienione. Zaloguj się nowym hasłem.');
+    await window.supabaseClient?.auth?.signOut?.();
+  } catch (err) { alert('Błąd: ' + err.message); }
+}
+
+function isPasswordRecoveryUrl() {
   const h = window.location.hash || '';
   const q = window.location.search || '';
-  return h.includes('type=recovery') ||
-         q.includes('type=recovery') ||
-         h.includes('access_token=') ||
-         q.includes('code=');
+  return (
+    h.includes('type=recovery') ||
+    q.includes('type=recovery') ||
+    h.includes('access_token=') ||
+    q.includes('code=')
+  );
 }
 
-async function handlePasswordRecoveryUrl(){
-  if(!isPasswordRecoveryUrl()) return;
-
-  try{
+async function handlePasswordRecoveryUrl() {
+  if (!isPasswordRecoveryUrl()) return;
+  try {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
-
-    if(code && window.supabaseClient?.auth?.exchangeCodeForSession){
+    if (code && window.supabaseClient?.auth?.exchangeCodeForSession) {
       const { error } = await window.supabaseClient.auth.exchangeCodeForSession(code);
-      if(error){
-        console.error('[PasswordRecovery] exchangeCodeForSession error:', error.message);
-      }
+      if (error) console.error('[PasswordRecovery] exchangeCodeForSession error:', error.message);
     }
-
-    await showNewPasswordModal();
-
+    const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
+    const accessToken = hashParams.get('access_token');
+    const refreshToken = hashParams.get('refresh_token');
+    const type = hashParams.get('type');
+    if (accessToken && type === 'recovery' && window.supabaseClient?.auth?.setSession) {
+      await window.supabaseClient.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken || ''
+      });
+    }
     window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
-  }catch(e){
-    console.error('[PasswordRecovery] Błąd obsługi linku resetu:', e);
-    alert('Nie udało się obsłużyć linku resetu hasła: ' + (e.message || e));
+    showNewPasswordModal();
+  } catch (e) {
+    console.error('[PasswordRecovery] Błąd:', e);
+    showNewPasswordModal();
   }
 }
 
-if(window.supabaseClient){
+if (window.supabaseClient) {
   window.supabaseClient.auth.onAuthStateChange((event, session) => {
-    if(event === 'PASSWORD_RECOVERY'){
+    if (event === 'PASSWORD_RECOVERY') {
+      console.log('[Auth] PASSWORD_RECOVERY event received');
       showNewPasswordModal();
     }
   });
-
   window.addEventListener('load', () => {
-    setTimeout(() => {
-      handlePasswordRecoveryUrl();
-    }, 1200);
+    setTimeout(() => { handlePasswordRecoveryUrl(); }, 800);
   });
 }
 

@@ -1409,5 +1409,29 @@ window.addEventListener('DOMContentLoaded', () => {
   <script src="modules/migration-supabase.js"></script>
   <script src="modules/fleet-cloud.js"></script>
 <script src="app.js"></script>
+<!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
+<div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--bg);border:1px solid var(--border);border-radius:16px;padding:32px 28px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+      <i class="ti ti-lock-open" style="font-size:24px;color:var(--blue)"></i>
+      <div>
+        <div style="font-size:16px;font-weight:700">Ustaw nowe haslo</div>
+        <div style="font-size:12px;color:var(--text2)">Wpisz nowe haslo do swojego konta</div>
+      </div>
+    </div>
+    <div id="pwd-reset-err" style="display:none;background:var(--red-light);color:var(--red);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;align-items:center;gap:8px"></div>
+    <div class="f" style="margin-bottom:12px">
+      <label>Nowe haslo <span style="font-size:10px;color:var(--text3)">(min. 6 znakow)</span></label>
+      <input id="pwd-new" type="password" class="fi" placeholder="Nowe haslo..." autocomplete="new-password">
+    </div>
+    <div class="f" style="margin-bottom:20px">
+      <label>Potwierdz haslo</label>
+      <input id="pwd-confirm" type="password" class="fi" placeholder="Powtorz haslo..." autocomplete="new-password">
+    </div>
+    <button id="pwd-reset-submit" class="btn btn-blue" style="width:100%;justify-content:center;padding:12px;font-size:14px" onclick="submitNewPassword()">
+      <i class="ti ti-check"></i>Ustaw nowe haslo
+    </button>
+  </div>
+</div>
 </body>
 </html>
