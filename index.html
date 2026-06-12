@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TaxOrder Pro — DT-1 Podatek Transportowy</title>
+<title>TaxOrder Pro â€” DT-1 Podatek Transportowy</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -11,7 +11,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <link rel="stylesheet" href="style.css">
 <script>
-// Cloudflare Pages: ładujemy PDF-y i czcionkę z folderu assets/ przez HTTPS.
+// Cloudflare Pages: Ĺ‚adujemy PDF-y i czcionkÄ™ z folderu assets/ przez HTTPS.
 async function loadAssets(){
   if(window._DT1_PDF_BYTES && window._DT1A_PDF_BYTES && window._ROBOTO_BYTES) return;
   const load = async (url) => {
@@ -22,10 +22,10 @@ async function loadAssets(){
   window._DT1_PDF_BYTES = await load('./assets/DT1formularz.pdf');
   window._DT1A_PDF_BYTES = await load('./assets/DT1Azalacznik.pdf');
   window._ROBOTO_BYTES = await load('./assets/Roboto.ttf');
-  console.log('[Assets] PDF-y i czcionka załadowane z assets/');
+  console.log('[Assets] PDF-y i czcionka zaĹ‚adowane z assets/');
 }
 window.addEventListener('DOMContentLoaded', () => {
-  loadAssets().catch(e => console.warn('[Assets] Nie udało się załadować zasobów:', e));
+  loadAssets().catch(e => console.warn('[Assets] Nie udaĹ‚o siÄ™ zaĹ‚adowaÄ‡ zasobĂłw:', e));
 });
 </script>
 <script src="pdf-lib.min.js"></script>
@@ -42,7 +42,7 @@ window.addEventListener('DOMContentLoaded', () => {
     <div style="text-align:center;margin-bottom:2rem">
       <i class="ti ti-file-invoice" style="font-size:48px;color:var(--blue)"></i>
       <div style="font-size:20px;font-weight:600;margin-top:10px">TaxOrder Pro</div>
-      <div style="font-size:13px;color:var(--text2);margin-top:4px">System DT-1 — mToilet Sp. z o.o.</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px">System DT-1 â€” mToilet Sp. z o.o.</div>
     </div>
     <div id="login-err" style="display:none;background:var(--red-light);border:1px solid #F09595;color:#791F1F;border-radius:var(--radius);padding:10px 14px;font-size:13px;margin-bottom:14px;display:flex;align-items:center;gap:8px"></div>
     <div style="margin-bottom:14px">
@@ -50,14 +50,14 @@ window.addEventListener('DOMContentLoaded', () => {
       <input type="email" id="login-email" class="fi" placeholder="np. admin@mtoilet.pl" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <div style="margin-bottom:18px">
-      <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:5px;font-weight:500">Hasło</label>
-      <input type="password" id="login-pass" class="fi" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+      <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:5px;font-weight:500">HasĹ‚o</label>
+      <input type="password" id="login-pass" class="fi" placeholder="â€˘â€˘â€˘â€˘â€˘â€˘â€˘â€˘" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <button onclick="doLogin()" id="login-btn" class="btn btn-blue" style="width:100%;justify-content:center;padding:12px;font-size:15px">
-      <i class="ti ti-login"></i>Zaloguj się
+      <i class="ti ti-login"></i>Zaloguj siÄ™
     </button>
     <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:14px;line-height:1.6">
-      Domyślnie: admin@mtoilet.pl / admin123<br>Zarządzanie użytkownikami → zakładka Użytkownicy
+      DomyĹ›lnie: admin@mtoilet.pl / admin123<br>ZarzÄ…dzanie uĹĽytkownikami â†’ zakĹ‚adka UĹĽytkownicy
     </div>
   </div>
 </div>
@@ -73,12 +73,12 @@ window.addEventListener('DOMContentLoaded', () => {
   <div style="display:flex;align-items:center;gap:6px;padding:3px 10px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">
       <span style="font-size:10px;color:var(--text2);white-space:nowrap">Firma:</span>
       <select id="company-selector" onchange="switchCompany(this.value)" style="border:none;background:transparent;font-size:12px;font-weight:600;cursor:pointer;outline:none;font-family:var(--font)">
-        <option value="mtoilet">🔵 mToilet</option>
-        <option value="gcon">🟢 G-CON</option>
-        <option value="grental">🟡 G-Rental</option>
-        <option value="kjrsupply">🟣 KJR Supply</option>
-        <option value="nwkinvest">🔴 NWK Invest</option>
-        <option value="wolund">🔵 Wolund</option>
+        <option value="mtoilet">đź”µ mToilet</option>
+        <option value="gcon">đźź˘ G-CON</option>
+        <option value="grental">đźźˇ G-Rental</option>
+        <option value="kjrsupply">đźźŁ KJR Supply</option>
+        <option value="nwkinvest">đź”´ NWK Invest</option>
+        <option value="wolund">đź”µ Wolund</option>
       </select>
     </div>
     <span id="company-badge" style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;background:#E6F1FB;color:#185FA5;border:1px solid #B5D4F4;white-space:nowrap;cursor:pointer" onclick="showPage('firmy')">mToilet</span>
@@ -97,7 +97,7 @@ window.addEventListener('DOMContentLoaded', () => {
     <button class="tnb" id="tnb-pdfexport" onclick="showPage('pdfexport')"><i class="ti ti-file-type-pdf"></i>Eksport PDF</button>
     <button class="tnb" id="tnb-impexp" onclick="showPage('impexp')"><i class="ti ti-arrows-exchange"></i>Import/Eksport</button>
     <button class="tnb" id="tnb-karty" onclick="showPage('karty')"><i class="ti ti-credit-card"></i>Karty Flotowe</button>
-    <button class="tnb" id="tnb-uzytkownicy" onclick="showPage('uzytkownicy')"><i class="ti ti-users"></i>Użytkownicy</button>
+    <button class="tnb" id="tnb-uzytkownicy" onclick="showPage('uzytkownicy')"><i class="ti ti-users"></i>UĹĽytkownicy</button>
     <button class="tnb" id="tnb-cepik" onclick="showPage('cepik')"><i class="ti ti-database"></i>CEPiK</button>
     <button class="tnb" id="tnb-firmy" onclick="showPage('firmy')"><i class="ti ti-building-community"></i>Firmy <span class="badge" style="background:#185FA5">6</span></button>
   </nav>
@@ -111,8 +111,8 @@ window.addEventListener('DOMContentLoaded', () => {
   <div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:var(--radius);padding:6px 12px">
     <div id="user-avatar" style="width:28px;height:28px;border-radius:50%;background:var(--blue-light);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">?</div>
     <div>
-      <div id="user-name" style="font-size:12px;font-weight:600">—</div>
-      <div id="user-role-lbl" style="font-size:10px;color:var(--text2)">—</div>
+      <div id="user-name" style="font-size:12px;font-weight:600">â€”</div>
+      <div id="user-role-lbl" style="font-size:10px;color:var(--text2)">â€”</div>
     </div>
     <button onclick="doLogout()" title="Wyloguj" style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:17px;padding:4px;border-radius:var(--radius-sm)"><i class="ti ti-logout"></i></button>
   </div>
@@ -122,39 +122,39 @@ window.addEventListener('DOMContentLoaded', () => {
 
 <!-- ==================== PULPIT ==================== -->
 <div class="page active" id="page-dash">
-  <div class="pg-title"><i class="ti ti-chart-bar"></i>Pulpit — Podatek od środków transportowych</div>
-  <div class="pg-sub">Uchwała XXIX/1065/2025 Rady m.st. Warszawy z 20.11.2025 r. | obowiązuje od 01.01.2026</div>
+  <div class="pg-title"><i class="ti ti-chart-bar"></i>Pulpit â€” Podatek od Ĺ›rodkĂłw transportowych</div>
+  <div class="pg-sub">UchwaĹ‚a XXIX/1065/2025 Rady m.st. Warszawy z 20.11.2025 r. | obowiÄ…zuje od 01.01.2026</div>
   <div class="stats" id="dash-stats">
     <div class="stat" onclick="showPage('pojazdy')">
       <div class="stat-label">Pojazdy w bazie</div>
       <div class="stat-val" id="s-total">191</div>
-      <div class="stat-sub">podlegające opodatkowaniu</div>
+      <div class="stat-sub">podlegajÄ…ce opodatkowaniu</div>
     </div>
     <div class="stat" onclick="showPage('kalkulator')">
       <div class="stat-label">Zaznaczono do deklaracji</div>
       <div class="stat-val" id="s-sel" style="color:var(--blue)">0</div>
-      <div class="stat-sub">kliknij aby wybrać pojazdy</div>
+      <div class="stat-sub">kliknij aby wybraÄ‡ pojazdy</div>
     </div>
     <div class="stat" onclick="showPage('kalkulator')">
       <div class="stat-label">Podatek razem (poz. 80)</div>
-      <div class="stat-val" id="s-tax" style="color:var(--green)">0 zł</div>
+      <div class="stat-val" id="s-tax" style="color:var(--green)">0 zĹ‚</div>
       <div class="stat-sub">suma DT-1</div>
     </div>
     <div class="stat" onclick="showPage('stawki')">
-      <div class="stat-label">Pojazdy ≥ 2024 (§2 obniż.)</div>
-      <div class="stat-val" id="s-new" style="color:var(--amber)">—</div>
-      <div class="stat-sub">niższa stawka Warszawy</div>
+      <div class="stat-label">Pojazdy â‰Ą 2024 (Â§2 obniĹĽ.)</div>
+      <div class="stat-val" id="s-new" style="color:var(--amber)">â€”</div>
+      <div class="stat-sub">niĹĽsza stawka Warszawy</div>
     </div>
   </div>
 
   <div class="ibox" style="margin-bottom:1.5rem">
     <i class="ti ti-info-circle"></i>
     <div>
-      <strong>Jak korzystać z TaxOrder Pro?</strong><br>
-      1. Przejdź do <strong>Pojazdy</strong> → zaznacz checkboxem pojazdy do deklaracji → ustaw liczbę osi i zawieszenie dla każdego.<br>
-      2. Przejdź do <strong>Kalkulator</strong> → uzupełnij dane podatnika → sprawdź wyliczone kwoty.<br>
-      3. Kliknij <strong>DT-1 / DT-1/A</strong> → wydrukuj gotowe formularze lub eksportuj do Przyjaznych Deklaracji.<br>
-      4. <strong>Ważne:</strong> dla przyczep i naczep wpisz DMC zespołu pojazdów (przyczepa + ciągnik) — inaczej kategoria nie zostanie przypisana.
+      <strong>Jak korzystaÄ‡ z TaxOrder Pro?</strong><br>
+      1. PrzejdĹş do <strong>Pojazdy</strong> â†’ zaznacz checkboxem pojazdy do deklaracji â†’ ustaw liczbÄ™ osi i zawieszenie dla kaĹĽdego.<br>
+      2. PrzejdĹş do <strong>Kalkulator</strong> â†’ uzupeĹ‚nij dane podatnika â†’ sprawdĹş wyliczone kwoty.<br>
+      3. Kliknij <strong>DT-1 / DT-1/A</strong> â†’ wydrukuj gotowe formularze lub eksportuj do Przyjaznych Deklaracji.<br>
+      4. <strong>WaĹĽne:</strong> dla przyczep i naczep wpisz DMC zespoĹ‚u pojazdĂłw (przyczepa + ciÄ…gnik) â€” inaczej kategoria nie zostanie przypisana.
     </div>
   </div>
 
@@ -167,15 +167,15 @@ window.addEventListener('DOMContentLoaded', () => {
       </table></div>
     </div>
     <div>
-      <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px"><i class="ti ti-calendar" style="color:var(--text2)"></i>Ważne terminy 2026</div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px"><i class="ti ti-calendar" style="color:var(--text2)"></i>WaĹĽne terminy 2026</div>
       <div class="tbl-wrap"><table>
         <thead><tr><th>Data</th><th>Zdarzenie</th></tr></thead>
         <tbody>
-          <tr><td style="font-family:var(--mono);font-weight:600;color:var(--red)">15.02.2026</td><td>Termin złożenia DT-1 i wpłaty I raty</td></tr>
-          <tr><td style="font-family:var(--mono);font-weight:600">15.09.2026</td><td>Termin wpłaty II raty podatku</td></tr>
+          <tr><td style="font-family:var(--mono);font-weight:600;color:var(--red)">15.02.2026</td><td>Termin zĹ‚oĹĽenia DT-1 i wpĹ‚aty I raty</td></tr>
+          <tr><td style="font-family:var(--mono);font-weight:600">15.09.2026</td><td>Termin wpĹ‚aty II raty podatku</td></tr>
           <tr><td style="font-family:var(--mono)">14 dni</td><td>Od nabycia / rejestracji nowego pojazdu</td></tr>
-          <tr><td style="font-family:var(--mono)">14 dni</td><td>Od wyrejestrowania / sprzedaży pojazdu</td></tr>
-          <tr><td style="font-family:var(--mono)">01.01.2026</td><td>Wejście w życie stawek Uchwała XXIX/1065/2025</td></tr>
+          <tr><td style="font-family:var(--mono)">14 dni</td><td>Od wyrejestrowania / sprzedaĹĽy pojazdu</td></tr>
+          <tr><td style="font-family:var(--mono)">01.01.2026</td><td>WejĹ›cie w ĹĽycie stawek UchwaĹ‚a XXIX/1065/2025</td></tr>
         </tbody>
       </table></div>
     </div>
@@ -184,20 +184,20 @@ window.addEventListener('DOMContentLoaded', () => {
 
 <!-- ==================== POJAZDY ==================== -->
 <div class="page" id="page-pojazdy">
-  <div class="pg-title"><i class="ti ti-truck"></i>Baza pojazdów</div>
-  <div class="pg-sub">Zaznacz pojazdy do deklaracji DT-1. Ustaw liczbę osi i zawieszenie dla każdego pojazdu.</div>
+  <div class="pg-title"><i class="ti ti-truck"></i>Baza pojazdĂłw</div>
+  <div class="pg-sub">Zaznacz pojazdy do deklaracji DT-1. Ustaw liczbÄ™ osi i zawieszenie dla kaĹĽdego pojazdu.</div>
   <div class="toolbar">
-    <input id="q-veh" placeholder="🔍 Szukaj nr rej., marki, VIN, modelu..." oninput="renderVeh()">
+    <input id="q-veh" placeholder="đź”Ť Szukaj nr rej., marki, VIN, modelu..." oninput="renderVeh()">
     <select id="f-typ" onchange="renderVeh()">
       <option value="">Wszystkie typy</option>
-      <option>Ciężarowy</option><option>Przyczepa</option><option>Naczepa</option><option>Ciągnik siodłowy</option><option>Autobus</option>
+      <option>CiÄ™ĹĽarowy</option><option>Przyczepa</option><option>Naczepa</option><option>CiÄ…gnik siodĹ‚owy</option><option>Autobus</option>
     </select>
     <select id="f-status" onchange="renderVeh()">
       <option value="">Wszystkie statusy</option>
-      <option>Własny</option><option>Leasing</option><option>Wynajęty</option>
+      <option>WĹ‚asny</option><option>Leasing</option><option>WynajÄ™ty</option>
     </select>
     <select id="f-wl" onchange="renderVeh()">
-      <option value="">Wszyscy właściciele</option>
+      <option value="">Wszyscy wĹ‚aĹ›ciciele</option>
       <option>mToilet</option><option>GCON</option><option>KJR Supply</option>
     </select>
     <button class="btn btn-blue" onclick="selAll()"><i class="ti ti-checkbox"></i>Zaznacz wszystkie</button>
@@ -220,7 +220,7 @@ window.addEventListener('DOMContentLoaded', () => {
         <th>Status</th>
         <th>Kategoria</th>
         <th style="text-align:right">Podatek</th>
-        <th style="text-align:center" title="Dokumenty pojazdu">📎</th>
+        <th style="text-align:center" title="Dokumenty pojazdu">đź“Ž</th>
       </tr></thead>
       <tbody id="veh-tbody"></tbody>
     </table>
@@ -243,19 +243,19 @@ window.addEventListener('DOMContentLoaded', () => {
         </table>
       </div>
       <div class="wbox" id="warn-no-sel" style="margin-top:12px">
-        <i class="ti ti-alert-triangle"></i>Nie zaznaczono żadnych pojazdów. Przejdź do zakładki <strong>Pojazdy</strong> i zaznacz pojazdy do deklaracji.
+        <i class="ti ti-alert-triangle"></i>Nie zaznaczono ĹĽadnych pojazdĂłw. PrzejdĹş do zakĹ‚adki <strong>Pojazdy</strong> i zaznacz pojazdy do deklaracji.
       </div>
     </div>
     <!-- prawa -->
     <div class="panel-right">
       <div class="panel-title"><i class="ti ti-calculator" style="color:var(--text2)"></i>Podsumowanie deklaracji</div>
       <div id="kalk-sum">
-        <div class="sum-row"><span>Zaznaczonych pojazdów</span><span class="sum-val" id="ks-count">0</span></div>
-        <div class="sum-row"><span>Z kategorią DT-1</span><span class="sum-val" id="ks-taxable">0</span></div>
-        <div class="sum-row"><span>Załączników DT-1/A</span><span class="sum-val" id="ks-att">0</span></div>
-        <div class="sum-row"><span><strong>Podatek razem (poz. 80)</strong></span><span class="sum-val green" id="ks-total">0,00 zł</span></div>
-        <div class="sum-row big"><span>I rata — do 15.02</span><span class="sum-val blue" id="ks-r1">0 zł</span></div>
-        <div class="sum-row"><span>II rata — do 15.09</span><span class="sum-val blue" id="ks-r2">0 zł</span></div>
+        <div class="sum-row"><span>Zaznaczonych pojazdĂłw</span><span class="sum-val" id="ks-count">0</span></div>
+        <div class="sum-row"><span>Z kategoriÄ… DT-1</span><span class="sum-val" id="ks-taxable">0</span></div>
+        <div class="sum-row"><span>ZaĹ‚Ä…cznikĂłw DT-1/A</span><span class="sum-val" id="ks-att">0</span></div>
+        <div class="sum-row"><span><strong>Podatek razem (poz. 80)</strong></span><span class="sum-val green" id="ks-total">0,00 zĹ‚</span></div>
+        <div class="sum-row big"><span>I rata â€” do 15.02</span><span class="sum-val blue" id="ks-r1">0 zĹ‚</span></div>
+        <div class="sum-row"><span>II rata â€” do 15.09</span><span class="sum-val blue" id="ks-r2">0 zĹ‚</span></div>
       </div>
       <div style="margin-top:1rem;display:flex;flex-direction:column;gap:8px">
         <button class="btn btn-blue" style="width:100%;justify-content:center" onclick="showPage('formularze')"><i class="ti ti-file-text"></i>Generuj formularze DT-1</button>
@@ -269,7 +269,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <div style="margin-top:1.5rem">
     <div class="pg-title" style="font-size:15px;margin-bottom:12px"><i class="ti ti-table"></i>Zestawienie wg kategorii DT-1</div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th>Kat.</th><th>Opis</th><th>Liczba poj.</th><th style="text-align:right">Stawka roczna</th><th style="text-align:right">Kwota łączna</th></tr></thead>
+      <thead><tr><th>Kat.</th><th>Opis</th><th>Liczba poj.</th><th style="text-align:right">Stawka roczna</th><th style="text-align:right">Kwota Ĺ‚Ä…czna</th></tr></thead>
       <tbody id="cat-tbody"></tbody>
     </table></div>
   </div>
@@ -282,12 +282,12 @@ window.addEventListener('DOMContentLoaded', () => {
     <button id="btn-pobierz-pdf" class="btn btn-green" onclick="pobierzWypelnionyPDF()" style="font-size:14px;padding:10px 18px">
       <i class="ti ti-file-download"></i>Pobierz oryginalne PDF MF z danymi
     </button>
-    <button class="btn btn-blue no-print" onclick="selectAllTaxable()" title="Zaznacz wszystkie pojazdy z kategorią DT-1">
+    <button class="btn btn-blue no-print" onclick="selectAllTaxable()" title="Zaznacz wszystkie pojazdy z kategoriÄ… DT-1">
       <i class="ti ti-checkbox"></i>Zaznacz wszystkie opodatkowane
     </button>
     <button class="btn btn-gray no-print" onclick="window.print()">
-      <i class="ti ti-printer"></i>Drukuj podgląd HTML</button>
-    <button class="btn btn-gray" onclick="showPage('kalkulator')"><i class="ti ti-arrow-left"></i>Powrót do kalkulatora</button>
+      <i class="ti ti-printer"></i>Drukuj podglÄ…d HTML</button>
+    <button class="btn btn-gray" onclick="showPage('kalkulator')"><i class="ti ti-arrow-left"></i>PowrĂłt do kalkulatora</button>
     <span style="font-size:12px;color:var(--text2)" id="form-info"></span>
     <span style="display:flex;align-items:center;gap:6px;margin-left:auto;flex-wrap:wrap">
       <label style="font-size:12px;color:var(--text2)">Rok:</label>
@@ -296,19 +296,19 @@ window.addEventListener('DOMContentLoaded', () => {
         <option value="2025">2025</option>
         <option value="2024">2024</option>
       </select>
-      <label style="font-size:12px;color:var(--text2)">Przyczyna zł.:</label>
+      <label style="font-size:12px;color:var(--text2)">Przyczyna zĹ‚.:</label>
       <select id="tp-cel" style="padding:5px 8px;border-radius:var(--radius);border:1px solid var(--border);font-size:12px;min-width:200px">
-        <option value="DEKLARACJA SKLADANA DO 15 LUTEGO">1 — Roczna (do 15 lutego)</option>
-        <option value="POWSTANIE OBOWIAZKU W TRAKCIE ROKU">2 — Powstanie obowiązku</option>
-        <option value="WYGASNIECIE OBOWIAZKU W TRAKCIE ROKU">3 — Wygaśnięcie obowiązku</option>
-        <option value="ZMIANA MIEJSCA ZAMIESZKANIA LUB SIEDZIBY">4 — Zmiana siedziby</option>
-        <option value="KOREKTA DEKLARACJI">5 — Korekta</option>
-        <option value="PRZEDLUZENIE WYCOFANIA">6 — Przedł. wycofania</option>
+        <option value="DEKLARACJA SKLADANA DO 15 LUTEGO">1 â€” Roczna (do 15 lutego)</option>
+        <option value="POWSTANIE OBOWIAZKU W TRAKCIE ROKU">2 â€” Powstanie obowiÄ…zku</option>
+        <option value="WYGASNIECIE OBOWIAZKU W TRAKCIE ROKU">3 â€” WygaĹ›niÄ™cie obowiÄ…zku</option>
+        <option value="ZMIANA MIEJSCA ZAMIESZKANIA LUB SIEDZIBY">4 â€” Zmiana siedziby</option>
+        <option value="KOREKTA DEKLARACJI">5 â€” Korekta</option>
+        <option value="PRZEDLUZENIE WYCOFANIA">6 â€” PrzedĹ‚. wycofania</option>
       </select>
       <label style="font-size:12px;color:var(--text2)">Podatnik:</label>
       <select id="tp-rodzaj" style="padding:5px 8px;border-radius:var(--radius);border:1px solid var(--border);font-size:12px">
-        <option value="niefizyczny">1 — Nie będący os. fiz.</option>
-        <option value="fizyczny">2 — Osoba fizyczna</option>
+        <option value="niefizyczny">1 â€” Nie bÄ™dÄ…cy os. fiz.</option>
+        <option value="fizyczny">2 â€” Osoba fizyczna</option>
       </select>
     </span>
   </div>
@@ -317,8 +317,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
 <!-- ==================== EKSPORT PD ==================== -->
 <div class="page" id="page-pd">
-  <div class="pg-title"><i class="ti ti-upload"></i>Eksport — Przyjazne Deklaracje</div>
-  <div class="pg-sub">Wygeneruj plik Excel kompatybilny z systemem przyjazne-deklaracje.pl i złóż deklarację elektronicznie</div>
+  <div class="pg-title"><i class="ti ti-upload"></i>Eksport â€” Przyjazne Deklaracje</div>
+  <div class="pg-sub">Wygeneruj plik Excel kompatybilny z systemem przyjazne-deklaracje.pl i zĹ‚ĂłĹĽ deklaracjÄ™ elektronicznie</div>
 
   <div style="display:grid;grid-template-columns:1fr 320px;gap:1.5rem">
     <div>
@@ -326,44 +326,44 @@ window.addEventListener('DOMContentLoaded', () => {
 
       <div class="step"><div class="step-num">1</div><div class="step-body">
         <div class="step-title">Zaznacz pojazdy do deklaracji</div>
-        <div class="step-desc">Przejdź do zakładki <strong>Pojazdy</strong>, zaznacz checkboxem wszystkie pojazdy do deklaracji. Dla przyczep i naczep wpisz DMC zespołu pojazdów.</div>
+        <div class="step-desc">PrzejdĹş do zakĹ‚adki <strong>Pojazdy</strong>, zaznacz checkboxem wszystkie pojazdy do deklaracji. Dla przyczep i naczep wpisz DMC zespoĹ‚u pojazdĂłw.</div>
       </div></div>
 
       <div class="step"><div class="step-num">2</div><div class="step-body">
-        <div class="step-title">Uzupełnij dane podatnika</div>
-        <div class="step-desc">Przejdź do zakładki <strong>Podatnik</strong> i sprawdź dane — NIP, adres, nazwę pełną. Te dane trafią do pliku Excel i formularzy DT-1.</div>
+        <div class="step-title">UzupeĹ‚nij dane podatnika</div>
+        <div class="step-desc">PrzejdĹş do zakĹ‚adki <strong>Podatnik</strong> i sprawdĹş dane â€” NIP, adres, nazwÄ™ peĹ‚nÄ…. Te dane trafiÄ… do pliku Excel i formularzy DT-1.</div>
       </div></div>
 
       <div class="step"><div class="step-num">3</div><div class="step-body">
         <div class="step-title">Pobierz plik Excel dla Przyjaznych Deklaracji</div>
-        <div class="step-desc">Kliknij przycisk poniżej. Wygeneruje się plik <code>.xlsx</code> z arkuszami: Dane Podatnika, Informacje Ogólne, Środek transportu, Słowniki.</div>
+        <div class="step-desc">Kliknij przycisk poniĹĽej. Wygeneruje siÄ™ plik <code>.xlsx</code> z arkuszami: Dane Podatnika, Informacje OgĂłlne, Ĺšrodek transportu, SĹ‚owniki.</div>
       </div></div>
 
       <button class="btn btn-green" style="width:100%;justify-content:center;padding:14px;font-size:14px;margin-bottom:1rem" onclick="exportPD()">
-        <i class="ti ti-download"></i>Pobierz plik Excel dla Przyjaznych Deklaracji (<span id="pd-cnt">0</span> pojazdów)
+        <i class="ti ti-download"></i>Pobierz plik Excel dla Przyjaznych Deklaracji (<span id="pd-cnt">0</span> pojazdĂłw)
       </button>
 
       <div class="step"><div class="step-num">4</div><div class="step-body">
         <div class="step-title">Wgraj plik na przyjazne-deklaracje.pl</div>
         <div class="step-desc">
-          1. Wejdź na: <strong>przyjazne-deklaracje.pl → Podatek od środków transportowych → Warszawa</strong><br>
+          1. WejdĹş na: <strong>przyjazne-deklaracje.pl â†’ Podatek od Ĺ›rodkĂłw transportowych â†’ Warszawa</strong><br>
           2. Wybierz import z pliku Excel (Szablon BNG)<br>
-          3. Wgraj pobrany plik — system automatycznie wypełni deklarację<br>
+          3. Wgraj pobrany plik â€” system automatycznie wypeĹ‚ni deklaracjÄ™<br>
           4. Podpisz Profilem Zaufanym lub kwalifikowanym podpisem elektronicznym<br>
-          5. Wyślij do Urzędu m.st. Warszawy — otrzymasz UPO jako potwierdzenie
+          5. WyĹ›lij do UrzÄ™du m.st. Warszawy â€” otrzymasz UPO jako potwierdzenie
         </div>
       </div></div>
     </div>
 
     <div class="panel-right">
-      <div class="panel-title"><i class="ti ti-file-spreadsheet" style="color:var(--text2)"></i>Zawartość pliku Excel</div>
+      <div class="panel-title"><i class="ti ti-file-spreadsheet" style="color:var(--text2)"></i>ZawartoĹ›Ä‡ pliku Excel</div>
       <div class="sum-row"><span>Arkusz 1</span><span style="font-family:var(--mono);font-size:12px;color:var(--text2)">Dane Podatnika</span></div>
-      <div class="sum-row"><span>Arkusz 2</span><span style="font-family:var(--mono);font-size:12px;color:var(--text2)">Informacje Ogólne</span></div>
-      <div class="sum-row"><span>Arkusz 3</span><span style="font-family:var(--mono);font-size:12px;color:var(--text2)">Środek transportu</span></div>
-      <div class="sum-row"><span>Arkusz 4</span><span style="font-family:var(--mono);font-size:12px;color:var(--text2)">Słowniki</span></div>
+      <div class="sum-row"><span>Arkusz 2</span><span style="font-family:var(--mono);font-size:12px;color:var(--text2)">Informacje OgĂłlne</span></div>
+      <div class="sum-row"><span>Arkusz 3</span><span style="font-family:var(--mono);font-size:12px;color:var(--text2)">Ĺšrodek transportu</span></div>
+      <div class="sum-row"><span>Arkusz 4</span><span style="font-family:var(--mono);font-size:12px;color:var(--text2)">SĹ‚owniki</span></div>
       <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
         <div class="sum-row"><span>Pojazdy do eksportu</span><span class="sum-val green" id="pd-taxable">0</span></div>
-        <div class="sum-row"><span>Podatek razem</span><span class="sum-val green" id="pd-total">0,00 zł</span></div>
+        <div class="sum-row"><span>Podatek razem</span><span class="sum-val green" id="pd-total">0,00 zĹ‚</span></div>
         <div class="sum-row"><span>Format</span><span style="font-size:11px;color:var(--text2)">PD_BNG_S_1_0_0</span></div>
       </div>
     </div>
@@ -373,83 +373,83 @@ window.addEventListener('DOMContentLoaded', () => {
 <!-- ==================== STAWKI ==================== -->
 <div class="page" id="page-stawki">
   <div class="pg-title"><i class="ti ti-building-bank"></i>Stawki Warszawa 2026</div>
-  <div class="pg-sub">Uchwała XXIX/1065/2025 Rady m.st. Warszawy z dnia 20 listopada 2025 r. Obowiązuje od 01.01.2026 r.</div>
+  <div class="pg-sub">UchwaĹ‚a XXIX/1065/2025 Rady m.st. Warszawy z dnia 20 listopada 2025 r. ObowiÄ…zuje od 01.01.2026 r.</div>
 
-  <div class="gbox" style="margin-bottom:1rem"><i class="ti ti-info-circle"></i>§2 — pojazdy rok produkcji ≥ 2024 mają <strong>obniżone stawki</strong>. §3 — pojazdy elektryczne/hybrydowe/CNG/LNG/H₂ mają jeszcze niższe stawki.</div>
+  <div class="gbox" style="margin-bottom:1rem"><i class="ti ti-info-circle"></i>Â§2 â€” pojazdy rok produkcji â‰Ą 2024 majÄ… <strong>obniĹĽone stawki</strong>. Â§3 â€” pojazdy elektryczne/hybrydowe/CNG/LNG/Hâ‚‚ majÄ… jeszcze niĹĽsze stawki.</div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
     <div>
-      <div style="font-weight:600;margin-bottom:8px">Samochody ciężarowe 3,5–12 t</div>
+      <div style="font-weight:600;margin-bottom:8px">Samochody ciÄ™ĹĽarowe 3,5â€“12 t</div>
       <table class="rtable" style="margin-bottom:1rem">
-        <tr><th>Kategoria / DMC</th><th class="rate">§1 stawka</th><th class="rate2">§2 (2024+)</th></tr>
-        <tr><td>D1: 3,5–5,5 t</td><td class="rate">840 zł</td><td class="rate2">744 zł</td></tr>
-        <tr><td>D2: 5,5–9 t</td><td class="rate">1 128 zł</td><td class="rate2">1 008 zł</td></tr>
-        <tr><td>D3: 9–12 t</td><td class="rate">1 488 zł</td><td class="rate2">1 344 zł</td></tr>
+        <tr><th>Kategoria / DMC</th><th class="rate">Â§1 stawka</th><th class="rate2">Â§2 (2024+)</th></tr>
+        <tr><td>D1: 3,5â€“5,5 t</td><td class="rate">840 zĹ‚</td><td class="rate2">744 zĹ‚</td></tr>
+        <tr><td>D2: 5,5â€“9 t</td><td class="rate">1 128 zĹ‚</td><td class="rate2">1 008 zĹ‚</td></tr>
+        <tr><td>D3: 9â€“12 t</td><td class="rate">1 488 zĹ‚</td><td class="rate2">1 344 zĹ‚</td></tr>
       </table>
 
-      <div style="font-weight:600;margin-bottom:8px">Samochody ciężarowe ≥12 t — 2 osie (D8)</div>
-      <table class="rtable" style="margin-bottom:1rem">
-        <tr><th>DMC</th><th class="rate">Stawka</th></tr>
-        <tr><td>12–13 t</td><td class="rate">1 200 zł</td></tr>
-        <tr><td>13–14 t</td><td class="rate">1 488 zł</td></tr>
-        <tr><td>14–15 t</td><td class="rate">1 680 zł</td></tr>
-        <tr><td>≥15 t</td><td class="rate">2 184 zł</td></tr>
-      </table>
-
-      <div style="font-weight:600;margin-bottom:8px">Samochody ciężarowe ≥12 t — 3 osie (D9)</div>
+      <div style="font-weight:600;margin-bottom:8px">Samochody ciÄ™ĹĽarowe â‰Ą12 t â€” 2 osie (D8)</div>
       <table class="rtable" style="margin-bottom:1rem">
         <tr><th>DMC</th><th class="rate">Stawka</th></tr>
-        <tr><td>12–17 t</td><td class="rate">1 488 zł</td></tr>
-        <tr><td>17–19 t</td><td class="rate">1 704 zł</td></tr>
-        <tr><td>19–21 t</td><td class="rate">1 872 zł</td></tr>
-        <tr><td>21–23 t</td><td class="rate">2 136 zł</td></tr>
-        <tr><td>≥23 t</td><td class="rate">2 760 zł</td></tr>
+        <tr><td>12â€“13 t</td><td class="rate">1 200 zĹ‚</td></tr>
+        <tr><td>13â€“14 t</td><td class="rate">1 488 zĹ‚</td></tr>
+        <tr><td>14â€“15 t</td><td class="rate">1 680 zĹ‚</td></tr>
+        <tr><td>â‰Ą15 t</td><td class="rate">2 184 zĹ‚</td></tr>
       </table>
 
-      <div style="font-weight:600;margin-bottom:8px">Samochody ciężarowe ≥12 t — 4+ osie (D10)</div>
+      <div style="font-weight:600;margin-bottom:8px">Samochody ciÄ™ĹĽarowe â‰Ą12 t â€” 3 osie (D9)</div>
+      <table class="rtable" style="margin-bottom:1rem">
+        <tr><th>DMC</th><th class="rate">Stawka</th></tr>
+        <tr><td>12â€“17 t</td><td class="rate">1 488 zĹ‚</td></tr>
+        <tr><td>17â€“19 t</td><td class="rate">1 704 zĹ‚</td></tr>
+        <tr><td>19â€“21 t</td><td class="rate">1 872 zĹ‚</td></tr>
+        <tr><td>21â€“23 t</td><td class="rate">2 136 zĹ‚</td></tr>
+        <tr><td>â‰Ą23 t</td><td class="rate">2 760 zĹ‚</td></tr>
+      </table>
+
+      <div style="font-weight:600;margin-bottom:8px">Samochody ciÄ™ĹĽarowe â‰Ą12 t â€” 4+ osie (D10)</div>
       <table class="rtable">
         <tr><th>DMC</th><th class="rate">Stawka</th></tr>
-        <tr><td>12–25 t</td><td class="rate">1 488 zł</td></tr>
-        <tr><td>25–27 t</td><td class="rate">1 824 zł</td></tr>
-        <tr><td>27–29 t</td><td class="rate">2 880 zł</td></tr>
-        <tr><td>≥29 t</td><td class="rate">4 296 zł</td></tr>
+        <tr><td>12â€“25 t</td><td class="rate">1 488 zĹ‚</td></tr>
+        <tr><td>25â€“27 t</td><td class="rate">1 824 zĹ‚</td></tr>
+        <tr><td>27â€“29 t</td><td class="rate">2 880 zĹ‚</td></tr>
+        <tr><td>â‰Ą29 t</td><td class="rate">4 296 zĹ‚</td></tr>
       </table>
     </div>
     <div>
-      <div style="font-weight:600;margin-bottom:8px">Ciągniki siodłowe/balastowe</div>
+      <div style="font-weight:600;margin-bottom:8px">CiÄ…gniki siodĹ‚owe/balastowe</div>
       <table class="rtable" style="margin-bottom:1rem">
-        <tr><th>DMC zesp.</th><th>Osie</th><th class="rate">Stawka</th><th class="rate2">§2 (2024+)</th></tr>
-        <tr><td>3,5–12 t (D4)</td><td>—</td><td class="rate">1 392 zł</td><td class="rate2">1 248 zł</td></tr>
-        <tr><td>12–18 t (D11)</td><td>2</td><td class="rate">1 128 zł</td><td>—</td></tr>
-        <tr><td>18–25 t (D11)</td><td>2</td><td class="rate">1 680 zł</td><td>—</td></tr>
-        <tr><td>25–31 t (D11)</td><td>2</td><td class="rate">2 232 zł</td><td>—</td></tr>
-        <tr><td>31–36 t (D11)</td><td>2</td><td class="rate">3 384 zł</td><td>—</td></tr>
-        <tr><td>12–36 t (D12)</td><td>3+</td><td class="rate">2 784 zł</td><td>—</td></tr>
-        <tr><td>36–40 t (D12)</td><td>3+</td><td class="rate">2 832 zł</td><td>—</td></tr>
-        <tr><td>≥40 t (D12)</td><td>3+</td><td class="rate">4 200 zł</td><td>—</td></tr>
+        <tr><th>DMC zesp.</th><th>Osie</th><th class="rate">Stawka</th><th class="rate2">Â§2 (2024+)</th></tr>
+        <tr><td>3,5â€“12 t (D4)</td><td>â€”</td><td class="rate">1 392 zĹ‚</td><td class="rate2">1 248 zĹ‚</td></tr>
+        <tr><td>12â€“18 t (D11)</td><td>2</td><td class="rate">1 128 zĹ‚</td><td>â€”</td></tr>
+        <tr><td>18â€“25 t (D11)</td><td>2</td><td class="rate">1 680 zĹ‚</td><td>â€”</td></tr>
+        <tr><td>25â€“31 t (D11)</td><td>2</td><td class="rate">2 232 zĹ‚</td><td>â€”</td></tr>
+        <tr><td>31â€“36 t (D11)</td><td>2</td><td class="rate">3 384 zĹ‚</td><td>â€”</td></tr>
+        <tr><td>12â€“36 t (D12)</td><td>3+</td><td class="rate">2 784 zĹ‚</td><td>â€”</td></tr>
+        <tr><td>36â€“40 t (D12)</td><td>3+</td><td class="rate">2 832 zĹ‚</td><td>â€”</td></tr>
+        <tr><td>â‰Ą40 t (D12)</td><td>3+</td><td class="rate">4 200 zĹ‚</td><td>â€”</td></tr>
       </table>
 
       <div style="font-weight:600;margin-bottom:8px">Przyczepy i naczepy</div>
       <table class="rtable" style="margin-bottom:1rem">
-        <tr><th>DMC zesp.</th><th>Osie</th><th class="rate">Stawka</th><th class="rate2">§2 (2024+)</th></tr>
-        <tr><td>7–12 t (D5)</td><td>—</td><td class="rate">1 248 zł</td><td class="rate2">1 128 zł</td></tr>
-        <tr><td>12–18 t (D13)</td><td>1</td><td class="rate">744 zł</td><td>—</td></tr>
-        <tr><td>18–25 t (D13)</td><td>1</td><td class="rate">840 zł</td><td>—</td></tr>
-        <tr><td>25–36 t (D13)</td><td>1</td><td class="rate">984 zł</td><td>—</td></tr>
-        <tr><td>12–28 t (D14)</td><td>2</td><td class="rate">1 488 zł</td><td>—</td></tr>
-        <tr><td>28–33 t (D14)</td><td>2</td><td class="rate">1 776 zł</td><td>—</td></tr>
-        <tr><td>33–38 t (D14)</td><td>2</td><td class="rate">2 256 zł</td><td>—</td></tr>
-        <tr><td>≥38 t (D14)</td><td>2</td><td class="rate">2 976 zł</td><td>—</td></tr>
-        <tr><td>12–36 t (D15)</td><td>3+</td><td class="rate">1 872 zł</td><td>—</td></tr>
-        <tr><td>≥38 t (D15)</td><td>3+</td><td class="rate">2 232 zł</td><td>—</td></tr>
+        <tr><th>DMC zesp.</th><th>Osie</th><th class="rate">Stawka</th><th class="rate2">Â§2 (2024+)</th></tr>
+        <tr><td>7â€“12 t (D5)</td><td>â€”</td><td class="rate">1 248 zĹ‚</td><td class="rate2">1 128 zĹ‚</td></tr>
+        <tr><td>12â€“18 t (D13)</td><td>1</td><td class="rate">744 zĹ‚</td><td>â€”</td></tr>
+        <tr><td>18â€“25 t (D13)</td><td>1</td><td class="rate">840 zĹ‚</td><td>â€”</td></tr>
+        <tr><td>25â€“36 t (D13)</td><td>1</td><td class="rate">984 zĹ‚</td><td>â€”</td></tr>
+        <tr><td>12â€“28 t (D14)</td><td>2</td><td class="rate">1 488 zĹ‚</td><td>â€”</td></tr>
+        <tr><td>28â€“33 t (D14)</td><td>2</td><td class="rate">1 776 zĹ‚</td><td>â€”</td></tr>
+        <tr><td>33â€“38 t (D14)</td><td>2</td><td class="rate">2 256 zĹ‚</td><td>â€”</td></tr>
+        <tr><td>â‰Ą38 t (D14)</td><td>2</td><td class="rate">2 976 zĹ‚</td><td>â€”</td></tr>
+        <tr><td>12â€“36 t (D15)</td><td>3+</td><td class="rate">1 872 zĹ‚</td><td>â€”</td></tr>
+        <tr><td>â‰Ą38 t (D15)</td><td>3+</td><td class="rate">2 232 zĹ‚</td><td>â€”</td></tr>
       </table>
 
       <div style="font-weight:600;margin-bottom:8px">Autobusy</div>
       <table class="rtable">
-        <tr><th>Miejsca</th><th class="rate">§1 stawka</th><th class="rate2">§2 (2024+)</th></tr>
-        <tr><td>D6: &lt;22 miejsc</td><td class="rate">1 488 zł</td><td class="rate2">1 320 zł</td></tr>
-        <tr><td>D7: 22–29 m.</td><td class="rate">1 488 zł</td><td class="rate2">1 320 zł</td></tr>
-        <tr><td>D7: ≥30 miejsc</td><td class="rate">1 872 zł</td><td class="rate2">1 320 zł</td></tr>
+        <tr><th>Miejsca</th><th class="rate">Â§1 stawka</th><th class="rate2">Â§2 (2024+)</th></tr>
+        <tr><td>D6: &lt;22 miejsc</td><td class="rate">1 488 zĹ‚</td><td class="rate2">1 320 zĹ‚</td></tr>
+        <tr><td>D7: 22â€“29 m.</td><td class="rate">1 488 zĹ‚</td><td class="rate2">1 320 zĹ‚</td></tr>
+        <tr><td>D7: â‰Ą30 miejsc</td><td class="rate">1 872 zĹ‚</td><td class="rate2">1 320 zĹ‚</td></tr>
       </table>
     </div>
   </div>
@@ -458,36 +458,36 @@ window.addEventListener('DOMContentLoaded', () => {
 <!-- ==================== PODATNIK ==================== -->
 <div class="page" id="page-podatnik">
   <div class="pg-title"><i class="ti ti-building"></i>Dane podatnika</div>
-  <div class="pg-sub">Dane wypełniane w formularzach DT-1, DT-1/A i pliku Przyjaznych Deklaracji</div>
+  <div class="pg-sub">Dane wypeĹ‚niane w formularzach DT-1, DT-1/A i pliku Przyjaznych Deklaracji</div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
     <div>
       <div style="font-weight:600;margin-bottom:12px">Identyfikacja</div>
       <div class="fg" style="margin-bottom:1.5rem">
         <div class="f"><label>NIP (10 cyfr)</label><input id="tp-nip" value="5361938486"></div>
         <div class="f"><label>REGON</label><input id="tp-regon" placeholder="np. 367263453"></div>
-        <div class="f full"><label>Pełna nazwa (WIELKIE LITERY)</label><input id="tp-nazwa" value="MTOILET SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ"></div>
+        <div class="f full"><label>PeĹ‚na nazwa (WIELKIE LITERY)</label><input id="tp-nazwa" value="MTOILET SPĂ“ĹKA Z OGRANICZONÄ„ ODPOWIEDZIALNOĹšCIÄ„"></div>
       </div>
       <div style="font-weight:600;margin-bottom:12px">Adres siedziby</div>
       <div class="fg" style="margin-bottom:1.5rem">
-        <div class="f"><label>Ulica</label><input id="tp-ulica" value="TORUŃSKA"></div>
+        <div class="f"><label>Ulica</label><input id="tp-ulica" value="TORUĹSKA"></div>
         <div class="f"><label>Nr domu</label><input id="tp-dom" value="31"></div>
         <div class="f"><label>Nr lokalu</label><input id="tp-lokal" placeholder="opcjonalnie"></div>
         <div class="f"><label>Kod pocztowy</label><input id="tp-kod" value="03-226"></div>
-        <div class="f"><label>Miejscowość</label><input id="tp-miasto" value="WARSZAWA"></div>
-        <div class="f"><label>Województwo</label><input id="tp-woj" value="MAZOWIECKIE"></div>
-        <div class="f full"><label>Organ podatkowy (poz. 5 DT-1)</label><input id="tp-organ" value="Prezydent m.st. Warszawy — Dzielnica Białołęka"></div>
+        <div class="f"><label>MiejscowoĹ›Ä‡</label><input id="tp-miasto" value="WARSZAWA"></div>
+        <div class="f"><label>WojewĂłdztwo</label><input id="tp-woj" value="MAZOWIECKIE"></div>
+        <div class="f full"><label>Organ podatkowy (poz. 5 DT-1)</label><input id="tp-organ" value="Prezydent m.st. Warszawy â€” Dzielnica BiaĹ‚oĹ‚Ä™ka"></div>
       </div>
     </div>
     <div>
       <div style="font-weight:600;margin-bottom:12px">Podpis i deklaracja</div>
       <div class="fg" style="margin-bottom:1.5rem">
-        <div class="f"><label>Imię osoby podpisującej (poz. 84)</label><input id="tp-imie" placeholder="np. Jan"></div>
-        <div class="f"><label>Nazwisko osoby podpisującej (poz. 85)</label><input id="tp-nazwisko" placeholder="np. Kowalski"></div>
-        <div class="f full"><label>Cel złożenia deklaracji</label>
+        <div class="f"><label>ImiÄ™ osoby podpisujÄ…cej (poz. 84)</label><input id="tp-imie" placeholder="np. Jan"></div>
+        <div class="f"><label>Nazwisko osoby podpisujÄ…cej (poz. 85)</label><input id="tp-nazwisko" placeholder="np. Kowalski"></div>
+        <div class="f full"><label>Cel zĹ‚oĹĽenia deklaracji</label>
           <select id="tp-celPodatnik">
-            <option value="DEKLARACJA SKLADANA DO 15 LUTEGO">[1] Roczna — do 15 lutego roku podatkowego</option>
-            <option value="POWSTANIE OBOWIAZKU W TRAKCIE ROKU">[2] Powstanie obowiązku podatkowego w trakcie roku</option>
-            <option value="WYGASNIECIE OBOWIAZKU W TRAKCIE ROKU">[3] Wygaśnięcie obowiązku podatkowego</option>
+            <option value="DEKLARACJA SKLADANA DO 15 LUTEGO">[1] Roczna â€” do 15 lutego roku podatkowego</option>
+            <option value="POWSTANIE OBOWIAZKU W TRAKCIE ROKU">[2] Powstanie obowiÄ…zku podatkowego w trakcie roku</option>
+            <option value="WYGASNIECIE OBOWIAZKU W TRAKCIE ROKU">[3] WygaĹ›niÄ™cie obowiÄ…zku podatkowego</option>
             <option value="ZMIANA MIEJSCA ZAMIESZKANIA LUB SIEDZIBY">[4] Zmiana miejsca zamieszkania lub siedziby</option>
             <option value="KOREKTA DEKLARACJI">[5] Korekta deklaracji</option>
           </select>
@@ -496,11 +496,11 @@ window.addEventListener('DOMContentLoaded', () => {
       <div class="ibox">
         <i class="ti ti-info-circle"></i>
         <div>
-          <strong>Wskazówka:</strong> Dane są przechowywane tylko w tej sesji przeglądarki. Przy kolejnym otwarciu programu wpisz ponownie lub skopiuj z gotowego formularza DT-1.
+          <strong>WskazĂłwka:</strong> Dane sÄ… przechowywane tylko w tej sesji przeglÄ…darki. Przy kolejnym otwarciu programu wpisz ponownie lub skopiuj z gotowego formularza DT-1.
         </div>
       </div>
-      <button class="btn btn-blue" style="margin-top:8px" onclick="toast('✓ Dane podatnika zapisane'); updateAll()">
-        <i class="ti ti-device-floppy"></i>Zapisz i odśwież formularze
+      <button class="btn btn-blue" style="margin-top:8px" onclick="toast('âś“ Dane podatnika zapisane'); updateAll()">
+        <i class="ti ti-device-floppy"></i>Zapisz i odĹ›wieĹĽ formularze
       </button>
     </div>
   </div>
@@ -509,25 +509,25 @@ window.addEventListener('DOMContentLoaded', () => {
 <!-- ==================== WALIDACJA ==================== -->
 <div class="page" id="page-walidacja">
   <div class="pg-title"><i class="ti ti-shield-check"></i>Walidacja deklaracji DT-1</div>
-  <div class="pg-sub">Automatyczna weryfikacja poprawności deklaracji przed złożeniem</div>
+  <div class="pg-sub">Automatyczna weryfikacja poprawnoĹ›ci deklaracji przed zĹ‚oĹĽeniem</div>
   <div class="toolbar">
-    <button class="btn btn-blue" onclick="runValidation()"><i class="ti ti-refresh"></i>Uruchom walidację</button>
-    <button class="btn btn-gray" onclick="showPage('pojazdy')"><i class="ti ti-truck"></i>Przejdź do pojazdów</button>
-    <span id="val-summary" style="font-size:13px;color:var(--text2)">Kliknij „Uruchom walidację" aby sprawdzić deklarację</span>
+    <button class="btn btn-blue" onclick="runValidation()"><i class="ti ti-refresh"></i>Uruchom walidacjÄ™</button>
+    <button class="btn btn-gray" onclick="showPage('pojazdy')"><i class="ti ti-truck"></i>PrzejdĹş do pojazdĂłw</button>
+    <span id="val-summary" style="font-size:13px;color:var(--text2)">Kliknij â€žUruchom walidacjÄ™" aby sprawdziÄ‡ deklaracjÄ™</span>
   </div>
 
-  <!-- Paski postępu walidacji -->
+  <!-- Paski postÄ™pu walidacji -->
   <div id="val-progress" class="hidden" style="margin-bottom:1.5rem">
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
       <div class="stat" style="border-color:var(--red)">
-        <div class="stat-label" style="color:var(--red)">Błędy krytyczne</div>
+        <div class="stat-label" style="color:var(--red)">BĹ‚Ä™dy krytyczne</div>
         <div class="stat-val" id="val-cnt-err" style="color:var(--red)">0</div>
-        <div class="stat-sub">blokują złożenie deklaracji</div>
+        <div class="stat-sub">blokujÄ… zĹ‚oĹĽenie deklaracji</div>
       </div>
       <div class="stat" style="border-color:var(--amber)">
-        <div class="stat-label" style="color:var(--amber)">Ostrzeżenia</div>
+        <div class="stat-label" style="color:var(--amber)">OstrzeĹĽenia</div>
         <div class="stat-val" id="val-cnt-warn" style="color:var(--amber)">0</div>
-        <div class="stat-sub">wymagają uwagi</div>
+        <div class="stat-sub">wymagajÄ… uwagi</div>
       </div>
       <div class="stat" style="border-color:var(--blue)">
         <div class="stat-label" style="color:var(--blue)">Informacje</div>
@@ -537,49 +537,49 @@ window.addEventListener('DOMContentLoaded', () => {
       <div class="stat" style="border-color:var(--green)">
         <div class="stat-label" style="color:var(--green)">Pojazdy OK</div>
         <div class="stat-val" id="val-cnt-ok" style="color:var(--green)">0</div>
-        <div class="stat-sub">bez zastrzeżeń</div>
+        <div class="stat-sub">bez zastrzeĹĽeĹ„</div>
       </div>
     </div>
   </div>
 
   <div id="val-results">
-    <div class="empty"><i class="ti ti-shield"></i>Uruchom walidację aby sprawdzić poprawność deklaracji</div>
+    <div class="empty"><i class="ti ti-shield"></i>Uruchom walidacjÄ™ aby sprawdziÄ‡ poprawnoĹ›Ä‡ deklaracji</div>
   </div>
 </div>
 
 <!-- ==================== RAPORTY ==================== -->
 <div class="page" id="page-raporty">
-  <div class="pg-title"><i class="ti ti-chart-line"></i>Raporty kosztowe — podatek transportowy</div>
-  <div class="pg-sub">Analiza kosztów podatkowych floty w ujęciu rocznym, wg marki, kategorii i właściciela</div>
+  <div class="pg-title"><i class="ti ti-chart-line"></i>Raporty kosztowe â€” podatek transportowy</div>
+  <div class="pg-sub">Analiza kosztĂłw podatkowych floty w ujÄ™ciu rocznym, wg marki, kategorii i wĹ‚aĹ›ciciela</div>
 
   <div class="toolbar">
     <select id="rp-wl" onchange="renderRaporty()">
-      <option value="">Cała flota</option>
+      <option value="">CaĹ‚a flota</option>
       <option value="mToilet">mToilet</option>
       <option value="GCON">GCON</option>
       <option value="KJR Supply">KJR Supply</option>
     </select>
     <select id="rp-status" onchange="renderRaporty()">
       <option value="">Wszystkie statusy</option>
-      <option value="Własny">Własny</option>
+      <option value="WĹ‚asny">WĹ‚asny</option>
       <option value="Leasing">Leasing</option>
-      <option value="Wynajęty">Wynajęty</option>
+      <option value="WynajÄ™ty">WynajÄ™ty</option>
     </select>
     <select id="rp-group" onchange="renderRaporty()">
       <option value="marka">Grupuj wg marki</option>
       <option value="cat">Grupuj wg kategorii DT-1</option>
-      <option value="status">Grupuj wg statusu własności</option>
+      <option value="status">Grupuj wg statusu wĹ‚asnoĹ›ci</option>
       <option value="rok">Grupuj wg roku produkcji</option>
     </select>
     <button class="btn btn-green" onclick="exportRaport()"><i class="ti ti-download"></i>Eksport Excel</button>
-    <button class="btn btn-gray" onclick="renderRaporty()"><i class="ti ti-refresh"></i>Odśwież</button>
+    <button class="btn btn-gray" onclick="renderRaporty()"><i class="ti ti-refresh"></i>OdĹ›wieĹĽ</button>
   </div>
 
   <!-- Karty KPI -->
   <div class="stats" style="grid-template-columns:repeat(5,1fr);margin-bottom:1.5rem" id="rp-kpi"></div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem">
-    <!-- Wykres słupkowy wg grupy -->
+    <!-- Wykres sĹ‚upkowy wg grupy -->
     <div>
       <div style="font-weight:600;font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
         <i class="ti ti-chart-bar" style="color:var(--text2)"></i>
@@ -587,27 +587,27 @@ window.addEventListener('DOMContentLoaded', () => {
       </div>
       <div class="tbl-wrap" style="padding:16px" id="rp-chart"></div>
     </div>
-    <!-- Podział §1 vs §2 -->
+    <!-- PodziaĹ‚ Â§1 vs Â§2 -->
     <div>
       <div style="font-weight:600;font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
-        <i class="ti ti-pie-chart" style="color:var(--text2)"></i>Podział stawek §1 vs §2 (rok 2024+)
+        <i class="ti ti-pie-chart" style="color:var(--text2)"></i>PodziaĹ‚ stawek Â§1 vs Â§2 (rok 2024+)
       </div>
       <div class="tbl-wrap" style="padding:16px" id="rp-pie"></div>
     </div>
   </div>
 
-  <!-- Zestawienie miesięczne / ratalne -->
+  <!-- Zestawienie miesiÄ™czne / ratalne -->
   <div style="margin-bottom:1.5rem">
     <div style="font-weight:600;font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
-      <i class="ti ti-calendar" style="color:var(--text2)"></i>Harmonogram płatności 2026
+      <i class="ti ti-calendar" style="color:var(--text2)"></i>Harmonogram pĹ‚atnoĹ›ci 2026
     </div>
     <div class="tbl-wrap" id="rp-harmonogram"></div>
   </div>
 
-  <!-- Tabela szczegółowa -->
+  <!-- Tabela szczegĂłĹ‚owa -->
   <div>
     <div style="font-weight:600;font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
-      <i class="ti ti-table" style="color:var(--text2)"></i>Szczegółowe zestawienie kosztów — wszystkie pojazdy
+      <i class="ti ti-table" style="color:var(--text2)"></i>SzczegĂłĹ‚owe zestawienie kosztĂłw â€” wszystkie pojazdy
     </div>
     <div class="tbl-wrap" id="rp-table"></div>
   </div>
@@ -615,12 +615,12 @@ window.addEventListener('DOMContentLoaded', () => {
 
 <!-- ==================== OCR DOWODY REJESTRACYJNE ==================== -->
 <div class="page" id="page-ocr">
-  <div class="pg-title"><i class="ti ti-scan"></i>OCR — Odczyt dowodów rejestracyjnych</div>
-  <div class="pg-sub">Wgraj zdjęcie lub skan dowodu rejestracyjnego — AI automatycznie odczyta dane i zaktualizuje bazę pojazdów</div>
+  <div class="pg-title"><i class="ti ti-scan"></i>OCR â€” Odczyt dowodĂłw rejestracyjnych</div>
+  <div class="pg-sub">Wgraj zdjÄ™cie lub skan dowodu rejestracyjnego â€” AI automatycznie odczyta dane i zaktualizuje bazÄ™ pojazdĂłw</div>
 
   <div style="display:grid;grid-template-columns:1fr 380px;gap:1.5rem;align-items:start">
 
-    <!-- LEWA — upload + wynik -->
+    <!-- LEWA â€” upload + wynik -->
     <div>
       <!-- Drop zone -->
       <div id="ocr-dropzone" style="border:2px dashed var(--border2);border-radius:var(--radius-lg);padding:2.5rem;text-align:center;background:var(--bg2);cursor:pointer;transition:all .2s;margin-bottom:1.5rem"
@@ -629,38 +629,38 @@ window.addEventListener('DOMContentLoaded', () => {
         ondrop="handleDrop(event)"
         onclick="document.getElementById('ocr-file').click()">
         <i class="ti ti-file-upload" style="font-size:48px;color:var(--text3);display:block;margin-bottom:12px"></i>
-        <div style="font-size:15px;font-weight:500;margin-bottom:6px">Przeciągnij skan/zdjęcie lub kliknij aby wybrać</div>
-        <div style="font-size:12px;color:var(--text2)">Obsługiwane formaty: JPG, PNG, PDF, WEBP · Maks. 10 MB</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:8px">Dowód rejestracyjny stały lub tymczasowy · Zdjęcie telefonem lub skan</div>
+        <div style="font-size:15px;font-weight:500;margin-bottom:6px">PrzeciÄ…gnij skan/zdjÄ™cie lub kliknij aby wybraÄ‡</div>
+        <div style="font-size:12px;color:var(--text2)">ObsĹ‚ugiwane formaty: JPG, PNG, PDF, WEBP Â· Maks. 10 MB</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:8px">DowĂłd rejestracyjny staĹ‚y lub tymczasowy Â· ZdjÄ™cie telefonem lub skan</div>
         <input type="file" id="ocr-file" accept="image/*,.pdf" style="display:none" onchange="handleFileSelect(this)">
       </div>
       <div style="text-align:center;margin-bottom:1rem">
         <span style="font-size:12px;color:var(--text3)">lub</span>
       </div>
       <button class="btn btn-gray" style="width:100%;justify-content:center;margin-bottom:1.5rem" onclick="document.getElementById('ocr-btn-area').classList.remove('hidden');showManualForm({})">
-        <i class="ti ti-forms"></i>Wypełnij formularz ręcznie (bez skanowania)
+        <i class="ti ti-forms"></i>WypeĹ‚nij formularz rÄ™cznie (bez skanowania)
       </button>
 
-      <!-- Podgląd wgranego pliku -->
+      <!-- PodglÄ…d wgranego pliku -->
       <div id="ocr-preview" class="hidden" style="margin-bottom:1.5rem">
         <div style="font-weight:500;font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:8px">
           <i class="ti ti-photo" style="color:var(--text2)"></i>Wgrany dokument
-          <button class="btn btn-gray" style="margin-left:auto;font-size:11px" onclick="resetOCR()"><i class="ti ti-x"></i>Usuń</button>
+          <button class="btn btn-gray" style="margin-left:auto;font-size:11px" onclick="resetOCR()"><i class="ti ti-x"></i>UsuĹ„</button>
         </div>
-        <img id="ocr-img" style="max-width:100%;border-radius:var(--radius-lg);border:1px solid var(--border);max-height:350px;object-fit:contain" alt="Podgląd dokumentu">
+        <img id="ocr-img" style="max-width:100%;border-radius:var(--radius-lg);border:1px solid var(--border);max-height:350px;object-fit:contain" alt="PodglÄ…d dokumentu">
       </div>
 
       <div id="ocr-btn-area" class="hidden" style="margin-bottom:1.5rem">
         <button class="btn btn-blue" style="width:100%;justify-content:center;padding:14px;font-size:15px" onclick="runOCR()" id="ocr-btn">
-          <i class="ti ti-scan"></i>Uruchom OCR + Wypełnij formularz
+          <i class="ti ti-scan"></i>Uruchom OCR + WypeĹ‚nij formularz
         </button>
-        <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:6px">Tesseract.js czyta tekst lokalnie · dane nie opuszczają Twojego komputera · brak potrzeby API</div>
+        <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:6px">Tesseract.js czyta tekst lokalnie Â· dane nie opuszczajÄ… Twojego komputera Â· brak potrzeby API</div>
       </div>
 
       <!-- Loader -->
       <div id="ocr-loader" class="hidden">
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:2rem;text-align:center">
-          <div style="font-size:36px;margin-bottom:12px;animation:spin 1s linear infinite;display:inline-block">⚙️</div>
+          <div style="font-size:36px;margin-bottom:12px;animation:spin 1s linear infinite;display:inline-block">âš™ď¸Ź</div>
           <div style="font-size:15px;font-weight:500;margin-bottom:6px">Claude analizuje dokument...</div>
           <div style="font-size:12px;color:var(--text2)" id="ocr-status">Rozpoznawanie tekstu z obrazu</div>
           <div style="background:var(--bg3);border-radius:4px;height:4px;margin-top:16px;overflow:hidden">
@@ -673,40 +673,40 @@ window.addEventListener('DOMContentLoaded', () => {
       <div id="ocr-result" class="hidden"></div>
     </div>
 
-    <!-- PRAWA — instrukcja + historia -->
+    <!-- PRAWA â€” instrukcja + historia -->
     <div>
       <div class="panel-right" style="margin-bottom:1rem">
-        <div class="panel-title"><i class="ti ti-bulb" style="color:var(--amber)"></i>Jak to działa?</div>
+        <div class="panel-title"><i class="ti ti-bulb" style="color:var(--amber)"></i>Jak to dziaĹ‚a?</div>
         <div style="font-size:13px;line-height:1.7;color:var(--text2)">
-          <div style="margin-bottom:8px"><span style="font-weight:600;color:var(--blue)">1.</span> Wgraj zdjęcie lub skan dowodu rejestracyjnego — przednią lub tylną stronę</div>
-          <div style="margin-bottom:8px"><span style="font-weight:600;color:var(--blue)">2.</span> Claude AI odczyta wszystkie pola formularza i wyciągnie dane techniczne pojazdu</div>
-          <div style="margin-bottom:8px"><span style="font-weight:600;color:var(--blue)">3.</span> System porówna odczytane dane z bazą pojazdów wg numeru rejestracyjnego</div>
-          <div><span style="font-weight:600;color:var(--blue)">4.</span> Zatwierdź zmiany — baza zostanie automatycznie zaktualizowana</div>
+          <div style="margin-bottom:8px"><span style="font-weight:600;color:var(--blue)">1.</span> Wgraj zdjÄ™cie lub skan dowodu rejestracyjnego â€” przedniÄ… lub tylnÄ… stronÄ™</div>
+          <div style="margin-bottom:8px"><span style="font-weight:600;color:var(--blue)">2.</span> Claude AI odczyta wszystkie pola formularza i wyciÄ…gnie dane techniczne pojazdu</div>
+          <div style="margin-bottom:8px"><span style="font-weight:600;color:var(--blue)">3.</span> System porĂłwna odczytane dane z bazÄ… pojazdĂłw wg numeru rejestracyjnego</div>
+          <div><span style="font-weight:600;color:var(--blue)">4.</span> ZatwierdĹş zmiany â€” baza zostanie automatycznie zaktualizowana</div>
         </div>
         <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
           <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text2)">Odczytywane pola DT-1:</div>
           <div style="display:flex;flex-wrap:wrap;gap:4px">
-            ${['A: Nr rej.','B: Data 1. rej.','D.1: Marka','D.2: Typ','E: VIN','F.1: DMC (kg)','F.3: DMC zesp.','G: Masa wł.','J: Kategoria','L: Liczba osi','P.3: Paliwo','S.1: Miejsca'].map(f=>`<span style="font-size:10px;padding:2px 7px;background:var(--bg3);border-radius:4px;font-family:var(--mono)">${f}</span>`).join('')}
+            ${['A: Nr rej.','B: Data 1. rej.','D.1: Marka','D.2: Typ','E: VIN','F.1: DMC (kg)','F.3: DMC zesp.','G: Masa wĹ‚.','J: Kategoria','L: Liczba osi','P.3: Paliwo','S.1: Miejsca'].map(f=>`<span style="font-size:10px;padding:2px 7px;background:var(--bg3);border-radius:4px;font-family:var(--mono)">${f}</span>`).join('')}
           </div>
         </div>
       </div>
 
-      <!-- Wskazówki dot. jakości -->
+      <!-- WskazĂłwki dot. jakoĹ›ci -->
       <div class="panel-right" style="margin-bottom:1rem">
-        <div class="panel-title"><i class="ti ti-camera" style="color:var(--text2)"></i>Wskazówki dot. jakości</div>
+        <div class="panel-title"><i class="ti ti-camera" style="color:var(--text2)"></i>WskazĂłwki dot. jakoĹ›ci</div>
         <div style="font-size:12px;color:var(--text2);line-height:1.7">
-          <div>✅ Całkowity dokument w kadrze</div>
-          <div>✅ Dobre oświetlenie, brak cieni</div>
-          <div>✅ Min. rozdzielczość 800×600 px</div>
-          <div>✅ Tekst ostry, nierozmazany</div>
-          <div>⚠️ Można zakryć dane osobowe właściciela</div>
-          <div>⚠️ Stare dokumenty — litery muszą być czytelne</div>
+          <div>âś… CaĹ‚kowity dokument w kadrze</div>
+          <div>âś… Dobre oĹ›wietlenie, brak cieni</div>
+          <div>âś… Min. rozdzielczoĹ›Ä‡ 800Ă—600 px</div>
+          <div>âś… Tekst ostry, nierozmazany</div>
+          <div>âš ď¸Ź MoĹĽna zakryÄ‡ dane osobowe wĹ‚aĹ›ciciela</div>
+          <div>âš ď¸Ź Stare dokumenty â€” litery muszÄ… byÄ‡ czytelne</div>
         </div>
       </div>
 
       <!-- Historia OCR -->
       <div class="panel-right">
-        <div class="panel-title"><i class="ti ti-history" style="color:var(--text2)"></i>Historia odczytów</div>
+        <div class="panel-title"><i class="ti ti-history" style="color:var(--text2)"></i>Historia odczytĂłw</div>
         <div id="ocr-history" style="font-size:12px;color:var(--text3)">Brak historii w tej sesji</div>
       </div>
     </div>
@@ -718,21 +718,21 @@ window.addEventListener('DOMContentLoaded', () => {
 <div class="modal-bg hidden" id="ocr-modal">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:0;width:620px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto">
     <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg2);z-index:1">
-      <div style="font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px"><i class="ti ti-git-diff" style="color:var(--blue)"></i>Porównanie danych — zatwierdź zmiany</div>
-      <button onclick="document.getElementById('ocr-modal').classList.add('hidden')" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+      <div style="font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px"><i class="ti ti-git-diff" style="color:var(--blue)"></i>PorĂłwnanie danych â€” zatwierdĹş zmiany</div>
+      <button onclick="document.getElementById('ocr-modal').classList.add('hidden')" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">Ă—</button>
     </div>
     <div id="ocr-modal-body" style="padding:20px 24px"></div>
     <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;position:sticky;bottom:0;background:var(--bg2)">
       <button class="btn btn-gray" style="flex:1;justify-content:center" onclick="document.getElementById('ocr-modal').classList.add('hidden')"><i class="ti ti-x"></i>Anuluj</button>
-      <button class="btn btn-green" style="flex:1;justify-content:center" id="ocr-apply-btn"><i class="ti ti-check"></i>Zatwierdź i zaktualizuj bazę</button>
+      <button class="btn btn-green" style="flex:1;justify-content:center" id="ocr-apply-btn"><i class="ti ti-check"></i>ZatwierdĹş i zaktualizuj bazÄ™</button>
     </div>
   </div>
 </div>
 
 <!-- ==================== FAKTURY ==================== -->
 <div class="page" id="page-faktury">
-  <div class="pg-title"><i class="ti ti-file-invoice"></i>Faktury — Historia nabycia i zbycia</div>
-  <div class="pg-sub">Wgraj skan faktury zakupu lub sprzedaży pojazdu — program odczyta datę, cenę i przypisze do pojazdu w bazie</div>
+  <div class="pg-title"><i class="ti ti-file-invoice"></i>Faktury â€” Historia nabycia i zbycia</div>
+  <div class="pg-sub">Wgraj skan faktury zakupu lub sprzedaĹĽy pojazdu â€” program odczyta datÄ™, cenÄ™ i przypisze do pojazdu w bazie</div>
   <div style="display:grid;grid-template-columns:1fr 360px;gap:1.5rem;align-items:start">
     <div>
       <!-- Upload -->
@@ -741,17 +741,17 @@ window.addEventListener('DOMContentLoaded', () => {
         ondragleave="this.style.borderColor='var(--border2)';this.style.background='var(--bg2)'"
         ondrop="fakHandleDrop(event)" onclick="document.getElementById('fak-file').click()">
         <i class="ti ti-receipt" style="font-size:40px;color:var(--text3);display:block;margin-bottom:10px"></i>
-        <div style="font-size:14px;font-weight:500;margin-bottom:4px">Wgraj fakturę VAT (zakup lub sprzedaż pojazdu)</div>
-        <div style="font-size:12px;color:var(--text2)">JPG, PNG, PDF · Faktura zakupu, umowa sprzedaży, faktura leasingowa</div>
+        <div style="font-size:14px;font-weight:500;margin-bottom:4px">Wgraj fakturÄ™ VAT (zakup lub sprzedaĹĽ pojazdu)</div>
+        <div style="font-size:12px;color:var(--text2)">JPG, PNG, PDF Â· Faktura zakupu, umowa sprzedaĹĽy, faktura leasingowa</div>
         <input type="file" id="fak-file" accept="image/*,.pdf" style="display:none" onchange="fakHandleFile(this)">
       </div>
       <button class="btn btn-gray" style="width:100%;justify-content:center;margin-bottom:1.5rem" onclick="fakShowForm({})">
-        <i class="ti ti-forms"></i>Wpisz dane ręcznie (bez skanowania)
+        <i class="ti ti-forms"></i>Wpisz dane rÄ™cznie (bez skanowania)
       </button>
       <!-- Loader -->
       <div id="fak-loader" class="hidden" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;text-align:center;margin-bottom:1rem">
-        <div style="font-size:28px;margin-bottom:8px;display:inline-block;animation:spin 1s linear infinite">⚙️</div>
-        <div style="font-weight:500;margin-bottom:4px">OCR analizuje fakturę...</div>
+        <div style="font-size:28px;margin-bottom:8px;display:inline-block;animation:spin 1s linear infinite">âš™ď¸Ź</div>
+        <div style="font-weight:500;margin-bottom:4px">OCR analizuje fakturÄ™...</div>
         <div style="background:var(--bg3);border-radius:4px;height:4px;margin-top:12px;overflow:hidden">
           <div id="fak-bar" style="height:100%;background:var(--blue);width:0%;transition:width .5s;border-radius:4px"></div>
         </div>
@@ -759,26 +759,26 @@ window.addEventListener('DOMContentLoaded', () => {
       <!-- Formularz faktury -->
       <div id="fak-form" class="hidden"></div>
     </div>
-    <!-- Prawa — historia -->
+    <!-- Prawa â€” historia -->
     <div>
       <div class="panel-right" style="margin-bottom:1rem">
-        <div class="panel-title"><i class="ti ti-history" style="color:var(--text2)"></i>Historia zdarzeń pojazdu</div>
+        <div class="panel-title"><i class="ti ti-history" style="color:var(--text2)"></i>Historia zdarzeĹ„ pojazdu</div>
         <div style="margin-bottom:10px;display:flex;gap:6px">
           <input id="fak-search-veh" class="fi" placeholder="Nr rej. pojazdu..." style="flex:1" oninput="renderFakHistory()">
         </div>
-        <div id="fak-history-list" style="font-size:12px;color:var(--text3)">Brak zapisanych zdarzeń</div>
+        <div id="fak-history-list" style="font-size:12px;color:var(--text3)">Brak zapisanych zdarzeĹ„</div>
       </div>
       <div class="panel-right">
         <div class="panel-title"><i class="ti ti-bulb" style="color:var(--amber)"></i>Co program odczytuje?</div>
         <div style="font-size:12px;color:var(--text2);line-height:1.7">
-          <div>📅 Data wystawienia / sprzedaży</div>
-          <div>🔢 Numer faktury / umowy</div>
-          <div>🏢 Sprzedawca (NIP, nazwa)</div>
-          <div>🚛 Nr rejestracyjny pojazdu</div>
-          <div>💰 Cena netto, VAT, brutto</div>
-          <div>📋 Typ zdarzenia (zakup/sprzedaż)</div>
+          <div>đź“… Data wystawienia / sprzedaĹĽy</div>
+          <div>đź”˘ Numer faktury / umowy</div>
+          <div>đźŹ˘ Sprzedawca (NIP, nazwa)</div>
+          <div>đźš› Nr rejestracyjny pojazdu</div>
+          <div>đź’° Cena netto, VAT, brutto</div>
+          <div>đź“‹ Typ zdarzenia (zakup/sprzedaĹĽ)</div>
           <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
-            Zdarzenie automatycznie koryguje <strong>liczbę miesięcy podatkowych</strong> w deklaracji DT-1.
+            Zdarzenie automatycznie koryguje <strong>liczbÄ™ miesiÄ™cy podatkowych</strong> w deklaracji DT-1.
           </div>
         </div>
       </div>
@@ -788,13 +788,13 @@ window.addEventListener('DOMContentLoaded', () => {
 
 <!-- ==================== EKSPORT PDF ==================== -->
 <div class="page" id="page-pdfexport">
-  <div class="pg-title"><i class="ti ti-file-type-pdf"></i>Eksport PDF — Formularze DT-1 i DT-1/A</div>
+  <div class="pg-title"><i class="ti ti-file-type-pdf"></i>Eksport PDF â€” Formularze DT-1 i DT-1/A</div>
   <div class="pg-sub">Generuj gotowe pliki PDF formularzy DT-1 i DT-1/A z danymi z Twojej floty</div>
   <div style="display:grid;grid-template-columns:1fr 340px;gap:1.5rem;align-items:start">
     <div>
       <div class="ibox" style="margin-bottom:1rem">
         <i class="ti ti-info-circle"></i>
-        <div>Przed generowaniem PDF upewnij się że masz zaznaczone pojazdy w zakładce <strong>Pojazdy</strong> i uzupełnione dane podatnika w zakładce <strong>Podatnik</strong>. Zaznaczonych pojazdów: <strong id="pdf-veh-count">0</strong>.</div>
+        <div>Przed generowaniem PDF upewnij siÄ™ ĹĽe masz zaznaczone pojazdy w zakĹ‚adce <strong>Pojazdy</strong> i uzupeĹ‚nione dane podatnika w zakĹ‚adce <strong>Podatnik</strong>. Zaznaczonych pojazdĂłw: <strong id="pdf-veh-count">0</strong>.</div>
       </div>
       <!-- Opcje PDF -->
       <div class="card" style="margin-bottom:1rem">
@@ -803,24 +803,24 @@ window.addEventListener('DOMContentLoaded', () => {
           <div class="f">
             <label>Skala wydruku</label>
             <select id="pdf-scale" class="fi">
-              <option value="1">100% — rozmiar oryginalny</option>
-              <option value="0.9" selected>90% — optymalna jakość</option>
-              <option value="0.8">80% — kompaktowy</option>
+              <option value="1">100% â€” rozmiar oryginalny</option>
+              <option value="0.9" selected>90% â€” optymalna jakoĹ›Ä‡</option>
+              <option value="0.8">80% â€” kompaktowy</option>
             </select>
           </div>
           <div class="f">
             <label>Format papieru</label>
             <select id="pdf-format" class="fi">
-              <option value="a4" selected>A4 (210 × 297 mm)</option>
-              <option value="a3">A3 (297 × 420 mm)</option>
+              <option value="a4" selected>A4 (210 Ă— 297 mm)</option>
+              <option value="a3">A3 (297 Ă— 420 mm)</option>
             </select>
           </div>
           <div class="f">
-            <label>Zawartość PDF</label>
+            <label>ZawartoĹ›Ä‡ PDF</label>
             <select id="pdf-content" class="fi">
               <option value="all" selected>DT-1 + wszystkie DT-1/A</option>
-              <option value="dt1only">Tylko DT-1 (strona główna)</option>
-              <option value="dt1aonly">Tylko DT-1/A (załączniki)</option>
+              <option value="dt1only">Tylko DT-1 (strona gĹ‚Ăłwna)</option>
+              <option value="dt1aonly">Tylko DT-1/A (zaĹ‚Ä…czniki)</option>
             </select>
           </div>
           <div class="f">
@@ -836,37 +836,37 @@ window.addEventListener('DOMContentLoaded', () => {
             <i class="ti ti-file-type-pdf"></i>Generuj i pobierz PDF
           </button>
           <button class="btn btn-gray" style="flex:1;justify-content:center;padding:12px;font-size:14px" onclick="showPage('formularze');setTimeout(()=>window.print(),300)">
-            <i class="ti ti-printer"></i>Drukuj przez przeglądarkę
+            <i class="ti ti-printer"></i>Drukuj przez przeglÄ…darkÄ™
           </button>
         </div>
       </div>
-      <!-- Podgląd -->
+      <!-- PodglÄ…d -->
       <div class="card">
-        <div class="card-title"><i class="ti ti-eye"></i>Podgląd formularzy</div>
-        <div id="pdf-preview-info" style="font-size:13px;color:var(--text2);margin-bottom:10px">Kliknij <strong>Odśwież podgląd</strong> aby zobaczyć jak będzie wyglądał PDF.</div>
-        <button class="btn btn-gray" onclick="refreshPdfPreview()" style="margin-bottom:10px"><i class="ti ti-refresh"></i>Odśwież podgląd</button>
+        <div class="card-title"><i class="ti ti-eye"></i>PodglÄ…d formularzy</div>
+        <div id="pdf-preview-info" style="font-size:13px;color:var(--text2);margin-bottom:10px">Kliknij <strong>OdĹ›wieĹĽ podglÄ…d</strong> aby zobaczyÄ‡ jak bÄ™dzie wyglÄ…daĹ‚ PDF.</div>
+        <button class="btn btn-gray" onclick="refreshPdfPreview()" style="margin-bottom:10px"><i class="ti ti-refresh"></i>OdĹ›wieĹĽ podglÄ…d</button>
         <div id="pdf-preview" style="border:1px solid var(--border);border-radius:var(--radius);overflow:auto;max-height:500px;background:#f0f0f0;padding:10px">
-          <div style="text-align:center;color:var(--text3);padding:2rem"><i class="ti ti-file-type-pdf" style="font-size:40px;display:block;margin-bottom:10px"></i>Podgląd pojawi się po kliknięciu Odśwież</div>
+          <div style="text-align:center;color:var(--text3);padding:2rem"><i class="ti ti-file-type-pdf" style="font-size:40px;display:block;margin-bottom:10px"></i>PodglÄ…d pojawi siÄ™ po klikniÄ™ciu OdĹ›wieĹĽ</div>
         </div>
       </div>
     </div>
     <!-- Prawa -->
     <div class="panel-right">
-      <div class="panel-title"><i class="ti ti-list-check" style="color:var(--text2)"></i>Zawartość pliku PDF</div>
+      <div class="panel-title"><i class="ti ti-list-check" style="color:var(--text2)"></i>ZawartoĹ›Ä‡ pliku PDF</div>
       <div id="pdf-summary">
-        <div class="sum-row"><span>Zaznaczonych pojazdów</span><span class="sum-val" id="pdf-cnt-v">0</span></div>
+        <div class="sum-row"><span>Zaznaczonych pojazdĂłw</span><span class="sum-val" id="pdf-cnt-v">0</span></div>
         <div class="sum-row"><span>Strony DT-1</span><span class="sum-val">1</span></div>
-        <div class="sum-row"><span>Załączniki DT-1/A</span><span class="sum-val" id="pdf-cnt-att">0</span></div>
-        <div class="sum-row"><span>Łącznie stron</span><span class="sum-val" id="pdf-cnt-total">1</span></div>
-        <div class="sum-row big"><span>Podatek (poz. 80)</span><span class="sum-val green" id="pdf-cnt-tax">0 zł</span></div>
+        <div class="sum-row"><span>ZaĹ‚Ä…czniki DT-1/A</span><span class="sum-val" id="pdf-cnt-att">0</span></div>
+        <div class="sum-row"><span>ĹÄ…cznie stron</span><span class="sum-val" id="pdf-cnt-total">1</span></div>
+        <div class="sum-row big"><span>Podatek (poz. 80)</span><span class="sum-val green" id="pdf-cnt-tax">0 zĹ‚</span></div>
       </div>
       <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
         <div style="font-size:12px;font-weight:600;margin-bottom:6px">Informacje o pliku:</div>
         <div style="font-size:11px;color:var(--text2);line-height:1.8">
           <div>Format: PDF/A, A4, 300 DPI</div>
           <div>Czcionka: monospace (jak formularz)</div>
-          <div>Gotowy do złożenia / wydruku</div>
-          <div style="margin-top:6px;color:var(--amber)">⚠ Podpisanie wymaga odręcznie lub kwalifikowanym podpisem elektronicznym</div>
+          <div>Gotowy do zĹ‚oĹĽenia / wydruku</div>
+          <div style="margin-top:6px;color:var(--amber)">âš  Podpisanie wymaga odrÄ™cznie lub kwalifikowanym podpisem elektronicznym</div>
         </div>
       </div>
     </div>
@@ -876,7 +876,7 @@ window.addEventListener('DOMContentLoaded', () => {
 <!-- ==================== IMPORT/EKSPORT ==================== -->
 <div class="page" id="page-impexp">
   <div class="pg-title"><i class="ti ti-arrows-exchange"></i>Import / Eksport danych</div>
-  <div class="pg-sub">Wczytaj dane z Excela lub eksportuj bazę pojazdów i deklaracje do różnych formatów</div>
+  <div class="pg-sub">Wczytaj dane z Excela lub eksportuj bazÄ™ pojazdĂłw i deklaracje do rĂłĹĽnych formatĂłw</div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
 
     <!-- IMPORT -->
@@ -885,13 +885,13 @@ window.addEventListener('DOMContentLoaded', () => {
 
       <div class="card" style="margin-bottom:1rem">
         <div class="card-title"><i class="ti ti-file-spreadsheet"></i>Import z Excela (.xlsx)</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Wgraj plik Excel z flotą pojazdów. Program automatycznie mapuje kolumny wg nazw nagłówków.</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Wgraj plik Excel z flotÄ… pojazdĂłw. Program automatycznie mapuje kolumny wg nazw nagĹ‚ĂłwkĂłw.</div>
         <div id="imp-xl-drop" style="border:2px dashed var(--border2);border-radius:var(--radius);padding:1.5rem;text-align:center;cursor:pointer;background:var(--bg3);transition:all .2s"
           ondragover="event.preventDefault();this.style.borderColor='var(--blue)'"
           ondragleave="this.style.borderColor='var(--border2)'"
           ondrop="impXlDrop(event)" onclick="document.getElementById('imp-xl-file').click()">
           <i class="ti ti-file-spreadsheet" style="font-size:32px;color:var(--text3)"></i>
-          <div style="font-size:13px;margin-top:6px">Przeciągnij .xlsx lub kliknij</div>
+          <div style="font-size:13px;margin-top:6px">PrzeciÄ…gnij .xlsx lub kliknij</div>
           <input type="file" id="imp-xl-file" accept=".xlsx,.xls" style="display:none" onchange="impXlHandle(this)">
         </div>
         <div id="imp-xl-result" style="margin-top:10px"></div>
@@ -909,7 +909,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
       <div class="card">
         <div class="card-title"><i class="ti ti-file-text"></i>Import z CSV</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Prosty format CSV z nagłówkami: nrRej, marka, model, rok, typ, dmc, vin, status, euro.</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Prosty format CSV z nagĹ‚Ăłwkami: nrRej, marka, model, rok, typ, dmc, vin, status, euro.</div>
         <div style="display:flex;gap:8px">
           <button class="btn btn-gray" style="flex:1;justify-content:center" onclick="document.getElementById('imp-csv-file').click()"><i class="ti ti-upload"></i>Wgraj CSV</button>
           <input type="file" id="imp-csv-file" accept=".csv,.txt" style="display:none" onchange="impCsvHandle(this)">
@@ -924,22 +924,22 @@ window.addEventListener('DOMContentLoaded', () => {
 
       <div class="card" style="margin-bottom:1rem">
         <div class="card-title"><i class="ti ti-file-spreadsheet"></i>Eksport do Excela (.xlsx)</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Pełna baza pojazdów z kolumnami DT-1 — otwierasz w Excelu, edytujesz, importujesz z powrotem.</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">PeĹ‚na baza pojazdĂłw z kolumnami DT-1 â€” otwierasz w Excelu, edytujesz, importujesz z powrotem.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-green" style="flex:1;justify-content:center" onclick="expXlAll()"><i class="ti ti-file-spreadsheet"></i>Eksport całej floty (191 poj.)</button>
+          <button class="btn btn-green" style="flex:1;justify-content:center" onclick="expXlAll()"><i class="ti ti-file-spreadsheet"></i>Eksport caĹ‚ej floty (191 poj.)</button>
           <button class="btn btn-gray" style="flex:1;justify-content:center" onclick="expXlSel()"><i class="ti ti-checkbox"></i>Eksport zaznaczonych (<span id="exp-sel-cnt">0</span>)</button>
         </div>
       </div>
 
       <div class="card" style="margin-bottom:1rem">
         <div class="card-title"><i class="ti ti-file-text"></i>Eksport do CSV</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Lekki format tekstowy kompatybilny z każdym arkuszem kalkulacyjnym.</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Lekki format tekstowy kompatybilny z kaĹĽdym arkuszem kalkulacyjnym.</div>
         <button class="btn btn-gray" style="width:100%;justify-content:center" onclick="expCsv()"><i class="ti ti-download"></i>Pobierz CSV (wszystkie pojazdy)</button>
       </div>
 
       <div class="card" style="margin-bottom:1rem">
         <div class="card-title"><i class="ti ti-file-code"></i>Backup sesji (JSON)</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Zapisuje pełny stan programu: pojazdy, zaznaczenia, dane podatnika, historię faktur. Wczytaj następnym razem przez Import JSON.</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Zapisuje peĹ‚ny stan programu: pojazdy, zaznaczenia, dane podatnika, historiÄ™ faktur. Wczytaj nastÄ™pnym razem przez Import JSON.</div>
         <button class="btn btn-gray" style="width:100%;justify-content:center" onclick="expJson()"><i class="ti ti-device-floppy"></i>Zapisz backup sesji (.json)</button>
       </div>
 
@@ -952,10 +952,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
   </div>
 
-  <!-- Podgląd importu -->
+  <!-- PodglÄ…d importu -->
   <div id="imp-preview" class="hidden" style="margin-top:1.5rem">
     <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
-      <i class="ti ti-table" style="color:var(--text2)"></i>Podgląd importu
+      <i class="ti ti-table" style="color:var(--text2)"></i>PodglÄ…d importu
       <button class="btn btn-gray" style="font-size:11px" onclick="document.getElementById('imp-preview').classList.add('hidden')"><i class="ti ti-x"></i>Zamknij</button>
     </div>
     <div id="imp-preview-body"></div>
@@ -966,19 +966,19 @@ window.addEventListener('DOMContentLoaded', () => {
 <!-- ==================== KARTY FLOTOWE ==================== -->
 <div class="page" id="page-karty">
   <div class="pg-title"><i class="ti ti-credit-card"></i>Karty flotowe</div>
-  <div class="pg-sub">Zarządzaj kartami paliwowymi, opłat drogowych i parkingowymi przypisanymi do pojazdów</div>
+  <div class="pg-sub">ZarzÄ…dzaj kartami paliwowymi, opĹ‚at drogowych i parkingowymi przypisanymi do pojazdĂłw</div>
   <div style="display:grid;grid-template-columns:1fr 340px;gap:1.5rem;align-items:start">
     <div>
       <div class="toolbar">
-        <input id="kf-search" class="fi" placeholder="🔍 Nr karty, nr rej., dostawca..." style="flex:1" oninput="renderKarty()">
+        <input id="kf-search" class="fi" placeholder="đź”Ť Nr karty, nr rej., dostawca..." style="flex:1" oninput="renderKarty()">
         <select id="kf-typ" class="fi" style="width:160px" onchange="renderKarty()">
           <option value="">Wszystkie typy</option>
           <option value="PALIWOWA">Paliwowa</option>
-          <option value="OPŁATY">Opłaty drogowe</option>
+          <option value="OPĹATY">OpĹ‚aty drogowe</option>
           <option value="PARKING">Parking</option>
           <option value="INNA">Inna</option>
         </select>
-        <button class="btn btn-blue" onclick="openKartaModal()"><i class="ti ti-plus"></i>Dodaj kartę</button>
+        <button class="btn btn-blue" onclick="openKartaModal()"><i class="ti ti-plus"></i>Dodaj kartÄ™</button>
         <button class="btn btn-gray" onclick="document.getElementById('kf-imp-file').click()"><i class="ti ti-upload"></i>Import Excel</button>
         <input type="file" id="kf-imp-file" accept=".xlsx,.xls" style="display:none" onchange="importKarty(this)">
         <button class="btn btn-gray" onclick="exportKarty()"><i class="ti ti-download"></i>Eksport</button>
@@ -987,7 +987,7 @@ window.addEventListener('DOMContentLoaded', () => {
         <table>
           <thead><tr>
             <th>Nr karty</th><th>PIN</th><th>Pojazd</th><th>Typ</th>
-            <th>Dostawca</th><th>Limit (zł)</th><th>Ważna do</th><th>Status</th><th></th>
+            <th>Dostawca</th><th>Limit (zĹ‚)</th><th>WaĹĽna do</th><th>Status</th><th></th>
           </tr></thead>
           <tbody id="karty-tbody"></tbody>
         </table>
@@ -999,30 +999,30 @@ window.addEventListener('DOMContentLoaded', () => {
         <div id="karty-summary" style="font-size:13px;color:var(--text2)">Brak kart</div>
       </div>
       <div class="panel-right">
-        <div class="panel-title"><i class="ti ti-info-circle" style="color:var(--amber)"></i>Bezpieczeństwo PINów</div>
+        <div class="panel-title"><i class="ti ti-info-circle" style="color:var(--amber)"></i>BezpieczeĹ„stwo PINĂłw</div>
         <div style="font-size:12px;color:var(--text2);line-height:1.7">
-          <div>🔒 PINy są maskowane — kliknij <strong>Pokaż</strong> aby ujawnić</div>
-          <div>🔒 Eksport Excel zawiera PINy — zabezpiecz plik hasłem</div>
-          <div>🔒 Dane przechowywane lokalnie w sesji przeglądarki</div>
+          <div>đź”’ PINy sÄ… maskowane â€” kliknij <strong>PokaĹĽ</strong> aby ujawniÄ‡</div>
+          <div>đź”’ Eksport Excel zawiera PINy â€” zabezpiecz plik hasĹ‚em</div>
+          <div>đź”’ Dane przechowywane lokalnie w sesji przeglÄ…darki</div>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ==================== UŻYTKOWNICY ==================== -->
+<!-- ==================== UĹ»YTKOWNICY ==================== -->
 <div class="page" id="page-uzytkownicy">
-  <div class="pg-title"><i class="ti ti-users"></i>Zarządzanie użytkownikami</div>
-  <div class="pg-sub">Dodawaj, edytuj i kontroluj dostęp użytkowników systemu TaxOrder Pro</div>
+  <div class="pg-title"><i class="ti ti-users"></i>ZarzÄ…dzanie uĹĽytkownikami</div>
+  <div class="pg-sub">Dodawaj, edytuj i kontroluj dostÄ™p uĹĽytkownikĂłw systemu TaxOrder Pro</div>
   <div style="display:grid;grid-template-columns:1fr 340px;gap:1.5rem;align-items:start">
     <div>
       <div class="toolbar">
-        <button class="btn btn-blue" onclick="openUserModal()" id="btn-add-user"><i class="ti ti-user-plus"></i>Dodaj użytkownika</button>
+        <button class="btn btn-blue" onclick="openUserModal()" id="btn-add-user"><i class="ti ti-user-plus"></i>Dodaj uĹĽytkownika</button>
       </div>
       <div class="tbl-wrap">
         <table>
           <thead><tr>
-            <th>Użytkownik</th><th>E-mail</th><th>Rola</th><th>Uprawnienia</th><th>Status</th><th></th>
+            <th>UĹĽytkownik</th><th>E-mail</th><th>Rola</th><th>Uprawnienia</th><th>Status</th><th></th>
           </tr></thead>
           <tbody id="users-tbody"></tbody>
         </table>
@@ -1033,20 +1033,20 @@ window.addEventListener('DOMContentLoaded', () => {
         <div class="panel-title"><i class="ti ti-shield" style="color:var(--blue)"></i>Role i uprawnienia</div>
         <div style="font-size:12px;line-height:1.8">
           ${[
-            ['Admin','Pełny dostęp — wszystkie zakładki, zarządzanie użytkownikami','var(--red)'],
+            ['Admin','PeĹ‚ny dostÄ™p â€” wszystkie zakĹ‚adki, zarzÄ…dzanie uĹĽytkownikami','var(--red)'],
             ['Kierownik','Pulpit, pojazdy, kalkulator, DT-1, raporty, PDF','var(--blue)'],
-            ['Księgowy','Kalkulator, DT-1, raporty, eksport, Przyjazne Dekl.','var(--green)'],
+            ['KsiÄ™gowy','Kalkulator, DT-1, raporty, eksport, Przyjazne Dekl.','var(--green)'],
             ['Mechanik','Pulpit, pojazdy, OCR, faktury','var(--amber)'],
           ].map(([r,d,c])=>`<div style="margin-bottom:8px"><span style="font-size:10px;padding:2px 8px;border-radius:4px;background:${c};color:#fff;font-weight:600">${r}</span><div style="font-size:11px;color:var(--text2);margin-top:3px">${d}</div></div>`).join('')}
         </div>
       </div>
       <div class="panel-right">
-        <div class="panel-title"><i class="ti ti-key" style="color:var(--amber)"></i>Polityka haseł</div>
+        <div class="panel-title"><i class="ti ti-key" style="color:var(--amber)"></i>Polityka haseĹ‚</div>
         <div style="font-size:12px;color:var(--text2);line-height:1.7">
-          <div>✅ Min. 6 znaków</div>
-          <div>✅ Hasło widoczne przy tworzeniu</div>
-          <div>⚠️ Hasła przechowywane lokalnie (localStorage)</div>
-          <div>⚠️ System lokalny — bez serwera autoryzacji</div>
+          <div>âś… Min. 6 znakĂłw</div>
+          <div>âś… HasĹ‚o widoczne przy tworzeniu</div>
+          <div>âš ď¸Ź HasĹ‚a przechowywane lokalnie (localStorage)</div>
+          <div>âš ď¸Ź System lokalny â€” bez serwera autoryzacji</div>
         </div>
       </div>
     </div>
@@ -1057,8 +1057,8 @@ window.addEventListener('DOMContentLoaded', () => {
 <div class="modal-bg hidden" id="karta-modal">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:500px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.2)">
     <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-      <div style="font-size:15px;font-weight:600" id="km-title">Dodaj kartę flotową</div>
-      <button onclick="document.getElementById('karta-modal').classList.add('hidden')" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+      <div style="font-size:15px;font-weight:600" id="km-title">Dodaj kartÄ™ flotowÄ…</div>
+      <button onclick="document.getElementById('karta-modal').classList.add('hidden')" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">Ă—</button>
     </div>
     <div style="padding:20px 22px">
       <div class="fg" style="gap:12px">
@@ -1071,19 +1071,19 @@ window.addEventListener('DOMContentLoaded', () => {
         <div class="f"><label>Typ karty</label>
           <select id="km-typ" class="fi">
             <option value="PALIWOWA">Paliwowa</option>
-            <option value="OPŁATY">Opłaty drogowe (e-toll, Viauto)</option>
+            <option value="OPĹATY">OpĹ‚aty drogowe (e-toll, Viauto)</option>
             <option value="PARKING">Parking</option>
             <option value="INNA">Inna</option>
           </select>
         </div>
         <div class="f"><label>Dostawca</label><input id="km-dostawca" class="fi" placeholder="np. Shell, BP, DKV, UTA"></div>
-        <div class="f"><label>Limit miesięczny (zł)</label><input id="km-limit" class="fi" type="number" placeholder="np. 3000"></div>
-        <div class="f"><label>Ważna do (MM/RRRR)</label><input id="km-wazna" class="fi" placeholder="np. 12/2027"></div>
+        <div class="f"><label>Limit miesiÄ™czny (zĹ‚)</label><input id="km-limit" class="fi" type="number" placeholder="np. 3000"></div>
+        <div class="f"><label>WaĹĽna do (MM/RRRR)</label><input id="km-wazna" class="fi" placeholder="np. 12/2027"></div>
         <div class="f"><label>Status</label>
           <select id="km-status" class="fi">
             <option value="AKTYWNA">Aktywna</option>
             <option value="ZABLOKOWANA">Zablokowana</option>
-            <option value="WYGASŁA">Wygasła</option>
+            <option value="WYGASĹA">WygasĹ‚a</option>
           </select>
         </div>
         <div class="f full"><label>Uwagi</label><input id="km-uwagi" class="fi" placeholder="Opcjonalne uwagi..."></div>
@@ -1091,28 +1091,28 @@ window.addEventListener('DOMContentLoaded', () => {
     </div>
     <div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:10px">
       <button class="btn btn-gray" style="flex:1;justify-content:center" onclick="document.getElementById('karta-modal').classList.add('hidden')">Anuluj</button>
-      <button class="btn btn-blue" style="flex:1;justify-content:center" id="km-save-btn" onclick="saveKarta()"><i class="ti ti-device-floppy"></i>Zapisz kartę</button>
+      <button class="btn btn-blue" style="flex:1;justify-content:center" id="km-save-btn" onclick="saveKarta()"><i class="ti ti-device-floppy"></i>Zapisz kartÄ™</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL użytkownika -->
+<!-- MODAL uĹĽytkownika -->
 <div class="modal-bg hidden" id="user-modal">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:460px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.2)">
     <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-      <div style="font-size:15px;font-weight:600" id="um-title">Dodaj użytkownika</div>
-      <button onclick="document.getElementById('user-modal').classList.add('hidden')" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+      <div style="font-size:15px;font-weight:600" id="um-title">Dodaj uĹĽytkownika</div>
+      <button onclick="document.getElementById('user-modal').classList.add('hidden')" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">Ă—</button>
     </div>
     <div style="padding:20px 22px">
       <div class="fg" style="gap:12px">
-        <div class="f"><label>Imię i nazwisko</label><input id="um-name" class="fi" placeholder="np. Jan Kowalski"></div>
+        <div class="f"><label>ImiÄ™ i nazwisko</label><input id="um-name" class="fi" placeholder="np. Jan Kowalski"></div>
         <div class="f"><label>E-mail (login)</label><input id="um-email" class="fi" placeholder="jan@mtoilet.pl" type="email"></div>
-        <div class="f"><label>Hasło (min. 6 znaków)</label><input id="um-pass" class="fi" type="text" placeholder="np. Haslo123"></div>
+        <div class="f"><label>HasĹ‚o (min. 6 znakĂłw)</label><input id="um-pass" class="fi" type="text" placeholder="np. Haslo123"></div>
         <div class="f"><label>Rola</label>
           <select id="um-role" class="fi">
             <option value="mechanik">Mechanik</option>
             <option value="kierownik">Kierownik</option>
-            <option value="ksiegowy">Księgowy</option>
+            <option value="ksiegowy">KsiÄ™gowy</option>
             <option value="admin">Administrator</option>
           </select>
         </div>
@@ -1121,12 +1121,12 @@ window.addEventListener('DOMContentLoaded', () => {
     </div>
     <div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:10px">
       <button class="btn btn-gray" style="flex:1;justify-content:center" onclick="document.getElementById('user-modal').classList.add('hidden')">Anuluj</button>
-      <button class="btn btn-blue" style="flex:1;justify-content:center" id="um-save-btn" onclick="saveUser()"><i class="ti ti-device-floppy"></i>Zapisz użytkownika</button>
+      <button class="btn btn-blue" style="flex:1;justify-content:center" id="um-save-btn" onclick="saveUser()"><i class="ti ti-device-floppy"></i>Zapisz uĹĽytkownika</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL podglądu dokumentu (dowód rej.) -->
+<!-- MODAL podglÄ…du dokumentu (dowĂłd rej.) -->
 <div class="modal-bg hidden" id="doc-modal">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:800px;max-width:95vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.2)">
     <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0">
@@ -1136,7 +1136,7 @@ window.addEventListener('DOMContentLoaded', () => {
         <div style="font-size:11px;color:var(--text2)" id="doc-modal-sub"></div>
       </div>
       <button class="btn btn-gray" style="font-size:11px" onclick="triggerDocUpload(currentDocNrRej)"><i class="ti ti-upload"></i>Dodaj kolejny</button>
-      <button onclick="document.getElementById('doc-modal').classList.add('hidden')" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2)">×</button>
+      <button onclick="document.getElementById('doc-modal').classList.add('hidden')" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2)">Ă—</button>
     </div>
     <div style="flex:1;overflow-y:auto;padding:16px">
       <div id="doc-modal-body" style="min-height:300px"></div>
@@ -1146,23 +1146,23 @@ window.addEventListener('DOMContentLoaded', () => {
 
 <!-- ==================== CEPiK ==================== -->
 <div class="page" id="page-cepik">
-  <div class="pg-title"><i class="ti ti-database"></i>CEPiK — Centralna Ewidencja Pojazdów i Kierowców</div>
-  <div class="pg-sub">Automatyczna weryfikacja danych pojazdów z bazy Ministerstwa Cyfryzacji</div>
+  <div class="pg-title"><i class="ti ti-database"></i>CEPiK â€” Centralna Ewidencja PojazdĂłw i KierowcĂłw</div>
+  <div class="pg-sub">Automatyczna weryfikacja danych pojazdĂłw z bazy Ministerstwa Cyfryzacji</div>
 
   <!-- KONFIGURACJA TOKENU -->
   <div class="card" id="cepik-config-card" style="margin-bottom:1.5rem;border-color:var(--blue)">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
       <i class="ti ti-key" style="font-size:20px;color:var(--blue)"></i>
       <div>
-        <div style="font-size:14px;font-weight:600">Konfiguracja dostępu do CEPiK API</div>
-        <div style="font-size:11px;color:var(--text2)">Portal deweloperski cpa.gov.pl — OAuth 2.0 Client Credentials</div>
+        <div style="font-size:14px;font-weight:600">Konfiguracja dostÄ™pu do CEPiK API</div>
+        <div style="font-size:11px;color:var(--text2)">Portal deweloperski cpa.gov.pl â€” OAuth 2.0 Client Credentials</div>
       </div>
-      <span class="pill" id="cepik-status-pill" style="margin-left:auto">⚪ Nie skonfigurowano</span>
+      <span class="pill" id="cepik-status-pill" style="margin-left:auto">âšŞ Nie skonfigurowano</span>
     </div>
 
     <!-- KROK 1: Klucze -->
     <div style="background:var(--bg3);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px;border-left:3px solid var(--blue)">
-      <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:8px">Krok 1 — Klucze ze strony cpa.gov.pl (zakładka "Klucze")</div>
+      <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:8px">Krok 1 â€” Klucze ze strony cpa.gov.pl (zakĹ‚adka "Klucze")</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="f">
           <label>Klucz klienta (Consumer Key)</label>
@@ -1181,24 +1181,24 @@ window.addEventListener('DOMContentLoaded', () => {
       </div>
     </div>
 
-    <!-- KROK 2: Województwo -->
+    <!-- KROK 2: WojewĂłdztwo -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <div class="f">
-        <label>Województwo rejestracji (domyślne dla floty)</label>
+        <label>WojewĂłdztwo rejestracji (domyĹ›lne dla floty)</label>
         <select id="cepik-woj" class="fi">
-          <option value="14" selected>14 — Mazowieckie (Warszawa)</option>
-          <option value="02">02 — Dolnośląskie</option><option value="04">04 — Kujawsko-Pomorskie</option>
-          <option value="06">06 — Lubelskie</option><option value="08">08 — Lubuskie</option>
-          <option value="10">10 — Łódzkie</option><option value="12">12 — Małopolskie</option>
-          <option value="16">16 — Opolskie</option><option value="18">18 — Podkarpackie</option>
-          <option value="20">20 — Podlaskie</option><option value="22">22 — Pomorskie</option>
-          <option value="24">24 — Śląskie</option><option value="26">26 — Świętokrzyskie</option>
-          <option value="28">28 — Warmińsko-Mazurskie</option><option value="30">30 — Wielkopolskie</option>
-          <option value="32">32 — Zachodniopomorskie</option>
+          <option value="14" selected>14 â€” Mazowieckie (Warszawa)</option>
+          <option value="02">02 â€” DolnoĹ›lÄ…skie</option><option value="04">04 â€” Kujawsko-Pomorskie</option>
+          <option value="06">06 â€” Lubelskie</option><option value="08">08 â€” Lubuskie</option>
+          <option value="10">10 â€” ĹĂłdzkie</option><option value="12">12 â€” MaĹ‚opolskie</option>
+          <option value="16">16 â€” Opolskie</option><option value="18">18 â€” Podkarpackie</option>
+          <option value="20">20 â€” Podlaskie</option><option value="22">22 â€” Pomorskie</option>
+          <option value="24">24 â€” ĹšlÄ…skie</option><option value="26">26 â€” ĹšwiÄ™tokrzyskie</option>
+          <option value="28">28 â€” WarmiĹ„sko-Mazurskie</option><option value="30">30 â€” Wielkopolskie</option>
+          <option value="32">32 â€” Zachodniopomorskie</option>
         </select>
       </div>
       <div class="f">
-        <label>URL serwera proxy (opcjonalne — rozwiązanie CORS)</label>
+        <label>URL serwera proxy (opcjonalne â€” rozwiÄ…zanie CORS)</label>
         <input id="cepik-proxy" class="fi" placeholder="np. https://proxy.moj-serwer.pl/cepik" value="">
       </div>
     </div>
@@ -1206,7 +1206,7 @@ window.addEventListener('DOMContentLoaded', () => {
     <!-- Token wygenerowany -->
     <div style="background:var(--bg3);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px;border-left:3px solid var(--green)" id="cepik-token-box" style="display:none">
       <div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:6px">
-        ✅ Aktywny token dostępowy
+        âś… Aktywny token dostÄ™powy
         <span id="cepik-token-expires" style="font-weight:400;color:var(--text2);margin-left:8px"></span>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
@@ -1219,93 +1219,93 @@ window.addEventListener('DOMContentLoaded', () => {
     <!-- Przyciski -->
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-blue" onclick="cepikConnect()" id="cepik-connect-btn">
-        <i class="ti ti-plug"></i>Połącz z CEPiK (generuj token)
+        <i class="ti ti-plug"></i>PoĹ‚Ä…cz z CEPiK (generuj token)
       </button>
       <button class="btn btn-gray" onclick="cepikRefreshToken()" id="cepik-refresh-btn" style="display:none">
-        <i class="ti ti-refresh"></i>Odśwież token
+        <i class="ti ti-refresh"></i>OdĹ›wieĹĽ token
       </button>
       <button class="btn btn-gray" onclick="clearCepikConfig()">
-        <i class="ti ti-trash"></i>Wyczyść konfigurację
+        <i class="ti ti-trash"></i>WyczyĹ›Ä‡ konfiguracjÄ™
       </button>
       <a href="https://cpa.gov.pl/store/apis/info?name=CEPiK&version=1.0&provider=cpa" target="_blank" class="btn btn-gray" style="text-decoration:none">
-        <i class="ti ti-external-link"></i>cpa.gov.pl → Twoje klucze
+        <i class="ti ti-external-link"></i>cpa.gov.pl â†’ Twoje klucze
       </a>
     </div>
-    <!-- Status połączenia -->
+    <!-- Status poĹ‚Ä…czenia -->
     <div id="cepik-conn-log" style="margin-top:10px;font-size:11px;color:var(--text2);font-family:var(--mono);max-height:80px;overflow-y:auto"></div>
   </div>
 
-  <!-- INSTRUKCJA UZYSKANIA DOSTĘPU -->
+  <!-- INSTRUKCJA UZYSKANIA DOSTÄPU -->
   <div id="cepik-howto" class="card" style="margin-bottom:1.5rem">
     <div style="font-size:14px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px">
       <i class="ti ti-info-circle" style="color:var(--blue)"></i>
-      Jak uzyskać dostęp do CEPiK API — instrukcja krok po kroku
+      Jak uzyskaÄ‡ dostÄ™p do CEPiK API â€” instrukcja krok po kroku
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
       <div>
-        <div style="font-weight:500;margin-bottom:10px;font-size:13px">🔑 Ścieżka 1 — Portal Deweloperski (szybsza, bezpłatna)</div>
+        <div style="font-weight:500;margin-bottom:10px;font-size:13px">đź”‘ ĹšcieĹĽka 1 â€” Portal Deweloperski (szybsza, bezpĹ‚atna)</div>
         ${[
-          ['1','Wejdź na','cpa.gov.pl/store/apis/info?name=CEPiK','Portal Deweloperski CEPiK'],
-          ['2','Zarejestruj konto lub zaloguj się przez','gov.pl','login.gov.pl'],
-          ['3','Kliknij <strong>Subskrybuj do API CEPiK</strong> → wybierz plan (bezpłatny dostęp do danych zagregowanych)','',''],
-          ['4','Skopiuj wygenerowany <strong>Token Bearer</strong> i wklej go powyżej w polu Konfiguracja','',''],
-          ['5','Kliknij <strong>Zapisz i przetestuj połączenie</strong>','',''],
+          ['1','WejdĹş na','cpa.gov.pl/store/apis/info?name=CEPiK','Portal Deweloperski CEPiK'],
+          ['2','Zarejestruj konto lub zaloguj siÄ™ przez','gov.pl','login.gov.pl'],
+          ['3','Kliknij <strong>Subskrybuj do API CEPiK</strong> â†’ wybierz plan (bezpĹ‚atny dostÄ™p do danych zagregowanych)','',''],
+          ['4','Skopiuj wygenerowany <strong>Token Bearer</strong> i wklej go powyĹĽej w polu Konfiguracja','',''],
+          ['5','Kliknij <strong>Zapisz i przetestuj poĹ‚Ä…czenie</strong>','',''],
         ].map(([n,t,url,label])=>`<div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start">
           <div style="min-width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${n}</div>
           <div style="font-size:12px;color:var(--text2);line-height:1.5">${t}${url?` <a href="https://${url}" target="_blank" style="color:var(--blue)">${label||url}</a>`:''}.</div>
         </div>`).join('')}
       </div>
       <div>
-        <div style="font-weight:500;margin-bottom:10px;font-size:13px">📋 Ścieżka 2 — Wniosek przez ePUAP (pełny dostęp do danych pojazdów)</div>
+        <div style="font-weight:500;margin-bottom:10px;font-size:13px">đź“‹ ĹšcieĹĽka 2 â€” Wniosek przez ePUAP (peĹ‚ny dostÄ™p do danych pojazdĂłw)</div>
         <div style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:10px">
-          Dla firm chcących sprawdzać konkretne pojazdy (np. weryfikacja DMC, daty rejestracji, właściciela) wymagany jest formalny wniosek:
+          Dla firm chcÄ…cych sprawdzaÄ‡ konkretne pojazdy (np. weryfikacja DMC, daty rejestracji, wĹ‚aĹ›ciciela) wymagany jest formalny wniosek:
         </div>
         ${[
-          'Zaloguj się na ePUAP z kwalifikowanym podpisem elektronicznym lub podpisem zaufanym',
-          'Wypełnij wniosek: <em>Usługa CEP: Przyjmowanie wniosków o udostępnienie danych</em>',
-          'W rubryce nr 4 wpisz dokładny cel — <strong>"weryfikacja danych pojazdów własnej floty dla celów podatkowych (DT-1)"</strong>',
-          'Wniosek rozpatrywany w ciągu 14–30 dni',
-          'Po akceptacji otrzymasz klucz API z dostępem do pełnych danych pojazdu po nr rej.',
+          'Zaloguj siÄ™ na ePUAP z kwalifikowanym podpisem elektronicznym lub podpisem zaufanym',
+          'WypeĹ‚nij wniosek: <em>UsĹ‚uga CEP: Przyjmowanie wnioskĂłw o udostÄ™pnienie danych</em>',
+          'W rubryce nr 4 wpisz dokĹ‚adny cel â€” <strong>"weryfikacja danych pojazdĂłw wĹ‚asnej floty dla celĂłw podatkowych (DT-1)"</strong>',
+          'Wniosek rozpatrywany w ciÄ…gu 14â€“30 dni',
+          'Po akceptacji otrzymasz klucz API z dostÄ™pem do peĹ‚nych danych pojazdu po nr rej.',
         ].map((t,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px;font-size:11px;color:var(--text2)">
           <i class="ti ti-circle-check" style="color:var(--green);flex-shrink:0;margin-top:1px"></i>${t}
         </div>`).join('')}
       </div>
     </div>
     <div style="background:var(--amber-light);border:1px solid #EF9F27;border-radius:var(--radius);padding:10px 14px;margin-top:10px;font-size:12px;color:#633806">
-      <strong>⚠ Ważne:</strong> Publiczne API CEPiK (api.cepik.gov.pl) używa whitelist IP — dostęp z przeglądarki internetowej jest możliwy wyłącznie przez serwer pośredniczący lub po wpisaniu IP Twojego serwera na listę dozwolonych. Program obsługuje oba scenariusze.
+      <strong>âš  WaĹĽne:</strong> Publiczne API CEPiK (api.cepik.gov.pl) uĹĽywa whitelist IP â€” dostÄ™p z przeglÄ…darki internetowej jest moĹĽliwy wyĹ‚Ä…cznie przez serwer poĹ›redniczÄ…cy lub po wpisaniu IP Twojego serwera na listÄ™ dozwolonych. Program obsĹ‚uguje oba scenariusze.
     </div>
   </div>
 
-  <!-- TRYBY DZIAŁANIA -->
+  <!-- TRYBY DZIAĹANIA -->
   <div style="display:grid;grid-template-columns:1fr 400px;gap:1.5rem;align-items:start">
     <div>
       <!-- WERYFIKACJA JEDNEGO POJAZDU -->
       <div class="card" style="margin-bottom:1rem">
-        <div class="card-title"><i class="ti ti-search"></i>Sprawdź jeden pojazd</div>
+        <div class="card-title"><i class="ti ti-search"></i>SprawdĹş jeden pojazd</div>
         <div style="display:flex;gap:8px;margin-bottom:8px">
           <input id="cepik-single-nr" class="fi" placeholder="Nr rejestracyjny, np. WA4789F" style="flex:1" onkeydown="if(event.key==='Enter')cepikCheckSingle()">
           <select id="cepik-single-woj" class="fi" style="width:180px">
             <option value="auto">Auto (z prefiksu)</option>
-            <option value="14">14 — Mazowieckie</option>
-            <option value="12">12 — Małopolskie</option>
-            <option value="22">22 — Pomorskie</option>
+            <option value="14">14 â€” Mazowieckie</option>
+            <option value="12">12 â€” MaĹ‚opolskie</option>
+            <option value="22">22 â€” Pomorskie</option>
           </select>
-          <button class="btn btn-blue" onclick="cepikCheckSingle()"><i class="ti ti-search"></i>Sprawdź</button>
+          <button class="btn btn-blue" onclick="cepikCheckSingle()"><i class="ti ti-search"></i>SprawdĹş</button>
         </div>
         <div id="cepik-single-result"></div>
       </div>
 
       <!-- WERYFIKACJA WSADOWA -->
       <div class="card">
-        <div class="card-title"><i class="ti ti-refresh"></i>Weryfikacja całej floty</div>
+        <div class="card-title"><i class="ti ti-refresh"></i>Weryfikacja caĹ‚ej floty</div>
         <div class="ibox" style="margin-bottom:10px">
           <i class="ti ti-info-circle"></i>
-          <div>Ostatnia weryfikacja: <strong id="cepik-last-check">nigdy</strong> · Następna auto-weryfikacja: <strong id="cepik-next-check">—</strong></div>
+          <div>Ostatnia weryfikacja: <strong id="cepik-last-check">nigdy</strong> Â· NastÄ™pna auto-weryfikacja: <strong id="cepik-next-check">â€”</strong></div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-          <button class="btn btn-blue" onclick="cepikBatchCheck('all')"><i class="ti ti-refresh"></i>Sprawdź wszystkie (<span id="cepik-all-cnt">0</span>)</button>
-          <button class="btn btn-gray" onclick="cepikBatchCheck('sel')"><i class="ti ti-checkbox"></i>Sprawdź zaznaczone (<span id="cepik-sel-cnt">0</span>)</button>
-          <button class="btn btn-gray" onclick="cepikBatchCheck('diff')"><i class="ti ti-alert-triangle"></i>Tylko z rozbieżnościami</button>
+          <button class="btn btn-blue" onclick="cepikBatchCheck('all')"><i class="ti ti-refresh"></i>SprawdĹş wszystkie (<span id="cepik-all-cnt">0</span>)</button>
+          <button class="btn btn-gray" onclick="cepikBatchCheck('sel')"><i class="ti ti-checkbox"></i>SprawdĹş zaznaczone (<span id="cepik-sel-cnt">0</span>)</button>
+          <button class="btn btn-gray" onclick="cepikBatchCheck('diff')"><i class="ti ti-alert-triangle"></i>Tylko z rozbieĹĽnoĹ›ciami</button>
         </div>
         <!-- Progress bar wsadowy -->
         <div id="cepik-batch-progress" class="hidden" style="margin-bottom:12px">
@@ -1323,14 +1323,14 @@ window.addEventListener('DOMContentLoaded', () => {
       </div>
     </div>
 
-    <!-- PRAWA — statystyki i ustawienia auto -->
+    <!-- PRAWA â€” statystyki i ustawienia auto -->
     <div>
       <div class="panel-right" style="margin-bottom:1rem">
         <div class="panel-title"><i class="ti ti-clock" style="color:var(--text2)"></i>Auto-weryfikacja codzienna</div>
         <div style="margin-bottom:10px">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
             <input type="checkbox" id="cepik-auto-enable" onchange="toggleCepikAuto()" style="width:16px;height:16px">
-            Włącz auto-weryfikację przy starcie
+            WĹ‚Ä…cz auto-weryfikacjÄ™ przy starcie
           </label>
         </div>
         <div style="margin-bottom:10px">
@@ -1340,11 +1340,11 @@ window.addEventListener('DOMContentLoaded', () => {
           </select>
         </div>
         <div style="margin-bottom:10px">
-          <label class="flabel">Powiadomienie przy rozbieżności</label>
+          <label class="flabel">Powiadomienie przy rozbieĹĽnoĹ›ci</label>
           <select id="cepik-notify" class="fi" style="width:100%">
-            <option value="all">Każda rozbieżność</option>
+            <option value="all">KaĹĽda rozbieĹĽnoĹ›Ä‡</option>
             <option value="dmc" selected>Tylko DMC / liczba osi</option>
-            <option value="none">Wyłączone</option>
+            <option value="none">WyĹ‚Ä…czone</option>
           </select>
         </div>
         <button class="btn btn-gray" style="width:100%;justify-content:center" onclick="saveCepikSettings()"><i class="ti ti-device-floppy"></i>Zapisz ustawienia</button>
@@ -1355,17 +1355,17 @@ window.addEventListener('DOMContentLoaded', () => {
         <div id="cepik-stats">
           <div class="sum-row"><span>Pojazdy zweryfikowane</span><span class="sum-val" id="cs-total">0</span></div>
           <div class="sum-row"><span>Zgodne z CEPiK</span><span class="sum-val green" id="cs-ok">0</span></div>
-          <div class="sum-row"><span>Rozbieżności DMC</span><span class="sum-val" style="color:var(--red)" id="cs-dmc">0</span></div>
-          <div class="sum-row"><span>Rozbieżności VIN</span><span class="sum-val" style="color:var(--amber)" id="cs-vin">0</span></div>
+          <div class="sum-row"><span>RozbieĹĽnoĹ›ci DMC</span><span class="sum-val" style="color:var(--red)" id="cs-dmc">0</span></div>
+          <div class="sum-row"><span>RozbieĹĽnoĹ›ci VIN</span><span class="sum-val" style="color:var(--amber)" id="cs-vin">0</span></div>
           <div class="sum-row"><span>Nie znaleziono w CEPiK</span><span class="sum-val" style="color:var(--text3)" id="cs-notfound">0</span></div>
-          <div class="sum-row"><span>Błędy API</span><span class="sum-val" style="color:var(--red)" id="cs-err">0</span></div>
+          <div class="sum-row"><span>BĹ‚Ä™dy API</span><span class="sum-val" style="color:var(--red)" id="cs-err">0</span></div>
         </div>
       </div>
 
       <div class="panel-right">
         <div class="panel-title"><i class="ti ti-table" style="color:var(--text2)"></i>Pola weryfikowane z CEPiK</div>
         <div style="font-size:11px;color:var(--text2);line-height:1.8">
-          ${['DMC pojazdu (F.1)','DMC zespołu pojazdów (F.3)','Liczba osi (L)','Numer VIN (E)','Marka i model (D.1/D.2)','Rok produkcji','Data 1. rejestracji w RP (B)','Masa własna (G)','Rodzaj paliwa (P.3)','Pojemność silnika (P.1)','Moc silnika kW (P.2)','Kategoria pojazdu (J)','Rodzaj zawieszenia (§17 DT-1/A)'].map(f=>`<div>✓ ${f}</div>`).join('')}
+          ${['DMC pojazdu (F.1)','DMC zespoĹ‚u pojazdĂłw (F.3)','Liczba osi (L)','Numer VIN (E)','Marka i model (D.1/D.2)','Rok produkcji','Data 1. rejestracji w RP (B)','Masa wĹ‚asna (G)','Rodzaj paliwa (P.3)','PojemnoĹ›Ä‡ silnika (P.1)','Moc silnika kW (P.2)','Kategoria pojazdu (J)','Rodzaj zawieszenia (Â§17 DT-1/A)'].map(f=>`<div>âś“ ${f}</div>`).join('')}
         </div>
       </div>
     </div>
@@ -1375,19 +1375,19 @@ window.addEventListener('DOMContentLoaded', () => {
 
 <!-- ==================== FIRMY ==================== -->
 <div class="page" id="page-firmy">
-  <div class="pg-title"><i class="ti ti-building-community"></i>Zarządzanie firmami — Grupa spółek</div>
-  <div class="pg-sub">Przełączaj między spółkami — każda ma osobne pojazdy, deklaracje DT-1 i dane podatnika zapisywane automatycznie</div>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem" id="companies-grid">Ładowanie...</div>
+  <div class="pg-title"><i class="ti ti-building-community"></i>ZarzÄ…dzanie firmami â€” Grupa spĂłĹ‚ek</div>
+  <div class="pg-sub">PrzeĹ‚Ä…czaj miÄ™dzy spĂłĹ‚kami â€” kaĹĽda ma osobne pojazdy, deklaracje DT-1 i dane podatnika zapisywane automatycznie</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem" id="companies-grid">Ĺadowanie...</div>
   <div class="card" style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1.25rem;margin-top:1rem">
     <div style="font-size:14px;font-weight:600;margin-bottom:1rem;display:flex;align-items:center;gap:8px">
-      <i class="ti ti-table" style="color:var(--text2)"></i>Zestawienie DT-1 — cała grupa 2026
+      <i class="ti ti-table" style="color:var(--text2)"></i>Zestawienie DT-1 â€” caĹ‚a grupa 2026
     </div>
-    <div id="all-companies-summary" style="font-size:13px;color:var(--text2)">Kliknij Odśwież aby policzyć</div>
-    <button class="btn btn-blue" onclick="renderAllCompaniesSummary()" style="margin-top:12px"><i class="ti ti-refresh"></i>Odśwież zestawienie grupy</button>
+    <div id="all-companies-summary" style="font-size:13px;color:var(--text2)">Kliknij OdĹ›wieĹĽ aby policzyÄ‡</div>
+    <button class="btn btn-blue" onclick="renderAllCompaniesSummary()" style="margin-top:12px"><i class="ti ti-refresh"></i>OdĹ›wieĹĽ zestawienie grupy</button>
   </div>
   <div class="ibox" style="margin-top:1rem">
     <i class="ti ti-info-circle"></i>
-    <div><strong>Multi-firma:</strong> Każda spółka ma osobne dane. Stan zapisuje się automatycznie przy przełączaniu.</div>
+    <div><strong>Multi-firma:</strong> KaĹĽda spĂłĹ‚ka ma osobne dane. Stan zapisuje siÄ™ automatycznie przy przeĹ‚Ä…czaniu.</div>
   </div>
 </div>
 
@@ -1407,3 +1407,4 @@ window.addEventListener('DOMContentLoaded', () => {
 <script src="app.js"></script>
 </body>
 </html>
+
