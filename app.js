@@ -262,7 +262,7 @@ function renderFormularze() {
   selT.forEach(v=>{ if(!v.cat)return; if(!cats[v.cat])cats[v.cat]={count:0,amount:0}; cats[v.cat].count++;cats[v.cat].amount+=v.amount; });
   const groups = [];
   for(let i=0;i<taxable.length;i+=3) groups.push(taxable.slice(i,i+3));
-  const yr = document.getElementById('taxYear').value;
+  const yr = (document.getElementById('taxYear')?.value || document.getElementById('taxYearDT1')?.value || new Date().getFullYear()).toString();
   const today = new Date().toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit',year:'numeric'});
 
   const info = document.getElementById('form-info');
@@ -337,7 +337,13 @@ function renderFormularze() {
       <div style="padding:4px 8px;border-right:0.5px solid #000;font-size:16pt;font-weight:bold;font-family:Arial,sans-serif;display:flex;align-items:center;min-width:60px">DT-1</div>
       <div style="padding:4px 8px;flex:1">
         <div style="font-size:9pt;font-weight:bold;font-family:Arial,sans-serif">DEKLARACJA NA PODATEK OD ŚRODKÓW TRANSPORTOWYCH</div>
-        <div style="font-size:7.5pt;margin-top:2px">na <span style="border:0.5px solid #000;padding:1px 4px;font-weight:bold">&nbsp;4.&nbsp;Rok:&nbsp;${yr}&nbsp;</span></div>
+        <div style="font-size:7.5pt;margin-top:2px;display:flex;align-items:flex-start;gap:6px">
+          <span style="font-size:12pt;font-weight:bold;margin-top:18px">na</span>
+          <span style="border:0.5px solid #000;width:115px;height:34px;display:inline-flex;flex-direction:column;align-items:center;justify-content:flex-start;font-weight:bold;background:#fff">
+            <span style="align-self:flex-start;font-size:6pt;padding:2px 4px;line-height:8px">4. Rok</span>
+            <span style="font-size:12pt;letter-spacing:8px;line-height:20px;margin-left:8px">${yr}</span>
+          </span>
+        </div>
         <div style="font-size:6pt;margin-top:3px;color:#444">Podstawa prawna: Art. 9 ust. 6 pkt 1 i 2 ustawy z dnia 12 stycznia 1991 r. o podatkach i opłatach lokalnych (Dz. U. z 2025 r. poz. 707). Stawki: Uchwała XXIX/1065/2025 Rady m.st. Warszawy z 20.11.2025 r.</div>
       </div>
       <div style="padding:4px 8px;border-left:0.5px solid #000;font-size:7pt;text-align:right;white-space:nowrap">DT-1<sub>(5)</sub>&nbsp;&nbsp;1/4</div>
@@ -784,7 +790,7 @@ function exportPD() {
   const wb = XLSX.utils.book_new();
   const nip = tp('tp-nip');
   const nazwa = tp('tp-nazwa');
-  const yr = document.getElementById('taxYear').value;
+  const yr = (document.getElementById('taxYear')?.value || document.getElementById('taxYearDT1')?.value || new Date().getFullYear()).toString();
   const cel = tp('tp-cel');
 
   const ws1 = XLSX.utils.aoa_to_sheet([
@@ -1443,7 +1449,7 @@ function exportRaport() {
   XLSX.utils.book_append_sheet(wb,ws3,'Wg kategorii DT-1');
 
   // Arkusz 4: Harmonogram
-  const yr = document.getElementById('taxYear').value;
+  const yr = (document.getElementById('taxYear')?.value || document.getElementById('taxYearDT1')?.value || new Date().getFullYear()).toString();
   const total = taxes.reduce((s,v)=>s+(v.amount||0),0);
   const r1 = Math.round(total/2), r2 = Math.round(total)-r1;
   const ws4 = XLSX.utils.aoa_to_sheet([
@@ -2835,6 +2841,63 @@ function applyRoleAccess(role){
     const id=btn.id.replace('tnb-','');
     btn.style.display=(role==='admin'||allowed.includes(id))?'':'none';
   });
+}
+
+
+// ==================== DT-1 PERIOD HELPERS ====================
+function calcDt1MonthsFromPeriod(){
+  const fromEl = document.getElementById('dt1PeriodFrom');
+  const toEl = document.getElementById('dt1PeriodTo');
+
+  if(!fromEl?.value || !toEl?.value) return 12;
+
+  const from = new Date(fromEl.value + 'T00:00:00');
+  const to = new Date(toEl.value + 'T00:00:00');
+
+  if(isNaN(from) || isNaN(to) || to < from) return 12;
+
+  const months =
+    (to.getFullYear() - from.getFullYear()) * 12 +
+    (to.getMonth() - from.getMonth()) + 1;
+
+  return Math.max(1, Math.min(12, months));
+}
+
+function syncDt1PeriodYear(){
+  const yr = document.getElementById('taxYear')?.value || new Date().getFullYear();
+  const fromEl = document.getElementById('dt1PeriodFrom');
+  const toEl = document.getElementById('dt1PeriodTo');
+
+  if(fromEl && !fromEl.value) fromEl.value = `${yr}-01-01`;
+  if(toEl && !toEl.value) toEl.value = `${yr}-12-31`;
+}
+
+function applyDt1PeriodToSelectedVehicles(){
+  syncDt1PeriodYear();
+
+  const months = calcDt1MonthsFromPeriod();
+
+  if(!selected || selected.size === 0){
+    alert('Najpierw zaznacz pojazdy do deklaracji.');
+    return;
+  }
+
+  vehs.forEach(v => {
+    if(selected.has(v.id)){
+      v.miesiacePodatku = months;
+      if(window.TaxOrderFleetCloud && typeof window.TaxOrderFleetCloud.saveVehicle === 'function' && v.dbId){
+        window.TaxOrderFleetCloud.saveVehicle(v);
+      }
+    }
+  });
+
+  if(typeof renderVeh === 'function') renderVeh();
+  if(typeof refreshAll === 'function') refreshAll();
+  if(typeof renderForms === 'function') renderForms();
+
+  if(typeof toast === 'function'){
+    toast(`✓ Ustawiono okres DT-1: ${months} mies.`);
+  }
 }
 
 // --- Users CRUD ---
