@@ -378,6 +378,8 @@ window.addEventListener('DOMContentLoaded', () => {
 <div class="page" id="page-stawki">
   <div class="pg-title"><i class="ti ti-building-bank"></i>Stawki Warszawa 2026</div>
   <div class="pg-sub">Uchwała XXIX/1065/2025 Rady m.st. Warszawy z dnia 20 listopada 2025 r. Obowiązuje od 01.01.2026 r.</div>
+  <div id="rates-content"></div>
+
 
   <div class="gbox" style="margin-bottom:1rem"><i class="ti ti-info-circle"></i>§2 — pojazdy rok produkcji ≥ 2024 mają <strong>obniżone stawki</strong>. §3 — pojazdy elektryczne/hybrydowe/CNG/LNG/H₂ mają jeszcze niższe stawki.</div>
 
@@ -1408,6 +1410,10 @@ window.addEventListener('DOMContentLoaded', () => {
   <script src="modules/auth-supabase.js"></script>
   <script src="modules/migration-supabase.js"></script>
   <script src="modules/fleet-cloud.js"></script>
+  <script src="modules/vehicle-detail.js"></script>
+  <script src="modules/import-export.js"></script>
+  <script src="modules/dashboard-nav.js"></script>
+  <script src="modules/rate-reader.js"></script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
@@ -1431,6 +1437,19 @@ window.addEventListener('DOMContentLoaded', () => {
     <button id="pwd-reset-submit" class="btn btn-blue" style="width:100%;justify-content:center;padding:12px;font-size:14px" onclick="submitNewPassword()">
       <i class="ti ti-check"></i>Ustaw nowe haslo
     </button>
+  </div>
+</div>
+
+<!-- MODAL KARTY POJAZDU -->
+<div id="vd-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);width:720px;max-width:98vw;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);display:flex;flex-direction:column">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg2);z-index:1">
+      <i class="ti ti-truck" style="color:var(--blue);font-size:20px"></i>
+      <div style="font-size:15px;font-weight:600;flex:1">Karta pojazdu</div>
+      <button id="vd-save-btn" class="btn btn-blue" style="font-size:12px"><i class="ti ti-device-floppy"></i>Zapisz</button>
+      <button onclick="TaxOrderVehicleDetail.close()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);padding:0 4px">&times;</button>
+    </div>
+    <div id="vd-modal-body" style="padding:20px;flex:1"></div>
   </div>
 </div>
 </body>
