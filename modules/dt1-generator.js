@@ -1,4 +1,6 @@
-﻿// ==================== DT-1 GENERATOR ====================
+﻿function _pl2ascii(s){if(!s)return s;return String(s).replace(/\u0104/g,'A').replace(/\u0105/g,'a').replace(/\u0106/g,'C').replace(/\u0107/g,'c').replace(/\u0118/g,'E').replace(/\u0119/g,'e').replace(/\u0141/g,'L').replace(/\u0142/g,'l').replace(/\u0143/g,'N').replace(/\u0144/g,'n').replace(/\u00d3/g,'O').replace(/\u00f3/g,'o').replace(/\u015a/g,'S').replace(/\u015b/g,'s').replace(/\u0179/g,'Z').replace(/\u017a/g,'z').replace(/\u017b/g,'Z').replace(/\u017c/g,'z').replace(/\u2013/g,'-').replace(/\u201e/g,'').replace(/\u201c/g,'').replace(/\u201d/g,'');}
+
+// ==================== DT-1 GENERATOR ====================
 // Własny generator PDF formularza DT-1 i DT-1/A od zera przez pdf-lib
 // Niezależny od formularza MF — pełna kontrola nad pozycjami i polami
 // Zgodny z wzorem DT-1(6) obowiązującym od 2019 r.
@@ -11,6 +13,7 @@ window.DT1Generator = {
   M: 28,      // margines
   FONT_MONO: null,
   FONT_BOLD: null,
+  _useAsciiOnly: false,
 
   // ── KOLORY ────────────────────────────────────────────────────────
   C: {
@@ -27,12 +30,13 @@ window.DT1Generator = {
   // ── POMOCNICZE ────────────────────────────────────────────────────
   text(page, txt, x, y, size=8, bold=false, color=null) {
     if(!txt && txt !== 0) return;
-    page.drawText(String(txt), {
+    const _s=this._useAsciiOnly?_pl2ascii(String(txt)):String(txt);
+    try{page.drawText(_s, {
       x, y: this.H - y - size,
       size,
       font: bold ? this.FONT_BOLD : this.FONT_MONO,
       color: color || this.col('black'),
-    });
+    });}catch(e){try{page.drawText(_pl2ascii(String(txt)),{x,y:this.H-y-size,size,font:bold?this.FONT_BOLD:this.FONT_MONO,color:color||this.col('black')});}catch(e2){}}
   },
 
   rect(page, x, y, w, h, fill=null, stroke=null, sw=0.5) {
@@ -648,6 +652,7 @@ window.DT1Generator = {
     } catch(e) {
       this.FONT_MONO = await pdfDoc.embedFont(StandardFonts.Helvetica);
       this.FONT_BOLD = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+      this._useAsciiOnly = true;
     }
 
     // Oblicz dane kategorii
