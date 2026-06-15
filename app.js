@@ -943,11 +943,11 @@ async function pobierzWypelnionyPDF(){ if(window.DT1Generator){var yr=parseInt((
     tfp(f1,'nazwa - nazwisko',nazwa,fnt,8);
     tfp(f1,'8 Kraj','Polska',fnt,8);
     tfp(f1,'9 Województwo',woj,fnt,8);
-    tfp(f1,'10 Powiat','WARSZAWA',fnt,8);
-    tfp(f1,'Gmina','BIAŁOŁĘKA',fnt,8);
+    tfp(f1,'10 Powiat',tp('tp-powiat')||co.powiat||'',fnt,8);
+    tfp(f1,'Gmina',tp('tp-gmina')||co.gmina||'',fnt,8);
     tfp(f1,'12 Ulica',ulica,fnt,8);
     tfp(f1,'13 Nr domu',dom,fnt,8);
-    tfp(f1,'14 Nr lokalu',lokal||'—',fnt,8);
+    tfp(f1,'14 Nr lokalu',lokal||'',fnt,8);
     tfp(f1,'Miejscowość',miasto,fnt,8);
     tfp(f1,'16 Kod pocztowy',kod,fnt,8);
     tfp(f1,'Poczta',miasto,fnt,8);
@@ -979,7 +979,6 @@ async function pobierzWypelnionyPDF(){ if(window.DT1Generator){var yr=parseInt((
 
     rgp(f1,'Group3',celNr);
     Object.entries(CAT_NUMS).forEach(([cat,nums])=>{const d=cats[cat];tfp(f1,String(nums.b),d?String(d.cnt):'',fnt,9);tfp(f1,String(nums.e),d?d.amt.toFixed(2).replace('.',','):'',fnt,9);});
-    f1.flatten();
     const dt1Bytes=await dt1Doc.save();
     const allBytes=[dt1Bytes];
 
@@ -1034,7 +1033,6 @@ async function pobierzWypelnionyPDF(){ if(window.DT1Generator){var yr=parseInt((
           const eL=v.euro_nr!=null?v.euro_nr:((v.euro||'').includes('6')?6:(v.euro||'').includes('5')?5:(v.euro||'').includes('4')?4:(v.euro||'').includes('3')?3:(v.euro||'').includes('2')?2:(v.euro||'').includes('1')?1:0);
           euroSet(fm,eL,sfx);
         });
-        fm.flatten();
         allBytes.push(await doc.save());
         console.log(`[PDF] Zał. ${attNo}/${groups.length} gotowy`);
       }catch(e2){
