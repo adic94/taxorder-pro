@@ -886,7 +886,7 @@ function euroSet(form,lvl,sfx){
   ['Check Box5-8','Check Box5-9','Check Box5-1','Check Box3','Check Box5-2','Check Box-6','Check Box7'].forEach((n,i)=>cbp(form,n+sfx,i===lvl));
 }
 
-async function pobierzWypelnionyPDF(){
+async function pobierzWypelnionyPDF(){ if(window.DT1Generator){var yr=parseInt((document.getElementById("taxYearDT1")||document.getElementById("taxYear")||{}).value)||new Date().getFullYear();var co=typeof getCurrentCompany==="function"?getCurrentCompany():{};var g=function(id){return(document.getElementById(id)||{}).value||"";};var td={nip:g("tp-nip")||co.nip||"",nazwa:g("tp-nazwa")||co.name||"",organ:g("tp-organ")||co.organ||"",ulica:g("tp-ulica")||co.ulica||"",dom:g("tp-dom")||co.dom||"",lokal:g("tp-lokal")||"",kod:g("tp-kod")||co.kod||"",miasto:g("tp-miasto")||co.miasto||"",woj:g("tp-woj")||co.woj||"",cel:(document.getElementById("tp-cel")||{}).value||"DEKLARACJA SKLADANA DO 15 LUTEGO",rodzajPodatnika:(document.getElementById("tp-rodzaj")||{}).value||"niefizyczny"};var st=typeof getSelTax==="function"?getSelTax():[];var tv=st.filter(function(v){return v&&(typeof calcTax==="function"?calcTax(v).cat:v.cat);});if(!tv.length){if(typeof toast==="function")toast("Brak pojazdow z kategoria DT-1");return;}window.DT1Generator.generate(td,tv,{rok:yr}).catch(function(e){console.error("DT1Gen:",e);});return;}
   // Upewnij się że pliki PDF i biblioteki są załadowane
   if(!window._DT1_PDF_BYTES){
     toast('⏳ Ładowanie plików PDF...');
