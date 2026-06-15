@@ -1,7 +1,7 @@
-// ==================== DT-1 GENERATOR ====================
+﻿// ==================== DT-1 GENERATOR ====================
 // Własny generator PDF formularza DT-1 i DT-1/A od zera przez pdf-lib
 // Niezależny od formularza MF — pełna kontrola nad pozycjami i polami
-// Zgodny z wzorem DT-1(5) obowiązującym od 2019 r.
+// Zgodny z wzorem DT-1(6) obowiązującym od 2019 r.
 
 window.DT1Generator = {
 
@@ -127,7 +127,7 @@ window.DT1Generator = {
     // Podstawa prawna, składający, termin
     this.text(page, 'Podstawa prawna:', M, 120, 7, true);
     this.text(page, 'Art. 9 ust. 6 pkt 1 i 2 ustawy z dnia 12 stycznia 1991 r. o podatkach i opłatach lokalnych', M+70, 120, 7);
-    this.text(page, '(Dz. U. z 2025 r. poz. 707), zwanej dalej „ustawą".', M+70, 128, 7);
+    this.text(page, '(Dz. U. z 2018 r. poz. 1445, z pozn. zm.) zwanej dalej „ustawą".', M+70, 128, 7);
     this.text(page, 'Składający:', M, 136, 7, true);
     this.text(page, 'Podatnicy podatku od środków transportowych.', M+70, 136, 7);
     this.text(page, 'Termin składania:', M, 144, 7, true);
