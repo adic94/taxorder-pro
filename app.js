@@ -891,7 +891,7 @@ async function pobierzWypelnionyPDF(){ if(window.DT1Generator){var yr=parseInt((
   if(!window._DT1_PDF_BYTES){
     toast('⏳ Ładowanie plików PDF...');
     try{ await loadAssets(); }
-    catch(e){ toast('❌ Brak pliku DT1formularz.pdf — upewnij się że wszystkie pliki są w tym samym folderze co index.html'); return; }
+    catch(e){ toast('❌ Brak pliku dt1-form.pdf — upewnij się że wszystkie pliki są w folderze assets/'); return; }
   }
   const selT=typeof getSelTax==='function'?getSelTax():[];
   const taxable=selT.filter(v=>v.cat);
@@ -913,7 +913,7 @@ async function pobierzWypelnionyPDF(){ if(window.DT1Generator){var yr=parseInt((
     // Dane podatnika
     const tp=id=>(document.getElementById(id)||{}).value||'';
     const co=typeof getCurrentCompany==='function'?getCurrentCompany():{};
-    const yr=(document.getElementById('taxYear')||{}).value||'2026';
+    const yr=(document.getElementById('taxYearDT1')||document.getElementById('taxYear')||{}).value||'2026';
     const nip=tp('tp-nip')||co.nip||'', nazwa=tp('tp-nazwa')||co.name||'';
     const organ=tp('tp-organ')||co.organ||'', woj=tp('tp-woj')||co.woj||'MAZOWIECKIE';
     const ulica=tp('tp-ulica')||co.ulica||'', dom=tp('tp-dom')||co.dom||'';
@@ -936,6 +936,7 @@ async function pobierzWypelnionyPDF(){ if(window.DT1Generator){var yr=parseInt((
     dt1Doc.registerFontkit(fontkit); // MUSI być przed embedFont
     const fnt=fontBytes?await dt1Doc.embedFont(fontBytes):null;
     const f1=dt1Doc.getForm();
+    console.log('[DT-1 Fields]', f1.getFields().map(f=>f.constructor.name+': "'+f.getName()+'"').join('\n'));
     const page1 = dt1Doc.getPage(0);
 
     tfp(f1,'PESEL',nip,fnt,10);
@@ -951,12 +952,7 @@ async function pobierzWypelnionyPDF(){ if(window.DT1Generator){var yr=parseInt((
     tfp(f1,'Miejscowość',miasto,fnt,8);
     tfp(f1,'16 Kod pocztowy',kod,fnt,8);
     tfp(f1,'Poczta',miasto,fnt,8);
-    page1.drawText(String(yr), {
-      x: 218,
-      y: 657,
-      size: 10,
-      font: fnt || undefined
-    });
+    if(fnt){page1.drawText(String(yr),{x:218,y:657,size:10,font:fnt});}
     tfp(f1,'fill_15','',fnt,9); // pole 19 ma być puste
     tfp(f1,'fill_11',String(groups.length),fnt,10); // pole 83 liczba załączników
     tfp(f1,'85 Nazwisko',tp('tp-nazwisko'),fnt,8);
@@ -979,6 +975,7 @@ async function pobierzWypelnionyPDF(){ if(window.DT1Generator){var yr=parseInt((
 
     rgp(f1,'Group3',celNr);
     Object.entries(CAT_NUMS).forEach(([cat,nums])=>{const d=cats[cat];tfp(f1,String(nums.b),d?String(d.cnt):'',fnt,9);tfp(f1,String(nums.e),d?d.amt.toFixed(2).replace('.',','):'',fnt,9);});
+    f1.flatten();
     const dt1Bytes=await dt1Doc.save();
     const allBytes=[dt1Bytes];
 
@@ -993,6 +990,7 @@ async function pobierzWypelnionyPDF(){ if(window.DT1Generator){var yr=parseInt((
         doc.registerFontkit(fontkit);
         const fa=fontBytes?await doc.embedFont(fontBytes):null;
         const fm=doc.getForm();
+        if(gi===0) console.log('[DT-1/A Fields]', fm.getFields().map(f=>f.constructor.name+': "'+f.getName()+'"').join('\n'));
         tfp(fm,'pesel',nip,fa,9);
         tfp(fm,'numer załącznika',String(attNo),fa,12);
         tfp(fm,'Text2',nazwa,fa,7);
@@ -1033,6 +1031,7 @@ async function pobierzWypelnionyPDF(){ if(window.DT1Generator){var yr=parseInt((
           const eL=v.euro_nr!=null?v.euro_nr:((v.euro||'').includes('6')?6:(v.euro||'').includes('5')?5:(v.euro||'').includes('4')?4:(v.euro||'').includes('3')?3:(v.euro||'').includes('2')?2:(v.euro||'').includes('1')?1:0);
           euroSet(fm,eL,sfx);
         });
+        fm.flatten();
         allBytes.push(await doc.save());
         console.log(`[PDF] Zał. ${attNo}/${groups.length} gotowy`);
       }catch(e2){
