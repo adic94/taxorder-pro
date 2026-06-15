@@ -878,10 +878,10 @@ function tfp(form,name,val,fnt,sz){
     f.setText(txt);
     if(fnt&&sz) f.setFontSize(sz);
     if(fnt) f.updateAppearances(fnt);
-  }catch(e){}
+  }catch(e){console.warn('[PDF] brak pola tekstowego: "'+name+'"');}
 }
-function rgp(form,name,val){try{if(val)form.getRadioGroup(name).select(val);}catch(e){}}
-function cbp(form,name,on){try{on?form.getCheckBox(name).check():form.getCheckBox(name).uncheck();}catch(e){}}
+function rgp(form,name,val){try{if(val)form.getRadioGroup(name).select(val);}catch(e){console.warn('[PDF] brak radio: "'+name+'"');}}
+function cbp(form,name,on){try{on?form.getCheckBox(name).check():form.getCheckBox(name).uncheck();}catch(e){console.warn('[PDF] brak checkbox: "'+name+'"');}}
 function euroSet(form,lvl,sfx){
   ['Check Box5-8','Check Box5-9','Check Box5-1','Check Box3','Check Box5-2','Check Box-6','Check Box7'].forEach((n,i)=>cbp(form,n+sfx,i===lvl));
 }
@@ -891,7 +891,7 @@ async function pobierzWypelnionyPDF(){ if(window.DT1Generator){var yr=parseInt((
   if(!window._DT1_PDF_BYTES){
     toast('⏳ Ładowanie plików PDF...');
     try{ await loadAssets(); }
-    catch(e){ toast('❌ Brak pliku dt1-form.pdf — upewnij się że wszystkie pliki są w folderze assets/'); return; }
+    catch(e){ toast('❌ Brak pliku DT1formularz.pdf — upewnij się że wszystkie pliki są w folderze assets/'); return; }
   }
   const selT=typeof getSelTax==='function'?getSelTax():[];
   const taxable=selT.filter(v=>v.cat);

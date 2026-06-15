@@ -19,8 +19,8 @@ async function loadAssets(){
     if(!r.ok) throw new Error(url + ' HTTP ' + r.status);
     return new Uint8Array(await r.arrayBuffer());
   };
-  window._DT1_PDF_BYTES = await load('./assets/dt1-form.pdf');
-  window._DT1A_PDF_BYTES = await load('./assets/dt1a-form.pdf');
+  window._DT1_PDF_BYTES = await load('./assets/DT1formularz.pdf');
+  window._DT1A_PDF_BYTES = await load('./assets/DT1Azalacznik.pdf');
   window._ROBOTO_BYTES = await load('./assets/Roboto.ttf');
   console.log('[Assets] PDF-y i czcionka załadowane z assets/');
 }
