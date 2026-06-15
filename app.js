@@ -913,7 +913,7 @@ async function pobierzWypelnionyPDF(){
     // Dane podatnika
     const tp=id=>(document.getElementById(id)||{}).value||'';
     const co=typeof getCurrentCompany==='function'?getCurrentCompany():{};
-    const yr=(document.getElementById('taxYearDT1')||document.getElementById('taxYear')||{}).value||new Date().getFullYear().toString();
+    const yr=(document.getElementById('taxYear')||{}).value||'2026';
     const nip=tp('tp-nip')||co.nip||'', nazwa=tp('tp-nazwa')||co.name||'';
     const organ=tp('tp-organ')||co.organ||'', woj=tp('tp-woj')||co.woj||'MAZOWIECKIE';
     const ulica=tp('tp-ulica')||co.ulica||'', dom=tp('tp-dom')||co.dom||'';
