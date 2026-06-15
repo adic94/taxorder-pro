@@ -641,6 +641,7 @@ window.DT1Generator = {
     const pdfDoc = await PDFDocument.create();
 
     // Wczytaj czcionkę Roboto jeśli dostępna, fallback na Helvetica
+    this._useAsciiOnly = false;
     try {
       if(window._ROBOTO_BYTES) {
         this.FONT_MONO = await pdfDoc.embedFont(window._ROBOTO_BYTES);
@@ -648,6 +649,7 @@ window.DT1Generator = {
       } else {
         this.FONT_MONO = await pdfDoc.embedFont(StandardFonts.Helvetica);
         this.FONT_BOLD = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+        this._useAsciiOnly = true;
       }
     } catch(e) {
       this.FONT_MONO = await pdfDoc.embedFont(StandardFonts.Helvetica);
