@@ -951,9 +951,9 @@ async function pobierzWypelnionyPDF(){ if(window.DT1Generator){var yr=parseInt((
     tfp(f1,'Miejscowość',miasto,fnt,8);
     tfp(f1,'16 Kod pocztowy',kod,fnt,8);
     tfp(f1,'Poczta',miasto,fnt,8);
-    page1.drawText(yr, {
-      x: 283,
-      y: 638,
+    page1.drawText(String(yr), {
+      x: 218,
+      y: 657,
       size: 10,
       font: fnt || undefined
     });
