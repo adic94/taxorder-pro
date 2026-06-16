@@ -50,13 +50,50 @@ window.TaxOrderFleetCloud = {
   // Mapowanie obiektu pojazdu → payload do Supabase UPDATE
   mapVehicleToDb(v) {
     const tax = (typeof calcTax === "function") ? calcTax(v) : {};
+
+    // Pełne dane pojazdu (meta + DT-1/A) w raw_data JSONB
+    const raw = {
+      nrRej: v.nrRej, marka: v.marka, model: v.model, rok: v.rok,
+      typ: v.typ, dmc: v.dmc, euro: v.euro, vin: v.vin,
+      status: v.status, wlasciciel: v.wlasciciel, miejsca: v.miejsca,
+      // Dowód rejestracyjny
+      dataRejestracji: v.dataRejestracji, wariant: v.wariant,
+      dmcMax: v.dmcMax, masaWlasna: v.masaWlasna,
+      pojSilnika: v.pojSilnika, mocKW: v.mocKW, paliwo: v.paliwo,
+      miejscaSied: v.miejscaSied, homologacja: v.homologacja,
+      docDataWydania: v.docDataWydania, docWaznyDo: v.docWaznyDo,
+      drivetype: v.drivetype, bodyType: v.bodyType,
+      // Własność
+      ownership_type: v.ownership_type,
+      leasingCompany: v.leasingCompany, leasingContractNo: v.leasingContractNo,
+      leasingStart: v.leasingStart, leasingEnd: v.leasingEnd,
+      leasingRate: v.leasingRate, leasingBuyout: v.leasingBuyout,
+      leasingKmLimit: v.leasingKmLimit,
+      rentalCompany: v.rentalCompany, rentalStart: v.rentalStart, rentalEnd: v.rentalEnd,
+      // Zakup / sprzedaż
+      purchaseDate: v.purchaseDate, purchasePrice: v.purchasePrice, purchaseInvoice: v.purchaseInvoice,
+      saleDate: v.saleDate, saleInvoice: v.saleInvoice, saleBuyer: v.saleBuyer, salePrice: v.salePrice,
+      // DT-1/A daty
+      dataNabycia: v.dataNabycia || v.purchaseDate,
+      dataZbycia: v.dataZbycia || v.saleDate,
+      dataWycofania: v.dataWycofania,
+      dataDopuszczenia: v.dataDopuszczenia,
+      dataWyrejestrowania: v.dataWyrejestrowania,
+      // Inne
+      uwagi: v.uwagi, insurancePolicyNo: v.insurancePolicyNo,
+      is_active: v.is_active, archivedAt: v.archivedAt, archivedReason: v.archivedReason,
+      cepikSyncStatus: v.cepikSyncStatus
+    };
+    Object.keys(raw).forEach(k => { if (raw[k] === undefined) delete raw[k]; });
+
     return {
       axles_count:      parseInt(v.osie)            || 2,
       suspension_type:  v.zawieszenie               || "pneumatyczne",
       dmc_team_kg:      parseInt(v.dmcZespolu)       || 0,
       taxable_months:   parseInt(v.miesiacePodatku)  || 12,
       dt1_category:     tax.cat    || v.cat          || null,
-      dt1_tax_amount:   tax.amount != null ? tax.amount : (v.amount ?? null)
+      dt1_tax_amount:   tax.amount != null ? tax.amount : (v.amount ?? null),
+      raw_data:         raw
     };
   },
 

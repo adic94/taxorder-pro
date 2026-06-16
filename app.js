@@ -866,7 +866,7 @@ async function loadPolishFont() {
   }
 }
 
-const WYB = {1:'/Wyb\u9ACD1',2:'/Wyb\u9ACD2',3:'/Wyb\u9ACD3',4:'/Wyb\u9ACD4',5:'/Wyb\u9ACD5',6:'/Wyb\u9ACD6'};
+const WYB = {1:'Wyb\u00F3r1',2:'Wyb\u00F3r2',3:'Wyb\u00F3r3',4:'Wyb\u00F3r4',5:'Wyb\u00F3r5',6:'Wyb\u00F3r6'};
 const CAT_NUMS = {D1:{b:20,e:23},D2:{b:24,e:27},D3:{b:28,e:31},D4:{b:32,e:35},D5:{b:36,e:39},D6:{b:40,e:43},D7:{b:44,e:47},D8:{b:48,e:51},D9:{b:52,e:55},D10:{b:56,e:59},D11:{b:60,e:63},D12:{b:64,e:67},D13:{b:68,e:71},D14:{b:72,e:75},D15:{b:76,e:79}};
 const TYP={1:WYB[1],2:WYB[2],3:WYB[3],4:WYB[4],5:WYB[5],6:WYB[6]};
 const ZAW={1:WYB[1],2:WYB[2],3:WYB[3]};
@@ -1022,11 +1022,17 @@ async function pobierzWypelnionyPDF(){ if(window.DT1Generator){var yr=parseInt((
           const DF={'':  {rej:'Data rejestracji',  nab:'Dzien nabycia',  zb:'data zbycia1',wyc:'data wycofania',  dop:'data dopuszczenia',  wyr:'data wyrejestrowania'},
                     '2': {rej:'Data rejestracji22',nab:'Dzien nabycia2', zb:'data zbycia2',wyc:'data wycofania2', dop:'data dopuszczenia2', wyr:'data wyrejestrowania2'},
                     '3': {rej:'Data rejestracji3', nab:'Dzien nabycia3', zb:'data zbycia3',wyc:'data wycofania3', dop:'data dopuszczenia3', wyr:'data wyrejestrowania3'}}[sfx];
-          tfp(fm,DF.rej,v.dataRejestracji||'',fa,7);tfp(fm,DF.nab,v.dataNabycia||'',fa,7);
-          tfp(fm,DF.zb,v.dataZbycia||'',fa,7);tfp(fm,DF.wyc,'',fa,7);tfp(fm,DF.dop,'',fa,7);tfp(fm,DF.wyr,'',fa,7);
+          tfp(fm,DF.rej,v.dataRejestracji||'',fa,7);
+          tfp(fm,DF.nab,v.dataNabycia||v.purchaseDate||'',fa,7);
+          tfp(fm,DF.zb,v.dataZbycia||v.saleDate||'',fa,7);
+          tfp(fm,DF.wyc,v.dataWycofania||'',fa,7);
+          tfp(fm,DF.dop,v.dataDopuszczenia||'',fa,7);
+          tfp(fm,DF.wyr,v.dataWyrejestrowania||'',fa,7);
           rgp(fm,sfx===''?'Group3':sfx==='2'?'Group22':'Group23',WYB[1]);
-          rgp(fm,sfx===''?'Group2':sfx==='2'?'Group32':'Group33',TYP[v.typ_nr||1]||WYB[1]);
-          const zawNr=v.zawieszenie==='równoważne z pneumatycznym'?2:v.zawieszenie==='inny system zawieszenia'?3:1;
+          const typStr=(v.typ||'').toLowerCase();
+          const typNr=v.typ_nr||(typStr.includes('ciągnik siodłowy')||typStr.includes('ciagnik siodlowy')?2:typStr.includes('ciągnik balastowy')||typStr.includes('ciagnik balastowy')?3:typStr.includes('naczepa')?5:typStr.includes('przyczepa')?4:typStr.includes('autobus')?6:1);
+          rgp(fm,sfx===''?'Group2':sfx==='2'?'Group32':'Group33',TYP[typNr]||WYB[1]);
+          const zawNr=v.zawieszenie==='równoważne z pneumatycznym'||v.zawieszenie==='równoważne'?2:v.zawieszenie==='inny system zawieszenia'||v.zawieszenie==='inne'?3:1;
           rgp(fm,sfx===''?'Group4':sfx==='2'?'Group42':'Group43',ZAW[zawNr]||WYB[1]);
           const eL=v.euro_nr!=null?v.euro_nr:((v.euro||'').includes('6')?6:(v.euro||'').includes('5')?5:(v.euro||'').includes('4')?4:(v.euro||'').includes('3')?3:(v.euro||'').includes('2')?2:(v.euro||'').includes('1')?1:0);
           euroSet(fm,eL,sfx);

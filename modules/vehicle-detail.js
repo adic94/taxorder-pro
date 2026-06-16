@@ -48,11 +48,17 @@ window.TaxOrderVehicleDetail = {
       purchaseDate:     g('purchaseDate'),
       purchasePrice:    g('purchasePrice') ? parseFloat(g('purchasePrice')) : null,
       purchaseInvoice:  g('purchaseInvoice'),
+      dataNabycia:      g('purchaseDate'),
       // Sprzedaż
       saleDate:         g('saleDate'),
       saleInvoice:      g('saleInvoice'),
       saleBuyer:        g('saleBuyer'),
       salePrice:        g('salePrice') ? parseFloat(g('salePrice')) : null,
+      dataZbycia:       g('saleDate'),
+      // DT-1/A — zmiany stanu w ruchu
+      dataWycofania:    g('dataWycofania'),
+      dataDopuszczenia: g('dataDopuszczenia'),
+      dataWyrejestrowania: g('dataWyrejestrowania'),
       uwagi:            g('uwagi'),
       insurancePolicyNo: g('insurancePolicyNo'),
       drivetype:        g('driveType'),
@@ -191,15 +197,15 @@ window.TaxOrderVehicleDetail = {
 
       <!-- TAB: ZAKUP / SPRZEDAŻ -->
       <div id="vd-tab-purchase-content" class="vd-tab-content" style="display:none">
-        <div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:10px"><i class="ti ti-shopping-cart"></i> Nabycie pojazdu</div>
+        <div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:10px"><i class="ti ti-shopping-cart"></i> Nabycie pojazdu <span style="font-weight:400;font-size:10px;color:var(--text3)">(DT-1/A poz. 8)</span></div>
         <div class="vdfg">
-          ${field('purchaseDate','Data zakupu', v.purchaseDate,'date')}
+          ${field('purchaseDate','Data nabycia / zakupu', v.purchaseDate||v.dataNabycia,'date')}
           ${field('purchasePrice','Cena zakupu netto (zł)', v.purchasePrice,'number')}
           ${field('purchaseInvoice','Nr faktury zakupu', v.purchaseInvoice)}
         </div>
-        <div style="font-size:12px;font-weight:600;color:var(--red);margin:20px 0 10px"><i class="ti ti-cash"></i> Sprzedaż pojazdu</div>
+        <div style="font-size:12px;font-weight:600;color:var(--red);margin:20px 0 10px"><i class="ti ti-cash"></i> Sprzedaż / Zbycie pojazdu <span style="font-weight:400;font-size:10px;color:var(--text3)">(DT-1/A poz. 9)</span></div>
         <div class="vdfg">
-          ${field('saleDate','Data sprzedaży', v.saleDate,'date')}
+          ${field('saleDate','Data zbycia / sprzedaży', v.saleDate||v.dataZbycia,'date')}
           ${field('saleInvoice','Nr faktury sprzedaży', v.saleInvoice)}
           ${field('saleBuyer','Nabywca', v.saleBuyer)}
           ${field('salePrice','Cena sprzedaży netto (zł)', v.salePrice,'number')}
@@ -207,6 +213,12 @@ window.TaxOrderVehicleDetail = {
         <div class="ibox" style="margin-top:14px">
           <i class="ti ti-scan"></i>
           <span>Masz skan faktury? <button class="btn btn-gray" style="font-size:11px;padding:4px 10px" onclick="TaxOrderVehicleDetail._scanInvoice(${v.id})"><i class="ti ti-camera"></i>Skanuj fakturę OCR</button></span>
+        </div>
+        <div style="font-size:12px;font-weight:600;color:var(--amber);margin:20px 0 10px"><i class="ti ti-car-off"></i> Zmiany stanu w ruchu <span style="font-weight:400;font-size:10px;color:var(--text3)">(DT-1/A poz. 10–12)</span></div>
+        <div class="vdfg">
+          ${field('dataWycofania','10. Data czasowego wycofania z ruchu', v.dataWycofania,'date')}
+          ${field('dataDopuszczenia','11. Data ponownego dopuszczenia do ruchu', v.dataDopuszczenia,'date')}
+          ${field('dataWyrejestrowania','12. Data wyrejestrowania', v.dataWyrejestrowania,'date')}
         </div>
       </div>
 
