@@ -38,6 +38,8 @@ function getRate(v) {
 function getCat(v) {
   const dT=v.dmc/1000, dzT=(v.dmcZespolu||0)/1000, refZ=dzT>0?dzT:dT;
   const typ=(v.typ||'').toLowerCase(), osie=parseInt(v.osie)||2;
+  // Pojazdy specjalne są zwolnione z podatku DT-1
+  if(typ.includes('specjaln')||(v.przeznaczenie||'').toLowerCase().includes('specjaln')) return null;
   if(typ.includes('autobus')) return (parseInt(v.miejsca)||0)<22?'D6':'D7';
   if(typ.includes('naczepa')||typ.includes('przyczepa')) {
     if(refZ>=12) return osie===1?'D13':osie===2?'D14':'D15';

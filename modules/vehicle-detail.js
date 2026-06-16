@@ -23,6 +23,7 @@ window.TaxOrderVehicleDetail = {
     // Zbierz dane z formularza
     Object.assign(v, {
       dataRejestracji:  g('dataRej'),
+      przeznaczenie:    g('przeznaczenie'),
       wariant:          g('wariant'),
       dmcMax:           g('dmcMax') ? parseInt(g('dmcMax')) : null,
       masaWlasna:       g('masaWlasna') ? parseInt(g('masaWlasna')) : null,
@@ -144,6 +145,7 @@ window.TaxOrderVehicleDetail = {
           ${field('docDataWydania','I — Data wydania dowodu', v.docDataWydania,'date')}
           ${field('docWaznyDo','H — Ważny do', v.docWaznyDo,'date')}
           ${field('homologacja','K — Nr homologacji', v.homologacja)}
+          ${field('przeznaczenie','Przeznaczenie pojazdu', v.przeznaczenie,undefined,'np. specjalne, ciężarowe')}
           ${field('wariant','D.2 — Typ/wariant', v.wariant)}
           ${field('dmcMax','F.1 — DMC max (kg)', v.dmcMax,'number','kg')}
           ${field('masaWlasna','G — Masa własna (kg)', v.masaWlasna,'number','kg')}

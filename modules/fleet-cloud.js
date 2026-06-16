@@ -57,7 +57,7 @@ window.TaxOrderFleetCloud = {
       typ: v.typ, dmc: v.dmc, euro: v.euro, vin: v.vin,
       status: v.status, wlasciciel: v.wlasciciel, miejsca: v.miejsca,
       // Dowód rejestracyjny
-      dataRejestracji: v.dataRejestracji, wariant: v.wariant,
+      dataRejestracji: v.dataRejestracji, przeznaczenie: v.przeznaczenie, wariant: v.wariant,
       dmcMax: v.dmcMax, masaWlasna: v.masaWlasna,
       pojSilnika: v.pojSilnika, mocKW: v.mocKW, paliwo: v.paliwo,
       miejscaSied: v.miejscaSied, homologacja: v.homologacja,
