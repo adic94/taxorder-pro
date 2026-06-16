@@ -157,10 +157,16 @@ window.TaxOrderVehicleDetail = {
           ${field('bodyType','Nadwozie', v.bodyType)}
           ${field('insurancePolicyNo','Nr polisy OC/AC', v.insurancePolicyNo)}
         </div>
-        <button class="btn btn-blue" style="width:100%;justify-content:center;margin-top:16px" 
-          onclick="TaxOrderVehicleDetail._syncCepik(${v.id})">
-          <i class="ti ti-refresh"></i>Synchronizuj z CEPiK
-        </button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px">
+          <button class="btn btn-amber" style="justify-content:center"
+            onclick="AztecScanner.open(${v.id})">
+            <i class="ti ti-qrcode"></i>Skanuj AZTEC z DR
+          </button>
+          <button class="btn btn-blue" style="justify-content:center"
+            onclick="TaxOrderVehicleDetail._syncCepik(${v.id})">
+            <i class="ti ti-refresh"></i>Synchronizuj z CEPiK
+          </button>
+        </div>
       </div>
 
       <!-- TAB: WŁASNOŚĆ -->

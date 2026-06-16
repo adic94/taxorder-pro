@@ -638,12 +638,14 @@ window.addEventListener('DOMContentLoaded', () => {
         <div style="font-size:11px;color:var(--text3);margin-top:8px">Dowód rejestracyjny stały lub tymczasowy · Zdjęcie telefonem lub skan</div>
         <input type="file" id="ocr-file" accept="image/*,.pdf" style="display:none" onchange="handleFileSelect(this)">
       </div>
-      <div style="text-align:center;margin-bottom:1rem">
-        <span style="font-size:12px;color:var(--text3)">lub</span>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem">
+        <button class="btn btn-amber" style="justify-content:center;padding:11px" onclick="AztecScanner.open(undefined)">
+          <i class="ti ti-qrcode"></i>Skanuj kod AZTEC (ostatnia strona DR)
+        </button>
+        <button class="btn btn-gray" style="justify-content:center;padding:11px" onclick="document.getElementById('ocr-btn-area').classList.remove('hidden');showManualForm({})">
+          <i class="ti ti-forms"></i>Formularz ręczny
+        </button>
       </div>
-      <button class="btn btn-gray" style="width:100%;justify-content:center;margin-bottom:1.5rem" onclick="document.getElementById('ocr-btn-area').classList.remove('hidden');showManualForm({})">
-        <i class="ti ti-forms"></i>Wypełnij formularz ręcznie (bez skanowania)
-      </button>
 
       <!-- Podgląd wgranego pliku -->
       <div id="ocr-preview" class="hidden" style="margin-bottom:1.5rem">
@@ -1408,6 +1410,8 @@ window.addEventListener('DOMContentLoaded', () => {
   <script src="modules/auth-supabase.js"></script>
   <script src="modules/migration-supabase.js"></script>
   <script src="modules/fleet-cloud.js"></script>
+  <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+  <script src="modules/aztec-scanner.js"></script>
   <script src="modules/vehicle-detail.js"></script>
   <script src="modules/import-export.js"></script>
   <script src="modules/dashboard-nav.js"></script>
