@@ -19,3 +19,4 @@ id = "859d284aa75c49598186c70d5e2cdbc2"
 [vars]
 ENVIRONMENT = "production"
 ALLOWED_ORIGINS = "*"
+
