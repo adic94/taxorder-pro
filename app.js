@@ -173,7 +173,7 @@ function toggleRow(id) {
 function toggleAll(chk) { const list=filterVeh(); if(chk.checked) list.forEach(v=>selected.add(v.id)); else list.forEach(v=>selected.delete(v.id)); renderVeh(); updateCounters(); }
 function selAll() { const list=filterVeh(); list.forEach(v=>selected.add(v.id)); renderVeh(); updateCounters(); toast(`☑ Zaznaczono ${list.length} pojazdów`); }
 function deselAll() { selected.clear(); renderVeh(); updateCounters(); toast('☐ Odznaczono wszystkie'); }
-function setV(id,k,val) { const v=vehs.find(x=>x.id===id); if(v){v[k]=val;} renderVeh(); updateCounters(); }
+function setV(id,k,val) { const v=vehs.find(x=>x.id===id); if(v){v[k]=val; window.TaxOrderFleetCloud?.saveVehicle(v);} renderVeh(); updateCounters(); }
 
 // ==================== KALKULATOR ====================
 function getSel() { return vehs.filter(v=>selected.has(v.id)); }
@@ -2083,6 +2083,7 @@ function addNewFromOCR(d){
   vehs.push(newVeh);
   selected.add(newVeh.id);
   toast(`✓ Dodano ${newVeh.nrRej} — ${newVeh.marka} ${newVeh.model}`);
+  window.TaxOrderFleetCloud?.saveVehicle(newVeh);
   renderVeh();updateCounters();showPage('pojazdy');
 }
 
@@ -2532,6 +2533,7 @@ function impMerge() {
   document.getElementById('imp-preview').classList.add('hidden');
   renderVeh();updateCounters();
   toast(`✓ Scalono — dodano ${added} nowych pojazdów`);
+  window.TaxOrderFleetCloud?.saveVehicles(vehs);
 }
 
 function impReplace() {
@@ -2540,6 +2542,7 @@ function impReplace() {
   document.getElementById('imp-preview').classList.add('hidden');
   renderVeh();updateCounters();
   toast(`✓ Zastąpiono bazę — ${vehs.length} pojazdów`);
+  window.TaxOrderFleetCloud?.saveVehicles(vehs);
 }
 
 // --- Eksport Excel ---
@@ -3209,6 +3212,7 @@ function saveCompanyState(){
   ['nip','regon','nazwa','ulica','dom','lokal','kod','miasto','woj','organ','imie','nazwisko','cel'].forEach(k=>{const el=document.getElementById('tp-'+k);if(el)state.taxpayer[k]=el.value;});
   companyStates[currentCompanyId]=state;
   localStorage.setItem('dt1_company_states',JSON.stringify(companyStates));
+  window.TaxOrderStateSync?.save(currentCompanyId);
 }
 
 function loadCompanyState(companyId){
@@ -3259,6 +3263,7 @@ function switchCompany(companyId){
   updateCompanyUI();
   refreshAll();
   toast('✓ Przełączono: '+COMPANIES[companyId].shortName);
+  window.TaxOrderFleetCloud?.loadVehicles(companyId).then(r=>{if(r?.ok)refreshAll();});
 }
 
 function updateCompanyUI(){
@@ -3366,21 +3371,22 @@ const WOJ_MAP = {W:'14',WA:'14',WB:'14',WD:'02',WE:'10',WF:'08',WG:'14',
   N:'28',O:'16',R:'18',S:'24',T:'26',Z:'32'};
 
 const CEPIK_FIELDS = {
-  'marka':'marka','model':'model','numer-vin':'vin',
+  'marka':'marka', 'model':'model',
   'dopuszczalna-masa-calkowita':'dmc',
   'dopuszczalna-masa-calkowita-zespolu-pojazdow':'dmcZespolu',
-  'liczba-osi':'osie','rok-produkcji':'rok',
+  'liczba-osi':'osie', 'rok-produkcji':'rok',
   'data-pierwszej-rejestracji-w-kraju':'dataRejestracji',
-  'masa-wlasna':'masaWlasna','rodzaj-paliwa':'paliwo',
-  'pojemnosc-skokowa':'pojemnosc','moc-netto':'mocKW',
-  'kategoria':'kategoria','rodzaj-zawieszenia-osi-napedzanych':'zawieszenie'
+  'masa-wlasna':'masaWlasna', 'rodzaj-paliwa':'paliwo',
+  'pojemnosc-skokowa-silnika':'pojSilnika', 'moc-netto-silnika':'mocKW',
+  'rodzaj-zawieszenia':'zawieszenie',
+  'przeznaczenie-pojazdu':'przeznaczenie'
 };
 const CEPIK_LABELS = {
-  marka:'Marka (D.1)',model:'Model (D.2)',vin:'VIN (E)',dmc:'DMC kg (F.1)',
-  dmcZespolu:'DMC zesp. kg (F.3)',osie:'Liczba osi (L)',rok:'Rok prod.',
-  dataRejestracji:'Data 1. rej. (B)',masaWlasna:'Masa własna kg (G)',
-  paliwo:'Paliwo (P.3)',pojemnosc:'Pojemność cm³ (P.1)',mocKW:'Moc kW (P.2)',
-  kategoria:'Kategoria (J)',zawieszenie:'Zawieszenie (§17)'
+  marka:'Marka (D.1)', model:'Model (D.2)', dmc:'DMC kg (F.1)',
+  dmcZespolu:'DMC zesp. kg (F.3)', osie:'Liczba osi (L)', rok:'Rok prod.',
+  dataRejestracji:'Data 1. rej. (B)', masaWlasna:'Masa własna kg (G)',
+  paliwo:'Paliwo (P.3)', pojSilnika:'Pojemność cm³ (P.1)', mocKW:'Moc kW (P.2)',
+  zawieszenie:'Zawieszenie (§17)', przeznaczenie:'Przeznaczenie pojazdu'
 };
 
 // State
@@ -3635,16 +3641,22 @@ async function cepikFetch(nrRej, woj) {
     data = await resp.json();
   } else {
     // === BEZPOŚREDNIO (może fail CORS w przeglądarce) ===
-    const token  = await getValidToken();
-    const apiUrl = `${CEPIK_API_URL}/pojazdy?filter%5Bnumer-rejestracyjny%5D=${encodeURIComponent(nr)}&filter%5Bwojewodztwo-rejestracji%5D=${wojCode}&page%5Bnumber%5D=1&page%5Bsize%5D=1`;
-    cepikLog(`📡 Direct: ${nr}`, 'info');
-    const resp = await fetch(apiUrl, {
-      method:  'GET',
-      headers: { 'Accept': 'application/vnd.api+json', 'Authorization': 'Bearer '+token },
-      mode: 'cors'
-    });
-    if(!resp.ok) throw new Error('HTTP '+resp.status);
-    data = await resp.json();
+    const token = await getValidToken();
+    const year  = new Date().getFullYear();
+    // CEPiK wymaga zakresu dat (max 1 rok) — próbuj od bieżącego roku wstecz
+    for(let y = year; y >= year - 2; y--) {
+      const apiUrl = `${CEPIK_API_URL}/pojazdy?numer-rejestracyjny=${encodeURIComponent(nr)}&wojewodztwo=${wojCode}&data-od=${y}0101&data-do=${y}1231&limit=1&pokaz-wszystkie-pola=true`;
+      cepikLog(`📡 Direct: ${nr} (${y})`, 'info');
+      const resp = await fetch(apiUrl, {
+        method:  'GET',
+        headers: { 'Accept': 'application/vnd.api+json', 'Authorization': 'Bearer '+token },
+        mode: 'cors'
+      });
+      if(!resp.ok) throw new Error('HTTP '+resp.status);
+      data = await resp.json();
+      if((data?.data?.length||0) > 0) break;
+      if(y > year - 2) await new Promise(r=>setTimeout(r,300));
+    }
   }
 
   cepikCache[cacheKey] = {ts:Date.now(), data};
@@ -3658,7 +3670,7 @@ function parseCepikAttrs(attrs) {
   Object.entries(CEPIK_FIELDS).forEach(([apiKey,vehKey])=>{
     const val=attrs[apiKey];
     if(val===undefined||val===null||val==='')return;
-    if(['dmc','dmcZespolu','masaWlasna','pojemnosc','mocKW'].includes(vehKey))
+    if(['dmc','dmcZespolu','masaWlasna','pojSilnika','mocKW'].includes(vehKey))
       out[vehKey]=parseFloat(String(val).replace(/[\s]/g,''))||null;
     else if(['osie','rok'].includes(vehKey))
       out[vehKey]=parseInt(val)||null;
@@ -3791,7 +3803,7 @@ async function cepikBatchCheck(mode) {
       if(!diffs.length)cepikStats.ok++;
       else{
         if(diffs.some(d=>d.key==='dmc'||d.key==='osie'))cepikStats.dmc++;
-        if(diffs.some(d=>d.key==='vin'))cepikStats.vin++;
+        if(diffs.some(d=>d.key==='przeznaczenie'))cepikStats.vin++;
       }
       results.push({v,status:diffs.length?'diff':'ok',diffs,cepikData});
       const ck=v.nrRej+'_'+getWoj(v.nrRej);

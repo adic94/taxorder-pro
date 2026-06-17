@@ -1362,7 +1362,7 @@ window.addEventListener('DOMContentLoaded', () => {
           <div class="sum-row"><span>Pojazdy zweryfikowane</span><span class="sum-val" id="cs-total">0</span></div>
           <div class="sum-row"><span>Zgodne z CEPiK</span><span class="sum-val green" id="cs-ok">0</span></div>
           <div class="sum-row"><span>Rozbieżności DMC</span><span class="sum-val" style="color:var(--red)" id="cs-dmc">0</span></div>
-          <div class="sum-row"><span>Rozbieżności VIN</span><span class="sum-val" style="color:var(--amber)" id="cs-vin">0</span></div>
+          <div class="sum-row"><span>Zmiana przeznaczenia</span><span class="sum-val" style="color:var(--amber)" id="cs-vin">0</span></div>
           <div class="sum-row"><span>Nie znaleziono w CEPiK</span><span class="sum-val" style="color:var(--text3)" id="cs-notfound">0</span></div>
           <div class="sum-row"><span>Błędy API</span><span class="sum-val" style="color:var(--red)" id="cs-err">0</span></div>
         </div>
@@ -1404,12 +1404,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
   <script src="modules/storage.js"></script>
   <script src="modules/tax-engine.js"></script>
-  <script src="config/supabase-config.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="modules/supabase-client.js"></script>
-  <script src="modules/auth-supabase.js"></script>
-  <script src="modules/migration-supabase.js"></script>
-  <script src="modules/fleet-cloud.js"></script>
+  <script src="config/cf-config.js"></script>
+  <script src="modules/cf-cloud.js"></script>
   <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
   <script src="modules/aztec-scanner.js"></script>
   <script src="modules/vehicle-detail.js"></script>
