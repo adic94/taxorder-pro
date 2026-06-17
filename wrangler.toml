@@ -1,6 +1,7 @@
 name = "taxorder-pro"
 main = "worker/index.js"
 compatibility_date = "2025-01-01"
+account_id = "bb17d1d7a681084f377fd23989f29d7f"
 
 # Po uruchomieniu `wrangler d1 create taxorder-pro` wklej wygenerowane database_id
 [[d1_databases]]
