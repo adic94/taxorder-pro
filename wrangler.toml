@@ -1,27 +1,21 @@
-name = "taxorder-pro"
+name = "taxorder-pro-api"
 main = "worker/index.js"
 compatibility_date = "2025-01-01"
 account_id = "bb17d1d7a681084f377fd23989f29d7f"
 
-# Po uruchomieniu `wrangler d1 create taxorder-pro` wklej wygenerowane database_id
 [[d1_databases]]
 binding = "DB"
 database_name = "taxorder-pro"
 database_id = "f8d0df7f-5e05-4841-acc2-7a465a1bea2a"
 
-# Po uruchomieniu `wrangler r2 bucket create taxorder-docs` — gotowe (binding wystarczy)
 [[r2_buckets]]
 binding = "DOCS"
 bucket_name = "taxorder-docs"
 
-# Po uruchomieniu `wrangler kv namespace create PREFS` wklej wygenerowane id
 [[kv_namespaces]]
 binding = "PREFS"
 id = "859d284aa75c49598186c70d5e2cdbc2"
 
 [vars]
 ENVIRONMENT = "production"
-
-# CORS — dozwolone origins dla lokalnego developmentu
-# W produkcji ogranicz do swojej domeny
 ALLOWED_ORIGINS = "*"
