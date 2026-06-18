@@ -68,49 +68,27 @@ window.addEventListener('DOMContentLoaded', () => {
 <div class="app" id="app" style="display:none">
 
 <!-- TOPBAR -->
-<div class="topbar" style="overflow-x:auto">
+<div class="topbar">
   <div class="brand">
     <i class="ti ti-file-invoice"></i>
     TaxOrder Pro
     <span class="brand-badge">DT-1</span>
   </div>
   <div style="display:flex;align-items:center;gap:6px;padding:3px 10px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">
-      <span style="font-size:10px;color:var(--text2);white-space:nowrap">Firma:</span>
-      <select id="company-selector" onchange="switchCompany(this.value)" style="border:none;background:transparent;font-size:12px;font-weight:600;cursor:pointer;outline:none;font-family:var(--font)">
-        <option value="mtoilet">🔵 mToilet</option>
-        <option value="gcon">🟢 G-CON</option>
-        <option value="grental">🟡 G-Rental</option>
-        <option value="kjrsupply">🟣 KJR Supply</option>
-        <option value="nwkinvest">🔴 NWK Invest</option>
-        <option value="wolund">🔵 Wolund</option>
-      </select>
-    </div>
-    <span id="company-badge" style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;background:#E6F1FB;color:#185FA5;border:1px solid #B5D4F4;white-space:nowrap;cursor:pointer" onclick="showPage('firmy')">mToilet</span>
-    <nav class="topnav">
-    <button class="tnb active" id="tnb-dash" onclick="showPage('dash')"><i class="ti ti-chart-bar"></i>Pulpit</button>
-    <button class="tnb" id="tnb-pojazdy" onclick="showPage('pojazdy')"><i class="ti ti-truck"></i>Pojazdy <span class="badge" id="badge-sel">0</span></button>
-    <button class="tnb" id="tnb-kalkulator" onclick="showPage('kalkulator')"><i class="ti ti-calculator"></i>Kalkulator</button>
-    <button class="tnb" id="tnb-formularze" onclick="showPage('formularze')"><i class="ti ti-file-text"></i>DT-1 / DT-1/A</button>
-    <button class="tnb" id="tnb-pd" onclick="showPage('pd')"><i class="ti ti-upload"></i>Eksport PD</button>
-    <button class="tnb" id="tnb-stawki" onclick="showPage('stawki')"><i class="ti ti-building-bank"></i>Stawki 2026</button>
-    <button class="tnb" id="tnb-podatnik" onclick="showPage('podatnik')"><i class="ti ti-building"></i>Podatnik</button>
-    <button class="tnb" id="tnb-walidacja" onclick="showPage('walidacja')"><i class="ti ti-shield-check"></i>Walidacja <span class="badge" id="badge-err" style="background:var(--red)">0</span></button>
-    <button class="tnb" id="tnb-raporty" onclick="showPage('raporty')"><i class="ti ti-chart-line"></i>Raporty</button>
-    <button class="tnb" id="tnb-ocr" onclick="showPage('ocr')"><i class="ti ti-scan"></i>OCR Dowody</button>
-    <button class="tnb" id="tnb-faktury" onclick="showPage('faktury')"><i class="ti ti-file-invoice"></i>Faktury</button>
-    <button class="tnb" id="tnb-pdfexport" onclick="showPage('pdfexport')"><i class="ti ti-file-type-pdf"></i>Eksport PDF</button>
-    <button class="tnb" id="tnb-impexp" onclick="showPage('impexp')"><i class="ti ti-arrows-exchange"></i>Import/Eksport</button>
-    <button class="tnb" id="tnb-karty" onclick="showPage('karty')"><i class="ti ti-credit-card"></i>Karty Flotowe</button>
-    <button class="tnb" id="tnb-uzytkownicy" onclick="showPage('uzytkownicy')"><i class="ti ti-users"></i>Użytkownicy</button>
-    <button class="tnb" id="tnb-cepik" onclick="showPage('cepik')"><i class="ti ti-database"></i>CEPiK</button>
-    <button class="tnb" id="tnb-firmy" onclick="showPage('firmy')"><i class="ti ti-building-community"></i>Firmy <span class="badge" style="background:#185FA5">6</span></button>
-  </nav>
+    <span style="font-size:10px;color:var(--text2);white-space:nowrap">Firma:</span>
+    <select id="company-selector" onchange="switchCompany(this.value)" style="border:none;background:transparent;font-size:12px;font-weight:600;cursor:pointer;outline:none;font-family:var(--font)">
+      <option value="mtoilet">🔵 mToilet</option>
+      <option value="gcon">🟢 G-CON</option>
+      <option value="grental">🟡 G-Rental</option>
+      <option value="kjrsupply">🟣 KJR Supply</option>
+      <option value="nwkinvest">🔴 NWK Invest</option>
+      <option value="wolund">🔵 Wolund</option>
+    </select>
+  </div>
+  <span id="company-badge" style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;background:#E6F1FB;color:#185FA5;border:1px solid #B5D4F4;white-space:nowrap;cursor:pointer" onclick="showPage('firmy')">mToilet</span>
   <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
     <label style="font-size:12px;color:var(--text2)">Rok:</label>
     <input id="taxYear" type="number" min="2020" max="2035" value="2026" list="taxYear-list" class="yr-sel" onchange="refreshAll()" oninput="if(this.value.length===4&&parseInt(this.value)>=2020)refreshAll()" style="width:68px;text-align:center;font-size:12px;font-weight:600;padding:4px 6px;border-radius:var(--radius);border:1px solid var(--border)"><datalist id="taxYear-list"><option value="2024"><option value="2025"><option value="2026"><option value="2027"></datalist>
-
-      
-
   </div>
   <div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:var(--radius);padding:6px 12px">
     <div id="user-avatar" style="width:28px;height:28px;border-radius:50%;background:var(--blue-light);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">?</div>
@@ -121,6 +99,38 @@ window.addEventListener('DOMContentLoaded', () => {
     <button onclick="doLogout()" title="Wyloguj" style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:17px;padding:4px;border-radius:var(--radius-sm)"><i class="ti ti-logout"></i></button>
   </div>
 </div>
+
+<!-- APP BODY: sidebar + content -->
+<div class="app-body">
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <button class="tnb active" id="tnb-dash" onclick="showPage('dash')"><i class="ti ti-home"></i>Pulpit</button>
+
+  <div class="sidebar-label">Flota</div>
+  <button class="tnb" id="tnb-pojazdy" onclick="showPage('pojazdy')"><i class="ti ti-truck"></i>Pojazdy <span class="badge" id="badge-sel">0</span></button>
+  <button class="tnb" id="tnb-impexp" onclick="showPage('impexp')"><i class="ti ti-arrows-exchange"></i>Import / Eksport</button>
+
+  <div class="sidebar-label">Podatki</div>
+  <button class="tnb" id="tnb-kalkulator" onclick="showPage('kalkulator')"><i class="ti ti-calculator"></i>Kalkulator</button>
+  <button class="tnb" id="tnb-formularze" onclick="showPage('formularze')"><i class="ti ti-file-text"></i>DT-1 / DT-1/A</button>
+  <button class="tnb" id="tnb-stawki" onclick="showPage('stawki')"><i class="ti ti-building-bank"></i>Stawki 2026</button>
+  <button class="tnb" id="tnb-pd" onclick="showPage('pd')"><i class="ti ti-upload"></i>Eksport PD</button>
+  <button class="tnb" id="tnb-walidacja" onclick="showPage('walidacja')"><i class="ti ti-shield-check"></i>Walidacja <span class="badge" id="badge-err" style="background:var(--red)">0</span></button>
+
+  <div class="sidebar-label">Dokumenty</div>
+  <button class="tnb" id="tnb-ocr" onclick="showPage('ocr')"><i class="ti ti-scan"></i>OCR Dowody</button>
+  <button class="tnb" id="tnb-faktury" onclick="showPage('faktury')"><i class="ti ti-file-invoice"></i>Faktury</button>
+  <button class="tnb" id="tnb-pdfexport" onclick="showPage('pdfexport')"><i class="ti ti-file-type-pdf"></i>Eksport PDF</button>
+
+  <div class="sidebar-label">Administracja</div>
+  <button class="tnb" id="tnb-podatnik" onclick="showPage('podatnik')"><i class="ti ti-building"></i>Podatnik</button>
+  <button class="tnb" id="tnb-firmy" onclick="showPage('firmy')"><i class="ti ti-building-community"></i>Firmy</button>
+  <button class="tnb" id="tnb-uzytkownicy" onclick="showPage('uzytkownicy')"><i class="ti ti-users"></i>Użytkownicy</button>
+  <button class="tnb" id="tnb-cepik" onclick="showPage('cepik')"><i class="ti ti-database"></i>CEPiK</button>
+  <button class="tnb" id="tnb-karty" onclick="showPage('karty')"><i class="ti ti-credit-card"></i>Karty Flotowe</button>
+  <button class="tnb" id="tnb-raporty" onclick="showPage('raporty')"><i class="ti ti-chart-line"></i>Raporty</button>
+</nav>
 
 <div class="content">
 
@@ -1398,6 +1408,7 @@ window.addEventListener('DOMContentLoaded', () => {
 </div>
 
 </div><!-- /content -->
+</div><!-- /app-body -->
 </div><!-- /app -->
 
 <div class="toast" id="toast"></div>
