@@ -361,7 +361,12 @@ window.TaxOrderVehicleDetail = {
       <div id="vd-tab-eksploatacja-content" class="vd-tab-content" style="display:none">
         <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Kierowca i licznik</div>
         <div class="vdfg" style="margin-bottom:18px">
-          ${field('kierowca','Przypisany kierowca', v.kierowca)}
+          <div class="vdf">
+            <label class="vdl">Przypisany kierowca
+              <span style="font-size:10px;color:var(--blue);cursor:pointer;margin-left:6px" onclick="TaxOrderDrivers.open()" title="Zarządzaj kierowcami">&#9881; kartoteka</span>
+            </label>
+            <input id="vd-kierowca" type="text" class="fi" value="${v.kierowca??''}" autocomplete="off" list="drivers-datalist" placeholder="Wybierz lub wpisz...">
+          </div>
           ${field('stanKilometrow','Stan licznika (km)', v.stanKilometrow,'number')}
           ${field('kartaOrlen','Nr karty flotowej / paliwa', v.kartaOrlen)}
         </div>

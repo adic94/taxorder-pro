@@ -4371,6 +4371,7 @@ window.addEventListener('load', async () => {
     if (window.TaxOrderNotifications?.requestAndCheck) {
       window.TaxOrderNotifications.requestAndCheck();
     }
+    if (window.TaxOrderDrivers?.init) window.TaxOrderDrivers.init();
   }, 3000);
 
   // Badge walidacji
