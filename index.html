@@ -130,6 +130,9 @@ window.addEventListener('DOMContentLoaded', () => {
   <button class="tnb" id="tnb-cepik" onclick="showPage('cepik')"><i class="ti ti-database"></i>CEPiK</button>
   <button class="tnb" id="tnb-karty" onclick="showPage('karty')"><i class="ti ti-credit-card"></i>Karty Flotowe</button>
   <button class="tnb" id="tnb-raporty" onclick="showPage('raporty')"><i class="ti ti-chart-line"></i>Raporty</button>
+
+  <div class="sidebar-label">AI</div>
+  <button class="tnb" id="tnb-ai" onclick="showPage('ai')"><i class="ti ti-robot"></i>Asystent AI</button>
 </nav>
 
 <div class="content">
@@ -1407,6 +1410,53 @@ window.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 
+<!-- ==================== AI ASYSTENT ==================== -->
+<div class="page" id="page-ai">
+  <div class="pg-title"><i class="ti ti-robot"></i>Asystent AI</div>
+  <div class="pg-sub">Zadaj pytanie o podatek DT-1, stawki, pojazdy — AI odpowiada w kontekście Twojej floty</div>
+
+  <div style="display:grid;grid-template-columns:1fr 280px;gap:1.5rem;align-items:start">
+    <!-- CZAT -->
+    <div style="display:flex;flex-direction:column;gap:0">
+      <div id="ai-messages" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg) var(--radius-lg) 0 0;min-height:420px;max-height:520px;overflow-y:auto;padding:1.25rem;display:flex;flex-direction:column;gap:12px">
+        <div class="ai-msg ai-msg-bot">
+          <div class="ai-avatar"><i class="ti ti-robot"></i></div>
+          <div class="ai-bubble">Cześć! Jestem asystentem TaxOrder Pro. Mogę pomóc z obliczaniem podatku DT-1, kategoryzacją pojazdów, stawkami Warszawy 2026 i pytaniami o Twoją flotę. Co chcesz wiedzieć?</div>
+        </div>
+      </div>
+      <div style="display:flex;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius-lg) var(--radius-lg);background:var(--bg2);padding:10px;gap:8px">
+        <textarea id="ai-input" placeholder="Napisz pytanie... (Enter = wyślij, Shift+Enter = nowa linia)" rows="2" style="flex:1;resize:none;border:1px solid var(--border);border-radius:var(--radius);padding:9px 12px;font-size:13px;font-family:var(--font);outline:none;line-height:1.5" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();aiSend();}"></textarea>
+        <button onclick="aiSend()" id="ai-send-btn" class="btn btn-blue" style="align-self:flex-end;padding:9px 16px"><i class="ti ti-send"></i>Wyślij</button>
+      </div>
+    </div>
+
+    <!-- PANEL BOCZNY -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:6px"><i class="ti ti-info-circle" style="color:var(--blue)"></i>Kontekst floty</div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:8px">
+          <input type="checkbox" id="ai-fleet-ctx" checked style="width:15px;height:15px;cursor:pointer">
+          Wyślij dane floty do AI
+        </label>
+        <div style="font-size:12px;color:var(--text2)">AI dostaje podsumowanie Twojej floty — liczbę pojazdów, marki, kategorie DT-1.</div>
+      </div>
+
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:6px"><i class="ti ti-bulb" style="color:var(--amber)"></i>Przykłady pytań</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button class="ai-example" onclick="aiExample(this)">Ile wynosi podatek za Mercedes Atego 9,5t z 2022 roku?</button>
+          <button class="ai-example" onclick="aiExample(this)">Do której kategorii DT-1 należy przyczepa 14t?</button>
+          <button class="ai-example" onclick="aiExample(this)">Kiedy trzeba złożyć deklarację DT-1?</button>
+          <button class="ai-example" onclick="aiExample(this)">Ile mamy pojazdów z kategorią D9?</button>
+          <button class="ai-example" onclick="aiExample(this)">Jaki jest łączny podatek mojej floty?</button>
+        </div>
+      </div>
+
+      <button onclick="aiClear()" class="btn btn-gray" style="width:100%;justify-content:center"><i class="ti ti-trash"></i>Wyczyść rozmowę</button>
+    </div>
+  </div>
+</div>
+
 </div><!-- /content -->
 </div><!-- /app-body -->
 </div><!-- /app -->
@@ -1423,6 +1473,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <script src="modules/import-export.js"></script>
   <script src="modules/dashboard-nav.js"></script>
   <script src="modules/rate-reader.js"></script>
+  <script src="modules/ai-chat.js"></script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
