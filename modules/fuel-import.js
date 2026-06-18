@@ -37,6 +37,18 @@ window.FuelImport = (function () {
     myjnia:'myjnia', wash:'myjnia', 'car wash':'myjnia',
   };
 
+  // Współczynniki emisji CO2 wg KOBIZE (kg CO2/litr lub kg CO2/m³ dla CNG)
+  // Źródło: Wskaźniki emisji z zużycia paliw KOBiZE (aktualizacja 2024)
+  const KOBIZE_FACTORS = {
+    diesel: 2.679, on: 2.679,
+    pb95: 2.302, pb98: 2.302,
+    lpg: 1.626,
+    cng: 2.154,
+    lng: 2.750,
+    h2: 0,
+    mocznik: 0, myjnia: 0, inne: 0,
+  };
+
   let _parsedRows = [];
   let _colMap = {};
   let _headers = [];
@@ -107,13 +119,16 @@ window.FuelImport = (function () {
     let product = _n(get('product'));
     product = PRODUCT_MAP[product] || PRODUCT_MAP[Object.keys(PRODUCT_MAP).find(k => product.includes(k))||''] || 'inne';
 
+    const liters = getNum('liters');
+    const co2kg = liters != null ? +(liters * (KOBIZE_FACTORS[product] || 0)).toFixed(3) : null;
+
     return {
       id: Date.now() + Math.random(),
       date,
       time: get('time').substring(0,5),
       nrRej: (get('nrRej') || '').toUpperCase().replace(/\s/g,''),
       cardNo: get('cardNo'),
-      liters: getNum('liters'),
+      liters,
       pricePerL: getNum('pricePerL'),
       totalGross: getNum('totalGross'),
       totalNet: getNum('totalNet'),
@@ -121,6 +136,7 @@ window.FuelImport = (function () {
       location: get('location'),
       product,
       km: getNum('km'),
+      co2kg,
       source: 'csv',
       notes: get('notes'),
     };
@@ -419,19 +435,23 @@ window.FuelImport = (function () {
     const liters = gf('_fuel-liters');
     if (!date || !liters) { toast('⚠ Data i ilość litrów są wymagane'); return; }
 
+    const product = g('_fuel-product');
+    const co2kg = liters != null ? +(liters * (KOBIZE_FACTORS[product] || 0)).toFixed(3) : null;
+
     if (!Array.isArray(v.fuelHistory)) v.fuelHistory = [];
     v.fuelHistory.unshift({
       id: Date.now() + Math.random(),
       date,
       time: g('_fuel-time'),
       nrRej: v.nrRej,
-      product: g('_fuel-product'),
+      product,
       liters,
       pricePerL: gf('_fuel-price'),
       totalGross: gf('_fuel-total'),
       station: g('_fuel-station'),
       cardNo: g('_fuel-card'),
       km: gf('_fuel-km'),
+      co2kg,
       notes: g('_fuel-notes'),
       source: 'manual',
     });
@@ -473,9 +493,80 @@ window.FuelImport = (function () {
     URL.revokeObjectURL(url);
   }
 
+  // ── KOBIZE — Raport emisji CO2 ────────────────────────────────────────────
+  function exportKobize(year) {
+    year = year || new Date().getFullYear() - 1;
+    const rows = [];
+    rows.push(['Nr rejestracyjny','Marka','Model','Rok prod.','Miesiąc','Paliwo','Ilość (l)','CO2 (kg)','Koszt brutto (zł)']);
+
+    const allFuel = [];
+    (window.vehs || []).forEach(v => {
+      (v.fuelHistory || []).forEach(f => {
+        const fy = f.date ? parseInt(f.date.slice(0,4)) : 0;
+        if (fy !== year) return;
+        const fuelType = f.product || 'inne';
+        const co2 = f.co2kg != null ? f.co2kg : (f.liters ? +(f.liters * (KOBIZE_FACTORS[fuelType] || 0)).toFixed(3) : 0);
+        allFuel.push({
+          nrRej: v.nrRej, marka: v.marka, model: v.model, rok: v.rok,
+          month: f.date ? f.date.slice(0,7) : '', fuelType,
+          liters: f.liters || 0, co2, gross: f.totalGross || 0,
+        });
+      });
+    });
+
+    // Grupuj po nrRej + miesiąc + paliwo
+    const grouped = {};
+    allFuel.forEach(f => {
+      const key = `${f.nrRej}||${f.month}||${f.fuelType}`;
+      if (!grouped[key]) grouped[key] = {...f, liters:0, co2:0, gross:0};
+      grouped[key].liters += f.liters;
+      grouped[key].co2 += f.co2;
+      grouped[key].gross += f.gross;
+    });
+
+    Object.values(grouped).sort((a,b) => `${a.nrRej}${a.month}`.localeCompare(`${b.nrRej}${b.month}`)).forEach(g => {
+      rows.push([
+        g.nrRej, g.marka, g.model, g.rok,
+        g.month, g.fuelType,
+        g.liters.toFixed(2), g.co2.toFixed(3), g.gross.toFixed(2),
+      ]);
+    });
+
+    // Suma końcowa
+    const totalLiters = Object.values(grouped).reduce((s,g)=>s+g.liters,0);
+    const totalCO2 = Object.values(grouped).reduce((s,g)=>s+g.co2,0);
+    const totalGross = Object.values(grouped).reduce((s,g)=>s+g.gross,0);
+    rows.push([]);
+    rows.push(['ŁĄCZNIE', '', '', '', '', '', totalLiters.toFixed(2), totalCO2.toFixed(3), totalGross.toFixed(2)]);
+
+    const csv = '﻿' + rows.map(r => r.map(c => `"${String(c||'').replace(/"/g,'""')}"`).join(';')).join('\r\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url;
+    a.download=`raport_emisji_CO2_KOBIZE_${year}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast(`✓ Raport KOBIZE ${year}: ${totalCO2.toFixed(0)} kg CO2 / ${(totalCO2/1000).toFixed(2)} t CO2`);
+  }
+
+  // ── Podsumowanie CO2 dla całej floty za dany miesiąc ─────────────────────
+  function getFleetCO2(monthStr) {
+    let total = 0;
+    (window.vehs || []).forEach(v => {
+      (v.fuelHistory || []).forEach(f => {
+        if (!monthStr || (f.date && f.date.startsWith(monthStr))) {
+          const co2 = f.co2kg != null ? f.co2kg
+            : (f.liters ? f.liters * (KOBIZE_FACTORS[f.product] || 0) : 0);
+          total += co2;
+        }
+      });
+    });
+    return total;
+  }
+
   return {
     open, close, handleFile, updateMap, applySchema,
     doImport, addManual, saveManual, removeFuel, downloadTemplate,
+    exportKobize, getFleetCO2, KOBIZE_FACTORS,
   };
 
 })();

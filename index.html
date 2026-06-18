@@ -207,6 +207,9 @@ window.addEventListener('DOMContentLoaded', () => {
       <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="FuelImport.open()">
         <i class="ti ti-file-import"></i>Import tankowań
       </button>
+      <button class="btn btn-gray" style="font-size:11px" onclick="FuelImport.exportKobize(new Date().getFullYear()-1)" title="Eksportuj raport emisji CO2 wg KOBIZE">
+        <i class="ti ti-leaf"></i>Raport CO₂ KOBIZE
+      </button>
     </div>
     <div id="dash-fuel" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:8px"></div>
   </div>
@@ -1396,6 +1399,28 @@ window.addEventListener('DOMContentLoaded', () => {
         <!-- Wyniki weryfikacji -->
         <div id="cepik-batch-results"></div>
       </div>
+
+      <!-- IMPORT XML z CEPiK / DR -->
+      <div class="card" style="margin-top:1rem;border-color:var(--green)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <i class="ti ti-file-type-xml" style="font-size:20px;color:var(--green)"></i>
+          <div>
+            <div style="font-size:14px;font-weight:600">Import XML — plik z CEPiK / dowodu rejestracyjnego</div>
+            <div style="font-size:11px;color:var(--text2)">Wczytaj dane pojazdów z pliku XML — zaktualizuje lub doda pojazdy do bazy</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-green" onclick="CepikXML.open()">
+            <i class="ti ti-upload"></i>Wczytaj plik XML
+          </button>
+          <button class="btn btn-gray" onclick="CepikXML.downloadTemplate()">
+            <i class="ti ti-download"></i>Pobierz szablon XML
+          </button>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--text3)">
+          Obsługiwane formaty: oficjalny export CEPiK (XML), pojazd.info, AZTEC DR, własny XML ze strukturą Pojazd/NrRejestracyjny
+        </div>
+      </div>
     </div>
 
     <!-- PRAWA — statystyki i ustawienia auto -->
@@ -1559,6 +1584,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <script src="modules/fuel-import.js"></script>
   <script src="modules/drivers.js"></script>
   <script src="modules/fleet-calendar.js"></script>
+  <script src="modules/cepik-xml.js"></script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
@@ -1774,6 +1800,65 @@ window.addEventListener('DOMContentLoaded', () => {
       <!-- Wynik -->
       <div id="fuel-import-result" style="display:none;margin-top:16px"></div>
 
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: IMPORT XML CEPiK -->
+<div id="cepik-xml-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);width:860px;max-width:98vw;max-height:94vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);display:flex;flex-direction:column">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg2);z-index:1">
+      <i class="ti ti-file-type-xml" style="color:var(--green);font-size:20px"></i>
+      <div>
+        <div style="font-weight:700;font-size:15px">Import XML z CEPiK / Dowodu rejestracyjnego</div>
+        <div style="font-size:11px;color:var(--text2)">Wczytaj dane pojazdów z pliku XML — aktualizacja lub dodanie do bazy</div>
+      </div>
+      <button onclick="CepikXML.close()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">&times;</button>
+    </div>
+    <div style="padding:20px;flex:1">
+
+      <!-- KROK 1: Wczytaj plik -->
+      <div id="cepik-step1">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div style="border:2px dashed var(--border);border-radius:var(--radius-lg);padding:28px;text-align:center;cursor:pointer" onclick="document.getElementById('cepik-xml-file').click()">
+            <i class="ti ti-file-type-xml" style="font-size:36px;color:var(--green);margin-bottom:8px;display:block"></i>
+            <div style="font-weight:600;margin-bottom:6px">Kliknij i wybierz plik XML</div>
+            <div style="font-size:12px;color:var(--text2)">Export z CEPiK, pojazd.info lub własny format XML</div>
+            <input type="file" id="cepik-xml-file" accept=".xml,.txt" style="display:none" onchange="CepikXML.handleFile(this)">
+          </div>
+          <div style="background:var(--bg3);border-radius:var(--radius-lg);padding:20px">
+            <div style="font-size:12px;font-weight:600;margin-bottom:10px">Obsługiwane formaty:</div>
+            <ul style="font-size:12px;color:var(--text2);margin:0;padding-left:16px;line-height:2">
+              <li>Oficjalny export XML z CEPiK API</li>
+              <li>pojazd.info — dane z dowodu rej.</li>
+              <li>Format AZTEC z kodu DR</li>
+              <li>Własna lista XML (Pojazdy/Pojazd)</li>
+            </ul>
+            <button class="btn btn-gray" style="font-size:11px;margin-top:12px;width:100%" onclick="CepikXML.downloadTemplate()">
+              <i class="ti ti-download"></i>Pobierz szablon XML
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- KROK 2: Podgląd -->
+      <div id="cepik-step2" style="display:none">
+        <div id="cepik-stats"></div>
+        <div id="cepik-preview"></div>
+      </div>
+
+      <!-- KROK 3: Przyciski akcji -->
+      <div id="cepik-step3" style="display:none">
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+          <button class="btn btn-gray" onclick="CepikXML.close()">Anuluj</button>
+          <button class="btn btn-green" onclick="CepikXML.doImport()">
+            <i class="ti ti-check"></i>Importuj do bazy pojazdów
+          </button>
+        </div>
+      </div>
+
+      <!-- Wynik -->
+      <div id="cepik-result" style="display:none"></div>
     </div>
   </div>
 </div>

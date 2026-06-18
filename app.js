@@ -498,6 +498,12 @@ function renderFuelDash() {
   // Sumy
   const totalCost   = stats.reduce((s,x)=>s+x.cost,0);
   const totalLiters = stats.reduce((s,x)=>s+x.liters,0);
+  const totalCO2    = window.FuelImport?.getFleetCO2 ? window.FuelImport.getFleetCO2(thisMonth) : 0;
+  const co2Label    = totalCO2 >= 1000 ? `${(totalCO2/1000).toFixed(2)} t` : `${totalCO2.toFixed(0)} kg`;
+  const prevMonth   = new Date(now.getFullYear(), now.getMonth()-1, 1).toISOString().slice(0,7);
+  const prevCO2     = window.FuelImport?.getFleetCO2 ? window.FuelImport.getFleetCO2(prevMonth) : 0;
+  const co2Trend    = prevCO2 > 0 ? ((totalCO2 - prevCO2) / prevCO2 * 100) : null;
+  const co2TrendStr = co2Trend != null ? `<span style="font-size:10px;color:${co2Trend<=0?'var(--green)':'var(--red)'}">${co2Trend>0?'↑':'↓'}${Math.abs(co2Trend).toFixed(0)}% vs poprzedni mies.</span>` : '';
 
   el.innerHTML = `
     <div style="padding:14px;background:var(--amber-light,#fff8e6);border-radius:var(--radius);border:1px solid var(--amber,#f59e0b)">
@@ -505,15 +511,27 @@ function renderFuelDash() {
       <div style="font-size:22px;font-weight:700;font-family:var(--mono);color:var(--amber)">${totalCost.toFixed(2)} zł</div>
       <div style="font-size:11px;color:var(--text2)">${totalLiters.toFixed(1)} l · ${stats.length} pojazdów</div>
     </div>
-    ${stats.slice(0,5).map(s => `
+    ${totalCO2 > 0 ? `
+    <div style="padding:14px;background:rgba(34,197,94,.07);border-radius:var(--radius);border:1px solid var(--green)">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">Emisja CO₂ floty (KOBIZE)</div>
+      <div style="font-size:22px;font-weight:700;font-family:var(--mono);color:var(--green)">${co2Label}</div>
+      <div style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:6px">${co2TrendStr}
+        <button onclick="FuelImport.exportKobize(${now.getFullYear()-1})" style="margin-left:auto;font-size:10px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer;color:var(--text2)">Eksport ${now.getFullYear()-1}</button>
+      </div>
+    </div>` : ''}
+    ${stats.slice(0,5).map(s => {
+      const sCO2 = s.v.fuelHistory?.filter(h=>(h.date||'').startsWith(thisMonth))
+        .reduce((acc,h)=> acc + (h.co2kg!=null ? h.co2kg : (h.liters||0)*(window.FuelImport?.KOBIZE_FACTORS?.[h.product]||0)), 0) || 0;
+      return `
       <div style="padding:12px;background:var(--bg3);border-radius:var(--radius);cursor:pointer" onclick="TaxOrderVehicleDetail.open(${s.v.id})">
         <div style="font-size:11px;font-weight:700;font-family:var(--mono);margin-bottom:4px">${s.v.nrRej}</div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${s.v.marka} ${s.v.model}</div>
         <div style="display:flex;justify-content:space-between;font-size:12px">
           <span style="font-family:var(--mono);font-weight:600">${s.cost.toFixed(2)} zł</span>
           <span style="color:var(--text3)">${s.liters.toFixed(1)} l</span>
+          ${sCO2>0?`<span style="color:var(--green);font-size:10px">${sCO2.toFixed(0)} kg CO₂</span>`:''}
         </div>
-      </div>`).join('')}`;
+      </div>`}).join('')}`;
 }
 
 // ==================== DASH ====================
