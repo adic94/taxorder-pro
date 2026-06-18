@@ -26,6 +26,8 @@ WZ124HW;2025-06-01;07:45:00;12430;Adam Nowak;65;al. Jerozolimskie 120, Warszawa`
   let _parsed = [];
   let _schema = null;
   let _fileContent = '';
+  let _pendingLines = [];
+  let _pendingSep = ';';
 
   function open() {
     document.getElementById('tekom-modal').style.display = 'flex';
@@ -35,7 +37,7 @@ WZ124HW;2025-06-01;07:45:00;12430;Adam Nowak;65;al. Jerozolimskie 120, Warszawa`
     document.getElementById('tekom-modal').style.display = 'none';
     _reset();
   }
-  function _reset() { _parsed = []; _schema = null; _fileContent = ''; _renderStep(1); }
+  function _reset() { _parsed = []; _schema = null; _fileContent = ''; _pendingLines = []; _pendingSep = ';'; _renderStep(1); }
 
   // ── Krok 1: Wczytaj plik ─────────────────────────────────────────────────
   function handleFile(input) {
@@ -102,6 +104,9 @@ WZ124HW;2025-06-01;07:45:00;12430;Adam Nowak;65;al. Jerozolimskie 120, Warszawa`
   }
 
   function _showSchemaMapper(headers, sep, lines) {
+    // Przechowaj w zmiennych modułu — nie przez onclick payload
+    _pendingLines = lines.slice(1);
+    _pendingSep   = sep;
     const el = document.getElementById('tekom-step1-body');
     if (!el) return;
     const fieldOpts = ['', ...Object.keys(FIELD_ALIASES)].map(f => `<option value="${f}">${f||'— pomiń —'}</option>`).join('');
@@ -123,21 +128,20 @@ WZ124HW;2025-06-01;07:45:00;12430;Adam Nowak;65;al. Jerozolimskie 120, Warszawa`
         </tbody>
       </table></div>
       <div style="display:flex;justify-content:flex-end;margin-top:12px">
-        <button class="btn btn-blue" onclick="TekomImport._applyManualSchema(${JSON.stringify(headers).replace(/"/g,"'")},${JSON.stringify(sep)},'${encodeURIComponent(lines.slice(1).join('\\n'))}')" >
+        <button class="btn btn-blue" onclick="TekomImport._applyManualSchema(${JSON.stringify(headers)})">
           <i class="ti ti-arrow-right"></i>Dalej
         </button>
       </div>`;
   }
 
-  function _applyManualSchema(headers, sep, encodedLines) {
+  function _applyManualSchema(headers) {
     _schema = {};
     headers.forEach((h, i) => {
       const sel = document.getElementById(`_tk-map-${i}`);
       if (sel?.value) _schema[sel.value] = i;
     });
-    const linesText = decodeURIComponent(encodedLines);
-    const lines = linesText.split('\\n');
-    _parsed = lines.map(line => {
+    const sep = _pendingSep;
+    _parsed = _pendingLines.map(line => {
       const cols = line.split(sep).map(c => c.trim().replace(/^["']|["']$/g,''));
       const get = f => (_schema[f] !== undefined ? cols[_schema[f]] : '') || '';
       const km = _schema.km !== undefined ? parseFloat(get('km').replace(/\s/g,'').replace(',','.')) : null;
@@ -207,7 +211,7 @@ WZ124HW;2025-06-01;07:45:00;12430;Adam Nowak;65;al. Jerozolimskie 120, Warszawa`
         </div>
 
         ${unknownNrRej.length ? `
-        <div class="wbox wbox-amber" style="margin-bottom:12px"><i class="ti ti-alert-triangle"></i>
+        <div class="wbox" style="margin-bottom:12px"><i class="ti ti-alert-triangle"></i>
           Nieznane tablice rejestracyjne (brak w bazie pojazdów): ${unknownNrRej.map(n=>`<strong>${n}</strong>`).join(', ')}
         </div>` : ''}
 

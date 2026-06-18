@@ -647,7 +647,7 @@ function _renderFinesDash() {
           <div style="font-size:11px;font-weight:700;font-family:var(--mono)">${f.nrRej||'—'}</div>
           <div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.label}${f.amount?' · '+f.amount+' zł':''}</div>
         </div>
-        <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${dl!==null&&dl<0?'var(--red)':dl<=3?'var(--red)':'var(--amber)'}">${dl!==null&&dl<0?Math.abs(dl)+'d temu':'za '+dl+'d'}</span>
+        <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${dl===null?'var(--text3)':dl<0?'var(--red)':dl<=3?'var(--red)':'var(--amber)'}">${dl===null?'—':dl<0?Math.abs(dl)+'d temu':'za '+dl+'d'}</span>
       </div>`;
     }).join('')}`;
 }
@@ -4442,7 +4442,10 @@ function _checkKobizeReminder() {
   if (localStorage.getItem(key)) return;
 
   const toast2 = document.createElement('div');
+  toast2.id = '_kobize-reminder';
   toast2.style.cssText = 'position:fixed;bottom:100px;right:24px;z-index:9900;background:var(--bg2);border:1px solid var(--amber);border-radius:var(--radius-lg);padding:16px 20px;max-width:340px;box-shadow:0 4px 20px rgba(0,0,0,.2)';
+  const _closeKobize = () => { toast2.remove(); localStorage.setItem(key,'ok'); };
+  window._closeKobize = _closeKobize;
   toast2.innerHTML = `
     <div style="font-size:13px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px;color:var(--amber)">
       <i class="ti ti-leaf"></i>Przypomnienie KOBIZE ${year}
@@ -4451,11 +4454,11 @@ function _checkKobizeReminder() {
       Do <strong>31 marca ${year}</strong> należy złożyć roczne sprawozdanie o emisji CO₂ do KOBiZE. Eksportuj dane paliw z modułu Raporty.
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button onclick="this.closest('div').remove();localStorage.setItem('${key}','ok')" style="font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer;color:var(--text2)">Zamknij</button>
-      <button onclick="window.FuelImport?.exportKobize(${year-1});this.closest('div').remove();localStorage.setItem('${key}','ok')" style="font-size:11px;padding:4px 10px;border:none;border-radius:4px;background:var(--amber);cursor:pointer;color:#000;font-weight:600"><i class="ti ti-download"></i>Eksport ${year-1}</button>
+      <button onclick="_closeKobize()" style="font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer;color:var(--text2)">Zamknij</button>
+      <button onclick="window.FuelImport?.exportKobize(${year-1});_closeKobize()" style="font-size:11px;padding:4px 10px;border:none;border-radius:4px;background:var(--amber);cursor:pointer;color:#000;font-weight:600"><i class="ti ti-download"></i>Eksport ${year-1}</button>
     </div>`;
   document.body.appendChild(toast2);
-  setTimeout(() => { if (toast2.parentNode) toast2.remove(); localStorage.setItem(key,'ok'); }, 30000);
+  setTimeout(() => { if (document.getElementById('_kobize-reminder')) _closeKobize(); }, 30000);
 }
 
 // ==================== INIT ====================

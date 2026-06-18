@@ -167,11 +167,11 @@ window.DocumentsModule = (function () {
 
     btn.disabled=true; btn.textContent='Zapisuję…';
     try {
-      if (typeof saveVehicle==='function') await saveVehicle(v);
-      else { const all=(window.vehs||[]); localStorage.setItem('taxVehicles',JSON.stringify(all)); }
+      if (window.TaxOrderFleetCloud?.saveVehicle) await window.TaxOrderFleetCloud.saveVehicle(v);
+      else localStorage.setItem('taxVehicles', JSON.stringify(window.vehs||[]));
       toast('✓ Dokument zapisany');
       btn.closest('[style*=fixed]').remove();
-      if (typeof VehicleDetail==='object'&&VehicleDetail.refresh) VehicleDetail.refresh(vehId);
+      if (window.TaxOrderVehicleDetail?.refresh) window.TaxOrderVehicleDetail.refresh(vehId);
     } catch(e) {
       toast('⚠ Błąd zapisu: '+e.message);
       btn.disabled=false; btn.textContent='Zapisz';
@@ -184,10 +184,10 @@ window.DocumentsModule = (function () {
     v.documents = (v.documents||[]).filter(d=>d.id!==docId&&d.id!=docId);
     btn.disabled=true;
     try {
-      if (typeof saveVehicle==='function') await saveVehicle(v);
-      else localStorage.setItem('taxVehicles',JSON.stringify(window.vehs||[]));
+      if (window.TaxOrderFleetCloud?.saveVehicle) await window.TaxOrderFleetCloud.saveVehicle(v);
+      else localStorage.setItem('taxVehicles', JSON.stringify(window.vehs||[]));
       toast('Dokument usunięty');
-      if (typeof VehicleDetail==='object'&&VehicleDetail.refresh) VehicleDetail.refresh(vehId);
+      if (window.TaxOrderVehicleDetail?.refresh) window.TaxOrderVehicleDetail.refresh(vehId);
     } catch(e) {
       toast('⚠ Błąd: '+e.message);
       btn.disabled=false;

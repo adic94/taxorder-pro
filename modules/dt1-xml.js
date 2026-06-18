@@ -21,7 +21,7 @@ window.DT1XML = (function () {
   // Zbiera dane formularza z DOM (te same funkcje co w renderFormularze)
   function _getFormData() {
     const g = id => (document.getElementById(id)||{}).value||'';
-    const yr = g('taxYear') || new Date().getFullYear().toString();
+    const yr = g('taxYearDT1') || g('taxYear') || new Date().getFullYear().toString();
     const nip = g('tp-nip').replace(/[-\s]/g,'');
     const name = g('tp-name') || '';
     const street = g('tp-street') || '';

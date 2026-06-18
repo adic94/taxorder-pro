@@ -610,6 +610,9 @@ window.TaxOrderVehicleDetail = {
       if (kd > 10 && kd < 5000) { _effL += withKm[i].liters; _effKm += kd; _effN++; }
     }
     const avgEff = (_effN >= 2 && _effKm > 0) ? (_effL / _effKm * 100).toFixed(1) : null;
+    const norm = v.normaSpalania ? parseFloat(v.normaSpalania) : null;
+    const effOver = avgEff && norm ? parseFloat(avgEff) > norm * 1.15 : false; // >15% ponad normę
+    const effColor = effOver ? 'var(--red)' : avgEff ? 'var(--blue)' : 'var(--text3)';
 
     const PRODUCT_COLOR = {diesel:'var(--blue)',pb95:'var(--green)',pb98:'var(--amber)',lpg:'var(--red)',mocznik:'var(--text3)',myjnia:'var(--blue)',inne:'var(--text3)'};
 
@@ -633,8 +636,8 @@ window.TaxOrderVehicleDetail = {
         </div>
         <div style="padding:12px;background:var(--bg3);border-radius:var(--radius);text-align:center">
           <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Śr. spalanie</div>
-          <div style="font-size:16px;font-weight:700;font-family:var(--mono);color:${avgEff?'var(--blue)':'var(--text3)'}">${avgEff ? avgEff+' l' : '—'}</div>
-          <div style="font-size:11px;color:var(--text2)">${avgEff ? '/100 km' : 'brak danych km'}</div>
+          <div style="font-size:16px;font-weight:700;font-family:var(--mono);color:${effColor}">${avgEff ? avgEff+' l' : '—'}</div>
+          <div style="font-size:11px;color:var(--text2)">${avgEff ? '/100 km'+(norm?` (norma: ${norm})`:'') : 'brak danych km'}${effOver?' ⚠':''}</div>
         </div>
       </div>
 
