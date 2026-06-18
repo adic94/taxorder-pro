@@ -17,53 +17,99 @@ window.TaxOrderVehicleDetail = {
   async save(vehId) {
     const v = vehs.find(x => x.id === vehId);
     if (!v) return;
-    const g = id => document.getElementById('vd-' + id)?.value?.trim() || null;
+    const g  = id => document.getElementById('vd-' + id)?.value?.trim() || null;
     const gb = id => document.getElementById('vd-' + id)?.checked || false;
+    const gi = id => { const val = g(id); return val ? parseInt(val) : null; };
+    const gf = id => { const val = g(id); return val ? parseFloat(val) : null; };
 
-    // Zbierz dane z formularza
     Object.assign(v, {
-      dataRejestracji:  g('dataRej'),
-      przeznaczenie:    g('przeznaczenie'),
-      wariant:          g('wariant'),
-      dmcMax:           g('dmcMax') ? parseInt(g('dmcMax')) : null,
-      masaWlasna:       g('masaWlasna') ? parseInt(g('masaWlasna')) : null,
-      pojSilnika:       g('pojSilnika') ? parseInt(g('pojSilnika')) : null,
-      mocKW:            g('mocKW') ? parseFloat(g('mocKW')) : null,
-      paliwo:           g('paliwo'),
-      miejscaSied:      g('miejscaSied') ? parseInt(g('miejscaSied')) : null,
-      homologacja:      g('homologacja'),
-      docDataWydania:   g('docDataWydania'),
-      docWaznyDo:       g('docWaznyDo'),
-      // Własność
-      ownership_type:   g('ownershipType'),
-      leasingCompany:   g('leasingCompany'),
-      leasingContractNo:g('leasingContractNo'),
-      leasingStart:     g('leasingStart'),
-      leasingEnd:       g('leasingEnd'),
-      leasingRate:      g('leasingRate') ? parseFloat(g('leasingRate')) : null,
-      leasingBuyout:    g('leasingBuyout') ? parseFloat(g('leasingBuyout')) : null,
-      leasingKmLimit:   g('leasingKmLimit') ? parseInt(g('leasingKmLimit')) : null,
-      rentalCompany:    g('rentalCompany'),
-      rentalStart:      g('rentalStart'),
-      rentalEnd:        g('rentalEnd'),
-      purchaseDate:     g('purchaseDate'),
-      purchasePrice:    g('purchasePrice') ? parseFloat(g('purchasePrice')) : null,
-      purchaseInvoice:  g('purchaseInvoice'),
-      dataNabycia:      g('purchaseDate'),
-      // Sprzedaż
-      saleDate:         g('saleDate'),
-      saleInvoice:      g('saleInvoice'),
-      saleBuyer:        g('saleBuyer'),
-      salePrice:        g('salePrice') ? parseFloat(g('salePrice')) : null,
-      dataZbycia:       g('saleDate'),
-      // DT-1/A — zmiany stanu w ruchu
-      dataWycofania:    g('dataWycofania'),
-      dataDopuszczenia: g('dataDopuszczenia'),
-      dataWyrejestrowania: g('dataWyrejestrowania'),
-      uwagi:            g('uwagi'),
-      insurancePolicyNo: g('insurancePolicyNo'),
-      drivetype:        g('driveType'),
-      bodyType:         g('bodyType'),
+      // === DOWÓD REJESTRACYJNY ===
+      dataRejestracji:      g('dataRej'),          // B
+      docDataWydania:       g('docDataWydania'),   // I
+      docWaznyDo:           g('docWaznyDo'),        // H
+      katPojazdu:           g('katPojazdu'),        // J
+      homologacja:          g('homologacja'),       // K
+      wariant:              g('wariant'),           // D.2 typ/wariant
+      wersja:               g('wersja'),            // D.3 wersja handlowa
+      przeznaczenie:        g('przeznaczenie'),
+      dmcMax:               gi('dmcMax'),           // F.1
+      dmcZespolu:           gi('dmcZespolu2'),      // F.2 DMC zestawu
+      masaWlasna:           gi('masaWlasna'),       // G
+      ladownosc:            gi('ladownosc'),        // ładowność
+      masaPrzyczepyZHam:    gi('masaPrzyczepyZHam'),  // O.1
+      masaPrzyczepyBezHam:  gi('masaPrzyczepyBezHam'), // O.2
+      rozstawOsi:           gi('rozstawOsi'),       // M.1 mm
+      pojSilnika:           gi('pojSilnika'),       // P.1
+      mocKW:                gf('mocKW'),            // P.2
+      paliwo:               g('paliwo'),            // P.3
+      miejscaSied:          gi('miejscaSied'),      // S.1
+      miejscaStoj:          gi('miejscaStoj'),      // S.2
+      drivetype:            g('driveType'),
+      bodyType:             g('bodyType'),
+      numerSilnika:         g('numerSilnika'),
+      kolorNadwozia:        g('kolorNadwozia'),
+      // === UBEZPIECZENIA ===
+      ocPolicyNo:    g('ocPolicyNo'),
+      ocInsurer:     g('ocInsurer'),
+      ocStart:       g('ocStart'),
+      ocEnd:         g('ocEnd'),
+      ocPremium:     gf('ocPremium'),
+      acPolicyNo:    g('acPolicyNo'),
+      acInsurer:     g('acInsurer'),
+      acStart:       g('acStart'),
+      acEnd:         g('acEnd'),
+      acPremium:     gf('acPremium'),
+      assPolicyNo:   g('assPolicyNo'),
+      assInsurer:    g('assInsurer'),
+      assEnd:        g('assEnd'),
+      // === BADANIA — PRZEGLĄDY ===
+      nextInspection:    g('nextInspection'),
+      inspectionStation: g('inspectionStation'),
+      // === BADANIA — UDT ===
+      hasUdt:         gb('hasUdt'),
+      udtDeviceType:  g('udtDeviceType'),
+      udtDeviceNo:    g('udtDeviceNo'),
+      udtCertNo:      g('udtCertNo'),
+      udtLastDate:    g('udtLastDate'),
+      udtNextDate:    g('udtNextDate'),
+      udtResult:      g('udtResult'),
+      // === BADANIA — TACHOGRAF ===
+      hasTacho:       gb('hasTacho'),
+      tachoNo:        g('tachoNo'),
+      tachoLastCalib: g('tachoLastCalib'),
+      tachoNextCalib: g('tachoNextCalib'),
+      // === EKSPLOATACJA ===
+      kierowca:       g('kierowca'),
+      stanKilometrow: gi('stanKilometrow'),
+      kartaOrlen:     g('kartaOrlen'),
+      normaSpalania:  gf('normaSpalania'),
+      // === WŁASNOŚĆ ===
+      ownership_type:    g('ownershipType'),
+      leasingCompany:    g('leasingCompany'),
+      leasingContractNo: g('leasingContractNo'),
+      leasingStart:      g('leasingStart'),
+      leasingEnd:        g('leasingEnd'),
+      leasingRate:       gf('leasingRate'),
+      leasingBuyout:     gf('leasingBuyout'),
+      leasingKmLimit:    gi('leasingKmLimit'),
+      rentalCompany:     g('rentalCompany'),
+      rentalStart:       g('rentalStart'),
+      rentalEnd:         g('rentalEnd'),
+      // === ZAKUP / SPRZEDAŻ ===
+      purchaseDate:   g('purchaseDate'),
+      purchasePrice:  gf('purchasePrice'),
+      purchaseInvoice:g('purchaseInvoice'),
+      dataNabycia:    g('purchaseDate'),
+      saleDate:       g('saleDate'),
+      saleInvoice:    g('saleInvoice'),
+      saleBuyer:      g('saleBuyer'),
+      salePrice:      gf('salePrice'),
+      dataZbycia:     g('saleDate'),
+      dataWycofania:      g('dataWycofania'),
+      dataDopuszczenia:   g('dataDopuszczenia'),
+      dataWyrejestrowania:g('dataWyrejestrowania'),
+      // === UWAGI ===
+      uwagi: g('uwagi'),
     });
 
     // Archiwizacja
@@ -77,17 +123,20 @@ window.TaxOrderVehicleDetail = {
       v.archivedAt = null;
     }
 
-    // Zapisz do Supabase
+    // Zapisz (lokalnie zawsze, chmura jeśli dostępna)
+    if (typeof renderVeh === 'function') renderVeh();
+    if (typeof renderDash === 'function') renderDash();
     if (window.TaxOrderFleetCloud?.saveVehicle) {
       const r = await window.TaxOrderFleetCloud.saveVehicle(v);
       if (r.ok) {
         toast('✓ Dane pojazdu ' + v.nrRej + ' zapisane');
-        this.close();
-        if (typeof renderVeh === 'function') renderVeh();
       } else {
-        toast('⚠ Błąd zapisu — sprawdź konsolę');
+        toast('⚠ Błąd zapisu do chmury — dane zapisane lokalnie');
       }
+    } else {
+      toast('✓ Dane pojazdu ' + v.nrRej + ' zaktualizowane');
     }
+    this.close();
   },
 
   _render(v) {
@@ -127,37 +176,68 @@ window.TaxOrderVehicleDetail = {
         </div>
       </div>
 
-      <!-- TABS -->
-      <div id="vd-tabs" style="display:flex;gap:2px;margin-bottom:20px;background:var(--bg3);border-radius:var(--radius);padding:3px">
-        ${['dr','ownership','purchase','archive','notes'].map((t,i) => `
+      <!-- TABS — 8 zakładek, scrollowane -->
+      <div id="vd-tabs" style="display:flex;gap:2px;margin-bottom:20px;background:var(--bg3);border-radius:var(--radius);padding:3px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:thin">
+        ${[
+          ['dr',        '📋 DR'],
+          ['insurance', '🛡 Polisy'],
+          ['badania',   '🔧 Badania'],
+          ['eksploatacja','⚙ Eksploatacja'],
+          ['ownership', '🏢 Własność'],
+          ['purchase',  '💰 Zakup/Zbycie'],
+          ['archive',   '📦 Archiwum'],
+          ['notes',     '📝 Uwagi'],
+        ].map(([t,label],i) => `
           <button onclick="TaxOrderVehicleDetail._tab('${t}')" id="vd-tab-${t}"
-            class="${i===0?'vd-tab-active':''}"
-            style="flex:1;padding:6px 4px;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:11px;font-weight:500;
+            style="flex-shrink:0;padding:6px 10px;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:11px;font-weight:500;white-space:nowrap;
             background:${i===0?'var(--bg)':'transparent'};color:${i===0?'var(--text)':'var(--text2)'}">
-            ${{dr:'📋 Dowód rej.',ownership:'🏢 Własność',purchase:'💰 Zakup/Sprzedaż',archive:'📦 Archiwum',notes:'📝 Uwagi'}[t]}
+            ${label}
           </button>`).join('')}
       </div>
 
       <!-- TAB: DOWÓD REJESTRACYJNY -->
       <div id="vd-tab-dr-content" class="vd-tab-content">
-        <div class="vdfg">
-          ${field('dataRej','B — Data 1. rejestracji', v.dataRejestracji,'date')}
-          ${field('docDataWydania','I — Data wydania dowodu', v.docDataWydania,'date')}
-          ${field('docWaznyDo','H — Ważny do', v.docWaznyDo,'date')}
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Identyfikacja dokumentu</div>
+        <div class="vdfg" style="margin-bottom:18px">
+          ${field('dataRej','B — Data 1. rej. w Polsce', v.dataRejestracji,'date')}
+          ${field('docDataWydania','I — Data wydania DR', v.docDataWydania,'date')}
+          ${field('docWaznyDo','H — DR ważny do', v.docWaznyDo,'date')}
           ${field('homologacja','K — Nr homologacji', v.homologacja)}
-          ${field('przeznaczenie','Przeznaczenie pojazdu', v.przeznaczenie,undefined,'np. specjalne, ciężarowe')}
-          ${field('wariant','D.2 — Typ/wariant', v.wariant)}
-          ${field('dmcMax','F.1 — DMC max (kg)', v.dmcMax,'number','kg')}
-          ${field('masaWlasna','G — Masa własna (kg)', v.masaWlasna,'number','kg')}
-          ${field('pojSilnika','P.1 — Pojemność (cm³)', v.pojSilnika,'number','cm³')}
-          ${field('mocKW','P.2 — Moc (kW)', v.mocKW,'number','kW')}
-          ${field('paliwo','P.3 — Paliwo', v.paliwo)}
-          ${field('miejscaSied','S.1 — Miejsca siedz.', v.miejscaSied,'number')}
-          ${field('driveType','Rodzaj napędu', v.drivetype)}
-          ${field('bodyType','Nadwozie', v.bodyType)}
-          ${field('insurancePolicyNo','Nr polisy OC/AC', v.insurancePolicyNo)}
+          ${field('katPojazdu','J — Kategoria (M1/N1/N2…)', v.katPojazdu)}
+          ${field('wariant','D.2 — Typ / wariant', v.wariant)}
+          ${field('wersja','D.3 — Wersja handlowa', v.wersja)}
+          ${field('przeznaczenie','Przeznaczenie', v.przeznaczenie,undefined,'ciężarowe / specjalne…')}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Masy i wymiary</div>
+        <div class="vdfg" style="margin-bottom:18px">
+          ${field('dmcMax','F.1 — DMC (kg)', v.dmcMax,'number')}
+          ${field('dmcZespolu2','F.2 — DMC zespołu (kg)', v.dmcZespolu,'number')}
+          ${field('masaWlasna','G — Masa własna (kg)', v.masaWlasna,'number')}
+          ${field('ladownosc','Ładowność (kg)', v.ladownosc,'number')}
+          ${field('masaPrzyczepyZHam','O.1 — Masa przyczepy z ham. (kg)', v.masaPrzyczepyZHam,'number')}
+          ${field('masaPrzyczepyBezHam','O.2 — Masa przyczepy bez ham. (kg)', v.masaPrzyczepyBezHam,'number')}
+          ${field('rozstawOsi','M.1 — Rozstaw osi (mm)', v.rozstawOsi,'number')}
+        </div>
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Silnik i nadwozie</div>
+        <div class="vdfg" style="margin-bottom:18px">
+          ${field('pojSilnika','P.1 — Pojemność silnika (cm³)', v.pojSilnika,'number')}
+          ${field('mocKW','P.2 — Moc (kW)', v.mocKW,'number')}
+          ${field('paliwo','P.3 — Rodzaj paliwa', v.paliwo)}
+          ${field('numerSilnika','Nr silnika', v.numerSilnika)}
+          ${field('kolorNadwozia','Kolor nadwozia', v.kolorNadwozia)}
+          ${sel('driveType','Rodzaj napędu',[
+            ['','— nie określono —'],['2x4','2×4'],['4x4','4×4 (AWD/4WD)'],
+            ['6x4','6×4'],['6x2','6×2'],['8x4','8×4'],['elektryczny','Elektryczny'],
+          ], v.drivetype)}
+          ${sel('bodyType','Typ nadwozia',[
+            ['','— nie określono —'],['sedan','Sedan'],['kombi','Kombi'],['suv','SUV / Terenowy'],
+            ['van','Van / Bus'],['pickup','Pickup'],['ciezarowka','Ciężarówka'],
+            ['naczepa','Naczepa'],['przyczepa','Przyczepa'],['inne','Inne'],
+          ], v.bodyType)}
+          ${field('miejscaSied','S.1 — Miejsca siedzące', v.miejscaSied,'number')}
+          ${field('miejscaStoj','S.2 — Miejsca stojące', v.miejscaStoj,'number')}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
           <button class="btn btn-amber" style="justify-content:center"
             onclick="AztecScanner.open(${v.id})">
             <i class="ti ti-qrcode"></i>Skanuj AZTEC z DR
@@ -166,6 +246,127 @@ window.TaxOrderVehicleDetail = {
             onclick="TaxOrderVehicleDetail._syncCepik(${v.id})">
             <i class="ti ti-refresh"></i>Synchronizuj z CEPiK
           </button>
+        </div>
+      </div>
+
+      <!-- TAB: POLISY / UBEZPIECZENIA -->
+      <div id="vd-tab-insurance-content" class="vd-tab-content" style="display:none">
+        <div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+          <i class="ti ti-shield-check"></i> OC — Ubezpieczenie komunikacyjne obowiązkowe
+        </div>
+        <div class="vdfg" style="margin-bottom:18px">
+          ${field('ocPolicyNo','Nr polisy OC', v.ocPolicyNo)}
+          ${field('ocInsurer','Ubezpieczyciel OC', v.ocInsurer)}
+          ${field('ocStart','Początek OC', v.ocStart,'date')}
+          ${field('ocEnd','Koniec OC', v.ocEnd,'date')}
+          ${field('ocPremium','Składka OC (zł)', v.ocPremium,'number')}
+        </div>
+        <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+          <i class="ti ti-shield-half"></i> AC / Casco — Ubezpieczenie dobrowolne
+        </div>
+        <div class="vdfg" style="margin-bottom:18px">
+          ${field('acPolicyNo','Nr polisy AC', v.acPolicyNo)}
+          ${field('acInsurer','Ubezpieczyciel AC', v.acInsurer)}
+          ${field('acStart','Początek AC', v.acStart,'date')}
+          ${field('acEnd','Koniec AC', v.acEnd,'date')}
+          ${field('acPremium','Składka AC (zł)', v.acPremium,'number')}
+        </div>
+        <div style="font-size:12px;font-weight:600;color:var(--amber);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+          <i class="ti ti-heart-plus"></i> Assistance / NNW
+        </div>
+        <div class="vdfg">
+          ${field('assPolicyNo','Nr polisy Assistance/NNW', v.assPolicyNo)}
+          ${field('assInsurer','Ubezpieczyciel Assistance', v.assInsurer)}
+          ${field('assEnd','Ważność Assistance do', v.assEnd,'date')}
+        </div>
+      </div>
+
+      <!-- TAB: BADANIA TECHNICZNE -->
+      <div id="vd-tab-badania-content" class="vd-tab-content" style="display:none">
+
+        <!-- Przegląd techniczny -->
+        <div style="font-size:12px;font-weight:600;color:var(--amber);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+          <i class="ti ti-car-garage"></i> Przegląd techniczny (SKP)
+        </div>
+        <div class="vdfg" style="margin-bottom:14px">
+          ${field('nextInspection','Termin następnego przeglądu', v.nextInspection,'date')}
+          ${field('inspectionStation','Domyślna stacja SKP', v.inspectionStation)}
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:12px;font-weight:600;color:var(--text2)">Historia przeglądów</div>
+          <button class="btn btn-gray" style="font-size:11px;padding:4px 10px" onclick="TaxOrderVehicleDetail._addInspection(${v.id})">
+            <i class="ti ti-plus"></i>Dodaj wpis
+          </button>
+        </div>
+        <div id="vd-inspection-history" style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px">
+          ${this._renderInspectionHistory(v)}
+        </div>
+
+        <!-- UDT -->
+        <div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+          <i class="ti ti-building-factory-2"></i> UDT — Urząd Dozoru Technicznego
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;padding:10px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">
+            <input type="checkbox" id="vd-hasUdt" ${v.hasUdt?'checked':''} onchange="document.getElementById('vd-udt-fields').style.display=this.checked?'':'none'">
+            <span>Pojazd podlega dozorowi technicznemu UDT</span>
+          </label>
+        </div>
+        <div id="vd-udt-fields" ${v.hasUdt?'':'style="display:none"'}>
+          <div class="vdfg" style="margin-bottom:10px">
+            ${sel('udtDeviceType','Typ urządzenia UDT',[
+              ['','— wybierz —'],
+              ['WINDA','Winda / podnośnik'],
+              ['HDS','HDS — Hydrauliczny Dźwig Samochodowy'],
+              ['zuraw','Żuraw przenośny'],
+              ['pompa','Pompa do betonu'],
+              ['cysterna','Cysterna / zbiornik ciśnieniowy'],
+              ['inne','Inne urządzenie UDT'],
+            ], v.udtDeviceType)}
+            ${field('udtDeviceNo','Nr fabryczny urządzenia', v.udtDeviceNo)}
+            ${field('udtCertNo','Nr decyzji / certyfikatu UDT', v.udtCertNo)}
+            ${field('udtLastDate','Data ostatniego badania UDT', v.udtLastDate,'date')}
+            ${field('udtNextDate','Termin następnego badania UDT', v.udtNextDate,'date')}
+            ${sel('udtResult','Wynik ostatniego badania UDT',[
+              ['','— nie określono —'],
+              ['pozytywny','✅ Pozytywny'],
+              ['warunkowy','⚠ Warunkowy'],
+              ['negatywny','❌ Negatywny'],
+            ], v.udtResult)}
+          </div>
+          ${v.udtNextDate ? `<div style="font-size:11px;margin-bottom:8px">Termin UDT: <strong>${new Date(v.udtNextDate).toLocaleDateString('pl-PL')}</strong></div>` : ''}
+        </div>
+
+        <!-- Tachograf -->
+        <div style="font-size:12px;font-weight:600;color:var(--blue);margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+          <i class="ti ti-device-desktop-analytics"></i> Tachograf
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;padding:10px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">
+            <input type="checkbox" id="vd-hasTacho" ${v.hasTacho?'checked':''} onchange="document.getElementById('vd-tacho-fields').style.display=this.checked?'':'none'">
+            <span>Pojazd wyposażony w tachograf (wymaga legalizacji)</span>
+          </label>
+        </div>
+        <div id="vd-tacho-fields" ${v.hasTacho?'':'style="display:none"'}>
+          <div class="vdfg">
+            ${field('tachoNo','Nr tachografu', v.tachoNo)}
+            ${field('tachoLastCalib','Data ostatniej legalizacji', v.tachoLastCalib,'date')}
+            ${field('tachoNextCalib','Termin następnej legalizacji', v.tachoNextCalib,'date')}
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: EKSPLOATACJA -->
+      <div id="vd-tab-eksploatacja-content" class="vd-tab-content" style="display:none">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Kierowca i licznik</div>
+        <div class="vdfg" style="margin-bottom:18px">
+          ${field('kierowca','Przypisany kierowca', v.kierowca)}
+          ${field('stanKilometrow','Stan licznika (km)', v.stanKilometrow,'number')}
+          ${field('kartaOrlen','Nr karty flotowej / paliwa', v.kartaOrlen)}
+        </div>
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Dane eksploatacyjne</div>
+        <div class="vdfg">
+          ${field('normaSpalania','Norma spalania (l/100km)', v.normaSpalania,'number')}
         </div>
       </div>
 
@@ -218,10 +419,6 @@ window.TaxOrderVehicleDetail = {
           ${field('saleBuyer','Nabywca', v.saleBuyer)}
           ${field('salePrice','Cena sprzedaży netto (zł)', v.salePrice,'number')}
         </div>
-        <div class="ibox" style="margin-top:14px">
-          <i class="ti ti-scan"></i>
-          <span>Masz skan faktury? <button class="btn btn-gray" style="font-size:11px;padding:4px 10px" onclick="TaxOrderVehicleDetail._scanInvoice(${v.id})"><i class="ti ti-camera"></i>Skanuj fakturę OCR</button></span>
-        </div>
         <div style="font-size:12px;font-weight:600;color:var(--amber);margin:20px 0 10px"><i class="ti ti-car-off"></i> Zmiany stanu w ruchu <span style="font-weight:400;font-size:10px;color:var(--text3)">(DT-1/A poz. 10–12)</span></div>
         <div class="vdfg">
           ${field('dataWycofania','10. Data czasowego wycofania z ruchu', v.dataWycofania,'date')}
@@ -256,11 +453,9 @@ window.TaxOrderVehicleDetail = {
 
       <!-- TAB: UWAGI -->
       <div id="vd-tab-notes-content" class="vd-tab-content" style="display:none">
-        <div style="display:flex;flex-direction:column;gap:12px">
-          <div>
-            <label class="vdl">Uwagi do pojazdu</label>
-            <textarea id="vd-uwagi" class="fi" style="height:120px;resize:vertical">${v.uwagi || ''}</textarea>
-          </div>
+        <div>
+          <label class="vdl">Uwagi do pojazdu</label>
+          <textarea id="vd-uwagi" class="fi" style="height:140px;resize:vertical">${v.uwagi || ''}</textarea>
         </div>
       </div>
 
@@ -283,6 +478,111 @@ window.TaxOrderVehicleDetail = {
     });
 
     document.getElementById('vd-save-btn').onclick = () => this.save(v.id);
+  },
+
+  _renderInspectionHistory(v) {
+    const history = Array.isArray(v.inspectionHistory) ? v.inspectionHistory : [];
+    if (!history.length) {
+      return '<div style="font-size:12px;color:var(--text3);padding:8px 0">Brak wpisów. Kliknij "Dodaj wpis" aby dodać pierwszy przegląd.</div>';
+    }
+    return [...history]
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .map((ins, i) => {
+        const resultColor = ins.result === 'pozytywny' ? 'var(--green)' : ins.result === 'negatywny' ? 'var(--red)' : 'var(--amber)';
+        return `
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--radius);border-left:3px solid ${resultColor}">
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+              <span style="font-family:var(--mono);font-weight:600;font-size:13px">${ins.date ? new Date(ins.date).toLocaleDateString('pl-PL') : '—'}</span>
+              <span class="pill" style="font-size:10px;background:${resultColor}20;color:${resultColor}">${ins.result || 'brak wyniku'}</span>
+              ${ins.station ? `<span style="font-size:11px;color:var(--text2)">${ins.station}</span>` : ''}
+            </div>
+            ${ins.notes ? `<div style="font-size:11px;color:var(--text2)">${ins.notes}</div>` : ''}
+          </div>
+          <button onclick="TaxOrderVehicleDetail._removeInspection(${v.id},${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px" title="Usuń wpis">&times;</button>
+        </div>`;
+      }).join('');
+  },
+
+  _addInspection(vehId) {
+    const v = vehs.find(x => x.id === vehId);
+    if (!v) return;
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9200;display:flex;align-items:center;justify-content:center;padding:1rem';
+    overlay.innerHTML = `
+      <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:480px;max-width:98vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
+        <div style="font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+          <i class="ti ti-tool" style="color:var(--amber)"></i>Nowy wpis przeglądu — ${v.nrRej}
+        </div>
+        <div class="vdfg" style="margin-bottom:14px">
+          <div class="vdf">
+            <label class="vdl">Data przeglądu</label>
+            <input id="_ins-date" type="date" class="fi" value="${new Date().toISOString().slice(0,10)}">
+          </div>
+          <div class="vdf">
+            <label class="vdl">Wynik</label>
+            <select id="_ins-result" class="fi">
+              <option value="pozytywny">✅ Pozytywny</option>
+              <option value="pozytywny z zaleceniami">⚠ Pozytywny z zaleceniami</option>
+              <option value="negatywny">❌ Negatywny</option>
+            </select>
+          </div>
+          <div class="vdf">
+            <label class="vdl">Stacja SKP</label>
+            <input id="_ins-station" type="text" class="fi" placeholder="Nazwa stacji" value="${v.inspectionStation||''}">
+          </div>
+          <div class="vdf" style="grid-column:1/-1">
+            <label class="vdl">Uwagi / usterki</label>
+            <textarea id="_ins-notes" class="fi" style="height:70px;resize:vertical" placeholder="Opcjonalnie — usterki, zalecenia..."></textarea>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn-gray" onclick="this.closest('[style*=fixed]').remove()">Anuluj</button>
+          <button class="btn btn-green" onclick="TaxOrderVehicleDetail._saveInspection(${vehId},this)">
+            <i class="ti ti-check"></i>Zapisz wpis
+          </button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    document.getElementById('_ins-date')?.focus();
+  },
+
+  _saveInspection(vehId, btn) {
+    const v = vehs.find(x => x.id === vehId);
+    if (!v) return;
+    const date    = document.getElementById('_ins-date')?.value || '';
+    const result  = document.getElementById('_ins-result')?.value || '';
+    const station = document.getElementById('_ins-station')?.value?.trim() || '';
+    const notes   = document.getElementById('_ins-notes')?.value?.trim() || '';
+    if (!date) { if (typeof toast === 'function') toast('⚠ Podaj datę przeglądu'); return; }
+
+    if (!Array.isArray(v.inspectionHistory)) v.inspectionHistory = [];
+    v.inspectionHistory.push({ date, result, station, notes });
+
+    // Aktualizuj lastInspection na najnowszy
+    const sorted = [...v.inspectionHistory].sort((a, b) => new Date(b.date) - new Date(a.date));
+    v.lastInspection = sorted[0].date;
+
+    btn.closest('[style*=fixed]').remove();
+    const histEl = document.getElementById('vd-inspection-history');
+    if (histEl) histEl.innerHTML = this._renderInspectionHistory(v);
+    if (typeof toast === 'function') toast('✓ Wpis przeglądu dodany — kliknij Zapisz aby utrwalić');
+  },
+
+  _removeInspection(vehId, index) {
+    const v = vehs.find(x => x.id === vehId);
+    if (!v || !Array.isArray(v.inspectionHistory)) return;
+    const sorted = [...v.inspectionHistory].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const toRemove = sorted[index];
+    v.inspectionHistory = v.inspectionHistory.filter(ins => ins !== toRemove);
+    if (v.inspectionHistory.length) {
+      v.lastInspection = [...v.inspectionHistory].sort((a,b)=>new Date(b.date)-new Date(a.date))[0].date;
+    } else {
+      v.lastInspection = null;
+    }
+    const histEl = document.getElementById('vd-inspection-history');
+    if (histEl) histEl.innerHTML = this._renderInspectionHistory(v);
   },
 
   _renderCards(v) {

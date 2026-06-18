@@ -1,6 +1,6 @@
 /**
  * TaxOrder Pro — AI Chat
- * Komunikacja z /api/ai/chat (Cloudflare Worker → Claude API)
+ * Komunikacja z /api/ai/chat (Cloudflare Worker → Groq API)
  */
 (function () {
   const API = (window.CF_API_URL || '').replace(/\/$/, '');
@@ -14,9 +14,7 @@
     if (!vehs.length) return null;
 
     const company = typeof getCurrentCompany === 'function' ? getCurrentCompany() : {};
-    const total = vehs.length;
-    const byBrand = {};
-    const byCat = {};
+    const byBrand = {}, byCat = {};
     let totalTax = 0;
 
     vehs.forEach(v => {
@@ -31,7 +29,28 @@
     const cats = Object.entries(byCat).sort((a, b) => b[1] - a[1])
       .map(([c, n]) => `${c}: ${n}`).join(', ');
 
-    return `Firma: ${company.name || 'nieznana'} | Pojazdów: ${total} | Marki: ${topBrands} | Kategorie DT-1: ${cats || 'brak zaznaczonych'} | Łączny podatek: ${Math.round(totalTax).toLocaleString('pl-PL')} zł`;
+    // Alerty ubezpieczeniowe
+    const now = new Date(), DAYS30 = 30 * 86400000;
+    const expiring = vehs.filter(v => {
+      const check = d => d && (new Date(d) - now) < DAYS30;
+      return check(v.ocEnd) || check(v.acEnd) || check(v.nextInspection);
+    }).length;
+
+    return `Firma: ${company.name || 'nieznana'} | Pojazdów: ${vehs.length} | Marki: ${topBrands} | Kategorie DT-1: ${cats || 'brak'} | Podatek: ${Math.round(totalTax).toLocaleString('pl-PL')} zł | Alerty terminów: ${expiring} pojazdów`;
+  }
+
+  function _md(text) {
+    return text
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/`([^`]+)`/g, '<code style="background:var(--bg3);padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:.85em">$1</code>')
+      .replace(/^### (.+)$/gm, '<div style="font-weight:700;margin:8px 0 2px;font-size:13px">$1</div>')
+      .replace(/^## (.+)$/gm, '<div style="font-weight:700;margin:10px 0 4px;font-size:14px">$1</div>')
+      .replace(/^- (.+)$/gm, '<div style="padding-left:14px;line-height:1.6">• $1</div>')
+      .replace(/^(\d+)\. (.+)$/gm, '<div style="padding-left:14px;line-height:1.6">$1. $2</div>')
+      .replace(/\n\n/g, '<br><br>')
+      .replace(/\n(?!<)/g, '<br>');
   }
 
   function _addMsg(role, text) {
@@ -49,12 +68,13 @@
 
     const bubble = document.createElement('div');
     bubble.className = 'ai-bubble';
-    bubble.textContent = text;
 
     if (role === 'user') {
+      bubble.textContent = text;
       wrap.appendChild(bubble);
       wrap.appendChild(avatar);
     } else {
+      bubble.innerHTML = _md(text);
       wrap.appendChild(avatar);
       wrap.appendChild(bubble);
     }
@@ -67,7 +87,12 @@
   function _setLoading(on) {
     const btn = document.getElementById('ai-send-btn');
     const input = document.getElementById('ai-input');
-    if (btn) { btn.disabled = on; btn.innerHTML = on ? '<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i>...' : '<i class="ti ti-send"></i>Wyślij'; }
+    if (btn) {
+      btn.disabled = on;
+      btn.innerHTML = on
+        ? '<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> Myślę...'
+        : '<i class="ti ti-send"></i> Wyślij';
+    }
     if (input) input.disabled = on;
   }
 
@@ -113,7 +138,7 @@
 
   window.aiExample = function (btn) {
     const input = document.getElementById('ai-input');
-    if (input) { input.value = btn.textContent; input.focus(); }
+    if (input) { input.value = btn.textContent.trim(); input.focus(); }
   };
 
   window.aiClear = function () {
@@ -123,6 +148,17 @@
     container.innerHTML = '';
     _addMsg('assistant', 'Rozmowa wyczyszczona. Jak mogę pomóc?');
   };
+
+  // Enter wysyła, Shift+Enter = nowa linia (DOM jest już gotowy gdy skrypt się wykonuje)
+  const _input = document.getElementById('ai-input');
+  if (_input) {
+    _input.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        window.aiSend();
+      }
+    });
+  }
 
   console.log('[AI Chat] Moduł załadowany');
 })();

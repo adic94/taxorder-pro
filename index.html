@@ -197,6 +197,19 @@ window.addEventListener('DOMContentLoaded', () => {
       </table></div>
     </div>
   </div>
+
+  <div style="margin-top:1.5rem">
+    <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <i class="ti ti-bell-ringing" style="color:var(--red)"></i>Alerty floty — wygasające terminy (60 dni)
+    </div>
+    <div class="tbl-wrap"><table>
+      <thead><tr>
+        <th>Nr rej.</th><th>Pojazd</th>
+        <th>OC do</th><th>AC do</th><th>Przegląd do</th><th>UDT / Tacho</th><th style="text-align:center">Akcja</th>
+      </tr></thead>
+      <tbody id="dash-alerts"><tr><td colspan="7" style="color:var(--text3);text-align:center">Brak alertów</td></tr></tbody>
+    </table></div>
+  </div>
 </div>
 
 <!-- ==================== POJAZDY ==================== -->
@@ -221,23 +234,50 @@ window.addEventListener('DOMContentLoaded', () => {
     <button class="btn btn-gray" onclick="deselAll()"><i class="ti ti-square"></i>Odznacz</button>
     <button class="btn btn-green" onclick="showPage('kalkulator')"><i class="ti ti-calculator"></i>Kalkulator (<span id="btn-sel-cnt">0</span>)</button>
   </div>
+
+  <!-- Pasek narzędziowy tabeli: Import / Export / Kolumny -->
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+    <button class="btn btn-gray" onclick="CSVImport.open()">
+      <i class="ti ti-file-upload"></i>Import CSV
+    </button>
+    <button class="btn btn-gray" onclick="exportFleetCSV()">
+      <i class="ti ti-file-download"></i>Eksport CSV
+    </button>
+    <div style="width:1px;height:20px;background:var(--border);margin:0 2px"></div>
+    <div style="position:relative">
+      <button id="col-vis-btn" class="btn btn-gray" onclick="toggleColPanel()">
+        <i class="ti ti-layout-columns"></i>Widoczność kolumn
+      </button>
+      <div id="col-vis-panel" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:300;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;min-width:200px;box-shadow:0 4px 24px rgba(0,0,0,.18)"></div>
+    </div>
+    <span style="margin-left:auto;font-size:12px;color:var(--text3)" id="veh-count-label"></span>
+  </div>
   <div class="tbl-wrap">
     <table>
       <thead><tr>
         <th style="width:36px"><input type="checkbox" id="chk-all" onchange="toggleAll(this)"></th>
         <th class="sort-th" onclick="sortBy('nrRej')">Nr rej.</th>
         <th class="sort-th" onclick="sortBy('marka')">Marka / Model</th>
-        <th class="sort-th" onclick="sortBy('rok')">Rok</th>
-        <th class="sort-th" onclick="sortBy('typ')">Typ</th>
-        <th class="sort-th" onclick="sortBy('dmc')">DMC (kg)</th>
-        <th>Osie</th>
-        <th>Zawieszenie</th>
-        <th>DMC zesp. (t)</th>
-        <th>Mies.</th>
-        <th>Status</th>
-        <th>Kategoria</th>
-        <th style="text-align:right">Podatek</th>
-        <th style="text-align:center" title="Dokumenty pojazdu">📎</th>
+        <th data-col="rok" class="sort-th" onclick="sortBy('rok')">Rok</th>
+        <th data-col="typ" class="sort-th" onclick="sortBy('typ')">Typ</th>
+        <th data-col="dmc" class="sort-th" onclick="sortBy('dmc')">DMC (kg)</th>
+        <th data-col="osie">Osie</th>
+        <th data-col="zawieszenie">Zawieszenie</th>
+        <th data-col="dmczesp">DMC zesp. (t)</th>
+        <th data-col="mies">Mies.</th>
+        <th data-col="status">Status</th>
+        <th data-col="oc" title="Ubezpieczenie OC — data ważności">OC</th>
+        <th data-col="ac" title="Ubezpieczenie AC — data ważności">AC</th>
+        <th data-col="przeglad" title="Następny przegląd techniczny">Przegląd</th>
+        <th data-col="ocInsurer" title="Ubezpieczyciel OC / nr polisy">Ubezpieczyciel OC</th>
+        <th data-col="acInsurer" title="Ubezpieczyciel AC / nr polisy">Ubezpieczyciel AC</th>
+        <th data-col="udt" title="Termin badania UDT">UDT</th>
+        <th data-col="tacho" title="Termin legalizacji tachografu">Tachograf</th>
+        <th data-col="kierowca" title="Przypisany kierowca">Kierowca</th>
+        <th data-col="km" style="text-align:right" title="Stan licznika km">km</th>
+        <th data-col="kategoria">Kategoria</th>
+        <th data-col="podatek" style="text-align:right">Podatek</th>
+        <th style="text-align:center" title="Karta pojazdu">📎</th>
       </tr></thead>
       <tbody id="veh-tbody"></tbody>
     </table>
@@ -1389,6 +1429,30 @@ window.addEventListener('DOMContentLoaded', () => {
       </div>
     </div>
   </div>
+
+  <!-- SYNCHRONIZACJA CLOUDFLARE D1 -->
+  <div class="card" style="margin-top:1.5rem;border-color:var(--blue)">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <i class="ti ti-cloud-upload" style="font-size:20px;color:var(--blue)"></i>
+      <div>
+        <div style="font-size:14px;font-weight:600">Synchronizacja floty z Cloudflare D1</div>
+        <div style="font-size:11px;color:var(--text2)">Wgraj wszystkie pojazdy do bazy chmurowej — wymagane do synchronizacji między urządzeniami</div>
+      </div>
+    </div>
+    <div class="ibox" style="margin-bottom:14px">
+      <i class="ti ti-info-circle"></i>
+      <div>Wykonaj tę operację <strong>jednorazowo</strong> po pierwszym uruchomieniu lub jeśli baza D1 jest pusta. Pojazdy są wysyłane partiami po 50 — duże floty mogą zająć kilka sekund.</div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-blue" onclick="bulkSyncToD1()" id="d1-sync-btn">
+        <i class="ti ti-cloud-upload"></i>Synchronizuj wszystkie pojazdy do D1
+      </button>
+      <button class="btn btn-gray" onclick="checkD1Status()">
+        <i class="ti ti-database-check"></i>Sprawdź stan bazy D1
+      </button>
+    </div>
+    <div id="d1-sync-log" style="margin-top:12px;font-size:12px;font-family:var(--mono);color:var(--text2)"></div>
+  </div>
 </div>
 
 
@@ -1474,6 +1538,8 @@ window.addEventListener('DOMContentLoaded', () => {
   <script src="modules/dashboard-nav.js"></script>
   <script src="modules/rate-reader.js"></script>
   <script src="modules/ai-chat.js"></script>
+  <script src="modules/csv-import.js"></script>
+  <script src="modules/notifications.js"></script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
@@ -1497,6 +1563,35 @@ window.addEventListener('DOMContentLoaded', () => {
     <button id="pwd-reset-submit" class="btn btn-blue" style="width:100%;justify-content:center;padding:12px;font-size:14px" onclick="submitNewPassword()">
       <i class="ti ti-check"></i>Ustaw nowe haslo
     </button>
+  </div>
+</div>
+
+<!-- MODAL: IMPORT CSV -->
+<div id="csv-import-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);width:860px;max-width:98vw;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);display:flex;flex-direction:column">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg2);z-index:1">
+      <i class="ti ti-file-upload" style="color:var(--blue);font-size:20px"></i>
+      <div style="font-size:15px;font-weight:600;flex:1">Import danych z CSV — ubezpieczenia i przeglądy</div>
+      <button onclick="CSVImport.close()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);padding:0 4px">&times;</button>
+    </div>
+    <div style="padding:20px">
+      <div class="ibox" style="margin-bottom:16px">
+        <i class="ti ti-info-circle"></i>
+        <div>Pobierz szablon CSV, uzupełnij dane OC/AC/przegląd w Excel lub LibreOffice (separatorem jest <strong>;</strong>), następnie wgraj plik. Program automatycznie dopasuje pojazdy po <strong>numerze rejestracyjnym</strong> i zaktualizuje dane.</div>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <button class="btn btn-gray" onclick="CSVImport.downloadTemplate()">
+          <i class="ti ti-download"></i>Pobierz szablon CSV
+        </button>
+        <label class="btn btn-blue" style="cursor:pointer">
+          <i class="ti ti-upload"></i>Wgraj plik CSV
+          <input id="csv-file-input" type="file" accept=".csv,.txt" onchange="CSVImport.handleFile(this)" style="display:none">
+        </label>
+      </div>
+      <div id="csv-preview">
+        <div style="color:var(--text3);font-size:13px;text-align:center;padding:24px">Wgraj plik CSV aby zobaczyć podgląd</div>
+      </div>
+    </div>
   </div>
 </div>
 

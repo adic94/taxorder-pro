@@ -123,7 +123,18 @@ function sortBy(key) {
   renderVeh();
 }
 
+function _datePill(dateStr) {
+  if(!dateStr) return '<span style="color:var(--text3);font-size:11px">—</span>';
+  const d = new Date(dateStr), now = new Date();
+  const days = Math.round((d - now) / 86400000);
+  const label = d.toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit',year:'2-digit'});
+  if(days < 0)  return `<span class="pill pill-red" title="${days} dni temu">${label}</span>`;
+  if(days < 30) return `<span class="pill pill-amber" title="Za ${days} dni">${label}</span>`;
+  return `<span style="font-size:11px;color:var(--text2)">${label}</span>`;
+}
+
 function renderVeh() {
+  if (!_colVis) _initColVis();
   const list = filterVeh();
   const tbody = document.getElementById('veh-tbody');
   if(!tbody) return;
@@ -137,35 +148,61 @@ function renderVeh() {
       <td onclick="event.stopPropagation()"><input type="checkbox" ${isSel?'checked':''} onchange="toggleRow(${v.id})"></td>
       <td><strong style="font-family:var(--mono)">${v.nrRej}</strong></td>
       <td><div style="font-weight:500">${v.marka} ${v.model}</div><div style="font-size:11px;color:var(--text2)">${v.euro||'—'} · ${v.vin||'—'}</div></td>
-      <td>${v.rok||'—'}${isNew?'<span class="pill pill-new" style="margin-left:6px;font-size:9px">§2</span>':''}</td>
-      <td><span class="pill pill-gray">${v.typ}</span></td>
-      <td style="font-family:var(--mono);font-size:12px">${(v.dmc||0).toLocaleString('pl-PL')}</td>
-      <td onclick="event.stopPropagation()">
+      <td data-col="rok">${v.rok||'—'}${isNew?'<span class="pill pill-new" style="margin-left:6px;font-size:9px">§2</span>':''}</td>
+      <td data-col="typ"><span class="pill pill-gray">${v.typ}</span></td>
+      <td data-col="dmc" style="font-family:var(--mono);font-size:12px">${(v.dmc||0).toLocaleString('pl-PL')}</td>
+      <td data-col="osie" onclick="event.stopPropagation()">
         <select class="isel" onchange="setV(${v.id},'osie',parseInt(this.value))">
           ${[1,2,3,4,5].map(n=>`<option ${v.osie===n?'selected':''}>${n}</option>`).join('')}
         </select>
       </td>
-      <td onclick="event.stopPropagation()">
+      <td data-col="zawieszenie" onclick="event.stopPropagation()">
         <select class="isel" style="width:120px" onchange="setV(${v.id},'zawieszenie',this.value)">
           <option ${v.zawieszenie==='pneumatyczne'?'selected':''}>pneumatyczne</option>
           <option ${v.zawieszenie==='równoważne'?'selected':''}>równoważne</option>
           <option ${v.zawieszenie==='inne'?'selected':''}>inne</option>
         </select>
       </td>
-      <td onclick="event.stopPropagation()">
+      <td data-col="dmczesp" onclick="event.stopPropagation()">
         ${isTrailer(v)?`<input class="inum" style="width:70px" type="number" step="0.001" min="0" max="100" value="${(v.dmcZespolu/1000).toFixed(1)}" onchange="setV(${v.id},'dmcZespolu',parseFloat(this.value)*1000||0)" title="DMC zesp. w tonach">${needsDmcZ?'<span style="color:var(--amber);font-size:11px"> ⚠</span>':''}`:
         '<span style="color:var(--text3)">—</span>'}
       </td>
-      <td onclick="event.stopPropagation()">
+      <td data-col="mies" onclick="event.stopPropagation()">
         <input class="inum" type="number" min="1" max="12" value="${v.miesiacePodatku||12}" onchange="setV(${v.id},'miesiacePodatku',parseInt(this.value)||12)">
       </td>
-      <td><span class="pill ${STAT_LABELS[v.status]||'pill-gray'}">${v.status}</span></td>
-      <td>${t.cat?`<span class="pill ${CAT_COLORS[t.cat]||'pill-gray'}">${t.cat}</span>${needsDmcZ?'<span style="font-size:10px;color:var(--amber)"> brak DMC zesp.</span>':''}`:
+      <td data-col="status"><span class="pill ${STAT_LABELS[v.status]||'pill-gray'}">${v.status}</span></td>
+      <td data-col="oc">${_datePill(v.ocEnd)}</td>
+      <td data-col="ac">${_datePill(v.acEnd)}</td>
+      <td data-col="przeglad">${_datePill(v.nextInspection)}</td>
+      <td data-col="ocInsurer" style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(v.ocInsurer||'')+(v.ocPolicyNo?' · '+v.ocPolicyNo:'')}">
+        ${v.ocInsurer?`<div style="font-weight:500">${v.ocInsurer}</div>`:'<span style="color:var(--text3)">—</span>'}
+        ${v.ocPolicyNo?`<div style="color:var(--text3);font-size:10px;font-family:var(--mono)">${v.ocPolicyNo}</div>`:''}
+      </td>
+      <td data-col="acInsurer" style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(v.acInsurer||'')+(v.acPolicyNo?' · '+v.acPolicyNo:'')}">
+        ${v.acInsurer?`<div style="font-weight:500">${v.acInsurer}</div>`:'<span style="color:var(--text3)">—</span>'}
+        ${v.acPolicyNo?`<div style="color:var(--text3);font-size:10px;font-family:var(--mono)">${v.acPolicyNo}</div>`:''}
+      </td>
+      <td data-col="udt" style="font-size:11px">
+        ${v.hasUdt?(v.udtNextDate?_datePill(v.udtNextDate):'<span style="color:var(--amber);font-size:10px">brak daty</span>'):'<span style="color:var(--text3)">—</span>'}
+        ${v.hasUdt&&v.udtDeviceType?`<div style="font-size:10px;color:var(--text3)">${v.udtDeviceType}</div>`:''}
+      </td>
+      <td data-col="tacho" style="font-size:11px">
+        ${v.hasTacho?(v.tachoNextCalib?_datePill(v.tachoNextCalib):'<span style="color:var(--amber);font-size:10px">brak daty</span>'):'<span style="color:var(--text3)">—</span>'}
+      </td>
+      <td data-col="kierowca" style="font-size:12px;white-space:nowrap">${v.kierowca||'<span style="color:var(--text3)">—</span>'}</td>
+      <td data-col="km" style="font-size:12px;text-align:right;font-family:var(--mono)">${v.stanKilometrow!=null?v.stanKilometrow.toLocaleString('pl-PL'):'<span style="color:var(--text3)">—</span>'}</td>
+      <td data-col="kategoria">${t.cat?`<span class="pill ${CAT_COLORS[t.cat]||'pill-gray'}">${t.cat}</span>${needsDmcZ?'<span style="font-size:10px;color:var(--amber)"> brak DMC zesp.</span>':''}`:
         '<span style="color:var(--text3);font-size:11px">—</span>'}</td>
-      <td style="text-align:right">${t.amount>0?`<strong style="color:var(--green);font-family:var(--mono)">${fmt2(t.amount)} zł</strong>`:'<span style="color:var(--text3)">—</span>'}</td>
+      <td data-col="podatek" style="text-align:right">${t.amount>0?`<strong style="color:var(--green);font-family:var(--mono)">${fmt2(t.amount)} zł</strong>`:'<span style="color:var(--text3)">—</span>'}</td>
+      <td style="text-align:center" onclick="event.stopPropagation()">
+        <button class="btn btn-gray" style="font-size:11px;padding:3px 8px" onclick="TaxOrderVehicleDetail.open(${v.id})" title="Karta pojazdu">
+          <i class="ti ti-id-badge"></i>
+        </button>
+      </td>
     </tr>`;
-  }).join('') || `<tr><td colspan="13" style="text-align:center;padding:2rem;color:var(--text3)">Brak wyników</td></tr>`;
+  }).join('') || `<tr><td colspan="23" style="text-align:center;padding:2rem;color:var(--text3)">Brak wyników</td></tr>`;
   updateCounters();
+  _applyColVis();
 }
 
 function toggleRow(id) {
@@ -221,6 +258,190 @@ function renderKalkulator() {
   </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:1rem">Brak pojazdów z kategorią</td></tr>';
 }
 
+// ==================== D1 BULK SYNC ====================
+async function bulkSyncToD1() {
+  if (!window.TaxOrderFleetCloud?.saveVehicles) {
+    toast('⚠ Brak połączenia z Cloudflare — zaloguj się najpierw');
+    return;
+  }
+  const btn = document.getElementById('d1-sync-btn');
+  const log = document.getElementById('d1-sync-log');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> Synchronizuję...'; }
+
+  const BATCH = 50;
+  const all = vehs.filter(v => v.nrRej);
+  let saved = 0, failed = 0;
+  const lines = [];
+
+  const logLine = msg => {
+    lines.push(msg);
+    if (log) log.innerHTML = lines.slice(-10).join('<br>');
+  };
+
+  logLine(`▶ Start synchronizacji ${all.length} pojazdów (partie po ${BATCH})...`);
+
+  for (let i = 0; i < all.length; i += BATCH) {
+    const batch = all.slice(i, i + BATCH);
+    const batchNum = Math.floor(i / BATCH) + 1;
+    const totalBatches = Math.ceil(all.length / BATCH);
+    logLine(`⏳ Partia ${batchNum}/${totalBatches}: ${batch[0].nrRej}…${batch[batch.length-1].nrRej}`);
+    try {
+      const r = await window.TaxOrderFleetCloud.saveVehicles(batch);
+      if (r.ok) { saved += batch.length; logLine(`✅ Partia ${batchNum}: OK (${batch.length} poj.)`); }
+      else       { failed += batch.length; logLine(`⚠ Partia ${batchNum}: błąd`); }
+    } catch (e) {
+      failed += batch.length;
+      logLine(`❌ Partia ${batchNum}: ${e.message}`);
+    }
+  }
+
+  logLine(`─────────────────────────────────`);
+  logLine(`✔ Zakończono: ${saved} zapisanych, ${failed} błędów`);
+  if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-cloud-upload"></i>Synchronizuj wszystkie pojazdy do D1'; }
+  toast(failed === 0 ? `✅ Zsynchronizowano ${saved} pojazdów z D1` : `⚠ ${saved} OK · ${failed} błędów — sprawdź log`);
+}
+
+async function checkD1Status() {
+  const log = document.getElementById('d1-sync-log');
+  if (log) log.innerHTML = '⏳ Sprawdzam stan bazy D1...';
+  try {
+    const cloud = window.TaxOrderFleetCloud;
+    if (!cloud?.loadVehicles) throw new Error('Brak połączenia z Cloudflare');
+    const companyId = window.currentCompanyId || 'mtoilet';
+    const r = await cloud.loadVehicles(companyId);
+    const count = (r?.vehicles || r?.length || 0);
+    const localCount = vehs.length;
+    if (log) log.innerHTML = `📊 D1: ${typeof count === 'number' ? count + ' pojazdów' : 'odpowiedź OK'} | Lokalnie: ${localCount} pojazdów | ${typeof count === 'number' && count < localCount ? '⚠ D1 ma mniej rekordów — zalecana synchronizacja' : '✅ Baza wygląda OK'}`;
+  } catch (e) {
+    if (log) log.innerHTML = `❌ Błąd: ${e.message}`;
+  }
+}
+
+// ==================== CSV EXPORT ====================
+function exportFleetCSV() {
+  const HEADERS = [
+    'Nr rej.','Marka','Model','Rok','Typ','DMC (kg)','Status','VIN',
+    'Kierowca','Stan km','Karta flotowa',
+    'OC - Nr polisy','OC - Towarzystwo','OC - Od','OC - Do (RRRR-MM-DD)','OC - Składka zł',
+    'AC - Nr polisy','AC - Towarzystwo','AC - Od','AC - Do (RRRR-MM-DD)','AC - Składka zł',
+    'Assist - Nr polisy','Assist - Towarzystwo','Assist - Do',
+    'Przegląd - Ostatni','Przegląd - Następny','Przegląd - Wynik','Przegląd - Stacja',
+    'UDT - Urządzenie','UDT - Nr urządzenia','UDT - Nr decyzji','UDT - Ostatnie','UDT - Następne','UDT - Wynik',
+    'Tacho - Nr','Tacho - Ostatnia legalizacja','Tacho - Następna legalizacja',
+    'Kat.pojazdu','Paliwo','Ładowność (kg)','Masa własna (kg)','Norma (l/100km)',
+    'Właściciel','Osie','Zawieszenie','Ownership','Mies. podatku'
+  ];
+  const rows = vehs.map(v => [
+    v.nrRej||'', v.marka||'', v.model||'', v.rok||'', v.typ||'',
+    v.dmc||'', v.status||'', v.vin||'',
+    v.kierowca||'', v.stanKilometrow||'', v.kartaOrlen||'',
+    v.ocPolicyNo||'', v.ocInsurer||'', v.ocStart||'', v.ocEnd||'', v.ocPremium||'',
+    v.acPolicyNo||'', v.acInsurer||'', v.acStart||'', v.acEnd||'', v.acPremium||'',
+    v.assPolicyNo||'', v.assInsurer||'', v.assEnd||'',
+    v.lastInspection||'', v.nextInspection||'', v.inspectionResult||'', v.inspectionStation||'',
+    v.udtDeviceType||'', v.udtDeviceNo||'', v.udtCertNo||'', v.udtLastDate||'', v.udtNextDate||'', v.udtResult||'',
+    v.tachoNo||'', v.tachoLastCalib||'', v.tachoNextCalib||'',
+    v.katPojazdu||'', v.paliwo||'', v.ladownosc||'', v.masaWlasna||'', v.normaSpalania||'',
+    v.wlasciciel||'', v.osie||'', v.zawieszenie||'',
+    v.ownership_type||'', v.miesiacePodatku||12
+  ]);
+  const csv = [HEADERS, ...rows]
+    .map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';'))
+    .join('\r\n');
+  const blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `flota_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`✅ Wyeksportowano ${vehs.length} pojazdów do CSV`);
+}
+
+// ==================== COLUMN VISIBILITY ====================
+const _COL_DEFAULTS = {rok:1,typ:1,dmc:1,osie:1,zawieszenie:0,dmczesp:0,mies:1,status:1,oc:1,ac:1,przeglad:1,kategoria:1,podatek:1,ocInsurer:0,acInsurer:0,udt:0,tacho:0,kierowca:0,km:0};
+let _colVis = null;
+
+function _initColVis() {
+  try { _colVis = JSON.parse(localStorage.getItem('taxColVis')) || null; } catch(e) {}
+  if (!_colVis) _colVis = {..._COL_DEFAULTS};
+}
+
+function _applyColVis() {
+  if (!_colVis) return;
+  for (const [col, vis] of Object.entries(_colVis)) {
+    document.querySelectorAll(`[data-col="${col}"]`).forEach(el => {
+      el.style.display = vis ? '' : 'none';
+    });
+  }
+}
+
+function toggleCol(col) {
+  if (!_colVis) _initColVis();
+  _colVis[col] = _colVis[col] ? 0 : 1;
+  localStorage.setItem('taxColVis', JSON.stringify(_colVis));
+  _applyColVis();
+  _renderColPanel();
+}
+
+function resetColVis() {
+  _colVis = {..._COL_DEFAULTS};
+  localStorage.setItem('taxColVis', JSON.stringify(_colVis));
+  _applyColVis();
+  _renderColPanel();
+}
+
+function _renderColPanel() {
+  const panel = document.getElementById('col-vis-panel');
+  if (!panel) return;
+  const LABELS = {
+    rok:'Rok',typ:'Typ',dmc:'DMC',osie:'Osie',zawieszenie:'Zawieszenie',
+    dmczesp:'DMC zesp.',mies:'Mies.',status:'Status',
+    oc:'OC (data)',ac:'AC (data)',przeglad:'Przegląd',
+    kategoria:'Kategoria',podatek:'Podatek',
+    ocInsurer:'Ubezpieczyciel OC',acInsurer:'Ubezpieczyciel AC',
+    udt:'Badanie UDT',tacho:'Legalizacja tacho',
+    kierowca:'Kierowca',km:'Stan km',
+  };
+  const GROUPS = [
+    {label:'Podstawowe',cols:['rok','typ','dmc','status','kierowca','km']},
+    {label:'Podatek DT-1',cols:['osie','zawieszenie','dmczesp','mies','kategoria','podatek']},
+    {label:'Ubezpieczenia',cols:['oc','ac','przeglad','ocInsurer','acInsurer']},
+    {label:'Badania techniczne',cols:['udt','tacho']},
+  ];
+  panel.innerHTML = GROUPS.map(g => `
+    <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin:10px 0 4px;letter-spacing:.5px">${g.label}</div>
+    ${g.cols.map(k => `
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:3px 0;font-size:12px;white-space:nowrap">
+        <input type="checkbox" ${_colVis[k]?'checked':''} onchange="toggleCol('${k}')">
+        ${LABELS[k]}
+      </label>`).join('')}
+  `).join('') + `
+    <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:8px">
+      <button class="btn btn-gray" style="font-size:11px;padding:4px 10px;width:100%" onclick="resetColVis()">
+        <i class="ti ti-refresh"></i>Resetuj domyślne
+      </button>
+    </div>`;
+}
+
+function toggleColPanel() {
+  const panel = document.getElementById('col-vis-panel');
+  if (!panel) return;
+  if (!_colVis) _initColVis();
+  const isOpen = panel.style.display === 'block';
+  if (isOpen) { panel.style.display = 'none'; return; }
+  _renderColPanel();
+  panel.style.display = 'block';
+  setTimeout(() => {
+    document.addEventListener('click', function _closePanel(e) {
+      const btn = document.getElementById('col-vis-btn');
+      if (panel.contains(e.target) || (btn && btn.contains(e.target))) return;
+      panel.style.display = 'none';
+      document.removeEventListener('click', _closePanel);
+    });
+  }, 0);
+}
+
 // ==================== COUNTERS ====================
 function updateCounters() {
   const cnt = selected.size;
@@ -234,6 +455,13 @@ function updateCounters() {
   const pdTax = getSelTax().filter(v=>v.cat).reduce((s,v)=>s+(v.amount||0),0);
   const pdEl = document.getElementById('pd-taxable'); if(pdEl) pdEl.textContent = getSelTax().filter(v=>v.cat).length;
   const pdTotalEl = document.getElementById('pd-total'); if(pdTotalEl) pdTotalEl.textContent = fmt2(pdTax)+' zł';
+  const lbl = document.getElementById('veh-count-label');
+  if (lbl) {
+    const filtered = filterVeh().length;
+    lbl.textContent = filtered === vehs.length
+      ? `${vehs.length} pojazdów`
+      : `${filtered} z ${vehs.length} pojazdów`;
+  }
 }
 
 function refreshAll() { renderVeh(); renderKalkulator(); updateCounters(); renderDash(); }
@@ -251,6 +479,51 @@ function renderDash() {
   const newCount = vehs.filter(v=>(parseInt(v.rok)||0)>=2024).length;
   document.getElementById('s-new').textContent = newCount + ' poj.';
   document.getElementById('s-total').textContent = vehs.length;
+
+  // Alerty — pojazdy z terminami w ciągu 60 dni lub przeterminowanymi
+  const alertsEl = document.getElementById('dash-alerts');
+  if(!alertsEl) return;
+  const now = new Date();
+  const DAYS60 = 60 * 86400000;
+  const _alertDates = v => {
+    const d = [
+      {label:'OC', date:v.ocEnd},
+      {label:'AC', date:v.acEnd},
+      {label:'Przegląd', date:v.nextInspection},
+    ];
+    if (v.hasUdt && v.udtNextDate) d.push({label:'UDT', date:v.udtNextDate});
+    if (v.hasTacho && v.tachoNextCalib) d.push({label:'Tacho', date:v.tachoNextCalib});
+    return d;
+  };
+  const alerts = vehs
+    .filter(v => _alertDates(v).some(({date}) => date && (new Date(date) - now) < DAYS60))
+    .map(v => {
+      const dates = _alertDates(v).filter(x=>x.date).map(x=>new Date(x.date));
+      const minDate = dates.reduce((a,b)=>a<b?a:b, new Date(9999,0));
+      return {v, minDate};
+    })
+    .sort((a,b) => a.minDate - b.minDate);
+
+  if(!alerts.length) {
+    alertsEl.innerHTML = '<tr><td colspan="7" style="color:var(--text3);text-align:center;padding:12px">Brak alertów — wszystkie terminy aktualne</td></tr>';
+    return;
+  }
+  alertsEl.innerHTML = alerts.map(({v}) => `<tr>
+    <td><strong style="font-family:var(--mono)">${v.nrRej}</strong></td>
+    <td style="font-size:12px">${v.marka} ${v.model}</td>
+    <td>${_datePill(v.ocEnd)}</td>
+    <td>${_datePill(v.acEnd)}</td>
+    <td>${_datePill(v.nextInspection)}</td>
+    <td style="font-size:11px">
+      ${v.hasUdt&&v.udtNextDate?_datePill(v.udtNextDate):'<span style="color:var(--text3)">—</span>'}
+      ${v.hasTacho&&v.tachoNextCalib?'<span style="margin-left:4px">'+_datePill(v.tachoNextCalib)+'</span>':''}
+    </td>
+    <td style="text-align:center">
+      <button class="btn btn-gray" style="font-size:11px;padding:3px 8px" onclick="TaxOrderVehicleDetail.open(${v.id})" title="Karta pojazdu">
+        <i class="ti ti-id-badge"></i>
+      </button>
+    </td>
+  </tr>`).join('');
 }
 
 // ==================== FORMULARZE ====================
@@ -2683,6 +2956,12 @@ async function doLogin(){
   renderDash();
   renderVeh();
   updateCounters();
+
+  setTimeout(() => {
+    if (window.TaxOrderNotifications?.requestAndCheck) {
+      window.TaxOrderNotifications.requestAndCheck();
+    }
+  }, 3000);
 }
 
 function showLoginErr(msg){
@@ -4036,6 +4315,13 @@ window.addEventListener('load', async () => {
   renderDash();
   window.renderVeh();
   updateCounters();
+
+  // Powiadomienia przeglądarkowe — po 3s (żeby dane floty zdążyły się załadować)
+  setTimeout(() => {
+    if (window.TaxOrderNotifications?.requestAndCheck) {
+      window.TaxOrderNotifications.requestAndCheck();
+    }
+  }, 3000);
 
   // Badge walidacji
   setTimeout(()=>{
