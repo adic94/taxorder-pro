@@ -3,6 +3,7 @@ const VEHICLES = [{"nrRej":"WGM87205","marka":"Fuso","model":"Canter 9/18","rok"
 
 // State
 let vehs = VEHICLES.map((v,i) => ({...v, id:i, osie: v.dmc>=12000?3:2, zawieszenie:'pneumatyczne', dmcZespolu:0, miesiacePodatku:12}));
+window.vehs = vehs;
 let selected = new Set();
 window.selected = selected;
 let sortKey = 'nrRej', sortAsc = true;
