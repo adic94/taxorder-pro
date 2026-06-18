@@ -16,6 +16,9 @@ bucket_name = "taxorder-docs"
 binding = "PREFS"
 id = "859d284aa75c49598186c70d5e2cdbc2"
 
+[ai]
+binding = "AI"
+
 [vars]
 ENVIRONMENT = "production"
 ALLOWED_ORIGINS = "*"

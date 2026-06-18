@@ -384,54 +384,40 @@ async function handleChangeMyPassword(req, env, user) {
   return json({ ok: true });
 }
 
-// ─── AI CHAT ─────────────────────────────────────────────────────────────────
+// ─── AI CHAT (Cloudflare Workers AI — bezpłatny) ────────────────────────────
 async function handleAI(request, env) {
   if (request.method !== 'POST') return err('Method not allowed', 405);
   let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON'); }
   const { message, fleetSummary, history = [] } = body;
   if (!message?.trim()) return err('Brak wiadomości');
-  if (!env.ANTHROPIC_API_KEY) return err('AI nie skonfigurowane — ustaw sekret ANTHROPIC_API_KEY', 503);
+  if (!env.AI) return err('AI binding nie skonfigurowane — dodaj [ai] do wrangler.toml', 503);
 
-  const system = `Jesteś asystentem TaxOrder Pro — systemu DT-1 (podatek od środków transportowych) dla polskich firm.
+  const systemPrompt = `Jesteś asystentem TaxOrder Pro — systemu DT-1 (podatek od środków transportowych) dla polskich firm.
 
 Pomagasz z: obliczaniem podatku DT-1, kategoryzacją pojazdów (D1–D15), stawkami Warszawy 2026, wypełnianiem deklaracji DT-1/DT-1A, zarządzaniem flotą.
 
-Stawki Warszawa 2026 (Uchwała XXIX/1065/2025). Format: kategoria | pojazdy <2024 | pojazdy ≥2024:
-D1 Ciężarowy 3,5–5,5t | 984 zł | 888 zł
-D2 Ciężarowy 5,5–9t | 1572 zł | 1416 zł
-D3 Ciężarowy 9–12t | 1848 zł | 1656 zł
-D8 Ciężarowy ≥12t 2 osie | 3264 zł | 2940 zł
-D9 Ciężarowy ≥12t 3 osie | 3612 zł | 3252 zł
-D10 Ciężarowy ≥12t 4+ osie | 3972 zł | 3576 zł
-D11 Ciągnik ≥12t 2 osie | 2760 zł | 2484 zł
-D12 Ciągnik ≥12t 3+ osie | 3180 zł | 2868 zł
-D5 Przyczepa 7–12t | 1128 zł | 1016 zł (brak obniżki)
-D13–D15 Przyczepa ≥12t 1/2/3 osie | 744–984 zł
-
+Stawki Warszawa 2026 (Uchwała XXIX/1065/2025):
+D1 Ciężarowy 3,5–5,5t: 984 zł (<2024) / 888 zł (>=2024)
+D2 Ciężarowy 5,5–9t: 1572 zł / 1416 zł
+D3 Ciężarowy 9–12t: 1848 zł / 1656 zł
+D8 Ciezarowy >=12t 2 osie: 3264 zł / 2940 zł
+D9 Ciezarowy >=12t 3 osie: 3612 zł / 3252 zł
+D10 Ciezarowy >=12t 4+ osie: 3972 zł / 3576 zł
+D11 Ciągnik >=12t 2 osie: 2760 zł / 2484 zł
+D12 Ciągnik >=12t 3+ osie: 3180 zł / 2868 zł
+D5 Przyczepa 7-12t: 1128 zł / 1016 zł
+D13 Przyczepa >=12t 1 os: 744 zł, D14 2os: 840 zł, D15 3os: 984 zł
 Terminy: DT-1 do 15 lutego, II rata do 15 września.
-Odpowiadaj po polsku, konkretnie i zwięźle.${fleetSummary ? '\n\nFlota użytkownika:\n' + fleetSummary : ''}`;
+Odpowiadaj po polsku, konkretnie i zwięźle.${fleetSummary ? '\n\nFlota uzytkownika:\n' + fleetSummary : ''}`;
 
   const messages = [
+    { role: 'system', content: systemPrompt },
     ...history.slice(-6).map(m => ({ role: m.role, content: m.content })),
     { role: 'user', content: message },
   ];
 
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 1024, system, messages }),
-  });
-
-  if (!resp.ok) {
-    const e = await resp.json().catch(() => ({}));
-    return err('Błąd AI: ' + (e.error?.message || resp.statusText), 502);
-  }
-  const data = await resp.json();
-  return json({ answer: data.content[0].text });
+  const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', { messages, max_tokens: 1024 });
+  return json({ answer: result.response });
 }
 
 // ─── MAIN FETCH ───────────────────────────────────────────────────────────────
