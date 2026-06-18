@@ -423,7 +423,7 @@ Odpowiadaj po polsku, konkretnie i zwięźle.${fleetSummary ? '\n\nFlota użytko
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + env.GROQ_API_KEY,
       },
-      body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages, max_tokens: 1024 }),
+      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages, max_tokens: 1024 }),
     });
     if (!resp.ok) {
       const e = await resp.json().catch(() => ({}));
