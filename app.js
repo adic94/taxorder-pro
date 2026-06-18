@@ -467,6 +467,55 @@ function updateCounters() {
 function refreshAll() { renderVeh(); renderKalkulator(); updateCounters(); renderDash(); }
 function updateAll() { updateCounters(); renderKalkulator(); }
 
+// ==================== FUEL DASH ====================
+function renderFuelDash() {
+  const el = document.getElementById('dash-fuel');
+  if (!el) return;
+  const now = new Date();
+  const thisMonth = now.toISOString().slice(0,7);
+
+  const stats = vehs
+    .filter(v => Array.isArray(v.fuelHistory) && v.fuelHistory.length)
+    .map(v => {
+      const mh = v.fuelHistory.filter(h => (h.date||'').startsWith(thisMonth));
+      return {
+        v,
+        liters: mh.reduce((s,h)=>s+(h.liters||0),0),
+        cost:   mh.reduce((s,h)=>s+(h.totalGross||0),0),
+        count:  mh.length,
+      };
+    })
+    .filter(s => s.count > 0)
+    .sort((a,b) => b.cost - a.cost);
+
+  if (!stats.length) {
+    el.innerHTML = `<div style="color:var(--text3);font-size:12px;grid-column:1/-1;padding:16px 0">
+      Brak danych o tankowaniach w tym miesiącu. Zaimportuj CSV z karty paliwowej lub dodaj ręcznie w karcie pojazdu.
+    </div>`;
+    return;
+  }
+
+  // Sumy
+  const totalCost   = stats.reduce((s,x)=>s+x.cost,0);
+  const totalLiters = stats.reduce((s,x)=>s+x.liters,0);
+
+  el.innerHTML = `
+    <div style="padding:14px;background:var(--amber-light,#fff8e6);border-radius:var(--radius);border:1px solid var(--amber,#f59e0b)">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">Łączny koszt paliwa</div>
+      <div style="font-size:22px;font-weight:700;font-family:var(--mono);color:var(--amber)">${totalCost.toFixed(2)} zł</div>
+      <div style="font-size:11px;color:var(--text2)">${totalLiters.toFixed(1)} l · ${stats.length} pojazdów</div>
+    </div>
+    ${stats.slice(0,5).map(s => `
+      <div style="padding:12px;background:var(--bg3);border-radius:var(--radius);cursor:pointer" onclick="TaxOrderVehicleDetail.open(${s.v.id})">
+        <div style="font-size:11px;font-weight:700;font-family:var(--mono);margin-bottom:4px">${s.v.nrRej}</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${s.v.marka} ${s.v.model}</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px">
+          <span style="font-family:var(--mono);font-weight:600">${s.cost.toFixed(2)} zł</span>
+          <span style="color:var(--text3)">${s.liters.toFixed(1)} l</span>
+        </div>
+      </div>`).join('')}`;
+}
+
 // ==================== DASH ====================
 function renderDash() {
   const brands = {};
@@ -524,6 +573,7 @@ function renderDash() {
       </button>
     </td>
   </tr>`).join('');
+  renderFuelDash();
 }
 
 // ==================== FORMULARZE ====================

@@ -36,7 +36,15 @@
       return check(v.ocEnd) || check(v.acEnd) || check(v.nextInspection);
     }).length;
 
-    return `Firma: ${company.name || 'nieznana'} | Pojazdów: ${vehs.length} | Marki: ${topBrands} | Kategorie DT-1: ${cats || 'brak'} | Podatek: ${Math.round(totalTax).toLocaleString('pl-PL')} zł | Alerty terminów: ${expiring} pojazdów`;
+    // Koszty paliwa bieżący miesiąc
+    const thisMonth = new Date().toISOString().slice(0,7);
+    let fuelCostM = 0, fuelLitersM = 0, fuelVehsM = 0;
+    vehs.forEach(v => {
+      const mh = (v.fuelHistory||[]).filter(h=>(h.date||'').startsWith(thisMonth));
+      if (mh.length) { fuelCostM += mh.reduce((s,h)=>s+(h.totalGross||0),0); fuelLitersM += mh.reduce((s,h)=>s+(h.liters||0),0); fuelVehsM++; }
+    });
+
+    return `Firma: ${company.name || 'nieznana'} | Pojazdów: ${vehs.length} | Marki: ${topBrands} | Kategorie DT-1: ${cats || 'brak'} | Podatek: ${Math.round(totalTax).toLocaleString('pl-PL')} zł | Alerty terminów: ${expiring} pojazdów${fuelCostM>0?` | Koszty paliwa (mies.): ${Math.round(fuelCostM)} zł / ${fuelLitersM.toFixed(0)} l (${fuelVehsM} pojazdów)`:''}`;
   }
 
   function _md(text) {

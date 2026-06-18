@@ -183,6 +183,7 @@ window.TaxOrderVehicleDetail = {
           ['insurance', '🛡 Polisy'],
           ['badania',   '🔧 Badania'],
           ['eksploatacja','⚙ Eksploatacja'],
+          ['koszty',    '⛽ Koszty'],
           ['ownership', '🏢 Własność'],
           ['purchase',  '💰 Zakup/Zbycie'],
           ['archive',   '📦 Archiwum'],
@@ -370,6 +371,11 @@ window.TaxOrderVehicleDetail = {
         </div>
       </div>
 
+      <!-- TAB: KOSZTY / TANKOWANIA -->
+      <div id="vd-tab-koszty-content" class="vd-tab-content" style="display:none">
+        <div id="vd-koszty-body">${this._renderKosztyTab(v)}</div>
+      </div>
+
       <!-- TAB: WŁASNOŚĆ -->
       <div id="vd-tab-ownership-content" class="vd-tab-content" style="display:none">
         <div class="vdfg">
@@ -478,6 +484,105 @@ window.TaxOrderVehicleDetail = {
     });
 
     document.getElementById('vd-save-btn').onclick = () => this.save(v.id);
+  },
+
+  _renderKosztyTab(v) {
+    const history = Array.isArray(v.fuelHistory) ? v.fuelHistory : [];
+
+    // Statystyki
+    const now = new Date();
+    const thisMonth = now.toISOString().slice(0,7);
+    const thisYear  = now.getFullYear().toString();
+
+    const monthFuel   = history.filter(h => (h.date||'').startsWith(thisMonth));
+    const yearFuel    = history.filter(h => (h.date||'').startsWith(thisYear));
+    const totalLM     = monthFuel.reduce((s,h) => s+(h.liters||0), 0);
+    const totalCostM  = monthFuel.reduce((s,h) => s+(h.totalGross||0), 0);
+    const totalLY     = yearFuel.reduce((s,h) => s+(h.liters||0), 0);
+    const totalCostY  = yearFuel.reduce((s,h) => s+(h.totalGross||0), 0);
+    const avgPrice    = history.filter(h=>h.pricePerL).length
+      ? (history.filter(h=>h.pricePerL).reduce((s,h)=>s+(h.pricePerL||0),0) / history.filter(h=>h.pricePerL).length).toFixed(3)
+      : null;
+
+    const PRODUCT_COLOR = {diesel:'var(--blue)',pb95:'var(--green)',pb98:'var(--amber)',lpg:'var(--red)',mocznik:'var(--text3)',myjnia:'var(--blue)',inne:'var(--text3)'};
+
+    return `
+      <!-- Statystyki -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:18px">
+        <div style="padding:12px;background:var(--bg3);border-radius:var(--radius);text-align:center">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Ten miesiąc</div>
+          <div style="font-size:16px;font-weight:700;font-family:var(--mono)">${totalLM.toFixed(1)} l</div>
+          <div style="font-size:11px;color:var(--text2)">${totalCostM.toFixed(2)} zł</div>
+        </div>
+        <div style="padding:12px;background:var(--bg3);border-radius:var(--radius);text-align:center">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Ten rok</div>
+          <div style="font-size:16px;font-weight:700;font-family:var(--mono)">${totalLY.toFixed(1)} l</div>
+          <div style="font-size:11px;color:var(--text2)">${totalCostY.toFixed(2)} zł</div>
+        </div>
+        <div style="padding:12px;background:var(--bg3);border-radius:var(--radius);text-align:center">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Łącznie wpisów</div>
+          <div style="font-size:16px;font-weight:700;font-family:var(--mono)">${history.length}</div>
+          <div style="font-size:11px;color:var(--text2)">${avgPrice ? `śr. ${avgPrice} zł/l` : '—'}</div>
+        </div>
+      </div>
+
+      <!-- Akcje -->
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button class="btn btn-green" style="font-size:12px" onclick="FuelImport.addManual(${v.id})">
+          <i class="ti ti-plus"></i>Dodaj tankowanie
+        </button>
+        <button class="btn btn-blue" style="font-size:12px" onclick="FuelImport.open()">
+          <i class="ti ti-file-import"></i>Import CSV
+        </button>
+      </div>
+
+      <!-- Historia -->
+      ${!history.length ? `
+        <div style="text-align:center;padding:2rem;color:var(--text3)">
+          <i class="ti ti-gas-station" style="font-size:32px;display:block;margin-bottom:8px"></i>
+          Brak tankowań. Dodaj ręcznie lub zaimportuj z pliku CSV karty paliwowej.
+        </div>` : `
+        <div style="overflow-x:auto">
+          <table style="width:100%;font-size:12px;border-collapse:collapse">
+            <thead><tr style="background:var(--bg3)">
+              <th style="padding:6px 8px;text-align:left">Data</th>
+              <th style="padding:6px 8px;text-align:left">Paliwo</th>
+              <th style="padding:6px 8px;text-align:right">Litry</th>
+              <th style="padding:6px 8px;text-align:right">Cena/l</th>
+              <th style="padding:6px 8px;text-align:right">Kwota</th>
+              <th style="padding:6px 8px;text-align:left">Stacja</th>
+              <th style="padding:6px 8px;text-align:right">km</th>
+              <th style="padding:6px 8px"></th>
+            </tr></thead>
+            <tbody>
+              ${history.slice(0,100).map(h => `
+                <tr style="border-bottom:0.5px solid var(--border)">
+                  <td style="padding:5px 8px;font-family:var(--mono);font-size:11px">${h.date||'—'}<br><span style="color:var(--text3)">${h.time||''}</span></td>
+                  <td style="padding:5px 8px">
+                    <span style="font-size:10px;font-weight:600;color:${PRODUCT_COLOR[h.product]||'var(--text2)'}">
+                      ${(h.product||'—').toUpperCase()}
+                    </span>
+                  </td>
+                  <td style="padding:5px 8px;text-align:right;font-family:var(--mono)">${h.liters!=null?h.liters.toFixed(1):'—'}</td>
+                  <td style="padding:5px 8px;text-align:right;font-family:var(--mono);color:var(--text2)">${h.pricePerL!=null?h.pricePerL.toFixed(3):'—'}</td>
+                  <td style="padding:5px 8px;text-align:right;font-family:var(--mono);font-weight:500">${h.totalGross!=null?h.totalGross.toFixed(2):'—'}</td>
+                  <td style="padding:5px 8px;color:var(--text2);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${h.station||''}">${h.station||'—'}</td>
+                  <td style="padding:5px 8px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text2)">${h.km!=null?h.km.toLocaleString('pl-PL'):'—'}</td>
+                  <td style="padding:5px 8px;text-align:center">
+                    <button onclick="FuelImport.removeFuel(${v.id},${h.id})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 4px" title="Usuń">&times;</button>
+                  </td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+          ${history.length > 100 ? `<div style="text-align:center;padding:8px;font-size:11px;color:var(--text3)">Pokazano 100 z ${history.length} wpisów</div>` : ''}
+        </div>`}`;
+  },
+
+  _refreshKoszty(vehId) {
+    const v = vehs.find(x => x.id === vehId);
+    if (!v) return;
+    const el = document.getElementById('vd-koszty-body');
+    if (el) el.innerHTML = this._renderKosztyTab(v);
   },
 
   _renderInspectionHistory(v) {
