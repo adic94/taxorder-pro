@@ -4,6 +4,7 @@ const VEHICLES = [{"nrRej":"WGM87205","marka":"Fuso","model":"Canter 9/18","rok"
 // State
 let vehs = VEHICLES.map((v,i) => ({...v, id:i, osie: v.dmc>=12000?3:2, zawieszenie:'pneumatyczne', dmcZespolu:0, miesiacePodatku:12}));
 let selected = new Set();
+window.selected = selected;
 let sortKey = 'nrRej', sortAsc = true;
 
 // ==================== RATES (Warszawa 2026) ====================
@@ -2632,7 +2633,7 @@ async function doLogin(){
     const authResult = await window.TaxOrderAuth.login(email, pass);
 
     if(!authResult.ok){
-      showLoginErr('Błąd logowania Supabase: ' + (authResult.error?.message || 'brak sesji'));
+      showLoginErr('Błąd logowania: ' + (authResult.error?.message || 'brak sesji'));
       return;
     }
 
@@ -2675,7 +2676,7 @@ async function doLogin(){
 
     if(typeof refreshAll==='function') refreshAll();
 
-    console.log('[FleetCloud] Automatycznie zaladowano pojazdy po zalogowaniu Supabase Auth');
+    console.log('[FleetCloud] Automatycznie zaladowano pojazdy po zalogowaniu');
   }
 
   renderDash();
@@ -3194,6 +3195,7 @@ let COMPANIES = {
   wolund:{id:'wolund',shortName:'Wolund',name:'WOLUND SYNERGY SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',nip:'5253006751',regon:'',krs:'0001111249',ulica:'ADAMA MICKIEWICZA',dom:'37',lokal:'58',kod:'01-625',miasto:'WARSZAWA',woj:'MAZOWIECKIE',organ:'Prezydent m.st. Warszawy — Dzielnica Żoliborz',color:'#0891B2',wlasciciel:'Wolund'}
 };
 let currentCompanyId=localStorage.getItem('dt1_current_company')||'mtoilet';
+window.currentCompanyId = currentCompanyId;
 let companyStates=JSON.parse(localStorage.getItem('dt1_company_states')||'{}');
 
 // Udost�pnienie danych floty dla modu��w zewn�trznych, np. migracji Supabase
@@ -3258,6 +3260,7 @@ function switchCompany(companyId){
   if(!COMPANIES[companyId])return;
   saveCompanyState();
   currentCompanyId=companyId;
+  window.currentCompanyId = companyId;
   localStorage.setItem('dt1_current_company',companyId);
   loadCompanyState(companyId);
   updateCompanyUI();

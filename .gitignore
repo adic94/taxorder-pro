@@ -36,3 +36,6 @@ build/
 
 # Logs
 *.log
+
+# Duplicate project directory (git worktree artifact)
+taxorder-pro/
