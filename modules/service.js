@@ -5,18 +5,52 @@
 window.ServiceModule = (function () {
 
   const SERVICE_TYPES = {
-    przeglad:      { label:'Przegląd SKP',              icon:'ti-clipboard-check',  color:'var(--blue)' },
-    wymiana_oleju: { label:'Wymiana oleju + filtrów',   icon:'ti-droplet',           color:'var(--amber)' },
-    hamulce:       { label:'Hamulce',                   icon:'ti-circle-half-2',     color:'var(--red)' },
-    opony_zmiana:  { label:'Zmiana opon / sezon',       icon:'ti-circle',            color:'var(--green)' },
-    sprzeglo:      { label:'Sprzęgło',                  icon:'ti-settings-2',        color:'var(--text2)' },
-    filtr:         { label:'Filtry (paliwa/powietrza)', icon:'ti-filter',            color:'var(--green)' },
-    akumulator:    { label:'Akumulator',                icon:'ti-battery-charging',  color:'var(--amber)' },
-    elektryka:     { label:'Elektryka / instalacja',    icon:'ti-bolt',              color:'var(--amber)' },
-    klimatyzacja:  { label:'Klimatyzacja (serwis)',     icon:'ti-snowflake',         color:'var(--blue)' },
-    blacharstwo:   { label:'Blacharstwo / lakiernia',   icon:'ti-color-swatch',      color:'var(--text2)' },
-    naprawa:       { label:'Naprawa awaryjna',          icon:'ti-tools',             color:'var(--red)' },
-    inne:          { label:'Inne',                      icon:'ti-dots',              color:'var(--text3)' },
+    // === PRZEGLĄDY / DOKUMENTY ===
+    przeglad:          { label:'Przegląd techniczny (SKP)',     icon:'ti-clipboard-check',   color:'var(--blue)',    group:'Przeglądy / Dokumenty' },
+    przeglad_wewn:     { label:'Przegląd wewnętrzny floty',    icon:'ti-checklist',          color:'var(--blue)',    group:'Przeglądy / Dokumenty' },
+    gasnicy:           { label:'Gaśnice / wyposażenie BHP',    icon:'ti-fire-extinguisher',  color:'var(--red)',     group:'Przeglądy / Dokumenty' },
+    oprogramowanie:    { label:'Aktualizacja oprogramowania',   icon:'ti-cpu',                color:'var(--blue)',    group:'Przeglądy / Dokumenty' },
+    // === SILNIK ===
+    wymiana_oleju:     { label:'Wymiana oleju + filtrów',       icon:'ti-droplet',            color:'var(--amber)',   group:'Silnik' },
+    filtr:             { label:'Filtry (powietrza / kabiny)',   icon:'ti-filter',             color:'var(--green)',   group:'Silnik' },
+    rozrzad:           { label:'Rozrząd / pasek / łańcuch',    icon:'ti-rotate-clockwise',   color:'var(--red)',     group:'Silnik' },
+    turbo:             { label:'Turbosprężarka',                icon:'ti-wind',               color:'var(--amber)',   group:'Silnik' },
+    wtryski:           { label:'Pompa wtryskowa / wtryskiwacze',icon:'ti-droplet-2',          color:'var(--amber)',   group:'Silnik' },
+    chlodnica:         { label:'Układ chłodzenia / chłodnica', icon:'ti-thermometer',         color:'var(--blue)',    group:'Silnik' },
+    uklad_wydechowy:   { label:'Układ wydechowy / DPF / EGR',  icon:'ti-flame',              color:'#71717a',        group:'Silnik' },
+    // === NAPĘD / PODWOZIE ===
+    sprzeglo:          { label:'Sprzęgło',                      icon:'ti-settings-2',         color:'#71717a',        group:'Napęd / Podwozie' },
+    skrzynia_biegow:   { label:'Skrzynia biegów',               icon:'ti-adjustments-horizontal', color:'#71717a',   group:'Napęd / Podwozie' },
+    most_napedowy:     { label:'Most napędowy / półosie',       icon:'ti-arrows-diff',        color:'#71717a',        group:'Napęd / Podwozie' },
+    hamulce:           { label:'Układ hamulcowy',               icon:'ti-circle-half-2',      color:'var(--red)',     group:'Napęd / Podwozie' },
+    zawieszenie:       { label:'Zawieszenie / amortyzatory',    icon:'ti-arrows-vertical',    color:'#71717a',        group:'Napęd / Podwozie' },
+    ukl_kierowniczy:   { label:'Układ kierowniczy',             icon:'ti-steering-wheel',     color:'var(--blue)',    group:'Napęd / Podwozie' },
+    // === OPONY ===
+    opony_zmiana:      { label:'Zmiana opon (sezon)',           icon:'ti-circle',             color:'var(--green)',   group:'Opony' },
+    opony_naprawa:     { label:'Naprawa opony / wyważanie',    icon:'ti-circle-x',           color:'var(--amber)',   group:'Opony' },
+    // === ELEKTRYKA ===
+    akumulator:        { label:'Akumulator',                    icon:'ti-battery-charging',   color:'var(--amber)',   group:'Elektryka' },
+    alternator:        { label:'Alternator / rozrusznik',       icon:'ti-plug-connected',     color:'var(--amber)',   group:'Elektryka' },
+    elektryka:         { label:'Elektryka / instalacja',        icon:'ti-bolt',               color:'var(--amber)',   group:'Elektryka' },
+    klimatyzacja:      { label:'Klimatyzacja / ogrzewanie',     icon:'ti-snowflake',          color:'var(--blue)',    group:'Elektryka' },
+    // === NADWOZIE / KABINA ===
+    blacharstwo:       { label:'Blacharstwo / lakiernia',       icon:'ti-color-swatch',       color:'#71717a',        group:'Nadwozie / Kabina' },
+    szyby:             { label:'Szyby / lusterka',              icon:'ti-photo',              color:'var(--blue)',    group:'Nadwozie / Kabina' },
+    kabina:            { label:'Tapicerka / wnętrze kabiny',   icon:'ti-armchair',           color:'#71717a',        group:'Nadwozie / Kabina' },
+    // === ZABUDOWA POJAZDU ===
+    zabudowa_chlodnia: { label:'Zabudowa — chłodnia (agregat)',icon:'ti-temperature-minus',   color:'#0ea5e9',        group:'Zabudowa pojazdu' },
+    zabudowa_izoterma: { label:'Zabudowa — izoterma',          icon:'ti-box',                color:'#0ea5e9',        group:'Zabudowa pojazdu' },
+    zabudowa_winda:    { label:'Zabudowa — winda załadowcza',  icon:'ti-arrow-bar-up',       color:'var(--green)',   group:'Zabudowa pojazdu' },
+    zabudowa_hds:      { label:'Zabudowa — dźwig HDS / żuraw', icon:'ti-crane',              color:'var(--amber)',   group:'Zabudowa pojazdu' },
+    zabudowa_wywrotka: { label:'Zabudowa — wywrotka',          icon:'ti-truck',              color:'#71717a',        group:'Zabudowa pojazdu' },
+    zabudowa_pompa:    { label:'Zabudowa — pompa / beczka',    icon:'ti-droplet-half',       color:'#0ea5e9',        group:'Zabudowa pojazdu' },
+    zabudowa_plandeka: { label:'Zabudowa — plandeka / brezent',icon:'ti-tent',               color:'#71717a',        group:'Zabudowa pojazdu' },
+    zabudowa_skrzynia: { label:'Zabudowa — skrzynia ładunkowa',icon:'ti-package',            color:'#71717a',        group:'Zabudowa pojazdu' },
+    zabudowa_specjalna:{ label:'Zabudowa — specjalna / inne',  icon:'ti-building-factory',   color:'var(--amber)',   group:'Zabudowa pojazdu' },
+    // === AWARIE / INNE ===
+    naprawa:           { label:'Naprawa awaryjna',              icon:'ti-tools',              color:'var(--red)',     group:'Awarie / Inne' },
+    holowanie:         { label:'Holowanie / pomoc drogowa',     icon:'ti-truck-loading',      color:'var(--red)',     group:'Awarie / Inne' },
+    inne:              { label:'Inne',                          icon:'ti-dots',               color:'#71717a',        group:'Awarie / Inne' },
   };
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -173,8 +207,17 @@ window.ServiceModule = (function () {
     if (!v) return;
     const ex = serviceId ? (v.serviceHistory || []).find(s => s.id == serviceId) : null;
 
-    const typeOpts = Object.entries(SERVICE_TYPES).map(([k, t]) =>
-      `<option value="${k}" ${(ex?.type || 'wymiana_oleju') === k ? 'selected' : ''}>${t.label}</option>`
+    const selectedType = ex?.type || 'wymiana_oleju';
+    const groups = {};
+    Object.entries(SERVICE_TYPES).forEach(([k, t]) => {
+      const g = t.group || 'Inne';
+      if (!groups[g]) groups[g] = [];
+      groups[g].push([k, t]);
+    });
+    const typeOpts = Object.entries(groups).map(([grp, items]) =>
+      `<optgroup label="─── ${grp} ───">
+        ${items.map(([k, t]) => `<option value="${k}" ${selectedType === k ? 'selected' : ''}>${t.label}</option>`).join('')}
+      </optgroup>`
     ).join('');
 
     const ov = document.createElement('div');
