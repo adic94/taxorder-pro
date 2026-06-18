@@ -416,14 +416,39 @@ Odpowiadaj po polsku, konkretnie i zwięźle.${fleetSummary ? '\n\nFlota uzytkow
     { role: 'user', content: message },
   ];
 
-  const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', { messages, max_tokens: 1024 });
-  return json({ answer: result.response });
+  try {
+    const result = await env.AI.run('@cf/mistral/mistral-7b-instruct-v0.2', { messages, max_tokens: 1024 });
+    const answer = result?.response ?? result?.generated_text ?? JSON.stringify(result);
+    return json({ answer });
+  } catch (e) {
+    console.error('[AI] run error:', e?.message);
+    return err('Błąd modelu AI: ' + (e?.message || 'nieznany błąd'), 502);
+  }
 }
 
 // ─── MAIN FETCH ───────────────────────────────────────────────────────────────
+async function handleRequest(request, env, url, path) {
+  if (path === '/api/auth/login' && request.method === 'POST') return handleLogin(request, env);
+  if (path === '/api/auth/setup' && request.method === 'GET')  return handleSetup(request);
+  if (path === '/api/auth/logout' && request.method === 'POST') return handleLogout(request, env);
+
+  const user = await getUser(request, env);
+  if (!user) return err('Nieautoryzowany — zaloguj się', 401);
+
+  if (path === '/api/auth/me')                    return json(safeUser(user));
+  if (path === '/api/users/me/password' && request.method === 'PUT') return handleChangeMyPassword(request, env, user);
+  if (path.startsWith('/api/vehicles'))            return handleVehicles(request, env, user, url, path);
+  if (path.startsWith('/api/state/'))              return handleState(request, env, user, url, path);
+  if (path.startsWith('/api/prefs'))               return handlePrefs(request, env, user);
+  if (path.startsWith('/api/docs'))                return handleDocs(request, env, user, url, path);
+  if (path.startsWith('/api/users'))               return handleUsers(request, env, user, url, path);
+  if (path === '/api/ai/chat')                     return handleAI(request, env);
+
+  return err('Endpoint nie istnieje', 404);
+}
+
 export default {
   async fetch(request, env, ctx) {
-    // CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS });
     }
@@ -431,30 +456,18 @@ export default {
     const url  = new URL(request.url);
     const path = url.pathname;
 
+    let resp;
     try {
-      // Publiczne: login + setup helper
-      if (path === '/api/auth/login' && request.method === 'POST') return handleLogin(request, env);
-      if (path === '/api/auth/setup' && request.method === 'GET')  return handleSetup(request);
-      if (path === '/api/auth/logout' && request.method === 'POST') return handleLogout(request, env);
-
-      // Chronione: wymaga tokenu
-      const user = await getUser(request, env);
-      if (!user) return err('Nieautoryzowany — zaloguj się', 401);
-
-      if (path === '/api/auth/me')                    return json(safeUser(user));
-      if (path === '/api/users/me/password' && request.method === 'PUT') return handleChangeMyPassword(request, env, user);
-      if (path.startsWith('/api/vehicles'))            return handleVehicles(request, env, user, url, path);
-      if (path.startsWith('/api/state/'))              return handleState(request, env, user, url, path);
-      if (path.startsWith('/api/prefs'))               return handlePrefs(request, env, user);
-      if (path.startsWith('/api/docs'))                return handleDocs(request, env, user, url, path);
-      if (path.startsWith('/api/users'))               return handleUsers(request, env, user, url, path);
-      if (path === '/api/ai/chat')                     return handleAI(request, env);
-
-      return err('Endpoint nie istnieje', 404);
+      resp = await handleRequest(request, env, url, path);
     } catch (e) {
-      console.error('[Worker error]', e.stack || e.message);
-      return json({ error: 'Błąd serwera: ' + e.message }, 500);
+      console.error('[Worker error]', e?.stack || e?.message);
+      resp = json({ error: 'Błąd serwera: ' + (e?.message || 'unknown') }, 500);
     }
+
+    // Gwarancja CORS na każdej odpowiedzi
+    const headers = new Headers(resp.headers);
+    Object.entries(CORS).forEach(([k, v]) => headers.set(k, v));
+    return new Response(resp.body, { status: resp.status, headers });
   },
 
   // Cron trigger (wrangler.toml: crons = ["0 3 * * *"])
