@@ -954,7 +954,7 @@ async function pobierzWypelnionyPDF(){ if(window.DT1Generator){var yr=parseInt((
     tfp(f1,'Miejscowość',miasto,fnt,8);
     tfp(f1,'16 Kod pocztowy',kod,fnt,8);
     tfp(f1,'Poczta',miasto,fnt,8);
-    if(fnt){page1.drawText(String(yr),{x:218,y:657,size:10,font:fnt});}
+    if(fnt){page1.drawText(String(yr),{x:248,y:667,size:10,font:fnt});}
     tfp(f1,'fill_15','',fnt,9); // pole 19 ma być puste
     tfp(f1,'fill_11',String(groups.length),fnt,10); // pole 83 liczba załączników
     tfp(f1,'85 Nazwisko',tp('tp-nazwisko'),fnt,8);
