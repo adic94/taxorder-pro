@@ -198,6 +198,8 @@ window.TaxOrderVehicleDetail = {
           ['purchase',  '💰 Zakup/Zbycie'],
           ['archive',   '📦 Archiwum'],
           ['notes',     '📝 Uwagi'],
+          ['dokumenty', '📄 Dokumenty'],
+          ['mandaty',   '🚨 Mandaty'],
         ].map(([t,label],i) => `
           <button onclick="TaxOrderVehicleDetail._tab('${t}')" id="vd-tab-${t}"
             style="flex-shrink:0;padding:6px 10px;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:11px;font-weight:500;white-space:nowrap;
@@ -547,6 +549,20 @@ window.TaxOrderVehicleDetail = {
         </div>
       </div>
 
+      <!-- TAB: DOKUMENTY -->
+      <div id="vd-tab-dokumenty-content" class="vd-tab-content" style="display:none">
+        <div id="vd-dokumenty-body">
+          ${window.DocumentsModule ? window.DocumentsModule.renderForVehicle(v) : '<div style="padding:20px;text-align:center;color:var(--text3)">Ładowanie modułu dokumentów...</div>'}
+        </div>
+      </div>
+
+      <!-- TAB: MANDATY -->
+      <div id="vd-tab-mandaty-content" class="vd-tab-content" style="display:none">
+        <div id="vd-mandaty-body">
+          ${window.FinesModule ? window.FinesModule.renderForVehicle(v.nrRej) : '<div style="padding:20px;text-align:center;color:var(--text3)">Ładowanie modułu mandatów...</div>'}
+        </div>
+      </div>
+
       <!-- PRZYPISANE KARTY FLOTOWE -->
       <div style="margin-top:20px;padding-top:16px;border-top:0.5px solid var(--border)">
         <div style="font-size:13px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:8px">
@@ -586,6 +602,15 @@ window.TaxOrderVehicleDetail = {
       ? (history.filter(h=>h.pricePerL).reduce((s,h)=>s+(h.pricePerL||0),0) / history.filter(h=>h.pricePerL).length).toFixed(3)
       : null;
 
+    // l/100km z kolejnych tankowań z km
+    const withKm = [...history].filter(h => h.km != null && h.km > 0 && h.liters > 0).sort((a,b) => a.km - b.km);
+    let _effL = 0, _effKm = 0, _effN = 0;
+    for (let i = 1; i < withKm.length; i++) {
+      const kd = withKm[i].km - withKm[i-1].km;
+      if (kd > 10 && kd < 5000) { _effL += withKm[i].liters; _effKm += kd; _effN++; }
+    }
+    const avgEff = (_effN >= 2 && _effKm > 0) ? (_effL / _effKm * 100).toFixed(1) : null;
+
     const PRODUCT_COLOR = {diesel:'var(--blue)',pb95:'var(--green)',pb98:'var(--amber)',lpg:'var(--red)',mocznik:'var(--text3)',myjnia:'var(--blue)',inne:'var(--text3)'};
 
     return `
@@ -605,6 +630,11 @@ window.TaxOrderVehicleDetail = {
           <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Łącznie wpisów</div>
           <div style="font-size:16px;font-weight:700;font-family:var(--mono)">${history.length}</div>
           <div style="font-size:11px;color:var(--text2)">${avgPrice ? `śr. ${avgPrice} zł/l` : '—'}</div>
+        </div>
+        <div style="padding:12px;background:var(--bg3);border-radius:var(--radius);text-align:center">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Śr. spalanie</div>
+          <div style="font-size:16px;font-weight:700;font-family:var(--mono);color:${avgEff?'var(--blue)':'var(--text3)'}">${avgEff ? avgEff+' l' : '—'}</div>
+          <div style="font-size:11px;color:var(--text2)">${avgEff ? '/100 km' : 'brak danych km'}</div>
         </div>
       </div>
 
@@ -789,6 +819,16 @@ window.TaxOrderVehicleDetail = {
     const v = (window.vehs||[]).find(x => x.id === vehId);
     const el = document.getElementById('vd-serwis-body');
     if (el && v && window.ServiceModule) el.innerHTML = window.ServiceModule.renderServiceTabHtml(v);
+  },
+
+  refresh(vehId) {
+    const v = (window.vehs||[]).find(x => String(x.id)===String(vehId));
+    if (!v) return;
+    const dok = document.getElementById('vd-dokumenty-body');
+    if (dok && window.DocumentsModule) dok.innerHTML = window.DocumentsModule.renderForVehicle(v);
+    const man = document.getElementById('vd-mandaty-body');
+    if (man && window.FinesModule) man.innerHTML = window.FinesModule.renderForVehicle(v.nrRej);
+    this.refreshServiceTab(vehId);
   },
 
   _tab(name) {

@@ -126,6 +126,30 @@ window.TaxOrderDrivers = (function () {
     toast(`Usunięto kierowcę "${name}"`);
   }
 
+  // Statystyki per kierowca na podstawie fuelHistory i serviceHistory
+  function getStats(driverName) {
+    const vehicles = window.vehs || [];
+    let totalKm = 0, fuelCost = 0, fuelLiters = 0, serviceCost = 0, vehiclesUsed = new Set(), finesCount = 0, finesAmt = 0;
+
+    vehicles.forEach(v => {
+      const fh = (v.fuelHistory || []).filter(h => (h.driverName || v.kierowca) === driverName);
+      fh.forEach(h => { fuelCost += h.totalGross || 0; fuelLiters += h.liters || 0; if (v.kierowca === driverName) vehiclesUsed.add(v.nrRej); });
+
+      const sh = (v.serviceHistory || []).filter(h => h.driverName === driverName);
+      sh.forEach(h => { serviceCost += h.cost || 0; });
+
+      if (v.kierowca === driverName) vehiclesUsed.add(v.nrRej);
+    });
+
+    // Mandaty
+    try {
+      const fines = JSON.parse(localStorage.getItem('taxFines') || '[]');
+      fines.filter(f => f.driverName === driverName).forEach(f => { finesCount++; finesAmt += f.amount || 0; });
+    } catch {}
+
+    return { fuelCost, fuelLiters, serviceCost, vehiclesUsed: [...vehiclesUsed], finesCount, finesAmt };
+  }
+
   function importFromVehicles() {
     const existing = new Set(getAll().map(d => d.name.toLowerCase()));
     const list = getAll();
@@ -144,5 +168,5 @@ window.TaxOrderDrivers = (function () {
   // Wywołaj po załadowaniu
   function init() { _updateDatalist(); }
 
-  return { getAll, open, close, edit, newDriver, saveDriver, remove, importFromVehicles, init };
+  return { getAll, open, close, edit, newDriver, saveDriver, remove, importFromVehicles, init, getStats };
 })();

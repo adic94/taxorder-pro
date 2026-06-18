@@ -595,6 +595,7 @@ function renderDash() {
   </tr>`).join('');
   renderFuelDash();
   _renderServiceDash();
+  _renderFinesDash();
 }
 
 function _renderServiceDash() {
@@ -617,6 +618,35 @@ function _renderServiceDash() {
           <div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.label}${s.nextServiceDate ? ' · ' + s.nextServiceDate.slice(0,10) : ''}</div>
         </div>
         <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${days<0?'var(--red)':days<=7?'var(--red)':days<=14?'var(--amber)':'var(--text2)'}">${days<0?Math.abs(days)+'d temu':'za '+days+'d'}</span>
+      </div>`;
+    }).join('')}`;
+}
+
+function _renderFinesDash() {
+  const el = document.getElementById('dash-fines');
+  if (!el || !window.FinesModule) return;
+  const alerts = window.FinesModule.getUnpaidAlerts();
+  if (!alerts.length) {
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = '';
+  const days = d => d ? Math.round((new Date(d)-new Date())/86400000) : null;
+  el.innerHTML = `
+    <div style="font-size:12px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px;color:var(--red)">
+      <i class="ti ti-alert-triangle"></i>Nieopłacone mandaty (${alerts.length})
+      <button onclick="FinesModule.open()" style="margin-left:auto;font-size:10px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer;color:var(--text2)">Wszystkie</button>
+    </div>
+    ${alerts.slice(0,4).map(f => {
+      const t = window.FinesModule.FINE_TYPES[f.type] || window.FinesModule.FINE_TYPES.inne;
+      const dl = days(f.deadline);
+      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border)">
+        <i class="ti ${t.icon}" style="color:${t.color};font-size:13px;flex-shrink:0"></i>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;font-weight:700;font-family:var(--mono)">${f.nrRej||'—'}</div>
+          <div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.label}${f.amount?' · '+f.amount+' zł':''}</div>
+        </div>
+        <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${dl!==null&&dl<0?'var(--red)':dl<=3?'var(--red)':'var(--amber)'}">${dl!==null&&dl<0?Math.abs(dl)+'d temu':'za '+dl+'d'}</span>
       </div>`;
     }).join('')}`;
 }
@@ -4385,7 +4415,31 @@ function initCepikPage() {
 }
 
 
-// ==================== INIT ====================
+// ==================== KOBIZE REMINDER ====================
+function _checkKobizeReminder() {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year  = now.getFullYear();
+  const key   = `kobize_reminder_${year}`;
+  if (month !== 3) return;
+  if (localStorage.getItem(key)) return;
+
+  const toast2 = document.createElement('div');
+  toast2.style.cssText = 'position:fixed;bottom:100px;right:24px;z-index:9900;background:var(--bg2);border:1px solid var(--amber);border-radius:var(--radius-lg);padding:16px 20px;max-width:340px;box-shadow:0 4px 20px rgba(0,0,0,.2)';
+  toast2.innerHTML = `
+    <div style="font-size:13px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px;color:var(--amber)">
+      <i class="ti ti-leaf"></i>Przypomnienie KOBIZE ${year}
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">
+      Do <strong>31 marca ${year}</strong> należy złożyć roczne sprawozdanie o emisji CO₂ do KOBiZE. Eksportuj dane paliw z modułu Raporty.
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="this.closest('div').remove();localStorage.setItem('${key}','ok')" style="font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer;color:var(--text2)">Zamknij</button>
+      <button onclick="window.FuelImport?.exportKobize(${year-1});this.closest('div').remove();localStorage.setItem('${key}','ok')" style="font-size:11px;padding:4px 10px;border:none;border-radius:4px;background:var(--amber);cursor:pointer;color:#000;font-weight:600"><i class="ti ti-download"></i>Eksport ${year-1}</button>
+    </div>`;
+  document.body.appendChild(toast2);
+  setTimeout(() => { if (toast2.parentNode) toast2.remove(); localStorage.setItem(key,'ok'); }, 30000);
+}
 
 // ==================== INIT ====================
 
@@ -4411,12 +4465,19 @@ window.addEventListener('load', async () => {
   window.renderVeh();
   updateCounters();
 
+  // PWA — rejestracja Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(e => console.warn('[SW]', e.message));
+  }
+
   // Powiadomienia przeglądarkowe — po 3s (żeby dane floty zdążyły się załadować)
   setTimeout(() => {
     if (window.TaxOrderNotifications?.requestAndCheck) {
       window.TaxOrderNotifications.requestAndCheck();
     }
     if (window.TaxOrderDrivers?.init) window.TaxOrderDrivers.init();
+    // Przypomnienie KOBIZE — co roku w marcu
+    _checkKobizeReminder();
   }, 3000);
 
   // Badge walidacji

@@ -1,0 +1,44 @@
+{
+  "name": "TaxOrder Pro",
+  "short_name": "TaxOrder",
+  "description": "Flota + deklaracje DT-1 dla zarządców pojazdów",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#3b82f6",
+  "orientation": "any",
+  "lang": "pl",
+  "icons": [
+    {
+      "src": "/icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-192.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "url": "/?page=dashboard",
+      "description": "Przejdź do pulpitu głównego"
+    },
+    {
+      "name": "Pojazdy",
+      "url": "/?page=pojazdy",
+      "description": "Lista pojazdów"
+    },
+    {
+      "name": "DT-1",
+      "url": "/?page=dt1",
+      "description": "Deklaracja podatku DT-1"
+    }
+  ],
+  "categories": ["productivity", "business"],
+  "scope": "/"
+}
