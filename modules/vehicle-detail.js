@@ -108,6 +108,14 @@ window.TaxOrderVehicleDetail = {
       dataWycofania:      g('dataWycofania'),
       dataDopuszczenia:   g('dataDopuszczenia'),
       dataWyrejestrowania:g('dataWyrejestrowania'),
+      // === OPONY ===
+      tireNextChange: g('tireNextChange'),
+      tireSeason:     g('tireSeason'),
+      tireFL: { size:g('tireFL_size'), brand:g('tireFL_brand'), dot:gi('tireFL_dot'), depth:gf('tireFL_depth'), changed:g('tireFL_changed') },
+      tireFR: { size:g('tireFR_size'), brand:g('tireFR_brand'), dot:gi('tireFR_dot'), depth:gf('tireFR_depth'), changed:g('tireFR_changed') },
+      tireRL: { size:g('tireRL_size'), brand:g('tireRL_brand'), dot:gi('tireRL_dot'), depth:gf('tireRL_depth'), changed:g('tireRL_changed') },
+      tireRR: { size:g('tireRR_size'), brand:g('tireRR_brand'), dot:gi('tireRR_dot'), depth:gf('tireRR_depth'), changed:g('tireRR_changed') },
+      tireSP: { size:g('tireSP_size'), brand:g('tireSP_brand'), dot:gi('tireSP_dot') },
       // === UWAGI ===
       uwagi: g('uwagi'),
     });
@@ -182,6 +190,8 @@ window.TaxOrderVehicleDetail = {
           ['dr',        '📋 DR'],
           ['insurance', '🛡 Polisy'],
           ['badania',   '🔧 Badania'],
+          ['serwis',    '🔩 Serwis'],
+          ['opony',     '⭕ Opony'],
           ['eksploatacja','⚙ Eksploatacja'],
           ['koszty',    '⛽ Koszty'],
           ['ownership', '🏢 Własność'],
@@ -353,6 +363,73 @@ window.TaxOrderVehicleDetail = {
             ${field('tachoNo','Nr tachografu', v.tachoNo)}
             ${field('tachoLastCalib','Data ostatniej legalizacji', v.tachoLastCalib,'date')}
             ${field('tachoNextCalib','Termin następnej legalizacji', v.tachoNextCalib,'date')}
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: SERWIS -->
+      <div id="vd-tab-serwis-content" class="vd-tab-content" style="display:none">
+        <div id="vd-serwis-body">${window.ServiceModule ? window.ServiceModule.renderServiceTabHtml(v) : '<div style="padding:20px;text-align:center;color:var(--text3)">Ładowanie modułu serwisowego...</div>'}</div>
+      </div>
+
+      <!-- TAB: OPONY -->
+      <div id="vd-tab-opony-content" class="vd-tab-content" style="display:none">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:14px">Zmiana sezonowa</div>
+        <div class="vdfg" style="margin-bottom:20px">
+          ${field('tireNextChange','Termin zmiany opon', v.tireNextChange,'date')}
+          <div class="vdf">
+            <label class="vdl">Aktualny sezon</label>
+            <select id="vd-tireSeason" class="fi">
+              <option value="">— nie określono —</option>
+              <option value="letnie" ${v.tireSeason==='letnie'?'selected':''}>Letnie</option>
+              <option value="zimowe" ${v.tireSeason==='zimowe'?'selected':''}>Zimowe</option>
+              <option value="caloroczne" ${v.tireSeason==='caloroczne'?'selected':''}>Całoroczne</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          ${[
+            ['FL','Przód lewy (FL)', v.tireFL||{}],
+            ['FR','Przód prawy (FR)', v.tireFR||{}],
+            ['RL','Tył lewy (RL)', v.tireRL||{}],
+            ['RR','Tył prawy (RR)', v.tireRR||{}],
+          ].map(([pos,posLabel,tire]) => `
+            <div style="background:var(--bg3);border-radius:var(--radius);padding:14px">
+              <div style="font-size:12px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+                <i class="ti ti-circle" style="color:var(--text2)"></i>${posLabel}
+              </div>
+              <div class="vdfg">
+                <div class="vdf">
+                  <label class="vdl">Rozmiar (np. 235/65 R16)</label>
+                  <input id="vd-tire${pos}_size" type="text" class="fi" value="${tire.size||''}" placeholder="205/55R16">
+                </div>
+                <div class="vdf">
+                  <label class="vdl">Marka / producent</label>
+                  <input id="vd-tire${pos}_brand" type="text" class="fi" value="${tire.brand||''}" placeholder="np. Michelin">
+                </div>
+                <div class="vdf">
+                  <label class="vdl">Rok prod. (DOT)</label>
+                  <input id="vd-tire${pos}_dot" type="number" class="fi" min="2000" max="2030" value="${tire.dot||''}" placeholder="2022">
+                </div>
+                <div class="vdf">
+                  <label class="vdl">Bieżnik (mm)</label>
+                  <input id="vd-tire${pos}_depth" type="number" step="0.1" class="fi" value="${tire.depth||''}" placeholder="7.5">
+                </div>
+                <div class="vdf" style="grid-column:1/-1">
+                  <label class="vdl">Data ostatniej wymiany</label>
+                  <input id="vd-tire${pos}_changed" type="date" class="fi" value="${tire.changed||''}">
+                </div>
+              </div>
+            </div>`).join('')}
+        </div>
+        <div style="margin-top:16px;background:var(--bg3);border-radius:var(--radius);padding:14px">
+          <div style="font-size:12px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+            <i class="ti ti-circle" style="color:var(--text2)"></i>Zapasowe (SP)
+          </div>
+          <div class="vdfg">
+            ${field('tireSP_size','Rozmiar opony zapasowej', v.tireSP?.size||'')}
+            ${field('tireSP_brand','Marka', v.tireSP?.brand||'')}
+            ${field('tireSP_dot','Rok DOT', v.tireSP?.dot||'','number')}
           </div>
         </div>
       </div>
@@ -706,6 +783,12 @@ window.TaxOrderVehicleDetail = {
         <span style="color:var(--text2)">${c.dostawca || ''}</span>
         <span class="pill ${c.status==='AKTYWNA'?'pill-green':'pill-red'}" style="font-size:10px;margin-left:auto">${c.status}</span>
       </div>`).join('');
+  },
+
+  refreshServiceTab(vehId) {
+    const v = (window.vehs||[]).find(x => x.id === vehId);
+    const el = document.getElementById('vd-serwis-body');
+    if (el && v && window.ServiceModule) el.innerHTML = window.ServiceModule.renderServiceTabHtml(v);
   },
 
   _tab(name) {

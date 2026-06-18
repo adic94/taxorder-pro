@@ -112,6 +112,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <button class="tnb" id="tnb-impexp" onclick="showPage('impexp')"><i class="ti ti-arrows-exchange"></i>Import / Eksport</button>
   <button class="tnb" onclick="TaxOrderDrivers.open()"><i class="ti ti-users"></i>Kierowcy</button>
   <button class="tnb" onclick="FleetCalendar.open()"><i class="ti ti-calendar"></i>Kalendarz</button>
+  <button class="tnb" onclick="ServiceModule.open()"><i class="ti ti-tools"></i>Serwis floty</button>
 
   <div class="sidebar-label">Podatki</div>
   <button class="tnb" id="tnb-kalkulator" onclick="showPage('kalkulator')"><i class="ti ti-calculator"></i>Kalkulator</button>
@@ -212,6 +213,20 @@ window.addEventListener('DOMContentLoaded', () => {
       </button>
     </div>
     <div id="dash-fuel" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:8px"></div>
+  </div>
+
+  <!-- Widget serwisowy -->
+  <div style="margin-top:1.5rem">
+    <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <i class="ti ti-tools" style="color:var(--blue)"></i>Serwisy — nadchodzące (30 dni)
+      <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="ServiceModule.open()">
+        <i class="ti ti-external-link"></i>Wszystkie
+      </button>
+      <button class="btn btn-gray" style="font-size:11px" onclick="ServiceModule.addServiceGlobal()">
+        <i class="ti ti-plus"></i>Dodaj serwis
+      </button>
+    </div>
+    <div id="dash-service" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;max-height:220px;overflow-y:auto"></div>
   </div>
 
   <div style="margin-top:1.5rem">
@@ -686,6 +701,22 @@ window.addEventListener('DOMContentLoaded', () => {
       <i class="ti ti-table" style="color:var(--text2)"></i>Szczegółowe zestawienie kosztów — wszystkie pojazdy
     </div>
     <div class="tbl-wrap" id="rp-table"></div>
+  </div>
+
+  <!-- Separator -->
+  <div style="margin-top:2rem;padding-top:1.5rem;border-top:2px solid var(--border)">
+    <div class="pg-title" style="margin-bottom:4px"><i class="ti ti-chart-bar"></i>Koszty flotowe — paliwo + serwis + ubezpieczenia</div>
+    <div class="pg-sub" style="margin-bottom:1.5rem">Analiza kosztów eksploatacyjnych — paliwo, serwis i ubezpieczenia per pojazd</div>
+    <div id="fleet-reports-body"></div>
+  </div>
+
+  <!-- Plan serwisowy -->
+  <div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border)">
+    <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <i class="ti ti-tools" style="color:var(--blue)"></i>Plan serwisowy — nadchodzące 6 miesięcy
+      <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="FleetReports.exportServicePlanExcel()"><i class="ti ti-download"></i>Excel</button>
+    </div>
+    <div id="fr-service-plan"></div>
   </div>
 </div>
 
@@ -1585,6 +1616,8 @@ window.addEventListener('DOMContentLoaded', () => {
   <script src="modules/drivers.js"></script>
   <script src="modules/fleet-calendar.js"></script>
   <script src="modules/cepik-xml.js"></script>
+  <script src="modules/service.js"></script>
+  <script src="modules/reports.js"></script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
@@ -1859,6 +1892,23 @@ window.addEventListener('DOMContentLoaded', () => {
 
       <!-- Wynik -->
       <div id="cepik-result" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: SERWIS FLOTY -->
+<div id="service-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);width:1000px;max-width:98vw;max-height:94vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);display:flex;flex-direction:column">
+    <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg2);z-index:1">
+      <i class="ti ti-tools" style="color:var(--blue);font-size:20px"></i>
+      <div>
+        <div style="font-weight:700;font-size:15px">Serwis floty — historia i planowane</div>
+        <div style="font-size:11px;color:var(--text2)">Zarządzaj historią napraw i planowanymi serwisami dla całej floty</div>
+      </div>
+      <button onclick="ServiceModule.close()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">&times;</button>
+    </div>
+    <div style="padding:20px;flex:1" id="service-modal-body">
+      <div style="text-align:center;padding:40px;color:var(--text3)">Ładowanie danych serwisowych...</div>
     </div>
   </div>
 </div>

@@ -71,6 +71,12 @@ window.TaxOrderNotifications = (function () {
         { field: 'nextInspection', label: 'Przegląd tech.',    date: v.nextInspection },
         ...(v.hasUdt && v.udtNextDate ? [{ field: 'udtNextDate', label: 'Badanie UDT', date: v.udtNextDate }] : []),
         ...(v.hasTacho && v.tachoNextCalib ? [{ field: 'tachoNextCalib', label: 'Legalizacja tacho', date: v.tachoNextCalib }] : []),
+        // Alerty serwisowe z historii serwisów
+        ...(v.serviceHistory || [])
+          .filter(s => s.nextServiceDate)
+          .map(s => ({ field: 'svc_'+s.id, label: (window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label || 'Serwis'), date: s.nextServiceDate })),
+        // Alert zmiany opon
+        ...(v.tireNextChange ? [{ field: 'tireChange', label: 'Zmiana opon', date: v.tireNextChange }] : []),
       ];
 
       checks.forEach(({ field, label, date }) => {

@@ -1,0 +1,398 @@
+/**
+ * TaxOrder Pro — Moduł Serwisowy
+ * Historia napraw, planowane przeglądy, alerty serwisowe per pojazd
+ */
+window.ServiceModule = (function () {
+
+  const SERVICE_TYPES = {
+    przeglad:      { label:'Przegląd SKP',              icon:'ti-clipboard-check',  color:'var(--blue)' },
+    wymiana_oleju: { label:'Wymiana oleju + filtrów',   icon:'ti-droplet',           color:'var(--amber)' },
+    hamulce:       { label:'Hamulce',                   icon:'ti-circle-half-2',     color:'var(--red)' },
+    opony_zmiana:  { label:'Zmiana opon / sezon',       icon:'ti-circle',            color:'var(--green)' },
+    sprzeglo:      { label:'Sprzęgło',                  icon:'ti-settings-2',        color:'var(--text2)' },
+    filtr:         { label:'Filtry (paliwa/powietrza)', icon:'ti-filter',            color:'var(--green)' },
+    akumulator:    { label:'Akumulator',                icon:'ti-battery-charging',  color:'var(--amber)' },
+    elektryka:     { label:'Elektryka / instalacja',    icon:'ti-bolt',              color:'var(--amber)' },
+    klimatyzacja:  { label:'Klimatyzacja (serwis)',     icon:'ti-snowflake',         color:'var(--blue)' },
+    blacharstwo:   { label:'Blacharstwo / lakiernia',   icon:'ti-color-swatch',      color:'var(--text2)' },
+    naprawa:       { label:'Naprawa awaryjna',          icon:'ti-tools',             color:'var(--red)' },
+    inne:          { label:'Inne',                      icon:'ti-dots',              color:'var(--text3)' },
+  };
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function _fmtDate(d) {
+    if (!d) return '—';
+    const [y,m,day] = d.split('-');
+    return `${day}.${m}.${y}`;
+  }
+
+  function _daysDiff(dateStr) {
+    if (!dateStr) return null;
+    return Math.round((new Date(dateStr) - new Date()) / 86400000);
+  }
+
+  function _urgencyColor(days) {
+    if (days === null) return 'var(--text3)';
+    if (days < 0) return 'var(--red)';
+    if (days <= 14) return 'var(--red)';
+    if (days <= 30) return 'var(--amber)';
+    return 'var(--text2)';
+  }
+
+  function _makeid() { return String(Date.now()) + String(Math.random()).slice(2); }
+
+  // ── Nadchodzące serwisy (dla całej floty) ─────────────────────────────────
+  function getUpcomingServices(days) {
+    days = days === undefined ? 90 : days;
+    const result = [];
+    (window.vehs || []).forEach(v => {
+      (v.serviceHistory || []).forEach(s => {
+        if (!s.nextServiceDate && !s.nextServiceKm) return;
+        const d = s.nextServiceDate ? _daysDiff(s.nextServiceDate) : null;
+        if (d !== null && d <= days) result.push({ v, s, days: d });
+      });
+    });
+    return result.sort((a, b) => (a.days || 0) - (b.days || 0));
+  }
+
+  // ── Globalne okno ─────────────────────────────────────────────────────────
+  function open() {
+    document.getElementById('service-modal').style.display = 'flex';
+    _renderServiceModal();
+  }
+
+  function close() {
+    document.getElementById('service-modal').style.display = 'none';
+  }
+
+  function _renderServiceModal() {
+    const el = document.getElementById('service-modal-body');
+    if (!el) return;
+
+    const upcoming = getUpcomingServices(90);
+    const overdue  = upcoming.filter(x => x.days < 0);
+    const soon30   = upcoming.filter(x => x.days >= 0 && x.days <= 30);
+    const later    = upcoming.filter(x => x.days > 30);
+
+    const now = new Date();
+    const recent = [];
+    (window.vehs || []).forEach(v => {
+      (v.serviceHistory || []).forEach(s => {
+        const d = _daysDiff(s.date);
+        if (d !== null && d >= -30 && d <= 0) recent.push({ v, s });
+      });
+    });
+    recent.sort((a, b) => new Date(b.s.date) - new Date(a.s.date));
+
+    // Koszty serwisowe bieżącego roku
+    const yr = now.getFullYear().toString();
+    let yrCost = 0;
+    (window.vehs || []).forEach(v => (v.serviceHistory || []).forEach(s => {
+      if ((s.date || '').startsWith(yr)) yrCost += (s.cost || 0);
+    }));
+
+    el.innerHTML = `
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+        <div class="stat-chip ${overdue.length ? 'stat-chip-amber' : ''}"><span>${overdue.length}</span> zaległe</div>
+        <div class="stat-chip"><span>${soon30.length}</span> w ciągu 30 dni</div>
+        <div class="stat-chip"><span>${later.length}</span> do 90 dni</div>
+        <div class="stat-chip stat-chip-green"><span>${recent.length}</span> wykonane (30 dni)</div>
+        <div class="stat-chip stat-chip-amber"><span>${yrCost.toFixed(0)} zł</span> serwis ${yr}</div>
+        <button class="btn btn-blue" style="font-size:11px;margin-left:auto" onclick="ServiceModule.addServiceGlobal()">
+          <i class="ti ti-plus"></i>Dodaj serwis
+        </button>
+      </div>
+
+      ${overdue.length ? `
+        <div style="font-size:12px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">🔴 Zaległe</div>
+        ${_upcomingTable(overdue)}
+        <div style="margin-bottom:20px"></div>` : ''}
+
+      ${soon30.length ? `
+        <div style="font-size:12px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">🟡 W ciągu 30 dni</div>
+        ${_upcomingTable(soon30)}
+        <div style="margin-bottom:20px"></div>` : ''}
+
+      ${later.length ? `
+        <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">📅 31–90 dni</div>
+        ${_upcomingTable(later)}
+        <div style="margin-bottom:20px"></div>` : ''}
+
+      ${recent.length ? `
+        <div style="font-size:12px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">✅ Ostatnio wykonane (30 dni)</div>
+        <div class="tbl-wrap"><table style="width:100%;font-size:12px">
+          <thead><tr><th>Data</th><th>Nr rej.</th><th>Pojazd</th><th>Typ</th><th>Opis</th><th>Km</th><th>Koszt</th><th>Warsztat</th></tr></thead>
+          <tbody>
+            ${recent.map(({ v, s }) => {
+              const t = SERVICE_TYPES[s.type] || SERVICE_TYPES.inne;
+              return `<tr style="cursor:pointer" onclick="TaxOrderVehicleDetail.open(${v.id})">
+                <td style="font-family:var(--mono);white-space:nowrap">${_fmtDate(s.date)}</td>
+                <td style="font-family:var(--mono);font-weight:700">${v.nrRej}</td>
+                <td>${v.marka} ${v.model}</td>
+                <td><span style="color:${t.color}"><i class="ti ${t.icon}"></i> ${t.label}</span></td>
+                <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.description || '—'}</td>
+                <td style="font-family:var(--mono);text-align:right">${s.km ? s.km.toLocaleString('pl-PL') : '—'}</td>
+                <td style="font-family:var(--mono);font-weight:600">${s.cost ? s.cost.toFixed(2)+' zł' : '—'}</td>
+                <td>${s.workshop || '—'}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table></div>` : ''}
+
+      ${!overdue.length && !soon30.length && !later.length && !recent.length ?
+        `<div style="text-align:center;padding:40px;color:var(--text3)">
+          <i class="ti ti-check" style="font-size:36px;display:block;margin-bottom:10px;color:var(--green)"></i>
+          Brak zaplanowanych serwisów. Dodaj historię serwisową w kartach pojazdów.
+        </div>` : ''}`;
+  }
+
+  function _upcomingTable(items) {
+    return `<div class="tbl-wrap"><table style="width:100%;font-size:12px">
+      <thead><tr><th>Nr rej.</th><th>Pojazd</th><th>Typ</th><th>Termin</th><th>Następne km</th><th>Dni</th><th></th></tr></thead>
+      <tbody>
+        ${items.map(({ v, s }) => {
+          const t = SERVICE_TYPES[s.type] || SERVICE_TYPES.inne;
+          const days = s.nextServiceDate ? _daysDiff(s.nextServiceDate) : null;
+          return `<tr>
+            <td onclick="TaxOrderVehicleDetail.open(${v.id})" style="cursor:pointer;font-family:var(--mono);font-weight:700">${v.nrRej}</td>
+            <td>${v.marka} ${v.model}</td>
+            <td><span style="color:${t.color}"><i class="ti ${t.icon}"></i> ${t.label}</span></td>
+            <td style="font-family:var(--mono)">${_fmtDate(s.nextServiceDate)}</td>
+            <td style="font-family:var(--mono)">${s.nextServiceKm ? s.nextServiceKm.toLocaleString('pl-PL')+' km' : '—'}</td>
+            <td style="font-weight:700;color:${_urgencyColor(days)}">${days !== null ? (days < 0 ? `${Math.abs(days)} temu` : `za ${days}`) : '—'}</td>
+            <td><button class="btn btn-gray" style="font-size:10px;padding:2px 8px" onclick="ServiceModule.addService(${v.id})"><i class="ti ti-plus"></i>Dodaj</button></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table></div>`;
+  }
+
+  // ── Dodaj/edytuj serwis ───────────────────────────────────────────────────
+  function addService(vehId, serviceId) {
+    const v = (window.vehs || []).find(x => x.id == vehId);
+    if (!v) return;
+    const ex = serviceId ? (v.serviceHistory || []).find(s => s.id == serviceId) : null;
+
+    const typeOpts = Object.entries(SERVICE_TYPES).map(([k, t]) =>
+      `<option value="${k}" ${(ex?.type || 'wymiana_oleju') === k ? 'selected' : ''}>${t.label}</option>`
+    ).join('');
+
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;display:flex;align-items:center;justify-content:center;padding:1rem';
+    ov.innerHTML = `
+      <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:580px;max-width:98vw;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25)">
+        <div style="font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+          <i class="ti ti-tools" style="color:var(--blue)"></i>${ex ? 'Edytuj' : 'Dodaj'} serwis — <span style="font-family:var(--mono)">${v.nrRej}</span>
+          <span style="font-size:12px;font-weight:400;color:var(--text2);margin-left:4px">${v.marka} ${v.model}</span>
+        </div>
+        <div class="vdfg" style="margin-bottom:14px">
+          <div class="vdf">
+            <label class="vdl">Typ serwisu *</label>
+            <select id="_svc-type" class="fi">${typeOpts}</select>
+          </div>
+          <div class="vdf">
+            <label class="vdl">Data wykonania *</label>
+            <input id="_svc-date" type="date" class="fi" value="${ex?.date || new Date().toISOString().slice(0,10)}">
+          </div>
+          <div class="vdf" style="grid-column:1/-1">
+            <label class="vdl">Opis / zakres prac</label>
+            <input id="_svc-desc" type="text" class="fi" placeholder="np. Wymiana oleju 5W-40 + filtr oleju" value="${ex?.description || ''}">
+          </div>
+          <div class="vdf">
+            <label class="vdl">Przebieg przy serwisie (km)</label>
+            <input id="_svc-km" type="number" class="fi" value="${ex?.km || v.stanKilometrow || ''}">
+          </div>
+          <div class="vdf">
+            <label class="vdl">Koszt brutto (zł)</label>
+            <input id="_svc-cost" type="number" step="0.01" class="fi" value="${ex?.cost || ''}">
+          </div>
+          <div class="vdf">
+            <label class="vdl">Koszt netto (zł)</label>
+            <input id="_svc-costn" type="number" step="0.01" class="fi" value="${ex?.costNet || ''}">
+          </div>
+          <div class="vdf">
+            <label class="vdl">Warsztat / serwis</label>
+            <input id="_svc-workshop" type="text" class="fi" placeholder="np. ASO Volkswagen Warszawa" value="${ex?.workshop || ''}">
+          </div>
+          <div class="vdf">
+            <label class="vdl">Nr faktury / zlecenia</label>
+            <input id="_svc-invoice" type="text" class="fi" value="${ex?.invoiceNo || ''}">
+          </div>
+          <div class="vdf" style="grid-column:1/-1">
+            <label class="vdl">Wymienione części / materiały</label>
+            <input id="_svc-parts" type="text" class="fi" placeholder="np. filtr oleju, filtr powietrza, olej 5l 5W-40" value="${ex?.parts || ''}">
+          </div>
+          <div class="vdf">
+            <label class="vdl">Następny serwis — data</label>
+            <input id="_svc-nextdate" type="date" class="fi" value="${ex?.nextServiceDate || ''}">
+          </div>
+          <div class="vdf">
+            <label class="vdl">Następny serwis — km</label>
+            <input id="_svc-nextkm" type="number" class="fi" placeholder="np. 175000" value="${ex?.nextServiceKm || ''}">
+          </div>
+          <div class="vdf" style="grid-column:1/-1">
+            <label class="vdl">Uwagi</label>
+            <input id="_svc-notes" type="text" class="fi" value="${ex?.notes || ''}">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          ${ex ? `<button class="btn btn-gray" style="color:var(--red);margin-right:auto" onclick="ServiceModule.removeService(${vehId},'${ex.id}',this)">
+            <i class="ti ti-trash"></i>Usuń</button>` : ''}
+          <button class="btn btn-gray" onclick="this.closest('[style*=fixed]').remove()">Anuluj</button>
+          <button class="btn btn-blue" onclick="ServiceModule.saveService(${vehId},'${ex ? ex.id : ''}',this)">
+            <i class="ti ti-check"></i>Zapisz serwis
+          </button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    document.getElementById('_svc-desc')?.focus();
+  }
+
+  function addServiceGlobal() {
+    const vs = window.vehs || [];
+    if (!vs.length) { toast('Brak pojazdów w bazie'); return; }
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9400;display:flex;align-items:center;justify-content:center;padding:1rem';
+    ov.innerHTML = `
+      <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:420px;max-width:98vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
+        <div style="font-size:15px;font-weight:700;margin-bottom:16px">Wybierz pojazd</div>
+        <select id="_svc-pick-veh" class="fi" style="margin-bottom:16px">
+          ${vs.map(v => `<option value="${v.id}">${v.nrRej} — ${v.marka} ${v.model}</option>`).join('')}
+        </select>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn-gray" onclick="this.closest('[style*=fixed]').remove()">Anuluj</button>
+          <button class="btn btn-blue" onclick="const id=+document.getElementById('_svc-pick-veh').value;this.closest('[style*=fixed]').remove();ServiceModule.addService(id)">
+            <i class="ti ti-arrow-right"></i>Dalej
+          </button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+  }
+
+  async function saveService(vehId, serviceId, btn) {
+    const v = (window.vehs || []).find(x => x.id == vehId);
+    if (!v) return;
+    const g  = id => document.getElementById(id)?.value?.trim() || '';
+    const gf = id => { const val = g(id); return val ? parseFloat(val.replace(',', '.')) : null; };
+    const gi = id => { const val = g(id); return val ? parseInt(val) : null; };
+
+    const date = g('_svc-date');
+    const type = g('_svc-type');
+    if (!date) { toast('⚠ Podaj datę serwisu'); return; }
+
+    const record = {
+      id: serviceId || _makeid(),
+      date, type,
+      description:    g('_svc-desc'),
+      km:             gi('_svc-km'),
+      cost:           gf('_svc-cost'),
+      costNet:        gf('_svc-costn'),
+      workshop:       g('_svc-workshop'),
+      invoiceNo:      g('_svc-invoice'),
+      parts:          g('_svc-parts'),
+      nextServiceDate:g('_svc-nextdate'),
+      nextServiceKm:  gi('_svc-nextkm'),
+      notes:          g('_svc-notes'),
+      createdAt:      new Date().toISOString(),
+    };
+
+    if (!Array.isArray(v.serviceHistory)) v.serviceHistory = [];
+    const idx = v.serviceHistory.findIndex(s => s.id == serviceId);
+    if (serviceId && idx >= 0) v.serviceHistory[idx] = record;
+    else v.serviceHistory.push(record);
+    v.serviceHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    btn.closest('[style*=fixed]').remove();
+    if (window.TaxOrderFleetCloud?.saveVehicle) await window.TaxOrderFleetCloud.saveVehicle(v);
+    toast('✓ Serwis zapisany');
+    if (typeof renderDash === 'function') renderDash();
+    window.TaxOrderVehicleDetail?.refreshServiceTab?.(v.id);
+    if (document.getElementById('service-modal-body')) _renderServiceModal();
+  }
+
+  async function removeService(vehId, serviceId, btn) {
+    const v = (window.vehs || []).find(x => x.id == vehId);
+    if (!v) return;
+    v.serviceHistory = (v.serviceHistory || []).filter(s => s.id != serviceId);
+    btn.closest('[style*=fixed]').remove();
+    if (window.TaxOrderFleetCloud?.saveVehicle) await window.TaxOrderFleetCloud.saveVehicle(v);
+    toast('Serwis usunięty');
+    window.TaxOrderVehicleDetail?.refreshServiceTab?.(v.id);
+    if (document.getElementById('service-modal-body')) _renderServiceModal();
+  }
+
+  // ── Zakładka Serwis w vehicle-detail (HTML) ───────────────────────────────
+  function renderServiceTabHtml(v) {
+    const history = (v.serviceHistory || []).slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+    const planned = history.filter(s => s.nextServiceDate || s.nextServiceKm);
+
+    const yr = new Date().getFullYear().toString();
+    const yearCost  = history.filter(s => (s.date||'').startsWith(yr)).reduce((sum, s) => sum + (s.cost||0), 0);
+    const totalCost = history.reduce((sum, s) => sum + (s.cost||0), 0);
+
+    return `
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
+        <div class="stat-chip"><span>${history.length}</span> serwisów</div>
+        <div class="stat-chip stat-chip-amber"><span>${yearCost.toFixed(0)} zł</span> w ${yr} r.</div>
+        <div class="stat-chip"><span>${totalCost.toFixed(0)} zł</span> łącznie</div>
+        <button class="btn btn-blue" style="font-size:12px;margin-left:auto" onclick="ServiceModule.addService(${v.id})">
+          <i class="ti ti-plus"></i>Dodaj serwis
+        </button>
+      </div>
+
+      ${planned.length ? `
+        <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Zaplanowane</div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:18px">
+          ${planned.map(s => {
+            const t = SERVICE_TYPES[s.type] || SERVICE_TYPES.inne;
+            const days = s.nextServiceDate ? _daysDiff(s.nextServiceDate) : null;
+            return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg3);border-radius:var(--radius);border-left:3px solid ${t.color}">
+              <i class="ti ${t.icon}" style="color:${t.color};font-size:16px;flex-shrink:0"></i>
+              <div style="flex:1">
+                <div style="font-size:12px;font-weight:600">${t.label}${s.description ? ' — ' + s.description : ''}</div>
+                <div style="font-size:11px;color:var(--text2)">
+                  ${s.nextServiceKm ? 'km ' + s.nextServiceKm.toLocaleString('pl-PL') + ' · ' : ''}
+                  ${s.nextServiceDate ? _fmtDate(s.nextServiceDate) : ''}
+                </div>
+              </div>
+              ${days !== null ? `<span style="font-size:12px;font-weight:700;color:${_urgencyColor(days)}">${days < 0 ? Math.abs(days)+' dni temu' : 'za '+days+' dni'}</span>` : ''}
+              <button class="btn btn-gray" style="font-size:10px;padding:2px 8px" onclick="ServiceModule.addService(${v.id},'${s.id}')">✏</button>
+            </div>`;
+          }).join('')}
+        </div>` : ''}
+
+      <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Historia serwisowa</div>
+      ${history.length ? `
+        <div class="tbl-wrap"><table style="width:100%;font-size:11px">
+          <thead><tr>
+            <th>Data</th><th>Typ</th><th>Opis</th><th>Km</th>
+            <th>Koszt brutto</th><th>Warsztat</th><th>Faktura</th><th style="text-align:center"></th>
+          </tr></thead>
+          <tbody>
+            ${history.map(s => {
+              const t = SERVICE_TYPES[s.type] || SERVICE_TYPES.inne;
+              return `<tr>
+                <td style="font-family:var(--mono);white-space:nowrap">${_fmtDate(s.date)}</td>
+                <td><span style="color:${t.color}"><i class="ti ${t.icon}"></i> ${t.label}</span></td>
+                <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.description||''}">${s.description||'—'}</td>
+                <td style="font-family:var(--mono);text-align:right">${s.km ? s.km.toLocaleString('pl-PL') : '—'}</td>
+                <td style="font-family:var(--mono);font-weight:600;text-align:right;white-space:nowrap">${s.cost ? s.cost.toFixed(2)+' zł' : '—'}</td>
+                <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.workshop||'—'}</td>
+                <td style="font-family:var(--mono);font-size:10px">${s.invoiceNo||'—'}</td>
+                <td style="text-align:center;white-space:nowrap">
+                  <button class="btn btn-gray" style="font-size:10px;padding:2px 8px" onclick="ServiceModule.addService(${v.id},'${s.id}')">✏</button>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table></div>` : `<div style="text-align:center;padding:20px;color:var(--text3)">Brak historii serwisowej. Kliknij "Dodaj serwis" aby rozpocząć.</div>`}`;
+  }
+
+  return {
+    open, close,
+    addService, addServiceGlobal, saveService, removeService,
+    renderServiceTabHtml,
+    getUpcomingServices,
+    SERVICE_TYPES,
+  };
+})();

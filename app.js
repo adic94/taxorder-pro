@@ -88,7 +88,7 @@ function showPage(id) {
   if(id==='pd') updatePD();
   if(id==='dash') renderDash();
   if(id==='walidacja') { runValidation(); }
-  if(id==='raporty') renderRaporty();
+  if(id==='raporty') { renderRaporty(); window.FleetReports?.renderPage(); window.FleetReports?.renderServicePlan(); }
   if(id==='ocr') renderOcrHistory();
   if(id==='faktury') renderFakHistory();
   if(id==='pdfexport') updatePdfSummary();
@@ -560,6 +560,8 @@ function renderDash() {
     ];
     if (v.hasUdt && v.udtNextDate) d.push({label:'UDT', date:v.udtNextDate});
     if (v.hasTacho && v.tachoNextCalib) d.push({label:'Tacho', date:v.tachoNextCalib});
+    if (v.tireNextChange) d.push({label:'Opony', date:v.tireNextChange});
+    (v.serviceHistory||[]).forEach(s => { if (s.nextServiceDate) d.push({label:'Serwis', date:s.nextServiceDate}); });
     return d;
   };
   const alerts = vehs
@@ -592,6 +594,31 @@ function renderDash() {
     </td>
   </tr>`).join('');
   renderFuelDash();
+  _renderServiceDash();
+}
+
+function _renderServiceDash() {
+  const el = document.getElementById('dash-service');
+  if (!el || !window.ServiceModule) return;
+  const upcoming = window.ServiceModule.getUpcomingServices(30);
+  const overdue  = upcoming.filter(x => x.days < 0);
+  if (!upcoming.length) {
+    el.innerHTML = `<div style="color:var(--text3);font-size:12px;padding:16px 0">Brak zaplanowanych serwisów w ciągu 30 dni. ✓</div>`;
+    return;
+  }
+  el.innerHTML = `
+    ${overdue.length ? `<div style="font-size:12px;margin-bottom:8px;color:var(--red);font-weight:600"><i class="ti ti-alert-triangle"></i> ${overdue.length} zaległych serwisów!</div>` : ''}
+    ${upcoming.slice(0,6).map(({v,s,days}) => {
+      const t = window.ServiceModule.SERVICE_TYPES[s.type] || { label:'Serwis', icon:'ti-tools', color:'var(--text2)' };
+      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border);cursor:pointer" onclick="TaxOrderVehicleDetail.open(${v.id})">
+        <i class="ti ${t.icon}" style="color:${t.color};font-size:14px;flex-shrink:0"></i>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;font-weight:700;font-family:var(--mono)">${v.nrRej}</div>
+          <div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.label}${s.nextServiceDate ? ' · ' + s.nextServiceDate.slice(0,10) : ''}</div>
+        </div>
+        <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${days<0?'var(--red)':days<=7?'var(--red)':days<=14?'var(--amber)':'var(--text2)'}">${days<0?Math.abs(days)+'d temu':'za '+days+'d'}</span>
+      </div>`;
+    }).join('')}`;
 }
 
 // ==================== FORMULARZE ====================
