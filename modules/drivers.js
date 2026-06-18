@@ -52,12 +52,20 @@ window.TaxOrderDrivers = (function () {
         ? (new Date(d.licenseExpiry) < new Date() ? 'var(--red)' :
            (new Date(d.licenseExpiry) - new Date() < 90*86400000 ? 'var(--amber)' : 'var(--green)'))
         : 'var(--text3)';
+      const st = getStats(d.name);
+      const assignedVeh = (window.vehs||[]).find(v => v.kierowca === d.name);
       return `<tr style="border-bottom:0.5px solid var(--border)">
-        <td style="padding:8px 10px;font-weight:500">${d.name}</td>
+        <td style="padding:8px 10px;font-weight:500">
+          ${d.name}
+          ${assignedVeh ? `<div style="font-size:10px;font-family:var(--mono);color:var(--blue)">${assignedVeh.nrRej}</div>` : ''}
+        </td>
         <td style="padding:8px 10px;font-family:var(--mono);font-size:11px">${d.phone||'—'}</td>
         <td style="padding:8px 10px;font-family:var(--mono);font-size:11px">${d.licenseNo||'—'}</td>
         <td style="padding:8px 10px;font-size:11px;color:${expColor}">${d.licenseExpiry ? new Date(d.licenseExpiry).toLocaleDateString('pl-PL') : '—'}</td>
-        <td style="padding:8px 10px;font-size:11px;color:var(--text2)">${d.notes||''}</td>
+        <td style="padding:8px 10px;font-size:11px">
+          ${st.fuelCost > 0 ? `<span class="stat-chip" style="font-size:10px;padding:2px 6px;margin:1px">${st.fuelCost.toFixed(0)} zł paliwo</span>` : ''}
+          ${st.finesCount > 0 ? `<span class="stat-chip stat-chip-amber" style="font-size:10px;padding:2px 6px;margin:1px">${st.finesCount} mandat</span>` : ''}
+        </td>
         <td style="padding:8px 10px;text-align:center">
           <button class="btn btn-gray" style="font-size:11px;padding:3px 8px" onclick="TaxOrderDrivers.edit(${i})"><i class="ti ti-edit"></i></button>
           <button class="btn btn-gray" style="font-size:11px;padding:3px 8px;margin-left:4px" onclick="TaxOrderDrivers.remove(${i})"><i class="ti ti-trash"></i></button>

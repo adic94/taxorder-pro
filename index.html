@@ -387,6 +387,12 @@ window.addEventListener('DOMContentLoaded', () => {
     <button class="btn btn-gray no-print" onclick="window.print()">
       <i class="ti ti-printer"></i>Drukuj podgląd HTML</button>
     <button class="btn btn-gray" onclick="showPage('kalkulator')"><i class="ti ti-arrow-left"></i>Powrót do kalkulatora</button>
+    <button class="btn btn-amber" onclick="DT1XML.exportXML()" title="Eksportuj deklarację DT-1 do pliku XML (ePUAP / e-Deklaracje)">
+      <i class="ti ti-file-type-xml"></i>Eksport XML (e-Deklaracje)
+    </button>
+    <button class="btn btn-gray" onclick="DT1XML.exportAttachmentXML()" title="Eksportuj załącznik DT-1/A do XML">
+      <i class="ti ti-file-type-xml"></i>DT-1/A XML
+    </button>
     <span style="font-size:12px;color:var(--text2)" id="form-info"></span>
     <span style="display:flex;align-items:center;gap:6px;margin-left:auto;flex-wrap:wrap">
       <label style="font-size:12px;color:var(--text2)">Rok:</label>
@@ -1460,6 +1466,28 @@ window.addEventListener('DOMContentLoaded', () => {
           Obsługiwane formaty: oficjalny export CEPiK (XML), pojazd.info, AZTEC DR, własny XML ze strukturą Pojazd/NrRejestracyjny
         </div>
       </div>
+
+      <!-- Import GPS / TEKOM -->
+      <div class="panel-left" style="margin-top:1rem">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <i class="ti ti-map-pin" style="font-size:20px;color:var(--blue)"></i>
+          <div>
+            <div style="font-size:14px;font-weight:600">Import GPS — MyCar / TEKOM / CSV</div>
+            <div style="font-size:11px;color:var(--text2)">Aktualizuje stan licznika z danych GPS i zapisuje historię tras</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-blue" onclick="TekomImport.open()">
+            <i class="ti ti-upload"></i>Wczytaj CSV GPS
+          </button>
+          <button class="btn btn-gray" onclick="TekomImport.downloadSample()">
+            <i class="ti ti-download"></i>Przykładowy CSV
+          </button>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--text3)">
+          Obsługiwane systemy: MyCar, TEKOM, GPS Protracker, Fleet Complete, Webfleet, NAVIFLEET
+        </div>
+      </div>
     </div>
 
     <!-- PRAWA — statystyki i ustawienia auto -->
@@ -1628,6 +1656,8 @@ window.addEventListener('DOMContentLoaded', () => {
   <script src="modules/reports.js"></script>
   <script src="modules/fines.js"></script>
   <script src="modules/documents.js"></script>
+  <script src="modules/tekom-import.js"></script>
+  <script src="modules/dt1-xml.js"></script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
@@ -1756,7 +1786,7 @@ window.addEventListener('DOMContentLoaded', () => {
           <thead><tr>
             <th>Imię i nazwisko</th><th>Telefon</th>
             <th>Nr pr. jazdy</th><th>Pr. jazdy do</th>
-            <th>Uwagi</th><th style="text-align:center">Akcje</th>
+            <th>Statystyki</th><th style="text-align:center">Akcje</th>
           </tr></thead>
           <tbody id="drivers-list-body"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Brak kierowców</td></tr></tbody>
         </table>
@@ -1902,6 +1932,24 @@ window.addEventListener('DOMContentLoaded', () => {
 
       <!-- Wynik -->
       <div id="cepik-result" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: TEKOM GPS IMPORT -->
+<div id="tekom-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);width:860px;max-width:98vw;max-height:94vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);display:flex;flex-direction:column">
+    <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg2);z-index:1">
+      <i class="ti ti-map-pin" style="color:var(--blue);font-size:20px"></i>
+      <div>
+        <div style="font-weight:700;font-size:15px">Import GPS / TEKOM / MyCar</div>
+        <div style="font-size:11px;color:var(--text3)">Aktualizacja stanu licznika i historii tras z pliku CSV systemu GPS</div>
+      </div>
+      <button onclick="TekomImport.close()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">&times;</button>
+    </div>
+    <div style="padding:20px;flex:1">
+      <div id="tekom-step1-body"></div>
+      <div id="tekom-step2-body" style="display:none"></div>
     </div>
   </div>
 </div>

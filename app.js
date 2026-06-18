@@ -107,6 +107,7 @@ function filterVeh() {
   const fStat = document.getElementById('f-status')?.value||'';
   const fWl = document.getElementById('f-wl')?.value||'';
   return vehs.filter(v =>
+    (!window._driverFilter || v.kierowca === window._driverFilter) &&
     (!q || v.nrRej.toLowerCase().includes(q) || v.marka.toLowerCase().includes(q) || v.model.toLowerCase().includes(q) || (v.vin||'').toLowerCase().includes(q)) &&
     (!fTyp || v.typ === fTyp) &&
     (!fStat || v.status === fStat) &&
@@ -3003,13 +3004,15 @@ function expJson() {
 
 // ==================== LOGIN SYSTEM ====================
 const DEFAULT_USERS = [{id:1,name:'Administrator',email:'adamus1000@gmail.com',passwordHash:btoa('asdasd'),role:'admin',tel:'',active:true},{id:2,name:'Kierownik Floty',email:'kierownik@mtoilet.pl',passwordHash:btoa('kierownik123'),role:'kierownik',tel:'',active:true}];
-const ROLE_LABELS = {admin:'Administrator',kierownik:'Kierownik',ksiegowy:'Księgowy',mechanik:'Mechanik'};
-const ROLE_COLORS = {admin:'pill-red',kierownik:'pill-blue',ksiegowy:'pill-green',mechanik:'pill-amber'};
+const ROLE_LABELS = {admin:'Administrator',kierownik:'Kierownik',ksiegowy:'Księgowy',mechanik:'Mechanik',dyspozytor:'Dyspozytor',kierowca:'Kierowca'};
+const ROLE_COLORS = {admin:'pill-red',kierownik:'pill-blue',ksiegowy:'pill-green',mechanik:'pill-amber',dyspozytor:'pill-blue',kierowca:'pill-gray'};
 const ROLE_TABS = {
-  admin:['dash','pojazdy','kalkulator','formularze','pd','walidacja','raporty','ocr','faktury','pdfexport','impexp','karty','uzytkownicy'],
+  admin:['dash','pojazdy','kalkulator','formularze','pd','walidacja','raporty','ocr','faktury','pdfexport','impexp','karty','uzytkownicy','cepik'],
   kierownik:['dash','pojazdy','kalkulator','formularze','raporty','pdfexport','ocr','faktury','karty'],
   ksiegowy:['dash','kalkulator','formularze','pd','raporty','pdfexport','impexp'],
-  mechanik:['dash','pojazdy','ocr','faktury']
+  mechanik:['dash','pojazdy','ocr','faktury'],
+  dyspozytor:['dash','pojazdy','raporty','karty','ocr','faktury'],
+  kierowca:['dash','pojazdy'],
 };
 let users = JSON.parse(localStorage.getItem('dt1_users')||JSON.stringify(DEFAULT_USERS));
 let currentUser = null;
@@ -3249,6 +3252,20 @@ function applyRoleAccess(role){
     const id=btn.id.replace('tnb-','');
     btn.style.display=(role==='admin'||allowed.includes(id))?'':'none';
   });
+
+  // Rola Kierowca — widzi tylko swój pojazd
+  if (role === 'kierowca' && currentUser) {
+    const driverName = currentUser.name;
+    const myVehs = (window.vehs||[]).filter(v => v.kierowca === driverName);
+    if (myVehs.length) {
+      // Nie nadpisuj globalnego vehs — zamiast tego ustaw filtr
+      window._driverFilter = driverName;
+    } else {
+      window._driverFilter = driverName; // pokaże pustą listę jeśli nie ma przypisanego pojazdu
+    }
+  } else {
+    window._driverFilter = null;
+  }
 }
 
 // --- Users CRUD ---
