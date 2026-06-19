@@ -141,6 +141,52 @@ window.TaxOrderFleetCloud = {
     return { ok: failed === 0, saved, failed };
   },
 
+  // Synchronizuje dane pojazdu z CEPiK przez skonfigurowany proxy
+  async syncFromCepik(v) {
+    const proxyUrl = (localStorage.getItem('dt1_cepik_proxy') || '').trim();
+    if (!proxyUrl) {
+      return { ok: false, message: 'Brak proxy CEPiK — skonfiguruj w Ustawienia → CEPiK.' };
+    }
+
+    const fetchUrl = proxyUrl.replace(/\/$/, '') + `?nr=${encodeURIComponent(v.nrRej)}`;
+    let resp;
+    try {
+      resp = await fetch(fetchUrl, { signal: AbortSignal.timeout(15000) });
+    } catch(e) {
+      return { ok: false, message: `Błąd połączenia z proxy: ${e.message}` };
+    }
+    if (!resp.ok) {
+      return { ok: false, message: `Proxy HTTP ${resp.status} — sprawdź adres URL` };
+    }
+
+    let text;
+    try { text = await resp.text(); } catch(e) {
+      return { ok: false, message: 'Błąd odczytu odpowiedzi proxy' };
+    }
+
+    const mapped = window.CepikXML?.parseOneFromText(text, v.nrRej);
+    if (!mapped || Object.keys(mapped).length < 3) {
+      return { ok: false, message: 'Brak danych pojazdu w odpowiedzi CEPiK. Sprawdź nr rej. i konfigurację proxy.' };
+    }
+
+    // Aplikuj pola — nie nadpisuj historii ani klucza ID
+    const SKIP = new Set(['nrRej','id','dbId','fuelHistory','serviceHistory','gpsHistory','inspectionHistory',
+                          'osie','zawieszenie','dmcZespolu','miesiacePodatku','cat','amount']);
+    let updated = 0;
+    for (const [key, val] of Object.entries(mapped)) {
+      if (SKIP.has(key) || val === null || val === undefined || val === '') continue;
+      if (Array.isArray(v[key])) continue;
+      v[key] = val;
+      updated++;
+    }
+
+    v.cepikSyncStatus = 'ok';
+    v.cepikSyncDate   = new Date().toISOString().slice(0,10);
+
+    const saveResult = await this.saveVehicle(v);
+    return { ok: true, fields: updated, saved: saveResult.ok };
+  },
+
   // Wczytuje pojazdy aktualnej firmy z Supabase
   async loadVehicles(companySlug) {
     if (!window.supabaseClient) return { ok: false };

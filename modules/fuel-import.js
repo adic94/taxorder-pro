@@ -310,8 +310,12 @@ window.FuelImport = (function () {
       const veh = vehs.find(v => v.nrRej === row.nrRej);
       if (!veh) { skipped++; return; }
       if (!Array.isArray(veh.fuelHistory)) veh.fuelHistory = [];
-      // Deduplikacja: ta sama data+litery+nrRej
-      const dup = veh.fuelHistory.find(h => h.date === row.date && h.liters === row.liters);
+      // Deduplikacja: ta sama data + litry (±0.01) + karta paliwowa lub stacja
+      const dup = veh.fuelHistory.find(h =>
+        h.date === row.date &&
+        Math.abs((h.liters||0) - (row.liters||0)) < 0.01 &&
+        (!row.cardNo || !h.cardNo || h.cardNo === row.cardNo)
+      );
       if (dup) { skipped++; return; }
       veh.fuelHistory.push(row);
       imported++;

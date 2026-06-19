@@ -454,5 +454,39 @@ window.CepikXML = (function () {
     URL.revokeObjectURL(url);
   }
 
-  return { open, close, handleFile, doImport, downloadTemplate };
+  // Parsuje XML lub JSON (string) i zwraca dane jednego pojazdu po nr rej (lub pierwszego)
+  function parseOneFromText(text, nrRej) {
+    // Próba JSON
+    try {
+      const data = JSON.parse(text);
+      const item = Array.isArray(data) ? data[0] : (data.data || data.pojazd || data.vehicle || data);
+      if (!item) return null;
+      const mapped = {};
+      for (const [field, aliases] of Object.entries(FIELD_MAP)) {
+        for (const alias of aliases) {
+          if (item[alias] !== undefined && item[alias] !== null && item[alias] !== '') {
+            mapped[field] = item[alias]; break;
+          }
+        }
+      }
+      mapped.cepikSyncStatus = 'ok';
+      mapped.cepikSyncDate = new Date().toISOString().slice(0,10);
+      return Object.keys(mapped).length > 2 ? mapped : null;
+    } catch(e) { /* not JSON */ }
+
+    // Próba XML
+    try {
+      const doc = _parseXML(text);
+      const { items } = _detectAndExtract(doc);
+      if (!items.length) return null;
+      let el = items[0];
+      if (nrRej && items.length > 1) {
+        const norm = nrRej.toUpperCase().replace(/\s/g,'');
+        el = items.find(i => _findField(i, FIELD_MAP.nrRej)?.toUpperCase().replace(/\s/g,'') === norm) || items[0];
+      }
+      return _elementToVehicle(el);
+    } catch(e) { return null; }
+  }
+
+  return { open, close, handleFile, doImport, downloadTemplate, parseOneFromText, FIELD_MAP };
 })();

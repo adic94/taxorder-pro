@@ -295,5 +295,7 @@ window.FinesModule = (function () {
     toast('✓ Eksport mandatów gotowy');
   }
 
-  return { open, close, add, edit, save, remove, markPaid, renderForVehicle, getUnpaidAlerts, exportExcel, FINE_TYPES };
+  function getAll() { _load(); return [..._fines]; }
+
+  return { open, close, add, edit, save, remove, markPaid, renderForVehicle, getUnpaidAlerts, exportExcel, getAll, FINE_TYPES };
 })();

@@ -29,6 +29,470 @@ window.FleetReports = (function () {
     return cost;
   }
 
+  // ── KOBIZE CO₂ ────────────────────────────────────────────────────────────
+  const KOBIZE_FACTORS = { ON:2.679, PB:2.302, PB95:2.302, PB98:2.302, LPG:1.626, CNG:1.963, LNG:2.196, HEV:2.302, EV:0, H2:0 };
+
+  function renderKobize(containerId) {
+    const el = document.getElementById(containerId || 'fr-kobize-body');
+    if (!el) return;
+    const yr = document.getElementById('fr-kobize-year')?.value || new Date().getFullYear();
+    const prefix = String(yr);
+
+    const rows = (window.vehs || []).map(v => {
+      let liters = 0, co2 = 0;
+      const fuelBreakdown = {};
+      (v.fuelHistory || []).filter(h => (h.date||'').startsWith(prefix)).forEach(h => {
+        const l = h.liters || 0;
+        const product = h.product || h.fuelType || 'ON';
+        liters += l;
+        const factor = KOBIZE_FACTORS[product] ?? KOBIZE_FACTORS['ON'];
+        const kg = h.co2kg != null ? +h.co2kg : l * factor;
+        co2 += kg;
+        fuelBreakdown[product] = (fuelBreakdown[product]||0) + l;
+      });
+      return { v, liters, co2, fuelBreakdown };
+    }).filter(r => r.liters > 0).sort((a,b) => b.co2 - a.co2);
+
+    if (!rows.length) {
+      el.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text3)">Brak danych paliwowych za ${yr}. Zaimportuj tankowania przez <strong>Import tankowań</strong>.</div>`;
+      return;
+    }
+
+    const totL   = rows.reduce((s,r) => s+r.liters, 0);
+    const totCo2 = rows.reduce((s,r) => s+r.co2, 0);
+    const fmt1   = n => (+n).toFixed(1);
+    const fmt3   = n => (+n).toFixed(3);
+
+    el.innerHTML = `
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <div class="stat-chip"><span>${rows.length}</span> pojazdów</div>
+        <div class="stat-chip"><span>${fmt1(totL)} l</span> łącznie paliwa</div>
+        <div class="stat-chip" style="color:var(--red)"><span>${fmt1(totCo2)} kg</span> CO₂ łącznie</div>
+        <div class="stat-chip"><span>${fmt1(totCo2/1000)} t</span> CO₂ (tony)</div>
+        <button class="btn btn-green" style="font-size:11px;margin-left:auto" onclick="FleetReports.exportKobizeCsv()">
+          <i class="ti ti-download"></i>CSV KOBIZE
+        </button>
+        <button class="btn btn-gray" style="font-size:11px" onclick="FleetReports.exportKobizeExcel()">
+          <i class="ti ti-download"></i>Excel KOBIZE
+        </button>
+      </div>
+      <div class="tbl-wrap">
+        <table style="width:100%;font-size:11px">
+          <thead><tr>
+            <th>Nr rej.</th><th>Marka / Model</th><th>Typ paliwa</th>
+            <th style="text-align:right">Litry (l)</th>
+            <th style="text-align:right">CO₂ (kg)</th>
+            <th style="text-align:right">CO₂ (t)</th>
+            <th style="min-width:80px">Udział</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(r => {
+              const fuels = Object.entries(r.fuelBreakdown).map(([k,v2]) => `${k}: ${fmt1(v2)}l`).join(', ');
+              const pct   = (r.co2 / totCo2 * 100).toFixed(1);
+              return `<tr>
+                <td style="font-weight:700;font-family:var(--mono)">${r.v.nrRej}</td>
+                <td>${r.v.marka} ${r.v.model}</td>
+                <td style="font-size:10px;color:var(--text2)">${fuels}</td>
+                <td style="text-align:right;font-family:var(--mono)">${fmt1(r.liters)}</td>
+                <td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt1(r.co2)}</td>
+                <td style="text-align:right;font-family:var(--mono)">${fmt3(r.co2/1000)}</td>
+                <td>
+                  <div style="display:flex;align-items:center;gap:4px">
+                    <div style="flex:1;height:8px;background:var(--bg2);border-radius:4px;overflow:hidden">
+                      <div style="width:${pct}%;height:100%;background:var(--red);opacity:.7;border-radius:4px"></div>
+                    </div>
+                    <span style="font-size:10px;color:var(--text3);white-space:nowrap">${pct}%</span>
+                  </div>
+                </td>
+              </tr>`;
+            }).join('')}
+            <tr style="border-top:2px solid var(--border);font-weight:700">
+              <td colspan="3" style="padding:6px 8px">ŁĄCZNIE</td>
+              <td style="text-align:right;font-family:var(--mono)">${fmt1(totL)}</td>
+              <td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt1(totCo2)}</td>
+              <td style="text-align:right;font-family:var(--mono)">${fmt3(totCo2/1000)}</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  function exportKobizeCsv() {
+    const yr = document.getElementById('fr-kobize-year')?.value || new Date().getFullYear();
+    const prefix = String(yr);
+    const rows = (window.vehs||[]).map(v => {
+      let liters = 0, co2 = 0;
+      (v.fuelHistory||[]).filter(h=>(h.date||'').startsWith(prefix)).forEach(h => {
+        liters += h.liters||0;
+        const factor = KOBIZE_FACTORS[h.product||'ON'] ?? 2.679;
+        co2 += h.co2kg != null ? +h.co2kg : (h.liters||0)*factor;
+      });
+      return { v, liters, co2 };
+    }).filter(r=>r.liters>0);
+
+    const headers = ['Nr rej.','Marka','Model','Rok','Paliwo (l)','CO2 (kg)','CO2 (t)'];
+    const csv = '﻿' + [headers, ...rows.map(r=>[
+      r.v.nrRej,r.v.marka,r.v.model,r.v.rok||'',
+      r.liters.toFixed(1),r.co2.toFixed(3),(r.co2/1000).toFixed(6),
+    ])].map(row=>row.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+    const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download=`kobize_co2_${yr}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    toast(`✓ KOBIZE CSV: ${rows.length} pojazdów za ${yr}`);
+  }
+
+  function exportKobizeExcel() {
+    if (typeof XLSX === 'undefined') { toast('⚠ Biblioteka XLSX niedostępna'); return; }
+    const yr = document.getElementById('fr-kobize-year')?.value || new Date().getFullYear();
+    const prefix = String(yr);
+    const rows = (window.vehs||[]).map(v => {
+      let liters = 0, co2 = 0;
+      (v.fuelHistory||[]).filter(h=>(h.date||'').startsWith(prefix)).forEach(h => {
+        liters += h.liters||0;
+        const factor = KOBIZE_FACTORS[h.product||'ON'] ?? 2.679;
+        co2 += h.co2kg != null ? +h.co2kg : (h.liters||0)*factor;
+      });
+      return { v, liters, co2 };
+    }).filter(r=>r.liters>0);
+
+    const headers = ['Nr rej.','Marka','Model','Rok prod.','Litry paliwa (l)','Emisja CO2 (kg)','Emisja CO2 (t)'];
+    const data = [headers, ...rows.map(r=>[
+      r.v.nrRej, r.v.marka, r.v.model, r.v.rok||'',
+      +r.liters.toFixed(1), +r.co2.toFixed(3), +(r.co2/1000).toFixed(6),
+    ])];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(data), `KOBIZE CO2 ${yr}`);
+    XLSX.writeFile(wb, `kobize_co2_${yr}.xlsx`);
+    toast(`✓ KOBIZE Excel: ${rows.length} pojazdów`);
+  }
+
+  // ── TCO per pojazd ────────────────────────────────────────────────────────
+  function renderTco(containerId) {
+    const el = document.getElementById(containerId || 'fr-tco-body');
+    if (!el) return;
+    const yr   = document.getElementById('fr-tco-year')?.value || new Date().getFullYear();
+    const pfx  = String(yr);
+    const fmt  = n => (+n||0).toLocaleString('pl-PL', { minimumFractionDigits:0, maximumFractionDigits:0 });
+    const fmt2 = n => (+n||0).toFixed(2).replace('.', ',');
+
+    const rows = (window.vehs||[]).map(v => {
+      const fuel  = (v.fuelHistory||[]).filter(h=>(h.date||'').startsWith(pfx)).reduce((s,h)=>s+(h.totalGross||0),0);
+      const svc   = (v.serviceHistory||[]).filter(h=>(h.date||'').startsWith(pfx)).reduce((s,h)=>s+(h.cost||0),0);
+      const ins   = (v.ocPremium&&(v.ocStart||'').startsWith(pfx)?+v.ocPremium:0)+(v.acPremium&&(v.acStart||'').startsWith(pfx)?+v.acPremium:0);
+      const leasing = (v.leasingRate && (v.leasingStart||'') <= pfx+'-12' && (v.leasingEnd||'') >= pfx+'-01')
+        ? (+v.leasingRate * 12) : 0;
+      const tax   = (typeof calcTax === 'function') ? (calcTax(v).amount||0) : 0;
+      const total = fuel + svc + ins + leasing + tax;
+      return { v, fuel, svc, ins, leasing, tax, total };
+    }).filter(r => r.total > 0).sort((a,b) => b.total - a.total);
+
+    if (!rows.length) { el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3)">Brak danych kosztowych za ${yr}.</div>`; return; }
+
+    const totFuel    = rows.reduce((s,r)=>s+r.fuel,0);
+    const totSvc     = rows.reduce((s,r)=>s+r.svc,0);
+    const totIns     = rows.reduce((s,r)=>s+r.ins,0);
+    const totLeasing = rows.reduce((s,r)=>s+r.leasing,0);
+    const totTax     = rows.reduce((s,r)=>s+r.tax,0);
+    const totAll     = rows.reduce((s,r)=>s+r.total,0);
+    const maxTotal   = Math.max(...rows.map(r=>r.total),1);
+
+    const bar = (val, tot) => {
+      const w = tot ? (val/tot*100).toFixed(1) : 0;
+      return `<div style="display:inline-block;width:${w}%;height:8px;background:currentColor;border-radius:2px;opacity:.7;vertical-align:middle"></div>`;
+    };
+
+    el.innerHTML = `
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <div class="stat-chip"><span>${rows.length}</span> pojazdów</div>
+        <div class="stat-chip"><span>${fmt(totAll)} zł</span> łączny TCO</div>
+        <div class="stat-chip"><span>${fmt(totAll/rows.length)} zł</span> avg/pojazd</div>
+        <button class="btn btn-green" style="font-size:11px;margin-left:auto" onclick="FleetReports.exportTcoExcel()">
+          <i class="ti ti-download"></i>Excel TCO
+        </button>
+      </div>
+      <div class="tbl-wrap">
+        <table style="width:100%;font-size:11px">
+          <thead><tr>
+            <th>Nr rej.</th><th>Marka/Model</th>
+            <th style="text-align:right;color:var(--orange)">Paliwo</th>
+            <th style="text-align:right;color:var(--red)">Serwis</th>
+            <th style="text-align:right;color:var(--green)">Ubezp.</th>
+            <th style="text-align:right;color:var(--blue)">Leasing</th>
+            <th style="text-align:right;color:var(--text2)">Podatek</th>
+            <th style="text-align:right;font-weight:700">TCO ŁĄCZNIE</th>
+            <th style="min-width:100px">Struktura</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(r => {
+              const w = (r.total/maxTotal*100).toFixed(1);
+              return `<tr>
+                <td style="font-weight:700;font-family:var(--mono)">${r.v.nrRej}</td>
+                <td style="font-size:11px">${r.v.marka} ${r.v.model} <span style="color:var(--text3)">${r.v.rok||''}</span></td>
+                <td style="text-align:right;font-family:var(--mono);color:var(--orange)">${r.fuel?fmt(r.fuel):'—'}</td>
+                <td style="text-align:right;font-family:var(--mono);color:var(--red)">${r.svc?fmt(r.svc):'—'}</td>
+                <td style="text-align:right;font-family:var(--mono);color:var(--green)">${r.ins?fmt(r.ins):'—'}</td>
+                <td style="text-align:right;font-family:var(--mono);color:var(--blue)">${r.leasing?fmt(r.leasing):'—'}</td>
+                <td style="text-align:right;font-family:var(--mono);color:var(--text2)">${r.tax?fmt(r.tax):'—'}</td>
+                <td style="text-align:right;font-family:var(--mono);font-weight:700">${fmt(r.total)} zł</td>
+                <td>
+                  <div style="height:10px;background:var(--bg2);border-radius:4px;overflow:hidden">
+                    <div style="width:${w}%;height:100%;background:var(--blue);border-radius:4px"></div>
+                  </div>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+          <tfoot style="border-top:2px solid var(--border)">
+            <tr style="font-weight:700">
+              <td colspan="2" style="padding:6px 8px">ŁĄCZNIE</td>
+              <td style="text-align:right;font-family:var(--mono);color:var(--orange)">${fmt(totFuel)}</td>
+              <td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt(totSvc)}</td>
+              <td style="text-align:right;font-family:var(--mono);color:var(--green)">${fmt(totIns)}</td>
+              <td style="text-align:right;font-family:var(--mono);color:var(--blue)">${fmt(totLeasing)}</td>
+              <td style="text-align:right;font-family:var(--mono)">${fmt(totTax)}</td>
+              <td style="text-align:right;font-family:var(--mono)">${fmt(totAll)} zł</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>`;
+  }
+
+  function exportTcoExcel() {
+    if (typeof XLSX === 'undefined') { toast('⚠ Biblioteka XLSX niedostępna'); return; }
+    const yr = document.getElementById('fr-tco-year')?.value || new Date().getFullYear();
+    const pfx = String(yr);
+    const rows = (window.vehs||[]).map(v => {
+      const fuel  = (v.fuelHistory||[]).filter(h=>(h.date||'').startsWith(pfx)).reduce((s,h)=>s+(h.totalGross||0),0);
+      const svc   = (v.serviceHistory||[]).filter(h=>(h.date||'').startsWith(pfx)).reduce((s,h)=>s+(h.cost||0),0);
+      const ins   = (v.ocPremium&&(v.ocStart||'').startsWith(pfx)?+v.ocPremium:0)+(v.acPremium&&(v.acStart||'').startsWith(pfx)?+v.acPremium:0);
+      const leasing = (v.leasingRate&&(v.leasingStart||'')<=pfx+'-12'&&(v.leasingEnd||'')>=pfx+'-01')?(+v.leasingRate*12):0;
+      const tax   = (typeof calcTax==='function')?(calcTax(v).amount||0):0;
+      const total = fuel+svc+ins+leasing+tax;
+      return [v.nrRej,v.marka,v.model,v.rok||'',+fuel.toFixed(2),+svc.toFixed(2),+ins.toFixed(2),+leasing.toFixed(2),+tax.toFixed(2),+total.toFixed(2)];
+    }).filter(r=>r[9]>0).sort((a,b)=>b[9]-a[9]);
+    const headers = ['Nr rej.','Marka','Model','Rok','Paliwo (zł)','Serwis (zł)','Ubezp. (zł)','Leasing (zł)','Podatek (zł)','TCO (zł)'];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers,...rows]), `TCO ${yr}`);
+    XLSX.writeFile(wb, `tco_flota_${yr}.xlsx`);
+    toast(`✓ TCO Excel: ${rows.length} pojazdów za ${yr}`);
+  }
+
+  // ── Raport polis ubezpieczeniowych ────────────────────────────────────────
+  function renderInsuranceReport(containerId) {
+    const el = document.getElementById(containerId || 'fr-insurance-body');
+    if (!el) return;
+    const now   = new Date();
+    const fd    = d => d ? new Date(d).toLocaleDateString('pl-PL') : '—';
+    const days  = d => d ? Math.round((new Date(d)-now)/86400000) : null;
+    const pill  = d => {
+      const n = days(d);
+      if (n == null) return '<span style="color:var(--text3)">—</span>';
+      if (n < 0)   return `<span class="pill pill-red" title="${Math.abs(n)} dni po terminie">WYGASŁA</span>`;
+      if (n <= 30) return `<span class="pill pill-red" title="Za ${n} dni">${fd(d)}</span>`;
+      if (n <= 60) return `<span class="pill pill-amber" title="Za ${n} dni">${fd(d)}</span>`;
+      return `<span style="font-size:11px;color:var(--text2)">${fd(d)}</span>`;
+    };
+    const fmt  = n => n ? (+n).toLocaleString('pl-PL', {minimumFractionDigits:2,maximumFractionDigits:2})+' zł' : '—';
+
+    // Zbierz wszystkie polisy (OC + AC + Ass)
+    const policies = [];
+    (window.vehs||[]).forEach(v => {
+      if (v.ocInsurer || v.ocEnd) policies.push({ nrRej:v.nrRej, marka:v.marka, model:v.model, type:'OC', insurer:v.ocInsurer, policyNo:v.ocPolicyNo, start:v.ocStart, end:v.ocEnd, premium:v.ocPremium, endDate:v.ocEnd });
+      if (v.acInsurer || v.acEnd) policies.push({ nrRej:v.nrRej, marka:v.marka, model:v.model, type:'AC', insurer:v.acInsurer, policyNo:v.acPolicyNo, start:v.acStart, end:v.acEnd, premium:v.acPremium, endDate:v.acEnd });
+      if (v.assInsurer || v.assEnd) policies.push({ nrRej:v.nrRej, marka:v.marka, model:v.model, type:'Ass', insurer:v.assInsurer, policyNo:v.assPolicyNo, start:null, end:v.assEnd, premium:null, endDate:v.assEnd });
+    });
+    policies.sort((a,b) => {
+      const da = a.endDate ? new Date(a.endDate) : new Date('2099-01-01');
+      const db = b.endDate ? new Date(b.endDate) : new Date('2099-01-01');
+      return da - db;
+    });
+
+    const expiring30  = policies.filter(p => { const n=days(p.endDate); return n!=null&&n>=0&&n<=30; }).length;
+    const expiring60  = policies.filter(p => { const n=days(p.endDate); return n!=null&&n>30&&n<=60; }).length;
+    const expired     = policies.filter(p => { const n=days(p.endDate); return n!=null&&n<0; }).length;
+    const totalPrem   = policies.reduce((s,p)=>s+(+p.premium||0),0);
+
+    el.innerHTML = `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        <div class="stat-chip"><span>${policies.length}</span> polis łącznie</div>
+        ${expired?`<div class="stat-chip" style="color:var(--red)"><span>${expired}</span> wygasłe</div>`:''}
+        ${expiring30?`<div class="stat-chip" style="color:var(--red)"><span>${expiring30}</span> do 30 dni</div>`:''}
+        ${expiring60?`<div class="stat-chip" style="color:var(--amber)"><span>${expiring60}</span> do 60 dni</div>`:''}
+        <div class="stat-chip"><span>${totalPrem.toLocaleString('pl-PL',{maximumFractionDigits:0})} zł</span> składki łącznie</div>
+        <button class="btn btn-green" style="font-size:11px;margin-left:auto" onclick="FleetReports.exportInsuranceExcel()">
+          <i class="ti ti-download"></i>Excel polisy
+        </button>
+      </div>
+      <div class="tbl-wrap">
+        <table style="width:100%;font-size:11px">
+          <thead><tr>
+            <th>Nr rej.</th><th>Pojazd</th><th style="text-align:center">Typ</th>
+            <th>Ubezpieczyciel</th><th>Nr polisy</th>
+            <th>Koniec</th><th style="text-align:right">Składka</th>
+          </tr></thead>
+          <tbody>
+            ${policies.map(p => {
+              const n = days(p.endDate);
+              const rowBg = n!=null&&n<0?'background:#fef2f2' : n!=null&&n<=30?'background:#fff7ed' : '';
+              const typeColor = p.type==='OC'?'var(--green)':p.type==='AC'?'var(--blue)':'var(--text2)';
+              return `<tr style="${rowBg}">
+                <td style="font-weight:700;font-family:var(--mono)">${p.nrRej}</td>
+                <td style="font-size:11px;color:var(--text2)">${p.marka} ${p.model}</td>
+                <td style="text-align:center"><span style="font-size:10px;font-weight:700;color:${typeColor};background:var(--bg3);border-radius:4px;padding:1px 6px">${p.type}</span></td>
+                <td style="font-weight:${p.insurer?500:400}">${p.insurer||'<span style="color:var(--text3)">—</span>'}</td>
+                <td style="font-family:var(--mono);font-size:10px;color:var(--text2)">${p.policyNo||'—'}</td>
+                <td>${pill(p.endDate)}</td>
+                <td style="text-align:right;font-family:var(--mono)">${fmt(p.premium)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  function exportInsuranceExcel() {
+    if (typeof XLSX === 'undefined') { toast('⚠ Biblioteka XLSX niedostępna'); return; }
+    const now = new Date();
+    const fd  = d => d ? new Date(d).toLocaleDateString('pl-PL') : '';
+    const policies = [];
+    (window.vehs||[]).forEach(v => {
+      if (v.ocEnd||v.ocInsurer) policies.push([v.nrRej,v.marka,v.model,'OC',v.ocInsurer||'',v.ocPolicyNo||'',fd(v.ocStart),fd(v.ocEnd),+(v.ocPremium||0)]);
+      if (v.acEnd||v.acInsurer) policies.push([v.nrRej,v.marka,v.model,'AC',v.acInsurer||'',v.acPolicyNo||'',fd(v.acStart),fd(v.acEnd),+(v.acPremium||0)]);
+      if (v.assEnd||v.assInsurer) policies.push([v.nrRej,v.marka,v.model,'Ass',v.assInsurer||'',v.assPolicyNo||'','',fd(v.assEnd),0]);
+    });
+    policies.sort((a,b)=>new Date(a[7]||'2099')-new Date(b[7]||'2099'));
+    const headers = ['Nr rej.','Marka','Model','Typ polisy','Ubezpieczyciel','Nr polisy','Początek','Koniec','Składka (zł)'];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers,...policies]), 'Polisy ubezpieczeniowe');
+    XLSX.writeFile(wb, `polisy_ubezpieczen_${new Date().toISOString().slice(0,10)}.xlsx`);
+    toast(`✓ Polisy Excel: ${policies.length} wierszy`);
+  }
+
+  // ── Raport zarządu — Executive Summary HTML export ───────────────────────
+  function exportExecutiveSummary() {
+    const now = new Date();
+    const yr = now.getFullYear();
+    const prefix = String(yr);
+    const vehs = window.vehs || [];
+    const today = now.toISOString().slice(0, 10);
+
+    // KPIs
+    let totalFuel = 0, totalSvc = 0, totalTax = 0, dt1Count = 0;
+    const tcoRows = vehs.map(v => {
+      const fuel = _fuelCostForPeriod(v, prefix);
+      const svc  = _serviceCostForPeriod(v, prefix);
+      const ins  = _insuranceCostForPeriod(v, prefix);
+      const leasing = (v.leasingHistory||[]).filter(h=>(h.date||'').startsWith(prefix)).reduce((s,h)=>s+(h.amount||0),0);
+      let tax = 0;
+      if (typeof calcTax === 'function') { const r = calcTax(v); tax = r.amount || 0; }
+      const total = fuel + svc + ins + leasing + tax;
+      totalFuel += fuel; totalSvc += svc; totalTax += tax;
+      return { nrRej: v.nrRej, marka: v.marka, model: v.model, fuel, svc, ins, leasing, tax, total };
+    }).sort((a,b)=>b.total-a.total);
+
+    // DT-1 tax vehicles
+    if (typeof calcTax === 'function') vehs.forEach(v => { const r = calcTax(v); if (r.cat) dt1Count++; });
+
+    const totalCost = totalFuel + totalSvc;
+
+    // Alerty polisowe 30 dni
+    const soon30 = [];
+    vehs.forEach(v => {
+      ['oc','ac','ass'].forEach(t => {
+        const end = v[t+'End'];
+        if (!end) return;
+        const days = Math.round((new Date(end) - now) / 86400000);
+        if (days >= 0 && days <= 30) soon30.push({ nrRej: v.nrRej, type: t.toUpperCase(), end, days });
+      });
+    });
+    soon30.sort((a,b)=>a.days-b.days);
+
+    // Top 5 by TCO
+    const top5 = tcoRows.slice(0, 5);
+
+    const fmt = n => Math.round(n).toLocaleString('pl-PL');
+
+    const renewalRows = soon30.map(r => `
+      <tr>
+        <td>${r.nrRej}</td><td>${r.type}</td>
+        <td style="color:${r.days<=7?'#e53e3e':'#dd6b20'};font-weight:600">${r.days} dni</td>
+        <td>${r.end}</td>
+      </tr>`).join('') || '<tr><td colspan="4" style="color:#48bb78;text-align:center">Brak wymagających odnowienia</td></tr>';
+
+    const top5Rows = top5.map((r,i) => `
+      <tr>
+        <td>${i+1}. ${r.nrRej}</td>
+        <td>${r.marka} ${r.model}</td>
+        <td style="text-align:right">${fmt(r.fuel)}</td>
+        <td style="text-align:right">${fmt(r.svc)}</td>
+        <td style="text-align:right;font-weight:700">${fmt(r.total)}</td>
+      </tr>`).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Raport zarządu — ${yr}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,sans-serif;font-size:12px;color:#1a202c;background:#fff;padding:32px}
+  h1{font-size:22px;font-weight:700;margin-bottom:4px}
+  .sub{color:#718096;font-size:11px;margin-bottom:28px}
+  .kpi-row{display:flex;gap:16px;margin-bottom:28px}
+  .kpi{flex:1;background:#f7fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px}
+  .kpi-val{font-size:22px;font-weight:700;color:#2b6cb0}
+  .kpi-lbl{font-size:11px;color:#718096;margin-top:2px}
+  h2{font-size:14px;font-weight:700;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #e2e8f0;color:#2d3748}
+  table{width:100%;border-collapse:collapse;margin-bottom:28px}
+  th{background:#edf2f7;text-align:left;padding:7px 10px;font-size:11px;font-weight:700;text-transform:uppercase;color:#4a5568}
+  td{padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:11px}
+  tr:last-child td{border-bottom:none}
+  .footer{margin-top:32px;font-size:10px;color:#a0aec0;text-align:right}
+  @media print{body{padding:16px}}
+</style>
+</head>
+<body>
+<h1>Raport zarządu floty</h1>
+<div class="sub">Wygenerowano: ${new Date().toLocaleString('pl-PL')} &nbsp;|&nbsp; Rok: ${yr} &nbsp;|&nbsp; Flota: ${vehs.length} pojazdów</div>
+
+<div class="kpi-row">
+  <div class="kpi"><div class="kpi-val">${vehs.length}</div><div class="kpi-lbl">Pojazdów w flocie</div></div>
+  <div class="kpi"><div class="kpi-val">${fmt(totalFuel)} zł</div><div class="kpi-lbl">Koszt paliwa YTD</div></div>
+  <div class="kpi"><div class="kpi-val">${fmt(totalSvc)} zł</div><div class="kpi-lbl">Koszt serwisu YTD</div></div>
+  <div class="kpi"><div class="kpi-val">${fmt(totalCost)} zł</div><div class="kpi-lbl">Łączne koszty YTD</div></div>
+  <div class="kpi"><div class="kpi-val">${dt1Count}</div><div class="kpi-lbl">Pojazdy płacą DT-1</div></div>
+  <div class="kpi"><div class="kpi-val">${fmt(totalTax)} zł</div><div class="kpi-lbl">Podatek DT-1</div></div>
+</div>
+
+<h2>Top 5 pojazdów wg. TCO (${yr})</h2>
+<table>
+  <tr><th>Nr rej.</th><th>Pojazd</th><th style="text-align:right">Paliwo (zł)</th><th style="text-align:right">Serwis (zł)</th><th style="text-align:right">TCO (zł)</th></tr>
+  ${top5Rows}
+</table>
+
+<h2>Polisy ubezpieczeniowe — wygasają w ciągu 30 dni</h2>
+<table>
+  <tr><th>Nr rej.</th><th>Typ</th><th>Zostało</th><th>Data końca</th></tr>
+  ${renewalRows}
+</table>
+
+<div class="footer">TaxOrder Pro &nbsp;|&nbsp; Raport wygenerowany automatycznie &nbsp;|&nbsp; ${today}</div>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `raport_zarzadu_${yr}_${today}.html`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast(`✓ Raport zarządu wygenerowany — otwórz w przeglądarce lub wydrukuj`);
+  }
+
   // ── renderPage — buduje zawartość page-raporty-fleet ─────────────────────
   function renderPage() {
     const el = document.getElementById('fleet-reports-body');
@@ -64,10 +528,17 @@ window.FleetReports = (function () {
         </button>
       </div>
 
+      <!-- Budżet flotowy -->
+      <div id="fr-budget"></div>
       <!-- Tabela kosztów per pojazd -->
-      <div id="fr-table"></div>`;
+      <div id="fr-table"></div>
+      <div id="fr-monthly-trend"></div>
+      <div id="fr-driver-score"></div>`;
 
+    _renderBudget();
     _renderCostTable();
+    _renderMonthlyTrend();
+    _renderDriverScore();
   }
 
   function _getPrefix() {
@@ -89,8 +560,17 @@ window.FleetReports = (function () {
         const c = h.co2kg != null ? h.co2kg : (h.liters||0)*(window.FuelImport?.KOBIZE_FACTORS?.[h.product]||0);
         return s+c;
       },0);
+      // l/100km z kolejnych tankowań z licznikiem km (wszystkie dane, nie tylko wybrany okres)
+      const withKm = [...(v.fuelHistory||[])].filter(h=>h.km!=null&&h.km>0&&h.liters>0).sort((a,b)=>a.km-b.km);
+      let _el=0,_ek=0,_en=0;
+      for(let i=1;i<withKm.length;i++){const kd=withKm[i].km-withKm[i-1].km;if(kd>10&&kd<5000){_el+=withKm[i].liters;_ek+=kd;_en++;}}
+      const avgEff = (_en>=2&&_ek>0) ? (_el/_ek*100) : null;
+      // km przejechane w wybranym okresie (z danych licznika przy tankowaniach)
+      const periodKm = (v.fuelHistory||[]).filter(h=>prefix?(h.date||'').startsWith(prefix):true).filter(h=>h.km!=null&&h.km>0).sort((a,b)=>a.km-b.km);
+      const kmDriven = periodKm.length >= 2 ? periodKm[periodKm.length-1].km - periodKm[0].km : null;
+      const costPerKm = kmDriven && kmDriven > 10 ? (fuel + service) / kmDriven : null;
       if (total > 0 || fuel > 0 || service > 0) {
-        rows.push({ v, fuel, service, insur, total, fuelL, co2 });
+        rows.push({ v, fuel, service, insur, total, fuelL, co2, avgEff, kmDriven, costPerKm });
       }
     });
     return rows.sort((a,b) => b.total - a.total);
@@ -133,9 +613,11 @@ window.FleetReports = (function () {
           <th>Nr rej.</th><th>Marka / Model</th><th>Rok</th>
           <th style="text-align:right">Paliwo (zł)</th>
           <th style="text-align:right">Litry</th>
+          <th style="text-align:right">l/100km</th>
           <th style="text-align:right">CO₂ (kg)</th>
           <th style="text-align:right">Serwis (zł)</th>
           <th style="text-align:right">Ubezp. (zł)</th>
+          <th style="text-align:right" title="Koszt paliwa+serwis na km (z danych licznika przy tankowaniach)">zł/km</th>
           <th style="text-align:right;font-weight:700">ŁĄCZNIE (zł)</th>
         </tr></thead>
         <tbody>
@@ -146,9 +628,11 @@ window.FleetReports = (function () {
               <td style="font-family:var(--mono)">${r.v.rok||'—'}</td>
               <td style="text-align:right;font-family:var(--mono)">${r.fuel?_fmt2(r.fuel):'-'}</td>
               <td style="text-align:right;font-family:var(--mono)">${r.fuelL?r.fuelL.toFixed(1):'-'}</td>
+              <td style="text-align:right;font-family:var(--mono);color:${r.avgEff!=null?(r.v.normaSpalania&&r.avgEff>r.v.normaSpalania*1.15?'var(--red)':'var(--blue)'):'var(--text3)'}">${r.avgEff!=null?r.avgEff.toFixed(1):'-'}</td>
               <td style="text-align:right;font-family:var(--mono)">${r.co2?r.co2.toFixed(0):'-'}</td>
               <td style="text-align:right;font-family:var(--mono)">${r.service?_fmt2(r.service):'-'}</td>
               <td style="text-align:right;font-family:var(--mono)">${r.insur?_fmt2(r.insur):'-'}</td>
+              <td style="text-align:right;font-family:var(--mono);color:${r.costPerKm!=null?'var(--blue)':'var(--text3)'}" title="${r.kmDriven?r.kmDriven.toLocaleString('pl-PL')+' km w okresie':''}">${r.costPerKm!=null?r.costPerKm.toFixed(2):'-'}</td>
               <td style="text-align:right;font-family:var(--mono);font-weight:700">${_fmt2(r.total)}</td>
             </tr>`).join('')}
         </tbody>
@@ -157,9 +641,11 @@ window.FleetReports = (function () {
             <td colspan="3">ŁĄCZNIE (${rows.length} pojazdów)</td>
             <td style="text-align:right;font-family:var(--mono)">${_fmt2(totFuel)}</td>
             <td style="text-align:right;font-family:var(--mono)">${totL.toFixed(1)}</td>
+            <td style="text-align:right;font-family:var(--mono);color:var(--text3)">—</td>
             <td style="text-align:right;font-family:var(--mono)">${totCO2.toFixed(0)}</td>
             <td style="text-align:right;font-family:var(--mono)">${_fmt2(totService)}</td>
             <td style="text-align:right;font-family:var(--mono)">${_fmt2(totInsur)}</td>
+            <td style="text-align:right;font-family:var(--mono);color:var(--text3)">—</td>
             <td style="text-align:right;font-family:var(--mono)">${_fmt2(totTotal)}</td>
           </tr>
         </tfoot>
@@ -175,11 +661,12 @@ window.FleetReports = (function () {
     const mo  = document.getElementById('fr-month')?.value || '';
 
     // Sheet 1: Koszty per pojazd
-    const headers = ['Nr rej.','Marka','Model','Rok','Paliwo (zł)','Litry (l)','CO2 (kg)','Serwis (zł)','Ubezpieczenia (zł)','Łącznie (zł)'];
+    const headers = ['Nr rej.','Marka','Model','Rok','Paliwo (zł)','Litry (l)','l/100km','CO2 (kg)','Serwis (zł)','Ubezpieczenia (zł)','zł/km','Łącznie (zł)'];
     const data = [headers, ...rows.map(r => [
       r.v.nrRej, r.v.marka, r.v.model, r.v.rok||'',
-      _fmt2(r.fuel), _fmt2(r.fuelL), _fmt2(r.co2),
-      _fmt2(r.service), _fmt2(r.insur), _fmt2(r.total),
+      _fmt2(r.fuel), _fmt2(r.fuelL), r.avgEff!=null?r.avgEff.toFixed(1):'',
+      _fmt2(r.co2), _fmt2(r.service), _fmt2(r.insur),
+      r.costPerKm!=null?r.costPerKm.toFixed(2):'', _fmt2(r.total),
     ])];
 
     // Sheet 2: Serwisy
@@ -214,11 +701,12 @@ window.FleetReports = (function () {
     const rows = _buildRows();
     const yr  = document.getElementById('fr-year')?.value || new Date().getFullYear();
     const mo  = document.getElementById('fr-month')?.value || '';
-    const headers = ['Nr rej.','Marka','Model','Rok','Paliwo (zł)','Litry','CO2 (kg)','Serwis (zł)','Ubezpieczenia (zł)','Łącznie (zł)'];
+    const headers = ['Nr rej.','Marka','Model','Rok','Paliwo (zł)','Litry','l/100km','CO2 (kg)','Serwis (zł)','Ubezpieczenia (zł)','zł/km','Łącznie (zł)'];
     const csv = '﻿' + [headers, ...rows.map(r => [
       r.v.nrRej, r.v.marka, r.v.model, r.v.rok||'',
-      _fmt2(r.fuel), r.fuelL.toFixed(2), r.co2.toFixed(3),
-      _fmt2(r.service), _fmt2(r.insur), _fmt2(r.total),
+      _fmt2(r.fuel), r.fuelL.toFixed(2), r.avgEff!=null?r.avgEff.toFixed(1):'',
+      r.co2.toFixed(3), _fmt2(r.service), _fmt2(r.insur),
+      r.costPerKm!=null?r.costPerKm.toFixed(2):'', _fmt2(r.total),
     ])].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n');
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
     const url = URL.createObjectURL(blob);
@@ -268,5 +756,340 @@ window.FleetReports = (function () {
     toast('✓ Plan serwisowy wyeksportowany');
   }
 
-  return { renderPage, exportExcel, exportCsv, renderServicePlan, exportServicePlanExcel };
+  function _renderMonthlyTrend() {
+    const el = document.getElementById('fr-monthly-trend');
+    if (!el) return;
+    const mo = document.getElementById('fr-month')?.value || '';
+    if (mo) { el.innerHTML = ''; return; } // only show for full-year view
+    const yr = document.getElementById('fr-year')?.value || new Date().getFullYear();
+    const months = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+    const LABEL = ['Sty','Lut','Mar','Kwi','Maj','Cze','Lip','Sie','Wrz','Paź','Lis','Gru'];
+    const mData = months.map((m, i) => {
+      const prefix = `${yr}-${m}`;
+      let fuel = 0, service = 0;
+      (window.vehs||[]).forEach(v => {
+        fuel    += _fuelCostForPeriod(v, prefix);
+        service += _serviceCostForPeriod(v, prefix);
+      });
+      return { label: LABEL[i], fuel, service, total: fuel + service };
+    });
+    const maxTotal = Math.max(...mData.map(d=>d.total), 1);
+    const fmt = n => n.toLocaleString('pl-PL', {minimumFractionDigits:0,maximumFractionDigits:0});
+    el.innerHTML = `
+      <h3 style="font-size:13px;font-weight:700;margin:20px 0 10px;color:var(--text)">Trend miesięczny ${yr}</h3>
+      <div class="tbl-wrap">
+        <table style="width:100%;font-size:11px">
+          <thead><tr>
+            <th style="width:60px">Miesiąc</th>
+            <th style="width:120px;text-align:right">Paliwo (zł)</th>
+            <th style="width:120px;text-align:right">Serwis (zł)</th>
+            <th style="width:120px;text-align:right">Łącznie (zł)</th>
+            <th>Struktura</th>
+          </tr></thead>
+          <tbody>
+            ${mData.map(d => {
+              const fPct = maxTotal ? d.fuel / maxTotal * 100 : 0;
+              const sPct = maxTotal ? d.service / maxTotal * 100 : 0;
+              const empty = !d.total;
+              return `<tr style="${empty?'color:var(--text3)':''}">
+                <td style="font-weight:600;padding:4px 8px">${d.label}</td>
+                <td style="text-align:right;padding:4px 8px;color:var(--orange)">${d.fuel ? fmt(d.fuel) : '—'}</td>
+                <td style="text-align:right;padding:4px 8px;color:var(--red)">${d.service ? fmt(d.service) : '—'}</td>
+                <td style="text-align:right;padding:4px 8px;font-weight:${empty?400:700}">${d.total ? fmt(d.total) : '—'}</td>
+                <td style="padding:4px 8px">
+                  <div style="display:flex;height:14px;border-radius:3px;overflow:hidden;background:var(--bg2);min-width:60px">
+                    ${fPct ? `<div style="width:${fPct}%;background:var(--orange);opacity:.8"></div>` : ''}
+                    ${sPct ? `<div style="width:${sPct}%;background:var(--red);opacity:.7"></div>` : ''}
+                  </div>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  const _BUDGET_KEY = 'taxFleetBudget';
+
+  function _getBudget(yr) {
+    try {
+      const all = JSON.parse(localStorage.getItem(_BUDGET_KEY) || '{}');
+      return all[yr] || { fuel: 0, service: 0, insurance: 0 };
+    } catch { return { fuel: 0, service: 0, insurance: 0 }; }
+  }
+
+  function _saveBudget(yr, b) {
+    try {
+      const all = JSON.parse(localStorage.getItem(_BUDGET_KEY) || '{}');
+      all[yr] = b;
+      localStorage.setItem(_BUDGET_KEY, JSON.stringify(all));
+    } catch(e) {}
+  }
+
+  function saveBudgetInputs() {
+    const yr = document.getElementById('fr-year')?.value || new Date().getFullYear();
+    const mo = document.getElementById('fr-month')?.value || '';
+    if (mo) return; // budżet tylko dla pełnego roku
+    const g = id => parseFloat(document.getElementById(id)?.value || 0) || 0;
+    _saveBudget(yr, { fuel: g('fb-fuel'), service: g('fb-service'), insurance: g('fb-insurance') });
+    _renderBudget();
+    toast('✓ Budżet flotowy zapisany');
+  }
+
+  function _renderBudget() {
+    const el = document.getElementById('fr-budget');
+    if (!el) return;
+    const mo = document.getElementById('fr-month')?.value || '';
+    if (mo) { el.innerHTML = ''; return; } // tylko rok
+    const yr = document.getElementById('fr-year')?.value || new Date().getFullYear();
+    const rows = _buildRows();
+    const budget = _getBudget(yr);
+
+    const actFuel  = rows.reduce((s,r) => s + r.fuel, 0);
+    const actSvc   = rows.reduce((s,r) => s + r.service, 0);
+    const actInsur = rows.reduce((s,r) => s + r.insur, 0);
+    const actTotal = actFuel + actSvc + actInsur;
+    const budTotal = budget.fuel + budget.service + budget.insurance;
+
+    const fmtZ = n => (+n||0).toLocaleString('pl-PL', { minimumFractionDigits:0, maximumFractionDigits:0 });
+    const diffColor = (b, a) => !b ? '' : a > b ? 'color:var(--red);font-weight:700' : 'color:var(--green);font-weight:700';
+    const pct = (b, a) => !b ? '—' : ((a/b)*100).toFixed(0) + '%';
+    const bar = (b, a) => {
+      if (!b) return '<div style="height:8px;background:var(--bg2);border-radius:4px"></div>';
+      const w = Math.min(a/b*100, 100).toFixed(1);
+      const over = a > b;
+      return `<div style="height:8px;background:var(--bg2);border-radius:4px;overflow:hidden">
+        <div style="width:${w}%;height:100%;background:${over?'var(--red)':'var(--green)'};border-radius:4px;transition:width .4s"></div>
+      </div>`;
+    };
+
+    const cats = [
+      { key:'fuel',      label:'Paliwo',        icon:'ti-gas-station', act:actFuel,  bud:budget.fuel,      id:'fb-fuel' },
+      { key:'service',   label:'Serwis',         icon:'ti-tool',        act:actSvc,   bud:budget.service,   id:'fb-service' },
+      { key:'insurance', label:'Ubezpieczenia',  icon:'ti-shield',      act:actInsur, bud:budget.insurance, id:'fb-insurance' },
+    ];
+
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <h3 style="font-size:13px;font-weight:700;color:var(--text);margin:0">
+          <i class="ti ti-wallet" style="margin-right:6px;color:var(--green)"></i>Budżet flotowy ${yr} — plan vs wykonanie
+        </h3>
+        <button class="btn btn-blue" style="font-size:11px;padding:3px 10px;margin-left:auto" onclick="FleetReports.saveBudgetInputs()">
+          <i class="ti ti-check"></i>Zapisz budżet
+        </button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px">
+        ${cats.map(c => `
+          <div style="background:var(--bg2);border-radius:var(--radius);padding:14px;border:1px solid var(--border)">
+            <div style="font-size:11px;font-weight:600;color:var(--text2);display:flex;align-items:center;gap:6px;margin-bottom:10px">
+              <i class="ti ${c.icon}"></i>${c.label}
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <label style="font-size:10px;color:var(--text3);white-space:nowrap">Budżet (zł):</label>
+              <input id="${c.id}" type="number" class="fi" style="margin:0;height:28px;font-size:12px;width:100%" value="${c.bud||''}" placeholder="0" min="0" step="1000">
+            </div>
+            <div style="font-size:11px;margin-bottom:6px">
+              <span style="color:var(--text2)">Wykonanie:</span>
+              <strong style="margin-left:4px">${fmtZ(c.act)} zł</strong>
+              ${c.bud ? `<span style="font-size:10px;margin-left:6px;${diffColor(c.bud,c.act)}">${c.act>c.bud?'▲ + ':'▼ − '}${fmtZ(Math.abs(c.act-c.bud))} zł (${pct(c.bud,c.act)})</span>` : ''}
+            </div>
+            ${bar(c.bud, c.act)}
+          </div>`).join('')}
+      </div>
+      ${budTotal ? `
+        <div style="background:var(--bg3);border-radius:var(--radius);padding:10px 14px;font-size:12px;display:flex;gap:24px;align-items:center;flex-wrap:wrap">
+          <span><strong>Łącznie budżet:</strong> ${fmtZ(budTotal)} zł</span>
+          <span><strong>Łącznie wykonanie:</strong> ${fmtZ(actTotal)} zł</span>
+          <span style="${diffColor(budTotal,actTotal)}">${actTotal > budTotal ? '▲ Przekroczono o' : '▼ Oszczędność'} ${fmtZ(Math.abs(actTotal-budTotal))} zł (${pct(budTotal,actTotal)})</span>
+          <div style="flex:1;min-width:120px">${bar(budTotal, actTotal)}</div>
+        </div>` : '<div style="font-size:11px;color:var(--text3);padding:4px 0">Wpisz wartości budżetu i kliknij <strong>Zapisz budżet</strong> aby śledzić wykonanie.</div>'}`;
+  }
+
+  function _renderDriverScore() {
+    const el = document.getElementById('fr-driver-score');
+    if (!el) return;
+    const prefix = _getPrefix();
+
+    // Zbierz dane per kierowca ze wszystkich pojazdów
+    const drivers = {};
+
+    (window.vehs || []).forEach(v => {
+      // Tankowania — l/100km i koszty paliwa per kierowca
+      (v.fuelHistory || []).filter(h => prefix ? (h.date||'').startsWith(prefix) : true).forEach(h => {
+        const drv = h.driver || v.kierowca || '(brak)';
+        if (!drivers[drv]) drivers[drv] = { fuelCost:0, fuelL:0, svcCost:0, fines:0, withKm:[], vehs:new Set() };
+        drivers[drv].fuelCost += h.total || (h.liters||0) * (h.pricePerLiter||0);
+        drivers[drv].fuelL   += h.liters || 0;
+        drivers[drv].vehs.add(v.nrRej);
+        if (h.km && h.km > 0) drivers[drv].withKm.push({ km: h.km, liters: h.liters || 0 });
+      });
+
+      // Koszty serwisowe (pojazd przypisany do kierowcy)
+      const vDrv = v.kierowca || '(brak)';
+      if (vDrv !== '(brak)') {
+        if (!drivers[vDrv]) drivers[vDrv] = { fuelCost:0, fuelL:0, svcCost:0, fines:0, withKm:[], vehs:new Set() };
+        drivers[vDrv].svcCost += _serviceCostForPeriod(v, prefix);
+        drivers[vDrv].vehs.add(v.nrRej);
+      }
+
+      });
+
+    // Mandaty — z centralnej listy FinesModule
+    const allFines = window.FinesModule?.getAll?.() || [];
+    allFines.filter(f => prefix ? (f.date||'').startsWith(prefix) : true).forEach(f => {
+      const fDrv = f.driverName || '(brak)';
+      if (!drivers[fDrv]) drivers[fDrv] = { fuelCost:0, fuelL:0, svcCost:0, fines:0, withKm:[], vehs:new Set() };
+      drivers[fDrv].fines += (f.amount || 0);
+      if (f.nrRej) drivers[fDrv].vehs.add(f.nrRej);
+    });
+
+    const rows = Object.entries(drivers)
+      .filter(([, d]) => d.fuelCost > 0 || d.svcCost > 0 || d.fines > 0)
+      .map(([name, d]) => {
+        // l/100km z kolejnych wpisów z km licznika (posortuj)
+        const wk = [...d.withKm].sort((a,b) => a.km - b.km);
+        let el2 = 0, ek = 0, en = 0;
+        for (let i = 1; i < wk.length; i++) {
+          const kd = wk[i].km - wk[i-1].km;
+          if (kd > 10 && kd < 5000) { el2 += wk[i].liters; ek += kd; en++; }
+        }
+        const avgL100 = (en >= 2 && ek > 0) ? (el2 / ek * 100) : null;
+        const total = d.fuelCost + d.svcCost + d.fines;
+        return { name, ...d, avgL100, total, vehCount: d.vehs.size };
+      })
+      .sort((a, b) => b.total - a.total);
+
+    if (!rows.length) { el.innerHTML = ''; return; }
+
+    const fmt = n => (+n).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const maxTotal = Math.max(...rows.map(r => r.total), 1);
+
+    el.innerHTML = `
+      <h3 style="font-size:13px;font-weight:700;margin:24px 0 10px;color:var(--text)">
+        <i class="ti ti-steering-wheel" style="margin-right:6px;color:var(--blue)"></i>Ranking kierowców — koszty
+      </h3>
+      <div class="tbl-wrap">
+        <table style="width:100%;font-size:11px">
+          <thead><tr>
+            <th style="width:28px">#</th>
+            <th>Kierowca</th>
+            <th style="text-align:right">Paliwo (zł)</th>
+            <th style="text-align:right">Litry (l)</th>
+            <th style="text-align:right">l/100km</th>
+            <th style="text-align:right">Serwis (zł)</th>
+            <th style="text-align:right">Mandaty (zł)</th>
+            <th style="text-align:right">Łącznie (zł)</th>
+            <th style="min-width:80px">Udział</th>
+            <th style="text-align:center">Pojazdy</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map((r, i) => {
+              const barW = (r.total / maxTotal * 100).toFixed(1);
+              const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
+              const l100Color = r.avgL100 == null ? '' :
+                r.avgL100 > 20 ? 'color:var(--red);font-weight:700' :
+                r.avgL100 > 12 ? 'color:var(--amber)' : 'color:var(--green)';
+              return `<tr>
+                <td style="font-weight:700;font-size:13px;padding:4px 8px">${medal}</td>
+                <td style="padding:4px 8px;font-weight:600">${r.name}</td>
+                <td style="text-align:right;padding:4px 8px;font-family:var(--mono)">${r.fuelCost ? fmt(r.fuelCost) : '—'}</td>
+                <td style="text-align:right;padding:4px 8px;font-family:var(--mono)">${r.fuelL ? r.fuelL.toFixed(1) : '—'}</td>
+                <td style="text-align:right;padding:4px 8px;font-family:var(--mono);${l100Color}">${r.avgL100 != null ? r.avgL100.toFixed(1) : '—'}</td>
+                <td style="text-align:right;padding:4px 8px;font-family:var(--mono);color:var(--red)">${r.svcCost ? fmt(r.svcCost) : '—'}</td>
+                <td style="text-align:right;padding:4px 8px;font-family:var(--mono);color:var(--red);font-weight:${r.fines>0?700:400}">${r.fines ? fmt(r.fines) : '—'}</td>
+                <td style="text-align:right;padding:4px 8px;font-family:var(--mono);font-weight:700">${fmt(r.total)}</td>
+                <td style="padding:4px 8px">
+                  <div style="height:10px;background:var(--bg2);border-radius:4px;overflow:hidden">
+                    <div style="width:${barW}%;height:100%;background:var(--blue);border-radius:4px"></div>
+                  </div>
+                </td>
+                <td style="text-align:center;padding:4px 8px;font-size:10px;color:var(--text2)">${[...r.vehs].join(', ')}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  function exportServicePlanHtml() {
+    const rows = _buildServicePlanRows();
+    const today = new Date().toISOString().slice(0,10);
+    const fd = d => d ? new Date(d).toLocaleDateString('pl-PL') : '—';
+    const urgencyBadge = d => {
+      if (!d) return '';
+      const diff = Math.round((new Date(d) - new Date()) / 86400000);
+      const color = diff < 0 ? '#dc2626' : diff <= 7 ? '#dc2626' : diff <= 14 ? '#d97706' : '#16a34a';
+      const label = diff < 0 ? `${Math.abs(diff)} dni po terminie` : diff === 0 ? 'dziś' : `${diff} dni`;
+      return `<span style="background:${color};color:#fff;border-radius:9px;font-size:9px;font-weight:700;padding:1px 7px">${label}</span>`;
+    };
+    const html = `<!DOCTYPE html>
+<html lang="pl"><head><meta charset="UTF-8">
+<title>Plan serwisowy — ${today}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;font-size:12px;color:#1f2937;padding:20px}
+h1{font-size:20px;font-weight:800;margin-bottom:4px}
+.sub{color:#6b7280;font-size:11px;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;margin-top:8px}
+th{background:#f3f4f6;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6b7280;padding:6px 10px;text-align:left;border-bottom:2px solid #e5e7eb}
+td{padding:5px 10px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
+tr:hover td{background:#f9fafb}
+.mono{font-family:monospace}
+@media print{button{display:none}}
+</style></head>
+<body>
+<button onclick="window.print()" style="float:right;background:#1d4ed8;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">🖨 Drukuj</button>
+<h1>Plan serwisowy floty</h1>
+<div class="sub">Wygenerowano: ${new Date().toLocaleDateString('pl-PL')} | TaxOrder Pro | ${rows.length} serwisów</div>
+<table>
+  <thead><tr>
+    <th>Nr rej.</th><th>Marka / Model</th><th>Typ serwisu</th>
+    <th>Data serwisu</th><th>Następny termin</th><th>Km</th>
+    <th>Status</th><th>Warsztat</th>
+  </tr></thead>
+  <tbody>
+    ${rows.map(r => {
+      const diff = r.nextServiceDate ? Math.round((new Date(r.nextServiceDate) - new Date()) / 86400000) : null;
+      const bg   = diff == null ? '' : diff < 0 ? '#fef2f2' : diff <= 7 ? '#fff7ed' : '';
+      return `<tr style="background:${bg}">
+        <td class="mono" style="font-weight:700">${r.nrRej}</td>
+        <td>${r.marka} ${r.model}</td>
+        <td>${r.svcLabel}</td>
+        <td class="mono">${fd(r.lastDate)}</td>
+        <td class="mono">${fd(r.nextServiceDate)} ${urgencyBadge(r.nextServiceDate)}</td>
+        <td class="mono">${r.nextServiceKm ? r.nextServiceKm.toLocaleString('pl-PL')+' km' : '—'}</td>
+        <td class="mono" style="color:${diff!=null&&diff<0?'#dc2626':'#6b7280'}">${diff!=null ? (diff<0?`${Math.abs(diff)} dni po`:`${diff} dni`) : '—'}</td>
+        <td>${r.workshop||'—'}</td>
+      </tr>`;
+    }).join('')}
+  </tbody>
+</table>
+</body></html>`;
+    const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download=`plan_serwisowy_${today}.html`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    toast('✓ HTML do e-maila wyeksportowany');
+  }
+
+  function _buildServicePlanRows() {
+    const today = new Date();
+    const rows = [];
+    (window.vehs||[]).forEach(v => {
+      (v.serviceHistory||[]).forEach(s => {
+        if (!s.nextServiceDate && !s.nextServiceKm) return;
+        const svcLabel = window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label || s.type || 'Serwis';
+        const diff = s.nextServiceDate ? Math.round((new Date(s.nextServiceDate) - today) / 86400000) : null;
+        rows.push({ nrRej:v.nrRej, marka:v.marka, model:v.model, svcLabel, lastDate:s.date, nextServiceDate:s.nextServiceDate, nextServiceKm:s.nextServiceKm, workshop:s.workshop, diff });
+      });
+    });
+    return rows.sort((a,b) => {
+      if (a.nextServiceDate && b.nextServiceDate) return new Date(a.nextServiceDate) - new Date(b.nextServiceDate);
+      if (a.nextServiceDate) return -1;
+      if (b.nextServiceDate) return 1;
+      return 0;
+    });
+  }
+
+  return { renderPage, exportExcel, exportCsv, renderServicePlan, exportServicePlanExcel, exportServicePlanHtml, saveBudgetInputs, renderKobize, exportKobizeCsv, exportKobizeExcel, renderTco, exportTcoExcel, renderInsuranceReport, exportInsuranceExcel, exportExecutiveSummary };
 })();

@@ -8,8 +8,17 @@ let selected = new Set();
 window.selected = selected;
 let sortKey = 'nrRej', sortAsc = true;
 
-// ==================== RATES (Warszawa 2026) ====================
+// ==================== RATES (Warszawa 2026 + multi-gmina) ====================
 function getRate(v) {
+  // Jeśli GminyRates dostępne i gmina skonfigurowana — użyj jej stawek
+  if (window.GminyRates) {
+    const r = GminyRates.getGminaRate(v);
+    if (r != null) return r;
+  }
+  return _getRate_legacy(v);
+}
+
+function _getRate_legacy(v) {
   const dT=v.dmc/1000, dzT=(v.dmcZespolu||0)/1000, refZ=dzT>0?dzT:dT;
   const typ=(v.typ||'').toLowerCase(), osie=parseInt(v.osie)||2, rok=parseInt(v.rok)||0, isNew=rok>=2024;
   if(typ.includes('autobus')) return isNew?1320:(parseInt(v.miejsca)||0)<30?1488:1872;
@@ -35,7 +44,7 @@ function getRate(v) {
   if(osie===2){if(dT<13)return 1200;if(dT<14)return 1488;if(dT<15)return 1680;return 2184;}
   if(osie===3){if(dT<17)return 1488;if(dT<19)return 1704;if(dT<21)return 1872;if(dT<23)return 2136;return 2760;}
   if(dT<25)return 1488;if(dT<27)return 1824;if(dT<29)return 2880;return 4296;
-}
+}  // end _getRate_legacy
 
 function getCat(v) {
   const dT=v.dmc/1000, dzT=(v.dmcZespolu||0)/1000, refZ=dzT>0?dzT:dT;
@@ -88,7 +97,7 @@ function showPage(id) {
   if(id==='pd') updatePD();
   if(id==='dash') renderDash();
   if(id==='walidacja') { runValidation(); }
-  if(id==='raporty') { renderRaporty(); window.FleetReports?.renderPage(); window.FleetReports?.renderServicePlan(); }
+  if(id==='raporty') { renderRaporty(); window.FleetReports?.renderPage(); window.FleetReports?.renderServicePlan(); window.FleetReports?.renderKobize(); window.FleetReports?.renderTco(); window.FleetReports?.renderInsuranceReport(); }
   if(id==='ocr') renderOcrHistory();
   if(id==='faktury') renderFakHistory();
   if(id==='pdfexport') updatePdfSummary();
@@ -101,17 +110,29 @@ function showPage(id) {
 }
 
 // ==================== POJAZDY ====================
+function _hasExpiryAlert(v) {
+  const now = new Date(), W = 60 * 86400000;
+  return [v.ocEnd, v.acEnd, v.nextInspection,
+    ...(v.hasUdt && v.udtNextDate ? [v.udtNextDate] : []),
+    ...(v.hasTacho && v.tachoNextCalib ? [v.tachoNextCalib] : []),
+    ...(v.tireNextChange ? [v.tireNextChange] : []),
+    ...(v.serviceHistory||[]).filter(s=>s.nextServiceDate).map(s=>s.nextServiceDate),
+  ].some(d => d && (new Date(d) - now) < W);
+}
+
 function filterVeh() {
   const q = (document.getElementById('q-veh')?.value||'').toLowerCase();
   const fTyp = document.getElementById('f-typ')?.value||'';
   const fStat = document.getElementById('f-status')?.value||'';
   const fWl = document.getElementById('f-wl')?.value||'';
+  const fAlert = document.getElementById('f-alert')?.value||'';
   return vehs.filter(v =>
     (!window._driverFilter || v.kierowca === window._driverFilter) &&
     (!q || v.nrRej.toLowerCase().includes(q) || v.marka.toLowerCase().includes(q) || v.model.toLowerCase().includes(q) || (v.vin||'').toLowerCase().includes(q)) &&
     (!fTyp || v.typ === fTyp) &&
     (!fStat || v.status === fStat) &&
-    (!fWl || v.wlasciciel === fWl)
+    (!fWl || v.wlasciciel === fWl) &&
+    (!fAlert || (fAlert === 'alert' ? _hasExpiryAlert(v) : !_hasExpiryAlert(v)))
   ).sort((a,b) => {
     let va=a[sortKey]||'', vb=b[sortKey]||'';
     if(typeof va==='number') return sortAsc?va-vb:vb-va;
@@ -148,7 +169,7 @@ function renderVeh() {
     return `<tr class="${isSel?'row-sel':''}" onclick="toggleRow(${v.id})">
       <td onclick="event.stopPropagation()"><input type="checkbox" ${isSel?'checked':''} onchange="toggleRow(${v.id})"></td>
       <td><strong style="font-family:var(--mono)">${v.nrRej}</strong></td>
-      <td><div style="font-weight:500">${v.marka} ${v.model}</div><div style="font-size:11px;color:var(--text2)">${v.euro||'—'} · ${v.vin||'—'}</div></td>
+      <td><div style="font-weight:500">${v.marka} ${v.model}</div><div style="font-size:11px">${v.euro||'—'} · ${_vinCell(v)}</div></td>
       <td data-col="rok">${v.rok||'—'}${isNew?'<span class="pill pill-new" style="margin-left:6px;font-size:9px">§2</span>':''}</td>
       <td data-col="typ"><span class="pill pill-gray">${v.typ}</span></td>
       <td data-col="dmc" style="font-family:var(--mono);font-size:12px">${(v.dmc||0).toLocaleString('pl-PL')}</td>
@@ -168,8 +189,11 @@ function renderVeh() {
         ${isTrailer(v)?`<input class="inum" style="width:70px" type="number" step="0.001" min="0" max="100" value="${(v.dmcZespolu/1000).toFixed(1)}" onchange="setV(${v.id},'dmcZespolu',parseFloat(this.value)*1000||0)" title="DMC zesp. w tonach">${needsDmcZ?'<span style="color:var(--amber);font-size:11px"> ⚠</span>':''}`:
         '<span style="color:var(--text3)">—</span>'}
       </td>
-      <td data-col="mies" onclick="event.stopPropagation()">
-        <input class="inum" type="number" min="1" max="12" value="${v.miesiacePodatku||12}" onchange="setV(${v.id},'miesiacePodatku',parseInt(this.value)||12)">
+      <td data-col="mies" onclick="event.stopPropagation()" title="Miesiące obowiązku podatkowego (1–12). Dla nabycia w trakcie roku: 13 minus numer miesiąca nabycia. Dla zbycia: numer miesiąca zbycia.">
+        <div style="display:flex;align-items:center;gap:3px">
+          <input class="inum" type="number" min="1" max="12" value="${v.miesiacePodatku||12}" onchange="setV(${v.id},'miesiacePodatku',parseInt(this.value)||12)" style="width:36px;text-align:center">
+          <button style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--text3);padding:0 2px" title="Oblicz z daty" onclick="event.stopPropagation();_pickMiesiace(${v.id})">📅</button>
+        </div>
       </td>
       <td data-col="status"><span class="pill ${STAT_LABELS[v.status]||'pill-gray'}">${v.status}</span></td>
       <td data-col="oc">${_datePill(v.ocEnd)}</td>
@@ -192,6 +216,12 @@ function renderVeh() {
       </td>
       <td data-col="kierowca" style="font-size:12px;white-space:nowrap">${v.kierowca||'<span style="color:var(--text3)">—</span>'}</td>
       <td data-col="km" style="font-size:12px;text-align:right;font-family:var(--mono)">${v.stanKilometrow!=null?v.stanKilometrow.toLocaleString('pl-PL'):'<span style="color:var(--text3)">—</span>'}</td>
+      <td data-col="dt1ok" style="text-align:center">${_dt1CompletenessCell(v)}</td>
+      <td data-col="gmina" onclick="event.stopPropagation()" style="font-size:11px">
+        <select class="isel" style="width:100px;font-size:11px" onchange="setV(${v.id},'gmina',this.value);renderFormularze&&renderFormularze()">
+          ${(window.GminyRates?GminyRates.listGminy():['Warszawa']).map(g=>`<option ${(v.gmina||'Warszawa')===g?'selected':''}>${g}</option>`).join('')}
+        </select>
+      </td>
       <td data-col="kategoria">${t.cat?`<span class="pill ${CAT_COLORS[t.cat]||'pill-gray'}">${t.cat}</span>${needsDmcZ?'<span style="font-size:10px;color:var(--amber)"> brak DMC zesp.</span>':''}`:
         '<span style="color:var(--text3);font-size:11px">—</span>'}</td>
       <td data-col="podatek" style="text-align:right">${t.amount>0?`<strong style="color:var(--green);font-family:var(--mono)">${fmt2(t.amount)} zł</strong>`:'<span style="color:var(--text3)">—</span>'}</td>
@@ -359,8 +389,199 @@ function exportFleetCSV() {
   toast(`✅ Wyeksportowano ${vehs.length} pojazdów do CSV`);
 }
 
+// ==================== WALIDACJA VIN (ISO 3779) ====================
+const _VIN_TRANS = {A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9,'0':0,'1':1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9};
+const _VIN_W    = [8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];
+
+function _validateVin(vin) {
+  if (!vin) return { valid:false, reason:'brak VIN' };
+  const v = String(vin).toUpperCase().replace(/[\s\-]/g,'');
+  if (v.length !== 17) return { valid:false, reason:`${v.length}/17 znaków` };
+  if (/[IOQ]/.test(v)) return { valid:false, reason:'niedozwolone I/O/Q' };
+  let sum = 0;
+  for (let i = 0; i < 17; i++) {
+    const val = _VIN_TRANS[v[i]];
+    if (val === undefined) return { valid:false, reason:`znak "${v[i]}"` };
+    sum += val * _VIN_W[i];
+  }
+  const rem   = sum % 11;
+  const check = rem === 10 ? 'X' : String(rem);
+  if (v[8] !== check) return { valid:false, reason:`cyfra kont. ${v[8]}≠${check}` };
+  return { valid:true };
+}
+
+function _vinCell(v) {
+  if (!v.vin) return '<span style="color:var(--text3)">—</span>';
+  const r = _validateVin(v.vin);
+  if (r.valid) return `<span style="color:var(--text2);font-size:11px;font-family:var(--mono)">${v.vin}</span>`;
+  return `<span style="font-size:11px;font-family:var(--mono);color:var(--red)" title="⚠ VIN: ${r.reason}">${v.vin} ⚠</span>`;
+}
+
+// ==================== DT-1 COMPLETENESS ====================
+// Zwraca { score:0-100, missing:['VIN',...], ok:bool }
+function _dt1Completeness(v) {
+  const fields = [
+    { key: 'vin',             label: 'VIN',           check: v => v.vin && v.vin.length >= 5 },
+    { key: 'dmc',             label: 'DMC',           check: v => v.dmc > 0 },
+    { key: 'osie',            label: 'Osie',          check: v => v.osie > 0 },
+    { key: 'zawieszenie',     label: 'Zawieszenie',   check: v => !!v.zawieszenie },
+    { key: 'dataRejestracji', label: 'Data 1. rej.',  check: v => !!v.dataRejestracji },
+    { key: 'rok',             label: 'Rok prod.',     check: v => !!v.rok },
+    { key: 'paliwo',          label: 'Paliwo',        check: v => !!v.paliwo },
+    { key: 'wlasciciel',      label: 'Właściciel',    check: v => !!v.wlasciciel },
+    { key: 'miesiacePodatku', label: 'Miesiące',      check: v => (v.miesiacePodatku||0) > 0 },
+  ];
+  const missing = fields.filter(f => !f.check(v)).map(f => f.label);
+  const score   = Math.round((fields.length - missing.length) / fields.length * 100);
+  const cat     = calcTax(v).cat;
+  return { score, missing, ok: missing.length === 0 && !!cat, hasCat: !!cat };
+}
+
+function _dt1CompletenessCell(v) {
+  const { score, missing, ok, hasCat } = _dt1Completeness(v);
+  if (ok) return `<span title="Kompletne dane DT-1" style="color:var(--green);font-size:16px">✓</span>`;
+  const color = score >= 80 ? 'var(--amber)' : 'var(--red)';
+  const tip   = missing.length ? `Brakuje: ${missing.join(', ')}${!hasCat?' + brak kategorii':''}` : 'Brak kategorii DT-1';
+  return `<span title="${tip}" style="cursor:help">
+    <span style="font-size:10px;font-weight:700;color:${color}">${score}%</span>
+    ${!hasCat ? '<span style="font-size:9px;color:var(--red)"> kat?</span>' : ''}
+  </span>`;
+}
+
+// ==================== AUTO-KATEGORIA DT-1 ====================
+// ── Kalkulator miesięcy z daty nabycia/zbycia ────────────────────────────
+function _pickMiesiace(vehId) {
+  const v = (window.vehs||[]).find(x=>x.id===vehId); if(!v) return;
+  let pop = document.getElementById('pick-mies-pop');
+  if (pop) pop.remove();
+  pop = document.createElement('div');
+  pop.id = 'pick-mies-pop';
+  pop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center';
+  pop.innerHTML = `
+    <div style="background:var(--bg);border-radius:var(--radius-lg);padding:24px;width:340px;box-shadow:0 8px 32px rgba(0,0,0,.35)">
+      <div style="font-size:15px;font-weight:700;margin-bottom:14px">📅 Oblicz miesiące — ${v.nrRej}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Wybierz typ zdarzenia i datę — liczba miesięcy zostanie obliczona automatycznie.</div>
+      <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px">Zdarzenie:</label>
+      <select id="pm-typ" style="width:100%;padding:7px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;margin-bottom:10px">
+        <option value="nabycie">Nabycie w trakcie roku (obowiązek od tego miesiąca)</option>
+        <option value="zbycie">Zbycie / wygaśnięcie (obowiązek do tego miesiąca)</option>
+      </select>
+      <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px">Data zdarzenia:</label>
+      <input type="date" id="pm-data" style="width:100%;padding:7px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;margin-bottom:10px" value="${new Date().toISOString().slice(0,10)}">
+      <div id="pm-result" style="font-size:13px;font-weight:600;color:var(--green);margin-bottom:14px;min-height:20px"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-green" style="flex:1;justify-content:center" onclick="_applyMiesiace(${vehId})"><i class="ti ti-check"></i>Zastosuj</button>
+        <button class="btn btn-gray" onclick="document.getElementById('pick-mies-pop').remove()">Anuluj</button>
+      </div>
+    </div>`;
+  document.body.appendChild(pop);
+  pop.addEventListener('click', e => { if(e.target===pop) pop.remove(); });
+  // Auto-oblicz przy zmianie
+  pop.querySelectorAll('#pm-typ,#pm-data').forEach(el => el.addEventListener('change', _calcMiesiace));
+  _calcMiesiace();
+}
+
+function _calcMiesiace() {
+  const typ  = document.getElementById('pm-typ')?.value;
+  const data = document.getElementById('pm-data')?.value;
+  const res  = document.getElementById('pm-result');
+  if (!data || !res) return;
+  const m = new Date(data).getMonth() + 1; // 1-12
+  let mies, info;
+  if (typ === 'nabycie') {
+    mies = Math.max(1, 13 - m);
+    info = `Nabycie w miesiącu ${m} → obowiązek przez ${mies} mies. (${m}–12)`;
+  } else {
+    mies = Math.max(1, m);
+    info = `Zbycie w miesiącu ${m} → obowiązek przez ${mies} mies. (1–${m})`;
+  }
+  res.textContent = info;
+  res.dataset.mies = mies;
+}
+
+function _applyMiesiace(vehId) {
+  const res  = document.getElementById('pm-result');
+  const mies = parseInt(res?.dataset?.mies);
+  if (!mies || mies < 1 || mies > 12) { toast('⚠ Nieprawidłowa liczba miesięcy'); return; }
+  setV(vehId, 'miesiacePodatku', mies);
+  toast(`✓ Miesiące: ${mies}`);
+  document.getElementById('pick-mies-pop')?.remove();
+}
+
+function autoAssignCategories() {
+  const nocat = (window.vehs || []).filter(v => !v.cat && !calcTax(v).cat);
+  if (!nocat.length) { toast('✓ Wszystkie pojazdy mają kategorię DT-1'); return; }
+
+  let assigned = 0;
+  (window.vehs || []).forEach(v => {
+    const t = calcTax(v);
+    if (t.cat && !v.cat) { v.cat = t.cat; v.amount = t.amount; assigned++; }
+  });
+
+  renderVeh(); updateCounters();
+  if (assigned) {
+    toast(`✓ Auto-przypisano kategorię DT-1 dla ${assigned} pojazdów`);
+    if (window.TaxOrderFleetCloud?.saveVehicles) {
+      const toSave = (window.vehs||[]).filter(v => v.cat && v.dbId);
+      window.TaxOrderFleetCloud.saveVehicles(toSave);
+    }
+  } else {
+    toast(`⚠ ${nocat.length} pojazdów bez kategorii — uzupełnij DMC i osie`);
+  }
+}
+
+// ==================== DT-1 PER FIRMA ====================
+async function generujDt1PerFirma() {
+  if (typeof DT1Generator === 'undefined') { toast('⚠ Moduł DT1Generator niedostępny'); return; }
+
+  const tp = id => (document.getElementById(id)||{}).value || '';
+  const co = typeof getCurrentCompany === 'function' ? getCurrentCompany() : {};
+  const yr = parseInt(tp('taxYearDT1') || new Date().getFullYear());
+
+  // Grupuj pojazdy wg właściciela (wlasciciel)
+  const groups = {};
+  (window.vehs || []).forEach(v => {
+    const t = calcTax(v);
+    if (!t.cat) return;
+    const owner = (v.wlasciciel || co.name || 'Flota').trim();
+    if (!groups[owner]) groups[owner] = [];
+    groups[owner].push({ ...v, ...t });
+  });
+
+  const owners = Object.keys(groups);
+  if (!owners.length) { toast('⚠ Brak pojazdów opodatkowanych — uzupełnij dane DT-1'); return; }
+
+  if (owners.length === 1) {
+    toast(`ℹ Tylko jeden właściciel (${owners[0]}) — użyj "Generuj PDF (cała flota)"`);
+    return;
+  }
+
+  toast(`⏳ Generuję ${owners.length} deklaracji DT-1...`);
+
+  const baseTaxpayer = {
+    nip:    tp('tp-nip')  || co.nip  || '',
+    organ:  tp('tp-organ')|| co.organ|| '',
+    ulica:  tp('tp-ulica')|| '', dom: tp('tp-dom')||'', lokal: tp('tp-lokal')||'',
+    kod:    tp('tp-kod')  || '', miasto: tp('tp-miasto')||'', woj: tp('tp-woj')||'',
+    imie:   tp('tp-imie') || '', nazwisko: tp('tp-nazwisko')||'',
+    cel:    tp('tp-cel')  || 'DEKLARACJA SKLADANA DO 15 LUTEGO',
+    rodzajPodatnika: tp('tp-rodzaj') || 'niefizyczny',
+  };
+
+  let ok = 0;
+  for (const [owner, vehicles] of Object.entries(groups)) {
+    try {
+      await DT1Generator.generate({ ...baseTaxpayer, nazwa: owner }, vehicles, { rok: yr });
+      ok++;
+    } catch(e) {
+      toast(`⚠ Błąd DT-1 dla "${owner}": ${e.message}`);
+    }
+  }
+  if (ok) toast(`✅ Wygenerowano ${ok} deklaracji DT-1 (po jednej na firmę)`);
+}
+
 // ==================== COLUMN VISIBILITY ====================
-const _COL_DEFAULTS = {rok:1,typ:1,dmc:1,osie:1,zawieszenie:0,dmczesp:0,mies:1,status:1,oc:1,ac:1,przeglad:1,kategoria:1,podatek:1,ocInsurer:0,acInsurer:0,udt:0,tacho:0,kierowca:0,km:0};
+const _COL_DEFAULTS = {rok:1,typ:1,dmc:1,osie:1,zawieszenie:0,dmczesp:0,mies:1,status:1,oc:1,ac:1,przeglad:1,kategoria:1,podatek:1,ocInsurer:0,acInsurer:0,udt:0,tacho:0,kierowca:0,km:0,dt1ok:1,gmina:0};
 let _colVis = null;
 
 function _initColVis() {
@@ -402,11 +623,11 @@ function _renderColPanel() {
     kategoria:'Kategoria',podatek:'Podatek',
     ocInsurer:'Ubezpieczyciel OC',acInsurer:'Ubezpieczyciel AC',
     udt:'Badanie UDT',tacho:'Legalizacja tacho',
-    kierowca:'Kierowca',km:'Stan km',
+    kierowca:'Kierowca',km:'Stan km',dt1ok:'Kompletność DT-1',gmina:'Gmina DT-1',
   };
   const GROUPS = [
     {label:'Podstawowe',cols:['rok','typ','dmc','status','kierowca','km']},
-    {label:'Podatek DT-1',cols:['osie','zawieszenie','dmczesp','mies','kategoria','podatek']},
+    {label:'Podatek DT-1',cols:['dt1ok','gmina','osie','zawieszenie','dmczesp','mies','kategoria','podatek']},
     {label:'Ubezpieczenia',cols:['oc','ac','przeglad','ocInsurer','acInsurer']},
     {label:'Badania techniczne',cols:['udt','tacho']},
   ];
@@ -574,11 +795,9 @@ function renderDash() {
     })
     .sort((a,b) => a.minDate - b.minDate);
 
-  if(!alerts.length) {
-    alertsEl.innerHTML = '<tr><td colspan="7" style="color:var(--text3);text-align:center;padding:12px">Brak alertów — wszystkie terminy aktualne</td></tr>';
-    return;
-  }
-  alertsEl.innerHTML = alerts.map(({v}) => `<tr>
+  alertsEl.innerHTML = !alerts.length
+    ? '<tr><td colspan="7" style="color:var(--text3);text-align:center;padding:12px">Brak alertów — wszystkie terminy aktualne</td></tr>'
+    : alerts.map(({v}) => `<tr>
     <td><strong style="font-family:var(--mono)">${v.nrRej}</strong></td>
     <td style="font-size:12px">${v.marka} ${v.model}</td>
     <td>${_datePill(v.ocEnd)}</td>
@@ -597,6 +816,7 @@ function renderDash() {
   renderFuelDash();
   _renderServiceDash();
   _renderFinesDash();
+  _renderFleetKpi();
 }
 
 function _renderServiceDash() {
@@ -627,6 +847,8 @@ function _renderFinesDash() {
   const el = document.getElementById('dash-fines');
   if (!el || !window.FinesModule) return;
   const alerts = window.FinesModule.getUnpaidAlerts();
+  const badge = document.getElementById('fines-nav-badge');
+  if (badge) { badge.textContent = alerts.length || ''; badge.style.display = alerts.length ? '' : 'none'; }
   if (!alerts.length) {
     el.style.display = 'none';
     return;
@@ -650,6 +872,75 @@ function _renderFinesDash() {
         <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${dl===null?'var(--text3)':dl<0?'var(--red)':dl<=3?'var(--red)':'var(--amber)'}">${dl===null?'—':dl<0?Math.abs(dl)+'d temu':'za '+dl+'d'}</span>
       </div>`;
     }).join('')}`;
+}
+
+function _renderFleetKpi() {
+  const el = document.getElementById('dash-fleet-kpi');
+  if (!el) return;
+  const allVehs     = window.vehs || [];
+  const active      = allVehs.filter(v => v.is_active !== false);
+  const archived    = allVehs.length - active.length;
+  const svcUpcoming = window.ServiceModule?.getUpcomingServices(14) || [];
+  const svcOverdue  = svcUpcoming.filter(x => x.days < 0);
+  const unpaidFines = window.FinesModule?.getUnpaidAlerts() || [];
+  const finesAmt    = unpaidFines.reduce((s,f) => s+(f.amount||0), 0);
+  let docAlerts = 0;
+  allVehs.forEach(v => { docAlerts += (window.DocumentsModule?.getDocAlerts(v, 30)||[]).length; });
+  const now = new Date();
+  const withAlerts  = allVehs.filter(v =>
+    [v.ocEnd, v.acEnd, v.nextInspection].some(d => d && (new Date(d)-now) < 60*86400000)
+  ).length;
+
+  // VIN errors
+  const vinErrors = allVehs.filter(v => v.vin && !_validateVin(v.vin).valid).length;
+
+  // Incomplete DT-1
+  const dt1Incomplete = allVehs.filter(v => !_dt1Completeness(v).ok).length;
+
+  // TCO YTD (bieżący rok)
+  const yrPfx = String(now.getFullYear());
+  let tcoYtd = 0;
+  allVehs.forEach(v => {
+    tcoYtd += (v.fuelHistory||[]).filter(h=>(h.date||'').startsWith(yrPfx)).reduce((s,h)=>s+(h.totalGross||0),0);
+    tcoYtd += (v.serviceHistory||[]).filter(h=>(h.date||'').startsWith(yrPfx)).reduce((s,h)=>s+(h.cost||0),0);
+  });
+  const tcoFmt = tcoYtd >= 1e6
+    ? (tcoYtd/1e6).toFixed(1)+'M'
+    : tcoYtd >= 1e3 ? Math.round(tcoYtd/1000)+'k' : Math.round(tcoYtd).toString();
+
+  // Tax YTD
+  const totalTaxYtd = allVehs.reduce((s,v) => s + ((calcTax(v)||{}).amount||0), 0);
+  const taxFmt = totalTaxYtd >= 1e6
+    ? (totalTaxYtd/1e6).toFixed(1)+'M'
+    : totalTaxYtd >= 1e3 ? Math.round(totalTaxYtd/1e3)+'k' : Math.round(totalTaxYtd).toString();
+
+  const _pln = t('common.pln');
+  const chips = [
+    { icon:'ti-truck',          label:t('kpi.active'),         val:active.length,           unit:archived>0?`${archived} ${t('common.vehicles')}`:'', color:'var(--blue)',  click:'' },
+    { icon:'ti-receipt-2',      label:t('kpi.dt1.tax'),        val:`${taxFmt} ${_pln}`,     unit:`${allVehs.filter(v=>calcTax(v).cat).length} ${t('common.vehicles')}`,  color:'var(--blue)',  click:"showPage('formularze')" },
+    { icon:'ti-currency-zloty', label:t('kpi.costs'),          val:`${tcoFmt} ${_pln}`,     unit:'paliwo + serwis YTD',  color:'var(--text)', click:"showPage('raporty')" },
+    { icon:'ti-alert-circle',   label:t('kpi.alerts'),         val:withAlerts,              unit:`${t('common.vehicles')} (60 dni)`, color:withAlerts>0?'var(--amber)':'var(--green)', click:'' },
+    { icon:'ti-tools',          label:t('kpi.service'),        val:svcUpcoming.length,      unit:svcOverdue.length>0?`${svcOverdue.length} zaległe`:'nadchodzące', color:svcOverdue.length>0?'var(--red)':svcUpcoming.length>0?'var(--amber)':'var(--green)', click:'' },
+    { icon:'ti-alert-triangle', label:t('kpi.fines'),          val:unpaidFines.length,      unit:finesAmt>0?`${finesAmt.toFixed(0)} ${_pln}`:'', color:unpaidFines.length>0?'var(--red)':'var(--green)', click:"FinesModule.open()" },
+    { icon:'ti-files',          label:t('kpi.docs'),           val:docAlerts,               unit:'w ciągu 30 dni', color:docAlerts>0?'var(--amber)':'var(--green)', click:'' },
+    { icon:'ti-clipboard-check',label:t('kpi.dt1.incomplete'), val:dt1Incomplete,           unit:t('common.vehicles'), color:dt1Incomplete>0?'var(--amber)':'var(--green)', click:"showPage('pojazdy')" },
+    { icon:'ti-id',             label:t('kpi.vin.errors'),     val:vinErrors,               unit:vinErrors>0?'do weryfikacji':'', color:vinErrors>0?'var(--red)':'var(--green)', click:'' },
+  ];
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px">
+      ${chips.map(c => `
+        <div style="background:var(--bg3);border-radius:var(--radius);padding:10px 12px;display:flex;align-items:center;gap:10px;${c.click?'cursor:pointer':''}${c.click?`;border:1px solid transparent`:''};"
+          ${c.click?`onclick="${c.click}" onmouseenter="this.style.borderColor='var(--blue)'" onmouseleave="this.style.borderColor='transparent'"`:''}
+        >
+          <i class="ti ${c.icon}" style="font-size:18px;color:${c.color};flex-shrink:0"></i>
+          <div style="min-width:0">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.label}</div>
+            <div style="font-size:17px;font-weight:700;font-family:var(--mono);color:${c.color};line-height:1.2">${c.val}</div>
+            ${c.unit?`<div style="font-size:10px;color:var(--text2)">${c.unit}</div>`:''}
+          </div>
+        </div>`).join('')}
+    </div>`;
 }
 
 // ==================== FORMULARZE ====================
@@ -707,6 +998,7 @@ function renderFormularze() {
     'WYGASNIECIE OBOWIAZKU W TRAKCIE ROKU': '3',
     'ZMIANA MIEJSCA ZAMIESZKANIA LUB SIEDZIBY': '4',
     'KOREKTA DEKLARACJI': '5',
+    'PRZEDLUZENIE WYCOFANIA': '6',
   };
   const celNr = celMap[tp('tp-cel')] || '1';
 
@@ -1485,6 +1777,47 @@ async function pobierzWypelnionyPDF(){
 }
 
 
+
+async function generujDt1Multi() {
+  if (typeof DT1Generator === 'undefined') {
+    toast('⚠ Moduł DT1Generator niedostępny — sprawdź czy dt1-generator.js jest załadowany');
+    return;
+  }
+  // Wszystkie pojazdy floty z kategorią DT-1 (nie tylko zaznaczone)
+  const allTaxable = (window.vehs || []).map(v => ({ ...v, ...calcTax(v) })).filter(v => v.cat);
+  if (!allTaxable.length) {
+    toast('⚠ Brak pojazdów opodatkowanych w flocie — uzupełnij kategorie DT-1 w kalkulatorze');
+    return;
+  }
+
+  const tp = id => (document.getElementById(id) || {}).value || '';
+  const co = typeof getCurrentCompany === 'function' ? getCurrentCompany() : {};
+  const yr = tp('taxYearDT1') || String(new Date().getFullYear());
+
+  const taxpayerData = {
+    nip:    tp('tp-nip')      || co.nip      || '',
+    nazwa:  tp('tp-nazwa')    || co.name      || '',
+    organ:  tp('tp-organ')    || co.organ     || '',
+    ulica:  tp('tp-ulica')    || co.street    || '',
+    dom:    tp('tp-dom')      || co.building  || '',
+    lokal:  tp('tp-lokal')    || co.flat      || '',
+    kod:    tp('tp-kod')      || co.postalCode|| '',
+    miasto: tp('tp-miasto')   || co.city      || '',
+    woj:    tp('tp-woj')      || co.woj       || '',
+    imie:   tp('tp-imie')     || '',
+    nazwisko: tp('tp-nazwisko')|| '',
+    cel:    tp('tp-cel')      || 'DEKLARACJA SKLADANA DO 15 LUTEGO',
+    rodzajPodatnika: tp('tp-rodzaj') || 'niefizyczny',
+  };
+
+  toast(`⏳ Generuję DT-1 dla ${allTaxable.length} pojazdów...`);
+  try {
+    await DT1Generator.generate(taxpayerData, allTaxable, { rok: parseInt(yr) });
+  } catch(e) {
+    toast('❌ ' + e.message);
+    console.error('[DT1Multi]', e);
+  }
+}
 
 function printFormularze() {
   renderFormularze();
@@ -4460,6 +4793,16 @@ function _checkKobizeReminder() {
   document.body.appendChild(toast2);
   setTimeout(() => { if (document.getElementById('_kobize-reminder')) _closeKobize(); }, 30000);
 }
+
+// ==================== I18N RE-RENDER ====================
+// When the user switches language, refresh all dynamic content
+document.addEventListener('i18nChanged', () => {
+  if (typeof renderVeh === 'function')       renderVeh();
+  if (typeof _renderFleetKpi === 'function') _renderFleetKpi();
+  if (typeof updateCounters === 'function')  updateCounters();
+  if (window.FleetReports) FleetReports.renderPage();
+  if (window.I18n) I18n.renderSelector();
+});
 
 // ==================== INIT ====================
 

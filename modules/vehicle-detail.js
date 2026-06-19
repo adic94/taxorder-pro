@@ -6,6 +6,7 @@ window.TaxOrderVehicleDetail = {
   open(vehId) {
     const v = vehs.find(x => x.id === vehId);
     if (!v) return;
+    this._currentVehId = vehId;
     this._render(v);
     document.getElementById('vd-modal').style.display = 'flex';
   },
@@ -200,6 +201,7 @@ window.TaxOrderVehicleDetail = {
           ['notes',     '📝 Uwagi'],
           ['dokumenty', '📄 Dokumenty'],
           ['mandaty',   '🚨 Mandaty'],
+          ['gps',       '🗺 GPS'],
         ].map(([t,label],i) => `
           <button onclick="TaxOrderVehicleDetail._tab('${t}')" id="vd-tab-${t}"
             style="flex-shrink:0;padding:6px 10px;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:11px;font-weight:500;white-space:nowrap;
@@ -563,6 +565,11 @@ window.TaxOrderVehicleDetail = {
         </div>
       </div>
 
+      <!-- TAB: GPS HISTORY -->
+      <div id="vd-tab-gps-content" class="vd-tab-content" style="display:none">
+        <div id="vd-gps-body">${this._renderGpsTab(v)}</div>
+      </div>
+
       <!-- PRZYPISANE KARTY FLOTOWE -->
       <div style="margin-top:20px;padding-top:16px;border-top:0.5px solid var(--border)">
         <div style="font-size:13px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:8px">
@@ -831,7 +838,129 @@ window.TaxOrderVehicleDetail = {
     if (dok && window.DocumentsModule) dok.innerHTML = window.DocumentsModule.renderForVehicle(v);
     const man = document.getElementById('vd-mandaty-body');
     if (man && window.FinesModule) man.innerHTML = window.FinesModule.renderForVehicle(v.nrRej);
+    const gps = document.getElementById('vd-gps-body');
+    if (gps) gps.innerHTML = this._renderGpsTab(v);
     this.refreshServiceTab(vehId);
+  },
+
+  _renderGpsTab(v) {
+    const gps = [...(v.gpsHistory || [])].sort((a,b) => {
+      const da = (a.date||'') + (a.time||'');
+      const db = (b.date||'') + (b.time||'');
+      return da < db ? 1 : da > db ? -1 : 0;
+    });
+
+    if (!gps.length) return `
+      <div style="text-align:center;padding:40px;color:var(--text3)">
+        <i class="ti ti-map-off" style="font-size:36px;display:block;margin-bottom:12px"></i>
+        Brak danych GPS dla tego pojazdu.<br>
+        <span style="font-size:12px">Zaimportuj dane z MyCar / TEKOM przez <strong>Import GPS</strong> w menu CEPiK.</span>
+      </div>`;
+
+    const kms   = gps.filter(r => r.km != null && r.km > 0).map(r => r.km);
+    const minKm = kms.length ? Math.min(...kms) : null;
+    const maxKm = kms.length ? Math.max(...kms) : null;
+    const dates = gps.filter(r => r.date).map(r => r.date).sort();
+    const drivers = [...new Set(gps.filter(r=>r.driver).map(r=>r.driver))];
+
+    return `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+        <div class="stat-chip"><span>${gps.length}</span> rekordów GPS</div>
+        ${dates.length ? `<div class="stat-chip"><span>${dates[0]}</span> — <span>${dates[dates.length-1]}</span></div>` : ''}
+        ${minKm != null ? `<div class="stat-chip"><span>${minKm.toLocaleString('pl-PL')}</span> – <span>${maxKm.toLocaleString('pl-PL')} km</span></div>` : ''}
+        ${drivers.length ? `<div class="stat-chip"><span>${drivers.length}</span> kierowców</div>` : ''}
+        <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="TaxOrderVehicleDetail._exportGpsCsv(${v.id})">
+          <i class="ti ti-download"></i>CSV
+        </button>
+      </div>
+      <div class="tbl-wrap" style="max-height:360px;overflow-y:auto">
+        <table style="width:100%;font-size:11px">
+          <thead style="position:sticky;top:0"><tr>
+            <th>Data</th><th>Czas</th>
+            <th style="text-align:right">Km</th>
+            <th>Kierowca</th>
+            <th style="text-align:right">V max (km/h)</th>
+            <th>Lokalizacja</th>
+            <th>Zdarzenie</th>
+          </tr></thead>
+          <tbody>
+            ${gps.slice(0,200).map(r => `<tr>
+              <td style="font-family:var(--mono);white-space:nowrap">${r.date||'—'}</td>
+              <td style="font-family:var(--mono);color:var(--text2)">${r.time||'—'}</td>
+              <td style="text-align:right;font-family:var(--mono)">${r.km!=null?r.km.toLocaleString('pl-PL'):'—'}</td>
+              <td style="white-space:nowrap">${r.driver||'—'}</td>
+              <td style="text-align:right;font-family:var(--mono);color:${r.speed>100?'var(--red)':'var(--text)'}">${r.speed!=null?r.speed:'—'}</td>
+              <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)" title="${r.location||''}">${r.location||'—'}</td>
+              <td style="font-size:10px;color:var(--text3)">${r.event||''}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+        ${gps.length > 200 ? `<div style="text-align:center;padding:8px;font-size:11px;color:var(--text3)">Wyświetlono 200 z ${gps.length} rekordów</div>` : ''}
+      </div>`;
+  },
+
+  _exportGpsCsv(vehId) {
+    const v = (window.vehs||[]).find(x => x.id === vehId);
+    if (!v) return;
+    const gps = [...(v.gpsHistory||[])].sort((a,b)=>(a.date+a.time)<(b.date+b.time)?1:-1);
+    const headers = ['Data','Czas','Nr rej.','Km','Kierowca','V max (km/h)','Lokalizacja','Zdarzenie'];
+    const csv = '﻿' + [headers, ...gps.map(r=>[r.date,r.time,r.nrRej,r.km??'',r.driver,r.speed??'',r.location,r.event])]
+      .map(row => row.map(c=>`"${String(c??'').replace(/"/g,'""')}"`).join(';')).join('\r\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download=`gps_${v.nrRej}_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    toast(`✓ GPS CSV: ${gps.length} rekordów`);
+  },
+
+  printCard() {
+    const v = (window.vehs||[]).find(x => x.id === this._currentVehId);
+    if (!v) { toast('⚠ Otwórz kartę pojazdu'); return; }
+    const fd = d => d ? new Date(d).toLocaleDateString('pl-PL') : '—';
+    const fz = n => n != null ? (+n).toFixed(2).replace('.',',') + ' zł' : '—';
+    const row = (lbl, val) => `<tr><td style="padding:5px 10px;color:#6b7280;font-size:11px;width:200px">${lbl}</td><td style="padding:5px 10px;font-weight:600;font-size:12px">${val||'—'}</td></tr>`;
+    const svcRows = [...(v.serviceHistory||[])].slice(0,8).map(s=>`
+      <tr style="border-bottom:1px solid #e5e7eb">
+        <td style="padding:5px 10px;font-family:monospace;font-size:11px">${s.date||'—'}</td>
+        <td style="padding:5px 10px;font-size:11px">${window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label||s.type||'—'}</td>
+        <td style="padding:5px 10px;font-size:11px;color:#6b7280">${s.description||'—'}</td>
+        <td style="padding:5px 10px;text-align:right;font-family:monospace;font-size:11px">${s.km?s.km.toLocaleString('pl-PL')+' km':'—'}</td>
+        <td style="padding:5px 10px;text-align:right;font-family:monospace;font-size:11px">${s.cost?s.cost.toFixed(2)+' zł':'—'}</td>
+      </tr>`).join('');
+    const html = `<!DOCTYPE html>
+<html lang="pl"><head><meta charset="UTF-8">
+<title>Karta pojazdu — ${v.nrRej}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,sans-serif;font-size:12px;color:#1f2937;padding:20px;max-width:800px;margin:0 auto}
+h1{font-size:22px;font-weight:800;font-family:monospace;color:#1d4ed8;margin-bottom:2px}
+h2{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin:14px 0 4px;border-bottom:1px solid #e5e7eb;padding-bottom:3px}
+table{width:100%;border-collapse:collapse}th{background:#f9fafb;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6b7280;padding:5px 10px;text-align:left}
+@media print{button{display:none}body{padding:8px}}</style></head>
+<body>
+<button onclick="window.print()" style="float:right;background:#1d4ed8;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;margin-bottom:8px">🖨 Drukuj</button>
+<h1>${v.nrRej}</h1>
+<div style="color:#6b7280;font-size:13px;margin-bottom:4px">${v.marka} ${v.model} · ${v.rok||'—'} · ${v.typ||'—'}</div>
+<div style="font-size:10px;color:#9ca3af;margin-bottom:14px">Wygenerowano: ${new Date().toLocaleDateString('pl-PL')} | TaxOrder Pro</div>
+<h2>Identyfikacja</h2>
+<table>${row('VIN',`<span style="font-family:monospace">${v.vin||'—'}</span>`)}
+${row('DMC',(v.dmc||0).toLocaleString('pl-PL')+' kg')}${row('EURO',v.euro)}
+${row('Status własności',v.status)}${row('Właściciel',v.wlasciciel)}
+${row('Kierowca',v.kierowca)}${row('Stan licznika',v.stanKilometrow!=null?v.stanKilometrow.toLocaleString('pl-PL')+' km':null)}</table>
+<h2>Ubezpieczenia</h2>
+<table>${row('OC ważne do',fd(v.ocEnd))}${row('Ubezpieczyciel OC',v.ocInsurer)}
+${row('Nr polisy OC',v.ocPolicyNo)}${row('Składka OC',fz(v.ocPremium))}
+${row('AC ważne do',fd(v.acEnd))}${row('Ubezpieczyciel AC',v.acInsurer)}</table>
+<h2>Badania</h2>
+<table>${row('Następny przegląd',fd(v.nextInspection))}${row('Stacja SKP',v.inspectionStation)}
+${v.hasUdt?row('Badanie UDT',fd(v.udtNextDate)):''}
+${v.hasTacho?row('Legalizacja tachografu',fd(v.tachoNextCalib)):''}
+${v.tireNextChange?row('Zmiana opon',fd(v.tireNextChange)):''}</table>
+${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
+<table><thead><tr><th>Data</th><th>Typ</th><th>Opis</th><th style="text-align:right">Km</th><th style="text-align:right">Koszt</th></tr></thead>
+<tbody>${svcRows}</tbody></table>`:''}
+</body></html>`;
+    const win = window.open('', '_blank', 'width=860,height=960');
+    if (!win) { toast('⚠ Zezwól na wyskakujące okna w przeglądarce'); return; }
+    win.document.write(html); win.document.close();
   },
 
   _tab(name) {

@@ -45,10 +45,14 @@ WZ124HW;2025-06-01;07:45:00;12430;Adam Nowak;65;al. Jerozolimskie 120, Warszawa`
     if (!f) return;
     const reader = new FileReader();
     reader.onload = e => {
-      _fileContent = e.target.result;
-      _detectAndParse(_fileContent);
+      const bytes = new Uint8Array(e.target.result);
+      let text;
+      try { text = new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
+      catch { text = new TextDecoder('windows-1250').decode(bytes); }
+      _fileContent = text;
+      _detectAndParse(text);
     };
-    reader.readAsText(f, 'UTF-8');
+    reader.readAsArrayBuffer(f);
   }
 
   function _detectAndParse(text) {

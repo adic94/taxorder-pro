@@ -77,6 +77,8 @@ window.TaxOrderNotifications = (function () {
           .map(s => ({ field: 'svc_'+s.id, label: (window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label || 'Serwis'), date: s.nextServiceDate })),
         // Alert zmiany opon
         ...(v.tireNextChange ? [{ field: 'tireChange', label: 'Zmiana opon', date: v.tireNextChange }] : []),
+        // Alerty dokumentów z DocumentsModule
+        ...(window.DocumentsModule?.getDocAlerts(v, WARN_DAYS) || []),
       ];
 
       checks.forEach(({ field, label, date }) => {
@@ -99,6 +101,26 @@ window.TaxOrderNotifications = (function () {
           body = `${v.marka} ${v.model}\nTermin: ${dateStr}`;
         }
 
+        _send(title, body, key);
+        _markSent(key);
+        sent++;
+      });
+
+      // KM-based service alerts
+      (v.serviceHistory||[]).filter(s => s.nextServiceKm && v.stanKilometrow).forEach(s => {
+        const kmLeft = +s.nextServiceKm - (+v.stanKilometrow||0);
+        if (kmLeft > 500) return;
+        const key = `${v.nrRej}__svc_km_${s.id}`;
+        if (_wasSentToday(key)) return;
+        const svcLabel = window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label || 'Serwis';
+        let title, body;
+        if (kmLeft <= 0) {
+          title = `❌ ${v.nrRej} — ${svcLabel} PRZETERMINOWANY (km)`;
+          body = `${v.marka} ${v.model}\nPrzekroczono o ${Math.abs(Math.round(kmLeft))} km`;
+        } else {
+          title = `⚠ ${v.nrRej} — ${svcLabel} za ${Math.round(kmLeft)} km`;
+          body = `${v.marka} ${v.model}\nPlan: ${s.nextServiceKm} km, stan: ${v.stanKilometrow} km`;
+        }
         _send(title, body, key);
         _markSent(key);
         sent++;
