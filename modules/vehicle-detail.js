@@ -202,12 +202,15 @@ window.TaxOrderVehicleDetail = {
           ['dokumenty', '📄 Dokumenty'],
           ['mandaty',   '🚨 Mandaty'],
           ['gps',       '🗺 GPS'],
-        ].map(([t,label],i) => `
-          <button onclick="TaxOrderVehicleDetail._tab('${t}')" id="vd-tab-${t}"
+        ].map(([tabKey, fallback], i) => {
+          const label = window.t ? (window.t('vd.tab.' + tabKey) !== 'vd.tab.' + tabKey ? window.t('vd.tab.' + tabKey) : fallback) : fallback;
+          return `
+          <button onclick="TaxOrderVehicleDetail._tab('${tabKey}')" id="vd-tab-${tabKey}"
             style="flex-shrink:0;padding:6px 10px;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:11px;font-weight:500;white-space:nowrap;
             background:${i===0?'var(--bg)':'transparent'};color:${i===0?'var(--text)':'var(--text2)'}">
             ${label}
-          </button>`).join('')}
+          </button>`;
+        }).join('')}
       </div>
 
       <!-- TAB: DOWÓD REJESTRACYJNY -->
@@ -255,11 +258,11 @@ window.TaxOrderVehicleDetail = {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
           <button class="btn btn-amber" style="justify-content:center"
             onclick="AztecScanner.open(${v.id})">
-            <i class="ti ti-qrcode"></i>Skanuj AZTEC z DR
+            <i class="ti ti-qrcode"></i>${window.t?.('vd.btn.scan') || 'Skanuj AZTEC z DR'}
           </button>
           <button class="btn btn-blue" style="justify-content:center"
             onclick="TaxOrderVehicleDetail._syncCepik(${v.id})">
-            <i class="ti ti-refresh"></i>Synchronizuj z CEPiK
+            <i class="ti ti-refresh"></i>${window.t?.('vd.btn.sync.cepik') || 'Synchronizuj z CEPiK'}
           </button>
         </div>
       </div>

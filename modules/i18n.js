@@ -159,6 +159,29 @@ window.I18n = (function () {
       'toast.backup.ok': '✓ Backup zapisany',
       'toast.import.ok': '✅ Import zakończony',
       'toast.no.sel':    '⚠ Nie zaznaczono pojazdów',
+      // Vehicle-detail modal tabs
+      'vd.modal.title':      'Karta pojazdu',
+      'vd.tab.dr':           '📋 DR',
+      'vd.tab.badania':      '🔧 Badania',
+      'vd.tab.insurance':    '🛡 Polisy',
+      'vd.tab.serwis':       '🔧 Serwis',
+      'vd.tab.opony':        '⭕ Opony',
+      'vd.tab.eksploatacja': '⚙ Eksploatacja',
+      'vd.tab.koszty':       '⛽ Koszty',
+      'vd.tab.ownership':    '🏢 Własność',
+      'vd.tab.purchase':     '💰 Zakup/Zbycie',
+      'vd.tab.archive':      '📦 Archiwum',
+      'vd.tab.notes':        '📝 Uwagi',
+      'vd.tab.dokumenty':    '📄 Dokumenty',
+      'vd.tab.mandaty':      '🚨 Mandaty',
+      'vd.tab.gps':          '🗺 GPS',
+      // Vehicle-detail buttons
+      'vd.btn.scan':         'Skanuj AZTEC z DR',
+      'vd.btn.sync.cepik':   'Synchronizuj z CEPiK',
+      'vd.btn.save':         'Zapisz pojazd',
+      'vd.btn.archive':      'Archiwizuj',
+      'vd.btn.restore':      'Przywróć',
+      'vd.btn.delete':       'Usuń pojazd',
       // Vehicle types
       'vtype.ciezarowy':  'Ciężarowy',
       'vtype.przyczepa':  'Przyczepa',
@@ -305,6 +328,28 @@ window.I18n = (function () {
       'toast.backup.ok': '✓ Backup saved',
       'toast.import.ok': '✅ Import complete',
       'toast.no.sel':    '⚠ No vehicles selected',
+      // Vehicle-detail modal tabs
+      'vd.modal.title':      'Vehicle card',
+      'vd.tab.dr':           '📋 Reg. Doc.',
+      'vd.tab.badania':      '🔧 Inspections',
+      'vd.tab.insurance':    '🛡 Insurance',
+      'vd.tab.serwis':       '🔧 Service',
+      'vd.tab.opony':        '⭕ Tires',
+      'vd.tab.eksploatacja': '⚙ Operation',
+      'vd.tab.koszty':       '⛽ Costs',
+      'vd.tab.ownership':    '🏢 Ownership',
+      'vd.tab.purchase':     '💰 Purchase/Sale',
+      'vd.tab.archive':      '📦 Archive',
+      'vd.tab.notes':        '📝 Notes',
+      'vd.tab.dokumenty':    '📄 Documents',
+      'vd.tab.mandaty':      '🚨 Fines',
+      'vd.tab.gps':          '🗺 GPS',
+      'vd.btn.scan':         'Scan AZTEC from Doc.',
+      'vd.btn.sync.cepik':   'Sync with CEPiK',
+      'vd.btn.save':         'Save vehicle',
+      'vd.btn.archive':      'Archive',
+      'vd.btn.restore':      'Restore',
+      'vd.btn.delete':       'Delete vehicle',
       'vtype.ciezarowy':  'Truck',
       'vtype.przyczepa':  'Trailer',
       'vtype.naczepa':    'Semi-trailer',
@@ -449,6 +494,27 @@ window.I18n = (function () {
       'toast.backup.ok': '✓ Datensicherung gespeichert',
       'toast.import.ok': '✅ Import abgeschlossen',
       'toast.no.sel':    '⚠ Keine Fahrzeuge ausgewählt',
+      'vd.modal.title':      'Fahrzeugkarte',
+      'vd.tab.dr':           '📋 Fahrzeugschein',
+      'vd.tab.badania':      '🔧 Prüfungen',
+      'vd.tab.insurance':    '🛡 Versicherungen',
+      'vd.tab.serwis':       '🔧 Wartung',
+      'vd.tab.opony':        '⭕ Reifen',
+      'vd.tab.eksploatacja': '⚙ Betrieb',
+      'vd.tab.koszty':       '⛽ Kosten',
+      'vd.tab.ownership':    '🏢 Eigentum',
+      'vd.tab.purchase':     '💰 Kauf/Verkauf',
+      'vd.tab.archive':      '📦 Archiv',
+      'vd.tab.notes':        '📝 Notizen',
+      'vd.tab.dokumenty':    '📄 Dokumente',
+      'vd.tab.mandaty':      '🚨 Bußgelder',
+      'vd.tab.gps':          '🗺 GPS',
+      'vd.btn.scan':         'AZTEC aus Dokument scannen',
+      'vd.btn.sync.cepik':   'Mit CEPiK synchronisieren',
+      'vd.btn.save':         'Fahrzeug speichern',
+      'vd.btn.archive':      'Archivieren',
+      'vd.btn.restore':      'Wiederherstellen',
+      'vd.btn.delete':       'Fahrzeug löschen',
       'vtype.ciezarowy':  'Lkw',
       'vtype.przyczepa':  'Anhänger',
       'vtype.naczepa':    'Sattelauflieger',
@@ -593,6 +659,27 @@ window.I18n = (function () {
       'toast.backup.ok': '✓ Резервну копію збережено',
       'toast.import.ok': '✅ Імпорт завершено',
       'toast.no.sel':    '⚠ Не вибрано жодного ТЗ',
+      'vd.modal.title':      'Картка ТЗ',
+      'vd.tab.dr':           '📋 ТП',
+      'vd.tab.badania':      '🔧 Огляди',
+      'vd.tab.insurance':    '🛡 Страхування',
+      'vd.tab.serwis':       '🔧 ТО',
+      'vd.tab.opony':        '⭕ Шини',
+      'vd.tab.eksploatacja': '⚙ Експлуатація',
+      'vd.tab.koszty':       '⛽ Витрати',
+      'vd.tab.ownership':    '🏢 Власність',
+      'vd.tab.purchase':     '💰 Купівля/Продаж',
+      'vd.tab.archive':      '📦 Архів',
+      'vd.tab.notes':        '📝 Нотатки',
+      'vd.tab.dokumenty':    '📄 Документи',
+      'vd.tab.mandaty':      '🚨 Штрафи',
+      'vd.tab.gps':          '🗺 GPS',
+      'vd.btn.scan':         'Сканувати AZTEC',
+      'vd.btn.sync.cepik':   'Синхронізувати з CEPiK',
+      'vd.btn.save':         'Зберегти ТЗ',
+      'vd.btn.archive':      'Архівувати',
+      'vd.btn.restore':      'Відновити',
+      'vd.btn.delete':       'Видалити ТЗ',
       'vtype.ciezarowy':  'Вантажівка',
       'vtype.przyczepa':  'Причіп',
       'vtype.naczepa':    'Напівпричіп',
@@ -619,6 +706,7 @@ window.I18n = (function () {
     if (!DICT[code]) return;
     _lang = code;
     localStorage.setItem(LS_KEY, code);
+    document.documentElement.lang = code;
     apply();
     _refreshSelector();
     document.dispatchEvent(new CustomEvent('i18nChanged', { detail: { lang: code } }));
@@ -658,7 +746,11 @@ window.I18n = (function () {
 
   // Scripts at the bottom of <body> run after DOM is parsed,
   // so DOMContentLoaded may have already fired — handle both cases.
-  function _init() { apply(); _refreshSelector(); }
+  function _init() {
+    document.documentElement.lang = _lang;
+    apply();
+    _refreshSelector();
+  }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', _init);
   } else {

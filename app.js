@@ -1838,11 +1838,23 @@ function syncTpCel() {
 }
 
 // ==================== TOAST ====================
+// Auto-translates common Polish prefixes when a non-PL language is active.
+// Dynamic suffixes (plate numbers, counts, etc.) are preserved as-is.
 function toast(msg) {
-  const t = document.getElementById('toast');
-  t.innerHTML = `<i class="ti ti-check"></i> ${msg}`;
-  t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),3000);
+  if (window.I18n && window.I18n.getLang() !== 'pl') {
+    msg = msg
+      .replace(/^✓ Zapisano(\b|$)/,     window.t('toast.saved') + ' ')
+      .replace(/^✓ Usunięto(\b|$)/,     window.t('toast.deleted') + ' ')
+      .replace(/^❌ Błąd(\b|$)/,         window.t('toast.error') + ' ')
+      .replace(/^✅ Import zakończony/,   window.t('toast.import.ok'))
+      .replace(/^✓ Backup zapisany/,     window.t('toast.backup.ok'))
+      .replace(/^⚠ Nie zaznaczono/,      window.t('toast.no.sel'))
+      .trim();
+  }
+  const el = document.getElementById('toast');
+  el.innerHTML = `<i class="ti ti-check"></i> ${msg}`;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
 }
 
 // ==================== WALIDACJA ====================
