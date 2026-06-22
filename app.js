@@ -2456,6 +2456,13 @@ function handleDrop(e){
 
 function processOcrFile(f){
   if(f.size>20*1024*1024){toast('⚠ Plik za duży — maks. 20 MB');return;}
+  // Wyczyść stan poprzedniego dokumentu
+  window._ocrIsPdf=false;
+  window._ocrPage2=null;
+  window._ocrPage2Text=null;
+  window._ocrCombinedText=null;
+  window._ocrBase64=null;
+  window._ocrLastRawText='';
   ocrFile=f; ocrMime=f.type||'image/jpeg';
   const reader=new FileReader();
   reader.onload=async e=>{
@@ -2725,10 +2732,41 @@ async function runOCR(){
     window._ocrBase64=ocrBase64;
     const conf=result.data.confidence||0;
 
-    // Parsuj tekst
-    const parsed=parseRegistrationDoc(combinedText||rawText);
-    parsed._rawText=rawText;
-    parsed._confidence=conf;
+    // Parsuj regex (fallback)
+    const parsedRegex=parseRegistrationDoc(combinedText||rawText);
+    parsedRegex._rawText=rawText;
+    parsedRegex._confidence=conf;
+    bar.style.width='92%';
+
+    // Wywołaj AI tekst jako główny wynik (znacznie dokładniejszy niż regex)
+    let parsed=parsedRegex;
+    try{
+      const apiUrl=(window.CF_API_URL||'').replace(/\/$/,'');
+      const token=localStorage.getItem('cf_token');
+      if(apiUrl){
+        btn.innerHTML='<i class="ti ti-brain"></i> AI analizuje tekst...';
+        const aiPrompt=`Jesteś ekspertem od polskich dowodów rejestracyjnych. Przeanalizuj poniższy tekst OCR (zawiera 4 rotacje: 0°/90°/180°/270°) i wyodrębnij dane pojazdu. Zwróć WYŁĄCZNIE JSON bez markdown:
+{"nrRej":"","dataRej":"DD.MM.RRRR","marka":"","typ":"","vin":"17 znakow","dmcKg":"tylko cyfry","dmcZespolu":"tylko cyfry","masaWlKg":"tylko cyfry","liczbaOsi":"1-5","kategoria":"np N3","pojSilnika":"tylko cyfry cm3","mocKW":"tylko cyfry","paliwo":"ON lub PB lub LPG","miejscaSied":"tylko cyfry","rokProd":"4 cyfry"}
+
+Tekst OCR:\n${combinedText.slice(0,6000)}`;
+        const aiResp=await fetch(apiUrl+'/api/ai/chat',{
+          method:'POST',
+          headers:{'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})},
+          body:JSON.stringify({message:aiPrompt,history:[]}),
+        });
+        if(aiResp.ok){
+          const aiData=await aiResp.json();
+          const aiText=aiData.answer||aiData.reply||aiData.message||'';
+          const jm=aiText.match(/\{[\s\S]*\}/);
+          if(jm){
+            const aiFields=JSON.parse(jm[0]);
+            // Scal: AI nadpisuje regex, ale VIN z regex jest bardziej zaufany jeśli 17 znaków
+            const mergedVin=(parsedRegex.vin&&parsedRegex.vin.length===17)?parsedRegex.vin:aiFields.vin;
+            parsed={...parsedRegex,...aiFields,vin:mergedVin,pewnosc:parsedRegex.pewnosc};
+          }
+        }
+      }
+    }catch(e){/* AI nie udało się — zostaje regex */}
     bar.style.width='100%';
 
     setTimeout(()=>{

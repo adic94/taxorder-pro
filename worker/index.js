@@ -727,25 +727,35 @@ Zwróć WYŁĄCZNIE obiekt JSON — bez markdown, bez komentarzy, tylko surowy J
     ],
   }];
 
-  try {
-    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + env.GROQ_API_KEY },
-      body: JSON.stringify({ model: 'meta-llama/llama-4-scout-17b-16e-instruct', messages, max_tokens: 512, temperature: 0.1 }),
-    });
-    if (!resp.ok) {
-      const e = await resp.json().catch(() => ({}));
-      return err('Błąd Groq Vision: ' + (e.error?.message || resp.statusText), 502);
+  const visionModels = [
+    'meta-llama/llama-4-scout-17b-16e-instruct',
+    'meta-llama/llama-4-maverick-17b-128e-instruct',
+    'llama-3.2-90b-vision-preview',
+    'llama-3.2-11b-vision-preview',
+  ];
+  let lastErr = 'Brak działającego modelu vision';
+  for (const model of visionModels) {
+    try {
+      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + env.GROQ_API_KEY },
+        body: JSON.stringify({ model, messages, max_tokens: 512, temperature: 0.1 }),
+      });
+      if (!resp.ok) {
+        const e = await resp.json().catch(() => ({}));
+        lastErr = `${model}: ${e.error?.message || resp.statusText}`;
+        continue;
+      }
+      const data = await resp.json();
+      const answer = data.choices?.[0]?.message?.content || '';
+      const jm = answer.match(/\{[\s\S]*\}/);
+      if (!jm) { lastErr = 'AI nie zwróciło JSON: ' + answer.slice(0, 100); continue; }
+      return json({ ok: true, fields: JSON.parse(jm[0]), model });
+    } catch (e) {
+      lastErr = `${model}: ${e?.message}`;
     }
-    const data = await resp.json();
-    const answer = data.choices?.[0]?.message?.content || '';
-    const jm = answer.match(/\{[\s\S]*\}/);
-    if (!jm) return err('AI nie zwróciło JSON: ' + answer.slice(0, 200));
-    return json({ ok: true, fields: JSON.parse(jm[0]) });
-  } catch (e) {
-    console.error('[AI OCR] error:', e?.message);
-    return err('Błąd AI Vision: ' + (e?.message || 'nieznany błąd'), 502);
   }
+  return err('Błąd AI Vision: ' + lastErr, 502);
 }
 
 // ─── MAIN FETCH ───────────────────────────────────────────────────────────────
