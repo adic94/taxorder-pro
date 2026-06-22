@@ -8,6 +8,9 @@ let selected = new Set();
 window.selected = selected;
 let sortKey = 'nrRej', sortAsc = true;
 
+// ── Konfiguracja API ──────────────────────────────────────────────────────────
+window.CF_WORKER_URL = 'https://taxorder-pro-api.acichocki.workers.dev';
+
 // ==================== RATES (Warszawa 2026 + multi-gmina) ====================
 function getRate(v) {
   // Jeśli GminyRates dostępne i gmina skonfigurowana — użyj jej stawek

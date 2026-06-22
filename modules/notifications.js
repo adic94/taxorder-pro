@@ -128,6 +128,27 @@ window.TaxOrderNotifications = (function () {
     });
 
     if (sent > 0) console.log(`[Notifications] Wysłano ${sent} powiadomień`);
+
+    // Jeśli mamy subskrypcję push serwera, wyślij alerty do wszystkich urządzeń firmy
+    const storedSub = localStorage.getItem(PUSH_SUB_KEY);
+    if (sent > 0 && storedSub) {
+      const urgent = getActiveAlerts(7).filter(a => a.expired || a.urgent);
+      if (urgent.length > 0) {
+        const company_id = window.currentCompanyId || 'default';
+        const firstAlert = urgent[0];
+        fetch(`${_cfApi()}/api/push/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            company_id,
+            title: `TaxOrder Pro — ${urgent.length} alert${urgent.length > 1 ? 'y' : ''}`,
+            message: `${firstAlert.nrRej}: ${firstAlert.label} ${firstAlert.expired ? 'WYGASŁO' : `wygasa za ${firstAlert.days} dni`}${urgent.length > 1 ? ` (+${urgent.length-1} więcej)` : ''}`,
+            url: '/?page=pojazdy',
+            urgent: true,
+          }),
+        }).catch(() => {});
+      }
+    }
   }
 
   async function requestAndCheck() {
@@ -319,12 +340,13 @@ window.TaxOrderNotifications = (function () {
   }
 
   // ── Push subscription (VAPID / Server Push) ──────────────────────────────
-  const CF_API = 'https://taxorder-pro-api.acichocki.workers.dev';
+  // Używa window.CF_WORKER_URL jeśli zdefiniowane w app.js, inaczej prod default
+  function _cfApi() { return window.CF_WORKER_URL || 'https://taxorder-pro-api.acichocki.workers.dev'; }
   const PUSH_SUB_KEY = 'taxPushSubscribed';
 
   async function _getVapidPublicKey() {
     try {
-      const r = await fetch(`${CF_API}/api/push/vapid-public-key`);
+      const r = await fetch(`${_cfApi()}/api/push/vapid-public-key`);
       if (!r.ok) return null;
       const d = await r.json();
       return d.key || null;
@@ -354,7 +376,7 @@ window.TaxOrderNotifications = (function () {
     });
 
     const company_id = window.currentCompanyId || 'default';
-    const r = await fetch(`${CF_API}/api/push/subscribe`, {
+    const r = await fetch(`${_cfApi()}/api/push/subscribe`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ subscription: sub.toJSON(), company_id, label: navigator.userAgent.slice(0, 50) }),
@@ -372,7 +394,7 @@ window.TaxOrderNotifications = (function () {
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
     if (!sub) { localStorage.removeItem(PUSH_SUB_KEY); return; }
-    await fetch(`${CF_API}/api/push/subscribe`, {
+    await fetch(`${_cfApi()}/api/push/subscribe`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ endpoint: sub.endpoint }),
