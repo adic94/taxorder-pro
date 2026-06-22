@@ -53,6 +53,9 @@ window.ServiceModule = (function () {
     inne:              { label:'Inne',                          icon:'ti-dots',               color:'#71717a',        group:'Awarie / Inne' },
   };
 
+  // ── State ─────────────────────────────────────────────────────────────────
+  let _svcFilters = {};
+
   // ── Helpers ───────────────────────────────────────────────────────────────
   function _fmtDate(d) {
     if (!d) return '—';
@@ -452,34 +455,76 @@ window.ServiceModule = (function () {
           }).join('')}
         </div>` : ''}
 
-      <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Historia serwisowa</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">Historia serwisowa</div>
+        <button class="btn btn-gray" style="font-size:10px;padding:2px 8px;margin-left:auto" onclick="ServiceModule._clearSvcFilters(${v.id})" title="Wyczyść filtry">
+          <i class="ti ti-filter-off"></i>Wyczyść
+        </button>
+      </div>
       ${history.length ? `
         <div class="tbl-wrap"><table style="width:100%;font-size:11px">
-          <thead><tr>
-            <th>Data</th><th>Typ</th><th>Opis</th><th>Km</th>
-            <th>Brutto</th><th>Netto</th><th>VAT</th><th>Warsztat</th><th>NIP</th><th>Faktura</th><th style="text-align:center"></th>
-          </tr></thead>
+          <thead>
+            <tr>
+              <th>Data</th><th>Typ</th><th>Opis</th><th>Km</th>
+              <th>Brutto</th><th>Netto</th><th>VAT</th><th>Warsztat</th><th>NIP</th><th>Faktura</th><th style="text-align:center"></th>
+            </tr>
+            <tr>
+              <th><input class="col-fi" type="date" value="${_svcFilters.date||''}"
+                oninput="ServiceModule._setSvcFilter('date',this.value,${v.id})" style="width:100%"></th>
+              <th><input class="col-fi" type="text" placeholder="typ..." value="${_svcFilters.typ||''}"
+                oninput="ServiceModule._setSvcFilter('typ',this.value,${v.id})" style="width:100%"></th>
+              <th><input class="col-fi" type="text" placeholder="opis..." value="${_svcFilters.desc||''}"
+                oninput="ServiceModule._setSvcFilter('desc',this.value,${v.id})" style="width:100%"></th>
+              <th></th><th></th><th></th><th></th>
+              <th><input class="col-fi" type="text" placeholder="warsztat..." value="${_svcFilters.workshop||''}"
+                oninput="ServiceModule._setSvcFilter('workshop',this.value,${v.id})" style="width:100%"></th>
+              <th><input class="col-fi" type="text" placeholder="NIP..." value="${_svcFilters.nip||''}"
+                oninput="ServiceModule._setSvcFilter('nip',this.value,${v.id})" style="width:100%"></th>
+              <th><input class="col-fi" type="text" placeholder="faktura..." value="${_svcFilters.inv||''}"
+                oninput="ServiceModule._setSvcFilter('inv',this.value,${v.id})" style="width:100%"></th>
+              <th></th>
+            </tr>
+          </thead>
           <tbody>
-            ${history.map(s => {
-              const t = SERVICE_TYPES[s.type] || SERVICE_TYPES.inne;
-              const curr = s.currency || 'PLN';
-              const canEdit = window.currentUser?.role === 'admin' || window.currentUser?.role === 'dyspozytor';
-              return `<tr>
-                <td style="font-family:var(--mono);white-space:nowrap">${_fmtDate(s.date)}</td>
-                <td><span style="color:${t.color}"><i class="ti ${t.icon}"></i> ${t.label}</span></td>
-                <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.description||''}">${s.description||'—'}</td>
-                <td style="font-family:var(--mono);text-align:right">${s.km ? s.km.toLocaleString('pl-PL') : '—'}</td>
-                <td style="font-family:var(--mono);font-weight:600;text-align:right;white-space:nowrap">${s.cost ? s.cost.toFixed(2)+' '+curr : '—'}</td>
-                <td style="font-family:var(--mono);text-align:right;white-space:nowrap">${s.costNet ? s.costNet.toFixed(2)+' '+curr : '—'}</td>
-                <td style="font-size:10px;color:var(--text3)">${s.vatRate != null ? s.vatRate+'%' : '—'}</td>
-                <td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.workshop||''}">${s.workshop||'—'}</td>
-                <td style="font-family:var(--mono);font-size:10px;color:var(--text2)">${s.workshopNip||'—'}</td>
-                <td style="font-family:var(--mono);font-size:10px">${s.invoiceNo||'—'}</td>
-                <td style="text-align:center;white-space:nowrap">
-                  ${canEdit ? `<button class="btn btn-gray" style="font-size:10px;padding:2px 8px" onclick="ServiceModule.addService(${v.id},'${s.id}')">✏</button>` : ''}
-                </td>
-              </tr>`;
-            }).join('')}
+            ${(() => {
+              const fDate = _svcFilters.date || '';
+              const fTyp  = (_svcFilters.typ  || '').toLowerCase();
+              const fDesc = (_svcFilters.desc || '').toLowerCase();
+              const fWs   = (_svcFilters.workshop || '').toLowerCase();
+              const fNip  = (_svcFilters.nip  || '').replace(/[^0-9]/g,'');
+              const fInv  = (_svcFilters.inv  || '').toLowerCase();
+              const filtered = history.filter(s => {
+                const t = SERVICE_TYPES[s.type] || SERVICE_TYPES.inne;
+                if (fDate && !(s.date||'').startsWith(fDate)) return false;
+                if (fTyp  && !t.label.toLowerCase().includes(fTyp)) return false;
+                if (fDesc && !(s.description||'').toLowerCase().includes(fDesc)) return false;
+                if (fWs   && !(s.workshop||'').toLowerCase().includes(fWs)) return false;
+                if (fNip  && !(s.workshopNip||'').replace(/[^0-9]/g,'').includes(fNip)) return false;
+                if (fInv  && !(s.invoiceNo||'').toLowerCase().includes(fInv)) return false;
+                return true;
+              });
+              if (!filtered.length) return '<tr><td colspan="11" style="text-align:center;padding:10px;color:var(--text3)">Brak wyników dla podanych filtrów</td></tr>';
+              return filtered.map(s => {
+                const t = SERVICE_TYPES[s.type] || SERVICE_TYPES.inne;
+                const curr = s.currency || 'PLN';
+                const canEdit = window.currentUser?.role === 'admin' || window.currentUser?.role === 'dyspozytor';
+                return `<tr>
+                  <td style="font-family:var(--mono);white-space:nowrap">${_fmtDate(s.date)}</td>
+                  <td><span style="color:${t.color}"><i class="ti ${t.icon}"></i> ${t.label}</span></td>
+                  <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.description||''}">${s.description||'—'}</td>
+                  <td style="font-family:var(--mono);text-align:right">${s.km ? s.km.toLocaleString('pl-PL') : '—'}</td>
+                  <td style="font-family:var(--mono);font-weight:600;text-align:right;white-space:nowrap">${s.cost ? s.cost.toFixed(2)+' '+curr : '—'}</td>
+                  <td style="font-family:var(--mono);text-align:right;white-space:nowrap">${s.costNet ? s.costNet.toFixed(2)+' '+curr : '—'}</td>
+                  <td style="font-size:10px;color:var(--text3)">${s.vatRate != null ? s.vatRate+'%' : '—'}</td>
+                  <td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.workshop||''}">${s.workshop||'—'}</td>
+                  <td style="font-family:var(--mono);font-size:10px;color:var(--text2)">${s.workshopNip||'—'}</td>
+                  <td style="font-family:var(--mono);font-size:10px">${s.invoiceNo||'—'}</td>
+                  <td style="text-align:center;white-space:nowrap">
+                    ${canEdit ? `<button class="btn btn-gray" style="font-size:10px;padding:2px 8px" onclick="ServiceModule.addService(${v.id},'${s.id}')">✏</button>` : ''}
+                  </td>
+                </tr>`;
+              }).join('');
+            })()}
           </tbody>
         </table></div>` : `<div style="text-align:center;padding:20px;color:var(--text3)">Brak historii serwisowej. Kliknij "Dodaj serwis" aby rozpocząć.</div>`}`;
   }
@@ -517,6 +562,16 @@ window.ServiceModule = (function () {
     }
   }
 
+  function _setSvcFilter(col, val, vehId) {
+    _svcFilters[col] = val;
+    window.TaxOrderVehicleDetail?.refreshServiceTab?.(vehId ?? window.TaxOrderVehicleDetail?._currentVehId);
+  }
+
+  function _clearSvcFilters(vehId) {
+    _svcFilters = {};
+    window.TaxOrderVehicleDetail?.refreshServiceTab?.(vehId ?? window.TaxOrderVehicleDetail?._currentVehId);
+  }
+
   return {
     open, close,
     addService, addServiceGlobal, saveService, removeService,
@@ -524,5 +579,6 @@ window.ServiceModule = (function () {
     getUpcomingServices,
     SERVICE_TYPES,
     _calcNetto, _calcBrutto, _onCurrencyChange, _parseDateText,
+    _setSvcFilter, _clearSvcFilters,
   };
 })();

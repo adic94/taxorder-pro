@@ -286,6 +286,9 @@ window.addEventListener('DOMContentLoaded', () => {
     <button id="view-btn-cards" class="btn btn-gray view-mode-btn" onclick="switchFleetView('cards')"><i class="ti ti-layout-grid"></i>Karty</button>
     <button id="view-btn-dt1" class="btn btn-gray view-mode-btn" onclick="switchFleetView('dt1')"><i class="ti ti-file-invoice"></i>Widok DT-1</button>
     <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
+    <button id="veh-filter-btn" class="btn btn-gray" onclick="toggleFilterRow()" title="Wyszukiwanie per kolumna"><i class="ti ti-filter"></i>Filtry</button>
+    <button class="btn btn-gray" style="font-size:11px" onclick="clearColFilters()" title="Wyczyść wszystkie filtry"><i class="ti ti-filter-off"></i></button>
+    <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
     <span style="font-size:12px;color:var(--text3)" id="veh-count-label"></span>
   </div>
 
@@ -343,33 +346,76 @@ window.addEventListener('DOMContentLoaded', () => {
   </div>
   <div class="tbl-wrap" id="fleet-tbl-wrap">
     <table>
-      <thead><tr>
-        <th style="width:36px"><input type="checkbox" id="chk-all" onchange="toggleAll(this)"></th>
-        <th class="sort-th" onclick="sortBy('nrRej')" data-i18n="col.plate">Nr rej.</th>
-        <th class="sort-th" onclick="sortBy('marka')" data-i18n="col.brand">Marka / Model</th>
-        <th data-col="rok" class="sort-th" onclick="sortBy('rok')" data-i18n="col.year">Rok</th>
-        <th data-col="typ" class="sort-th" onclick="sortBy('typ')" data-i18n="col.type">Typ</th>
-        <th data-col="dmc" class="sort-th" onclick="sortBy('dmc')" data-i18n="col.dmc">DMC (kg)</th>
-        <th data-col="osie" data-i18n="col.axles">Osie</th>
-        <th data-col="zawieszenie" data-i18n="col.suspension">Zawieszenie</th>
-        <th data-col="dmczesp" data-i18n="col.dmc.team">DMC zesp. (t)</th>
-        <th data-col="mies" data-i18n="col.months">Mies.</th>
-        <th data-col="status" data-i18n="col.status">Status</th>
-        <th data-col="oc" data-i18n="col.oc" data-i18n-title="col.oc.tip" title="Ubezpieczenie OC — data ważności">OC</th>
-        <th data-col="ac" data-i18n="col.ac" data-i18n-title="col.ac.tip" title="Ubezpieczenie AC — data ważności">AC</th>
-        <th data-col="przeglad" data-i18n="col.inspection" data-i18n-title="col.inspection.tip" title="Następny przegląd techniczny">Przegląd</th>
-        <th data-col="ocInsurer" data-i18n="col.oc.insurer" data-i18n-title="col.oc.insurer.tip" title="Ubezpieczyciel OC / nr polisy">Ubezpieczyciel OC</th>
-        <th data-col="acInsurer" data-i18n="col.ac.insurer" data-i18n-title="col.ac.insurer.tip" title="Ubezpieczyciel AC / nr polisy">Ubezpieczyciel AC</th>
-        <th data-col="udt" data-i18n="col.udt" data-i18n-title="col.udt.tip" title="Termin badania UDT">UDT</th>
-        <th data-col="tacho" data-i18n="col.tacho" data-i18n-title="col.tacho.tip" title="Termin legalizacji tachografu">Tachograf</th>
-        <th data-col="kierowca" data-i18n="col.driver" data-i18n-title="col.driver.tip" title="Przypisany kierowca">Kierowca</th>
-        <th data-col="km" style="text-align:right" data-i18n="col.km" data-i18n-title="col.km.tip" title="Stan licznika km">km</th>
-        <th data-col="dt1ok" style="text-align:center" data-i18n="col.dt1ok" data-i18n-title="col.dt1ok.tip" title="Kompletność danych DT-1">DT-1 ✓</th>
-        <th data-col="gmina" data-i18n="col.gmina" data-i18n-title="col.gmina.tip" title="Gmina — stawki DT-1">Gmina</th>
-        <th data-col="kategoria" data-i18n="col.category">Kategoria</th>
-        <th data-col="podatek" style="text-align:right" data-i18n="col.tax">Podatek</th>
-        <th style="text-align:center" data-i18n-title="col.card.tip" title="Karta pojazdu">📎</th>
-      </tr></thead>
+      <thead>
+        <tr>
+          <th style="width:36px"><input type="checkbox" id="chk-all" onchange="toggleAll(this)"></th>
+          <th class="sort-th" onclick="sortBy('nrRej')" data-i18n="col.plate">Nr rej.</th>
+          <th class="sort-th" onclick="sortBy('marka')" data-i18n="col.brand">Marka / Model</th>
+          <th data-col="rok" class="sort-th" onclick="sortBy('rok')" data-i18n="col.year">Rok</th>
+          <th data-col="typ" class="sort-th" onclick="sortBy('typ')" data-i18n="col.type">Typ</th>
+          <th data-col="dmc" class="sort-th" onclick="sortBy('dmc')" data-i18n="col.dmc">DMC (kg)</th>
+          <th data-col="osie" data-i18n="col.axles">Osie</th>
+          <th data-col="zawieszenie" data-i18n="col.suspension">Zawieszenie</th>
+          <th data-col="dmczesp" data-i18n="col.dmc.team">DMC zesp. (t)</th>
+          <th data-col="mies" data-i18n="col.months">Mies.</th>
+          <th data-col="status" data-i18n="col.status">Status</th>
+          <th data-col="oc" data-i18n="col.oc" title="Ubezpieczenie OC — data ważności">OC</th>
+          <th data-col="ac" data-i18n="col.ac" title="Ubezpieczenie AC — data ważności">AC</th>
+          <th data-col="przeglad" data-i18n="col.inspection" title="Następny przegląd techniczny">Przegląd</th>
+          <th data-col="ocInsurer" data-i18n="col.oc.insurer" title="Ubezpieczyciel OC / nr polisy">Ubezpieczyciel OC</th>
+          <th data-col="acInsurer" data-i18n="col.ac.insurer" title="Ubezpieczyciel AC / nr polisy">Ubezpieczyciel AC</th>
+          <th data-col="udt" data-i18n="col.udt" title="Termin badania UDT">UDT</th>
+          <th data-col="tacho" data-i18n="col.tacho" title="Termin legalizacji tachografu">Tachograf</th>
+          <th data-col="kierowca" class="sort-th" onclick="sortBy('kierowca')" data-i18n="col.driver" title="Przypisany kierowca">Kierowca</th>
+          <th data-col="km" class="sort-th" onclick="sortBy('stanKilometrow')" style="text-align:right" data-i18n="col.km" title="Stan licznika km">km</th>
+          <th data-col="dt1ok" style="text-align:center" data-i18n="col.dt1ok" title="Kompletność danych DT-1">DT-1 ✓</th>
+          <th data-col="gmina" data-i18n="col.gmina" title="Gmina — stawki DT-1">Gmina</th>
+          <th data-col="kategoria" data-i18n="col.category">Kategoria</th>
+          <th data-col="podatek" class="sort-th" onclick="sortBy('podatek')" style="text-align:right" data-i18n="col.tax">Podatek</th>
+          <th data-col="vin" class="sort-th" onclick="sortBy('vin')" title="Numer VIN">VIN</th>
+          <th data-col="paliwo" title="Rodzaj paliwa (P.3 DR)">Paliwo</th>
+          <th data-col="poj" class="sort-th" onclick="sortBy('pojSilnika')" style="text-align:right" title="Pojemność silnika (P.1 DR)">Poj. (cm³)</th>
+          <th data-col="mocKw" class="sort-th" onclick="sortBy('mocKW')" style="text-align:right" title="Moc silnika (P.2 DR)">Moc (kW)</th>
+          <th data-col="masaWl" class="sort-th" onclick="sortBy('masaWlasna')" style="text-align:right" title="Masa własna pojazdu (G DR)">Masa wł. (kg)</th>
+          <th data-col="msc" style="text-align:center" title="Miejsca siedzące (S.1 DR)">Msc.</th>
+          <th data-col="euro" title="Norma emisji EURO">EURO</th>
+          <th style="text-align:center" title="Karta pojazdu">📎</th>
+        </tr>
+        <tr id="veh-filter-row" style="display:none">
+          <th></th>
+          <th><input class="col-fi" type="text" placeholder="⌕ Nr rej." oninput="applyColFilter('nrRej',this.value)"></th>
+          <th><input class="col-fi" type="text" placeholder="⌕ Marka/model" oninput="applyColFilter('marka',this.value)"></th>
+          <th data-col="rok"><input class="col-fi" type="text" placeholder="⌕ Rok" oninput="applyColFilter('rok',this.value)"></th>
+          <th data-col="typ"><input class="col-fi" type="text" placeholder="⌕ Typ" oninput="applyColFilter('typ',this.value)"></th>
+          <th data-col="dmc"><input class="col-fi" type="text" placeholder="⌕ DMC" oninput="applyColFilter('dmc',this.value)"></th>
+          <th data-col="osie"></th>
+          <th data-col="zawieszenie"></th>
+          <th data-col="dmczesp"></th>
+          <th data-col="mies"></th>
+          <th data-col="status"><input class="col-fi" type="text" placeholder="⌕ Status" oninput="applyColFilter('status',this.value)"></th>
+          <th data-col="oc"><input class="col-fi" type="date" oninput="applyColFilter('oc',this.value)"></th>
+          <th data-col="ac"><input class="col-fi" type="date" oninput="applyColFilter('ac',this.value)"></th>
+          <th data-col="przeglad"><input class="col-fi" type="date" oninput="applyColFilter('przeglad',this.value)"></th>
+          <th data-col="ocInsurer"><input class="col-fi" type="text" placeholder="⌕ OC" oninput="applyColFilter('ocInsurer',this.value)"></th>
+          <th data-col="acInsurer"><input class="col-fi" type="text" placeholder="⌕ AC" oninput="applyColFilter('acInsurer',this.value)"></th>
+          <th data-col="udt"></th>
+          <th data-col="tacho"></th>
+          <th data-col="kierowca"><input class="col-fi" type="text" placeholder="⌕ Kierowca" oninput="applyColFilter('kierowca',this.value)"></th>
+          <th data-col="km"></th>
+          <th data-col="dt1ok"></th>
+          <th data-col="gmina"></th>
+          <th data-col="kategoria"></th>
+          <th data-col="podatek"></th>
+          <th data-col="vin"><input class="col-fi" type="text" placeholder="⌕ VIN" oninput="applyColFilter('vin',this.value)"></th>
+          <th data-col="paliwo"><input class="col-fi" type="text" placeholder="⌕" oninput="applyColFilter('paliwo',this.value)"></th>
+          <th data-col="poj"></th>
+          <th data-col="mocKw"></th>
+          <th data-col="masaWl"></th>
+          <th data-col="msc"></th>
+          <th data-col="euro"><input class="col-fi" type="text" placeholder="⌕" oninput="applyColFilter('euro',this.value)"></th>
+          <th></th>
+        </tr>
+      </thead>
       <tbody id="veh-tbody"></tbody>
     </table>
   </div>
@@ -1254,6 +1300,7 @@ window.addEventListener('DOMContentLoaded', () => {
     <div>
       <div class="toolbar">
         <button class="btn btn-blue" onclick="openUserModal()" id="btn-add-user"><i class="ti ti-user-plus"></i>Dodaj użytkownika</button>
+        <button class="btn btn-gray" onclick="showAuditLog()" title="Dziennik zmian — kto co zmieniał w systemie"><i class="ti ti-history"></i>Dziennik zmian</button>
       </div>
       <div class="tbl-wrap">
         <table>

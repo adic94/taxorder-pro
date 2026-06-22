@@ -383,3 +383,12 @@ th.sort-th:hover{color:var(--blue)}
 .form-page table{border-collapse:collapse;width:100%}
 .form-page td,.form-page th{border:0.5px solid #000;padding:1.5px 3px;vertical-align:top}
 
+
+
+/* ===== COLUMN FILTER INPUTS ===== */
+.col-fi{width:100%;padding:2px 5px;font-size:10px;border:1px solid var(--border);border-radius:4px;background:var(--bg3);color:var(--text1);outline:none}
+.col-fi:focus{border-color:var(--blue)}
+thead tr:has(.col-fi) th{padding:3px 4px!important;background:var(--bg2)!important}
+/* Fleet per-column filter row */
+#veh-filter-row th{padding:3px 4px!important;background:var(--bg2)!important}
+#veh-filter-row .col-fi{min-width:40px}

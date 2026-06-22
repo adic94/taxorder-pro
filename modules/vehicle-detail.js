@@ -55,11 +55,13 @@ window.TaxOrderVehicleDetail = {
       ocStart:       g('ocStart'),
       ocEnd:         g('ocEnd'),
       ocPremium:     gf('ocPremium'),
+      ocCoversAc:    gb('ocCoversAc'),
       acPolicyNo:    g('acPolicyNo'),
       acInsurer:     g('acInsurer'),
       acStart:       g('acStart'),
       acEnd:         g('acEnd'),
       acPremium:     gf('acPremium'),
+      ocCoversAss:   gb('ocCoversAss'),
       assPolicyNo:   g('assPolicyNo'),
       assInsurer:    g('assInsurer'),
       assEnd:        g('assEnd'),
@@ -104,6 +106,7 @@ window.TaxOrderVehicleDetail = {
       saleDate:       g('saleDate'),
       saleInvoice:    g('saleInvoice'),
       saleBuyer:      g('saleBuyer'),
+      saleBuyerNip:   g('saleBuyerNip'),
       salePrice:      gf('salePrice'),
       dataZbycia:     g('saleDate'),
       dataWycofania:      g('dataWycofania'),
@@ -134,6 +137,9 @@ window.TaxOrderVehicleDetail = {
       v.is_active = true;
       v.archivedAt = null;
     }
+
+    // Audit trail
+    this._logAudit('save', vehId, { nrRej: v.nrRej });
 
     // Zapisz (lokalnie zawsze, chmura jeśli dostępna)
     if (typeof renderVeh === 'function') renderVeh();
@@ -285,20 +291,34 @@ window.TaxOrderVehicleDetail = {
         <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
           <i class="ti ti-shield-half"></i> AC / Casco — Ubezpieczenie dobrowolne
         </div>
-        <div class="vdfg" style="margin-bottom:18px">
-          ${field('acPolicyNo','Nr polisy AC', v.acPolicyNo)}
-          ${field('acInsurer','Ubezpieczyciel AC', v.acInsurer)}
-          ${field('acStart','Początek AC', v.acStart,'date')}
-          ${field('acEnd','Koniec AC', v.acEnd,'date')}
+        <div style="margin-bottom:10px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;padding:8px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">
+            <input type="checkbox" id="vd-ocCoversAc" ${v.ocCoversAc?'checked':''}
+              onchange="TaxOrderVehicleDetail._syncOcAc(this.checked)">
+            <span>Polisa OC zawiera AC/Casco — ten sam numer polisy i daty</span>
+          </label>
+        </div>
+        <div id="vd-ac-fields" class="vdfg" style="margin-bottom:18px;${v.ocCoversAc?'opacity:.5;pointer-events:none':''}">
+          ${field('acPolicyNo','Nr polisy AC', v.ocCoversAc ? (v.ocPolicyNo||v.acPolicyNo) : v.acPolicyNo)}
+          ${field('acInsurer','Ubezpieczyciel AC', v.ocCoversAc ? (v.ocInsurer||v.acInsurer) : v.acInsurer)}
+          ${field('acStart','Początek AC', v.ocCoversAc ? (v.ocStart||v.acStart) : v.acStart,'date')}
+          ${field('acEnd','Koniec AC', v.ocCoversAc ? (v.ocEnd||v.acEnd) : v.acEnd,'date')}
           ${field('acPremium','Składka AC (zł)', v.acPremium,'number')}
         </div>
         <div style="font-size:12px;font-weight:600;color:var(--amber);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
           <i class="ti ti-heart-plus"></i> Assistance / NNW
         </div>
-        <div class="vdfg">
-          ${field('assPolicyNo','Nr polisy Assistance/NNW', v.assPolicyNo)}
-          ${field('assInsurer','Ubezpieczyciel Assistance', v.assInsurer)}
-          ${field('assEnd','Ważność Assistance do', v.assEnd,'date')}
+        <div style="margin-bottom:10px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;padding:8px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">
+            <input type="checkbox" id="vd-ocCoversAss" ${v.ocCoversAss?'checked':''}
+              onchange="TaxOrderVehicleDetail._syncOcAss(this.checked)">
+            <span>Polisa OC zawiera Assistance/NNW — ten sam numer polisy</span>
+          </label>
+        </div>
+        <div id="vd-ass-fields" class="vdfg" style="${v.ocCoversAss?'opacity:.5;pointer-events:none':''}">
+          ${field('assPolicyNo','Nr polisy Assistance/NNW', v.ocCoversAss ? (v.ocPolicyNo||v.assPolicyNo) : v.assPolicyNo)}
+          ${field('assInsurer','Ubezpieczyciel Assistance', v.ocCoversAss ? (v.ocInsurer||v.assInsurer) : v.assInsurer)}
+          ${field('assEnd','Ważność Assistance do', v.ocCoversAss ? (v.ocEnd||v.assEnd) : v.assEnd,'date')}
         </div>
       </div>
 
@@ -356,6 +376,13 @@ window.TaxOrderVehicleDetail = {
             ], v.udtResult)}
           </div>
           ${v.udtNextDate ? `<div style="font-size:11px;margin-bottom:8px">Termin UDT: <strong>${new Date(v.udtNextDate).toLocaleDateString('pl-PL')}</strong></div>` : ''}
+          <div style="display:flex;align-items:center;justify-content:space-between;margin:10px 0 6px">
+            <div style="font-size:12px;font-weight:600;color:var(--text2)">Historia wpisów UDT</div>
+            <button class="btn btn-gray" style="font-size:11px;padding:4px 10px" onclick="TaxOrderVehicleDetail._addUdtEntry(${v.id})">
+              <i class="ti ti-plus"></i>Dodaj wpis
+            </button>
+          </div>
+          <div id="vd-udt-history">${this._renderUdtHistory(v)}</div>
         </div>
 
         <!-- Tachograf -->
@@ -369,11 +396,18 @@ window.TaxOrderVehicleDetail = {
           </label>
         </div>
         <div id="vd-tacho-fields" ${v.hasTacho?'':'style="display:none"'}>
-          <div class="vdfg">
+          <div class="vdfg" style="margin-bottom:10px">
             ${field('tachoNo','Nr tachografu', v.tachoNo)}
             ${field('tachoLastCalib','Data ostatniej legalizacji', v.tachoLastCalib,'date')}
             ${field('tachoNextCalib','Termin następnej legalizacji', v.tachoNextCalib,'date')}
           </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin:10px 0 6px">
+            <div style="font-size:12px;font-weight:600;color:var(--text2)">Historia legalizacji tachografu</div>
+            <button class="btn btn-gray" style="font-size:11px;padding:4px 10px" onclick="TaxOrderVehicleDetail._addTachoEntry(${v.id})">
+              <i class="ti ti-plus"></i>Dodaj wpis
+            </button>
+          </div>
+          <div id="vd-tacho-history">${this._renderTachoHistory(v)}</div>
         </div>
       </div>
 
@@ -525,7 +559,20 @@ window.TaxOrderVehicleDetail = {
         <div class="vdfg">
           ${field('saleDate','Data zbycia / sprzedaży', v.saleDate||v.dataZbycia,'date')}
           ${field('saleInvoice','Nr faktury sprzedaży', v.saleInvoice)}
-          ${field('saleBuyer','Nabywca', v.saleBuyer)}
+          ${field('saleBuyer','Nabywca (nazwa)', v.saleBuyer)}
+          <div class="vdf">
+            <label class="vdl">NIP nabywcy</label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input id="vd-saleBuyerNip" type="text" class="fi" value="${v.saleBuyerNip||''}"
+                placeholder="10 cyfr" maxlength="13" style="flex:1"
+                oninput="this.value=this.value.replace(/[^0-9-]/g,'')">
+              <button type="button" class="btn btn-gray" style="padding:4px 8px;font-size:11px;white-space:nowrap"
+                onclick="TaxOrderVehicleDetail._nipLookup(document.getElementById('vd-saleBuyerNip').value,'vd-saleBuyer','_sale-nip-status')">
+                <i class="ti ti-search"></i>Zaczytaj
+              </button>
+            </div>
+            <div id="_sale-nip-status" style="font-size:10px;color:var(--blue);margin-top:2px"></div>
+          </div>
           ${field('salePrice','Cena sprzedaży netto (zł)', v.salePrice,'number')}
         </div>
         <div style="font-size:12px;font-weight:600;color:var(--amber);margin:20px 0 10px"><i class="ti ti-car-off"></i> Zmiany stanu w ruchu <span style="font-weight:400;font-size:10px;color:var(--text3)">(DT-1/A poz. 10–12)</span></div>
@@ -743,7 +790,9 @@ window.TaxOrderVehicleDetail = {
               <span class="pill" style="font-size:10px;background:${resultColor}20;color:${resultColor}">${ins.result || 'brak wyniku'}</span>
               ${ins.station ? `<span style="font-size:11px;color:var(--text2)">${ins.station}</span>` : ''}
             </div>
+            ${ins.docNr ? `<div style="font-size:10px;color:var(--text3)">Dok.: ${ins.docNr}${ins.nip?' · NIP: '+ins.nip:''}</div>` : ''}
             ${ins.notes ? `<div style="font-size:11px;color:var(--text2)">${ins.notes}</div>` : ''}
+            ${ins.addedBy ? `<div style="font-size:10px;color:var(--text3)">Dodał: ${ins.addedBy}</div>` : ''}
           </div>
           <button onclick="TaxOrderVehicleDetail._removeInspection(${v.id},${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px" title="Usuń wpis">&times;</button>
         </div>`;
@@ -775,8 +824,24 @@ window.TaxOrderVehicleDetail = {
             </select>
           </div>
           <div class="vdf">
-            <label class="vdl">Stacja SKP</label>
+            <label class="vdl">Stacja SKP / nazwa</label>
             <input id="_ins-station" type="text" class="fi" placeholder="Nazwa stacji" value="${v.inspectionStation||''}">
+          </div>
+          <div class="vdf">
+            <label class="vdl">Nr dokumentu / zaświadczenia</label>
+            <input id="_ins-doc" type="text" class="fi" placeholder="np. SKP/2025/001">
+          </div>
+          <div class="vdf">
+            <label class="vdl">NIP stacji SKP</label>
+            <div style="display:flex;gap:6px">
+              <input id="_ins-nip" type="text" class="fi" placeholder="10 cyfr" maxlength="13" style="flex:1"
+                oninput="this.value=this.value.replace(/[^0-9-]/g,'')">
+              <button type="button" class="btn btn-gray" style="padding:3px 8px;font-size:11px"
+                onclick="TaxOrderVehicleDetail._nipLookup(document.getElementById('_ins-nip').value,'_ins-station','_ins-nip-st')">
+                <i class="ti ti-search"></i>
+              </button>
+            </div>
+            <div id="_ins-nip-st" style="font-size:10px;color:var(--blue);margin-top:2px"></div>
           </div>
           <div class="vdf" style="grid-column:1/-1">
             <label class="vdl">Uwagi / usterki</label>
@@ -800,11 +865,18 @@ window.TaxOrderVehicleDetail = {
     const date    = document.getElementById('_ins-date')?.value || '';
     const result  = document.getElementById('_ins-result')?.value || '';
     const station = document.getElementById('_ins-station')?.value?.trim() || '';
+    const docNr   = document.getElementById('_ins-doc')?.value?.trim() || '';
+    const nip     = document.getElementById('_ins-nip')?.value?.replace(/[^0-9]/g,'') || '';
     const notes   = document.getElementById('_ins-notes')?.value?.trim() || '';
     if (!date) { if (typeof toast === 'function') toast('⚠ Podaj datę przeglądu'); return; }
 
     if (!Array.isArray(v.inspectionHistory)) v.inspectionHistory = [];
-    v.inspectionHistory.push({ date, result, station, notes });
+    v.inspectionHistory.push({
+      date, result, station, docNr, nip, notes,
+      addedBy: window.currentUser?.name || window.currentUser?.email || null,
+      addedAt: new Date().toISOString()
+    });
+    this._logAudit('inspection_add', vehId, { date, result });
 
     // Aktualizuj lastInspection na najnowszy
     const sorted = [...v.inspectionHistory].sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -831,17 +903,283 @@ window.TaxOrderVehicleDetail = {
     if (histEl) histEl.innerHTML = this._renderInspectionHistory(v);
   },
 
+  // ── UDT history ──────────────────────────────────────────────────────────
+  _renderUdtHistory(v) {
+    const hist = Array.isArray(v.udtHistory) ? v.udtHistory : [];
+    if (!hist.length) return '<div style="font-size:12px;color:var(--text3);padding:6px 0">Brak wpisów. Kliknij "Dodaj wpis" aby dodać pierwszy.</div>';
+    return [...hist].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((e,i)=>`
+      <div style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;background:var(--bg3);border-radius:var(--radius);border-left:3px solid var(--red);margin-bottom:6px;font-size:12px">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+            <span style="font-family:var(--mono);font-weight:600">${e.date?new Date(e.date).toLocaleDateString('pl-PL'):'—'}</span>
+            <span class="pill pill-gray" style="font-size:10px">${e.typ||'badanie'}</span>
+            ${e.result?`<span class="pill" style="font-size:10px;background:${{pozytywny:'var(--green)20',warunkowy:'var(--amber)20',negatywny:'var(--red)20'}[e.result]||'#eee'};color:${{pozytywny:'var(--green)',warunkowy:'var(--amber)',negatywny:'var(--red)'}[e.result]||'#666'}">${e.result}</span>`:''}
+          </div>
+          ${e.docNr?`<div style="font-size:10px;color:var(--text3)">Dok.: ${e.docNr}${e.nip?' · NIP: '+e.nip:''}</div>`:''}
+          ${e.firma?`<div style="font-size:11px;color:var(--text2)">${e.firma}</div>`:''}
+          ${e.notes?`<div style="font-size:11px;color:var(--text2)">${e.notes}</div>`:''}
+          ${e.addedBy?`<div style="font-size:10px;color:var(--text3)">Dodał: ${e.addedBy}</div>`:''}
+        </div>
+        <button onclick="TaxOrderVehicleDetail._removeUdtEntry(${v.id},${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px">&times;</button>
+      </div>`).join('');
+  },
+
+  _addUdtEntry(vehId) {
+    const v = (window.vehs||[]).find(x=>x.id===vehId);
+    if (!v) return;
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9200;display:flex;align-items:center;justify-content:center;padding:1rem';
+    overlay.innerHTML = `
+      <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:480px;max-width:98vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
+        <div style="font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+          <i class="ti ti-building-factory-2" style="color:var(--red)"></i>Nowy wpis UDT — ${v.nrRej}
+        </div>
+        <div class="vdfg" style="margin-bottom:14px">
+          <div class="vdf">
+            <label class="vdl">Data badania/wpisu</label>
+            <input id="_udt-date" type="date" class="fi" value="${new Date().toISOString().slice(0,10)}">
+          </div>
+          <div class="vdf">
+            <label class="vdl">Typ wpisu</label>
+            <select id="_udt-typ" class="fi">
+              <option value="badanie">Badanie UDT</option>
+              <option value="rejestracja">Rejestracja urządzenia</option>
+              <option value="modernizacja">Modernizacja</option>
+              <option value="naprawa">Naprawa / wymiana</option>
+              <option value="inne">Inne</option>
+            </select>
+          </div>
+          <div class="vdf">
+            <label class="vdl">Wynik</label>
+            <select id="_udt-result" class="fi">
+              <option value="">— nie określono —</option>
+              <option value="pozytywny">✅ Pozytywny</option>
+              <option value="warunkowy">⚠ Warunkowy</option>
+              <option value="negatywny">❌ Negatywny</option>
+            </select>
+          </div>
+          <div class="vdf">
+            <label class="vdl">Nr decyzji / dokumentu</label>
+            <input id="_udt-doc" type="text" class="fi" placeholder="np. UDT/2025/123">
+          </div>
+          <div class="vdf">
+            <label class="vdl">NIP inspektora / firmy</label>
+            <div style="display:flex;gap:6px">
+              <input id="_udt-nip" type="text" class="fi" placeholder="10 cyfr" maxlength="13" style="flex:1"
+                oninput="this.value=this.value.replace(/[^0-9-]/g,'')">
+              <button type="button" class="btn btn-gray" style="padding:3px 8px;font-size:11px"
+                onclick="TaxOrderVehicleDetail._nipLookup(document.getElementById('_udt-nip').value,'_udt-firma','_udt-nip-st')">
+                <i class="ti ti-search"></i>
+              </button>
+            </div>
+            <div id="_udt-nip-st" style="font-size:10px;color:var(--blue);margin-top:2px"></div>
+          </div>
+          <div class="vdf">
+            <label class="vdl">Nazwa firmy / inspektora</label>
+            <input id="_udt-firma" type="text" class="fi" placeholder="Uzupełnia się automatycznie z NIP">
+          </div>
+          <div class="vdf" style="grid-column:1/-1">
+            <label class="vdl">Uwagi</label>
+            <textarea id="_udt-notes" class="fi" style="height:60px;resize:vertical"></textarea>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn-gray" onclick="this.closest('[style*=fixed]').remove()">Anuluj</button>
+          <button class="btn btn-green" onclick="TaxOrderVehicleDetail._saveUdtEntry(${vehId},this)">
+            <i class="ti ti-check"></i>Zapisz wpis
+          </button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    document.getElementById('_udt-date')?.focus();
+  },
+
+  _saveUdtEntry(vehId, btn) {
+    const v = (window.vehs||[]).find(x=>x.id===vehId);
+    if (!v) return;
+    const date  = document.getElementById('_udt-date')?.value || '';
+    if (!date) { toast('⚠ Podaj datę'); return; }
+    const entry = {
+      date,
+      typ:    document.getElementById('_udt-typ')?.value || '',
+      result: document.getElementById('_udt-result')?.value || '',
+      docNr:  document.getElementById('_udt-doc')?.value?.trim() || '',
+      nip:    document.getElementById('_udt-nip')?.value?.replace(/[^0-9]/g,'') || '',
+      firma:  document.getElementById('_udt-firma')?.value?.trim() || '',
+      notes:  document.getElementById('_udt-notes')?.value?.trim() || '',
+      addedBy: window.currentUser?.name || window.currentUser?.email || null,
+      addedAt: new Date().toISOString()
+    };
+    if (!Array.isArray(v.udtHistory)) v.udtHistory = [];
+    v.udtHistory.push(entry);
+    if (entry.date) v.udtLastDate = [...v.udtHistory].sort((a,b)=>new Date(b.date)-new Date(a.date))[0].date;
+    btn.closest('[style*=fixed]').remove();
+    const el = document.getElementById('vd-udt-history');
+    if (el) el.innerHTML = this._renderUdtHistory(v);
+    this._logAudit('udt_add', vehId, { date, typ: entry.typ });
+    toast('✓ Wpis UDT dodany — kliknij Zapisz aby utrwalić');
+  },
+
+  _removeUdtEntry(vehId, index) {
+    const v = (window.vehs||[]).find(x=>x.id===vehId);
+    if (!v || !Array.isArray(v.udtHistory)) return;
+    const sorted = [...v.udtHistory].sort((a,b)=>new Date(b.date)-new Date(a.date));
+    v.udtHistory = v.udtHistory.filter(e=>e!==sorted[index]);
+    this._logAudit('udt_remove', vehId, {});
+    const el = document.getElementById('vd-udt-history');
+    if (el) el.innerHTML = this._renderUdtHistory(v);
+  },
+
+  // ── Tachograph history ────────────────────────────────────────────────────
+  _renderTachoHistory(v) {
+    const hist = Array.isArray(v.tachoHistory) ? v.tachoHistory : [];
+    if (!hist.length) return '<div style="font-size:12px;color:var(--text3);padding:6px 0">Brak wpisów. Kliknij "Dodaj wpis" aby dodać pierwszą legalizację.</div>';
+    return [...hist].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((e,i)=>`
+      <div style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;background:var(--bg3);border-radius:var(--radius);border-left:3px solid var(--blue);margin-bottom:6px;font-size:12px">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+            <span style="font-family:var(--mono);font-weight:600">${e.date?new Date(e.date).toLocaleDateString('pl-PL'):'—'}</span>
+            <span class="pill pill-gray" style="font-size:10px">${e.typ||'legalizacja'}</span>
+            ${e.wazneDo?`<span style="font-size:10px;color:var(--text2)">ważne do: ${new Date(e.wazneDo).toLocaleDateString('pl-PL')}</span>`:''}
+          </div>
+          ${e.certNr?`<div style="font-size:10px;color:var(--text3)">Cert.: ${e.certNr}${e.nip?' · NIP: '+e.nip:''}</div>`:''}
+          ${e.firma?`<div style="font-size:11px;color:var(--text2)">${e.firma}</div>`:''}
+          ${e.notes?`<div style="font-size:11px;color:var(--text2)">${e.notes}</div>`:''}
+          ${e.addedBy?`<div style="font-size:10px;color:var(--text3)">Dodał: ${e.addedBy}</div>`:''}
+        </div>
+        <button onclick="TaxOrderVehicleDetail._removeTachoEntry(${v.id},${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px">&times;</button>
+      </div>`).join('');
+  },
+
+  _addTachoEntry(vehId) {
+    const v = (window.vehs||[]).find(x=>x.id===vehId);
+    if (!v) return;
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9200;display:flex;align-items:center;justify-content:center;padding:1rem';
+    overlay.innerHTML = `
+      <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:480px;max-width:98vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
+        <div style="font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+          <i class="ti ti-device-desktop-analytics" style="color:var(--blue)"></i>Nowy wpis tachografu — ${v.nrRej}
+        </div>
+        <div class="vdfg" style="margin-bottom:14px">
+          <div class="vdf">
+            <label class="vdl">Data legalizacji</label>
+            <input id="_tch-date" type="date" class="fi" value="${new Date().toISOString().slice(0,10)}">
+          </div>
+          <div class="vdf">
+            <label class="vdl">Typ wpisu</label>
+            <select id="_tch-typ" class="fi">
+              <option value="legalizacja">Legalizacja tachografu</option>
+              <option value="kalibracja">Kalibracja</option>
+              <option value="wymiana">Wymiana tachografu</option>
+              <option value="naprawa">Naprawa</option>
+              <option value="inne">Inne</option>
+            </select>
+          </div>
+          <div class="vdf">
+            <label class="vdl">Ważność do (następna legalizacja)</label>
+            <input id="_tch-wazne" type="date" class="fi">
+          </div>
+          <div class="vdf">
+            <label class="vdl">Nr świadectwa / certyfikatu</label>
+            <input id="_tch-cert" type="text" class="fi" placeholder="nr certyfikatu legalizacji">
+          </div>
+          <div class="vdf">
+            <label class="vdl">NIP warsztatu</label>
+            <div style="display:flex;gap:6px">
+              <input id="_tch-nip" type="text" class="fi" placeholder="10 cyfr" maxlength="13" style="flex:1"
+                oninput="this.value=this.value.replace(/[^0-9-]/g,'')">
+              <button type="button" class="btn btn-gray" style="padding:3px 8px;font-size:11px"
+                onclick="TaxOrderVehicleDetail._nipLookup(document.getElementById('_tch-nip').value,'_tch-firma','_tch-nip-st')">
+                <i class="ti ti-search"></i>
+              </button>
+            </div>
+            <div id="_tch-nip-st" style="font-size:10px;color:var(--blue);margin-top:2px"></div>
+          </div>
+          <div class="vdf">
+            <label class="vdl">Nazwa warsztatu</label>
+            <input id="_tch-firma" type="text" class="fi" placeholder="Uzupełnia się automatycznie z NIP">
+          </div>
+          <div class="vdf" style="grid-column:1/-1">
+            <label class="vdl">Uwagi</label>
+            <textarea id="_tch-notes" class="fi" style="height:55px;resize:vertical"></textarea>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn-gray" onclick="this.closest('[style*=fixed]').remove()">Anuluj</button>
+          <button class="btn btn-green" onclick="TaxOrderVehicleDetail._saveTachoEntry(${vehId},this)">
+            <i class="ti ti-check"></i>Zapisz wpis
+          </button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    document.getElementById('_tch-date')?.focus();
+  },
+
+  _saveTachoEntry(vehId, btn) {
+    const v = (window.vehs||[]).find(x=>x.id===vehId);
+    if (!v) return;
+    const date = document.getElementById('_tch-date')?.value || '';
+    if (!date) { toast('⚠ Podaj datę'); return; }
+    const entry = {
+      date,
+      typ:    document.getElementById('_tch-typ')?.value || '',
+      wazneDo:document.getElementById('_tch-wazne')?.value || '',
+      certNr: document.getElementById('_tch-cert')?.value?.trim() || '',
+      nip:    document.getElementById('_tch-nip')?.value?.replace(/[^0-9]/g,'') || '',
+      firma:  document.getElementById('_tch-firma')?.value?.trim() || '',
+      notes:  document.getElementById('_tch-notes')?.value?.trim() || '',
+      addedBy: window.currentUser?.name || window.currentUser?.email || null,
+      addedAt: new Date().toISOString()
+    };
+    if (!Array.isArray(v.tachoHistory)) v.tachoHistory = [];
+    v.tachoHistory.push(entry);
+    if (entry.wazneDo) v.tachoNextCalib = entry.wazneDo;
+    if (entry.date) v.tachoLastCalib = [...v.tachoHistory].sort((a,b)=>new Date(b.date)-new Date(a.date))[0].date;
+    btn.closest('[style*=fixed]').remove();
+    const el = document.getElementById('vd-tacho-history');
+    if (el) el.innerHTML = this._renderTachoHistory(v);
+    this._logAudit('tacho_add', vehId, { date, typ: entry.typ });
+    toast('✓ Wpis tachografu dodany — kliknij Zapisz aby utrwalić');
+  },
+
+  _removeTachoEntry(vehId, index) {
+    const v = (window.vehs||[]).find(x=>x.id===vehId);
+    if (!v || !Array.isArray(v.tachoHistory)) return;
+    const sorted = [...v.tachoHistory].sort((a,b)=>new Date(b.date)-new Date(a.date));
+    v.tachoHistory = v.tachoHistory.filter(e=>e!==sorted[index]);
+    this._logAudit('tacho_remove', vehId, {});
+    const el = document.getElementById('vd-tacho-history');
+    if (el) el.innerHTML = this._renderTachoHistory(v);
+  },
+
   _renderCards(v) {
     const cards = (window.flotCards || []).filter(c => c.nrRej === v.nrRej);
-    if (!cards.length) return '<div style="font-size:12px;color:var(--text3)">Brak przypisanych kart</div>';
-    return cards.map(c => `
-      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg2);border-radius:var(--radius);margin-bottom:6px;font-size:12px">
-        <i class="ti ti-credit-card" style="color:var(--blue)"></i>
-        <span style="font-family:var(--mono)">${c.nr}</span>
-        <span class="pill pill-gray" style="font-size:10px">${c.typ}</span>
-        <span style="color:var(--text2)">${c.dostawca || ''}</span>
-        <span class="pill ${c.status==='AKTYWNA'?'pill-green':'pill-red'}" style="font-size:10px;margin-left:auto">${c.status}</span>
+    if (!cards.length) return '<div style="font-size:12px;color:var(--text3)">Brak przypisanych kart. Kliknij "Dodaj" aby przypisać.</div>';
+    return cards.map((c, i) => `
+      <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--radius);margin-bottom:6px;font-size:12px;border-left:3px solid var(--blue)">
+        <i class="ti ti-credit-card" style="color:var(--blue);font-size:16px;flex-shrink:0;margin-top:2px"></i>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-family:var(--mono);font-weight:600;font-size:13px">${c.nr}</span>
+            <span class="pill pill-gray" style="font-size:10px">${c.typ||'—'}</span>
+            <span class="pill ${c.status==='AKTYWNA'?'pill-green':c.status==='ZABLOKOWANA'?'pill-red':'pill-gray'}" style="font-size:10px">${c.status||'—'}</span>
+          </div>
+          ${c.user?`<div style="font-size:11px;color:var(--text2);margin-top:2px"><i class="ti ti-user" style="font-size:10px"></i> ${c.user}</div>`:''}
+          ${c.notes?`<div style="font-size:11px;color:var(--text3)">${c.notes}</div>`:''}
+        </div>
+        <button onclick="TaxOrderVehicleDetail._removeCard('${c.nrRej}',${c.id||i})" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px" title="Usuń kartę">&times;</button>
       </div>`).join('');
+  },
+
+  _removeCard(nrRej, cardId) {
+    if (!confirm('Usunąć tę kartę flotową?')) return;
+    window.flotCards = (window.flotCards||[]).filter(c => c.id !== cardId);
+    const v = (window.vehs||[]).find(x => x.nrRej === nrRej);
+    const listEl = document.getElementById('vd-cards-list');
+    if (listEl && v) listEl.innerHTML = this._renderCards(v);
+    this._logAudit('card_remove', null, { nrRej, cardId });
+    toast('Karta usunięta');
   },
 
   refreshServiceTab(vehId) {
@@ -1052,14 +1390,162 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
   },
 
   _addCard(vehId) {
-    this.close();
-    if (typeof showPage === 'function') showPage('pojazdy');
+    const v = (window.vehs||[]).find(x => x.id === vehId);
+    const drivers = [...new Set((window.vehs||[]).map(x=>x.kierowca).filter(Boolean))];
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9300;display:flex;align-items:center;justify-content:center;padding:1rem';
+    overlay.innerHTML = `
+      <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:460px;max-width:98vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
+        <div style="font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+          <i class="ti ti-credit-card" style="color:var(--blue)"></i>Nowa karta flotowa${v?' — '+v.nrRej:''}
+        </div>
+        <div class="vdfg" style="margin-bottom:14px">
+          <div class="vdf">
+            <label class="vdl">Nr karty flotowej *</label>
+            <input id="_fc-nr" type="text" class="fi" placeholder="np. 1234 5678 9012 3456">
+          </div>
+          <div class="vdf">
+            <label class="vdl">Kod PIN (opcjonalnie)</label>
+            <input id="_fc-pin" type="password" class="fi" maxlength="6" placeholder="4–6 cyfr">
+          </div>
+          <div class="vdf">
+            <label class="vdl">Typ / operator karty</label>
+            <select id="_fc-typ" class="fi">
+              <option>ORLEN Card</option>
+              <option>BP Fleet</option>
+              <option>DKV</option>
+              <option>UTA</option>
+              <option>Lotos Card</option>
+              <option>Shell</option>
+              <option>Inna</option>
+            </select>
+          </div>
+          <div class="vdf">
+            <label class="vdl">Status</label>
+            <select id="_fc-status" class="fi">
+              <option value="AKTYWNA">Aktywna</option>
+              <option value="WOLNA">Wolna (nieprzypisana)</option>
+              <option value="ZABLOKOWANA">Zablokowana</option>
+            </select>
+          </div>
+          <div class="vdf" style="grid-column:1/-1">
+            <label class="vdl">Przypisany użytkownik / kierowca</label>
+            <input id="_fc-user" type="text" class="fi" placeholder="Imię i nazwisko" list="_fc-drivers"
+              value="${v?.kierowca||''}">
+            <datalist id="_fc-drivers">${drivers.map(d=>`<option value="${d}">`).join('')}</datalist>
+          </div>
+          <div class="vdf" style="grid-column:1/-1">
+            <label class="vdl">Opis / uwagi</label>
+            <textarea id="_fc-notes" class="fi" style="height:60px;resize:vertical" placeholder="Opcjonalnie"></textarea>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn-gray" onclick="this.closest('[style*=fixed]').remove()">Anuluj</button>
+          <button class="btn btn-blue" onclick="TaxOrderVehicleDetail._saveCard(${vehId},this)">
+            <i class="ti ti-check"></i>Zapisz kartę
+          </button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    document.getElementById('_fc-nr')?.focus();
+  },
+
+  _saveCard(vehId, btn) {
+    const nr  = document.getElementById('_fc-nr')?.value?.trim();
+    if (!nr) { toast('⚠ Podaj numer karty'); return; }
+    const v   = (window.vehs||[]).find(x => x.id === vehId);
+    const pin = document.getElementById('_fc-pin')?.value?.trim();
+    const typ = document.getElementById('_fc-typ')?.value;
+    const status = document.getElementById('_fc-status')?.value;
+    const user = document.getElementById('_fc-user')?.value?.trim();
+    const notes = document.getElementById('_fc-notes')?.value?.trim();
+    if (!window.flotCards) window.flotCards = [];
+    window.flotCards.push({
+      id: Date.now(),
+      nr, pin, typ, status,
+      nrRej: v?.nrRej || null,
+      user, notes,
+      addedAt: new Date().toISOString(),
+      addedBy: window.currentUser?.name || window.currentUser?.email || null
+    });
+    btn.closest('[style*=fixed]').remove();
+    const listEl = document.getElementById('vd-cards-list');
+    if (listEl && v) listEl.innerHTML = this._renderCards(v);
+    if (typeof toast === 'function') toast('✓ Karta flotowa dodana');
+    this._logAudit('card_add', vehId, { nr, typ });
   },
 
   _scanInvoice(vehId) {
     this.close();
     if (typeof showPage === 'function') showPage('faktury');
     toast('ℹ Wgraj skan faktury — dane zostaną przypisane do pojazdu');
+  },
+
+  // ── OC → AC/Ass sync helpers ─────────────────────────────────────────────
+  _syncOcAc(on) {
+    const wrap = document.getElementById('vd-ac-fields');
+    if (!wrap) return;
+    wrap.style.opacity = on ? '.5' : '';
+    wrap.style.pointerEvents = on ? 'none' : '';
+    if (on) {
+      const g = id => document.getElementById('vd-' + id)?.value || '';
+      const s = id => { const el = document.getElementById('vd-' + id); if (el) el.value = g(id.replace('ac','oc').replace('Ac','Oc')); };
+      document.getElementById('vd-acPolicyNo') && (document.getElementById('vd-acPolicyNo').value = g('ocPolicyNo'));
+      document.getElementById('vd-acInsurer')  && (document.getElementById('vd-acInsurer').value  = g('ocInsurer'));
+      document.getElementById('vd-acStart')    && (document.getElementById('vd-acStart').value    = g('ocStart'));
+      document.getElementById('vd-acEnd')      && (document.getElementById('vd-acEnd').value      = g('ocEnd'));
+    }
+  },
+
+  _syncOcAss(on) {
+    const wrap = document.getElementById('vd-ass-fields');
+    if (!wrap) return;
+    wrap.style.opacity = on ? '.5' : '';
+    wrap.style.pointerEvents = on ? 'none' : '';
+    if (on) {
+      const g = id => document.getElementById('vd-' + id)?.value || '';
+      document.getElementById('vd-assPolicyNo') && (document.getElementById('vd-assPolicyNo').value = g('ocPolicyNo'));
+      document.getElementById('vd-assInsurer')  && (document.getElementById('vd-assInsurer').value  = g('ocInsurer'));
+      document.getElementById('vd-assEnd')      && (document.getElementById('vd-assEnd').value      = g('ocEnd'));
+    }
+  },
+
+  // ── NIP lookup (MF Biała Lista) ───────────────────────────────────────────
+  _nipLookup(nip, nameInputId, statusId) {
+    const clean = (nip||'').replace(/[^0-9]/g,'');
+    if (clean.length !== 10) return;
+    const statusEl = document.getElementById(statusId);
+    if (statusEl) statusEl.textContent = 'Szukam...';
+    const today = new Date().toISOString().slice(0,10);
+    fetch(`https://wl.mf.gov.pl/api/check/nip/${clean}?date=${today}`)
+      .then(r => r.ok ? r.json() : Promise.reject('http'))
+      .then(data => {
+        const name = data?.result?.subject?.name;
+        if (name) {
+          const el = document.getElementById(nameInputId);
+          if (el) el.value = name;
+          if (statusEl) statusEl.textContent = '✓ ' + name.slice(0,60);
+        } else {
+          if (statusEl) statusEl.textContent = 'Nie znaleziono w BL';
+        }
+      })
+      .catch(() => { if (statusEl) statusEl.textContent = ''; });
+  },
+
+  _logAudit(action, vehId, changes) {
+    try {
+      const log = JSON.parse(localStorage.getItem('auditLog')||'[]');
+      log.push({
+        ts: new Date().toISOString(),
+        uid: window.currentUser?.id || null,
+        user: window.currentUser?.name || window.currentUser?.email || 'nieznany',
+        action,
+        vehId,
+        changes: changes || {}
+      });
+      if (log.length > 3000) log.splice(0, log.length - 3000);
+      localStorage.setItem('auditLog', JSON.stringify(log));
+    } catch(e) {}
   },
 
   // ── DOT helpers ───────────────────────────────────────────────────────────

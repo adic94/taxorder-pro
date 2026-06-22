@@ -177,18 +177,57 @@ function filterVeh() {
   const fStat = document.getElementById('f-status')?.value||'';
   const fWl = document.getElementById('f-wl')?.value||'';
   const fAlert = document.getElementById('f-alert')?.value||'';
-  return vehs.filter(v =>
-    (!window._driverFilter || v.kierowca === window._driverFilter) &&
-    (!q || v.nrRej.toLowerCase().includes(q) || v.marka.toLowerCase().includes(q) || v.model.toLowerCase().includes(q) || (v.vin||'').toLowerCase().includes(q)) &&
-    (!fTyp || v.typ === fTyp) &&
-    (!fStat || v.status === fStat) &&
-    (!fWl || v.wlasciciel === fWl) &&
-    (!fAlert || (fAlert === 'alert' ? _hasExpiryAlert(v) : !_hasExpiryAlert(v)))
-  ).sort((a,b) => {
+  return vehs.filter(v => {
+    if (window._driverFilter && v.kierowca !== window._driverFilter) return false;
+    if (q && !v.nrRej.toLowerCase().includes(q) && !v.marka.toLowerCase().includes(q) && !v.model.toLowerCase().includes(q) && !(v.vin||'').toLowerCase().includes(q)) return false;
+    if (fTyp && v.typ !== fTyp) return false;
+    if (fStat && v.status !== fStat) return false;
+    if (fWl && v.wlasciciel !== fWl) return false;
+    if (fAlert && (fAlert === 'alert' ? !_hasExpiryAlert(v) : _hasExpiryAlert(v))) return false;
+    // Per-column filters
+    for (const [col, val] of Object.entries(_colFilters)) {
+      if (!val) continue;
+      const lv = val.toLowerCase();
+      const fv = String(v[col] ?? '').toLowerCase();
+      if (col === 'nrRej' && !v.nrRej.toLowerCase().includes(lv)) return false;
+      else if (col === 'marka' && !(v.marka+' '+v.model).toLowerCase().includes(lv)) return false;
+      else if (col === 'oc' && !String(v.ocEnd||'').includes(val)) return false;
+      else if (col === 'ac' && !String(v.acEnd||'').includes(val)) return false;
+      else if (col === 'przeglad' && !String(v.nextInspection||'').includes(val)) return false;
+      else if (col === 'ocInsurer' && !(String(v.ocInsurer||'')+' '+String(v.ocPolicyNo||'')).toLowerCase().includes(lv)) return false;
+      else if (col === 'acInsurer' && !(String(v.acInsurer||'')+' '+String(v.acPolicyNo||'')).toLowerCase().includes(lv)) return false;
+      else if (col === 'kierowca' && !String(v.kierowca||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'vin' && !(v.vin||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'paliwo' && !String(v.paliwo||'').toLowerCase().includes(lv)) return false;
+      else if (['rok','dmc','km','poj','mocKw','masaWl','msc'].includes(col) && !fv.includes(lv)) return false;
+    }
+    return true;
+  }).sort((a,b) => {
     let va=a[sortKey]||'', vb=b[sortKey]||'';
     if(typeof va==='number') return sortAsc?va-vb:vb-va;
     return sortAsc?String(va).localeCompare(String(vb)):String(vb).localeCompare(String(va));
   });
+}
+
+function applyColFilter(col, val) {
+  _colFilters[col] = val;
+  renderVeh();
+}
+
+function clearColFilters() {
+  _colFilters = {};
+  document.querySelectorAll('#veh-filter-row .col-fi').forEach(el => el.value = '');
+  renderVeh();
+}
+
+function toggleFilterRow() {
+  const row = document.getElementById('veh-filter-row');
+  const btn = document.getElementById('veh-filter-btn');
+  if (!row) return;
+  const visible = row.style.display !== 'none';
+  row.style.display = visible ? 'none' : '';
+  if (btn) btn.className = btn.className.replace(visible ? 'btn-blue' : 'btn-gray', visible ? 'btn-gray' : 'btn-blue');
+  if (visible) { clearColFilters(); }
 }
 
 function sortBy(key) {
@@ -291,13 +330,20 @@ function renderVeh() {
       <td data-col="kategoria">${t.cat?`<span class="pill ${CAT_COLORS[t.cat]||'pill-gray'}">${t.cat}</span>${needsDmcZ?'<span style="font-size:10px;color:var(--amber)"> brak DMC zesp.</span>':''}`:
         '<span style="color:var(--text3);font-size:11px">—</span>'}</td>
       <td data-col="podatek" style="text-align:right">${t.amount>0?`<strong style="color:var(--green);font-family:var(--mono)">${fmt2(t.amount)} zł</strong>`:'<span style="color:var(--text3)">—</span>'}</td>
+      <td data-col="vin" style="font-size:10px;font-family:var(--mono);color:var(--text2)">${v.vin||'—'}</td>
+      <td data-col="paliwo" style="font-size:11px">${v.paliwo||'—'}</td>
+      <td data-col="poj" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.pojSilnika!=null?v.pojSilnika.toLocaleString('pl-PL')+' cm³':'—'}</td>
+      <td data-col="mocKw" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.mocKW!=null?v.mocKW+' kW':'—'}</td>
+      <td data-col="masaWl" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.masaWlasna!=null?v.masaWlasna.toLocaleString('pl-PL')+' kg':'—'}</td>
+      <td data-col="msc" style="font-size:11px;text-align:center">${v.miejscaSied!=null?v.miejscaSied:'—'}</td>
+      <td data-col="euro" style="font-size:11px">${v.euro||'—'}</td>
       <td style="text-align:center" onclick="event.stopPropagation()">
         <button class="btn btn-gray" style="font-size:11px;padding:3px 8px" onclick="TaxOrderVehicleDetail.open(${v.id})" title="Karta pojazdu">
           <i class="ti ti-id-badge"></i>
         </button>
       </td>
     </tr>`;
-  }).join('') || `<tr><td colspan="23" style="text-align:center;padding:2rem;color:var(--text3)">Brak wyników</td></tr>`;
+  }).join('') || `<tr><td colspan="30" style="text-align:center;padding:2rem;color:var(--text3)">Brak wyników</td></tr>`;
   updateCounters();
   _applyColVis();
 }
@@ -647,11 +693,15 @@ async function generujDt1PerFirma() {
 }
 
 // ==================== COLUMN VISIBILITY ====================
-const _COL_FLEET = {rok:1,typ:1,dmc:0,osie:0,zawieszenie:0,dmczesp:0,mies:0,status:1,oc:1,ac:1,przeglad:1,kategoria:0,podatek:0,ocInsurer:1,acInsurer:0,udt:1,tacho:1,kierowca:1,km:1,dt1ok:0,gmina:0};
-const _COL_DT1   = {rok:1,typ:1,dmc:1,osie:1,zawieszenie:1,dmczesp:1,mies:1,status:1,oc:0,ac:0,przeglad:0,kategoria:1,podatek:1,ocInsurer:0,acInsurer:0,udt:0,tacho:0,kierowca:1,km:0,dt1ok:1,gmina:1};
+const _COL_FLEET = {rok:1,typ:1,dmc:0,osie:0,zawieszenie:0,dmczesp:0,mies:0,status:1,oc:1,ac:1,przeglad:1,kategoria:0,podatek:0,ocInsurer:1,acInsurer:0,udt:1,tacho:1,kierowca:1,km:1,dt1ok:0,gmina:0,
+  // DR data columns (all off by default in fleet view)
+  vin:0,paliwo:0,poj:0,mocKw:0,masaWl:0,msc:0,euro:0};
+const _COL_DT1   = {rok:1,typ:1,dmc:1,osie:1,zawieszenie:1,dmczesp:1,mies:1,status:1,oc:0,ac:0,przeglad:0,kategoria:1,podatek:1,ocInsurer:0,acInsurer:0,udt:0,tacho:0,kierowca:1,km:0,dt1ok:1,gmina:1,
+  vin:0,paliwo:0,poj:0,mocKw:0,masaWl:0,msc:0,euro:0};
 const _COL_DEFAULTS = {..._COL_FLEET};
 let _colVis = null;
 let _viewMode = localStorage.getItem('fleetViewMode') || 'fleet';
+let _colFilters = {};
 
 function _initColVis() {
   try { _colVis = JSON.parse(localStorage.getItem('taxColVis')) || null; } catch(e) {}
@@ -693,12 +743,15 @@ function _renderColPanel() {
     ocInsurer:'Ubezpieczyciel OC',acInsurer:'Ubezpieczyciel AC',
     udt:'Badanie UDT',tacho:'Legalizacja tacho',
     kierowca:'Kierowca',km:'Stan km',dt1ok:'Kompletność DT-1',gmina:'Gmina DT-1',
+    vin:'VIN',paliwo:'Paliwo (P.3)',poj:'Pojemność (cm³)',mocKw:'Moc (kW)',
+    masaWl:'Masa własna (kg)',msc:'Miejsca siedz.',euro:'Norma EURO',
   };
   const GROUPS = [
     {label:'Podstawowe',cols:['rok','typ','dmc','status','kierowca','km']},
     {label:'Podatek DT-1',cols:['dt1ok','gmina','osie','zawieszenie','dmczesp','mies','kategoria','podatek']},
     {label:'Ubezpieczenia',cols:['oc','ac','przeglad','ocInsurer','acInsurer']},
     {label:'Badania techniczne',cols:['udt','tacho']},
+    {label:'Dane DR (dowód rejestracyjny)',cols:['vin','paliwo','poj','mocKw','masaWl','msc','euro']},
   ];
   panel.innerHTML = GROUPS.map(g => `
     <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin:10px 0 4px;letter-spacing:.5px">${g.label}</div>
@@ -3843,6 +3896,43 @@ function toggleUser(id){
 function deleteUser(id){
   if(!confirm('Usunąć użytkownika?'))return;
   users=users.filter(x=>x.id!==id);saveUsers();renderUsers();toast('✓ Użytkownik usunięty');
+}
+
+// ==================== AUDIT LOG ====================
+function showAuditLog() {
+  const log = JSON.parse(localStorage.getItem('auditLog')||'[]').reverse().slice(0,200);
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9500;display:flex;align-items:center;justify-content:center;padding:1rem';
+  const ACTION_LABEL = {save:'Zapis danych',inspection_add:'Dodał wpis SKP',inspection_remove:'Usunął wpis SKP',udt_add:'Dodał wpis UDT',udt_remove:'Usunął wpis UDT',tacho_add:'Dodał wpis tacho',tacho_remove:'Usunął wpis tacho',card_add:'Dodał kartę flotową',card_remove:'Usunął kartę flotową'};
+  overlay.innerHTML = `
+    <div style="background:var(--bg2);border-radius:var(--radius-lg);width:700px;max-width:98vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.3)">
+      <div style="padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+        <i class="ti ti-history" style="color:var(--blue);font-size:20px"></i>
+        <span style="font-size:16px;font-weight:600">Dziennik zmian (audit log)</span>
+        <button onclick="this.closest('[style*=fixed]').remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:18px;color:var(--text3)">&times;</button>
+      </div>
+      <div style="overflow-y:auto;flex:1;padding:16px">
+        ${!log.length ? '<div style="text-align:center;padding:30px;color:var(--text3)">Brak wpisów w dzienniku</div>' :
+          '<table style="width:100%;font-size:11px;border-collapse:collapse">' +
+          '<thead><tr><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Kiedy</th><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Kto</th><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Akcja</th><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Pojazd</th></tr></thead><tbody>' +
+          log.map(e => {
+            const veh = e.vehId != null ? (vehs.find(v=>v.id===e.vehId)?.nrRej || 'id:'+e.vehId) : (e.changes?.nrRej || '—');
+            return `<tr style="border-bottom:0.5px solid var(--border)">
+              <td style="padding:4px 6px;font-family:var(--mono);white-space:nowrap">${e.ts ? new Date(e.ts).toLocaleString('pl-PL') : '—'}</td>
+              <td style="padding:4px 6px">${e.user||'—'}</td>
+              <td style="padding:4px 6px">${ACTION_LABEL[e.action]||e.action||'—'}</td>
+              <td style="padding:4px 6px;font-family:var(--mono)">${veh}</td>
+            </tr>`;
+          }).join('') + '</tbody></table>'}
+      </div>
+      <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-gray" style="font-size:11px" onclick="if(confirm('Wyczyścić dziennik?')){localStorage.removeItem('auditLog');this.closest('[style*=fixed]').remove();toast('Dziennik wyczyszczony')}">
+          <i class="ti ti-trash"></i>Wyczyść dziennik
+        </button>
+        <button class="btn btn-gray" onclick="this.closest('[style*=fixed]').remove()">Zamknij</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
 }
 
 // ==================== KARTY FLOTOWE ====================
