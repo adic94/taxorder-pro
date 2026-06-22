@@ -218,6 +218,92 @@ th.sort-th:hover{color:var(--blue)}
   .form-page:last-child{page-break-after:avoid}
 }
 
+/* ==================== RESPONSYWNOŚĆ MOBILNA ==================== */
+
+/* Hamburger — ukryty na desktop */
+.mob-menu-btn{display:none;background:none;border:none;cursor:pointer;color:var(--text);font-size:22px;padding:6px 8px;border-radius:var(--radius-sm);flex-shrink:0;align-items:center;line-height:1}
+.mob-menu-btn:hover{background:var(--bg3)}
+
+/* Overlay — ciemne tło za sidebar na mobile */
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:190;opacity:0;transition:opacity .25s}
+.sidebar-overlay.open{display:block;opacity:1}
+
+/* -------- TABLET ≤ 900px -------- */
+@media(max-width:900px){
+  /* Tabela floty — przewijana w poziomie */
+  .tbl-wrap{overflow-x:auto}
+  table{min-width:600px}
+
+  /* Stats KPI — 2 kolumny */
+  .stats{grid-template-columns:repeat(2,1fr)}
+
+  /* Topbar: mniejsze padding */
+  .topbar{padding:0 .75rem;gap:8px}
+}
+
+/* -------- MOBILE ≤ 640px -------- */
+@media(max-width:640px){
+  /* Pokaż hamburger */
+  .mob-menu-btn{display:flex}
+
+  /* Sidebar — slide-in z lewej */
+  .sidebar{
+    position:fixed;
+    left:-220px;
+    top:0;
+    height:100vh;
+    z-index:200;
+    transition:left .25s cubic-bezier(.4,0,.2,1);
+    overflow-y:auto;
+    box-shadow:none;
+  }
+  .sidebar.open{left:0;box-shadow:4px 0 24px rgba(0,0,0,.2)}
+
+  /* Content — pełna szerokość */
+  .content{padding:.875rem .75rem}
+
+  /* Topbar */
+  .topbar{padding:0 .625rem;gap:6px;height:52px}
+  .brand{font-size:13px;gap:6px}
+  .brand .ti{font-size:18px}
+  .brand-badge{display:none}
+
+  /* Ukryj mniej ważne elementy topbara na telefonach */
+  .topbar .company-sel-wrap{display:none!important}
+  #company-badge{display:none!important}
+  .topbar .yr-wrap{display:none!important}
+  /* Przesuń pozostałe elementy na prawo (zastępuje margin-left:auto z yr-wrap) */
+  #i18n-selector{margin-left:auto}
+
+  /* Stats KPI — 1 kolumna */
+  .stats{grid-template-columns:1fr 1fr}
+
+  /* Toolbar — przewijana lub zawijana */
+  .toolbar{flex-wrap:wrap;gap:6px}
+  .toolbar input{min-width:140px}
+
+  /* Formularz DT-1 — grid 1-kol */
+  .fg{grid-template-columns:1fr}
+  .f.full{grid-column:1}
+
+  /* Tabela */
+  .tbl-wrap{border-radius:var(--radius)}
+  table{min-width:520px}
+  th,td{padding:8px 10px}
+
+  /* Toast — pełna szerokość */
+  .toast{left:1rem;right:1rem;bottom:1rem;justify-content:center}
+
+  /* Mniejszy padding paneli */
+  .panel-right{position:static;margin-top:1rem}
+}
+
+/* -------- MAŁE TELEFONY ≤ 400px -------- */
+@media(max-width:400px){
+  .stats{grid-template-columns:1fr}
+  .topbar{height:48px}
+}
+
 /* ===== FORMULARZ DT-1 — styl oryginału MF ===== */
 .form-page{font-family:Arial,Helvetica,sans-serif;font-size:7pt;background:#fff;color:#000;width:210mm;min-height:297mm;padding:6mm 8mm;margin:0 auto 12px;border:none;box-shadow:0 0 12px rgba(0,0,0,.25);position:relative;box-sizing:border-box}
 .form-page *{box-sizing:border-box}

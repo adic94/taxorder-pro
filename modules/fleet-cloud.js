@@ -97,6 +97,11 @@ window.TaxOrderFleetCloud = {
     };
   },
 
+  // Śledzenie własnych zapisów — tłumi echo real-time
+  _selfSavedIds: new Set(),
+  // Aktywny kanał real-time Supabase
+  _realtimeChannel: null,
+
   // Zapisuje jeden pojazd do Supabase
   // Wywołuj po każdej zmianie osi/zawieszenia/DMC/miesięcy
   async saveVehicle(v) {
@@ -106,6 +111,10 @@ window.TaxOrderFleetCloud = {
     }
     if (!window.supabaseClient) return { ok: false };
 
+    // Oznaczymy własny zapis — real-time echo będzie pominięte
+    this._selfSavedIds.add(v.dbId);
+    setTimeout(() => this._selfSavedIds.delete(v.dbId), 8000);
+
     const payload = this.mapVehicleToDb(v);
 
     const { error } = await window.supabaseClient
@@ -114,6 +123,7 @@ window.TaxOrderFleetCloud = {
       .eq("id", v.dbId);
 
     if (error) {
+      this._selfSavedIds.delete(v.dbId);
       console.error("[FleetCloud] Błąd zapisu:", v.nrRej, error.message);
       return { ok: false, error };
     }
@@ -219,5 +229,66 @@ window.TaxOrderFleetCloud = {
     }
 
     return { ok: true, count: mapped.length, vehicles: mapped };
+  },
+
+  // ==================== REAL-TIME ====================
+
+  // Subskrybuj zmiany w tabeli vehicles dla aktualnej firmy
+  subscribeRealTime(companySlug) {
+    if (!window.supabaseClient) return;
+    this.unsubscribeRealTime();
+
+    const companyUUID = this.getCompanyUUID(companySlug);
+
+    this._realtimeChannel = window.supabaseClient
+      .channel('fleet-' + companyUUID)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'vehicles',
+        filter: `company_id=eq.${companyUUID}`
+      }, (payload) => this._handleRealTimeChange(payload))
+      .subscribe((status) => {
+        console.log('[FleetCloud RT] Status:', status, '| firma:', companySlug);
+      });
+  },
+
+  // Odsubskrybuj aktywny kanał (np. przy zmianie firmy lub wylogowaniu)
+  unsubscribeRealTime() {
+    if (this._realtimeChannel && window.supabaseClient) {
+      window.supabaseClient.removeChannel(this._realtimeChannel);
+      this._realtimeChannel = null;
+    }
+  },
+
+  // Obsługa zdarzeń real-time — INSERT / UPDATE / DELETE
+  _handleRealTimeChange(payload) {
+    const changedId = payload.new?.id || payload.old?.id;
+
+    // Pomiń echo własnych zapisów
+    if (changedId && this._selfSavedIds.has(changedId)) {
+      this._selfSavedIds.delete(changedId);
+      return;
+    }
+
+    const plate = payload.new?.registration_number || payload.old?.registration_number || '?';
+    const ev    = payload.eventType;
+
+    console.log('[FleetCloud RT] Zdarzenie zewnętrzne:', ev, plate);
+    if (typeof toast === 'function') {
+      const msg = ev === 'DELETE'
+        ? `🔄 Inny użytkownik usunął pojazd ${plate}`
+        : `🔄 Aktualizacja floty: ${plate}`;
+      toast(msg);
+    }
+
+    const slug = window.currentCompanyId || 'mtoilet';
+    this.loadVehicles(slug).then(result => {
+      if (result.ok) {
+        if (typeof renderVeh === 'function')       renderVeh();
+        if (typeof _renderFleetKpi === 'function') _renderFleetKpi();
+        if (typeof updateCounters === 'function')  updateCounters();
+      }
+    });
   }
 };

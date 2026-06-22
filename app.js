@@ -84,6 +84,28 @@ function fmtZl(n) { return Math.round(n).toLocaleString('pl-PL'); }
 function fmtT(kg) { return kg?(kg/1000).toFixed(3).replace('.',','):'—'; }
 
 // ==================== NAVIGATION ====================
+// Otwiera/zamyka sidebar na urządzeniach mobilnych
+function toggleMobileNav(forceClose) {
+  const sidebar  = document.getElementById('main-sidebar');
+  const overlay  = document.getElementById('sidebar-overlay');
+  if (!sidebar || !overlay) return;
+  const isOpen = sidebar.classList.contains('open');
+  if (forceClose || isOpen) {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('open');
+  } else {
+    sidebar.classList.add('open');
+    overlay.classList.add('open');
+  }
+}
+
+// Event delegation — każdy klik .tnb (w tym modale) zamyka sidebar na mobile
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('main-sidebar')?.addEventListener('click', e => {
+    if (e.target.closest('.tnb')) setTimeout(() => toggleMobileNav(true), 80);
+  });
+});
+
 function showPage(id) {
   if(typeof saveCompanyState === 'function') saveCompanyState();
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -91,6 +113,8 @@ function showPage(id) {
   document.getElementById('page-'+id).classList.add('active');
   const tnb = document.getElementById('tnb-'+id);
   if(tnb) tnb.classList.add('active');
+  // Zamknij sidebar po wyborze strony na mobile
+  toggleMobileNav(true);
   if(id==='pojazdy') renderVeh();
   if(id==='kalkulator') renderKalkulator();
   if(id==='formularze') renderFormularze();
@@ -3423,6 +3447,9 @@ async function doLogin(){
 
     if(typeof refreshAll==='function') refreshAll();
 
+    // Subskrybuj zmiany real-time po zalogowaniu
+    window.TaxOrderFleetCloud.subscribeRealTime(currentCompanyId);
+
     console.log('[FleetCloud] Automatycznie zaladowano pojazdy po zalogowaniu');
   }
 
@@ -4033,7 +4060,12 @@ function switchCompany(companyId){
   updateCompanyUI();
   refreshAll();
   toast('✓ Przełączono: '+COMPANIES[companyId].shortName);
-  window.TaxOrderFleetCloud?.loadVehicles(companyId).then(r=>{if(r?.ok)refreshAll();});
+  window.TaxOrderFleetCloud?.loadVehicles(companyId).then(r=>{
+    if(r?.ok){
+      refreshAll();
+      window.TaxOrderFleetCloud.subscribeRealTime(companyId);
+    }
+  });
 }
 
 function updateCompanyUI(){
