@@ -65,7 +65,7 @@ window.VehicleImport = (function () {
       <div style="background:var(--bg);border-radius:var(--radius-lg);padding:28px;width:640px;max-width:97vw;box-shadow:0 8px 48px rgba(0,0,0,.4);max-height:90vh;overflow-y:auto">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <i class="ti ti-table-import" style="color:var(--green);font-size:18px"></i>
-          <span style="font-size:17px;font-weight:700">Import pojazdów z Excel</span>
+          <span style="font-size:17px;font-weight:700">${t('vi.title')}</span>
           <button onclick="document.getElementById('vimport-modal').remove()" style="margin-left:auto;background:none;border:none;font-size:22px;cursor:pointer;color:var(--text3);line-height:1">×</button>
         </div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:18px">
@@ -76,7 +76,7 @@ window.VehicleImport = (function () {
         <div style="background:var(--bg2);border-radius:var(--radius);padding:12px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
           <i class="ti ti-download" style="color:var(--blue)"></i>
           <span style="font-size:12px;flex:1">Pobierz gotowy szablon Excel z nagłówkami kolumn:</span>
-          <button class="btn btn-gray" style="font-size:11px" onclick="VehicleImport.downloadTemplate()"><i class="ti ti-download"></i>Szablon</button>
+          <button class="btn btn-gray" style="font-size:11px" onclick="VehicleImport.downloadTemplate()"><i class="ti ti-download"></i>${t('vi.btn.template')}</button>
         </div>
 
         <!-- Drop zone -->
@@ -154,7 +154,7 @@ window.VehicleImport = (function () {
     const el = document.getElementById('vi-preview');
     if (!el) return;
     if (!rows.length) {
-      el.innerHTML = '<div style="color:var(--red);font-size:13px">⚠ Nie znaleziono wierszy z numerem rejestracyjnym (kolumna "nrRej" wymagana).</div>';
+      el.innerHTML = `<div style="color:var(--red);font-size:13px">${t('vi.err.noreg')}</div>`;
       return;
     }
 
@@ -164,27 +164,27 @@ window.VehicleImport = (function () {
 
     el.innerHTML = `
       <div style="font-size:13px;font-weight:600;margin-bottom:8px">
-        Podgląd: ${rows.length} wierszy
-        <span style="font-weight:400;font-size:12px;color:var(--green);margin-left:8px">${newCount} nowych</span>
-        <span style="font-weight:400;font-size:12px;color:var(--amber);margin-left:8px">${updCount} aktualizacji</span>
+        ${rows.length} ${t('common.vehicles')}
+        <span style="font-weight:400;font-size:12px;color:var(--green);margin-left:8px">${newCount} ${t('vi.toast.new')}</span>
+        <span style="font-weight:400;font-size:12px;color:var(--amber);margin-left:8px">${updCount} ${t('vi.toast.upd')}</span>
       </div>
       <div style="max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:14px">
         <table style="width:100%;border-collapse:collapse;font-size:11px">
           <thead>
             <tr style="background:var(--bg2);position:sticky;top:0">
-              <th style="padding:5px 8px;text-align:left;border-bottom:1px solid var(--border)">Nr rej.</th>
-              <th style="padding:5px 8px;text-align:left;border-bottom:1px solid var(--border)">Marka</th>
-              <th style="padding:5px 8px;text-align:left;border-bottom:1px solid var(--border)">Model</th>
-              <th style="padding:5px 8px;text-align:right;border-bottom:1px solid var(--border)">DMC</th>
-              <th style="padding:5px 8px;text-align:left;border-bottom:1px solid var(--border)">Typ</th>
-              <th style="padding:5px 8px;text-align:left;border-bottom:1px solid var(--border)">Status</th>
+              <th style="padding:5px 8px;text-align:left;border-bottom:1px solid var(--border)">${t('vi.col.plate')}</th>
+              <th style="padding:5px 8px;text-align:left;border-bottom:1px solid var(--border)">${t('vi.col.brand')}</th>
+              <th style="padding:5px 8px;text-align:left;border-bottom:1px solid var(--border)">${t('vi.col.model')}</th>
+              <th style="padding:5px 8px;text-align:right;border-bottom:1px solid var(--border)">${t('vi.col.dmc')}</th>
+              <th style="padding:5px 8px;text-align:left;border-bottom:1px solid var(--border)">${t('vi.col.type')}</th>
+              <th style="padding:5px 8px;text-align:left;border-bottom:1px solid var(--border)">${t('vi.col.status')}</th>
             </tr>
           </thead>
           <tbody>
             ${rows.map(r => {
               const isUpd = existing.has(r.nrRej);
               return `<tr style="${isUpd ? 'background:rgba(245,175,25,.08)' : ''}">
-                <td style="padding:4px 8px;border-bottom:1px solid var(--border);font-weight:600">${r.nrRej} ${isUpd?'<span style="color:var(--amber);font-size:10px">[aktualizacja]</span>':''}</td>
+                <td style="padding:4px 8px;border-bottom:1px solid var(--border);font-weight:600">${r.nrRej} ${isUpd?`<span style="color:var(--amber);font-size:10px">[${t('vi.toast.upd')}]</span>`:''}</td>
                 <td style="padding:4px 8px;border-bottom:1px solid var(--border)">${r.marka||'—'}</td>
                 <td style="padding:4px 8px;border-bottom:1px solid var(--border)">${r.model||'—'}</td>
                 <td style="padding:4px 8px;border-bottom:1px solid var(--border);text-align:right">${r.dmc ? (r.dmc/1000).toFixed(1)+'t' : '—'}</td>
@@ -197,10 +197,10 @@ window.VehicleImport = (function () {
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-green" onclick="VehicleImport.doImport()" style="flex:1;justify-content:center">
-          <i class="ti ti-check"></i>Importuj ${rows.length} pojazdów
+          <i class="ti ti-check"></i>${t('vi.btn.import')} (${rows.length})
         </button>
         <button class="btn btn-gray" onclick="document.getElementById('vi-preview').innerHTML='';document.getElementById('vi-file').value=''">
-          Anuluj
+          ${t('btn.cancel')}
         </button>
       </div>`;
   }
@@ -237,7 +237,7 @@ window.VehicleImport = (function () {
 
     if (typeof renderVeh === 'function') renderVeh();
     if (typeof updateCounters === 'function') updateCounters();
-    if (typeof toast === 'function') toast(`✅ Import: ${added} nowych + ${updated} aktualizacji`);
+    if (typeof toast === 'function') toast(`✅ Import: ${added} ${t('vi.toast.new')} + ${updated} ${t('vi.toast.upd')}`);
     document.getElementById('vimport-modal')?.remove();
     _pendingRows = [];
   }

@@ -239,7 +239,7 @@ window.GminyRates = (function () {
         <span style="flex:1;font-weight:600;font-size:13px">${g}</span>
         ${g === 'Warszawa'
           ? '<span style="font-size:11px;color:var(--text3)">wbudowane (max MF 2026)</span>'
-          : `<button class="btn btn-gray" style="font-size:11px" onclick="GminyRates.openModal('${g}')"><i class="ti ti-pencil"></i>Edytuj</button>
+          : `<button class="btn btn-gray" style="font-size:11px" onclick="GminyRates.openModal('${g}')"><i class="ti ti-pencil"></i>${t('btn.edit')}</button>
              <button class="btn btn-red" style="font-size:11px" onclick="GminyRates._del('${g}')"><i class="ti ti-trash"></i></button>`
         }
       </div>`).join('');
@@ -254,7 +254,7 @@ window.GminyRates = (function () {
             <label style="flex:1;font-size:12px;color:var(--text)">${s.label}</label>
             <input type="number" id="gr-${k}" value="${val}" min="0" style="width:88px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px;text-align:right">
             <span style="font-size:11px;color:var(--text3);width:18px">zł</span>
-            <button class="btn btn-gray" title="Przywróć Warszawa" style="font-size:10px;padding:2px 7px;min-width:24px" onclick="document.getElementById('gr-${k}').value=${s.default}">W</button>
+            <button class="btn btn-gray" title="${t('gminy.restore.default')}" style="font-size:10px;padding:2px 7px;min-width:24px" onclick="document.getElementById('gr-${k}').value=${s.default}">W</button>
           </div>`;
         }).join('')}
       </div>`).join('');
@@ -263,7 +263,7 @@ window.GminyRates = (function () {
       <div style="background:var(--bg);border-radius:var(--radius-lg);padding:24px 28px;width:660px;max-width:97vw;box-shadow:0 8px 48px rgba(0,0,0,.4)">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
           <i class="ti ti-map-pin" style="color:var(--blue);font-size:18px"></i>
-          <span style="font-size:17px;font-weight:700">${editing ? `Stawki DT-1 — ${editGmina}` : 'Stawki DT-1 per gmina'}</span>
+          <span style="font-size:17px;font-weight:700">${editing ? `${t('gminy.edit.title')} ${editGmina}` : t('gminy.title')}</span>
           <button onclick="document.getElementById('gminy-modal').remove()" style="margin-left:auto;background:none;border:none;font-size:22px;cursor:pointer;color:var(--text3);line-height:1">×</button>
         </div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:20px">
@@ -273,8 +273,8 @@ window.GminyRates = (function () {
         ${editing ? `
           <div style="max-height:65vh;overflow-y:auto;padding-right:6px">${rateEditor}</div>
           <div style="display:flex;gap:8px;margin-top:16px">
-            <button class="btn btn-green" onclick="GminyRates._save('${editGmina}')" style="flex:1;justify-content:center"><i class="ti ti-check"></i>Zapisz stawki ${editGmina}</button>
-            <button class="btn btn-gray" onclick="GminyRates.openModal()"><i class="ti ti-list"></i>Lista gmin</button>
+            <button class="btn btn-green" onclick="GminyRates._save('${editGmina}')" style="flex:1;justify-content:center"><i class="ti ti-check"></i>${t('btn.save')} — ${editGmina}</button>
+            <button class="btn btn-gray" onclick="GminyRates.openModal()"><i class="ti ti-list"></i>${t('gminy.title')}</button>
           </div>
         ` : `
           <div style="margin-bottom:20px">${gminyRows}</div>
@@ -282,11 +282,11 @@ window.GminyRates = (function () {
             <div style="font-size:13px;font-weight:600;margin-bottom:10px"><i class="ti ti-plus"></i> Dodaj gminę</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <input type="text" id="new-gmina-name" placeholder="Nazwa gminy (np. Kraków)" style="flex:1;min-width:160px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px">
-              <label style="font-size:12px;color:var(--text2);align-self:center">Skopiuj z:</label>
+              <label style="font-size:12px;color:var(--text2);align-self:center">${t('gminy.copy.from')}</label>
               <select id="new-gmina-src" style="padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px">
                 ${gminy.map(g => `<option>${g}</option>`).join('')}
               </select>
-              <button class="btn btn-blue" onclick="GminyRates._add()"><i class="ti ti-plus"></i>Dodaj</button>
+              <button class="btn btn-blue" onclick="GminyRates._add()"><i class="ti ti-plus"></i>${t('btn.add')}</button>
             </div>
           </div>
         `}
@@ -296,17 +296,17 @@ window.GminyRates = (function () {
   function _add() {
     const name = (document.getElementById('new-gmina-name')?.value || '').trim();
     const src  = document.getElementById('new-gmina-src')?.value || 'Warszawa';
-    if (!name) { if (typeof toast === 'function') toast('Podaj nazwę gminy'); return; }
-    if (name === 'Warszawa') { if (typeof toast === 'function') toast('Warszawa to stawka domyślna'); return; }
+    if (!name) { if (typeof toast === 'function') toast(t('gminy.toast.no.name')); return; }
+    if (name === 'Warszawa') { if (typeof toast === 'function') toast(t('gminy.toast.default')); return; }
     copyFrom(name, src);
-    if (typeof toast === 'function') toast(`✓ Gmina "${name}" dodana`);
+    if (typeof toast === 'function') toast(t('gminy.toast.added').replace('{0}', name));
     openModal(name);
   }
 
   function _del(name) {
-    if (!confirm(`Usunąć stawki dla gminy "${name}"?\nPojazdy tej gminy wrócą do stawek Warszawa.`)) return;
+    if (!confirm(t('gminy.confirm.del').replace('{0}', name))) return;
     deleteGmina(name);
-    if (typeof toast === 'function') toast(`Gmina "${name}" usunięta`);
+    if (typeof toast === 'function') toast(t('gminy.toast.deleted').replace('{0}', name));
     openModal();
   }
 
@@ -317,7 +317,7 @@ window.GminyRates = (function () {
       if (el) rates[s.key] = parseFloat(el.value) || s.default;
     });
     saveGminaRates(name, rates);
-    if (typeof toast === 'function') toast(`✓ Stawki dla "${name}" zapisane`);
+    if (typeof toast === 'function') toast(t('gminy.toast.saved').replace('{0}', name));
     openModal();
     if (typeof renderVeh === 'function') renderVeh();
     if (typeof renderFormularze === 'function') renderFormularze();
