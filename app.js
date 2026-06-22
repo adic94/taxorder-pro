@@ -2604,57 +2604,38 @@ async function runOCR(){
     const result=await tesseractWorker.recognize(imgSrc);
     bar.style.width='35%';
 
-    // OCR przy 180° (MRZ czytelniejszy)
-    let rawText180='';
-    try{
-      const canvas=document.createElement('canvas');
-      const ctx=canvas.getContext('2d');
-      const img2=new Image();
-      await new Promise(r=>{img2.onload=r;img2.src=imgSrc;});
-      canvas.width=img2.width;canvas.height=img2.height;
-      ctx.translate(canvas.width/2,canvas.height/2);ctx.rotate(Math.PI);
-      ctx.drawImage(img2,-img2.width/2,-img2.height/2);
-      const r180=await tesseractWorker.recognize(canvas.toDataURL('image/jpeg',0.9));
-      rawText180=r180.data.text||'';
-    }catch(e2){}
-    bar.style.width='50%';
+    // Funkcja pomocnicza: rotuj canvas i uruchom Tesseract
+    async function ocrAtAngle(src,deg){
+      if(deg===0)return(await tesseractWorker.recognize(src)).data.text||'';
+      const img=new Image();
+      await new Promise(r=>{img.onload=r;img.src=src;});
+      const c=document.createElement('canvas');
+      const rad=deg*Math.PI/180;
+      // Dla 90/270 zamień szerokość i wysokość
+      if(deg===90||deg===270){c.width=img.height;c.height=img.width;}
+      else{c.width=img.width;c.height=img.height;}
+      const ctx=c.getContext('2d');
+      ctx.translate(c.width/2,c.height/2);
+      ctx.rotate(rad);
+      ctx.drawImage(img,-img.width/2,-img.height/2);
+      try{return(await tesseractWorker.recognize(c.toDataURL('image/jpeg',0.92))).data.text||'';}
+      catch(e){return'';}
+    }
 
-    // OCR top/bot halves at 90° (pola F1/F2/L etc. są pionowo)
-    let rawTextCrops='';
-    try{
-      const img3=new Image();
-      await new Promise(r=>{img3.onload=r;img3.src=imgSrc;});
-      const W=img3.width,H=img3.height;
-      for(const[sy,ey,angle] of [[0,H/2,90],[H/2,H,90],[W/3,2*W/3,90].map(()=>null)].flat()){
-        if(!sy&&sy!==0)continue;
-        const c=document.createElement('canvas');
-        const cx=c.getContext('2d');
-        // Crop top half rotated 90°
-        if(sy!==undefined){
-          const cropH=ey-sy;
-          c.width=cropH;c.height=W;
-          cx.translate(c.width/2,c.height/2);cx.rotate(Math.PI/2);
-          cx.drawImage(img3,0,-sy,-W/2,-cropH/2,W,cropH);
-          // Fix: simpler crop+rotate approach
-          const c2=document.createElement('canvas');c2.width=W;c2.height=cropH;
-          c2.getContext('2d').drawImage(img3,0,0,W,H,0,-sy,W,H);
-          const cr=document.createElement('canvas');cr.width=cropH;cr.height=W;
-          const crx=cr.getContext('2d');
-          crx.translate(cr.width/2,cr.height/2);crx.rotate(Math.PI/2);
-          crx.drawImage(c2,0,sy,-W/2,-cropH/2,W,cropH);
-          try{
-            const rc=await tesseractWorker.recognize(cr.toDataURL('image/jpeg',0.9));
-            rawTextCrops+='\n---crop'+sy+'_90---\n'+(rc.data.text||'');
-          }catch(e3){}
-        }
-      }
-    }catch(e4){}
-    bar.style.width='70%';
-    bar.style.width='85%';
     const rawText=result.data.text||'';
-    // OCR 180° wykonany wcześniej — używamy rawText180 z pierwszego przebiegu.
-    // Połącz oba teksty
-    const combinedText='---0---\n'+rawText+'\n---180---\n'+rawText180+rawTextCrops+(window._ocrPage2Text?'\n---page2---\n'+window._ocrPage2Text:'');
+    bar.style.width='45%';
+
+    // 180° — MRZ czytelne (linie MRZ są u dołu dokumentu)
+    const rawText180=await ocrAtAngle(imgSrc,180).catch(()=>'');
+    bar.style.width='60%';
+
+    // 90° i 270° — dla dokumentów DR zeskanowanych bokiem (typowe dla polskich DR)
+    const rawText90=await ocrAtAngle(imgSrc,90).catch(()=>'');
+    bar.style.width='75%';
+    const rawText270=await ocrAtAngle(imgSrc,270).catch(()=>'');
+    bar.style.width='88%';
+
+    const combinedText='---0---\n'+rawText+'\n---180---\n'+rawText180+'\n---90---\n'+rawText90+'\n---270---\n'+rawText270+(window._ocrPage2Text?'\n---page2---\n'+window._ocrPage2Text:'');
     const conf=result.data.confidence||0;
 
     // Parsuj tekst
@@ -2745,7 +2726,7 @@ function parseRegistrationDoc(combinedOcrText){
     return{l2,l3};
   }
   let mrzLine2='',mrzLine3='';
-  for(const key of ['180','270','0','90']){
+  for(const key of ['180','0','90','270']){
     const src=t.split(`---${key}---\n`)[1]||'';
     const{l2,l3}=getMRZ(src);
     if(!mrzLine3&&l3)mrzLine3=l3;
@@ -2832,9 +2813,19 @@ function parseRegistrationDoc(combinedOcrText){
   }
 
   // ============================================================
-  // 8. Liczba osi (L)
+  // 8. Liczba osi (L) — szukaj z etykietą "L" lub "L:" lub w sekcji 90°/270°
   // ============================================================
-  const osiM=t.match(/\bL\s*[:\|=]?\s*([1-5])\b(?!\d)/i);
+  // Szukaj najpierw w sekcjach 90°/270° (tam DR jest czytelny)
+  const _osiSrc=[
+    (t.split('---90---\n')[1]||'').split('---')[0],
+    (t.split('---270---\n')[1]||'').split('---')[0],
+    (t.split('---0---\n')[1]||'').split('---')[0],
+  ].join('\n');
+  // Etykieta L z dwukropkiem/pipe/równa i cyfra 1-5 — tylko jeśli poprzedzone przez początek lub niealfa
+  const osiM=_osiSrc.match(/(?:^|[\n\r|])\s*L\s*[:\|]\s*([1-5])\b/m)
+    ||_osiSrc.match(/\bL\s+([1-5])\b(?!\d)/m)
+    ||t.match(/(?:^|[\n\r|])\s*L\s*[:\|]\s*([1-5])\b/m)
+    ||t.match(/\bL\s+([1-5])\b(?!\d)/m);
   if(osiM)d.liczbaOsi=osiM[1];
 
   // ============================================================
