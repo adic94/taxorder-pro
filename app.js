@@ -2557,6 +2557,73 @@ async function loadPdfJs(){
   });
 }
 
+// ── AZTEC 2D — kod na polskim dowodzie rejestracyjnym ──────────────────────────
+let _zxingLoaded=false;
+async function loadZXing(){
+  if(_zxingLoaded&&window.ZXing)return window.ZXing;
+  if(window.ZXing){_zxingLoaded=true;return window.ZXing;}
+  return new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js';
+    s.onload=()=>{_zxingLoaded=true;res(window.ZXing);};
+    s.onerror=()=>rej(new Error('ZXing nie załadowany'));
+    document.head.appendChild(s);
+  });
+}
+
+async function tryAztecFromCanvas(canvas){
+  if(!window.ZXing)return null;
+  try{
+    const hints=new Map([
+      [ZXing.DecodeHintType.POSSIBLE_FORMATS,[ZXing.BarcodeFormat.AZTEC]],
+      [ZXing.DecodeHintType.TRY_HARDER,true],
+      [ZXing.DecodeHintType.CHARACTER_SET,'ISO-8859-1'],
+    ]);
+    const reader=new ZXing.MultiFormatReader();
+    reader.setHints(hints);
+    const ctx=canvas.getContext('2d');
+    const imgData=ctx.getImageData(0,0,canvas.width,canvas.height);
+    const argb=new Int32Array(canvas.width*canvas.height);
+    for(let i=0;i<argb.length;i++){
+      argb[i]=(imgData.data[i*4]<<16)|(imgData.data[i*4+1]<<8)|imgData.data[i*4+2];
+    }
+    const lum=new ZXing.RGBLuminanceSource(argb,canvas.width,canvas.height);
+    const bmp=new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum));
+    const result=reader.decode(bmp);
+    const text=result.getText();
+    const bytes=new Uint8Array(text.length);
+    for(let i=0;i<text.length;i++)bytes[i]=text.charCodeAt(i)&0xFF;
+    return bytes;
+  }catch(e){return null;}
+}
+
+async function tryAztecDR(){
+  if(!ocrBase64)return false;
+  try{
+    await loadZXing();
+    const img=new Image();
+    await new Promise(r=>{img.onload=r;img.src='data:'+(ocrMime||'image/jpeg')+';base64,'+ocrBase64;});
+    const c=document.createElement('canvas');
+    c.width=img.naturalWidth;c.height=img.naturalHeight;
+    c.getContext('2d').drawImage(img,0,0);
+    const bytes=await tryAztecFromCanvas(c);
+    if(!bytes||bytes.length<8)return false;
+    const apiUrl=(window.CF_API_URL||'').replace(/\/$/,'');
+    if(!apiUrl)return false;
+    const token=localStorage.getItem('cf_token');
+    let b64='';for(let i=0;i<bytes.length;i++)b64+=String.fromCharCode(bytes[i]);
+    const resp=await fetch(apiUrl+'/api/aztec',{
+      method:'POST',
+      headers:{'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})},
+      body:JSON.stringify({bytesBase64:btoa(b64)}),
+    });
+    if(!resp.ok)return false;
+    const data=await resp.json();
+    if(!data.ok||!data.fields)return false;
+    return data.fields;
+  }catch(e){console.warn('[AZTEC]',e.message);return false;}
+}
+
 function resetOCR(){
   ocrFile=null;ocrBase64=null;
   document.getElementById('ocr-preview').classList.add('hidden');
@@ -2579,8 +2646,26 @@ async function runOCR(){
   document.getElementById('ocr-result').classList.add('hidden');
 
   try{
-    // Ładuj Tesseract jeśli trzeba
     const bar=document.getElementById('ocr-progress-bar');
+
+    // ── Krok 1: Próba odczytu kodu AZTEC 2D (szybkie, 100% dokładne) ──────────
+    btn.innerHTML='<i class="ti ti-qrcode"></i> Szukam kodu AZTEC...';
+    bar.style.width='6%';
+    const aztecFields=await tryAztecDR();
+    if(aztecFields){
+      bar.style.width='100%';
+      setTimeout(()=>{
+        document.getElementById('ocr-loader').classList.add('hidden');
+        showManualForm({...aztecFields,pewnosc:'AZTEC'},null,null);
+        _fillOcrFields(aztecFields);
+      },300);
+      document.getElementById('ocr-btn').disabled=false;
+      document.getElementById('ocr-btn').innerHTML='<i class="ti ti-scan"></i> Uruchom OCR + Wypełnij formularz';
+      return;
+    }
+
+    // ── Krok 2: Tesseract OCR (fallback gdy AZTEC nie znaleziony) ────────────
+    btn.innerHTML='<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> Analizuję...';
     bar.style.width='5%';
     const ok=await initTesseract();
     if(!ok)throw new Error('Nie udało się załadować silnika OCR');
@@ -2963,35 +3048,50 @@ function showManualForm(d,rawText,conf){
   window._ocrLastRawText = rawText||'';
   document.getElementById('ocr-result').classList.remove('hidden');
   const confInfo=conf!=null?`<span style="font-size:11px;font-family:var(--mono);color:var(--text2)">Pewność Tesseract: ${Math.round(conf)}%</span>`:'';
-  const pewClass={WYSOKA:'gbox',SREDNIA:'ibox',NISKA:'wbox'}[d.pewnosc]||'ibox';
-  const pewIcon={WYSOKA:'ti-circle-check',SREDNIA:'ti-scan',NISKA:'ti-alert-triangle'}[d.pewnosc]||'ti-scan';
+  const isAztec=d.pewnosc==='AZTEC';
+  const pewClass={WYSOKA:'gbox',SREDNIA:'ibox',NISKA:'wbox',AZTEC:'gbox'}[d.pewnosc]||'ibox';
+  const pewIcon={WYSOKA:'ti-circle-check',SREDNIA:'ti-scan',NISKA:'ti-alert-triangle',AZTEC:'ti-qrcode'}[d.pewnosc]||'ti-scan';
   const isLow=d.pewnosc==='NISKA';
 
   let html='';
 
   if(rawText!==undefined){
-    html+=`<div class="${pewClass}" style="margin-bottom:12px">
-      <i class="ti ${pewIcon}"></i>
-      <div>
-        <strong>OCR zakończony — pewność: ${d.pewnosc||'?'}</strong> · ${confInfo}<br>
-        <span style="font-size:11px">Sprawdź poniższe pola i popraw jeśli OCR się pomylił. Następnie kliknij <strong>Szukaj i aktualizuj</strong>.</span>
+    if(isAztec){
+      html+=`<div class="gbox" style="margin-bottom:12px">
+        <i class="ti ti-qrcode"></i>
+        <div>
+          <strong>Kod AZTEC 2D odczytany — dane pobrane bezpośrednio z dokumentu</strong><br>
+          <span style="font-size:11px">Wszystkie pola zostały pobrane z elektronicznego kodu 2D z dowodu rejestracyjnego. Sprawdź i kliknij <strong>Szukaj i aktualizuj</strong>.</span>
+        </div>
       </div>
-    </div>`;
-    // Surowy tekst — auto-rozwinięty gdy pewność NISKA
-    html+=`<details style="margin-bottom:8px"${isLow?' open':''}>
-      <summary style="cursor:pointer;font-size:12px;color:var(--text2);padding:6px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">📄 Surowy tekst OCR (kliknij aby ${isLow?'zwinąć':'rozwinąć'})</summary>
-      <pre style="font-size:10px;font-family:var(--mono);background:var(--bg3);padding:10px;border-radius:var(--radius);max-height:200px;overflow-y:auto;margin-top:4px;white-space:pre-wrap;color:var(--text2)">${(rawText||'').replace(/</g,'&lt;').slice(0,3000)}</pre>
-    </details>`;
-    // Przyciski AI — zawsze widoczne (Vision bezpośrednio z obrazu, AI z tekstu jako fallback)
-    html+=`<div style="margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <button id="ocr-vision-btn" onclick="extractOcrWithVision()" style="background:#7c3aed;color:#fff;border:none;padding:9px 16px;border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px">
-        <i class="ti ti-eye"></i> AI Vision — odczytaj obraz
-      </button>
-      <button id="ocr-ai-btn" onclick="extractOcrWithAI()" style="background:var(--bg3);color:var(--text1);border:1px solid var(--border);padding:9px 14px;border-radius:var(--radius);cursor:pointer;font-size:12px;display:inline-flex;align-items:center;gap:5px">
-        <i class="ti ti-brain"></i> AI z tekstu OCR
-      </button>
-      <span style="font-size:11px;color:var(--text3)">AI Vision widzi obraz bezpośrednio — znacznie dokładniejszy</span>
-    </div>`;
+      <div style="margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <button id="ocr-vision-btn" onclick="extractOcrWithVision()" style="background:var(--bg3);color:var(--text1);border:1px solid var(--border);padding:8px 14px;border-radius:var(--radius);cursor:pointer;font-size:12px;display:inline-flex;align-items:center;gap:5px">
+          <i class="ti ti-eye"></i> Weryfikuj AI Vision
+        </button>
+        <span style="font-size:11px;color:var(--text3)">Dane z AZTEC są kompletne — AI Vision dostępne do weryfikacji</span>
+      </div>`;
+    }else{
+      html+=`<div class="${pewClass}" style="margin-bottom:12px">
+        <i class="ti ${pewIcon}"></i>
+        <div>
+          <strong>OCR zakończony — pewność: ${d.pewnosc||'?'}</strong> · ${confInfo}<br>
+          <span style="font-size:11px">Sprawdź poniższe pola i popraw jeśli OCR się pomylił. Następnie kliknij <strong>Szukaj i aktualizuj</strong>.</span>
+        </div>
+      </div>`;
+      html+=`<details style="margin-bottom:8px"${isLow?' open':''}>
+        <summary style="cursor:pointer;font-size:12px;color:var(--text2);padding:6px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">📄 Surowy tekst OCR (kliknij aby ${isLow?'zwinąć':'rozwinąć'})</summary>
+        <pre style="font-size:10px;font-family:var(--mono);background:var(--bg3);padding:10px;border-radius:var(--radius);max-height:200px;overflow-y:auto;margin-top:4px;white-space:pre-wrap;color:var(--text2)">${(rawText||'').replace(/</g,'&lt;').slice(0,3000)}</pre>
+      </details>`;
+      html+=`<div style="margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <button id="ocr-vision-btn" onclick="extractOcrWithVision()" style="background:#7c3aed;color:#fff;border:none;padding:9px 16px;border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px">
+          <i class="ti ti-eye"></i> AI Vision — odczytaj obraz
+        </button>
+        <button id="ocr-ai-btn" onclick="extractOcrWithAI()" style="background:var(--bg3);color:var(--text1);border:1px solid var(--border);padding:9px 14px;border-radius:var(--radius);cursor:pointer;font-size:12px;display:inline-flex;align-items:center;gap:5px">
+          <i class="ti ti-brain"></i> AI z tekstu OCR
+        </button>
+        <span style="font-size:11px;color:var(--text3)">AI Vision widzi obraz bezpośrednio — znacznie dokładniejszy</span>
+      </div>`;
+    }
   }else{
     html+=`<div class="ibox" style="margin-bottom:12px"><i class="ti ti-forms"></i><div><strong>Formularz ręczny</strong> — wpisz dane z dowodu rejestracyjnego. Pola odpowiadają polom formularza DT-1/A.</div></div>`;
   }

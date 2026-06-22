@@ -602,6 +602,111 @@ Odpowiadaj po polsku, konkretnie i zwięźle.${fleetSummary ? '\n\nFlota użytko
   }
 }
 
+// ─── AZTEC DR DECODER — NRV2E decompressor (pure JS, no dependencies) ────────
+class _BitReader {
+  constructor(buf) { this.b = buf; this.pos = 0; this.bits = 0; this.cur = 0; }
+  get ended() { return this.pos >= this.b.length && this.bits === 0; }
+  readBit() {
+    if (this.bits === 0) { this.cur = this.b[this.pos++]; this.bits = 8; }
+    return (this.cur >> --this.bits) & 1;
+  }
+  readByte() { return this.b[this.pos++]; }
+}
+
+function _nrv2eDecompress(input, outputLen) {
+  const out = new Uint8Array(outputLen);
+  const r = new _BitReader(input);
+  let p = 0, lastOff = 1;
+  while (!r.ended && p < outputLen) {
+    if (r.readBit() === 1) { out[p++] = r.readByte(); continue; }
+    let off = 1, len = 0;
+    for (;;) {
+      off = off * 2 + r.readBit();
+      if (r.readBit() === 1) break;
+      off = (off - 1) * 2 + r.readBit();
+    }
+    if (off === 2) {
+      off = lastOff; len = r.readBit();
+    } else {
+      off = (off - 3) * 0x100 + r.readByte();
+      if (off === 0xffffffff) break;
+      len = (off ^ 0xffffffff) & 1;
+      off >>= 1;
+      lastOff = ++off;
+    }
+    if (len) { len = 1 + r.readBit(); }
+    else if (r.readBit() === 1) { len = 3 + r.readBit(); }
+    else { len++; do { len = len * 2 + r.readBit(); } while (r.readBit() === 0); len += 3; }
+    if (off > 0x500) len++;
+    let src = p - off;
+    if (src < 0) throw new Error('NRV2E: invalid offset');
+    for (let i = 0; i <= len && p < outputLen; i++) out[p++] = out[src++];
+  }
+  return out;
+}
+
+// Mapowanie indeksów pól w nowym formacie polskiego DR
+const _DR_NEW = { seriaDr:1, nrRej:7, marka:8, typ:9, model:12, vin:13,
+  dmcKg:38, masaWlKg:41, kategoria:42, liczbaOsi:44,
+  pojSilnika:48, mocKW:49, paliwo:50, dataRej:51, miejscaSied:52 };
+const _DR_OLD = { nrRej:4, marka:5, typ:6, vin:10, dataRej:48 };
+const _FUEL = { P:'PB (Benzyna)', D:'ON (Olej napędowy)', M:'LNG (Metan)',
+  LPG:'LPG', CNG:'CNG', LNG:'LNG', H:'Hybrydowy', BD:'Biodiesel', EE:'Elektryczny', E85:'E85' };
+
+async function handleAztec(request) {
+  let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON'); }
+  const { bytesBase64 } = body;
+  if (!bytesBase64) return err('Brak bytesBase64');
+
+  let bytes;
+  try {
+    const bin = atob(bytesBase64);
+    bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  } catch { return err('Nieprawidłowe base64'); }
+
+  if (bytes.length < 8) return err('Za mało danych AZTEC (' + bytes.length + ' bajtów)');
+
+  try {
+    // Pierwsze 4 bajty: długość danych po dekompresji (little-endian uint32)
+    const outputLen = bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] * 0x1000000);
+    if (outputLen < 10 || outputLen > 131072) return err('Nieprawidłowa długość: ' + outputLen);
+
+    const decompressed = _nrv2eDecompress(bytes.slice(4), outputLen);
+
+    // Dekoduj UTF-16LE
+    const text = new TextDecoder('utf-16le').decode(decompressed);
+    const fields = text.split(/[|\n]/);
+
+    // Nowy format ma >50 pól i zaczyna się od "XX"
+    const isNew = fields.length > 40;
+    const map = isNew ? _DR_NEW : _DR_OLD;
+
+    const result = {};
+    for (const [key, idx] of Object.entries(map)) {
+      const v = (fields[idx] || '').trim().replace(/\r/g, '');
+      if (v) result[key] = v;
+    }
+
+    // Normalizuj paliwo
+    if (result.paliwo) result.paliwo = _FUEL[result.paliwo] || result.paliwo;
+
+    // Normalizuj datę: YYYYMMDD lub YYYY-MM-DD → DD.MM.YYYY
+    if (result.dataRej) {
+      if (/^\d{8}$/.test(result.dataRej)) {
+        result.dataRej = result.dataRej.slice(6,8)+'.'+result.dataRej.slice(4,6)+'.'+result.dataRej.slice(0,4);
+      } else if (/^\d{4}-\d{2}-\d{2}$/.test(result.dataRej)) {
+        const [y,m,d] = result.dataRej.split('-');
+        result.dataRej = d+'.'+m+'.'+y;
+      }
+    }
+
+    return json({ ok: true, fields: result, fieldCount: fields.length, format: isNew ? 'new' : 'old' });
+  } catch (e) {
+    return err('Błąd dekodowania AZTEC: ' + e.message);
+  }
+}
+
 // ─── AI VISION OCR ────────────────────────────────────────────────────────────
 async function handleAIOCR(request, env) {
   if (request.method !== 'POST') return err('Method not allowed', 405);
@@ -668,6 +773,7 @@ async function handleRequest(request, env, url, path) {
   if (path.startsWith('/api/users'))    { if (!user) return err('Nieautoryzowany', 401); return handleUsers(request, env, user, url, path); }
   if (path === '/api/ai/chat')          return handleAI(request, env);
   if (path === '/api/ai/ocr' && request.method === 'POST') return handleAIOCR(request, env);
+  if (path === '/api/aztec'  && request.method === 'POST') return handleAztec(request);
 
   // Push (authenticated parts)
   if (path === '/api/push/generate-keys' && request.method === 'GET') {
