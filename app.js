@@ -2801,17 +2801,21 @@ function parseRegistrationDoc(combinedOcrText){
   // ============================================================
   // 4. Data rejestracji (B) — wiele formatów
   // ============================================================
-  const allDates=t.match(/\b(\d{2}[.\-\/]\d{2}[.\-\/](?:19|20)\d{2})\b/g)||[];
-  const validDates=allDates.filter(dt=>{const y=parseInt(dt.slice(-4));return y>=1990&&y<=2035;});
-  if(validDates.length)d.dataRej=validDates[0].replace(/[-\/]/g,'.');
+  const allDates=t.match(/\b(\d{2}[\s.\-\/]\d{2}[\s.\-\/](?:19|20)\d{2})\b/g)||[];
+  const validDates=allDates.filter(dt=>{const y=parseInt(dt.replace(/\D/g,'').slice(-4));return y>=1990&&y<=2035;});
+  if(validDates.length)d.dataRej=validDates[0].replace(/[\s\-\/]/g,'.');
 
   // ============================================================
   // 5. Nr rejestracyjny (A) — tekst gdy MRZ nie zadziałał
   // ============================================================
   if(!d.nrRej){
-    // Polskie tablice: 2-3 duże litery + 4-5 znaków alfanumerycznych
-    const plRej=t.match(/\b([A-Z]{2,3}[\s]?[A-Z0-9]{4,5})\b/);
-    if(plRej&&/^[A-Z]{2}/.test(plRej[1]))d.nrRej=plRej[1].replace(/\s/,'');
+    // Polskie tablice: 2-3 duże litery + sufiks zaczynający się od cyfry
+    // Format: WA12345, POZ1234, SRZ123AB — sufiks musi zawierać co najmniej 1 cyfrę
+    const plRej=t.match(/\b([A-Z]{2,3})[\s]?([0-9][A-Z0-9]{3,4}|[A-Z][0-9][A-Z0-9]{2,3}|[A-Z]{1,2}[0-9]{2,4}[A-Z]?)\b/);
+    if(plRej){
+      const candidate=(plRej[1]+plRej[2]).replace(/\s/g,'');
+      if(/^[A-Z]{2}/.test(candidate)&&/\d/.test(candidate.slice(2)))d.nrRej=candidate;
+    }
   }
 
   // ============================================================
@@ -2903,6 +2907,13 @@ function parseRegistrationDoc(combinedOcrText){
     d.paliwo=fc==='D'?'ON (Olej napędowy)':fc==='B'?'PB (Benzyna)':fc==='G'?'LPG':
              fc==='E'?'Elektryczny':fc==='H'?'Hybrydowy':fc;
   }
+  if(!d.paliwo){
+    if(/\bON\b|olej[\s_]nap[eę]d|diesel/i.test(t))d.paliwo='ON (Olej napędowy)';
+    else if(/\bPB\b|benzyna|petrol|gasoline/i.test(t))d.paliwo='PB (Benzyna)';
+    else if(/\bLPG\b|autogaz/i.test(t))d.paliwo='LPG';
+    else if(/elektr[iy]/i.test(t))d.paliwo='Elektryczny';
+    else if(/hybryd/i.test(t))d.paliwo='Hybrydowy';
+  }
 
   // ============================================================
   // 11. Masa własna (G) — "kg" niewymagane
@@ -2937,9 +2948,10 @@ function parseRegistrationDoc(combinedOcrText){
   // Walidacja VIN (17 znaków, tylko dopuszczalne znaki)
   if(d.vin&&(d.vin.length!==17||!/^[A-HJ-NPR-Z0-9]{17}$/.test(d.vin)))delete d.vin;
 
-  // Pewność na podstawie liczby rozpoznanych pól
+  // Pewność — wymaga kluczowych pól: nrRej+dataRej obowiązkowe dla WYSOKA
   const found=[d.nrRej,d.vin,d.marka,d.dmcKg,d.dataRej].filter(Boolean).length;
-  d.pewnosc=found>=4?'WYSOKA':found>=2?'SREDNIA':'NISKA';
+  const hasKeyFields=!!(d.nrRej&&d.dataRej);
+  d.pewnosc=(found>=4&&hasKeyFields)?'WYSOKA':found>=2?'SREDNIA':'NISKA';
   return d;
 }
 
@@ -2970,18 +2982,16 @@ function showManualForm(d,rawText,conf){
       <summary style="cursor:pointer;font-size:12px;color:var(--text2);padding:6px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">📄 Surowy tekst OCR (kliknij aby ${isLow?'zwinąć':'rozwinąć'})</summary>
       <pre style="font-size:10px;font-family:var(--mono);background:var(--bg3);padding:10px;border-radius:var(--radius);max-height:200px;overflow-y:auto;margin-top:4px;white-space:pre-wrap;color:var(--text2)">${(rawText||'').replace(/</g,'&lt;').slice(0,3000)}</pre>
     </details>`;
-    // Przyciski AI — Vision (obraz) + OCR-tekst (fallback)
-    if(isLow||d.pewnosc==='SREDNIA'){
-      html+=`<div style="margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <button id="ocr-vision-btn" onclick="extractOcrWithVision()" style="background:#7c3aed;color:#fff;border:none;padding:9px 16px;border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px">
-          <i class="ti ti-eye"></i> AI Vision — odczytaj obraz
-        </button>
-        <button id="ocr-ai-btn" onclick="extractOcrWithAI()" style="background:var(--bg3);color:var(--text1);border:1px solid var(--border);padding:9px 14px;border-radius:var(--radius);cursor:pointer;font-size:12px;display:inline-flex;align-items:center;gap:5px">
-          <i class="ti ti-brain"></i> AI z tekstu OCR
-        </button>
-        <span style="font-size:11px;color:var(--text3)">AI Vision widzi obraz bezpośrednio — znacznie dokładniejszy</span>
-      </div>`;
-    }
+    // Przyciski AI — zawsze widoczne (Vision bezpośrednio z obrazu, AI z tekstu jako fallback)
+    html+=`<div style="margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <button id="ocr-vision-btn" onclick="extractOcrWithVision()" style="background:#7c3aed;color:#fff;border:none;padding:9px 16px;border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px">
+        <i class="ti ti-eye"></i> AI Vision — odczytaj obraz
+      </button>
+      <button id="ocr-ai-btn" onclick="extractOcrWithAI()" style="background:var(--bg3);color:var(--text1);border:1px solid var(--border);padding:9px 14px;border-radius:var(--radius);cursor:pointer;font-size:12px;display:inline-flex;align-items:center;gap:5px">
+        <i class="ti ti-brain"></i> AI z tekstu OCR
+      </button>
+      <span style="font-size:11px;color:var(--text3)">AI Vision widzi obraz bezpośrednio — znacznie dokładniejszy</span>
+    </div>`;
   }else{
     html+=`<div class="ibox" style="margin-bottom:12px"><i class="ti ti-forms"></i><div><strong>Formularz ręczny</strong> — wpisz dane z dowodu rejestracyjnego. Pola odpowiadają polom formularza DT-1/A.</div></div>`;
   }
