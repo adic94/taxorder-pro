@@ -25,7 +25,19 @@
 [data-theme="dark"] .tbl-wrap,[data-theme="dark"] .stat,
 [data-theme="dark"] .panel-right,[data-theme="dark"] .sidebar,
 [data-theme="dark"] .topbar{border-color:var(--border)}
-[data-theme="dark"] .form-page{background:#fff;color:#000}
+/* Formularz DT-1 zawsze biały (do druku) */
+[data-theme="dark"] .form-page{background:#fff!important;color:#000!important}
+/* Toast — jaśniejszy w dark mode */
+[data-theme="dark"] .toast{background:#e8e8e6;color:#18181a}
+/* Input/select w dark mode */
+[data-theme="dark"] input,[data-theme="dark"] select,[data-theme="dark"] textarea{
+  background:var(--bg3);color:var(--text);border-color:var(--border)
+}
+[data-theme="dark"] input::placeholder{color:var(--text3)}
+/* Toolbar inputs */
+[data-theme="dark"] .toolbar input,[data-theme="dark"] .toolbar select{
+  background:var(--bg3);color:var(--text)
+}
 
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;transition:background .2s,color .2s}
