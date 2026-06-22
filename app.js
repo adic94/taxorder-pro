@@ -99,11 +99,12 @@ function toggleDarkMode() {
   _applyTheme(next);
 }
 
-// Zastosuj motyw przy starcie
+// Zastosuj motyw przy starcie (data-theme natychmiast, ikona po DOM ready)
 ;(function() {
   const saved = localStorage.getItem('taxDarkMode');
   const preferDark = saved === '1' || (saved === null && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
-  _applyTheme(preferDark);
+  document.documentElement.setAttribute('data-theme', preferDark ? 'dark' : 'light');
+  document.addEventListener('DOMContentLoaded', () => _applyTheme(preferDark));
 })();
 
 // ==================== NAVIGATION ====================
