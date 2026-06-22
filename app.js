@@ -2636,6 +2636,8 @@ async function runOCR(){
     bar.style.width='88%';
 
     const combinedText='---0---\n'+rawText+'\n---180---\n'+rawText180+'\n---90---\n'+rawText90+'\n---270---\n'+rawText270+(window._ocrPage2Text?'\n---page2---\n'+window._ocrPage2Text:'');
+    window._ocrCombinedText=combinedText;
+    window._ocrBase64=ocrBase64;
     const conf=result.data.confidence||0;
 
     // Parsuj tekst
@@ -2664,20 +2666,70 @@ async function runOCR(){
 }
 
 // --- PARSER POLSKIEGO DOWODU REJESTRACYJNEGO ---
+function _fillOcrFields(d){
+  const fill=(id,val)=>{const el=document.getElementById('ocrf-'+id);if(el&&val&&String(val).trim()&&String(val).trim()!=='null'&&String(val).trim()!=='undefined'){el.value=String(val).trim();el.style.borderColor='var(--green)';el.style.background='#f0fff0';}};
+  fill('nrRej',d.nrRej);fill('dataRej',d.dataRej);fill('marka',d.marka);fill('typ',d.typ);
+  fill('vin',d.vin);fill('dmcKg',d.dmcKg);fill('dmcZespolu',d.dmcZespolu);fill('masaWlKg',d.masaWlKg);
+  fill('liczbaOsi',d.liczbaOsi);fill('kategoria',d.kategoria);fill('pojSilnika',d.pojSilnika);
+  fill('mocKW',d.mocKW);fill('paliwo',d.paliwo);fill('miejscaSied',d.miejscaSied);fill('rokProd',d.rokProd);
+}
+
+async function extractOcrWithVision(){
+  const base64=window._ocrBase64||ocrBase64;
+  const mime=ocrMime||'image/jpeg';
+  if(!base64){toast('Brak obrazu do analizy','warn');return;}
+  const btn=document.getElementById('ocr-vision-btn');
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader2" style="animation:spin 1s linear infinite"></i> AI Vision analizuje...';}
+  try{
+    const apiUrl=(window.CF_API_URL||'').replace(/\/$/,'');
+    if(!apiUrl)throw new Error('Brak adresu API — zaloguj się');
+    const token=localStorage.getItem('cf_token');
+    // Zmniejsz obraz jeśli za duży (max 1600px na dłuższym boku)
+    let sendBase64=base64,sendMime=mime;
+    try{
+      const img=new Image();
+      await new Promise(r=>{img.onload=r;img.src='data:'+mime+';base64,'+base64;});
+      const maxSide=1600;
+      if(img.width>maxSide||img.height>maxSide){
+        const sc=maxSide/Math.max(img.width,img.height);
+        const c=document.createElement('canvas');
+        c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);
+        c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+        sendBase64=c.toDataURL('image/jpeg',0.92).split(',')[1];
+        sendMime='image/jpeg';
+      }
+    }catch(e2){}
+    const resp=await fetch(apiUrl+'/api/ai/ocr',{
+      method:'POST',
+      headers:{'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})},
+      body:JSON.stringify({imageBase64:sendBase64,mimeType:sendMime})
+    });
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error||'HTTP '+resp.status);}
+    const data=await resp.json();
+    if(!data.ok||!data.fields)throw new Error('Brak danych z AI');
+    _fillOcrFields(data.fields);
+    toast('✅ AI Vision wyodrębnił dane — sprawdź i kliknij Szukaj');
+  }catch(e){
+    toast('⚠️ AI Vision: '+e.message,'warn');
+  }finally{
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-eye"></i> AI Vision (ponów)';}
+  }
+}
+
 async function extractOcrWithAI(){
-  const rawText=window._ocrLastRawText||'';
+  const rawText=(window._ocrCombinedText||window._ocrLastRawText||'');
   if(!rawText.trim()){toast('Brak tekstu OCR do analizy','warn');return;}
   const btn=document.getElementById('ocr-ai-btn');
   if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader2" style="animation:spin 1s linear infinite"></i> Analizuje AI...';}
   try{
     const apiUrl=(window.CF_API_URL||'').replace(/\/$/,'');
-    if(!apiUrl){throw new Error('Brak adresu API — zaloguj się');}
+    if(!apiUrl)throw new Error('Brak adresu API — zaloguj się');
     const token=localStorage.getItem('cf_token');
-    const prompt=`Jesteś ekspertem od polskich dowodów rejestracyjnych. Przeanalizuj poniższy tekst OCR ze zdjęcia/skanu dokumentu i wyodrębnij wszystkie dane pojazdu. Zwróć WYŁĄCZNIE obiekt JSON (bez markdown, bez komentarzy, tylko surowy JSON):
-{"nrRej":"numer rejestracyjny z pola A np WA4789F","dataRej":"data z pola B format DD.MM.RRRR","marka":"marka z pola D.1","typ":"typ model z pola D.2","vin":"17 znakow z pola E lub pusty","dmcKg":"liczba kg z pola F.1","dmcZespolu":"liczba kg z pola F.3","masaWlKg":"liczba kg z pola G","liczbaOsi":"cyfra 1-5 z pola L","kategoria":"np N1 N2 N3 M1 z pola J","pojSilnika":"pojemnosc cm3 z pola P.1","mocKW":"moc kW z pola P.2","paliwo":"D=ON B=benzyna G=LPG z pola P.3","miejscaSied":"liczba z pola S.1","rokProd":"rok produkcji 4 cyfry"}
+    const prompt=`Jesteś ekspertem od polskich dowodów rejestracyjnych. Przeanalizuj poniższy tekst OCR (zawiera 4 rotacje: 0°/90°/180°/270°) i wyodrębnij dane pojazdu. Zwróć WYŁĄCZNIE JSON bez markdown:
+{"nrRej":"","dataRej":"DD.MM.RRRR","marka":"","typ":"","vin":"17 znakow","dmcKg":"tylko cyfry","dmcZespolu":"tylko cyfry","masaWlKg":"tylko cyfry","liczbaOsi":"1-5","kategoria":"np N3","pojSilnika":"tylko cyfry cm3","mocKW":"tylko cyfry","paliwo":"ON lub PB lub LPG","miejscaSied":"tylko cyfry","rokProd":"4 cyfry"}
 
 Tekst OCR:
-${rawText.slice(0,5000)}`;
+${rawText.slice(0,6000)}`;
     const resp=await fetch(apiUrl+'/api/ai/chat',{
       method:'POST',
       headers:{'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})},
@@ -2685,20 +2737,16 @@ ${rawText.slice(0,5000)}`;
     });
     if(!resp.ok)throw new Error('HTTP '+resp.status);
     const data=await resp.json();
-    const text=data.reply||data.message||data.content||data.text||JSON.stringify(data);
+    // Worker zwraca {answer:...}
+    const text=data.answer||data.reply||data.message||data.content||JSON.stringify(data);
     const jm=text.match(/\{[\s\S]*\}/);
-    if(!jm)throw new Error('AI nie zwróciło JSON — '+text.slice(0,100));
-    const d=JSON.parse(jm[0]);
-    const fill=(id,val)=>{const el=document.getElementById('ocrf-'+id);if(el&&val&&String(val).trim()&&String(val).trim()!=='null'){el.value=String(val).trim();el.style.borderColor='var(--green)';el.style.background='#f0fff0';}};
-    fill('nrRej',d.nrRej);fill('dataRej',d.dataRej);fill('marka',d.marka);fill('typ',d.typ);
-    fill('vin',d.vin);fill('dmcKg',d.dmcKg);fill('dmcZespolu',d.dmcZespolu);fill('masaWlKg',d.masaWlKg);
-    fill('liczbaOsi',d.liczbaOsi);fill('kategoria',d.kategoria);fill('pojSilnika',d.pojSilnika);
-    fill('mocKW',d.mocKW);fill('paliwo',d.paliwo);fill('miejscaSied',d.miejscaSied);fill('rokProd',d.rokProd);
+    if(!jm)throw new Error('AI nie zwróciło JSON');
+    _fillOcrFields(JSON.parse(jm[0]));
     toast('✅ AI wyodrębnił dane — sprawdź pola i kliknij Szukaj');
   }catch(e){
-    toast('⚠️ AI: '+e.message,'warn');
+    toast('⚠️ AI (tekst): '+e.message,'warn');
   }finally{
-    if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-brain"></i> Wyodrębnij przez AI (ponów)';}
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-brain"></i> AI (tekst OCR) ponów';}
   }
 }
 
@@ -2922,13 +2970,16 @@ function showManualForm(d,rawText,conf){
       <summary style="cursor:pointer;font-size:12px;color:var(--text2);padding:6px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">📄 Surowy tekst OCR (kliknij aby ${isLow?'zwinąć':'rozwinąć'})</summary>
       <pre style="font-size:10px;font-family:var(--mono);background:var(--bg3);padding:10px;border-radius:var(--radius);max-height:200px;overflow-y:auto;margin-top:4px;white-space:pre-wrap;color:var(--text2)">${(rawText||'').replace(/</g,'&lt;').slice(0,3000)}</pre>
     </details>`;
-    // Przycisk AI gdy pewność niska
-    if(isLow){
-      html+=`<div style="margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <button id="ocr-ai-btn" onclick="extractOcrWithAI()" style="background:#7c3aed;color:#fff;border:none;padding:9px 18px;border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:6px">
-          <i class="ti ti-brain"></i> Wyodrębnij dane przez AI
+    // Przyciski AI — Vision (obraz) + OCR-tekst (fallback)
+    if(isLow||d.pewnosc==='SREDNIA'){
+      html+=`<div style="margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <button id="ocr-vision-btn" onclick="extractOcrWithVision()" style="background:#7c3aed;color:#fff;border:none;padding:9px 16px;border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px">
+          <i class="ti ti-eye"></i> AI Vision — odczytaj obraz
         </button>
-        <span style="font-size:11px;color:var(--text3)">Groq AI przeanalizuje tekst OCR i spróbuje wypełnić wszystkie pola</span>
+        <button id="ocr-ai-btn" onclick="extractOcrWithAI()" style="background:var(--bg3);color:var(--text1);border:1px solid var(--border);padding:9px 14px;border-radius:var(--radius);cursor:pointer;font-size:12px;display:inline-flex;align-items:center;gap:5px">
+          <i class="ti ti-brain"></i> AI z tekstu OCR
+        </button>
+        <span style="font-size:11px;color:var(--text3)">AI Vision widzi obraz bezpośrednio — znacznie dokładniejszy</span>
       </div>`;
     }
   }else{

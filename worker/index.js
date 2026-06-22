@@ -602,6 +602,47 @@ Odpowiadaj po polsku, konkretnie i zwięźle.${fleetSummary ? '\n\nFlota użytko
   }
 }
 
+// ─── AI VISION OCR ────────────────────────────────────────────────────────────
+async function handleAIOCR(request, env) {
+  if (request.method !== 'POST') return err('Method not allowed', 405);
+  let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON'); }
+  const { imageBase64, mimeType = 'image/jpeg' } = body;
+  if (!imageBase64) return err('Brak obrazu (imageBase64)');
+  if (!env.GROQ_API_KEY) return err('Brak klucza GROQ_API_KEY', 503);
+
+  const prompt = `Jesteś ekspertem od polskich dowodów rejestracyjnych pojazdów. Przeanalizuj ten skan dokumentu (może być obrócony o 90° lub 180°) i wyodrębnij wszystkie pola.
+Zwróć WYŁĄCZNIE obiekt JSON — bez markdown, bez komentarzy, tylko surowy JSON:
+{"nrRej":"pole A np WA4789F","dataRej":"pole B format DD.MM.RRRR","marka":"pole D.1","typ":"pole D.2 typ/model","vin":"pole E 17 znakow","dmcKg":"pole F.1 tylko cyfry kg","dmcZespolu":"pole F.3 tylko cyfry kg","masaWlKg":"pole G tylko cyfry kg","liczbaOsi":"pole L cyfra 1-5","kategoria":"pole J np N1 N2 N3 M1","pojSilnika":"pole P.1 tylko cyfry cm3","mocKW":"pole P.2 tylko cyfry kW","paliwo":"pole P.3: D=ON B=benzyna G=LPG","miejscaSied":"pole S.1 tylko cyfry","rokProd":"rok produkcji 4 cyfry"}`;
+
+  const messages = [{
+    role: 'user',
+    content: [
+      { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+      { type: 'text', text: prompt },
+    ],
+  }];
+
+  try {
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + env.GROQ_API_KEY },
+      body: JSON.stringify({ model: 'meta-llama/llama-4-scout-17b-16e-instruct', messages, max_tokens: 512, temperature: 0.1 }),
+    });
+    if (!resp.ok) {
+      const e = await resp.json().catch(() => ({}));
+      return err('Błąd Groq Vision: ' + (e.error?.message || resp.statusText), 502);
+    }
+    const data = await resp.json();
+    const answer = data.choices?.[0]?.message?.content || '';
+    const jm = answer.match(/\{[\s\S]*\}/);
+    if (!jm) return err('AI nie zwróciło JSON: ' + answer.slice(0, 200));
+    return json({ ok: true, fields: JSON.parse(jm[0]) });
+  } catch (e) {
+    console.error('[AI OCR] error:', e?.message);
+    return err('Błąd AI Vision: ' + (e?.message || 'nieznany błąd'), 502);
+  }
+}
+
 // ─── MAIN FETCH ───────────────────────────────────────────────────────────────
 async function handleRequest(request, env, url, path) {
   // Public endpoints (no auth required)
@@ -626,6 +667,7 @@ async function handleRequest(request, env, url, path) {
   if (path.startsWith('/api/docs'))     { if (!user) return err('Nieautoryzowany', 401); return handleDocs(request, env, user, url, path); }
   if (path.startsWith('/api/users'))    { if (!user) return err('Nieautoryzowany', 401); return handleUsers(request, env, user, url, path); }
   if (path === '/api/ai/chat')          return handleAI(request, env);
+  if (path === '/api/ai/ocr' && request.method === 'POST') return handleAIOCR(request, env);
 
   // Push (authenticated parts)
   if (path === '/api/push/generate-keys' && request.method === 'GET') {
