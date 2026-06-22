@@ -92,6 +92,8 @@ WZ124HW;2025-06-01;07:45:00;12430;Adam Nowak;65;al. Jerozolimskie 120, Warszawa`
         const [d,m,y] = dateStr.split('.');
         dateStr = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
       }
+      const lat = parseFloat(get('lat').replace(',','.'));
+      const lon = parseFloat(get('lon').replace(',','.'));
       return {
         nrRej:    get('nrRej').toUpperCase().replace(/\s/g,''),
         date:     dateStr,
@@ -101,6 +103,8 @@ WZ124HW;2025-06-01;07:45:00;12430;Adam Nowak;65;al. Jerozolimskie 120, Warszawa`
         speed:    parseFloat(get('speed')) || null,
         location: get('location'),
         event:    get('event'),
+        lat:      isNaN(lat) ? null : lat,
+        lon:      isNaN(lon) ? null : lon,
       };
     }).filter(r => r.nrRej);
 

@@ -866,6 +866,34 @@ window.TaxOrderVehicleDetail = {
     const dates = gps.filter(r => r.date).map(r => r.date).sort();
     const drivers = [...new Set(gps.filter(r=>r.driver).map(r=>r.driver))];
 
+    // Punkty z współrzędnymi dla mapy
+    const withCoords = gps.filter(r => r.lat != null && r.lon != null && !isNaN(r.lat) && !isNaN(r.lon));
+    const mapId = `gps-map-${v.id}`;
+
+    // Uruchom mapę po wyrenderowaniu HTML (jeśli Leaflet dostępny)
+    if (withCoords.length > 0) {
+      setTimeout(() => {
+        const container = document.getElementById(mapId);
+        if (!container || !window.L) return;
+        if (container._leaflet_id) { container._leaflet_id = null; container.innerHTML = ''; }
+        const coords = withCoords.map(r => [r.lat, r.lon]);
+        const map = window.L.map(container, { zoomControl: true });
+        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors', maxZoom: 18
+        }).addTo(map);
+        // Trasa jako linia
+        const polyline = window.L.polyline(coords, { color: '#185FA5', weight: 3, opacity: .8 }).addTo(map);
+        // Punkt startowy (zielony) i końcowy (czerwony)
+        window.L.circleMarker(coords[0], { radius: 7, color: '#3B6D11', fillColor: '#5fb336', fillOpacity: 1 })
+          .bindPopup(`Start: ${withCoords[0].date} ${withCoords[0].time||''}`).addTo(map);
+        if (coords.length > 1) {
+          window.L.circleMarker(coords[coords.length-1], { radius: 7, color: '#A32D2D', fillColor: '#d44a4a', fillOpacity: 1 })
+            .bindPopup(`Koniec: ${withCoords[withCoords.length-1].date} ${withCoords[withCoords.length-1].time||''}`).addTo(map);
+        }
+        map.fitBounds(polyline.getBounds(), { padding: [20, 20] });
+      }, 150);
+    }
+
     return `
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
         <div class="stat-chip"><span>${gps.length}</span> rekordów GPS</div>
@@ -876,6 +904,12 @@ window.TaxOrderVehicleDetail = {
           <i class="ti ti-download"></i>CSV
         </button>
       </div>
+      ${withCoords.length > 0 ? `
+        <div id="${mapId}" style="height:280px;border-radius:var(--radius-lg);margin-bottom:16px;border:1px solid var(--border);z-index:0"></div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:12px;margin-top:-8px">
+          <i class="ti ti-map-pin"></i> ${withCoords.length} z ${gps.length} rekordów z współrzędnymi GPS · dane OpenStreetMap
+        </div>
+      ` : ''}
       <div class="tbl-wrap" style="max-height:360px;overflow-y:auto">
         <table style="width:100%;font-size:11px">
           <thead style="position:sticky;top:0"><tr>
