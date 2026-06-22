@@ -271,9 +271,11 @@ th.sort-th:hover{color:var(--blue)}
   /* Ukryj mniej ważne elementy topbara na telefonach */
   .topbar .company-sel-wrap{display:none!important}
   #company-badge{display:none!important}
-  .topbar .yr-wrap{display:none!important}
-  /* Przesuń pozostałe elementy na prawo (zastępuje margin-left:auto z yr-wrap) */
-  #i18n-selector{margin-left:auto}
+  /* Rok — zachowaj ale kompaktowy, bez etykiety */
+  .topbar .yr-wrap label{display:none}
+  .topbar .yr-wrap{margin-left:auto;gap:0!important}
+  /* Przesuń i18n na prawo gdy yr-wrap jest uproszczone */
+  #i18n-selector{margin-left:0}
 
   /* Stats KPI — 1 kolumna */
   .stats{grid-template-columns:1fr 1fr}
