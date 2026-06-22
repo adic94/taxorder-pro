@@ -1637,14 +1637,37 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
       for (let i = 0; i < inp.files.length; i++) {
         const file = inp.files[i];
         if (prog) prog.textContent = `OCR plik ${i+1}/${inp.files.length}: ${file.name}…`;
+        const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
         try {
-          const result = await window.Tesseract.recognize(file, 'pol+eng', {
-            logger: m => { if (m.status === 'recognizing text' && prog) prog.textContent = `Plik ${i+1}/${inp.files.length}: ${Math.round((m.progress||0)*100)}%`; }
-          });
-          allText += '\n' + result.data.text;
-          if (res) res.textContent = allText.trim();
+          if (isPdf) {
+            if (!window.pdfjsLib) throw new Error('PDF.js nie jest załadowany — odśwież stronę');
+            const arrayBuffer = await file.arrayBuffer();
+            const pdfDoc = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+            for (let p = 1; p <= pdfDoc.numPages; p++) {
+              if (prog) prog.textContent = `PDF ${file.name}: renderowanie str. ${p}/${pdfDoc.numPages}…`;
+              const page = await pdfDoc.getPage(p);
+              const viewport = page.getViewport({scale: 2.5});
+              const canvas = document.createElement('canvas');
+              canvas.width = viewport.width;
+              canvas.height = viewport.height;
+              await page.render({canvasContext: canvas.getContext('2d'), viewport}).promise;
+              if (prog) prog.textContent = `OCR str. ${p}/${pdfDoc.numPages}: ${file.name}…`;
+              const result = await window.Tesseract.recognize(canvas, 'pol+eng', {
+                logger: m => { if (m.status === 'recognizing text' && prog) prog.textContent = `PDF str. ${p}/${pdfDoc.numPages}: ${Math.round((m.progress||0)*100)}%`; }
+              });
+              allText += '\n' + result.data.text;
+              if (res) res.textContent = allText.trim();
+            }
+          } else {
+            const result = await window.Tesseract.recognize(file, 'pol+eng', {
+              logger: m => { if (m.status === 'recognizing text' && prog) prog.textContent = `Plik ${i+1}/${inp.files.length}: ${Math.round((m.progress||0)*100)}%`; }
+            });
+            allText += '\n' + result.data.text;
+            if (res) res.textContent = allText.trim();
+          }
         } catch(e) {
           allText += `\n[Błąd: ${e.message}]`;
+          if (res) res.textContent = allText.trim();
         }
       }
 

@@ -2469,13 +2469,14 @@ function processOcrFile(f){
         const loadingTask=pdfjs.getDocument({data:atob(ocrBase64)});
         const pdf=await loadingTask.promise;
         const page=await pdf.getPage(1);
-        const viewport=page.getViewport({scale:3.0}); // wysoka rozdzielczość
+        const viewport=page.getViewport({scale:4.0});
         const canvas=document.createElement('canvas');
         canvas.width=viewport.width;
         canvas.height=viewport.height;
         const ctx=canvas.getContext('2d');
         await page.render({canvasContext:ctx,viewport}).promise;
-        const imgDataUrl=canvas.toDataURL('image/jpeg',0.95);
+        _enhanceCanvasForOcr(canvas);
+        const imgDataUrl=canvas.toDataURL('image/jpeg',0.97);
         ocrBase64=imgDataUrl.split(',')[1];
         ocrMime='image/jpeg';
         document.getElementById('ocr-img').src=imgDataUrl;
@@ -2485,11 +2486,12 @@ function processOcrFile(f){
         // Sprawdź też stronę 2 (tylna strona dowodu)
         if(pdf.numPages>1){
           const page2=await pdf.getPage(2);
-          const vp2=page2.getViewport({scale:3.0});
+          const vp2=page2.getViewport({scale:4.0});
           const c2=document.createElement('canvas');
           c2.width=vp2.width;c2.height=vp2.height;
           await page2.render({canvasContext:c2.getContext('2d'),viewport:vp2}).promise;
-          window._ocrPage2=c2.toDataURL('image/jpeg',0.95);
+          _enhanceCanvasForOcr(c2);
+          window._ocrPage2=c2.toDataURL('image/jpeg',0.97);
           // Pre-OCR page 2 if Tesseract is ready
           if(tesseractReady&&tesseractWorker){
             try{
@@ -2517,25 +2519,41 @@ function processOcrFile(f){
   reader.readAsDataURL(f);
 }
 
+// Poprawia kontrast obrazu przed OCR (grayscale + kontrast adaptywny)
+function _enhanceCanvasForOcr(canvas){
+  const ctx=canvas.getContext('2d');
+  const id=ctx.getImageData(0,0,canvas.width,canvas.height);
+  const data=id.data;
+  let mn=255,mx=0;
+  for(let i=0;i<data.length;i+=4){
+    const g=0.299*data[i]+0.587*data[i+1]+0.114*data[i+2];
+    if(g<mn)mn=g;if(g>mx)mx=g;
+  }
+  const rng=mx-mn||1;
+  for(let i=0;i<data.length;i+=4){
+    const g=Math.min(255,Math.max(0,Math.round((0.299*data[i]+0.587*data[i+1]+0.114*data[i+2]-mn)/rng*255)));
+    // Dodaj odrobinę kontrastu S-curve
+    const c=g<128?g*(g/128)*1.1:255-(255-g)*((255-g)/128)*0.9;
+    data[i]=data[i+1]=data[i+2]=Math.min(255,Math.max(0,Math.round(c)));
+  }
+  ctx.putImageData(id,0,0);
+}
+
 let _pdfJsLoaded=false,_pdfJsLib=null;
 async function loadPdfJs(){
   if(_pdfJsLoaded)return _pdfJsLib;
+  if(window.pdfjsLib){_pdfJsLib=window.pdfjsLib;_pdfJsLoaded=true;return _pdfJsLib;}
   return new Promise((res,rej)=>{
     const s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs';
-    s.type='module';
-    s.onload=()=>{};
-    // Use legacy build instead
-    const s2=document.createElement('script');
-    s2.src='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
-    s2.onload=()=>{
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload=()=>{
       const lib=window.pdfjsLib;
       if(!lib){rej(new Error('pdfjsLib nie załadowany'));return;}
-      lib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+      lib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       _pdfJsLib=lib;_pdfJsLoaded=true;res(lib);
     };
-    s2.onerror=()=>rej(new Error('Nie można załadować PDF.js'));
-    document.head.appendChild(s2);
+    s.onerror=()=>rej(new Error('Nie można załadować PDF.js'));
+    document.head.appendChild(s);
   });
 }
 
@@ -2567,9 +2585,22 @@ async function runOCR(){
     const ok=await initTesseract();
     if(!ok)throw new Error('Nie udało się załadować silnika OCR');
 
-    // Rozpoznaj tekst
+    // Rozpoznaj tekst — PSM 11 (sparse text) lepszy dla formularzy DR
     bar.style.width='20%';
-    const imgSrc='data:'+ocrMime+';base64,'+ocrBase64;
+    await tesseractWorker.setParameters({'tessedit_pageseg_mode':'11'}).catch(()=>{});
+    // Enhance contrast for image files (PDF pages already enhanced during load)
+    let imgSrc='data:'+ocrMime+';base64,'+ocrBase64;
+    if(ocrMime.startsWith('image/')){
+      try{
+        const tmpImg=new Image();
+        await new Promise(r=>{tmpImg.onload=r;tmpImg.src=imgSrc;});
+        const tmpC=document.createElement('canvas');
+        tmpC.width=tmpImg.naturalWidth;tmpC.height=tmpImg.naturalHeight;
+        tmpC.getContext('2d').drawImage(tmpImg,0,0);
+        _enhanceCanvasForOcr(tmpC);
+        imgSrc=tmpC.toDataURL('image/jpeg',0.97);
+      }catch(e2){}
+    }
     const result=await tesseractWorker.recognize(imgSrc);
     bar.style.width='35%';
 
@@ -2652,12 +2683,50 @@ async function runOCR(){
 }
 
 // --- PARSER POLSKIEGO DOWODU REJESTRACYJNEGO ---
+async function extractOcrWithAI(){
+  const rawText=window._ocrLastRawText||'';
+  if(!rawText.trim()){toast('Brak tekstu OCR do analizy','warn');return;}
+  const btn=document.getElementById('ocr-ai-btn');
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader2" style="animation:spin 1s linear infinite"></i> Analizuje AI...';}
+  try{
+    const apiUrl=(window.CF_API_URL||'').replace(/\/$/,'');
+    if(!apiUrl){throw new Error('Brak adresu API — zaloguj się');}
+    const token=localStorage.getItem('cf_token');
+    const prompt=`Jesteś ekspertem od polskich dowodów rejestracyjnych. Przeanalizuj poniższy tekst OCR ze zdjęcia/skanu dokumentu i wyodrębnij wszystkie dane pojazdu. Zwróć WYŁĄCZNIE obiekt JSON (bez markdown, bez komentarzy, tylko surowy JSON):
+{"nrRej":"numer rejestracyjny z pola A np WA4789F","dataRej":"data z pola B format DD.MM.RRRR","marka":"marka z pola D.1","typ":"typ model z pola D.2","vin":"17 znakow z pola E lub pusty","dmcKg":"liczba kg z pola F.1","dmcZespolu":"liczba kg z pola F.3","masaWlKg":"liczba kg z pola G","liczbaOsi":"cyfra 1-5 z pola L","kategoria":"np N1 N2 N3 M1 z pola J","pojSilnika":"pojemnosc cm3 z pola P.1","mocKW":"moc kW z pola P.2","paliwo":"D=ON B=benzyna G=LPG z pola P.3","miejscaSied":"liczba z pola S.1","rokProd":"rok produkcji 4 cyfry"}
+
+Tekst OCR:
+${rawText.slice(0,5000)}`;
+    const resp=await fetch(apiUrl+'/api/ai/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})},
+      body:JSON.stringify({message:prompt,history:[]})
+    });
+    if(!resp.ok)throw new Error('HTTP '+resp.status);
+    const data=await resp.json();
+    const text=data.reply||data.message||data.content||data.text||JSON.stringify(data);
+    const jm=text.match(/\{[\s\S]*\}/);
+    if(!jm)throw new Error('AI nie zwróciło JSON — '+text.slice(0,100));
+    const d=JSON.parse(jm[0]);
+    const fill=(id,val)=>{const el=document.getElementById('ocrf-'+id);if(el&&val&&String(val).trim()&&String(val).trim()!=='null'){el.value=String(val).trim();el.style.borderColor='var(--green)';el.style.background='#f0fff0';}};
+    fill('nrRej',d.nrRej);fill('dataRej',d.dataRej);fill('marka',d.marka);fill('typ',d.typ);
+    fill('vin',d.vin);fill('dmcKg',d.dmcKg);fill('dmcZespolu',d.dmcZespolu);fill('masaWlKg',d.masaWlKg);
+    fill('liczbaOsi',d.liczbaOsi);fill('kategoria',d.kategoria);fill('pojSilnika',d.pojSilnika);
+    fill('mocKW',d.mocKW);fill('paliwo',d.paliwo);fill('miejscaSied',d.miejscaSied);fill('rokProd',d.rokProd);
+    toast('✅ AI wyodrębnił dane — sprawdź pola i kliknij Szukaj');
+  }catch(e){
+    toast('⚠️ AI: '+e.message,'warn');
+  }finally{
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-brain"></i> Wyodrębnij przez AI (ponów)';}
+  }
+}
+
 function parseRegistrationDoc(combinedOcrText){
-  const t = combinedOcrText||'';
-  const d = {};
+  const t=combinedOcrText||'';
+  const d={};
 
   // ============================================================
-  // 1. MRZ — z sekcji obrotu 180° (najdokładniejsza)
+  // 1. MRZ — z sekcji obrotu 180° (najdokładniejsza dla VIN i nr rej)
   // ============================================================
   function normMRZ(line){
     return line.toUpperCase().replace(/[()\[\]{}]/g,'<').replace(/\|/g,'1')
@@ -2675,134 +2744,149 @@ function parseRegistrationDoc(combinedOcrText){
     }
     return{l2,l3};
   }
-  // Znajdź sekcje z różnych kątów
-  const parts={};
-  for(const sec of t.split(/---(\w+)---\n/)){
-    if(sec.startsWith('---'))continue;
-    if(parts._last)parts[parts._last]=sec;
-    parts._last=sec;
-  }
-  // Spróbuj MRZ ze wszystkich sekcji, priorytet 180°
   let mrzLine2='',mrzLine3='';
-  for(const key of ['180','270','0','90','top_half_90','bot_half_270']){
+  for(const key of ['180','270','0','90']){
     const src=t.split(`---${key}---\n`)[1]||'';
     const{l2,l3}=getMRZ(src);
     if(!mrzLine3&&l3)mrzLine3=l3;
     if(!mrzLine2&&l2)mrzLine2=l2;
     if(mrzLine2&&mrzLine3)break;
   }
-  // Fallback: szukaj w całym tekście
-  if(!mrzLine3||!mrzLine2){
-    const{l2,l3}=getMRZ(t);
-    if(!mrzLine3)mrzLine3=l3;
-    if(!mrzLine2)mrzLine2=l2;
-  }
+  if(!mrzLine3||!mrzLine2){const{l2,l3}=getMRZ(t);if(!mrzLine3)mrzLine3=l3;if(!mrzLine2)mrzLine2=l2;}
   if(mrzLine3){const m=mrzLine3.match(/^([A-Z]{2,3}\d{4,5}[A-Z]?)<<</);if(m)d.nrRej=m[1];}
   if(mrzLine2){const v=mrzLine2.replace(/[^A-HJ-NPR-Z0-9]/g,'').substring(0,17);if(v.length===17)d.vin=v;}
 
   // ============================================================
-  // 2. Typ dokumentu: stały vs tymczasowy
+  // 2. Typ dokumentu
   // ============================================================
   d.typDok=/CZASOW|PC.AAK|POZWOLENIE CZASOWE/i.test(t)?'TYMCZASOWY':'STAŁY';
 
   // ============================================================
-  // 3. Data rejestracji (pole B)
+  // 3. VIN bezpośredni (fallback gdy MRZ nieczytelny)
   // ============================================================
-  const allDates=t.match(/\b(\d{2}[.\-]\d{2}[.\-]20\d{2})\b/g)||[];
-  if(allDates.length){
-    // Pierwsza pełna data to zazwyczaj data rejestracji
-    const validDates=allDates.filter(d=>{const y=parseInt(d.slice(-4));return y>=1990&&y<=2030;});
-    if(validDates.length)d.dataRej=validDates[0].replace(/-/g,'.');
+  if(!d.vin){
+    const vinM=t.match(/\b([A-HJ-NPR-Z0-9]{17})\b/);
+    if(vinM)d.vin=vinM[1];
   }
 
   // ============================================================
-  // 4. DMC (F1, F2, F3) — szukaj linii z 2-3 dużymi liczbami
+  // 4. Data rejestracji (B) — wiele formatów
   // ============================================================
-  // Wzorzec: "F1 5500 kg | F2 5500 kg | F3 7000 kg"
-  // OCR może mylić "F1" z "8", "Fi", "Ft" itp.
-  // Szukaj linii zawierających 2+ liczb w zakresie 1000-100000 z 'kg'
-  const flineMatch=t.match(/(\d{3,6})\s*[kK][gG][^a-z]{0,20}(\d{3,6})\s*[kK][gG][^a-z]{0,20}(\d{3,6})\s*[kK][gG]/i);
-  if(flineMatch){
-    const nums=[parseInt(flineMatch[1]),parseInt(flineMatch[2]),parseInt(flineMatch[3])];
-    const valid=nums.filter(n=>n>=500&&n<=120000);
-    if(valid.length>=1)d.dmcKg=String(valid[0]);
-    if(valid.length>=3)d.dmcZespolu=String(valid[2]);
-  } else {
-    // Fallback: szukaj pojedynczych wartości
-    const f1=t.match(/F\.?[t1iI]\s*[:\|]?\s*(\d{3,6})\s*[kK][gG]/i);
-    if(f1)d.dmcKg=f1[1];
-    const f3=t.match(/F\.?3\s*[:\|]?\s*(\d{3,6})\s*[kK][gG]/i);
-    if(f3)d.dmcZespolu=f3[1];
+  const allDates=t.match(/\b(\d{2}[.\-\/]\d{2}[.\-\/](?:19|20)\d{2})\b/g)||[];
+  const validDates=allDates.filter(dt=>{const y=parseInt(dt.slice(-4));return y>=1990&&y<=2035;});
+  if(validDates.length)d.dataRej=validDates[0].replace(/[-\/]/g,'.');
+
+  // ============================================================
+  // 5. Nr rejestracyjny (A) — tekst gdy MRZ nie zadziałał
+  // ============================================================
+  if(!d.nrRej){
+    // Polskie tablice: 2-3 duże litery + 4-5 znaków alfanumerycznych
+    const plRej=t.match(/\b([A-Z]{2,3}[\s]?[A-Z0-9]{4,5})\b/);
+    if(plRej&&/^[A-Z]{2}/.test(plRej[1]))d.nrRej=plRej[1].replace(/\s/,'');
   }
 
   // ============================================================
-  // 5. Marka (D.1) i Model/Typ (D.2)
+  // 6. Marka (D.1) i Typ/Model (D.2)
   // ============================================================
   const BRANDS=['MERCEDES-BENZ','MERCEDES','SCANIA','VOLVO','MAN TGL','MAN TGX','MAN TGS',
-    'MAN','DAF','IVECO','RENAULT','FORD','FIAT','BMW','VOLKSWAGEN','CITROEN','PEUGEOT',
-    'OPEL','TOYOTA','NISSAN','MITSUBISHI','ISUZU','HINO'];
+    'MAN','DAF','IVECO','RENAULT','FORD','FIAT','BMW','VOLKSWAGEN','VW','CITROEN','PEUGEOT',
+    'OPEL','TOYOTA','NISSAN','MITSUBISHI','ISUZU','HINO','KRONE','SCHMITZ','WIELTON',
+    'FRUEHAUF','KOEGEL','FLIEGL','PANAV','KOGEL','STAR','JELCZ','AUTOSAN','SOLARIS','VOLVO'];
   for(const brand of BRANDS){
-    const re2=new RegExp(brand.replace('-','[-/]?'),'i');
+    const re2=new RegExp(brand.replace(/-/g,'[-/]?').replace(/\s/g,'[\\s\\-]?'),'i');
     if(re2.test(t)){
       d.marka=brand.split(/[-\s]/)[0].toUpperCase();
-      // Szukaj modelu po marce
-      const mM=t.match(new RegExp(brand+'[/\\s\\-]*([A-Z0-9]{2,12})','i'));
+      const mM=t.match(new RegExp(brand.replace(/-/g,'[-/]?').replace(/\s/g,'[\\s\\-]?')+'[/\\s\\-]*([A-Z0-9]{2,12})','i'));
       if(mM&&mM[1]&&mM[1]!=='SP')d.typ=mM[1].toUpperCase();
       break;
     }
   }
-  // Dodatkowe szukanie D.1 i D.2 z kodami formularza
-  const d1M=t.match(/D\.?1\s*[:\|]?\s*([A-Z][A-Z\-]{2,20}?)(?:\s*[\/\|]|\n|$)/im);
+  // Szukanie D.1 z etykiety formularza (toleruje OCR: D1/D.1/D-1)
+  const d1M=t.match(/D[\s.:\-]?1\s*[:\|\-]?\s*([A-Z][A-Z\-]{2,25})(?:\s*[\/\|\n]|$)/im);
   if(d1M&&!d.marka)d.marka=d1M[1].trim().toUpperCase();
-  const d2M=t.match(/D\.?2\s*[:\|]?\s*([A-Z0-9][A-Za-z0-9\-\s]{1,20}?)(?:\n|D\.|$)/im);
+  const d2M=t.match(/D[\s.:\-]?2\s*[:\|\-]?\s*([A-Z0-9][A-Za-z0-9\-\s]{1,25})(?:\n|D[\s.:\-]?|$)/im);
   if(d2M&&!d.typ)d.typ=d2M[1].trim();
 
   // ============================================================
-  // 6. Liczba osi (L) — bezpieczny zakres 1-5
+  // 7. DMC F.1 — bez wymaganego "kg", szerokie wzorce
+  // ============================================================
+  // F.1 (lub F1, F-1, F/1, Fi, Ft, F:1) + liczba 500-200000
+  const f1M=t.match(/F[\s.:\-]?[1lI!i]\s*[:\|\-]?\s*(\d{3,6})/i);
+  if(f1M){const v=parseInt(f1M[1]);if(v>=500&&v<=200000)d.dmcKg=String(v);}
+  // F.3 — DMC zespołu
+  const f3M=t.match(/F[\s.:\-]?3\s*[:\|\-]?\s*(\d{3,6})/i);
+  if(f3M){const v=parseInt(f3M[1]);if(v>=500&&v<=200000)d.dmcZespolu=String(v);}
+  // F.2 — jako fallback dla dmcZespolu
+  if(!d.dmcZespolu){
+    const f2M=t.match(/F[\s.:\-]?2\s*[:\|\-]?\s*(\d{3,6})/i);
+    if(f2M){const v=parseInt(f2M[1]);if(v>=500&&v<=200000)d.dmcZespolu=String(v);}
+  }
+  // Fallback: wiersz z 3 dużymi liczbami (tabela F1/F2/F3 lub F1/G/F3)
+  if(!d.dmcKg){
+    const mRow=t.match(/(\d{4,6})\D{1,10}(\d{4,6})\D{1,10}(\d{4,6})/);
+    if(mRow){
+      const nums=[parseInt(mRow[1]),parseInt(mRow[2]),parseInt(mRow[3])].filter(n=>n>=500&&n<=200000);
+      if(nums.length>=1)d.dmcKg=String(nums[0]);
+      if(nums.length>=3)d.dmcZespolu=String(nums[nums.length-1]);
+    }
+  }
+
+  // ============================================================
+  // 8. Liczba osi (L)
   // ============================================================
   const osiM=t.match(/\bL\s*[:\|=]?\s*([1-5])\b(?!\d)/i);
   if(osiM)d.liczbaOsi=osiM[1];
 
   // ============================================================
-  // 7. Kategoria pojazdu (J) — N1/N2/N3/M1/M2/M3/O1-4
+  // 9. Kategoria (J)
   // ============================================================
-  const katM=t.match(/\bJ\s*[:\|]?\s*(N[123]|M[123]|O[1-4])\b/i)
-    ||t.match(/(?:^|\|)\s*(N[123]|M[123])\s*(?:\||$)/m);
+  const katM=t.match(/\bJ[\s:|\-]?\s*(N[1-3]|M[1-3]|O[1-4]|L[1-7])\b/i)
+    ||t.match(/(?:^|\||\s)(N[1-3]|M[1-3])\s*(?:\||$)/m);
   if(katM)d.kategoria=(katM[1]||katM[2]||'').toUpperCase();
 
   // ============================================================
-  // 8. Silnik: P.1 pojemność, P.2 moc, P.3 paliwo
+  // 10. Silnik: P.1 pojemność, P.2 moc, P.3 paliwo
   // ============================================================
-  const p1M=t.match(/P\.?1\s*[:\|]?\s*(\d{3,5})[,\.]\d{2}\s*cm/i)
-    ||t.match(/(\d{3,5})[,\.]\d{2}\s*cm[³3]/i);
-  if(p1M)d.pojSilnika=p1M[1];
-  const p2M=t.match(/P\.?2\s*[:\|]?\s*(\d{2,4})[,\.]\d{2}\s*kW/i)
-    ||t.match(/(\d{2,4})[,\.]\d{2}\s*kW/i);
-  if(p2M)d.mocKW=p2M[1];
-  const p3M=t.match(/P\.?3\s*[:\|]?\s*([A-Z])\b/i);
+  // P.1 — cm³: format "NNNN,NN" lub samo "NNNNN" — bez wymaganego "cm"
+  const p1M=t.match(/P[\s.:\-]?1[\s:|\-]*(\d{3,6})[,.]?\d{0,2}/i)
+    ||t.match(/(\d{4,6})[,.]\d{2}\s*cm[³3]?/i)
+    ||t.match(/(\d{4,6})\s*cm[³3]?/i);
+  if(p1M){const v=parseInt(p1M[1]);if(v>=50&&v<=100000)d.pojSilnika=String(v);}
+  // P.2 — kW: format "NNN,NN" lub samo "NNN" kW
+  const p2M=t.match(/P[\s.:\-]?2[\s:|\-]*(\d{2,4})[,.]?\d{0,2}/i)
+    ||t.match(/(\d{2,4})[,.]\d{2}\s*kW/i)
+    ||t.match(/(\d{2,4})\s*kW/i);
+  if(p2M){const v=parseInt(p2M[1]);if(v>=1&&v<=3000)d.mocKW=String(v);}
+  // P.3 — litera paliwa: D/B/G/E/H
+  const p3M=t.match(/P[\s.:\-]?3[\s:|\-]*([DBGEH])\b/i);
   if(p3M){
-    const fuel=p3M[1].toUpperCase();
-    d.paliwo=fuel==='D'?'ON (Olej napędowy)':fuel==='G'?'LPG':
-             fuel==='B'?'PB (Benzyna)':fuel==='E'?'Elektryczny':fuel;
+    const fc=p3M[1].toUpperCase();
+    d.paliwo=fc==='D'?'ON (Olej napędowy)':fc==='B'?'PB (Benzyna)':fc==='G'?'LPG':
+             fc==='E'?'Elektryczny':fc==='H'?'Hybrydowy':fc;
   }
 
   // ============================================================
-  // 9. Masa własna (G) i miejsca siedzące (S.1)
+  // 11. Masa własna (G) — "kg" niewymagane
   // ============================================================
-  const gM=t.match(/\bG\s*[:\|]?\s*(\d{3,6})\s*[kK][gG]/i);
-  if(gM)d.masaWlKg=gM[1];
-  const s1M=t.match(/S\.?1\s*[:\|]?\s*(\d{1,3})\b/i);
-  if(s1M)d.miejscaSied=s1M[1];
+  const gM=t.match(/\bG[\s:|\-]?\s*(\d{3,6})(?:\s*(?:kg|Kg|KG))?/i);
+  if(gM){const v=parseInt(gM[1]);if(v>=100&&v<=100000)d.masaWlKg=String(v);}
 
   // ============================================================
-  // 10. Rok produkcji
+  // 12. Miejsca siedzące (S.1)
+  // ============================================================
+  const s1M=t.match(/S[\s.:\-]?1[\s:|\-]*(\d{1,3})\b/i);
+  if(s1M){const v=parseInt(s1M[1]);if(v>=1&&v<=500)d.miejscaSied=String(v);}
+
+  // ============================================================
+  // 13. Rok produkcji — preferuj lata 1990-bieżący
   // ============================================================
   const rokMs=t.match(/\b(19[89]\d|20[012]\d)\b/g)||[];
-  const validRok=rokMs.filter(y=>parseInt(y)>=1990&&parseInt(y)<=2030);
+  const curY=new Date().getFullYear();
+  const validRok=rokMs.filter(y=>parseInt(y)>=1990&&parseInt(y)<=curY+1);
   if(validRok.length)d.rokProd=validRok[0];
 
   // ============================================================
-  // 11. Norma Euro (ze strony 2)
+  // 14. Norma Euro
   // ============================================================
   const euroM=t.match(/EURO\s*([IVX0-9]+(?:\s*D[-+]?)?)/i);
   if(euroM)d.euroNorma='Euro '+euroM[1].toUpperCase().trim();
@@ -2811,10 +2895,10 @@ function parseRegistrationDoc(combinedOcrText){
   if(/pneumat/i.test(t))d.rodzajZawieszenia='pneumatyczne';
   else if(/r[oó]wnowa[żz]/i.test(t))d.rodzajZawieszenia='równoważne z pneumatycznym';
 
-  // Walidacja VIN
+  // Walidacja VIN (17 znaków, tylko dopuszczalne znaki)
   if(d.vin&&(d.vin.length!==17||!/^[A-HJ-NPR-Z0-9]{17}$/.test(d.vin)))delete d.vin;
 
-  // Pewność
+  // Pewność na podstawie liczby rozpoznanych pól
   const found=[d.nrRej,d.vin,d.marka,d.dmcKg,d.dataRej].filter(Boolean).length;
   d.pewnosc=found>=4?'WYSOKA':found>=2?'SREDNIA':'NISKA';
   return d;
@@ -2825,10 +2909,12 @@ function parseRegistrationDoc(combinedOcrText){
 
 // --- FORMULARZ RĘCZNY Z WYNIKAMI OCR ---
 function showManualForm(d,rawText,conf){
+  window._ocrLastRawText = rawText||'';
   document.getElementById('ocr-result').classList.remove('hidden');
   const confInfo=conf!=null?`<span style="font-size:11px;font-family:var(--mono);color:var(--text2)">Pewność Tesseract: ${Math.round(conf)}%</span>`:'';
   const pewClass={WYSOKA:'gbox',SREDNIA:'ibox',NISKA:'wbox'}[d.pewnosc]||'ibox';
   const pewIcon={WYSOKA:'ti-circle-check',SREDNIA:'ti-scan',NISKA:'ti-alert-triangle'}[d.pewnosc]||'ti-scan';
+  const isLow=d.pewnosc==='NISKA';
 
   let html='';
 
@@ -2840,11 +2926,20 @@ function showManualForm(d,rawText,conf){
         <span style="font-size:11px">Sprawdź poniższe pola i popraw jeśli OCR się pomylił. Następnie kliknij <strong>Szukaj i aktualizuj</strong>.</span>
       </div>
     </div>`;
-    // Surowy tekst (zwijany)
-    html+=`<details style="margin-bottom:12px">
-      <summary style="cursor:pointer;font-size:12px;color:var(--text2);padding:6px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">📄 Surowy tekst OCR (kliknij aby rozwinąć)</summary>
+    // Surowy tekst — auto-rozwinięty gdy pewność NISKA
+    html+=`<details style="margin-bottom:8px"${isLow?' open':''}>
+      <summary style="cursor:pointer;font-size:12px;color:var(--text2);padding:6px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">📄 Surowy tekst OCR (kliknij aby ${isLow?'zwinąć':'rozwinąć'})</summary>
       <pre style="font-size:10px;font-family:var(--mono);background:var(--bg3);padding:10px;border-radius:var(--radius);max-height:200px;overflow-y:auto;margin-top:4px;white-space:pre-wrap;color:var(--text2)">${(rawText||'').replace(/</g,'&lt;').slice(0,3000)}</pre>
     </details>`;
+    // Przycisk AI gdy pewność niska
+    if(isLow){
+      html+=`<div style="margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button id="ocr-ai-btn" onclick="extractOcrWithAI()" style="background:#7c3aed;color:#fff;border:none;padding:9px 18px;border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:6px">
+          <i class="ti ti-brain"></i> Wyodrębnij dane przez AI
+        </button>
+        <span style="font-size:11px;color:var(--text3)">Groq AI przeanalizuje tekst OCR i spróbuje wypełnić wszystkie pola</span>
+      </div>`;
+    }
   }else{
     html+=`<div class="ibox" style="margin-bottom:12px"><i class="ti ti-forms"></i><div><strong>Formularz ręczny</strong> — wpisz dane z dowodu rejestracyjnego. Pola odpowiadają polom formularza DT-1/A.</div></div>`;
   }
@@ -3635,7 +3730,7 @@ async function doLogin(){
     if(typeof refreshAll==='function') refreshAll();
 
     // Subskrybuj zmiany real-time po zalogowaniu
-    window.TaxOrderFleetCloud.subscribeRealTime(currentCompanyId);
+    window.TaxOrderFleetCloud?.subscribeRealTime?.(currentCompanyId);
 
     console.log('[FleetCloud] Automatycznie zaladowano pojazdy po zalogowaniu');
   }
@@ -4289,7 +4384,7 @@ function switchCompany(companyId){
   window.TaxOrderFleetCloud?.loadVehicles(companyId).then(r=>{
     if(r?.ok){
       refreshAll();
-      window.TaxOrderFleetCloud.subscribeRealTime(companyId);
+      window.TaxOrderFleetCloud?.subscribeRealTime?.(companyId);
     }
   });
 }
