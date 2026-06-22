@@ -71,6 +71,19 @@ CREATE TABLE IF NOT EXISTS documents (
 );
 CREATE INDEX IF NOT EXISTS idx_docs_vehicle ON documents(company_id, nr_rej);
 
+-- ===================== PUSH SUBSCRIPTIONS =====================
+-- Subskrypcje Web Push per urządzenie+firma (nie wymagają Worker auth — używają Supabase session)
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id  TEXT    NOT NULL,
+  endpoint    TEXT    NOT NULL UNIQUE,
+  p256dh      TEXT    NOT NULL,
+  auth_key    TEXT    NOT NULL,
+  label       TEXT,
+  updated_at  TEXT    DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_push_company ON push_subscriptions(company_id);
+
 -- ===================== DANE STARTOWE — ADMINISTRATOR =====================
 -- KROK 1: Po deploymencie otwórz w przeglądarce:
 --   https://taxorder-pro.<subdomena>.workers.dev/api/auth/setup?password=admin2025

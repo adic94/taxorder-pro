@@ -360,6 +360,171 @@ async function handleUsers(req, env, user, url, path) {
   return err('Metoda niedozwolona', 405);
 }
 
+// ─── WEB PUSH — VAPID + RFC 8291 (aes128gcm) ─────────────────────────────────
+
+function b64url(data) {
+  const bytes = typeof data === 'string'
+    ? new TextEncoder().encode(data)
+    : new Uint8Array(data instanceof ArrayBuffer ? data : data.buffer || data);
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function b64urlDec(str) {
+  const padded = str.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - str.length % 4) % 4);
+  const bin = atob(padded);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+function cat(...arrays) {
+  const total = arrays.reduce((n, a) => n + a.length, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const a of arrays) { out.set(a, off); off += a.length; }
+  return out;
+}
+
+async function hkdf(ikm, salt, info, len) {
+  const saltKey = await crypto.subtle.importKey('raw', salt, { name:'HMAC', hash:'SHA-256' }, false, ['sign']);
+  const prk = new Uint8Array(await crypto.subtle.sign('HMAC', saltKey, ikm));
+  const prkKey = await crypto.subtle.importKey('raw', prk, { name:'HMAC', hash:'SHA-256' }, false, ['sign']);
+  const infoB = typeof info === 'string' ? new TextEncoder().encode(info) : info;
+  const t = new Uint8Array(await crypto.subtle.sign('HMAC', prkKey, cat(infoB, new Uint8Array([1]))));
+  return t.slice(0, len);
+}
+
+async function encryptForPush(subscription, messageJson) {
+  const enc = new TextEncoder();
+  const p256dh = b64urlDec(subscription.keys.p256dh);
+  const auth   = b64urlDec(subscription.keys.auth);
+
+  const serverPair = await crypto.subtle.generateKey({ name:'ECDH', namedCurve:'P-256' }, true, ['deriveBits']);
+  const serverPubRaw = new Uint8Array(await crypto.subtle.exportKey('raw', serverPair.publicKey));
+
+  const clientPub = await crypto.subtle.importKey('raw', p256dh, { name:'ECDH', namedCurve:'P-256' }, false, []);
+  const ecdhBits  = new Uint8Array(await crypto.subtle.deriveBits({ name:'ECDH', public:clientPub }, serverPair.privateKey, 256));
+
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+
+  const infoKey = cat(enc.encode('WebPush: info\x00'), p256dh, serverPubRaw);
+  const ikm     = await hkdf(ecdhBits, auth, infoKey, 32);
+
+  const cekBytes = await hkdf(ikm, salt, enc.encode('Content-Encoding: aes128gcm\x00'), 16);
+  const cek = await crypto.subtle.importKey('raw', cekBytes, 'AES-GCM', false, ['encrypt']);
+
+  const nonce = await hkdf(ikm, salt, enc.encode('Content-Encoding: nonce\x00'), 12);
+
+  const plaintext = cat(enc.encode(messageJson), new Uint8Array([2]));
+  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name:'AES-GCM', iv:nonce }, cek, plaintext));
+
+  const rs = new Uint8Array([0, 1, 0, 0]); // record size 65536
+  return cat(salt, rs, new Uint8Array([65]), serverPubRaw, ciphertext).buffer;
+}
+
+async function vapidHeader(endpoint, privB64, pubB64, sub) {
+  const enc = new TextEncoder();
+  const now = Math.floor(Date.now() / 1000);
+  const h = b64url(JSON.stringify({ typ:'JWT', alg:'ES256' }));
+  const p = b64url(JSON.stringify({ aud: new URL(endpoint).origin, exp: now + 43200, sub }));
+  const sigInput = enc.encode(`${h}.${p}`);
+  const privKey = await crypto.subtle.importKey(
+    'pkcs8', b64urlDec(privB64), { name:'ECDSA', namedCurve:'P-256' }, false, ['sign']
+  );
+  const sig = b64url(await crypto.subtle.sign({ name:'ECDSA', hash:'SHA-256' }, privKey, sigInput));
+  return `vapid t=${h}.${p}.${sig},k=${pubB64}`;
+}
+
+async function sendPushMsg(sub, payload, env) {
+  const body = await encryptForPush(sub, JSON.stringify(payload));
+  const auth = await vapidHeader(sub.endpoint, env.VAPID_PRIVATE_KEY, env.VAPID_PUBLIC_KEY, 'mailto:adamus1000@gmail.com');
+  return fetch(sub.endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: auth,
+      'Content-Type': 'application/octet-stream',
+      'Content-Encoding': 'aes128gcm',
+      TTL: '86400',
+      Urgency: 'normal',
+    },
+    body,
+  });
+}
+
+// POST /api/push/subscribe — public (no Worker auth, Supabase session is enough)
+async function handlePushSubscribe(req, env) {
+  let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+  const { subscription, company_id, label } = body;
+  if (!subscription?.endpoint || !subscription?.keys) return err('Nieprawidłowa subskrypcja');
+  if (!company_id) return err('Wymagane company_id');
+  await env.DB.prepare(`
+    INSERT INTO push_subscriptions(company_id,endpoint,p256dh,auth_key,label,updated_at)
+    VALUES(?,?,?,?,?,datetime('now'))
+    ON CONFLICT(endpoint) DO UPDATE SET
+      company_id=excluded.company_id,p256dh=excluded.p256dh,auth_key=excluded.auth_key,
+      label=excluded.label,updated_at=datetime('now')`
+  ).bind(company_id, subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth, label || null).run();
+  return json({ ok: true });
+}
+
+// DELETE /api/push/subscribe — public (endpoint is secret enough)
+async function handlePushUnsubscribe(req, env) {
+  let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+  if (!body.endpoint) return err('Wymagane endpoint');
+  await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint=?').bind(body.endpoint).run();
+  return json({ ok: true });
+}
+
+// POST /api/push/send — sends to all subscribers of a company
+// Requires either: Worker admin session OR X-Supabase-Key header with SUPABASE_SERVICE_KEY
+async function handlePushSend(req, env, user) {
+  if (user && user.role !== 'admin') return err('Tylko administrator może wysyłać powiadomienia', 403);
+  const supaKey = req.headers.get('X-Supabase-Key');
+  if (!user && supaKey !== env.SUPABASE_SERVICE_KEY) return err('Nieautoryzowany', 401);
+  let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+  const { company_id, title, message, url = '/', urgent = false } = body;
+  if (!company_id || !title) return err('Wymagane: company_id, title');
+  if (!env.VAPID_PRIVATE_KEY || !env.VAPID_PUBLIC_KEY) return err('Klucze VAPID nie skonfigurowane — wygeneruj przez /api/push/generate-keys', 503);
+
+  const rows = await env.DB.prepare('SELECT * FROM push_subscriptions WHERE company_id=?').bind(company_id).all();
+  const subs = rows.results || [];
+  if (!subs.length) return json({ ok: true, sent: 0, note: 'Brak subskrybentów' });
+
+  const payload = { title, body: message || title, tag: 'taxorder-alert', url, urgent };
+  const results = await Promise.allSettled(subs.map(s =>
+    sendPushMsg({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth_key } }, payload, env)
+  ));
+
+  const expired = subs.filter((_, i) => results[i].status === 'fulfilled' && results[i].value.status === 410).map(s => s.id);
+  if (expired.length) {
+    for (const id of expired) await env.DB.prepare('DELETE FROM push_subscriptions WHERE id=?').bind(id).run();
+  }
+
+  return json({ ok: true, sent: results.filter(r => r.status === 'fulfilled' && r.value.ok).length, total: subs.length });
+}
+
+// GET /api/push/vapid-public-key — klucz publiczny dla klientów
+async function handleVapidPublicKey(_req, env) {
+  if (!env.VAPID_PUBLIC_KEY) return err('Klucze VAPID nie skonfigurowane', 503);
+  return json({ key: env.VAPID_PUBLIC_KEY });
+}
+
+// GET /api/push/generate-keys — jednorazowe generowanie kluczy VAPID (admin)
+async function handleGenerateVapidKeys(_req, _env, user) {
+  if (user?.role !== 'admin') return err('Tylko administrator', 403);
+  const pair = await crypto.subtle.generateKey({ name:'ECDSA', namedCurve:'P-256' }, true, ['sign','verify']);
+  const [pub, priv] = await Promise.all([
+    crypto.subtle.exportKey('raw', pair.publicKey),
+    crypto.subtle.exportKey('pkcs8', pair.privateKey),
+  ]);
+  return json({
+    VAPID_PUBLIC_KEY: b64url(pub),
+    VAPID_PRIVATE_KEY: b64url(priv),
+    instructions: 'Ustaw w Cloudflare Dashboard → Workers → taxorder-pro-api → Settings → Variables & Secrets. VAPID_PRIVATE_KEY jako Secret (zaszyfrowany).',
+  });
+}
+
 // ─── SCHEDULED — czyszczenie wygasłych sesji ─────────────────────────────────
 async function cleanSessions(env) {
   await env.DB.prepare("DELETE FROM sessions WHERE expires_at < datetime('now')").run();
@@ -439,21 +604,35 @@ Odpowiadaj po polsku, konkretnie i zwięźle.${fleetSummary ? '\n\nFlota użytko
 
 // ─── MAIN FETCH ───────────────────────────────────────────────────────────────
 async function handleRequest(request, env, url, path) {
-  if (path === '/api/auth/login' && request.method === 'POST') return handleLogin(request, env);
-  if (path === '/api/auth/setup' && request.method === 'GET')  return handleSetup(request);
-  if (path === '/api/auth/logout' && request.method === 'POST') return handleLogout(request, env);
+  // Public endpoints (no auth required)
+  if (path === '/api/auth/login'            && request.method === 'POST') return handleLogin(request, env);
+  if (path === '/api/auth/setup'            && request.method === 'GET')  return handleSetup(request);
+  if (path === '/api/auth/logout'           && request.method === 'POST') return handleLogout(request, env);
+  if (path === '/api/push/vapid-public-key' && request.method === 'GET')  return handleVapidPublicKey(request, env);
+  if (path === '/api/push/subscribe'        && request.method === 'POST') return handlePushSubscribe(request, env);
+  if (path === '/api/push/subscribe'        && request.method === 'DELETE') return handlePushUnsubscribe(request, env);
 
+  // Protected endpoints
   const user = await getUser(request, env);
-  if (!user) return err('Nieautoryzowany — zaloguj się', 401);
 
   if (path === '/api/auth/me')                    return json(safeUser(user));
-  if (path === '/api/users/me/password' && request.method === 'PUT') return handleChangeMyPassword(request, env, user);
-  if (path.startsWith('/api/vehicles'))            return handleVehicles(request, env, user, url, path);
-  if (path.startsWith('/api/state/'))              return handleState(request, env, user, url, path);
-  if (path.startsWith('/api/prefs'))               return handlePrefs(request, env, user);
-  if (path.startsWith('/api/docs'))                return handleDocs(request, env, user, url, path);
-  if (path.startsWith('/api/users'))               return handleUsers(request, env, user, url, path);
-  if (path === '/api/ai/chat')                     return handleAI(request, env);
+  if (path === '/api/users/me/password' && request.method === 'PUT') {
+    if (!user) return err('Nieautoryzowany — zaloguj się', 401);
+    return handleChangeMyPassword(request, env, user);
+  }
+  if (path.startsWith('/api/vehicles')) { if (!user) return err('Nieautoryzowany', 401); return handleVehicles(request, env, user, url, path); }
+  if (path.startsWith('/api/state/'))   { if (!user) return err('Nieautoryzowany', 401); return handleState(request, env, user, url, path); }
+  if (path.startsWith('/api/prefs'))    { if (!user) return err('Nieautoryzowany', 401); return handlePrefs(request, env, user); }
+  if (path.startsWith('/api/docs'))     { if (!user) return err('Nieautoryzowany', 401); return handleDocs(request, env, user, url, path); }
+  if (path.startsWith('/api/users'))    { if (!user) return err('Nieautoryzowany', 401); return handleUsers(request, env, user, url, path); }
+  if (path === '/api/ai/chat')          return handleAI(request, env);
+
+  // Push (authenticated parts)
+  if (path === '/api/push/generate-keys' && request.method === 'GET') {
+    if (!user) return err('Nieautoryzowany', 401);
+    return handleGenerateVapidKeys(request, env, user);
+  }
+  if (path === '/api/push/send' && request.method === 'POST') return handlePushSend(request, env, user);
 
   return err('Endpoint nie istnieje', 404);
 }

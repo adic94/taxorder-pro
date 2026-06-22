@@ -217,9 +217,10 @@ window.TaxOrderNotifications = (function () {
   }
 
   // Otwiera Centrum Powiadomień (modal)
-  function openCenter() {
+  async function openCenter() {
     const alerts = getActiveAlerts(60); // szersze okno w centrum
     const perm   = 'Notification' in window ? Notification.permission : 'unsupported';
+    const pushSt = await getPushStatus();
 
     const permHtml = perm === 'granted'
       ? `<div class="gbox" style="margin-bottom:12px"><i class="ti ti-check"></i> Powiadomienia przeglądarkowe <b>włączone</b></div>`
@@ -231,6 +232,16 @@ window.TaxOrderNotifications = (function () {
             onclick="Notification.requestPermission().then(p=>{if(p==='granted'){window.TaxOrderNotifications.check();document.getElementById('notif-center-modal')?.remove();window.TaxOrderNotifications.openCenter();}})">
             Zezwól
           </button>
+        </div>`;
+
+    const pushHtml = pushSt === 'unsupported' ? '' : pushSt === 'subscribed'
+      ? `<div class="gbox" style="margin-bottom:12px;display:flex;align-items:center;gap:10px">
+          <span style="flex:1"><i class="ti ti-device-mobile"></i> Powiadomienia <b>push</b> aktywne — działają gdy aplikacja jest zamknięta</span>
+          <button class="btn btn-gray" style="font-size:11px" onclick="window.TaxOrderNotifications.unsubscribeFromPush().then(()=>{document.getElementById('notif-center-modal')?.remove();window.TaxOrderNotifications.openCenter();})">Wyłącz</button>
+        </div>`
+      : `<div class="wbox" style="margin-bottom:12px;display:flex;align-items:center;gap:10px">
+          <span style="flex:1"><i class="ti ti-device-mobile-off"></i> Powiadomienia <b>push</b> nieaktywne (wymagane gdy aplikacja zamknięta)</span>
+          <button class="btn btn-blue" style="font-size:11px" onclick="window.TaxOrderNotifications.subscribeToPush().then(ok=>{if(ok){document.getElementById('notif-center-modal')?.remove();window.TaxOrderNotifications.openCenter();}})">Włącz push</button>
         </div>`;
 
     const expired  = alerts.filter(a => a.expired);
@@ -287,6 +298,7 @@ window.TaxOrderNotifications = (function () {
         </div>
         <div style="padding:16px 20px">
           ${permHtml}
+          ${pushHtml}
           ${body}
         </div>
       </div>
@@ -306,5 +318,77 @@ window.TaxOrderNotifications = (function () {
     }, 60 * 60 * 1000); // co godzinę
   }
 
-  return { requestAndCheck, check, getActiveAlerts, openCenter, updateBadge: _updateBadge, startAutoCheck: _startAutoCheck };
+  // ── Push subscription (VAPID / Server Push) ──────────────────────────────
+  const CF_API = 'https://taxorder-pro-api.acichocki.workers.dev';
+  const PUSH_SUB_KEY = 'taxPushSubscribed';
+
+  async function _getVapidPublicKey() {
+    try {
+      const r = await fetch(`${CF_API}/api/push/vapid-public-key`);
+      if (!r.ok) return null;
+      const d = await r.json();
+      return d.key || null;
+    } catch { return null; }
+  }
+
+  function _urlBase64ToUint8(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    const out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  async function subscribeToPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      toast('⚠ Przeglądarka nie obsługuje Push API'); return false;
+    }
+    const reg = await navigator.serviceWorker.ready;
+    const vapidKey = await _getVapidPublicKey();
+    if (!vapidKey) { toast('⚠ Serwer push niedostępny — skonfiguruj klucze VAPID'); return false; }
+
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: _urlBase64ToUint8(vapidKey),
+    });
+
+    const company_id = window.currentCompanyId || 'default';
+    const r = await fetch(`${CF_API}/api/push/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription: sub.toJSON(), company_id, label: navigator.userAgent.slice(0, 50) }),
+    });
+
+    if (!r.ok) { toast('❌ Błąd rejestracji push — ' + (await r.json().catch(() => ({}))).error); return false; }
+
+    localStorage.setItem(PUSH_SUB_KEY, JSON.stringify({ company_id, endpoint: sub.endpoint }));
+    toast('✓ Powiadomienia push aktywne — otrzymasz alerty nawet gdy aplikacja jest zamknięta');
+    return true;
+  }
+
+  async function unsubscribeFromPush() {
+    if (!('serviceWorker' in navigator)) return;
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) { localStorage.removeItem(PUSH_SUB_KEY); return; }
+    await fetch(`${CF_API}/api/push/subscribe`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint: sub.endpoint }),
+    }).catch(() => {});
+    await sub.unsubscribe();
+    localStorage.removeItem(PUSH_SUB_KEY);
+    toast('✓ Powiadomienia push wyłączone');
+  }
+
+  async function getPushStatus() {
+    if (!('PushManager' in window) || !('serviceWorker' in navigator)) return 'unsupported';
+    const reg = await navigator.serviceWorker.ready.catch(() => null);
+    if (!reg) return 'no-sw';
+    const sub = await reg.pushManager.getSubscription().catch(() => null);
+    return sub ? 'subscribed' : 'not-subscribed';
+  }
+
+  return { requestAndCheck, check, getActiveAlerts, openCenter, updateBadge: _updateBadge, startAutoCheck: _startAutoCheck, subscribeToPush, unsubscribeFromPush, getPushStatus };
 })();

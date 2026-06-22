@@ -22,4 +22,7 @@ binding = "AI"
 [vars]
 ENVIRONMENT = "production"
 ALLOWED_ORIGINS = "*"
+# VAPID_PUBLIC_KEY — generate once via GET /api/push/generate-keys (admin)
+# Then set VAPID_PUBLIC_KEY here and VAPID_PRIVATE_KEY as a Cloudflare Secret (encrypted)
+VAPID_PUBLIC_KEY = ""
 
