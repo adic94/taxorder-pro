@@ -18,6 +18,16 @@ window.DT1XML = (function () {
     try { return new Date(d).toISOString().slice(0,10); } catch { return d; }
   }
 
+  // Mapowanie wartości selecta tp-cel → numer CelZlozenia (1-6)
+  const CEL_MAP = {
+    'DEKLARACJA SKLADANA DO 15 LUTEGO': '1',
+    'POWSTANIE OBOWIAZKU W TRAKCIE ROKU': '2',
+    'WYGASNIECIE OBOWIAZKU W TRAKCIE ROKU': '3',
+    'ZMIANA MIEJSCA ZAMIESZKANIA LUB SIEDZIBY': '4',
+    'KOREKTA DEKLARACJI': '5',
+    'PRZEDLUZENIE WYCOFANIA': '6',
+  };
+
   // Zbiera dane formularza z DOM (te same funkcje co w renderFormularze)
   function _getFormData() {
     const g = id => (document.getElementById(id)||{}).value||'';
@@ -27,7 +37,10 @@ window.DT1XML = (function () {
     const street = g('tp-street') || '';
     const city = g('tp-city') || '';
     const postcode = g('tp-postcode') || '';
-    return { yr, nip, name, street, city, postcode };
+    const celRaw = g('tp-cel');
+    const cel = CEL_MAP[celRaw] || '1';
+    const rodzaj = g('tp-rodzaj') || 'niefizyczny'; // 'fizyczny' | 'niefizyczny'
+    return { yr, nip, name, street, city, postcode, cel, rodzaj };
   }
 
   function exportXML() {
@@ -76,22 +89,33 @@ window.DT1XML = (function () {
     xmlParts.push(`  <Naglowek>`);
     xmlParts.push(`    <KodFormularza kodSystemowy="DT-1 (6)" kodPodatku="DT" rodzajZobowiazania="Z" wersjaSchemy="1-0E">DT-1</KodFormularza>`);
     xmlParts.push(`    <WariantFormularza>6</WariantFormularza>`);
-    xmlParts.push(`    <CelZlozenia poz="P_6">1</CelZlozenia>`);
+    xmlParts.push(`    <CelZlozenia poz="P_6">${_esc(form.cel)}</CelZlozenia>`);
     xmlParts.push(`    <Rok>${_esc(year)}</Rok>`);
     xmlParts.push(`    <NazwaSystemu>TaxOrder Pro</NazwaSystemu>`);
     xmlParts.push(`    <DataWytworzeniaJPK>${today}</DataWytworzeniaJPK>`);
     xmlParts.push(`  </Naglowek>`);
 
     // ── Podmiot 1 — podatnik ──
+    const isFiz = form.rodzaj === 'fizyczny';
+    const adresTag = isFiz ? 'AdresZamieszkania' : 'AdresSiedziby';
+    const adresTyp = isFiz ? 'RAD' : 'RAD';
     xmlParts.push(`  <Podmiot1>`);
-    xmlParts.push(`    <OsobaFizyczna>`);
-    xmlParts.push(`      <NIP>${_esc(form.nip)}</NIP>`);
-    xmlParts.push(`    </OsobaFizyczna>`);
-    xmlParts.push(`    <AdresZamieszkania rodzajAdresu="RAD">`);
+    if (isFiz) {
+      xmlParts.push(`    <OsobaFizyczna>`);
+      xmlParts.push(`      <NIP>${_esc(form.nip)}</NIP>`);
+      if (form.name) xmlParts.push(`      <PelnaNazwa>${_esc(form.name)}</PelnaNazwa>`);
+      xmlParts.push(`    </OsobaFizyczna>`);
+    } else {
+      xmlParts.push(`    <OsobaNiefizyczna>`);
+      xmlParts.push(`      <NIP>${_esc(form.nip)}</NIP>`);
+      if (form.name) xmlParts.push(`      <PelnaNazwa>${_esc(form.name)}</PelnaNazwa>`);
+      xmlParts.push(`    </OsobaNiefizyczna>`);
+    }
+    xmlParts.push(`    <${adresTag} rodzajAdresu="${adresTyp}">`);
     xmlParts.push(`      <Ulica>${_esc(form.street)}</Ulica>`);
     xmlParts.push(`      <Miejscowosc>${_esc(form.city)}</Miejscowosc>`);
     xmlParts.push(`      <KodPocztowy>${_esc(form.postcode)}</KodPocztowy>`);
-    xmlParts.push(`    </AdresZamieszkania>`);
+    xmlParts.push(`    </${adresTag}>`);
     xmlParts.push(`  </Podmiot1>`);
 
     // ── Pozycje szczegółowe (tabela DT-1) ──
