@@ -159,5 +159,152 @@ window.TaxOrderNotifications = (function () {
     }
   }
 
-  return { requestAndCheck, check };
+  // Zwraca listę wszystkich aktywnych alertów floty (bez filtra "already sent")
+  function getActiveAlerts(thresholdDays) {
+    const days  = thresholdDays ?? WARN_DAYS;
+    const vehs  = window.vehs || [];
+    const alerts = [];
+
+    vehs.forEach(v => {
+      const checks = [
+        { field: 'ocEnd',          label: 'OC',                date: v.ocEnd },
+        { field: 'acEnd',          label: 'AC',                date: v.acEnd },
+        { field: 'nextInspection', label: 'Przegląd tech.',    date: v.nextInspection },
+        ...(v.hasUdt && v.udtNextDate   ? [{ field: 'udtNextDate',    label: 'Badanie UDT',      date: v.udtNextDate }]    : []),
+        ...(v.hasTacho && v.tachoNextCalib ? [{ field: 'tachoNextCalib', label: 'Legalizacja tacho', date: v.tachoNextCalib }] : []),
+        ...(v.tireNextChange ? [{ field: 'tireChange', label: 'Zmiana opon', date: v.tireNextChange }] : []),
+        ...(v.serviceHistory||[])
+          .filter(s => s.nextServiceDate)
+          .map(s => ({ field: 'svc_'+s.id, label: (window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label || 'Serwis'), date: s.nextServiceDate })),
+      ];
+
+      checks.forEach(({ field, label, date }) => {
+        const d = _daysUntil(date);
+        if (d === null || d > days) return;
+        alerts.push({
+          nrRej:  v.nrRej,
+          marka:  v.marka,
+          model:  v.model,
+          label,
+          date,
+          days: d,
+          urgent: d <= 7,
+          expired: d < 0,
+        });
+      });
+    });
+
+    alerts.sort((a, b) => a.days - b.days);
+    return alerts;
+  }
+
+  // Aktualizuje badge na dzwonku w topbarze
+  function _updateBadge() {
+    const badge = document.getElementById('notif-badge');
+    if (!badge) return;
+    const alerts = getActiveAlerts();
+    const urgent = alerts.filter(a => a.urgent || a.expired).length;
+    if (urgent > 0) {
+      badge.textContent = urgent > 99 ? '99+' : urgent;
+      badge.style.display = 'block';
+    } else if (alerts.length > 0) {
+      badge.textContent = alerts.length;
+      badge.style.display = 'block';
+      badge.style.background = 'var(--amber)';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  // Otwiera Centrum Powiadomień (modal)
+  function openCenter() {
+    const alerts = getActiveAlerts(60); // szersze okno w centrum
+    const perm   = 'Notification' in window ? Notification.permission : 'unsupported';
+
+    const permHtml = perm === 'granted'
+      ? `<div class="gbox" style="margin-bottom:12px"><i class="ti ti-check"></i> Powiadomienia przeglądarkowe <b>włączone</b></div>`
+      : perm === 'denied'
+      ? `<div class="ebox" style="margin-bottom:12px"><i class="ti ti-alert-circle"></i> Powiadomienia <b>zablokowane</b> — odblokuj w ustawieniach przeglądarki</div>`
+      : `<div class="wbox" style="margin-bottom:12px"><i class="ti ti-bell-ringing"></i>
+          Powiadomienia nieaktywne &nbsp;
+          <button class="btn btn-blue" style="font-size:11px;padding:4px 10px;margin-left:8px"
+            onclick="Notification.requestPermission().then(p=>{if(p==='granted'){window.TaxOrderNotifications.check();document.getElementById('notif-center-modal')?.remove();window.TaxOrderNotifications.openCenter();}})">
+            Zezwól
+          </button>
+        </div>`;
+
+    const expired  = alerts.filter(a => a.expired);
+    const urgent7  = alerts.filter(a => !a.expired && a.days <= 7);
+    const soon     = alerts.filter(a => !a.expired && a.days > 7);
+
+    function _groupHtml(list, color, label) {
+      if (!list.length) return '';
+      const rows = list.map(a => {
+        const dateStr = a.date ? new Date(a.date).toLocaleDateString('pl-PL') : '—';
+        const daysStr = a.expired
+          ? `<span style="color:var(--red);font-weight:700">Wygasło ${Math.abs(a.days)} dni temu</span>`
+          : `<span style="color:${color};font-weight:600">za ${a.days} dni</span>`;
+        return `<tr>
+          <td style="font-weight:600">${a.nrRej}</td>
+          <td>${a.marka} ${a.model}</td>
+          <td>${a.label}</td>
+          <td>${dateStr}</td>
+          <td>${daysStr}</td>
+          <td><button class="btn btn-gray" style="font-size:10px;padding:3px 8px"
+            onclick="showPage('pojazdy');document.getElementById('notif-center-modal')?.remove()">Otwórz</button></td>
+        </tr>`;
+      }).join('');
+      return `<div style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:700;color:${color};margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">${label} (${list.length})</div>
+        <div class="tbl-wrap" style="overflow-x:auto">
+        <table style="min-width:500px">
+          <thead><tr>
+            <th>Nr rej.</th><th>Pojazd</th><th>Rodzaj</th><th>Termin</th><th>Pozostało</th><th></th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div></div>`;
+    }
+
+    const body = (!alerts.length)
+      ? `<div class="gbox"><i class="ti ti-circle-check"></i> Brak alertów — flota OK</div>`
+      : _groupHtml(expired, 'var(--red)', '❌ Przeterminowane')
+      + _groupHtml(urgent7, 'var(--amber)', '⚠ Pilne — 7 dni')
+      + _groupHtml(soon, 'var(--text2)', '📅 Nadchodzące — 60 dni');
+
+    const html = `<div id="notif-center-modal"
+      style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:5000;display:flex;align-items:center;justify-content:center"
+      onclick="if(event.target===this)this.remove()">
+      <div style="background:var(--bg2);border-radius:var(--radius-lg);width:900px;max-width:97vw;max-height:90vh;
+        overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);display:flex;flex-direction:column">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0;position:sticky;top:0;background:var(--bg2);z-index:1">
+          <i class="ti ti-bell" style="font-size:20px;color:var(--blue)"></i>
+          <div style="font-size:16px;font-weight:700;flex:1">Centrum Powiadomień</div>
+          <button class="btn btn-gray" style="font-size:11px" onclick="window.TaxOrderNotifications.check()">
+            <i class="ti ti-refresh"></i> Sprawdź teraz
+          </button>
+          <button onclick="document.getElementById('notif-center-modal')?.remove()"
+            style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2);padding:4px;line-height:1">×</button>
+        </div>
+        <div style="padding:16px 20px">
+          ${permHtml}
+          ${body}
+        </div>
+      </div>
+    </div>`;
+
+    document.getElementById('notif-center-modal')?.remove();
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+
+  // Auto-check co godzinę (tylko gdy permissja = granted)
+  let _autoCheckTimer = null;
+  function _startAutoCheck() {
+    if (_autoCheckTimer) return;
+    _autoCheckTimer = setInterval(() => {
+      if (Notification.permission === 'granted') check();
+      _updateBadge();
+    }, 60 * 60 * 1000); // co godzinę
+  }
+
+  return { requestAndCheck, check, getActiveAlerts, openCenter, updateBadge: _updateBadge, startAutoCheck: _startAutoCheck };
 })();

@@ -710,7 +710,7 @@ function updateCounters() {
   }
 }
 
-function refreshAll() { renderVeh(); renderKalkulator(); updateCounters(); renderDash(); }
+function refreshAll() { renderVeh(); renderKalkulator(); updateCounters(); renderDash(); window.TaxOrderNotifications?.updateBadge?.(); }
 function updateAll() { updateCounters(); renderKalkulator(); }
 
 // ==================== FUEL DASH ====================
@@ -3460,6 +3460,8 @@ async function doLogin(){
   setTimeout(() => {
     if (window.TaxOrderNotifications?.requestAndCheck) {
       window.TaxOrderNotifications.requestAndCheck();
+      window.TaxOrderNotifications.updateBadge?.();
+      window.TaxOrderNotifications.startAutoCheck?.();
     }
   }, 3000);
 }
