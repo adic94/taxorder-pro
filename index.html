@@ -2142,6 +2142,7 @@ window.addEventListener('DOMContentLoaded', () => {
       <div style="font-size:15px;font-weight:600;flex:1" data-i18n="vd.modal.title">Karta pojazdu</div>
       <button id="vd-save-btn" class="btn btn-blue" style="font-size:12px"><i class="ti ti-device-floppy"></i><span data-i18n="btn.save">Zapisz</span></button>
       <button class="btn btn-gray" style="font-size:12px" onclick="TaxOrderVehicleDetail.printCard()" data-i18n-title="btn.print" title="Drukuj kartę pojazdu"><i class="ti ti-printer"></i></button>
+      <button class="btn btn-gray" style="font-size:12px" id="vd-ocr-btn" title="Zaczytaj dane z dowodu rejestracyjnego (zdjęcie / PDF)"><i class="ti ti-scan"></i>Skan DR</button>
       <button onclick="TaxOrderVehicleDetail.close()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);padding:0 4px">&times;</button>
     </div>
     <div id="vd-modal-body" style="padding:20px;flex:1"></div>

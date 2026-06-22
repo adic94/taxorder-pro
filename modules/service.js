@@ -222,8 +222,11 @@ window.ServiceModule = (function () {
 
     const ov = document.createElement('div');
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;display:flex;align-items:center;justify-content:center;padding:1rem';
+    const canEdit = !ex || window.currentUser?.role === 'admin' || window.currentUser?.role === 'dyspozytor';
+    const defCurr = ex?.currency || 'PLN';
+    const defVat  = ex?.vatRate  != null ? ex.vatRate : 23;
     ov.innerHTML = `
-      <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:580px;max-width:98vw;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25)">
+      <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:620px;max-width:98vw;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25)">
         <div style="font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px">
           <i class="ti ti-tools" style="color:var(--blue)"></i>${ex ? 'Edytuj' : 'Dodaj'} serwis — <span style="font-family:var(--mono)">${v.nrRej}</span>
           <span style="font-size:12px;font-weight:400;color:var(--text2);margin-left:4px">${v.marka} ${v.model}</span>
@@ -235,7 +238,12 @@ window.ServiceModule = (function () {
           </div>
           <div class="vdf">
             <label class="vdl">Data wykonania *</label>
-            <input id="_svc-date" type="date" class="fi" value="${ex?.date || new Date().toISOString().slice(0,10)}">
+            <div style="display:flex;gap:6px">
+              <input id="_svc-date" type="date" class="fi" value="${ex?.date || new Date().toISOString().slice(0,10)}" style="flex:1">
+              <input id="_svc-date-txt" type="text" class="fi" placeholder="DD.MM.RRRR" maxlength="10" style="width:110px"
+                oninput="ServiceModule._parseDateText(this)" value="${ex?.date ? ex.date.split('-').reverse().join('.') : ''}">
+            </div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">Wpisz datę lub wybierz z kalendarza</div>
           </div>
           <div class="vdf" style="grid-column:1/-1">
             <label class="vdl">Opis / zakres prac</label>
@@ -245,17 +253,53 @@ window.ServiceModule = (function () {
             <label class="vdl">Przebieg przy serwisie (km)</label>
             <input id="_svc-km" type="number" class="fi" value="${ex?.km || v.stanKilometrow || ''}">
           </div>
+
+          <!-- Waluta i VAT -->
           <div class="vdf">
-            <label class="vdl">Koszt brutto (zł)</label>
-            <input id="_svc-cost" type="number" step="0.01" class="fi" value="${ex?.cost || ''}">
+            <label class="vdl">Waluta naprawy</label>
+            <select id="_svc-currency" class="fi" onchange="ServiceModule._onCurrencyChange(this)">
+              <option value="PLN" ${defCurr==='PLN'?'selected':''}>PLN — złoty</option>
+              <option value="EUR" ${defCurr==='EUR'?'selected':''}>EUR — euro</option>
+              <option value="USD" ${defCurr==='USD'?'selected':''}>USD — dolar am.</option>
+              <option value="GBP" ${defCurr==='GBP'?'selected':''}>GBP — funt</option>
+              <option value="CZK" ${defCurr==='CZK'?'selected':''}>CZK — korona cz.</option>
+              <option value="NOK" ${defCurr==='NOK'?'selected':''}>NOK — korona nor.</option>
+              <option value="CHF" ${defCurr==='CHF'?'selected':''}>CHF — frank szw.</option>
+            </select>
           </div>
           <div class="vdf">
-            <label class="vdl">Koszt netto (zł)</label>
-            <input id="_svc-costn" type="number" step="0.01" class="fi" value="${ex?.costNet || ''}">
+            <label class="vdl">Stawka VAT</label>
+            <select id="_svc-vat" class="fi" onchange="ServiceModule._calcNetto(document.getElementById('_svc-cost'))">
+              <option value="23" ${defVat==23?'selected':''}>23% (standard)</option>
+              <option value="8"  ${defVat==8?'selected':''}>8%</option>
+              <option value="5"  ${defVat==5?'selected':''}>5%</option>
+              <option value="0"  ${defVat==0?'selected':''}>0% (zwolniony)</option>
+            </select>
           </div>
+          <div id="_svc-curr-info" style="grid-column:1/-1;font-size:11px;color:var(--amber);display:${defCurr!=='PLN'?'block':'none'}">
+            ⚠ Koszty w walucie obcej — wartości w PLN przelicz ręcznie lub wpisz w walucie oryginalnej
+          </div>
+
+          <div class="vdf">
+            <label class="vdl">Koszt brutto (<span id="_svc-curr-lbl">${defCurr}</span>)</label>
+            <input id="_svc-cost" type="number" step="0.01" class="fi" value="${ex?.cost || ''}"
+              oninput="ServiceModule._calcNetto(this)" placeholder="0.00">
+          </div>
+          <div class="vdf">
+            <label class="vdl">Koszt netto (<span id="_svc-curr-lbl2">${defCurr}</span>)</label>
+            <input id="_svc-costn" type="number" step="0.01" class="fi" value="${ex?.costNet || ''}"
+              oninput="ServiceModule._calcBrutto(this)" placeholder="0.00">
+          </div>
+
+          <!-- Warsztat -->
           <div class="vdf">
             <label class="vdl">Warsztat / serwis</label>
             <input id="_svc-workshop" type="text" class="fi" placeholder="np. ASO Volkswagen Warszawa" value="${ex?.workshop || ''}">
+          </div>
+          <div class="vdf">
+            <label class="vdl">NIP warsztatu / serwisu</label>
+            <input id="_svc-nip" type="text" class="fi" placeholder="000-000-00-00" maxlength="13"
+              oninput="this.value=this.value.replace(/[^0-9-]/g,'')" value="${ex?.workshopNip || ''}">
           </div>
           <div class="vdf">
             <label class="vdl">Nr faktury / zlecenia</label>
@@ -279,7 +323,7 @@ window.ServiceModule = (function () {
           </div>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
-          ${ex ? `<button class="btn btn-gray" style="color:var(--red);margin-right:auto" onclick="ServiceModule.removeService(${vehId},'${ex.id}',this)">
+          ${ex && canEdit ? `<button class="btn btn-gray" style="color:var(--red);margin-right:auto" onclick="ServiceModule.removeService(${vehId},'${ex.id}',this)">
             <i class="ti ti-trash"></i>Usuń</button>` : ''}
           <button class="btn btn-gray" onclick="this.closest('[style*=fixed]').remove()">Anuluj</button>
           <button class="btn btn-blue" onclick="ServiceModule.saveService(${vehId},'${ex ? ex.id : ''}',this)">
@@ -330,13 +374,17 @@ window.ServiceModule = (function () {
       km:             gi('_svc-km'),
       cost:           gf('_svc-cost'),
       costNet:        gf('_svc-costn'),
+      currency:       g('_svc-currency') || 'PLN',
+      vatRate:        parseInt(g('_svc-vat') || '23'),
       workshop:       g('_svc-workshop'),
+      workshopNip:    g('_svc-nip'),
       invoiceNo:      g('_svc-invoice'),
       parts:          g('_svc-parts'),
       nextServiceDate:g('_svc-nextdate'),
       nextServiceKm:  gi('_svc-nextkm'),
       notes:          g('_svc-notes'),
-      createdAt:      new Date().toISOString(),
+      createdBy:      window.currentUser?.id,
+      createdAt:      ex?.createdAt || new Date().toISOString(),
     };
 
     if (!Array.isArray(v.serviceHistory)) v.serviceHistory = [];
@@ -409,26 +457,64 @@ window.ServiceModule = (function () {
         <div class="tbl-wrap"><table style="width:100%;font-size:11px">
           <thead><tr>
             <th>Data</th><th>Typ</th><th>Opis</th><th>Km</th>
-            <th>Koszt brutto</th><th>Warsztat</th><th>Faktura</th><th style="text-align:center"></th>
+            <th>Brutto</th><th>Netto</th><th>VAT</th><th>Warsztat</th><th>NIP</th><th>Faktura</th><th style="text-align:center"></th>
           </tr></thead>
           <tbody>
             ${history.map(s => {
               const t = SERVICE_TYPES[s.type] || SERVICE_TYPES.inne;
+              const curr = s.currency || 'PLN';
+              const canEdit = window.currentUser?.role === 'admin' || window.currentUser?.role === 'dyspozytor';
               return `<tr>
                 <td style="font-family:var(--mono);white-space:nowrap">${_fmtDate(s.date)}</td>
                 <td><span style="color:${t.color}"><i class="ti ${t.icon}"></i> ${t.label}</span></td>
-                <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.description||''}">${s.description||'—'}</td>
+                <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.description||''}">${s.description||'—'}</td>
                 <td style="font-family:var(--mono);text-align:right">${s.km ? s.km.toLocaleString('pl-PL') : '—'}</td>
-                <td style="font-family:var(--mono);font-weight:600;text-align:right;white-space:nowrap">${s.cost ? s.cost.toFixed(2)+' zł' : '—'}</td>
-                <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.workshop||'—'}</td>
+                <td style="font-family:var(--mono);font-weight:600;text-align:right;white-space:nowrap">${s.cost ? s.cost.toFixed(2)+' '+curr : '—'}</td>
+                <td style="font-family:var(--mono);text-align:right;white-space:nowrap">${s.costNet ? s.costNet.toFixed(2)+' '+curr : '—'}</td>
+                <td style="font-size:10px;color:var(--text3)">${s.vatRate != null ? s.vatRate+'%' : '—'}</td>
+                <td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.workshop||''}">${s.workshop||'—'}</td>
+                <td style="font-family:var(--mono);font-size:10px;color:var(--text2)">${s.workshopNip||'—'}</td>
                 <td style="font-family:var(--mono);font-size:10px">${s.invoiceNo||'—'}</td>
                 <td style="text-align:center;white-space:nowrap">
-                  <button class="btn btn-gray" style="font-size:10px;padding:2px 8px" onclick="ServiceModule.addService(${v.id},'${s.id}')">✏</button>
+                  ${canEdit ? `<button class="btn btn-gray" style="font-size:10px;padding:2px 8px" onclick="ServiceModule.addService(${v.id},'${s.id}')">✏</button>` : ''}
                 </td>
               </tr>`;
             }).join('')}
           </tbody>
         </table></div>` : `<div style="text-align:center;padding:20px;color:var(--text3)">Brak historii serwisowej. Kliknij "Dodaj serwis" aby rozpocząć.</div>`}`;
+  }
+
+  // ── Helpers dla formularza serwisu ───────────────────────────────────────
+  function _calcNetto(bruttoEl) {
+    const brutto = parseFloat(bruttoEl?.value);
+    const vat = parseInt(document.getElementById('_svc-vat')?.value || '23');
+    const nettoEl = document.getElementById('_svc-costn');
+    if (!isNaN(brutto) && nettoEl) nettoEl.value = (brutto / (1 + vat / 100)).toFixed(2);
+  }
+
+  function _calcBrutto(nettoEl) {
+    const netto = parseFloat(nettoEl?.value);
+    const vat = parseInt(document.getElementById('_svc-vat')?.value || '23');
+    const bruttoEl = document.getElementById('_svc-cost');
+    if (!isNaN(netto) && bruttoEl) bruttoEl.value = (netto * (1 + vat / 100)).toFixed(2);
+  }
+
+  function _onCurrencyChange(sel) {
+    const curr = sel.value;
+    document.getElementById('_svc-curr-lbl')?.childNodes[0] && (document.getElementById('_svc-curr-lbl').textContent = curr);
+    document.getElementById('_svc-curr-lbl2')?.childNodes[0] && (document.getElementById('_svc-curr-lbl2').textContent = curr);
+    const info = document.getElementById('_svc-curr-info');
+    if (info) info.style.display = curr !== 'PLN' ? 'block' : 'none';
+  }
+
+  function _parseDateText(el) {
+    const val = el.value.replace(/[^0-9.]/g, '');
+    const parts = val.split('.');
+    if (parts.length === 3 && parts[0].length === 2 && parts[1].length === 2 && parts[2].length === 4) {
+      const iso = `${parts[2]}-${parts[1]}-${parts[0]}`;
+      const dateEl = document.getElementById('_svc-date');
+      if (dateEl && !isNaN(new Date(iso))) dateEl.value = iso;
+    }
   }
 
   return {
@@ -437,5 +523,6 @@ window.ServiceModule = (function () {
     renderServiceTabHtml,
     getUpcomingServices,
     SERVICE_TYPES,
+    _calcNetto, _calcBrutto, _onCurrencyChange, _parseDateText,
   };
 })();

@@ -232,7 +232,7 @@ function renderVeh() {
     const isSel = selected.has(v.id);
     const isNew = (parseInt(v.rok)||0)>=2024;
     const needsDmcZ = isTrailer(v) && !v.dmcZespolu;
-    return `<tr class="${isSel?'row-sel':''}" onclick="toggleRow(${v.id})">
+    return `<tr class="${isSel?'row-sel':''}" onclick="toggleRow(${v.id})" ondblclick="event.stopPropagation();TaxOrderVehicleDetail.open(${v.id})" title="Dwuklik = karta pojazdu">
       <td onclick="event.stopPropagation()"><input type="checkbox" ${isSel?'checked':''} onchange="toggleRow(${v.id})"></td>
       <td><strong style="font-family:var(--mono)">${v.nrRej}</strong></td>
       <td><div style="font-weight:500">${v.marka} ${v.model}</div><div style="font-size:11px">${v.euro||'—'} · ${_vinCell(v)}</div></td>

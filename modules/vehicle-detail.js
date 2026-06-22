@@ -112,11 +112,14 @@ window.TaxOrderVehicleDetail = {
       // === OPONY ===
       tireNextChange: g('tireNextChange'),
       tireSeason:     g('tireSeason'),
-      tireFL: { size:g('tireFL_size'), brand:g('tireFL_brand'), dot:gi('tireFL_dot'), depth:gf('tireFL_depth'), changed:g('tireFL_changed') },
-      tireFR: { size:g('tireFR_size'), brand:g('tireFR_brand'), dot:gi('tireFR_dot'), depth:gf('tireFR_depth'), changed:g('tireFR_changed') },
-      tireRL: { size:g('tireRL_size'), brand:g('tireRL_brand'), dot:gi('tireRL_dot'), depth:gf('tireRL_depth'), changed:g('tireRL_changed') },
-      tireRR: { size:g('tireRR_size'), brand:g('tireRR_brand'), dot:gi('tireRR_dot'), depth:gf('tireRR_depth'), changed:g('tireRR_changed') },
-      tireSP: { size:g('tireSP_size'), brand:g('tireSP_brand'), dot:gi('tireSP_dot') },
+      twinWheels: gb('twinWheels'),
+      tireFL:  { size:g('tireFL_size'),  brand:g('tireFL_brand'),  dot:g('tireFL_dot'),  depth:gf('tireFL_depth'),  changed:g('tireFL_changed') },
+      tireFR:  { size:g('tireFR_size'),  brand:g('tireFR_brand'),  dot:g('tireFR_dot'),  depth:gf('tireFR_depth'),  changed:g('tireFR_changed') },
+      tireRL:  { size:g('tireRL_size'),  brand:g('tireRL_brand'),  dot:g('tireRL_dot'),  depth:gf('tireRL_depth'),  changed:g('tireRL_changed') },
+      tireRR:  { size:g('tireRR_size'),  brand:g('tireRR_brand'),  dot:g('tireRR_dot'),  depth:gf('tireRR_depth'),  changed:g('tireRR_changed') },
+      tireRLi: { size:g('tireRLi_size'), brand:g('tireRLi_brand'), dot:g('tireRLi_dot'), depth:gf('tireRLi_depth'), changed:g('tireRLi_changed') },
+      tireRRi: { size:g('tireRRi_size'), brand:g('tireRRi_brand'), dot:g('tireRRi_dot'), depth:gf('tireRRi_depth'), changed:g('tireRRi_changed') },
+      tireSP:  { size:g('tireSP_size'),  brand:g('tireSP_brand'),  dot:g('tireSP_dot') },
       // === UWAGI ===
       uwagi: g('uwagi'),
     });
@@ -394,41 +397,46 @@ window.TaxOrderVehicleDetail = {
             </select>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+        <!-- Koła bliźniacze -->
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg3);border-radius:var(--radius);margin-bottom:16px;border:1px solid var(--border)">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600">
+            <input type="checkbox" id="vd-twinWheels" ${v.twinWheels?'checked':''}
+              onchange="TaxOrderVehicleDetail._toggleTwinWheels(this.checked)">
+            Koła bliźniacze na tylnej osi
+          </label>
+          <span style="font-size:11px;color:var(--text3)">— włącz aby zdefiniować opony wewnętrzne i zewnętrzne tylnej osi</span>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" id="vd-tires-grid">
           ${[
             ['FL','Przód lewy (FL)', v.tireFL||{}],
             ['FR','Przód prawy (FR)', v.tireFR||{}],
-            ['RL','Tył lewy (RL)', v.tireRL||{}],
-            ['RR','Tył prawy (RR)', v.tireRR||{}],
+            ['RL','Tył lewy — zewnętrzna (RL)', v.tireRL||{}],
+            ['RR','Tył prawy — zewnętrzna (RR)', v.tireRR||{}],
           ].map(([pos,posLabel,tire]) => `
             <div style="background:var(--bg3);border-radius:var(--radius);padding:14px">
               <div style="font-size:12px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px">
                 <i class="ti ti-circle" style="color:var(--text2)"></i>${posLabel}
               </div>
-              <div class="vdfg">
-                <div class="vdf">
-                  <label class="vdl">Rozmiar (np. 235/65 R16)</label>
-                  <input id="vd-tire${pos}_size" type="text" class="fi" value="${tire.size||''}" placeholder="205/55R16">
-                </div>
-                <div class="vdf">
-                  <label class="vdl">Marka / producent</label>
-                  <input id="vd-tire${pos}_brand" type="text" class="fi" value="${tire.brand||''}" placeholder="np. Michelin">
-                </div>
-                <div class="vdf">
-                  <label class="vdl">Rok prod. (DOT)</label>
-                  <input id="vd-tire${pos}_dot" type="number" class="fi" min="2000" max="2030" value="${tire.dot||''}" placeholder="2022">
-                </div>
-                <div class="vdf">
-                  <label class="vdl">Bieżnik (mm)</label>
-                  <input id="vd-tire${pos}_depth" type="number" step="0.1" class="fi" value="${tire.depth||''}" placeholder="7.5">
-                </div>
-                <div class="vdf" style="grid-column:1/-1">
-                  <label class="vdl">Data ostatniej wymiany</label>
-                  <input id="vd-tire${pos}_changed" type="date" class="fi" value="${tire.changed||''}">
-                </div>
-              </div>
+              ${TaxOrderVehicleDetail._tireFieldsHtml(pos, tire)}
             </div>`).join('')}
+
+          <!-- Koła bliźniacze — wewnętrzne (widoczne gdy zaznaczono) -->
+          <div id="vd-twin-RL" style="background:var(--bg3);border-radius:var(--radius);padding:14px;border:2px dashed var(--blue);${v.twinWheels?'':'display:none'}">
+            <div style="font-size:12px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+              <i class="ti ti-circle-dashed" style="color:var(--blue)"></i>Tył lewy — wewnętrzna (RLi)
+            </div>
+            ${TaxOrderVehicleDetail._tireFieldsHtml('RLi', v.tireRLi||{})}
+          </div>
+          <div id="vd-twin-RR" style="background:var(--bg3);border-radius:var(--radius);padding:14px;border:2px dashed var(--blue);${v.twinWheels?'':'display:none'}">
+            <div style="font-size:12px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+              <i class="ti ti-circle-dashed" style="color:var(--blue)"></i>Tył prawy — wewnętrzna (RRi)
+            </div>
+            ${TaxOrderVehicleDetail._tireFieldsHtml('RRi', v.tireRRi||{})}
+          </div>
         </div>
+
         <div style="margin-top:16px;background:var(--bg3);border-radius:var(--radius);padding:14px">
           <div style="font-size:12px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px">
             <i class="ti ti-circle" style="color:var(--text2)"></i>Zapasowe (SP)
@@ -436,7 +444,13 @@ window.TaxOrderVehicleDetail = {
           <div class="vdfg">
             ${field('tireSP_size','Rozmiar opony zapasowej', v.tireSP?.size||'')}
             ${field('tireSP_brand','Marka', v.tireSP?.brand||'')}
-            ${field('tireSP_dot','Rok DOT', v.tireSP?.dot||'','number')}
+            <div class="vdf">
+              <label class="vdl">Rok DOT (4 cyfry, np. 3523)</label>
+              <input id="vd-tireSP_dot" type="text" class="fi" maxlength="4" pattern="\\d{4}"
+                value="${v.tireSP?.dot||''}" placeholder="3523"
+                oninput="TaxOrderVehicleDetail._showDotInfo(this,'vd-tireSP_dot_info')">
+              <div id="vd-tireSP_dot_info" style="font-size:10px;color:var(--blue);margin-top:2px">${TaxOrderVehicleDetail._dotInfo(v.tireSP?.dot)}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -592,6 +606,8 @@ window.TaxOrderVehicleDetail = {
     });
 
     document.getElementById('vd-save-btn').onclick = () => this.save(v.id);
+    const ocrBtn = document.getElementById('vd-ocr-btn');
+    if (ocrBtn) ocrBtn.onclick = () => this._openOcrScan(v.id);
   },
 
   _renderKosztyTab(v) {
@@ -1036,20 +1052,151 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
   },
 
   _addCard(vehId) {
-    const v = vehs.find(x => x.id === vehId);
-    if (v && typeof openKartaModal === 'function') {
-      this.close();
-      openKartaModal();
-      setTimeout(() => {
-        const f = document.getElementById('km-nrrej');
-        if (f) f.value = v.nrRej;
-      }, 100);
-    }
+    this.close();
+    if (typeof showPage === 'function') showPage('pojazdy');
   },
 
   _scanInvoice(vehId) {
     this.close();
     if (typeof showPage === 'function') showPage('faktury');
     toast('ℹ Wgraj skan faktury — dane zostaną przypisane do pojazdu');
-  }
+  },
+
+  // ── DOT helpers ───────────────────────────────────────────────────────────
+  _dotInfo(dot) {
+    if (!dot || String(dot).length !== 4) return '';
+    const s = String(dot);
+    const week = parseInt(s.slice(0, 2));
+    const yr   = parseInt('20' + s.slice(2, 4));
+    if (isNaN(week) || isNaN(yr) || week < 1 || week > 53) return '';
+    const age = new Date().getFullYear() - yr;
+    const ageWarn = age >= 6 ? ' ⚠ opona stara!' : age >= 4 ? ' ⚡ zbliża się wymiana' : '';
+    return `${week}. tydzień ${yr} r.${ageWarn}`;
+  },
+
+  _showDotInfo(input, infoId) {
+    const el = document.getElementById(infoId);
+    if (el) el.textContent = this._dotInfo(input.value);
+  },
+
+  _toggleTwinWheels(on) {
+    ['vd-twin-RL','vd-twin-RR'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = on ? '' : 'none';
+    });
+  },
+
+  // ── Pola jednej opony ─────────────────────────────────────────────────────
+  _tireFieldsHtml(pos, tire) {
+    const dotInfo = this._dotInfo(tire.dot);
+    return `<div class="vdfg">
+      <div class="vdf">
+        <label class="vdl">Rozmiar (np. 235/65 R16)</label>
+        <input id="vd-tire${pos}_size" type="text" class="fi" value="${tire.size||''}" placeholder="205/55R16">
+      </div>
+      <div class="vdf">
+        <label class="vdl">Marka / producent</label>
+        <input id="vd-tire${pos}_brand" type="text" class="fi" value="${tire.brand||''}" placeholder="np. Michelin">
+      </div>
+      <div class="vdf">
+        <label class="vdl">Rok DOT (4 cyfry, np. 3523)</label>
+        <input id="vd-tire${pos}_dot" type="text" class="fi" maxlength="4" pattern="\\d{4}"
+          value="${tire.dot||''}" placeholder="3523"
+          oninput="TaxOrderVehicleDetail._showDotInfo(this,'vd-tire${pos}_dot_info')">
+        <div id="vd-tire${pos}_dot_info" style="font-size:10px;color:var(--blue);margin-top:2px">${dotInfo}</div>
+      </div>
+      <div class="vdf">
+        <label class="vdl">Bieżnik (mm)</label>
+        <input id="vd-tire${pos}_depth" type="number" step="0.1" class="fi" value="${tire.depth||''}" placeholder="7.5">
+      </div>
+      <div class="vdf" style="grid-column:1/-1">
+        <label class="vdl">Data ostatniej wymiany</label>
+        <input id="vd-tire${pos}_changed" type="date" class="fi" value="${tire.changed||''}">
+      </div>
+    </div>`;
+  },
+
+  // ── OCR skanowanie dowodu ─────────────────────────────────────────────────
+  _openOcrScan(vehId) {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/*,.pdf,.heic,.heif,.tiff,.tif,.webp,.dng,.psd';
+    inp.multiple = true;
+    inp.onchange = async () => {
+      if (!inp.files.length) return;
+      const ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9900;display:flex;align-items:center;justify-content:center';
+      ov.innerHTML = `<div style="background:var(--bg2);border-radius:var(--radius-lg);padding:28px;width:540px;max-width:96vw;max-height:90vh;overflow-y:auto">
+        <div style="font-size:15px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px"><i class="ti ti-scan" style="color:var(--blue)"></i>Skanowanie dokumentu</div>
+        <div id="ocr-scan-progress" style="color:var(--text2);font-size:13px;margin-bottom:12px">Przetwarzanie ${inp.files.length} pliku/plików…</div>
+        <div id="ocr-scan-result" style="font-size:12px;font-family:var(--mono);background:var(--bg3);border-radius:var(--radius);padding:12px;max-height:300px;overflow-y:auto;white-space:pre-wrap;margin-bottom:14px"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn-gray" onclick="this.closest('[style*=fixed]').remove()">Zamknij</button>
+          <button id="ocr-fill-btn" class="btn btn-blue" style="display:none" onclick="TaxOrderVehicleDetail._fillFromOcr(${vehId},window._ocrExtracted);this.closest('[style*=fixed]').remove()">
+            <i class="ti ti-check"></i>Wypełnij pola
+          </button>
+        </div>
+      </div>`;
+      document.body.appendChild(ov);
+
+      let allText = '';
+      const prog = document.getElementById('ocr-scan-progress');
+      const res  = document.getElementById('ocr-scan-result');
+
+      if (!window.Tesseract) {
+        if (prog) prog.textContent = '⚠ Tesseract OCR nie jest załadowany';
+        return;
+      }
+
+      for (let i = 0; i < inp.files.length; i++) {
+        const file = inp.files[i];
+        if (prog) prog.textContent = `OCR plik ${i+1}/${inp.files.length}: ${file.name}…`;
+        try {
+          const result = await window.Tesseract.recognize(file, 'pol+eng', {
+            logger: m => { if (m.status === 'recognizing text' && prog) prog.textContent = `Plik ${i+1}/${inp.files.length}: ${Math.round((m.progress||0)*100)}%`; }
+          });
+          allText += '\n' + result.data.text;
+          if (res) res.textContent = allText.trim();
+        } catch(e) {
+          allText += `\n[Błąd: ${e.message}]`;
+        }
+      }
+
+      window._ocrExtracted = this._parseOcrText(allText);
+      if (prog) prog.textContent = '✅ OCR zakończony — przejrzyj wynik i kliknij "Wypełnij pola"';
+      const fillBtn = document.getElementById('ocr-fill-btn');
+      if (fillBtn && Object.keys(window._ocrExtracted).length) fillBtn.style.display = '';
+    };
+    inp.click();
+  },
+
+  _parseOcrText(text) {
+    const found = {};
+    const vinM = text.match(/\b([A-HJ-NPR-Z0-9]{17})\b/);
+    if (vinM) found.vin = vinM[1];
+    const regM = text.match(/\b([A-Z]{2,3}\s?[A-Z0-9]{4,5})\b/);
+    if (regM) found.nrRej = regM[1].replace(/\s/g,'');
+    const dmcM = text.match(/F\.?1[:\s]*(\d{3,6})/i) || text.match(/DMC[:\s]*(\d{3,6})/i);
+    if (dmcM) found.dmc = parseInt(dmcM[1]);
+    const massM = text.match(/G[:\s]*(\d{3,6})/);
+    if (massM) found.masaWlasna = parseInt(massM[1]);
+    const axleM = text.match(/L[:\s]*(\d)/i);
+    if (axleM) found.osie = parseInt(axleM[1]);
+    const fuelM = text.match(/(diesel|benzyna|petrol|lpg|elektryczny|hybrid)/i);
+    if (fuelM) found.paliwo = fuelM[1].toLowerCase();
+    return found;
+  },
+
+  _fillFromOcr(vehId, data) {
+    if (!data) return;
+    const map = { vin:'vd-vin', nrRej:'vd-nrRej', dmc:'vd-dmc', masaWlasna:'vd-masaWlasna', paliwo:'vd-paliwo' };
+    let filled = 0;
+    Object.entries(map).forEach(([k, elId]) => {
+      if (data[k] != null) {
+        const el = document.getElementById(elId);
+        if (el && !el.value) { el.value = data[k]; filled++; }
+      }
+    });
+    toast(`✅ OCR: wypełniono ${filled} pól`);
+  },
 };
