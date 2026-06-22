@@ -83,6 +83,29 @@ function fmt2(n) { return Number(n).toFixed(2).replace('.',','); }
 function fmtZl(n) { return Math.round(n).toLocaleString('pl-PL'); }
 function fmtT(kg) { return kg?(kg/1000).toFixed(3).replace('.',','):'—'; }
 
+// ==================== DARK MODE ====================
+function _applyTheme(dark) {
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  const icon = document.getElementById('dark-mode-icon');
+  if (icon) {
+    icon.className = dark ? 'ti ti-sun' : 'ti ti-moon';
+  }
+}
+
+function toggleDarkMode() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const next = !isDark;
+  localStorage.setItem('taxDarkMode', next ? '1' : '0');
+  _applyTheme(next);
+}
+
+// Zastosuj motyw przy starcie
+;(function() {
+  const saved = localStorage.getItem('taxDarkMode');
+  const preferDark = saved === '1' || (saved === null && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
+  _applyTheme(preferDark);
+})();
+
 // ==================== NAVIGATION ====================
 // Otwiera/zamyka sidebar na urządzeniach mobilnych
 function toggleMobileNav(forceClose) {
