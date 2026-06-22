@@ -2475,10 +2475,10 @@ function processOcrFile(f){
         canvas.height=viewport.height;
         const ctx=canvas.getContext('2d');
         await page.render({canvasContext:ctx,viewport}).promise;
-        _enhanceCanvasForOcr(canvas);
         const imgDataUrl=canvas.toDataURL('image/jpeg',0.97);
         ocrBase64=imgDataUrl.split(',')[1];
         ocrMime='image/jpeg';
+        window._ocrIsPdf=true;
         document.getElementById('ocr-img').src=imgDataUrl;
         document.getElementById('ocr-img').style.display='block';
         document.getElementById('ocr-img').style.transform='';
@@ -2490,7 +2490,6 @@ function processOcrFile(f){
           const c2=document.createElement('canvas');
           c2.width=vp2.width;c2.height=vp2.height;
           await page2.render({canvasContext:c2.getContext('2d'),viewport:vp2}).promise;
-          _enhanceCanvasForOcr(c2);
           window._ocrPage2=c2.toDataURL('image/jpeg',0.97);
           // Pre-OCR page 2 if Tesseract is ready
           if(tesseractReady&&tesseractWorker){
@@ -2506,6 +2505,7 @@ function processOcrFile(f){
         document.getElementById('ocr-img').style.display='none';
       }
     }else if(f.type.startsWith('image/')){
+      window._ocrIsPdf=false;
       document.getElementById('ocr-img').src=dataUrl;
       document.getElementById('ocr-img').style.display='block';
     }else{
@@ -2588,9 +2588,9 @@ async function runOCR(){
     // Rozpoznaj tekst — PSM 11 (sparse text) lepszy dla formularzy DR
     bar.style.width='20%';
     await tesseractWorker.setParameters({'tessedit_pageseg_mode':'11'}).catch(()=>{});
-    // Enhance contrast for image files (PDF pages already enhanced during load)
+    // Enhance contrast only for image uploads (not PDF — already rendered at 4x scale)
     let imgSrc='data:'+ocrMime+';base64,'+ocrBase64;
-    if(ocrMime.startsWith('image/')){
+    if(ocrMime.startsWith('image/') && !window._ocrIsPdf){
       try{
         const tmpImg=new Image();
         await new Promise(r=>{tmpImg.onload=r;tmpImg.src=imgSrc;});
