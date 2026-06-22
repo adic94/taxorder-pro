@@ -1091,5 +1091,89 @@ tr:hover td{background:#f9fafb}
     });
   }
 
-  return { renderPage, exportExcel, exportCsv, renderServicePlan, exportServicePlanExcel, exportServicePlanHtml, saveBudgetInputs, renderKobize, exportKobizeCsv, exportKobizeExcel, renderTco, exportTcoExcel, renderInsuranceReport, exportInsuranceExcel, exportExecutiveSummary };
+  // Generuje tekstowe podsumowanie raportu i otwiera klienta poczty (mailto:)
+  function emailExecutiveSummary() {
+    const now = new Date();
+    const yr  = now.getFullYear();
+    const prefix = String(yr);
+    const vehs = window.vehs || [];
+    const today = now.toLocaleDateString('pl-PL');
+
+    let totalFuel = 0, totalSvc = 0, totalTax = 0, dt1Count = 0;
+    const tcoRows = vehs.map(v => {
+      const fuel = _fuelCostForPeriod(v, prefix);
+      const svc  = _serviceCostForPeriod(v, prefix);
+      let tax = 0;
+      if (typeof calcTax === 'function') { const r = calcTax(v); tax = r.amount || 0; }
+      totalFuel += fuel; totalSvc += svc; totalTax += tax;
+      return { nrRej: v.nrRej, marka: v.marka, model: v.model, fuel, svc, total: fuel + svc + tax };
+    }).sort((a,b) => b.total - a.total);
+
+    if (typeof calcTax === 'function') vehs.forEach(v => { const r = calcTax(v); if (r.cat) dt1Count++; });
+
+    const fmt = n => Math.round(n).toLocaleString('pl-PL');
+
+    // Polisy wygasające ≤30 dni
+    const soon30 = [];
+    vehs.forEach(v => {
+      ['oc','ac','ass'].forEach(t => {
+        const end = v[t+'End'];
+        if (!end) return;
+        const days = Math.round((new Date(end) - now) / 86400000);
+        if (days >= 0 && days <= 30) soon30.push({ nrRej: v.nrRej, type: t.toUpperCase(), days });
+      });
+    });
+    soon30.sort((a,b) => a.days - b.days);
+
+    const top5 = tcoRows.slice(0,5);
+
+    const subject = encodeURIComponent(`Raport floty ${yr} — ${today}`);
+
+    const companyName = window.getCurrentCompany?.()?.name || 'TaxOrder Pro';
+
+    let body = `RAPORT ZARZĄDU FLOTY — ${yr}\n`;
+    body += `Firma: ${companyName} | Data: ${today}\n`;
+    body += `${'─'.repeat(50)}\n\n`;
+    body += `KPI FLOTY:\n`;
+    body += `  Pojazdy łącznie: ${vehs.length}\n`;
+    body += `  Opodatkowane DT-1: ${dt1Count}\n`;
+    body += `  Koszt paliwa YTD: ${fmt(totalFuel)} zł\n`;
+    body += `  Koszt serwisu YTD: ${fmt(totalSvc)} zł\n`;
+    body += `  Podatek DT-1: ${fmt(totalTax)} zł\n`;
+    body += `  Łącznie koszty: ${fmt(totalFuel + totalSvc + totalTax)} zł\n\n`;
+
+    if (top5.length) {
+      body += `TOP 5 POJAZDÓW WG. KOSZTÓW:\n`;
+      top5.forEach((r,i) => {
+        body += `  ${i+1}. ${r.nrRej} ${r.marka} ${r.model} — ${fmt(r.total)} zł\n`;
+      });
+      body += '\n';
+    }
+
+    if (soon30.length) {
+      body += `POLISY WYMAGAJĄCE ODNOWIENIA (≤30 dni):\n`;
+      soon30.forEach(r => {
+        body += `  ${r.nrRej} — ${r.type} (za ${r.days} dni)\n`;
+      });
+      body += '\n';
+    }
+
+    body += `─────────────────────────────\n`;
+    body += `Wygenerowano przez TaxOrder Pro`;
+
+    const mailtoUrl = `mailto:?subject=${subject}&body=${encodeURIComponent(body)}`;
+
+    // mailto ma limit ~2000 znaków — jeśli przekracza, otwiera raport HTML i informuje
+    if (mailtoUrl.length > 1900) {
+      toast('✓ Otwieranie klienta e-mail… (długi raport — może wymagać ręcznego wklejenia)');
+    }
+
+    const a = document.createElement('a');
+    a.href = mailtoUrl;
+    a.click();
+
+    toast('✓ Otworzono klienta poczty z raportem floty');
+  }
+
+  return { renderPage, exportExcel, exportCsv, renderServicePlan, exportServicePlanExcel, exportServicePlanHtml, saveBudgetInputs, renderKobize, exportKobizeCsv, exportKobizeExcel, renderTco, exportTcoExcel, renderInsuranceReport, exportInsuranceExcel, exportExecutiveSummary, emailExecutiveSummary };
 })();

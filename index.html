@@ -814,9 +814,14 @@ window.addEventListener('DOMContentLoaded', () => {
         Jednostronicowe podsumowanie KPI + top 5 pojazdów wg. TCO + wygasające polisy
       </div>
     </div>
-    <button class="btn btn-blue" onclick="FleetReports.exportExecutiveSummary()">
-      <i class="ti ti-file-export"></i>Generuj HTML
-    </button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-blue" onclick="FleetReports.exportExecutiveSummary()">
+        <i class="ti ti-file-export"></i>Generuj HTML / PDF
+      </button>
+      <button class="btn btn-gray" onclick="FleetReports.emailExecutiveSummary()">
+        <i class="ti ti-mail"></i>Wyślij e-mail
+      </button>
+    </div>
   </div>
 </div>
 
