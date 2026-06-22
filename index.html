@@ -274,8 +274,21 @@ window.addEventListener('DOMContentLoaded', () => {
 
 <!-- ==================== POJAZDY ==================== -->
 <div class="page" id="page-pojazdy">
-  <div class="pg-title"><i class="ti ti-truck"></i><span data-i18n="veh.title">Baza pojazdów</span></div>
-  <div class="pg-sub" data-i18n="veh.sub">Zaznacz pojazdy do deklaracji DT-1. Ustaw liczbę osi i zawieszenie dla każdego pojazdu.</div>
+  <div class="pg-title"><i class="ti ti-truck"></i>Ewidencja floty</div>
+  <div class="pg-sub">Zarządzanie pojazdami · monitoring terminów · dane eksploatacyjne</div>
+
+  <!-- KPI strip -->
+  <div class="fleet-kpi-strip" id="fleet-kpi-strip"></div>
+
+  <!-- Przełącznik widoku -->
+  <div class="view-mode-bar">
+    <button id="view-btn-fleet" class="btn btn-blue view-mode-btn" onclick="switchFleetView('fleet')"><i class="ti ti-layout-list"></i>Widok floty</button>
+    <button id="view-btn-cards" class="btn btn-gray view-mode-btn" onclick="switchFleetView('cards')"><i class="ti ti-layout-grid"></i>Karty</button>
+    <button id="view-btn-dt1" class="btn btn-gray view-mode-btn" onclick="switchFleetView('dt1')"><i class="ti ti-file-invoice"></i>Widok DT-1</button>
+    <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
+    <span style="font-size:12px;color:var(--text3)" id="veh-count-label"></span>
+  </div>
+
   <div class="toolbar">
     <input id="q-veh" placeholder="🔍 Szukaj nr rej., marki, VIN, modelu..." data-i18n-placeholder="filter.search" oninput="renderVeh()">
     <select id="f-typ" onchange="renderVeh()">
@@ -327,9 +340,8 @@ window.addEventListener('DOMContentLoaded', () => {
       </button>
       <div id="col-vis-panel" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:300;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;min-width:200px;box-shadow:0 4px 24px rgba(0,0,0,.18)"></div>
     </div>
-    <span style="margin-left:auto;font-size:12px;color:var(--text3)" id="veh-count-label"></span>
   </div>
-  <div class="tbl-wrap">
+  <div class="tbl-wrap" id="fleet-tbl-wrap">
     <table>
       <thead><tr>
         <th style="width:36px"><input type="checkbox" id="chk-all" onchange="toggleAll(this)"></th>
@@ -361,6 +373,8 @@ window.addEventListener('DOMContentLoaded', () => {
       <tbody id="veh-tbody"></tbody>
     </table>
   </div>
+  <!-- Widok kart flotowych -->
+  <div id="fleet-cards"></div>
 </div>
 
 <!-- ==================== KALKULATOR ==================== -->

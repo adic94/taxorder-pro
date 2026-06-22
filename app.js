@@ -208,7 +208,22 @@ function _datePill(dateStr) {
 
 function renderVeh() {
   if (!_colVis) _initColVis();
+  _renderFleetKpiStrip();
+  _syncViewModeButtons();
   const list = filterVeh();
+
+  // Widok kart
+  const tblWrap = document.getElementById('fleet-tbl-wrap');
+  const cardsEl = document.getElementById('fleet-cards');
+  if (_viewMode === 'cards') {
+    if (tblWrap) tblWrap.style.display = 'none';
+    if (cardsEl) { cardsEl.style.display = 'grid'; _renderCards(list); }
+    updateCounters();
+    return;
+  }
+  if (tblWrap) tblWrap.style.display = '';
+  if (cardsEl) cardsEl.style.display = 'none';
+
   const tbody = document.getElementById('veh-tbody');
   if(!tbody) return;
   const isTrailer = v => (v.typ||'').toLowerCase().includes('przy')||(v.typ||'').toLowerCase().includes('nacz');
@@ -632,8 +647,11 @@ async function generujDt1PerFirma() {
 }
 
 // ==================== COLUMN VISIBILITY ====================
-const _COL_DEFAULTS = {rok:1,typ:1,dmc:1,osie:1,zawieszenie:0,dmczesp:0,mies:1,status:1,oc:1,ac:1,przeglad:1,kategoria:1,podatek:1,ocInsurer:0,acInsurer:0,udt:0,tacho:0,kierowca:0,km:0,dt1ok:1,gmina:0};
+const _COL_FLEET = {rok:1,typ:1,dmc:0,osie:0,zawieszenie:0,dmczesp:0,mies:0,status:1,oc:1,ac:1,przeglad:1,kategoria:0,podatek:0,ocInsurer:1,acInsurer:0,udt:1,tacho:1,kierowca:1,km:1,dt1ok:0,gmina:0};
+const _COL_DT1   = {rok:1,typ:1,dmc:1,osie:1,zawieszenie:1,dmczesp:1,mies:1,status:1,oc:0,ac:0,przeglad:0,kategoria:1,podatek:1,ocInsurer:0,acInsurer:0,udt:0,tacho:0,kierowca:1,km:0,dt1ok:1,gmina:1};
+const _COL_DEFAULTS = {..._COL_FLEET};
 let _colVis = null;
+let _viewMode = localStorage.getItem('fleetViewMode') || 'fleet';
 
 function _initColVis() {
   try { _colVis = JSON.parse(localStorage.getItem('taxColVis')) || null; } catch(e) {}
@@ -713,6 +731,95 @@ function toggleColPanel() {
       document.removeEventListener('click', _closePanel);
     });
   }, 0);
+}
+
+// ==================== FLEET VIEW MODES ====================
+function switchFleetView(mode) {
+  _viewMode = mode;
+  localStorage.setItem('fleetViewMode', mode);
+  if (!_colVis) _initColVis();
+  if (mode === 'fleet') Object.assign(_colVis, _COL_FLEET);
+  else if (mode === 'dt1') Object.assign(_colVis, _COL_DT1);
+  localStorage.setItem('taxColVis', JSON.stringify(_colVis));
+  renderVeh();
+}
+
+function _syncViewModeButtons() {
+  document.querySelectorAll('.view-mode-btn').forEach(b => {
+    b.className = b.className.replace('btn-blue','btn-gray');
+    if (!b.className.includes('btn-gray')) b.className += ' btn-gray';
+  });
+  const active = document.getElementById('view-btn-' + _viewMode);
+  if (active) { active.className = active.className.replace('btn-gray','btn-blue'); }
+}
+
+function _renderFleetKpiStrip() {
+  const el = document.getElementById('fleet-kpi-strip');
+  if (!el || !vehs) return;
+  const now = new Date();
+  const expired_oc = vehs.filter(v => v.ocEnd && new Date(v.ocEnd) < now).length;
+  const exp_oc_30  = vehs.filter(v => {
+    if (!v.ocEnd) return false;
+    const d = Math.round((new Date(v.ocEnd) - now) / 86400000);
+    return d >= 0 && d <= 30;
+  }).length;
+  const insp30 = vehs.filter(v => {
+    if (!v.nextInspection) return false;
+    const d = Math.round((new Date(v.nextInspection) - now) / 86400000);
+    return d >= 0 && d <= 30;
+  }).length;
+  const noDriver = vehs.filter(v => !v.kierowca).length;
+  const alertOC = expired_oc + exp_oc_30;
+  el.innerHTML = `
+    <div class="fkpi-card">
+      <div class="fkpi-val">${vehs.length}</div>
+      <div class="fkpi-lab">pojazdy w bazie</div>
+    </div>
+    <div class="fkpi-card ${alertOC > 0 ? 'fkpi-red' : ''}">
+      <div class="fkpi-val">${alertOC}</div>
+      <div class="fkpi-lab">OC — wygasłe lub ≤ 30 dni</div>
+    </div>
+    <div class="fkpi-card ${insp30 > 0 ? 'fkpi-amber' : ''}">
+      <div class="fkpi-val">${insp30}</div>
+      <div class="fkpi-lab">przeglądy w 30 dni</div>
+    </div>
+    <div class="fkpi-card">
+      <div class="fkpi-val" style="${noDriver > 0 ? 'color:var(--text2)' : ''}">${noDriver}</div>
+      <div class="fkpi-lab">bez przypisanego kierowcy</div>
+    </div>`;
+}
+
+function _renderCards(list) {
+  const el = document.getElementById('fleet-cards');
+  if (!el) return;
+  const now = new Date();
+  el.innerHTML = list.map(v => {
+    const t = calcTax(v);
+    const statusCls = STAT_LABELS[v.status] || 'pill-gray';
+    const minDays = Math.min(
+      v.ocEnd         ? Math.round((new Date(v.ocEnd)         - now) / 86400000) : 999,
+      v.acEnd         ? Math.round((new Date(v.acEnd)         - now) / 86400000) : 999,
+      v.nextInspection? Math.round((new Date(v.nextInspection)- now) / 86400000) : 999
+    );
+    const alertCls = minDays < 0 ? 'fc-alert-red' : minDays < 30 ? 'fc-alert-amber' : '';
+    return `<div class="fleet-card ${alertCls}" onclick="TaxOrderVehicleDetail.open(${v.id})">
+      <div class="fc-head">
+        <span class="fc-plate">${v.nrRej}</span>
+        <span class="pill ${statusCls}" style="font-size:10px">${v.status||'—'}</span>
+      </div>
+      <div class="fc-brand">${v.marka} ${v.model}</div>
+      <div class="fc-meta">${v.rok||'—'} · ${v.typ||'—'}${v.euro?' · '+v.euro:''}</div>
+      <div class="fc-row"><span class="fc-icon">👤</span><span style="${!v.kierowca?'color:var(--text3);font-style:italic':''}">${v.kierowca||'brak kierowcy'}</span></div>
+      ${v.stanKilometrow != null ? `<div class="fc-row"><span class="fc-icon">🛣</span><span style="font-family:var(--mono)">${v.stanKilometrow.toLocaleString('pl-PL')} km</span></div>` : ''}
+      <div class="fc-dates">
+        <span>OC ${_datePill(v.ocEnd)}</span>
+        <span>AC ${_datePill(v.acEnd)}</span>
+        <span>Przegląd ${_datePill(v.nextInspection)}</span>
+      </div>
+      ${v.hasUdt ? `<div class="fc-dates"><span>UDT ${_datePill(v.udtNextDate)}</span>${v.hasTacho?`<span>Tacho ${_datePill(v.tachoNextCalib)}</span>`:''}</div>` : ''}
+      ${t.cat ? `<div style="margin-top:4px"><span class="pill ${CAT_COLORS[t.cat]||'pill-gray'}" style="font-size:10px">DT-1: ${t.cat} · ${fmt2(t.amount)} zł</span></div>` : ''}
+    </div>`;
+  }).join('') || `<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text3)">Brak pojazdów</div>`;
 }
 
 // ==================== COUNTERS ====================
