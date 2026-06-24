@@ -1,10 +1,13 @@
 """
-TaxOrder OCR Service — PaddleOCR backend dla polskich Dowodów Rejestracyjnych
+TaxOrder OCR Service — pytesseract backend dla polskich Dowodów Rejestracyjnych
 
-Kluczowa przewaga nad Tesseract/Vision AI:
-- PaddleOCR zwraca bounding boxy każdego tekstu → znamy jego pozycję Y na dokumencie
-- DR ma 2 sekcje: beżowa (homologacja, BŁĘDNE wartości F) vs żółta tabela (PRAWIDŁOWE)
-- Filtrujemy po y_rel > YELLOW_TABLE_THRESHOLD → czytamy tylko żółtą tabelę dla F.1/F.2/F.3/G
+Dlaczego pytesseract zamiast PaddleOCR:
+- PaddleOCR wymaga ~800MB RAM → Railway free tier (512MB) → OOM Killed
+- pytesseract: ~150MB RAM, sprawdzona technologia, server-side preprocessing
+
+Kluczowa funkcja: image_to_data() zwraca bounding boxy każdego słowa
+→ filtrujemy po y_rel > 0.28 → czytamy F.1/F.2/F.3/G TYLKO z żółtej tabeli
+→ sekcja homologacji (beżowa = TOP, y_rel 0-0.25) jest pomijana
 """
 
 import os
@@ -14,17 +17,19 @@ import base64
 import logging
 from typing import Optional
 
+import cv2
 import numpy as np
 from PIL import Image
+import pytesseract
+from pytesseract import Output
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from paddleocr import PaddleOCR
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="TaxOrder OCR Service", version="1.0.0")
+app = FastAPI(title="TaxOrder OCR Service", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,27 +38,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Singleton OCR engine — inicjalizowany raz przy starcie
-_ocr: Optional[PaddleOCR] = None
-
-# Żółta tabela rejestracyjna DR zaczyna się mniej-więcej od 42% wysokości dokumentu.
-# Wartości powyżej tego progu to sekcja homologacji (BEŻOWA) — ignorujemy dla F.1/F.2/F.3/G.
-YELLOW_TABLE_THRESHOLD = 0.42
-
-
-def get_ocr() -> PaddleOCR:
-    global _ocr
-    if _ocr is None:
-        logger.info("Inicjalizacja PaddleOCR (pierwsze uruchomienie)...")
-        _ocr = PaddleOCR(
-            use_angle_cls=True,   # automatyczna detekcja orientacji tekstu
-            lang="en",            # łaciński zestaw znaków (polskie DR używają liter łacińskich)
-            use_gpu=False,
-            show_log=False,
-            enable_mkldnn=False,  # stabilność na CPU bez MKL
-        )
-        logger.info("PaddleOCR gotowy.")
-    return _ocr
+# Żółta tabela rejestracyjna DR: y_rel 0.28 – 0.78 (portret)
+YELLOW_Y_MIN = 0.28
+YELLOW_Y_MAX = 0.78
 
 
 class OcrRequest(BaseModel):
@@ -61,65 +48,105 @@ class OcrRequest(BaseModel):
     mimeType: str = "image/jpeg"
 
 
-# ── Ekstrakcja linii z bounding boxami ──────────────────────────────────────
+# ── Preprocessing ─────────────────────────────────────────────────────────────
 
-def _extract_lines(paddle_result, img_height: int) -> list[dict]:
+def _preprocess(img: Image.Image) -> np.ndarray:
+    """Grayscale + adaptive threshold — eliminuje kolorowe tła DR (żółte/beżowe)."""
+    arr = np.array(img.convert("RGB"))
+    gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
+    enhanced = cv2.adaptiveThreshold(
+        gray, 255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY, 31, 11,
+    )
+    return enhanced
+
+
+# ── Ekstrakcja linii z bounding boxami ────────────────────────────────────────
+
+def _run_tesseract(arr: np.ndarray, img_h: int, img_w: int) -> list[dict]:
+    """Zwraca linie tekstu z pozycją y_rel i x_rel w obrazie."""
+    data = pytesseract.image_to_data(
+        arr, lang="pol+eng",
+        config="--psm 11 --oem 3",
+        output_type=Output.DICT,
+    )
+    groups: dict = {}
+    n = len(data["text"])
+    for i in range(n):
+        word = data["text"][i].strip()
+        conf = int(data["conf"][i])
+        if not word or conf < 10:
+            continue
+        x = data["left"][i]
+        y = data["top"][i]
+        w = data["width"][i]
+        h = data["height"][i]
+        key = (data["block_num"][i], data["par_num"][i], data["line_num"][i])
+        if key not in groups:
+            groups[key] = {"words": [], "xs": [], "ys": []}
+        groups[key]["words"].append(word)
+        groups[key]["xs"].append(x + w / 2)
+        groups[key]["ys"].append(y + h / 2)
+
     lines = []
-    if not paddle_result or not paddle_result[0]:
-        return lines
-    for item in paddle_result[0]:
-        if not item or len(item) < 2:
+    for grp in groups.values():
+        text = " ".join(grp["words"]).strip()
+        if not text:
             continue
-        bbox, text_info = item
-        if isinstance(text_info, (list, tuple)):
-            text = str(text_info[0]) if text_info else ""
-            conf = float(text_info[1]) if len(text_info) > 1 else 1.0
-        else:
-            text, conf = str(text_info), 1.0
-        text = text.strip()
-        if not text or conf < 0.25:
-            continue
-        ys = [pt[1] for pt in bbox]
-        xs = [pt[0] for pt in bbox]
-        y_c = sum(ys) / len(ys)
-        x_c = sum(xs) / len(xs)
+        xc = sum(grp["xs"]) / len(grp["xs"])
+        yc = sum(grp["ys"]) / len(grp["ys"])
         lines.append({
             "text": text,
-            "conf": conf,
-            "y": y_c,
-            "x": x_c,
-            "y_rel": y_c / img_height if img_height > 0 else 0.5,
+            "x": xc, "y": yc,
+            "x_rel": xc / img_w if img_w > 0 else 0.5,
+            "y_rel": yc / img_h if img_h > 0 else 0.5,
         })
     lines.sort(key=lambda l: l["y"])
     return lines
 
 
-# ── Parser pól DR ─────────────────────────────────────────────────────────
+# ── Parser pól DR ─────────────────────────────────────────────────────────────
 
-def _parse_fields(lines: list[dict]) -> dict:
+def _parse_fields(lines: list[dict], is_landscape: bool = False) -> dict:
     full_text = "\n".join(l["text"] for l in lines)
 
-    # Żółta tabela = dolna część dokumentu DR
-    table_lines = [l for l in lines if l["y_rel"] > YELLOW_TABLE_THRESHOLD]
+    if is_landscape:
+        # Landscape: sekcje różnią się po X (beżowa = PRAWA strona, x_rel > 0.60)
+        table_lines = [l for l in lines if 0.10 < l["x_rel"] < 0.63]
+    else:
+        # Portret: sekcje różnią się po Y (beżowa = GÓRA, y_rel < 0.28)
+        table_lines = [l for l in lines if YELLOW_Y_MIN < l["y_rel"] < YELLOW_Y_MAX]
+
     table_text = "\n".join(l["text"] for l in table_lines)
 
     def find(pat: str, flags=re.IGNORECASE):
-        """Szukaj najpierw w żółtej tabeli, potem w całym tekście."""
         m = re.search(pat, table_text, flags)
         return m if m else re.search(pat, full_text, flags)
 
+    def find_all(pat: str) -> list[int]:
+        """Zbierz WSZYSTKICH kandydatów — najpierw z żółtej tabeli."""
+        hits = [int(m.group(1)) for m in re.finditer(pat, table_text, re.IGNORECASE)]
+        if not hits:
+            hits = [int(m.group(1)) for m in re.finditer(pat, full_text, re.IGNORECASE)]
+        return hits
+
     d: dict = {}
 
-    # ── Numer rejestracyjny (pole A) ─────────────────────────────────────
-    m = re.search(r"\b([A-Z]{2,3})\s*([A-Z0-9]{3,5})\b", full_text)
-    if m:
-        candidate = m.group(1) + m.group(2)
-        if 5 <= len(candidate) <= 8 and not re.fullmatch(r"[A-Z]{17}", candidate):
-            prefix = candidate[:2] if len(candidate) <= 7 else candidate[:3]
-            suf = candidate[len(prefix):]
+    # ── Numer rejestracyjny (pole A) ──────────────────────────────────────
+    for m in re.finditer(r"\b([A-Z]{2,3})\s*([A-Z0-9]{3,5})\b", full_text):
+        cand = m.group(1) + m.group(2)
+        if 5 <= len(cand) <= 8 and not re.fullmatch(r"[A-Z]{17}", cand):
+            pfx = cand[:2] if len(cand) <= 7 else cand[:3]
+            suf = cand[len(pfx):]
+            # Normalizacja O↔0 w sufixie
             suf = re.sub(r"(\d)O", r"\g<1>0", suf)
             suf = re.sub(r"O(\d)", r"0\1", suf)
-            d["nrRej"] = prefix + suf
+            # Usuń zdublowane zera powstałe po normalizacji (00 → 0)
+            suf = re.sub(r"00", "0", suf)
+            if re.fullmatch(r"[A-Z0-9]{2,6}", suf):
+                d["nrRej"] = pfx + suf
+                break
 
     # ── VIN (pole E) — 17 znaków ─────────────────────────────────────────
     m = re.search(r"\b([A-HJ-NPR-Z0-9]{17})\b", full_text.upper())
@@ -127,48 +154,44 @@ def _parse_fields(lines: list[dict]) -> dict:
         d["vin"] = m.group(1)
 
     # ── Marka (pole D.1) ─────────────────────────────────────────────────
-    m = re.search(
-        r"D\.?\s*1\s*[:\|]?\s*([A-Z][A-Z0-9\-\s]{1,20}?)(?:\s+D\.?\s*2|\n|$)",
-        full_text, re.IGNORECASE,
-    )
+    m = re.search(r"D\.?\s*1\s*[:\|]?\s*([A-Z][A-Z0-9\-\s]{1,20}?)(?:\s+D\.?\s*2|\n|$)",
+                  full_text, re.IGNORECASE)
     if m:
         d["marka"] = m.group(1).strip()
 
     # ── Typ / model (pole D.2) ───────────────────────────────────────────
-    m = re.search(
-        r"D\.?\s*2\s*[:\|]?\s*([A-Z0-9][^\n]{1,30}?)(?:\n|D\.?\s*3|$)",
-        full_text, re.IGNORECASE,
-    )
+    m = re.search(r"D\.?\s*2\s*[:\|]?\s*([A-Z0-9][^\n]{1,30}?)(?:\n|$)",
+                  full_text, re.IGNORECASE)
     if m:
         d["typ"] = m.group(1).strip()
 
-    # ── Data pierwszej rejestracji (pole B) ──────────────────────────────
-    m = re.search(r"\b(\d{2}[.\-/]\d{2}[.\-/]\d{4})\b", full_text)
-    if m:
-        d["dataRej"] = m.group(1).replace("-", ".").replace("/", ".")
+    # ── Data rejestracji (pole B) — DD.MM.YYYY ────────────────────────────
+    for dt_match in re.finditer(r"\b(\d{2}[.\-/]\d{2}[.\-/]\d{4})\b", full_text):
+        norm = dt_match.group(1).replace("-", ".").replace("/", ".")
+        parts = norm.split(".")
+        if len(parts) == 3:
+            dd, mm, yyyy = parts
+            if 1970 <= int(yyyy) <= 2026 and 1 <= int(mm) <= 12 and 1 <= int(dd) <= 31:
+                d["dataRej"] = norm
+                break
 
-    # ── F.1 — DMC pojazdu (TYLKO z żółtej tabeli) ────────────────────────
-    m = find(r"F[\s.:\-]?[1lI!i]\s*[:\|\-]?\s*(\d{3,6})")
-    if m:
-        v = int(m.group(1))
-        if 500 <= v <= 200000:
-            d["dmcKg"] = str(v)
+    # ── F.1 — DMC pojazdu (WIELE kandydatów → wybierz max z tabeli) ───────
+    # Max bo: zarejestrowany DMC (żółta tabela) ≥ DMC homologacji (beżowa)
+    f1 = [v for v in find_all(r"F[\s.:\-]?[1lI!i]\s*[:\|\-]?\s*(\d{3,6})") if 500 <= v <= 200000]
+    if f1:
+        d["dmcKg"] = str(max(f1))
 
     # ── F.2 — DMC z ładunkiem ────────────────────────────────────────────
-    m = find(r"F[\s.:\-]?2\s*[:\|\-]?\s*(\d{3,6})")
-    if m:
-        v = int(m.group(1))
-        if 500 <= v <= 200000:
-            d["dmcKg2"] = str(v)
+    f2 = [v for v in find_all(r"F[\s.:\-]?2\s*[:\|\-]?\s*(\d{3,6})") if 500 <= v <= 200000]
+    if f2:
+        d["dmcKg2"] = str(max(f2))
 
     # ── F.3 — DMC zespołu pojazdów ───────────────────────────────────────
-    m = find(r"F[\s.:\-]?3\s*[:\|\-]?\s*(\d{3,6})")
-    if m:
-        v = int(m.group(1))
-        if 500 <= v <= 200000:
-            d["dmcZespolu"] = str(v)
+    f3 = [v for v in find_all(r"F[\s.:\-]?3\s*[:\|\-]?\s*(\d{3,6})") if 500 <= v <= 200000]
+    if f3:
+        d["dmcZespolu"] = str(max(f3))
 
-    # F.3 musi być >= F.1 (jeśli odwrócone — zamień)
+    # F.3 >= F.1 (jeśli odwrócone — zamień)
     if d.get("dmcKg") and d.get("dmcZespolu") and int(d["dmcKg"]) > int(d["dmcZespolu"]):
         d["dmcKg"], d["dmcZespolu"] = d["dmcZespolu"], d["dmcKg"]
 
@@ -178,7 +201,6 @@ def _parse_fields(lines: list[dict]) -> dict:
         v = int(m.group(1))
         if 100 <= v <= 100000:
             d["masaWlKg"] = str(v)
-    # G musi być < F.1 (fizycznie niemożliwe żeby masa własna >= DMC)
     if d.get("masaWlKg") and d.get("dmcKg") and int(d["masaWlKg"]) >= int(d["dmcKg"]):
         del d["masaWlKg"]
 
@@ -192,29 +214,29 @@ def _parse_fields(lines: list[dict]) -> dict:
     if m:
         d["kategoria"] = m.group(1).upper()
 
-    # ── Pojemność silnika cm³ (pole P.1) ─────────────────────────────────
+    # ── Pojemność cm³ (pole P.1) ──────────────────────────────────────────
     m = re.search(r"P\.?\s*1\s*[:\|]?\s*(\d{3,5})", full_text, re.IGNORECASE)
     if m:
         v = int(m.group(1))
         if 50 <= v <= 50000:
             d["pojSilnika"] = str(v)
 
-    # ── Moc kW (pole P.2) ────────────────────────────────────────────────
+    # ── Moc kW (pole P.2) ─────────────────────────────────────────────────
     m = re.search(r"P\.?\s*2\s*[:\|]?\s*(\d{2,4})", full_text, re.IGNORECASE)
     if m:
         d["mocKW"] = m.group(1)
 
-    # ── Paliwo (pole P.3): D=diesel, B=benzyna, G=LPG ───────────────────
+    # ── Paliwo (pole P.3): D=diesel B=benzyna G=LPG ──────────────────────
     m = re.search(r"P\.?\s*3\s*[:\|]?\s*([DBG])\b", full_text, re.IGNORECASE)
     if m:
         d["paliwo"] = {"D": "ON", "B": "PB", "G": "LPG"}.get(m.group(1).upper(), m.group(1).upper())
 
-    # ── Miejsca siedzące (pole S.1) ──────────────────────────────────────
+    # ── Miejsca siedzące (pole S.1) ───────────────────────────────────────
     m = re.search(r"S\.?\s*1\s*[:\|]?\s*(\d{1,3})", full_text, re.IGNORECASE)
     if m:
         d["miejscaSied"] = m.group(1)
 
-    # ── Rok produkcji ────────────────────────────────────────────────────
+    # ── Rok produkcji ─────────────────────────────────────────────────────
     rok_hits = re.findall(r"\b(19[5-9]\d|20[0-2]\d)\b", full_text)
     if rok_hits:
         d["rokProd"] = rok_hits[-1]
@@ -222,43 +244,38 @@ def _parse_fields(lines: list[dict]) -> dict:
     return d
 
 
-# ── Przetwarzanie obrazu ─────────────────────────────────────────────────
+# ── Przetwarzanie obrazu (multi-rotation) ─────────────────────────────────────
 
 def _process_image(img_bytes: bytes) -> dict:
-    ocr = get_ocr()
     img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
 
-    def run_ocr(pil_img: Image.Image):
-        arr = np.array(pil_img)
-        result = ocr.ocr(arr, cls=True)
-        h = pil_img.height
-        lines = _extract_lines(result, h)
-        count = len(result[0]) if result and result[0] else 0
-        return lines, count
+    best_lines: list[dict] = []
+    best_count = 0
+    best_is_landscape = False
 
-    lines_orig, count_orig = run_ocr(img)
+    for angle in (0, 90, 270):
+        rot = img.rotate(angle, expand=True) if angle else img
+        is_land = rot.width > rot.height * 1.2
+        proc = _preprocess(rot)
+        h, w = proc.shape[0], proc.shape[1]
+        lines = _run_tesseract(proc, h, w)
+        if len(lines) > best_count:
+            best_count = len(lines)
+            best_lines = lines
+            best_is_landscape = is_land
 
-    # Jeśli DR zeskanowany bokiem (co jest typowe) — spróbuj 90° i 270°
-    best_lines, best_count = lines_orig, count_orig
-    for angle in (90, 270):
-        rotated = img.rotate(angle, expand=True)
-        lines_r, count_r = run_ocr(rotated)
-        if count_r > best_count * 1.25:
-            best_lines, best_count = lines_r, count_r
-
-    return _parse_fields(best_lines)
+    return _parse_fields(best_lines, is_landscape=best_is_landscape)
 
 
-# ── Endpointy ────────────────────────────────────────────────────────────
+# ── Endpointy ────────────────────────────────────────────────────────────────
 
 @app.get("/")
 def health():
-    return {"status": "ok", "service": "taxorder-ocr", "engine": "paddleocr"}
-
-
-@app.on_event("startup")
-async def startup():
-    get_ocr()  # warm-up — pobierz modele przy starcie, nie przy pierwszym żądaniu
+    try:
+        ver = str(pytesseract.get_tesseract_version())
+    except Exception:
+        ver = "unknown"
+    return {"status": "ok", "service": "taxorder-ocr", "engine": f"tesseract-{ver}"}
 
 
 @app.post("/ocr")
@@ -272,7 +289,7 @@ async def run_ocr(
     try:
         img_bytes = base64.b64decode(req.imageBase64)
         fields = _process_image(img_bytes)
-        return {"ok": True, "fields": fields, "model": "paddleocr"}
+        return {"ok": True, "fields": fields, "model": "tesseract-server"}
     except Exception as e:
-        logger.exception("Błąd OCR")
+        logger.exception("OCR error")
         return {"ok": False, "error": str(e), "fields": {}}
