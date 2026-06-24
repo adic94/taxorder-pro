@@ -209,6 +209,25 @@ def _parse_fields(lines: list[dict], is_landscape: bool = False) -> dict:
     if m:
         d["liczbaOsi"] = m.group(1)
 
+    # ── O.1 — Dop. masa przyczepy z hamulcem ─────────────────────────────
+    o1_hits = [int(m.group(1)) for m in re.finditer(
+        r"O[\s.:\-]?1\s*[:\|\-]?\s*(\d{3,6})", table_text + "\n" + full_text, re.IGNORECASE)]
+    o1_hits = [v for v in o1_hits if 100 <= v <= 200000]
+    if o1_hits:
+        d["dmcPrzyczHam"] = str(max(o1_hits))
+
+    # ── O.2 — Dop. masa przyczepy bez hamulca ────────────────────────────
+    o2_hits = [int(m.group(1)) for m in re.finditer(
+        r"O[\s.:\-]?2\s*[:\|\-]?\s*(\d{2,5})", table_text + "\n" + full_text, re.IGNORECASE)]
+    o2_hits = [v for v in o2_hits if 50 <= v <= 50000]
+    if o2_hits:
+        d["dmcPrzyczNieham"] = str(o2_hits[0])
+
+    # ── K — Numer świadectwa homologacji ─────────────────────────────────
+    mk = re.search(r"\bK\s*[:\|]?\s*([A-Za-z0-9][A-Za-z0-9\*\-\/\.]{4,30})", full_text)
+    if mk and re.search(r"\d", mk.group(1)):
+        d["nrHomolog"] = mk.group(1).strip()
+
     # ── Kategoria (pole J) ───────────────────────────────────────────────
     m = find(r"\bJ\s*[:\|]?\s*([NMO][1-3]?[a-z]?)\b")
     if m:

@@ -2836,6 +2836,7 @@ function _fillOcrFields(d){
   fill('vin',d.vin);fill('dmcKg',d.dmcKg);fill('dmcKg2',d.dmcKg2);fill('dmcZespolu',d.dmcZespolu);fill('masaWlKg',d.masaWlKg);
   fill('liczbaOsi',d.liczbaOsi);fill('kategoria',d.kategoria);fill('pojSilnika',d.pojSilnika);
   fill('mocKW',d.mocKW);fill('paliwo',d.paliwo);fill('miejscaSied',d.miejscaSied);fill('rokProd',d.rokProd);
+  fill('dmcPrzyczHam',d.dmcPrzyczHam);fill('dmcPrzyczNieham',d.dmcPrzyczNieham);fill('nrHomolog',d.nrHomolog);
   // Przelicz ładowność po wypełnieniu pól
   const _f2=parseFloat(d.dmcKg2)||0,_f1=parseFloat(d.dmcKg)||0,_g=parseFloat(d.masaWlKg)||0,_base=_f2||_f1;
   const _elL=document.getElementById('ocrf-ladownosc');
@@ -3114,6 +3115,21 @@ function parseRegistrationDoc(combinedOcrText){
   if(s1M){const v=parseInt(s1M[1]);if(v>=1&&v<=500)d.miejscaSied=String(v);}
 
   // ============================================================
+  // 12b. O.1 — Dop. masa przyczepy z hamulcem
+  //      O.2 — Dop. masa przyczepy bez hamulca
+  // ============================================================
+  const o1M=_dmcSrc.match(/O[\s.:\-]?1\s*[:\|\-]?\s*(\d{3,6})/i)||t.match(/O[\s.:\-]?1\s*[:\|\-]?\s*(\d{3,6})/i);
+  if(o1M){const v=parseInt(o1M[1]);if(v>=100&&v<=200000)d.dmcPrzyczHam=String(v);}
+  const o2M=_dmcSrc.match(/O[\s.:\-]?2\s*[:\|\-]?\s*(\d{2,5})/i)||t.match(/O[\s.:\-]?2\s*[:\|\-]?\s*(\d{2,5})/i);
+  if(o2M){const v=parseInt(o2M[1]);if(v>=50&&v<=50000)d.dmcPrzyczNieham=String(v);}
+
+  // ============================================================
+  // 12c. K — Numer świadectwa homologacji (np. e32*IV18/850*NI5391)
+  // ============================================================
+  const kM=t.match(/\bK\s*[:\|]?\s*([A-Za-z0-9][A-Za-z0-9\*\-\/\.]{4,30})/);
+  if(kM&&/[0-9]/.test(kM[1]))d.nrHomolog=kM[1].trim();
+
+  // ============================================================
   // 13. Rok produkcji — preferuj lata 1990-bieżący
   // ============================================================
   const rokMs=t.match(/\b(19[89]\d|20[012]\d)\b/g)||[];
@@ -3252,6 +3268,9 @@ function showManualForm(d,rawText,conf){
       ${field('miejscaSied','S.1 — Miejsca siedzące','np. 3',d.miejscaSied,'bez kier.')}
       ${field('kategoria','J — Kategoria pojazdu','np. N3',d.kategoria,'N1/N2/N3/O/M')}
       ${field('rokProd','Rok produkcji','np. 2021',d.rokProd,'')}
+      ${field('dmcPrzyczHam','O.1 — DMC przyczepy z hamulcem (kg)','np. 24000',d.dmcPrzyczHam,'kg')}
+      ${field('dmcPrzyczNieham','O.2 — DMC przyczepy bez hamulca (kg)','np. 750',d.dmcPrzyczNieham,'kg')}
+      ${field('nrHomolog','K — Numer świadectwa homologacji','np. e32*IV18/850*NI5391',d.nrHomolog,'')}
     </div>
   </div>
 
@@ -3293,6 +3312,7 @@ function submitManualForm(){
     liczbaOsi:g('liczbaOsi'),zawieszenie:document.getElementById('ocrf-zawieszenie')?.value||'pneumatyczne',
     paliwo:g('paliwo'),pojSilnika:g('pojSilnika'),mocKW:g('mocKW'),
     miejscaSied:g('miejscaSied'),kategoria:g('kategoria'),rokProd:g('rokProd'),
+    dmcPrzyczHam:g('dmcPrzyczHam'),dmcPrzyczNieham:g('dmcPrzyczNieham'),nrHomolog:g('nrHomolog'),
     pewnosc:'FORMULARZ',typDokumentu:ocrFile?'SKAN':'RĘCZNY'
   };
   if(!d.nrRej){toast('⚠ Wpisz numer rejestracyjny');return;}
@@ -3347,6 +3367,9 @@ function openUpdateModal(vehId,d){
     {label:'Miejsca siedz. (S.1)',key:'miejscaSied',newVal:d.miejscaSied?parseInt(d.miejscaSied):null},
     {label:'Kategoria DR (J)',key:'katPojazdu',newVal:d.kategoria},
     {label:'Data 1. rejestracji',key:'dataRejestracji',newVal:d.dataRej},
+    {label:'DMC przyczepy z ham. (O.1)',key:'dmcPrzyczHam',newVal:d.dmcPrzyczHam?parseInt(d.dmcPrzyczHam):null},
+    {label:'DMC przyczepy bez ham. (O.2)',key:'dmcPrzyczNieham',newVal:d.dmcPrzyczNieham?parseInt(d.dmcPrzyczNieham):null},
+    {label:'Nr homologacji (K)',key:'nrHomolog',newVal:d.nrHomolog},
   ].filter(c=>c.newVal!==null&&c.newVal!==undefined&&String(c.newVal).trim()!=='');
 
   const changes=map.map(c=>({...c,oldVal:v[c.key]||'—',changed:String(c.newVal).trim()!==String(v[c.key]||'').trim()}));
