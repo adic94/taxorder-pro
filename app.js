@@ -3014,25 +3014,31 @@ function parseRegistrationDoc(combinedOcrText){
   // ============================================================
   const _sec90 =(t.split('---90---\n')[1]||'').split('---')[0];
   const _sec270=(t.split('---270---\n')[1]||'').split('---')[0];
-  const _dmcSrc=_sec90+'\n'+_sec270;  // preferuj te sekcje
-  const _fmatch=(pat)=>_dmcSrc.match(pat)||t.match(pat);
+  const _dmcSrc=_sec90+'\n'+_sec270;
 
-  const f1M=_fmatch(/F[\s.:\-]?[1lI!i]\s*[:\|\-]?\s*(\d{3,6})/i);
-  if(f1M){const v=parseInt(f1M[1]);if(v>=500&&v<=200000)d.dmcKg=String(v);}
-  const f3M=_fmatch(/F[\s.:\-]?3\s*[:\|\-]?\s*(\d{3,6})/i);
-  if(f3M){const v=parseInt(f3M[1]);if(v>=500&&v<=200000)d.dmcZespolu=String(v);}
-  const f2M=_fmatch(/F[\s.:\-]?2\s*[:\|\-]?\s*(\d{3,6})/i);
-  if(f2M){const v=parseInt(f2M[1]);if(v>=500&&v<=200000)d.dmcKg2=String(v);}
+  // Zbierz WSZYSTKICH kandydatów dla danego pola — wybierz MAX.
+  // Powód: DR ma dwie sekcje z wartościami F.1/F.2/F.3:
+  //   - beżowa sekcja homologacji (np. F.1=16285) — wartość MNIEJSZA
+  //   - żółta tabela rejestracyjna (np. F.1=27000) — wartość WIĘKSZA, PRAWIDŁOWA
+  // Math.max() zawsze wybiera wartość z żółtej tabeli.
+  const _allVals=(src,re)=>{const r=[];let m;const rx=new RegExp(re.source,'gi');while((m=rx.exec(src))!==null){const v=parseInt(m[1]);if(v>=500&&v<=200000)r.push(v);}return r;};
+  const _bestF=(re)=>{const all=[..._allVals(_dmcSrc,re),..._allVals(t,re)];return all.length?String(Math.max(...all)):null;};
 
-  // Walidacja: F.3 musi być >= F.1 (jeśli nie — wartości mogą być zamienione miejscami)
+  const f1v=_bestF(/F[\s.:\-]?[1lI!i]\s*[:\|\-]?\s*(\d{3,6})/i);
+  if(f1v)d.dmcKg=f1v;
+  const f3v=_bestF(/F[\s.:\-]?3\s*[:\|\-]?\s*(\d{3,6})/i);
+  if(f3v)d.dmcZespolu=f3v;
+  const f2v=_bestF(/F[\s.:\-]?2\s*[:\|\-]?\s*(\d{3,6})/i);
+  if(f2v)d.dmcKg2=f2v;
+
+  // Walidacja: F.3 musi być >= F.1
   if(d.dmcKg&&d.dmcZespolu&&parseInt(d.dmcKg)>parseInt(d.dmcZespolu)){
     const tmp=d.dmcKg;d.dmcKg=d.dmcZespolu;d.dmcZespolu=tmp;
   }
 
-  // Fallback: wiersz z 3 dużymi liczbami (tabela F1/F2/F3 lub F1/G/F3)
-  const _rowSrc=_dmcSrc||t;
+  // Fallback: wiersz z 3 dużymi liczbami (tabela F1/F2/F3)
   if(!d.dmcKg){
-    const mRow=_rowSrc.match(/(\d{4,6})\D{1,10}(\d{4,6})\D{1,10}(\d{4,6})/);
+    const mRow=(_dmcSrc||t).match(/(\d{4,6})\D{1,10}(\d{4,6})\D{1,10}(\d{4,6})/);
     if(mRow){
       const nums=[parseInt(mRow[1]),parseInt(mRow[2]),parseInt(mRow[3])].filter(n=>n>=500&&n<=200000).sort((a,b)=>a-b);
       if(nums.length>=1)d.dmcKg=String(nums[0]);
@@ -3131,7 +3137,7 @@ function parseRegistrationDoc(combinedOcrText){
   // Normalizacja 0/O w numerze rejestracyjnym (OCR myli zero z literą O)
   if(d.nrRej){
     const mm=d.nrRej.match(/^([A-Z]{2,3})(.*)/);
-    if(mm){const suf=mm[2].replace(/(\d)O/g,'$10').replace(/O(\d)/g,'0$1');d.nrRej=mm[1]+suf;}
+    if(mm){let suf=mm[2].replace(/(\d)O/g,'$10').replace(/O(\d)/g,'0$1');suf=suf.replace(/00+/g,'0');d.nrRej=mm[1]+suf;}
   }
 
   // Pewność — wymaga kluczowych pól: nrRej+dataRej obowiązkowe dla WYSOKA
