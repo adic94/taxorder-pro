@@ -2830,7 +2830,17 @@ Tekst OCR:\n${combinedText.slice(0,6000)}`;
 }
 
 // --- PARSER POLSKIEGO DOWODU REJESTRACYJNEGO ---
+function _normalizeNrRej(v){
+  if(!v)return v;
+  v=String(v).replace(/\s+/g,'').toUpperCase();
+  const mm=v.match(/^([A-Z]{2,3})(.*)/);
+  if(mm){let suf=mm[2].replace(/(\d)O/g,'$10').replace(/O(\d)/g,'0$1');suf=suf.replace(/00+/g,'0');v=mm[1]+suf;}
+  return v;
+}
+
 function _fillOcrFields(d){
+  // Normalizuj nrRej przed wypełnieniem (usuń spacje, popraw O/0)
+  if(d.nrRej)d.nrRej=_normalizeNrRej(d.nrRej);
   const fill=(id,val)=>{const el=document.getElementById('ocrf-'+id);if(el&&val&&String(val).trim()&&String(val).trim()!=='null'&&String(val).trim()!=='undefined'){el.value=String(val).trim();el.style.borderColor='var(--green)';el.style.background='#f0fff0';}};
   fill('nrRej',d.nrRej);fill('dataRej',d.dataRej);fill('marka',d.marka);fill('typ',d.typ);
   fill('vin',d.vin);fill('dmcKg',d.dmcKg);fill('dmcKg2',d.dmcKg2);fill('dmcZespolu',d.dmcZespolu);fill('masaWlKg',d.masaWlKg);
@@ -2969,10 +2979,20 @@ function parseRegistrationDoc(combinedOcrText){
 
   // ============================================================
   // 4. Data rejestracji (B) — wiele formatów
+  //    Pole B = data PIERWSZEJ rejestracji → wybieramy NAJWCZEŚNIEJSZĄ datę
+  //    (nie przyszłą — przeglądowy termin może być w przyszłości)
   // ============================================================
   const allDates=t.match(/\b(\d{2}[\s.\-\/]\d{2}[\s.\-\/](?:19|20)\d{2})\b/g)||[];
-  const validDates=allDates.filter(dt=>{const y=parseInt(dt.replace(/\D/g,'').slice(-4));return y>=1990&&y<=2035;});
-  if(validDates.length)d.dataRej=validDates[0].replace(/[\s\-\/]/g,'.');
+  const curY2=new Date().getFullYear();
+  const validDates=allDates
+    .map(dt=>dt.replace(/[\s\-\/]/g,'.'))
+    .filter(dt=>{const y=parseInt(dt.slice(-4));return y>=1990&&y<=curY2;});
+  if(validDates.length){
+    // Sortuj chronologicznie (DD.MM.YYYY → porównaj jako YYYY-MM-DD)
+    const _toSortKey=dt=>{const[dd,mm,yy]=dt.split('.');return `${yy}-${mm}-${dd}`;};
+    validDates.sort((a,b)=>_toSortKey(a).localeCompare(_toSortKey(b)));
+    d.dataRej=validDates[0]; // najwcześniejsza
+  }
 
   // ============================================================
   // 5. Nr rejestracyjny (A) — tekst gdy MRZ nie zadziałał
@@ -3150,8 +3170,12 @@ function parseRegistrationDoc(combinedOcrText){
   // Walidacja VIN (17 znaków, tylko dopuszczalne znaki)
   if(d.vin&&(d.vin.length!==17||!/^[A-HJ-NPR-Z0-9]{17}$/.test(d.vin)))delete d.vin;
 
-  // Normalizacja 0/O w numerze rejestracyjnym (OCR myli zero z literą O)
+  // Normalizacja numeru rejestracyjnego:
+  // 1) usuń wszystkie spacje (OCR często wstawia spację między prefix a sufiks)
+  // 2) zamień O↔0 kontekstowo (cyfra+O → cyfra+0, O+cyfra → 0+cyfra)
+  // 3) usuń podwójne zera (artefakt po zamianie 0O → 00)
   if(d.nrRej){
+    d.nrRej=d.nrRej.replace(/\s+/g,'').toUpperCase();
     const mm=d.nrRej.match(/^([A-Z]{2,3})(.*)/);
     if(mm){let suf=mm[2].replace(/(\d)O/g,'$10').replace(/O(\d)/g,'0$1');suf=suf.replace(/00+/g,'0');d.nrRej=mm[1]+suf;}
   }

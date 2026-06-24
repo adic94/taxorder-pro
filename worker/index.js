@@ -729,6 +729,40 @@ async function handleAztec(request) {
 //   F. Batch processing — kolejka D1/KV z harmonogramem przetwarzania DR dla dużych flot
 //      — Cloudflare Queues (beta) lub Durable Objects jako koordynator kolejki
 //
+// Sanityzacja i walidacja pól zwróconych przez AI.
+// Odrzuca dane które łamią podstawowe reguły fizyczne DR.
+function _sanitizeOcrFields(f) {
+  if (!f || typeof f !== 'object') return f;
+
+  // nrRej: usuń spacje (OCR często wstawia spację między prefix a sufiks)
+  if (f.nrRej) f.nrRej = String(f.nrRej).replace(/\s+/g, '').toUpperCase().slice(0, 10);
+
+  // Konwertuj wartości liczbowe (AI czasem zwraca stringa ze spacjami)
+  const num = v => { const n = parseFloat(String(v || '').replace(/\s/g, '')); return isNaN(n) ? null : n; };
+  const f1 = num(f.dmcKg), f2 = num(f.dmcKg2), f3 = num(f.dmcZespolu), g = num(f.masaWlKg);
+
+  // G (masa własna) MUSI być < F.1 (DMC) — jeśli nie, dane F.1 lub G są błędne
+  if (f1 !== null && g !== null && g >= f1) {
+    // Jeśli G jest wiarygodne (duże) a F.1 podejrzanie małe — wyczyść F.1
+    if (g > 3000 && f1 < g * 0.6) { delete f.dmcKg; }
+    else { delete f.masaWlKg; }
+  }
+
+  // F.1 i F.2 powinny być zbliżone — jeśli F.1 << F.2 (mniej niż 30% F.2), F.1 podejrzane
+  if (f1 !== null && f2 !== null && f1 < f2 * 0.3 && f2 > 5000) delete f.dmcKg;
+
+  // dataRej: odrzuć daty z przyszłości (termin badania technicznego, nie data rejestracji)
+  if (f.dataRej) {
+    const parts = String(f.dataRej).split('.');
+    if (parts.length === 3) {
+      const y = parseInt(parts[2]);
+      if (y > new Date().getFullYear()) delete f.dataRej;
+    }
+  }
+
+  return f;
+}
+
 async function handleAIOCR(request, env) {
   if (request.method !== 'POST') return err('Method not allowed', 405);
   let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON'); }
@@ -753,7 +787,7 @@ Zwróć WYŁĄCZNIE obiekt JSON — bez markdown, bez komentarzy, tylko surowy J
       if (pyResp.ok) {
         const pyData = await pyResp.json();
         if (pyData.ok && pyData.fields && (pyData.fields.nrRej || pyData.fields.vin || pyData.fields.dmcKg)) {
-          return json({ ok: true, fields: pyData.fields, model: 'paddleocr' });
+          return json({ ok: true, fields: _sanitizeOcrFields(pyData.fields), model: 'paddleocr' });
         }
       }
     } catch (e) { /* fall through — Python service niedostępny */ }
@@ -773,7 +807,7 @@ Zwróć WYŁĄCZNIE obiekt JSON — bez markdown, bez komentarzy, tylko surowy J
       const answer = cfResult?.response || '';
       const jm = answer.match(/\{[\s\S]*\}/);
       if (jm) {
-        const fields = JSON.parse(jm[0]);
+        const fields = _sanitizeOcrFields(JSON.parse(jm[0]));
         if (fields.nrRej || fields.vin || fields.marka || fields.dmcKg) {
           return json({ ok: true, fields, model: 'cf-workers-ai-llama-3.2-11b' });
         }
@@ -815,7 +849,7 @@ Zwróć WYŁĄCZNIE obiekt JSON — bez markdown, bez komentarzy, tylko surowy J
       const answer = data.choices?.[0]?.message?.content || '';
       const jm = answer.match(/\{[\s\S]*\}/);
       if (!jm) { lastErr = 'AI nie zwróciło JSON: ' + answer.slice(0, 100); continue; }
-      return json({ ok: true, fields: JSON.parse(jm[0]), model });
+      return json({ ok: true, fields: _sanitizeOcrFields(JSON.parse(jm[0])), model });
     } catch (e) {
       lastErr = `${model}: ${e?.message}`;
     }
