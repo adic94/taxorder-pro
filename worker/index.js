@@ -647,7 +647,7 @@ function _nrv2eDecompress(input, outputLen) {
 
 // Mapowanie indeksów pól w nowym formacie polskiego DR
 const _DR_NEW = { seriaDr:1, nrRej:7, marka:8, typ:9, model:12, vin:13,
-  dmcKg:38, masaWlKg:41, kategoria:42, liczbaOsi:44,
+  dmcKg:38, dmcKg2:39, dmcZespolu:40, masaWlKg:41, kategoria:42, liczbaOsi:44,
   pojSilnika:48, mocKW:49, paliwo:50, dataRej:51, miejscaSied:52 };
 const _DR_OLD = { nrRej:4, marka:5, typ:6, vin:10, dataRej:48 };
 const _FUEL = { P:'PB (Benzyna)', D:'ON (Olej napędowy)', M:'LNG (Metan)',
@@ -708,16 +708,81 @@ async function handleAztec(request) {
 }
 
 // ─── AI VISION OCR ────────────────────────────────────────────────────────────
+//
+// OCR PIPELINE (kolejność priorytetów):
+//   1. AZTEC 2D barcode  — handleAztec()        — 100% dokładność, ~50ms
+//   2. CF Workers AI     — @cf/meta/llama-3.2-11b-vision-instruct — brak kosztów zewn., ~1-3s
+//   3. Groq Vision (x4)  — llama-4-scout/maverick/llama-3.2-90b/11b — fallback, ~2-5s
+//
+// ROADMAP — przyszłe ulepszenia OCR (do wdrożenia gdy technologia dojrzeje):
+//   A. Cloudflare AI Gateway  — cache odpowiedzi vision, rate-limiting, analytics, logs
+//      https://developers.cloudflare.com/ai-gateway/
+//   B. AWS Textract / Google Cloud Vision / Azure Document Intelligence
+//      — dedykowane modele do dokumentów tabelarycznych (DR to tabelka), 99%+ accuracy
+//      — warto porównać ceny przy wolumenie >1M dokumentów/miesiąc
+//   C. PaddleOCR via WASM — gdy CF Worker WASM support dojrzeje (aktualnie brak pliku >3MB)
+//      — open-source, lokalne przetwarzanie, zero latencji sieciowej
+//   D. Fine-tuned model na polskich DR — Mistral/Llama fine-tune na zbiorze 10k+ skanów DR
+//      — szacowany koszt treningu: ~$500-2000, zysk: 99.9% accuracy na polu F.1/F.2/G/VIN
+//   E. Cloudflare Vectorize — wyszukiwanie pojazdów po cechach (embedding z danych DR)
+//      — znajdowanie duplikatów VIN, wyszukiwanie podobnych pojazdów w flocie
+//   F. Batch processing — kolejka D1/KV z harmonogramem przetwarzania DR dla dużych flot
+//      — Cloudflare Queues (beta) lub Durable Objects jako koordynator kolejki
+//
 async function handleAIOCR(request, env) {
   if (request.method !== 'POST') return err('Method not allowed', 405);
   let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON'); }
   const { imageBase64, mimeType = 'image/jpeg' } = body;
   if (!imageBase64) return err('Brak obrazu (imageBase64)');
-  if (!env.GROQ_API_KEY) return err('Brak klucza GROQ_API_KEY', 503);
 
   const prompt = `Jesteś ekspertem od polskich dowodów rejestracyjnych pojazdów. Przeanalizuj ten skan dokumentu (może być obrócony o 90° lub 180°) i wyodrębnij wszystkie pola.
 Zwróć WYŁĄCZNIE obiekt JSON — bez markdown, bez komentarzy, tylko surowy JSON:
-{"nrRej":"pole A np WA4789F","dataRej":"pole B format DD.MM.RRRR","marka":"pole D.1","typ":"pole D.2 typ/model","vin":"pole E 17 znakow","dmcKg":"pole F.1 tylko cyfry kg","dmcZespolu":"pole F.3 tylko cyfry kg","masaWlKg":"pole G tylko cyfry kg","liczbaOsi":"pole L cyfra 1-5","kategoria":"pole J np N1 N2 N3 M1","pojSilnika":"pole P.1 tylko cyfry cm3","mocKW":"pole P.2 tylko cyfry kW","paliwo":"pole P.3: D=ON B=benzyna G=LPG","miejscaSied":"pole S.1 tylko cyfry","rokProd":"rok produkcji 4 cyfry"}`;
+{"nrRej":"pole A np WA4789F","dataRej":"pole B format DD.MM.RRRR","marka":"pole D.1","typ":"pole D.2 typ/model","vin":"pole E 17 znakow","dmcKg":"pole F.1 kg z ŻÓŁTEJ tabeli (NIE z nagłówka homologacji)","dmcKg2":"pole F.2 kg","dmcZespolu":"pole F.3 kg musi być >= F.1","masaWlKg":"pole G kg masa własna musi być < F.1","liczbaOsi":"pole L cyfra 1-5","kategoria":"pole J np N1 N2 N3 M1","pojSilnika":"pole P.1 tylko cyfry cm3","mocKW":"pole P.2 tylko cyfry kW","paliwo":"pole P.3: D=ON B=benzyna G=LPG","miejscaSied":"pole S.1 tylko cyfry","rokProd":"rok produkcji 4 cyfry"}`;
+
+  // ── Próba 0: Python PaddleOCR Service (najdokładniejszy — przestrzenne bounding boxy) ──
+  if (env.OCR_PYTHON_URL) {
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (env.OCR_PYTHON_SECRET) headers['X-Api-Key'] = env.OCR_PYTHON_SECRET;
+      const pyResp = await fetch(env.OCR_PYTHON_URL.replace(/\/$/, '') + '/ocr', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ imageBase64, mimeType }),
+        signal: AbortSignal.timeout(30000),
+      });
+      if (pyResp.ok) {
+        const pyData = await pyResp.json();
+        if (pyData.ok && pyData.fields && (pyData.fields.nrRej || pyData.fields.vin || pyData.fields.dmcKg)) {
+          return json({ ok: true, fields: pyData.fields, model: 'paddleocr' });
+        }
+      }
+    } catch (e) { /* fall through — Python service niedostępny */ }
+  }
+
+  // ── Próba 1: Cloudflare Workers AI (primarna, bez kosztów zewnętrznych API) ──
+  if (env.AI) {
+    try {
+      const bin = atob(imageBase64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const cfResult = await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
+        prompt,
+        image: [...bytes],
+        max_tokens: 768,
+      });
+      const answer = cfResult?.response || '';
+      const jm = answer.match(/\{[\s\S]*\}/);
+      if (jm) {
+        const fields = JSON.parse(jm[0]);
+        if (fields.nrRej || fields.vin || fields.marka || fields.dmcKg) {
+          return json({ ok: true, fields, model: 'cf-workers-ai-llama-3.2-11b' });
+        }
+      }
+    } catch (e) { /* fall through to Groq */ }
+  }
+
+  // ── Próba 2: Groq Vision — 4-modelowy łańcuch fallback ───────────────────────
+  if (!env.GROQ_API_KEY) return err('Brak CF AI i GROQ_API_KEY', 503);
 
   const messages = [{
     role: 'user',

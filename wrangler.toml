@@ -22,7 +22,9 @@ binding = "AI"
 [vars]
 ENVIRONMENT = "production"
 ALLOWED_ORIGINS = "*"
-# VAPID_PUBLIC_KEY — generate once via GET /api/push/generate-keys (admin)
-# Then set VAPID_PUBLIC_KEY here and VAPID_PRIVATE_KEY as a Cloudflare Secret (encrypted)
 VAPID_PUBLIC_KEY = "BBH5nuzWfPg7U04Fw6ZvH9_LN3Vj5H7U4ViNcu9H0N2Skvl0xStXJ4rpcCF1WwrRZokOFGzeFLGIAcK5c2g8B5A"
+# Po wdrożeniu ocr-service na Railway — ustaw ten URL (np. https://taxorder-ocr.up.railway.app)
+# OCR_PYTHON_URL = "https://twoj-serwis.up.railway.app"
+# OCR_PYTHON_SECRET — ustaw jako Cloudflare Secret (szyfrowany), nie tutaj:
+# npx wrangler secret put OCR_PYTHON_SECRET
 

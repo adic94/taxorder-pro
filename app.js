@@ -199,6 +199,13 @@ function filterVeh() {
       else if (col === 'kierowca' && !String(v.kierowca||'').toLowerCase().includes(lv)) return false;
       else if (col === 'vin' && !(v.vin||'').toLowerCase().includes(lv)) return false;
       else if (col === 'paliwo' && !String(v.paliwo||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'dataRej' && !String(v.dataRejestracji||'').includes(val)) return false;
+      else if (col === 'katDR' && !String(v.katPojazdu||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'dmcF2' && !String(v.dmcKg2??'').includes(val)) return false;
+      else if (col === 'ladownosc') {
+        const l=v.ladownosc!=null&&v.ladownosc!==''?Number(v.ladownosc):((v.dmcKg2||v.dmc)&&v.masaWlasna?Number(v.dmcKg2||v.dmc)-Number(v.masaWlasna):null);
+        if(!String(l??'').includes(val)) return false;
+      }
       else if (['rok','dmc','km','poj','mocKw','masaWl','msc'].includes(col) && !fv.includes(lv)) return false;
     }
     return true;
@@ -337,13 +344,17 @@ function renderVeh() {
       <td data-col="masaWl" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.masaWlasna!=null?v.masaWlasna.toLocaleString('pl-PL')+' kg':'—'}</td>
       <td data-col="msc" style="font-size:11px;text-align:center">${v.miejscaSied!=null?v.miejscaSied:'—'}</td>
       <td data-col="euro" style="font-size:11px">${v.euro||'—'}</td>
+      <td data-col="dmcF2" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.dmcKg2!=null&&v.dmcKg2!==''?Number(v.dmcKg2).toLocaleString('pl-PL')+' kg':'—'}</td>
+      <td data-col="ladownosc" style="font-size:11px;text-align:right;font-family:var(--mono)">${(()=>{const l=v.ladownosc!=null&&v.ladownosc!==''?Number(v.ladownosc):((v.dmcKg2||v.dmc)&&v.masaWlasna&&(Number(v.dmcKg2||v.dmc)>Number(v.masaWlasna))?Number(v.dmcKg2||v.dmc)-Number(v.masaWlasna):null);return l!=null?l.toLocaleString('pl-PL')+' kg':'—';})()}</td>
+      <td data-col="dataRej" style="font-size:11px;white-space:nowrap">${v.dataRejestracji||'—'}</td>
+      <td data-col="katDR" style="font-size:11px;text-align:center">${v.katPojazdu?`<span class="pill pill-gray">${v.katPojazdu}</span>`:'—'}</td>
       <td style="text-align:center" onclick="event.stopPropagation()">
         <button class="btn btn-gray" style="font-size:11px;padding:3px 8px" onclick="TaxOrderVehicleDetail.open(${v.id})" title="Karta pojazdu">
           <i class="ti ti-id-badge"></i>
         </button>
       </td>
     </tr>`;
-  }).join('') || `<tr><td colspan="30" style="text-align:center;padding:2rem;color:var(--text3)">Brak wyników</td></tr>`;
+  }).join('') || `<tr><td colspan="40" style="text-align:center;padding:2rem;color:var(--text3)">Brak wyników</td></tr>`;
   updateCounters();
   _applyColVis();
 }
@@ -694,10 +705,9 @@ async function generujDt1PerFirma() {
 
 // ==================== COLUMN VISIBILITY ====================
 const _COL_FLEET = {rok:1,typ:1,dmc:0,osie:0,zawieszenie:0,dmczesp:0,mies:0,status:1,oc:1,ac:1,przeglad:1,kategoria:0,podatek:0,ocInsurer:1,acInsurer:0,udt:1,tacho:1,kierowca:1,km:1,dt1ok:0,gmina:0,
-  // DR data columns (all off by default in fleet view)
-  vin:0,paliwo:0,poj:0,mocKw:0,masaWl:0,msc:0,euro:0};
+  vin:0,paliwo:0,poj:0,mocKw:0,masaWl:0,msc:0,euro:0,dmcF2:0,ladownosc:0,dataRej:0,katDR:0};
 const _COL_DT1   = {rok:1,typ:1,dmc:1,osie:1,zawieszenie:1,dmczesp:1,mies:1,status:1,oc:0,ac:0,przeglad:0,kategoria:1,podatek:1,ocInsurer:0,acInsurer:0,udt:0,tacho:0,kierowca:1,km:0,dt1ok:1,gmina:1,
-  vin:0,paliwo:0,poj:0,mocKw:0,masaWl:0,msc:0,euro:0};
+  vin:0,paliwo:0,poj:0,mocKw:0,masaWl:1,msc:0,euro:0,dmcF2:1,ladownosc:1,dataRej:1,katDR:1};
 const _COL_DEFAULTS = {..._COL_FLEET};
 let _colVis = null;
 let _viewMode = localStorage.getItem('fleetViewMode') || 'fleet';
@@ -745,13 +755,14 @@ function _renderColPanel() {
     kierowca:'Kierowca',km:'Stan km',dt1ok:'Kompletność DT-1',gmina:'Gmina DT-1',
     vin:'VIN',paliwo:'Paliwo (P.3)',poj:'Pojemność (cm³)',mocKw:'Moc (kW)',
     masaWl:'Masa własna (kg)',msc:'Miejsca siedz.',euro:'Norma EURO',
+    dmcF2:'F.2 DMC z ładunkiem (kg)',ladownosc:'Ładowność (kg)',dataRej:'Data 1. rejestracji',katDR:'Kat. pojazdu DR (J)',
   };
   const GROUPS = [
     {label:'Podstawowe',cols:['rok','typ','dmc','status','kierowca','km']},
     {label:'Podatek DT-1',cols:['dt1ok','gmina','osie','zawieszenie','dmczesp','mies','kategoria','podatek']},
     {label:'Ubezpieczenia',cols:['oc','ac','przeglad','ocInsurer','acInsurer']},
     {label:'Badania techniczne',cols:['udt','tacho']},
-    {label:'Dane DR (dowód rejestracyjny)',cols:['vin','paliwo','poj','mocKw','masaWl','msc','euro']},
+    {label:'Dane DR (dowód rejestracyjny)',cols:['vin','paliwo','poj','mocKw','masaWl','msc','euro','dmcF2','ladownosc','dataRej','katDR']},
   ];
   panel.innerHTML = GROUPS.map(g => `
     <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin:10px 0 4px;letter-spacing:.5px">${g.label}</div>
@@ -2671,7 +2682,37 @@ async function runOCR(){
       return;
     }
 
-    // ── Krok 2: Tesseract OCR (fallback gdy AZTEC nie znaleziony) ────────────
+    // ── Krok 2: AI Vision OCR (primarna — CF Workers AI → Groq fallback) ────────
+    btn.innerHTML='<i class="ti ti-brain"></i> AI Vision analizuje skan...';
+    bar.style.width='15%';
+    try{
+      const apiUrl=(window.CF_API_URL||'').replace(/\/$/,'');
+      const token=localStorage.getItem('cf_token');
+      if(apiUrl){
+        const visionResp=await fetch(apiUrl+'/api/ai/ocr',{
+          method:'POST',
+          headers:{'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})},
+          body:JSON.stringify({imageBase64:ocrBase64,mimeType:ocrMime}),
+        });
+        if(visionResp.ok){
+          const visionData=await visionResp.json();
+          if(visionData.ok&&visionData.fields){
+            bar.style.width='100%';
+            const merged={...visionData.fields,pewnosc:'AI-Vision',_aiModel:visionData.model||'ai'};
+            setTimeout(()=>{
+              document.getElementById('ocr-loader').classList.add('hidden');
+              showManualForm(merged,null,null);
+              _fillOcrFields(merged);
+            },300);
+            document.getElementById('ocr-btn').disabled=false;
+            document.getElementById('ocr-btn').innerHTML='<i class="ti ti-scan"></i> Uruchom OCR + Wypełnij formularz';
+            return;
+          }
+        }
+      }
+    }catch(e){/* AI Vision niedostępne — fallback do Tesseract */}
+
+    // ── Krok 3: Tesseract OCR (fallback offline gdy AI Vision niedostępne) ──────
     btn.innerHTML='<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> Analizuję...';
     bar.style.width='5%';
     const ok=await initTesseract();
@@ -2746,7 +2787,7 @@ async function runOCR(){
       if(apiUrl){
         btn.innerHTML='<i class="ti ti-brain"></i> AI analizuje tekst...';
         const aiPrompt=`Jesteś ekspertem od polskich dowodów rejestracyjnych. Przeanalizuj poniższy tekst OCR (zawiera 4 rotacje: 0°/90°/180°/270°) i wyodrębnij dane pojazdu. Zwróć WYŁĄCZNIE JSON bez markdown:
-{"nrRej":"","dataRej":"DD.MM.RRRR","marka":"","typ":"","vin":"17 znakow","dmcKg":"tylko cyfry","dmcZespolu":"tylko cyfry","masaWlKg":"tylko cyfry","liczbaOsi":"1-5","kategoria":"np N3","pojSilnika":"tylko cyfry cm3","mocKW":"tylko cyfry","paliwo":"ON lub PB lub LPG","miejscaSied":"tylko cyfry","rokProd":"4 cyfry"}
+{"nrRej":"","dataRej":"DD.MM.RRRR","marka":"","typ":"","vin":"17 znakow","dmcKg":"F.1 cyfry z ŻÓŁTEJ tabeli DR NIE z sekcji homologacji","dmcKg2":"F.2 cyfry","dmcZespolu":"F.3 cyfry musi być >= F.1","masaWlKg":"G cyfry masa własna musi być < F.1","liczbaOsi":"1-5","kategoria":"np N3","pojSilnika":"tylko cyfry cm3","mocKW":"tylko cyfry","paliwo":"ON lub PB lub LPG","miejscaSied":"tylko cyfry","rokProd":"4 cyfry"}
 
 Tekst OCR:\n${combinedText.slice(0,6000)}`;
         const aiResp=await fetch(apiUrl+'/api/ai/chat',{
@@ -2792,9 +2833,13 @@ Tekst OCR:\n${combinedText.slice(0,6000)}`;
 function _fillOcrFields(d){
   const fill=(id,val)=>{const el=document.getElementById('ocrf-'+id);if(el&&val&&String(val).trim()&&String(val).trim()!=='null'&&String(val).trim()!=='undefined'){el.value=String(val).trim();el.style.borderColor='var(--green)';el.style.background='#f0fff0';}};
   fill('nrRej',d.nrRej);fill('dataRej',d.dataRej);fill('marka',d.marka);fill('typ',d.typ);
-  fill('vin',d.vin);fill('dmcKg',d.dmcKg);fill('dmcZespolu',d.dmcZespolu);fill('masaWlKg',d.masaWlKg);
+  fill('vin',d.vin);fill('dmcKg',d.dmcKg);fill('dmcKg2',d.dmcKg2);fill('dmcZespolu',d.dmcZespolu);fill('masaWlKg',d.masaWlKg);
   fill('liczbaOsi',d.liczbaOsi);fill('kategoria',d.kategoria);fill('pojSilnika',d.pojSilnika);
   fill('mocKW',d.mocKW);fill('paliwo',d.paliwo);fill('miejscaSied',d.miejscaSied);fill('rokProd',d.rokProd);
+  // Przelicz ładowność po wypełnieniu pól
+  const _f2=parseFloat(d.dmcKg2)||0,_f1=parseFloat(d.dmcKg)||0,_g=parseFloat(d.masaWlKg)||0,_base=_f2||_f1;
+  const _elL=document.getElementById('ocrf-ladownosc');
+  if(_elL&&_base&&_g&&_base>_g)_elL.value=String(_base-_g);
 }
 
 async function extractOcrWithVision(){
@@ -2849,7 +2894,7 @@ async function extractOcrWithAI(){
     if(!apiUrl)throw new Error('Brak adresu API — zaloguj się');
     const token=localStorage.getItem('cf_token');
     const prompt=`Jesteś ekspertem od polskich dowodów rejestracyjnych. Przeanalizuj poniższy tekst OCR (zawiera 4 rotacje: 0°/90°/180°/270°) i wyodrębnij dane pojazdu. Zwróć WYŁĄCZNIE JSON bez markdown:
-{"nrRej":"","dataRej":"DD.MM.RRRR","marka":"","typ":"","vin":"17 znakow","dmcKg":"tylko cyfry","dmcZespolu":"tylko cyfry","masaWlKg":"tylko cyfry","liczbaOsi":"1-5","kategoria":"np N3","pojSilnika":"tylko cyfry cm3","mocKW":"tylko cyfry","paliwo":"ON lub PB lub LPG","miejscaSied":"tylko cyfry","rokProd":"4 cyfry"}
+{"nrRej":"","dataRej":"DD.MM.RRRR","marka":"","typ":"","vin":"17 znakow","dmcKg":"F.1 cyfry z ŻÓŁTEJ tabeli DR NIE z sekcji homologacji","dmcKg2":"F.2 cyfry","dmcZespolu":"F.3 cyfry musi być >= F.1","masaWlKg":"G cyfry masa własna musi być < F.1","liczbaOsi":"1-5","kategoria":"np N3","pojSilnika":"tylko cyfry cm3","mocKW":"tylko cyfry","paliwo":"ON lub PB lub LPG","miejscaSied":"tylko cyfry","rokProd":"4 cyfry"}
 
 Tekst OCR:
 ${rawText.slice(0,6000)}`;
@@ -2964,25 +3009,34 @@ function parseRegistrationDoc(combinedOcrText){
   if(d2M&&!d.typ)d.typ=d2M[1].trim();
 
   // ============================================================
-  // 7. DMC F.1 — bez wymaganego "kg", szerokie wzorce
+  // 7. DMC F.1/F.2/F.3 — szukaj najpierw w 90°/270° (prawidłowa orientacja DR)
+  //    0° skan może zawierać wartości z sekcji homologacji (nagłówek) które są błędne
   // ============================================================
-  // F.1 (lub F1, F-1, F/1, Fi, Ft, F:1) + liczba 500-200000
-  const f1M=t.match(/F[\s.:\-]?[1lI!i]\s*[:\|\-]?\s*(\d{3,6})/i);
+  const _sec90 =(t.split('---90---\n')[1]||'').split('---')[0];
+  const _sec270=(t.split('---270---\n')[1]||'').split('---')[0];
+  const _dmcSrc=_sec90+'\n'+_sec270;  // preferuj te sekcje
+  const _fmatch=(pat)=>_dmcSrc.match(pat)||t.match(pat);
+
+  const f1M=_fmatch(/F[\s.:\-]?[1lI!i]\s*[:\|\-]?\s*(\d{3,6})/i);
   if(f1M){const v=parseInt(f1M[1]);if(v>=500&&v<=200000)d.dmcKg=String(v);}
-  // F.3 — DMC zespołu
-  const f3M=t.match(/F[\s.:\-]?3\s*[:\|\-]?\s*(\d{3,6})/i);
+  const f3M=_fmatch(/F[\s.:\-]?3\s*[:\|\-]?\s*(\d{3,6})/i);
   if(f3M){const v=parseInt(f3M[1]);if(v>=500&&v<=200000)d.dmcZespolu=String(v);}
-  // F.2 — jako fallback dla dmcZespolu
-  if(!d.dmcZespolu){
-    const f2M=t.match(/F[\s.:\-]?2\s*[:\|\-]?\s*(\d{3,6})/i);
-    if(f2M){const v=parseInt(f2M[1]);if(v>=500&&v<=200000)d.dmcZespolu=String(v);}
+  const f2M=_fmatch(/F[\s.:\-]?2\s*[:\|\-]?\s*(\d{3,6})/i);
+  if(f2M){const v=parseInt(f2M[1]);if(v>=500&&v<=200000)d.dmcKg2=String(v);}
+
+  // Walidacja: F.3 musi być >= F.1 (jeśli nie — wartości mogą być zamienione miejscami)
+  if(d.dmcKg&&d.dmcZespolu&&parseInt(d.dmcKg)>parseInt(d.dmcZespolu)){
+    const tmp=d.dmcKg;d.dmcKg=d.dmcZespolu;d.dmcZespolu=tmp;
   }
+
   // Fallback: wiersz z 3 dużymi liczbami (tabela F1/F2/F3 lub F1/G/F3)
+  const _rowSrc=_dmcSrc||t;
   if(!d.dmcKg){
-    const mRow=t.match(/(\d{4,6})\D{1,10}(\d{4,6})\D{1,10}(\d{4,6})/);
+    const mRow=_rowSrc.match(/(\d{4,6})\D{1,10}(\d{4,6})\D{1,10}(\d{4,6})/);
     if(mRow){
-      const nums=[parseInt(mRow[1]),parseInt(mRow[2]),parseInt(mRow[3])].filter(n=>n>=500&&n<=200000);
+      const nums=[parseInt(mRow[1]),parseInt(mRow[2]),parseInt(mRow[3])].filter(n=>n>=500&&n<=200000).sort((a,b)=>a-b);
       if(nums.length>=1)d.dmcKg=String(nums[0]);
+      if(nums.length>=2&&!d.dmcKg2)d.dmcKg2=String(nums[1]);
       if(nums.length>=3)d.dmcZespolu=String(nums[nums.length-1]);
     }
   }
@@ -3039,10 +3093,13 @@ function parseRegistrationDoc(combinedOcrText){
   }
 
   // ============================================================
-  // 11. Masa własna (G) — "kg" niewymagane
+  // 11. Masa własna (G) — szukaj najpierw w 90°/270° (unikaj sekcji homologacji)
   // ============================================================
-  const gM=t.match(/\bG[\s:|\-]?\s*(\d{3,6})(?:\s*(?:kg|Kg|KG))?/i);
+  const gM=_dmcSrc.match(/\bG\s*[:\|]?\s*(\d{4,6})\s*(?:kg|Kg|KG)?/i)
+          ||t.match(/\bG\s*[:\|]?\s*(\d{4,6})\s*(?:kg|Kg|KG)?/i);
   if(gM){const v=parseInt(gM[1]);if(v>=100&&v<=100000)d.masaWlKg=String(v);}
+  // Walidacja: G musi być mniejsze niż F.1
+  if(d.masaWlKg&&d.dmcKg&&parseInt(d.masaWlKg)>=parseInt(d.dmcKg))delete d.masaWlKg;
 
   // ============================================================
   // 12. Miejsca siedzące (S.1)
@@ -3070,6 +3127,12 @@ function parseRegistrationDoc(combinedOcrText){
 
   // Walidacja VIN (17 znaków, tylko dopuszczalne znaki)
   if(d.vin&&(d.vin.length!==17||!/^[A-HJ-NPR-Z0-9]{17}$/.test(d.vin)))delete d.vin;
+
+  // Normalizacja 0/O w numerze rejestracyjnym (OCR myli zero z literą O)
+  if(d.nrRej){
+    const mm=d.nrRej.match(/^([A-Z]{2,3})(.*)/);
+    if(mm){const suf=mm[2].replace(/(\d)O/g,'$10').replace(/O(\d)/g,'0$1');d.nrRej=mm[1]+suf;}
+  }
 
   // Pewność — wymaga kluczowych pól: nrRej+dataRej obowiązkowe dla WYSOKA
   const found=[d.nrRej,d.vin,d.marka,d.dmcKg,d.dataRej].filter(Boolean).length;
@@ -3150,7 +3213,7 @@ function showManualForm(d,rawText,conf){
     </div>
 
     <div style="background:var(--blue-light);border-radius:var(--radius);padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--blue-dark)">
-      <strong>Legenda pól:</strong> A=Nr rej. · B=Data 1.rej. · D.1=Marka · D.2=Typ · E=VIN · F.1=DMC (kg) · F.3=DMC zesp. · L=Osie · P.3=Paliwo · J=Kategoria · S.1=Miejsca
+      <strong>Legenda pól:</strong> A=Nr rej. · B=Data 1.rej. · D.1=Marka · D.2=Typ · E=VIN · F.1=DMC · F.2=DMC z ład. · F.3=DMC zesp. · G=Masa wł. · L=Osie · P.3=Paliwo · J=Kategoria · S.1=Miejsca
     </div>
 
     <div class="fg" style="gap:12px">
@@ -3159,9 +3222,15 @@ function showManualForm(d,rawText,conf){
       ${field('marka','🚛 D.1 — Marka','np. SCANIA',d.marka,'')}
       ${field('typ','D.2 — Typ / Model','np. R540',d.typ,'')}
       ${field('vin','🔢 E — Numer VIN','17 znaków',d.vin,'17 znaków')}
-      ${field('dmcKg','⚖️ F.1 — DMC pojazdu (kg)','np. 27000',d.dmcKg,'kg')}
+      ${field('dmcKg','⚖️ F.1 — DMC pojazdu (kg)','np. 18000',d.dmcKg,'kg')}
+      ${field('dmcKg2','📦 F.2 — DMC z ładunkiem (kg)','np. 24000',d.dmcKg2,'kg')}
       ${field('dmcZespolu','F.3 — DMC zespołu pojazdów (kg)','np. 40000',d.dmcZespolu,'kg — dla przyczep!')}
       ${field('masaWlKg','G — Masa własna (kg)','np. 8200',d.masaWlKg,'kg')}
+      <div class="f">
+        <label>Ładowność (obliczona)<span style="font-size:10px;font-weight:400;color:var(--text3);margin-left:6px">= F.2 − G (lub F.1 − G)</span></label>
+        <input id="ocrf-ladownosc" class="fi" readonly placeholder="— auto —" value="${(()=>{const f2=parseFloat(d.dmcKg2)||0,f1=parseFloat(d.dmcKg)||0,g=parseFloat(d.masaWlKg)||0,base=f2||f1;return(base&&g&&base>g)?String(base-g):'';})()}"
+          style="background:var(--bg3);cursor:default;color:var(--text2)">
+      </div>
       ${field('liczbaOsi','L — Liczba osi pojazdu','np. 2',d.liczbaOsi,'1–5')}
       <div class="f">
         <label>Rodzaj zawieszenia</label>
@@ -3187,6 +3256,21 @@ function showManualForm(d,rawText,conf){
 
   document.getElementById('ocr-result').innerHTML=html;
 
+  // Live kalkulator Ładowności
+  setTimeout(()=>{
+    const calcL=()=>{
+      const f2=parseFloat(document.getElementById('ocrf-dmcKg2')?.value)||0;
+      const f1=parseFloat(document.getElementById('ocrf-dmcKg')?.value)||0;
+      const g=parseFloat(document.getElementById('ocrf-masaWlKg')?.value)||0;
+      const base=f2||f1;
+      const el=document.getElementById('ocrf-ladownosc');
+      if(el){el.value=(base&&g&&base>g)?String(base-g):'';}
+    };
+    document.getElementById('ocrf-dmcKg2')?.addEventListener('input',calcL);
+    document.getElementById('ocrf-dmcKg')?.addEventListener('input',calcL);
+    document.getElementById('ocrf-masaWlKg')?.addEventListener('input',calcL);
+  },50);
+
   // Dodaj do historii
   if(d.nrRej){
     ocrHistory.unshift({ts:new Date().toLocaleTimeString('pl-PL'),nrRej:d.nrRej,marka:d.marka||'',pewnosc:d.pewnosc||'?',found:false});
@@ -3199,7 +3283,7 @@ function submitManualForm(){
   const g=id=>document.getElementById('ocrf-'+id)?.value?.trim()||null;
   const d={
     nrRej:g('nrRej'),dataRej:g('dataRej'),marka:g('marka'),typ:g('typ'),vin:g('vin'),
-    dmcKg:g('dmcKg'),dmcZespolu:g('dmcZespolu'),masaWlKg:g('masaWlKg'),
+    dmcKg:g('dmcKg'),dmcKg2:g('dmcKg2'),dmcZespolu:g('dmcZespolu'),masaWlKg:g('masaWlKg'),
     liczbaOsi:g('liczbaOsi'),zawieszenie:document.getElementById('ocrf-zawieszenie')?.value||'pneumatyczne',
     paliwo:g('paliwo'),pojSilnika:g('pojSilnika'),mocKW:g('mocKW'),
     miejscaSied:g('miejscaSied'),kategoria:g('kategoria'),rokProd:g('rokProd'),
@@ -3238,15 +3322,24 @@ function openUpdateModal(vehId,d){
   if(!v)return;
   pendingVehId=vehId;
 
+  const _ladownoscCalc=(dmc2,f1,masaWl)=>{const base=parseFloat(dmc2)||parseFloat(f1)||0;const g=parseFloat(masaWl)||0;return(base&&g&&base>g)?String(base-g):null;};
   const map=[
     {label:'VIN (E)',key:'vin',newVal:d.vin},
     {label:'DMC pojazdu kg (F.1)',key:'dmc',newVal:d.dmcKg?parseFloat(d.dmcKg):null},
+    {label:'DMC z ładunkiem (F.2)',key:'dmcKg2',newVal:d.dmcKg2?parseFloat(d.dmcKg2):null},
     {label:'DMC zesp. kg (F.3)',key:'dmcZespolu',newVal:d.dmcZespolu?parseFloat(d.dmcZespolu):null},
+    {label:'Masa własna kg (G)',key:'masaWlasna',newVal:d.masaWlKg?parseInt(d.masaWlKg):null},
+    {label:'Ładowność (F.2−G)',key:'ladownosc',newVal:_ladownoscCalc(d.dmcKg2,d.dmcKg,d.masaWlKg)},
     {label:'Liczba osi (L)',key:'osie',newVal:d.liczbaOsi?parseInt(d.liczbaOsi):null},
     {label:'Zawieszenie (§17)',key:'zawieszenie',newVal:d.zawieszenie},
     {label:'Rok produkcji',key:'rok',newVal:d.rokProd?parseInt(d.rokProd):null},
     {label:'Marka (D.1)',key:'marka',newVal:d.marka},
     {label:'Model (D.2)',key:'model',newVal:d.typ},
+    {label:'Paliwo (P.3)',key:'paliwo',newVal:d.paliwo},
+    {label:'Pojemność cm³ (P.1)',key:'pojSilnika',newVal:d.pojSilnika?parseInt(d.pojSilnika):null},
+    {label:'Moc kW (P.2)',key:'mocKW',newVal:d.mocKW?parseInt(d.mocKW):null},
+    {label:'Miejsca siedz. (S.1)',key:'miejscaSied',newVal:d.miejscaSied?parseInt(d.miejscaSied):null},
+    {label:'Kategoria DR (J)',key:'katPojazdu',newVal:d.kategoria},
     {label:'Data 1. rejestracji',key:'dataRejestracji',newVal:d.dataRej},
   ].filter(c=>c.newVal!==null&&c.newVal!==undefined&&String(c.newVal).trim()!=='');
 
@@ -3307,6 +3400,9 @@ function applyOcrChanges(vehId,changes){
 function addNewFromOCR(d){
   const dmc=parseFloat((d.dmcKg||'').toString().replace(',','.'))||0;
   if(dmc<=3500){toast('⚠ DMC ≤ 3500 kg — pojazd nie podlega DT-1');return;}
+  const masaWl=parseInt(d.masaWlKg)||0;
+  const dmcF2=parseFloat((d.dmcKg2||'').toString().replace(',','.'))||0;
+  const ladownosc=(dmcF2||dmc)&&masaWl&&(dmcF2||dmc)>masaWl?String((dmcF2||dmc)-masaWl):'';
   const newVeh={
     id:vehs.length,
     nrRej:(d.nrRej||'NOWY').toUpperCase().replace(/\s/g,''),
@@ -3320,7 +3416,15 @@ function addNewFromOCR(d){
     zawieszenie:d.zawieszenie||'pneumatyczne',
     dmcZespolu:parseFloat((d.dmcZespolu||'').toString().replace(',','.'))||0,
     miesiacePodatku:12,
-    dataRejestracji:d.dataRej||''
+    dataRejestracji:d.dataRej||'',
+    dmcKg2:dmcF2||null,
+    masaWlasna:masaWl||null,
+    ladownosc:ladownosc||null,
+    paliwo:d.paliwo||'',
+    pojSilnika:parseInt(d.pojSilnika)||null,
+    mocKW:parseInt(d.mocKW)||null,
+    miejscaSied:parseInt(d.miejscaSied)||null,
+    katPojazdu:d.kategoria||'',
   };
   vehs.push(newVeh);
   selected.add(newVeh.id);
