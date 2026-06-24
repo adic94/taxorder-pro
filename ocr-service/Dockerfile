@@ -12,10 +12,6 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Pre-pobierz modele PaddleOCR podczas budowania obrazu
-# (unika timeout przy pierwszym żądaniu produkcyjnym)
-RUN python -c "from paddleocr import PaddleOCR; PaddleOCR(use_angle_cls=True, lang='en', use_gpu=False, show_log=False)"
-
 COPY . .
 
 EXPOSE 8000
