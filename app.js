@@ -3190,6 +3190,61 @@ function parseRegistrationDoc(combinedOcrText){
 
 
 
+// --- CEPiK — uzupełnianie formularza OCR danymi z CEPiK API ---
+// Wymaga skonfigurowanego cepikToken lub cepikConsumerKey (zakładka CEPiK)
+async function cepikFillOcrForm(){
+  const nrRej=(document.getElementById('ocrf-nrRej')?.value||'').trim().toUpperCase().replace(/\s/g,'');
+  if(!nrRej){toast('⚠ Najpierw wpisz lub zeskanuj numer rejestracyjny');return;}
+  if(!cepikToken&&!cepikConsumerKey){
+    toast('⚠ CEPiK nie skonfigurowany — przejdź do zakładki CEPiK i dodaj klucze API');return;
+  }
+  const btn=document.getElementById('ocrf-cepik-btn');
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> CEPiK...';}
+  try{
+    const json=await cepikFetch(nrRej,getWoj(nrRej));
+    const items=json?.data||[];
+    if(!items.length){toast('⚠ Pojazd '+nrRej+' nie znaleziony w CEPiK — sprawdź numer');return;}
+    const attrs=items[0]?.attributes||{};
+    const d=parseCepikAttrs(attrs);
+
+    // Mapowanie pól CEPiK → ID formularza OCR
+    const _fill=(id,val,color='var(--blue)')=>{
+      const el=document.getElementById('ocrf-'+id);
+      if(el&&val!=null&&String(val).trim()){
+        el.value=String(val).trim();
+        el.style.borderColor=color;el.style.background='#eef4ff';
+      }
+    };
+    _fill('marka',d.marka);
+    _fill('typ',d.model);               // D.2 = CEPIK model
+    _fill('dmcKg',d.dmc);               // F.1
+    _fill('dmcZespolu',d.dmcZespolu);   // F.3
+    _fill('masaWlKg',d.masaWlasna);     // G
+    _fill('liczbaOsi',d.osie);          // L
+    _fill('paliwo',d.paliwo);           // P.3
+    _fill('pojSilnika',d.pojSilnika);   // P.1
+    _fill('mocKW',d.mocKW);             // P.2
+    _fill('rokProd',d.rok);             // rok produkcji
+    _fill('dataRej',d.dataRejestracji); // B
+    // VIN — CEPIK zwraca jako 'numer-vin'
+    const vin=attrs['numer-vin']||attrs['vin'];
+    if(vin&&/^[A-HJ-NPR-Z0-9]{17}$/.test(String(vin).trim()))_fill('vin',vin);
+    // Zawieszenie
+    if(d.zawieszenie){const sel=document.getElementById('ocrf-zawieszenie');if(sel)sel.value=d.zawieszenie;}
+    // Przelicz ładowność
+    const base=parseFloat(d.dmc)||0,g=parseFloat(d.masaWlasna)||0;
+    const elL=document.getElementById('ocrf-ladownosc');
+    if(elL&&base&&g&&base>g)elL.value=String(base-g);
+
+    const cnt=Object.values(d).filter(v=>v!=null).length;
+    toast('✅ CEPiK: uzupełniono '+cnt+' pól dla '+nrRej+' — pola zaznaczone na niebiesko');
+  }catch(e){
+    toast('⚠ CEPiK: '+e.message.slice(0,80));
+  }finally{
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-database-search"></i> Uzupełnij z CEPiK';}
+  }
+}
+
 // --- FORMULARZ RĘCZNY Z WYNIKAMI OCR ---
 function showManualForm(d,rawText,conf){
   window._ocrLastRawText = rawText||'';
@@ -3235,6 +3290,9 @@ function showManualForm(d,rawText,conf){
         </button>
         <button id="ocr-ai-btn" onclick="extractOcrWithAI()" style="background:var(--bg3);color:var(--text1);border:1px solid var(--border);padding:9px 14px;border-radius:var(--radius);cursor:pointer;font-size:12px;display:inline-flex;align-items:center;gap:5px">
           <i class="ti ti-brain"></i> AI z tekstu OCR
+        </button>
+        <button id="ocrf-cepik-btn" onclick="cepikFillOcrForm()" style="background:#059669;color:#fff;border:none;padding:9px 14px;border-radius:var(--radius);cursor:pointer;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:5px" title="Uzupełnij dane z bazy CEPiK (wymaga skonfigurowanych kluczy API)">
+          <i class="ti ti-database-search"></i> Uzupełnij z CEPiK
         </button>
         <span style="font-size:11px;color:var(--text3)">AI Vision widzi obraz bezpośrednio — znacznie dokładniejszy</span>
       </div>`;
@@ -4835,7 +4893,13 @@ const CEPIK_TOKEN_URL = 'https://api-cpa.gov.pl/token';
 const CEPIK_API_URL   = 'https://api.cepik.gov.pl';
 
 // Mapa prefiksów → województwa
-const WOJ_MAP = {W:'14',WA:'14',WB:'14',WD:'02',WE:'10',WF:'08',WG:'14',
+const WOJ_MAP = {
+  // 3-literowe (precyzyjniejsze — sprawdzaj przed 2-literowymi)
+  WPR:'14',WPP:'14',WPY:'14',WPZ:'14', // Mazowieckie — Pruszków i okolice
+  WMA:'14',WMI:'14',WML:'14',          // Mazowieckie — Mińsk Maz., Milanówek
+  WSK:'14',WSR:'14',                   // Mazowieckie — Sochaczew, Sierpc
+  // 2-literowe
+  W:'14',WA:'14',WB:'14',WD:'02',WE:'10',WF:'08',WG:'14',
   WK:'12',WL:'06',WN:'28',WO:'16',WP:'30',WR:'18',WS:'24',WT:'26',WZ:'32',
   K:'12',G:'22',P:'30',B:'20',C:'04',D:'02',E:'10',F:'08',L:'06',
   N:'28',O:'16',R:'18',S:'24',T:'26',Z:'32'};
@@ -5082,9 +5146,9 @@ async function getValidToken() {
 // --- Województwo z nr rej ---
 function getWoj(nrRej) {
   const nr = (nrRej||'').toUpperCase().replace(/\s/g,'');
-  // Spróbuj 2 pierwsze litery
+  // 3 litery (np. WPR → Mazowieckie), potem 2, potem 1
+  if(WOJ_MAP[nr.slice(0,3)]) return WOJ_MAP[nr.slice(0,3)];
   if(WOJ_MAP[nr.slice(0,2)]) return WOJ_MAP[nr.slice(0,2)];
-  // Potem 1 literę
   if(WOJ_MAP[nr[0]]) return WOJ_MAP[nr[0]];
   return document.getElementById('cepik-woj')?.value||'14';
 }

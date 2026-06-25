@@ -730,28 +730,37 @@ async function handleAztec(request) {
 //      — Cloudflare Queues (beta) lub Durable Objects jako koordynator kolejki
 //
 // Sanityzacja i walidacja pól zwróconych przez AI.
-// Odrzuca dane które łamią podstawowe reguły fizyczne DR.
+// Priorytet: zachowaj F.1 (DMC) — to pole kluczowe dla DT-1.
 function _sanitizeOcrFields(f) {
   if (!f || typeof f !== 'object') return f;
 
-  // nrRej: usuń spacje (OCR często wstawia spację między prefix a sufiks)
-  if (f.nrRej) f.nrRej = String(f.nrRej).replace(/\s+/g, '').toUpperCase().slice(0, 10);
-
-  // Konwertuj wartości liczbowe (AI czasem zwraca stringa ze spacjami)
-  const num = v => { const n = parseFloat(String(v || '').replace(/\s/g, '')); return isNaN(n) ? null : n; };
-  const f1 = num(f.dmcKg), f2 = num(f.dmcKg2), f3 = num(f.dmcZespolu), g = num(f.masaWlKg);
-
-  // G (masa własna) MUSI być < F.1 (DMC) — jeśli nie, dane F.1 lub G są błędne
-  if (f1 !== null && g !== null && g >= f1) {
-    // Jeśli G jest wiarygodne (duże) a F.1 podejrzanie małe — wyczyść F.1
-    if (g > 3000 && f1 < g * 0.6) { delete f.dmcKg; }
-    else { delete f.masaWlKg; }
+  // nrRej: usuń spacje; musi zaczynać się od 2-3 wielkich liter (tablica polska)
+  if (f.nrRej) {
+    f.nrRej = String(f.nrRej).replace(/\s+/g, '').toUpperCase().slice(0, 10);
+    if (!/^[A-Z]{2,3}[A-Z0-9]/.test(f.nrRej)) delete f.nrRej;
   }
 
-  // F.1 i F.2 powinny być zbliżone — jeśli F.1 << F.2 (mniej niż 30% F.2), F.1 podejrzane
+  // D.2 (typ) to kod techniczny (SZN1E, R540) — NIE opis rodzaju pojazdu
+  if (f.typ && /SAMOCH[OÓ]D|SPECJALN|OSOBOW|CI[ĘE][ZŻ]AR|CI[ĄA]GNIK|AUTOBUS/i.test(f.typ)) {
+    delete f.typ;
+  }
+
+  const num = v => { const n = parseFloat(String(v || '').replace(/[^\d.]/g, '')); return isNaN(n) ? null : n; };
+  const f1 = num(f.dmcKg), f2 = num(f.dmcKg2), g = num(f.masaWlKg);
+
+  // G >= F.1: fizycznie niemożliwe — ZAWSZE usuwamy G, nigdy F.1 (F.1 = podstawa podatku DT-1)
+  if (f1 !== null && g !== null && g >= f1) delete f.masaWlKg;
+
+  // F.1 << F.2 przy dużych wartościach: F.2 nie może być > 3x F.1 (byłoby nielogiczne)
   if (f1 !== null && f2 !== null && f1 < f2 * 0.3 && f2 > 5000) delete f.dmcKg;
 
-  // dataRej: odrzuć daty z przyszłości (termin badania technicznego, nie data rejestracji)
+  // O.1 >= O.2: przyczepa hamowana zawsze ma wyższą dop. masę niż niehamowana
+  const o1 = num(f.dmcPrzyczHam), o2 = num(f.dmcPrzyczNieham);
+  if (o1 !== null && o2 !== null && o1 < o2) {
+    [f.dmcPrzyczHam, f.dmcPrzyczNieham] = [String(o2), String(o1)];
+  }
+
+  // dataRej: odrzuć daty z przyszłości (termin przeglądu, nie data rejestracji)
   if (f.dataRej) {
     const parts = String(f.dataRej).split('.');
     if (parts.length === 3) {
@@ -769,9 +778,9 @@ async function handleAIOCR(request, env) {
   const { imageBase64, mimeType = 'image/jpeg' } = body;
   if (!imageBase64) return err('Brak obrazu (imageBase64)');
 
-  const prompt = `Jesteś ekspertem od polskich dowodów rejestracyjnych pojazdów. Przeanalizuj ten skan dokumentu (może być obrócony o 90° lub 180°) i wyodrębnij wszystkie pola.
-Zwróć WYŁĄCZNIE obiekt JSON — bez markdown, bez komentarzy, tylko surowy JSON:
-{"nrRej":"pole A np WA4789F","dataRej":"pole B format DD.MM.RRRR","marka":"pole D.1","typ":"pole D.2 typ/model","vin":"pole E 17 znakow","dmcKg":"pole F.1 kg z ŻÓŁTEJ tabeli rejestracyjnej — jesli widzisz dwie wartosci F.1 wybierz WIEKSZA","dmcKg2":"pole F.2 kg","dmcZespolu":"pole F.3 kg musi byc >= F.1","masaWlKg":"pole G kg masa wlasna musi byc < F.1","liczbaOsi":"pole L cyfra 1-5","kategoria":"pole J np N1 N2 N3 M1","pojSilnika":"pole P.1 tylko cyfry cm3","mocKW":"pole P.2 tylko cyfry kW","paliwo":"pole P.3: D=ON B=benzyna G=LPG","miejscaSied":"pole S.1 tylko cyfry","rokProd":"rok produkcji 4 cyfry","dmcPrzyczHam":"pole O.1 kg dop. masa przyczepy z hamulcem","dmcPrzyczNieham":"pole O.2 kg dop. masa przyczepy bez hamulca","nrHomolog":"pole K numer swiadectwa homologacji np e32*IV18/850*NI5391"}`;
+  const prompt = `Jestes ekspertem od polskich Dowodow Rejestracyjnych (DR). Dokument ma 3 sekcje: bezowa (homologacja), zolta tabela (dane rejestracyjne) i niebieska (dane pojazdu). Wyodrebnij pola TYLKO z oznaczeniami literowymi A/B/D.1/D.2/E/F.1/F.2/F.3/G/J/K/L/O.1/O.2/P.1/P.2/P.3/S.1.
+Zwroc WYLACZNIE JSON bez markdown:
+{"nrRej":"A — numer rejestracyjny np WPR0365T lub WA0677L (2-3 wielkie litery + cyfry/litery, BEZ spacji)","dataRej":"B — data PIERWSZEJ rejestracji DD.MM.RRRR (nie termin przegladu)","marka":"D.1 — marka np MAN lub SCANIA","typ":"D.2 — kod techniczny np SZN1E lub R490 (NIE SAMOCHOD SPECJALNY ani opis rodzaju)","vin":"E — 17 znakow VIN","dmcKg":"F.1 — DMC kg z ZOLTEJ tabeli (jesli dwie wartosci F.1 wybierz WIEKSZA)","dmcKg2":"F.2 — DMC z ladunkiem kg","dmcZespolu":"F.3 — DMC zespolu kg (>= F.1)","masaWlKg":"G — masa wlasna kg (MUSI byc mniejsza niz F.1)","liczbaOsi":"L — liczba osi 1-5","kategoria":"J — kategoria np N1 N2 N3 M1","pojSilnika":"P.1 — pojemnosc cm3 tylko cyfry","mocKW":"P.2 — moc kW tylko cyfry","paliwo":"P.3 — D lub B lub G","miejscaSied":"S.1 — miejsca siedzace cyfra","rokProd":"rok produkcji 4 cyfry","dmcPrzyczHam":"O.1 — masa przyczepy z hamulcem kg","dmcPrzyczNieham":"O.2 — masa przyczepy bez hamulca kg (< O.1)","nrHomolog":"K — nr homologacji np e32*IV18/858*NI15391"}`;
 
   // ── Próba 0: Python PaddleOCR Service (najdokładniejszy — przestrzenne bounding boxy) ──
   if (env.OCR_PYTHON_URL) {
