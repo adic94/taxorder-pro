@@ -1941,6 +1941,75 @@ async function handleRequest(request, env, url, path) {
   return err('Endpoint nie istnieje', 404);
 }
 
+// Cron: wysyła push alerty do wszystkich firm z subskrybentami
+async function sendScheduledPushAlerts(env) {
+  if (!env.VAPID_PRIVATE_KEY || !env.VAPID_PUBLIC_KEY) return;
+
+  const WARN_DAYS = 14;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  function daysUntil(dateStr) {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    if (isNaN(d)) return null;
+    return Math.round((d - today) / 86400000);
+  }
+
+  const subsRows = await env.DB.prepare('SELECT DISTINCT company_id FROM push_subscriptions').all();
+  const companies = (subsRows.results || []).map(r => r.company_id);
+  if (!companies.length) return;
+
+  for (const company_id of companies) {
+    const subRows = await env.DB.prepare('SELECT * FROM push_subscriptions WHERE company_id=?').bind(company_id).all();
+    const subs = subRows.results || [];
+    if (!subs.length) continue;
+
+    const vehRows = await env.DB.prepare('SELECT nr_rej, data FROM vehicles WHERE company_id=?').bind(company_id).all();
+    const alerts = [];
+
+    for (const row of vehRows.results || []) {
+      let v = {};
+      try { v = JSON.parse(row.data || '{}'); } catch {}
+      const checks = [
+        { label: 'OC',              date: v.ocEnd },
+        { label: 'AC',              date: v.acEnd },
+        { label: 'Przegląd tech.',  date: v.nextInspection },
+        ...(v.hasUdt && v.udtNextDate     ? [{ label: 'Badanie UDT',      date: v.udtNextDate }]    : []),
+        ...(v.hasTacho && v.tachoNextCalib? [{ label: 'Legalizacja tacho', date: v.tachoNextCalib }] : []),
+        ...(v.tireNextChange              ? [{ label: 'Zmiana opon',       date: v.tireNextChange }]  : []),
+      ];
+      for (const { label, date } of checks) {
+        const days = daysUntil(date);
+        if (days === null || days > WARN_DAYS) continue;
+        alerts.push({ nrRej: row.nr_rej, label, days, expired: days < 0 });
+      }
+    }
+
+    if (!alerts.length) continue;
+    alerts.sort((a, b) => a.days - b.days);
+
+    const first = alerts[0];
+    const expiredCount = alerts.filter(a => a.expired).length;
+    const title = expiredCount
+      ? `TaxOrder — ${expiredCount} termin${expiredCount > 1 ? 'y' : ''} WYGASŁ${expiredCount > 1 ? 'Y' : ''}`
+      : `TaxOrder — ${alerts.length} termin${alerts.length > 1 ? 'y wygasają' : ' wygasa'} wkrótce`;
+    const message = `${first.nrRej}: ${first.label} ${first.expired ? `wygasło ${Math.abs(first.days)} dni temu` : `wygasa za ${first.days} dni`}${alerts.length > 1 ? ` (+${alerts.length - 1} więcej)` : ''}`;
+
+    const payload = { title, body: message, tag: 'taxorder-cron-alert', url: '/?page=pojazdy', urgent: expiredCount > 0 };
+    const results = await Promise.allSettled(
+      subs.map(s => sendPushMsg({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth_key } }, payload, env))
+    );
+
+    const expiredSubs = subs.filter((_, i) => results[i].status === 'fulfilled' && results[i].value.status === 410);
+    for (const s of expiredSubs) {
+      await env.DB.prepare('DELETE FROM push_subscriptions WHERE id=?').bind(s.id).run();
+    }
+
+    console.log(`[Push cron] ${company_id}: ${alerts.length} alertów → ${subs.length} subskrybentów`);
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') {
@@ -1966,6 +2035,9 @@ export default {
 
   // Cron trigger (wrangler.toml: crons = ["0 3 * * *"])
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(cleanSessions(env));
+    ctx.waitUntil(Promise.all([
+      cleanSessions(env),
+      sendScheduledPushAlerts(env),
+    ]));
   },
 };
