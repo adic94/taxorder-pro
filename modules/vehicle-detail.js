@@ -1384,17 +1384,58 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
   async _syncCepik(vehId) {
     const v = vehs.find(x => x.id === vehId);
     if (!v) return;
-    toast('⏳ Synchronizuję z CEPiK: ' + v.nrRej);
-    if (window.TaxOrderFleetCloud?.syncFromCepik) {
-      const r = await window.TaxOrderFleetCloud.syncFromCepik(v);
-      if (r.ok) {
-        toast('✅ CEPiK: zaktualizowano ' + r.fields + ' pól dla ' + v.nrRej);
-        await window.TaxOrderFleetCloud.loadVehicles(window.currentCompanyId);
-        this.close();
-        if (typeof renderVeh === 'function') renderVeh();
-      } else {
-        toast('⚠ CEPiK: ' + (r.message || r.reason || 'błąd'));
+
+    // Pobierz lub poproś o token CEPiK
+    let token = (localStorage.getItem('cepik_bearer_token') || '').trim();
+    if (!token) {
+      token = prompt(
+        'Podaj Bearer token CEPiK (z portalu cpa.gov.pl):\n\n' +
+        '1. Zaloguj się na https://cpa.gov.pl\n' +
+        '2. Wyszukaj API "CEPiK" → Subskrybuj\n' +
+        '3. Wygeneruj token (OAuth2 client_credentials)\n\n' +
+        'Token zostanie zapamiętany lokalnie.'
+      );
+      if (!token?.trim()) return;
+      localStorage.setItem('cepik_bearer_token', token.trim());
+    }
+
+    toast('⏳ CEPiK: pobieranie danych dla ' + v.nrRej + '…');
+    const woj = _cepikWojFromNrRej(v.nrRej);
+
+    try {
+      const resp = await fetch(
+        `${window.CF_WORKER_URL}/api/cepik/pojazdy?nr=${encodeURIComponent(v.nrRej)}&woj=${woj}`,
+        { headers: { 'X-Cepik-Token': token }, signal: AbortSignal.timeout(15000) }
+      );
+
+      if (resp.status === 401 || resp.status === 403) {
+        localStorage.removeItem('cepik_bearer_token');
+        return toast('⚠ CEPiK: token wygasł lub brak uprawnień — kliknij ponownie i podaj nowy token.');
       }
+      if (!resp.ok) {
+        const txt = await resp.text().catch(() => '');
+        return toast(`⚠ CEPiK HTTP ${resp.status}: ${txt.slice(0, 120)}`);
+      }
+
+      const payload = await resp.json();
+      const attrs = payload?.data?.[0]?.attributes;
+      if (!attrs) return toast('⚠ CEPiK: brak rekordu dla ' + v.nrRej + '. Sprawdź numer rejestracyjny.');
+
+      const formMap = _cepikMapToForm(attrs);
+      let filled = 0;
+      for (const [formId, val] of Object.entries(formMap)) {
+        if (val == null || val === '') continue;
+        const el = document.getElementById('vd-' + formId);
+        if (el) { el.value = val; filled++; }
+      }
+
+      // Zapisz status synchronizacji w obiekcie pojazdu
+      v.cepikSyncStatus = 'ok';
+      v.cepikSyncDate   = new Date().toISOString().slice(0, 10);
+
+      toast(`✅ CEPiK: uzupełniono ${filled} pól dla ${v.nrRej}`);
+    } catch (e) {
+      toast('⚠ CEPiK błąd połączenia: ' + e.message);
     }
   },
 
@@ -1726,3 +1767,43 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
     toast(`✅ OCR: wypełniono ${filled} pól`);
   },
 };
+
+// ─── CEPiK helpers ────────────────────────────────────────────────────────────
+
+function _cepikWojFromNrRej(nrRej) {
+  const WOJ = {
+    // 3-literowe prefiksy → kod województwa (2-cyfrowy)
+    'WGM':'14','WWL':'14','WPR':'14','WAR':'14','WGS':'14',
+    'GDA':'22','KRA':'12','WRO':'02','POZ':'30','LDZ':'10',
+    // 2-literowe
+    'WA':'14','WB':'14','WE':'14','WL':'14','WP':'14','WU':'14','WW':'14','WZ':'14',
+    'GD':'22','KR':'12','WR':'02','PO':'30','LD':'10','LU':'06','LB':'08',
+    'BI':'20','BK':'20','BL':'20','BY':'04','CB':'04','TO':'04',
+    'EL':'10','KI':'26','KN':'12','OP':'16','RZ':'18','SK':'26','SL':'24','SZ':'32','ZG':'08',
+  };
+  const p = (nrRej || '').toUpperCase().replace(/[^A-Z]/g, '');
+  return WOJ[p.slice(0,3)] || WOJ[p.slice(0,2)] || '14';
+}
+
+function _cepikMapToForm(a) {
+  const FUEL = {
+    'benzyna':'benzyna','olej napędowy':'olej napędowy','diesel':'olej napędowy',
+    'gaz (lpg)':'LPG','lpg':'LPG','cng':'CNG','elektryczny':'elektryczny',
+    'hybryda':'hybrydowy','hybryda plug-in':'hybrydowy PHEV',
+  };
+  const rawFuel = Array.isArray(a['rodzaj-paliwa']) ? a['rodzaj-paliwa'][0] : (a['rodzaj-paliwa'] || '');
+  const paliwo  = FUEL[(rawFuel || '').toLowerCase()] || rawFuel;
+  return {
+    dataRej:     a['data-pierwszej-rejestracji-w-kraju']       || '',
+    docWaznyDo:  a['data-waznosci-dowodu-rejestracyjnego']      || '',
+    katPojazdu:  a['kategoria-pojazdu-wg-homologacji']          || '',
+    dmcMax:      a['dopuszczalna-masa-calkowita']               || '',
+    masaWlasna:  a['masa-wlasna']                              || '',
+    pojSilnika:  a['pojemnosc-skokowa-silnika']                 || '',
+    mocKW:       a['maksymalna-moc-netto-silnika']              || '',
+    paliwo,
+    miejscaSied: a['liczba-miejsc-siedzacych']                  || '',
+    numerSilnika:a['numer-silnika']                             || '',
+    kolorNadwozia:a['kolor']                                    || '',
+  };
+}
