@@ -254,6 +254,13 @@ th.sort-th:hover{color:var(--blue)}
 
 /* Overlay — ciemne tło za sidebar na mobile */
 .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:190;opacity:0;transition:opacity .25s}
+
+/* ==================== MODALE (overlay wyśrodkowany, tło przyciemnione) ==================== */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto}
+
+/* Mały przycisk akcji w wierszu tabeli (edytuj/usuń/itp.) */
+.tbtn{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:13px;transition:background .15s,color .15s}
+.tbtn:hover{background:var(--border);color:var(--text)}
 .sidebar-overlay.open{display:block;opacity:1}
 
 /* -------- TABLET ≤ 900px -------- */

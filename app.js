@@ -2,14 +2,14 @@
 const VEHICLES = [{"nrRej":"WGM87205","marka":"Fuso","model":"Canter 9/18","rok":2020,"typ":"Ciężarowy","dmc":8500,"euro":"EURO 6","vin":"TYBFECX1ELDC03229","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WU6647K","marka":"Fuso","model":"Canter 7/15","rok":2020,"typ":"Ciężarowy","dmc":7500,"euro":"EURO 6","vin":"TYBFEB71ELDC04538","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM89755","marka":"Fuso","model":"Canter 7/15 BR","rok":2020,"typ":"Ciężarowy","dmc":7500,"euro":"EURO 6","vin":"TYBFEB71ELDC04728","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WL3597R","marka":"Fuso","model":"Canter 7/15","rok":2020,"typ":"Ciężarowy","dmc":7500,"euro":"EURO 6","vin":"TYBFEB71ELDC07336","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WW024AF","marka":"GFOLLNER","model":"APL 2/4 TL","rok":2015,"typ":"Przyczepa","dmc":14000,"euro":"","vin":"VASAL214YFGPA8689","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WA5535C","marka":"Iveco","model":"EUROCARGO ML75E15","rok":2006,"typ":"Ciężarowy","dmc":7500,"euro":"EURO 3","vin":"ZCFA75B0202483032","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM0065L","marka":"MAN","model":"TGL 8.190-M","rok":2024,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZXRY456838","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ124HW","marka":"MAN","model":"TGE 6.160 5.5T","rok":2024,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ7R9018317","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ122HW","marka":"MAN","model":"TGE 6.160 5.5T","rok":2024,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ2R9018256","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ123HW","marka":"MAN","model":"TGE 6.160 5.5T","rok":2024,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ9R9018285","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ389HM","marka":"MAN","model":"TGL 8.190-M","rok":2024,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZXRP250540","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ390HM","marka":"MAN","model":"TGL 8.190-M","rok":2024,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ9RP250481","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL7611V","marka":"MAN","model":"TGL 8.190-M","rok":2024,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZXRP250487","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL7602V","marka":"MAN","model":"TGL 8.190-M","rok":2024,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ9RP250769","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM8172K","marka":"MAN","model":"TGL 8.190-M","rok":2024,"typ":"Ciężarowy","dmc":8800,"euro":"","vin":"WMA12DZZ1R9250457","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ495HU","marka":"MAN","model":"TGL 8.190-M","rok":2024,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ5RP252776","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ496HU","marka":"MAN","model":"TGL 8.190-M","rok":2024,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ1RP244920","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ883KA","marka":"MAN","model":"TGL 8.190-M","rok":2025,"typ":"Ciężarowy","dmc":8800,"euro":"","vin":"WMA12DZZ3SP315203","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ884KA","marka":"MAN","model":"TGL 8.190-M","rok":2025,"typ":"Ciężarowy","dmc":8800,"euro":"","vin":"WMA12DZZ4SP315257","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ882KA","marka":"MAN","model":"TGL 8.190-M","rok":2025,"typ":"Ciężarowy","dmc":8800,"euro":"","vin":"WMA12DZZ5SP315221","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ881KA","marka":"MAN","model":"TGL 8.190-M","rok":2025,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ2SP315998","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ320KA","marka":"MAN","model":"TGM 4X4-G","rok":2025,"typ":"Ciężarowy","dmc":11990,"euro":"EURO 6","vin":"WMA36DZZ6RP277456","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ321KA","marka":"MAN","model":"TGM 4X4-G","rok":2025,"typ":"Ciężarowy","dmc":11990,"euro":"EURO 6","vin":"WMA36DZZ2RP277518","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ322KA","marka":"MAN","model":"TGM 4X4-G","rok":2025,"typ":"Ciężarowy","dmc":11990,"euro":"EURO 6","vin":"WMA36DZZ9RP277824","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM8572M","marka":"MAN","model":"TGL 8.190-M","rok":2025,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ4SP315226","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM8573M","marka":"MAN","model":"TGL 8.190-M","rok":2025,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ2SP315371","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM8574M","marka":"MAN","model":"TGL 8.190-M","rok":2025,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ4SP315243","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM8575M","marka":"MAN","model":"TGL 8.190-M","rok":2025,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ4SP315209","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WPR7520T","marka":"MAN","model":"TGE 6.160 5.5T","rok":2023,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ2R9007581","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WPR7519T","marka":"MAN","model":"TGE 6.160 5.5T","rok":2023,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ8R9006457","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM0473H","marka":"MAN","model":"TGL 8.190-M","rok":2022,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ2NY443995","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM0472H","marka":"MAN","model":"TGL 8.190-M","rok":2022,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ1NY443986","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM4921H","marka":"MAN","model":"TGL 8.190-M","rok":2022,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ8PY444152","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM4922H","marka":"MAN","model":"TGL 8.190-M","rok":2022,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ9NY443945","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM5469H","marka":"MAN","model":"TGL 8.190-M","rok":2022,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ1PY448110","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM6162J","marka":"MAN","model":"TGL 8.190-M","rok":2023,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ0PY452892","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM6163J","marka":"MAN","model":"TGL 8.190-M","rok":2023,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ7PY453389","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM4268J","marka":"MAN","model":"TGL 8.190-M","rok":2023,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ9PY452938","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM4269J","marka":"MAN","model":"TGL 8.190-M","rok":2023,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ5PY453424","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ521GG","marka":"MAN","model":"TGL 8.190-M","rok":2023,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ3PY452935","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ520GG","marka":"MAN","model":"TGL 8.190-M","rok":2023,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ3PY453275","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ497GH","marka":"MAN","model":"TGL 8.190-M","rok":2023,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ1PY453288","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ496GH","marka":"MAN","model":"TGL 8.190-M","rok":2023,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ3PY453292","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WA5790C","marka":"MAN","model":"TGL 8","rok":2010,"typ":"Ciężarowy","dmc":7500,"euro":"EURO 5","vin":"WMAN03ZZ5AY247514","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WW1670X","marka":"MAN","model":"18.225 LC","rok":2003,"typ":"Ciężarowy","dmc":16000,"euro":"EURO 3","vin":"WMAL87ZZZ3Y113513","status":"Wynajęty","wlasciciel":"KJR Supply"},{"nrRej":"WGM4903C","marka":"MAN","model":"TGL 8.190-G","rok":2021,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ0MY430077","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM4904C","marka":"MAN","model":"TGL 8.190-G","rok":2021,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ6MY430083","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WPR5174P","marka":"MAN","model":"TGE 6.180 5,5T","rok":2021,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ9M9016738","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WPR5173P","marka":"MAN","model":"TGE 6.180 5,5T","rok":2021,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ2M9016001","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM2174H","marka":"MAN","model":"TGL 8.190-M","rok":2022,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZXPY444086","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM2175H","marka":"MAN","model":"TGL 8.190-G","rok":2022,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ9NY443931","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ084KP","marka":"MAN","model":"TGE 6.160 5.5T","rok":2025,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZXT9002765","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ807KL","marka":"MAN","model":"TGE 6.160 5.5T","rok":2025,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ1S9030842","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ806KL","marka":"MAN","model":"TGE 6.160 5.5T","rok":2025,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ3S9024220","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ805KL","marka":"MAN","model":"TGE 6.160 5.5T","rok":2025,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ1S9024829","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ209LJ","marka":"Meprozet","model":"PN-1 asenizacyjna","rok":2025,"typ":"Przyczepa","dmc":16200,"euro":"","vin":"250480012","status":"Wynajęty","wlasciciel":"GCON"},{"nrRej":"WZ274KL","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2025,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V5M33ZXTN354520","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ273KL","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2025,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V5M33Z8TN355150","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ694KR","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2025,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V5M33Z7TN355897","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ724KP","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2025,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V5M33Z6TN356071","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL9652T","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2022,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N221239","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL9625T","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2022,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N215193","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WU7721N","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310591672","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ695FE","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310591671","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ732FE","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2022,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N193696","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL6049T","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310601267","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ960FF","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310601266","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ961FF","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310601265","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ962FF","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310601264","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ093EV","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310582526","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ619EY","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310582527","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ620EY","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310583288","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ952EP","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310532645","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ748EY","marka":"Mercedes","model":"Sprinter 5.5T 4X4","rok":2017,"typ":"Ciężarowy","dmc":5000,"euro":"EURO 6","vin":"WDB9061531N745826","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WZ953EP","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310532644","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ951EP","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310532253","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ369EH","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310532254","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WU6528M","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2021,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N141543","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ931CV","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2021,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N141086","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ930CV","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2021,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N141313","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ929CV","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2021,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N143606","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM9423A","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310509057","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM9424A","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310509401","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM2116C","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310516336","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WL8328R","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310516337","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WZ971CS","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310516335","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ336CR","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310516338","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ493CU","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2021,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N140067","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL1814U","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2021,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N140624","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ491CU","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2021,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N145584","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ772CK","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310504315","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM9630A","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310510109","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM9629A","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310510110","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL4505R","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310496511","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM91914","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310461203","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM95870","marka":"Mercedes","model":"Sprinter 5.5T BR","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N104169","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM95867","marka":"Mercedes","model":"Sprinter 5.5T BR","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N106207","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WB2860V","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N105969","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WB2985V","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N104399","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WL8251P","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310469256","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WB8489U","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N092173","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM89756","marka":"Mercedes","model":"Sprinter 5.5T BR","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N093755","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM91975","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N103276","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM92044","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310467667","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM91998","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N103480","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM89010","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310467074","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WL6526P","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310467945","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WL6527P","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310467944","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM93611","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310467816","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM93664","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310467817","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM93535","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N104398","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM93534","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N104628","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM84083","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"WDB96702310423253","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WW715AR","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310437502","status":"Wynajęty","wlasciciel":"GCON"},{"nrRej":"WB6684U","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N091252","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WWL5562K","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2019,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WDB9071551N054964","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WW7846Y","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2019,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WDB9071551N054963","status":"Wynajęty","wlasciciel":"GCON"},{"nrRej":"WWL2203L","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2019,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WDB9071551N056333","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WWL5561K","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2019,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WDB9071551N056074","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ518GG","marka":"Mercedes","model":"Atego 2-M","rok":2023,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702210663640","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ519GG","marka":"Mercedes","model":"Atego 2-G","rok":2023,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702410663641","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL6680U","marka":"Mercedes","model":"Atego 2-M","rok":2023,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702610663639","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL6681U","marka":"Mercedes","model":"Atego 2-M","rok":2023,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702410663638","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ726GP","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2023,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V5M33Z6PN245154","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ227FT","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2022,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N223371","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ226FT","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2022,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N213977","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ428FL","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310601263","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ846FL","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2022,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N196127","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ266FT","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2023,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N223979","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ264FT","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2022,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N215197","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ594GW","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2023,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V5M33Z4RN269312","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL4360X","marka":"Mercedes","model":"Atego 2-M","rok":2025,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702810823343","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ872KC","marka":"Mercedes","model":"Atego 2-M","rok":2025,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702110823345","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ871KC","marka":"Mercedes","model":"Atego 2-M","rok":2025,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702X10823344","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WE5HX36","marka":"Mercedes","model":"Atego 2-M","rok":2025,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702610823342","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ481KK","marka":"Mercedes","model":"Atego 2-M","rok":2025,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702210821314","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ479KK","marka":"Mercedes","model":"Atego 2-M","rok":2025,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702510823624","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ480KK","marka":"Mercedes","model":"Atego 2-M","rok":2025,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702010821313","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ471KK","marka":"Mercedes","model":"Atego 2-M","rok":2025,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702510821534","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ232HW","marka":"Mercedes","model":"Atego 2-M","rok":2024,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702510769726","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ234HW","marka":"Mercedes","model":"Atego 2-M","rok":2024,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310769725","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ230HW","marka":"Mercedes","model":"Atego 2-M","rok":2024,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702110769724","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ231HW","marka":"Mercedes","model":"Atego 2-M","rok":2024,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702210770333","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ233HW","marka":"Mercedes","model":"Atego 2-M","rok":2024,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702010770332","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ235HW","marka":"Mercedes","model":"Atego 2-M","rok":2024,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702710770005","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ236HW","marka":"Mercedes","model":"Atego 2-M","rok":2024,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702410770334","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM0867L","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2024,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V5M33Z1RN308048","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ121HW","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2024,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V5M33ZXRN307061","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ120HW","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2024,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V5M33Z8RN302067","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WA8920J","marka":"Mercedes","model":"Atego 4X4","rok":2011,"typ":"Ciężarowy","dmc":10500,"euro":"EURO 5","vin":"WDB9763331L548244","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WA9885J","marka":"Mercedes","model":"Actros","rok":2016,"typ":"Ciężarowy","dmc":26000,"euro":"","vin":"WDB96302010057230","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WW239AF","marka":"Pronar","model":"T679/3 wywrotka","rok":2026,"typ":"Przyczepa","dmc":11400,"euro":"","vin":"SZB6793XXT1X00315","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WW564AJ","marka":"Scania","model":"R520","rok":2015,"typ":"Ciężarowy","dmc":26000,"euro":"EURO 6","vin":"YS2R6X20005391826","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ621FY","marka":"Scania","model":"R580","rok":2015,"typ":"Ciężarowy","dmc":30000,"euro":"EURO 6","vin":"YS2R6X20005388005","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WA0677L","marka":"Scania","model":"R490 Szambiarka","rok":2017,"typ":"Ciężarowy","dmc":27000,"euro":"EURO 6","vin":"YS2R6X20005482489","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WA4789F","marka":"Scania","model":"R540 Wodolejka","rok":2021,"typ":"Ciężarowy","dmc":27000,"euro":"EURO 6","vin":"YS2R8X40002177169","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WW117AF","marka":"Sonst","model":"ANH. Hersteller","rok":2016,"typ":"Przyczepa","dmc":18000,"euro":"","vin":"W09TP28471A006V08","status":"Wynajęty","wlasciciel":"GCON"},{"nrRej":"WA1697F","marka":"Volvo","model":"FMX 8x4","rok":2011,"typ":"Ciężarowy","dmc":32000,"euro":"EURO 5","vin":"YV2JG20G9BA714219","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WA2609J","marka":"Volvo","model":"FH 540 Szambiarka","rok":2020,"typ":"Ciężarowy","dmc":32000,"euro":"EURO 6","vin":"YV2RT60G2KA853081","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ899GJ","marka":"Volvo","model":"FMX 6x2","rok":2016,"typ":"Ciężarowy","dmc":28000,"euro":"EURO 6","vin":"YV2XT60C0GA789117","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ464FY","marka":"Volvo","model":"FH 540 Wodolejka","rok":2018,"typ":"Ciężarowy","dmc":32000,"euro":"EURO 6","vin":"YV2RT60C5JA833371","status":"Własny","wlasciciel":"mToilet"}];
 
 // State
-let vehs = VEHICLES.map((v,i) => ({...v, id:i, osie: v.dmc>=12000?3:2, zawieszenie:'pneumatyczne', dmcZespolu:0, miesiacePodatku:12}));
+let vehs = VEHICLES.map((v,i) => ({...v, id:i, osie: v.osie||(((v.dmc||v.dmcMax||0)>=12000)?3:2), zawieszenie:'pneumatyczne', dmcZespolu:0, miesiacePodatku:12}));
 window.vehs = vehs;
 let selected = new Set();
 window.selected = selected;
 let sortKey = 'nrRej', sortAsc = true;
 
 // ── Konfiguracja API ──────────────────────────────────────────────────────────
-window.CF_WORKER_URL = 'https://taxorder-pro-api.acichocki.workers.dev';
+window.CF_WORKER_URL = 'https://taxorder-pro-api.adamus1000.workers.dev';
 
 // ==================== RATES (Warszawa 2026 + multi-gmina) ====================
 function getRate(v) {
@@ -22,8 +22,8 @@ function getRate(v) {
 }
 
 function _getRate_legacy(v) {
-  const dT=v.dmc/1000, dzT=(v.dmcZespolu||0)/1000, refZ=dzT>0?dzT:dT;
-  const typ=(v.typ||'').toLowerCase(), osie=parseInt(v.osie)||2, rok=parseInt(v.rok)||0, isNew=rok>=2024;
+  const dT=(v.dmc??v.dmcMax??0)/1000, dzT=(v.dmcZespolu||0)/1000, refZ=dzT>0?dzT:dT;
+  const typ=(v.typ||'').toLowerCase(), osie=parseInt(v.osie||v.liczbaOsi)||2, rok=parseInt(v.rok)||0, isNew=rok>=2024;
   if(typ.includes('autobus')) return isNew?1320:(parseInt(v.miejsca)||0)<30?1488:1872;
   if(typ.includes('naczepa')||typ.includes('przyczepa')) {
     if(refZ>=7&&refZ<12) return isNew?1128:1248;
@@ -50,8 +50,8 @@ function _getRate_legacy(v) {
 }  // end _getRate_legacy
 
 function getCat(v) {
-  const dT=v.dmc/1000, dzT=(v.dmcZespolu||0)/1000, refZ=dzT>0?dzT:dT;
-  const typ=(v.typ||'').toLowerCase(), osie=parseInt(v.osie)||2;
+  const dT=(v.dmc??v.dmcMax??0)/1000, dzT=(v.dmcZespolu||0)/1000, refZ=dzT>0?dzT:dT;
+  const typ=(v.typ||'').toLowerCase(), osie=parseInt(v.osie||v.liczbaOsi)||2;
   // Pojazdy specjalne są zwolnione z podatku DT-1
   if(typ.includes('specjaln')||(v.przeznaczenie||'').toLowerCase().includes('specjaln')) return null;
   if(typ.includes('autobus')) return (parseInt(v.miejsca)||0)<22?'D6':'D7';
@@ -154,7 +154,15 @@ function showPage(id) {
   if(id==='pdfexport') updatePdfSummary();
   if(id==='impexp') { document.getElementById('exp-sel-cnt').textContent=selected.size; }
   if(id==='karty') renderKarty();
+  if(id==='szkody') window.TaxOrderDamages?.load();
+  if(id==='opony-magazyn') window.TaxOrderTires?.load();
+  if(id==='zlecenia') window.TaxOrderServiceOrders?.load();
+  if(id==='protokoly') window.TaxOrderHandoverProtocol?.load();
+  if(id==='cfm-klienci') window.TaxOrderCfmClients?.load();
+  if(id==='cfm-kontrakty') { window.TaxOrderCfmClients?.load(); window.TaxOrderCfmContracts?.load(); }
+  if(id==='cfm-faktury') { window.TaxOrderCfmClients?.load(); window.TaxOrderCfmContracts?.load(); window.TaxOrderCfmInvoices?.load(); }
   if(id==='uzytkownicy') renderUsers();
+  if(id==='api-klucze') window.TaxOrderApiKeys?.load();
   if(id==='cepik') initCepikPage();
   if(id==='firmy') { if(typeof renderCompanyOverview==='function') renderCompanyOverview(); }
   updateCounters();
@@ -199,11 +207,12 @@ function filterVeh() {
       else if (col === 'kierowca' && !String(v.kierowca||'').toLowerCase().includes(lv)) return false;
       else if (col === 'vin' && !(v.vin||'').toLowerCase().includes(lv)) return false;
       else if (col === 'paliwo' && !String(v.paliwo||'').toLowerCase().includes(lv)) return false;
-      else if (col === 'dataRej' && !String(v.dataRejestracji||'').includes(val)) return false;
-      else if (col === 'katDR' && !String(v.katPojazdu||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'dataRej' && !String(v.dataRejestracji||v.dataRej||'').includes(val)) return false;
+      else if (col === 'katDR' && !String(v.katPojazdu||v.kategoria||'').toLowerCase().includes(lv)) return false;
       else if (col === 'dmcF2' && !String(v.dmcKg2??'').includes(val)) return false;
       else if (col === 'ladownosc') {
-        const l=v.ladownosc!=null&&v.ladownosc!==''?Number(v.ladownosc):((v.dmcKg2||v.dmc)&&v.masaWlasna?Number(v.dmcKg2||v.dmc)-Number(v.masaWlasna):null);
+        const _d=v.dmcKg2||v.dmc||v.dmcMax,_m=v.masaWlasna??v.masaWlKg;
+        const l=v.ladownosc!=null&&v.ladownosc!==''?Number(v.ladownosc):(_d&&_m!=null?Number(_d)-Number(_m):null);
         if(!String(l??'').includes(val)) return false;
       }
       else if (['rok','dmc','km','poj','mocKw','masaWl','msc'].includes(col) && !fv.includes(lv)) return false;
@@ -284,7 +293,7 @@ function renderVeh() {
       <td><div style="font-weight:500">${v.marka} ${v.model}</div><div style="font-size:11px">${v.euro||'—'} · ${_vinCell(v)}</div></td>
       <td data-col="rok">${v.rok||'—'}${isNew?'<span class="pill pill-new" style="margin-left:6px;font-size:9px">§2</span>':''}</td>
       <td data-col="typ"><span class="pill pill-gray">${v.typ}</span></td>
-      <td data-col="dmc" style="font-family:var(--mono);font-size:12px">${(v.dmc||0).toLocaleString('pl-PL')}</td>
+      <td data-col="dmc" style="font-family:var(--mono);font-size:12px">${(v.dmc||v.dmcMax||0).toLocaleString('pl-PL')}</td>
       <td data-col="osie" onclick="event.stopPropagation()">
         <select class="isel" onchange="setV(${v.id},'osie',parseInt(this.value))">
           ${[1,2,3,4,5].map(n=>`<option ${v.osie===n?'selected':''}>${n}</option>`).join('')}
@@ -341,13 +350,13 @@ function renderVeh() {
       <td data-col="paliwo" style="font-size:11px">${v.paliwo||'—'}</td>
       <td data-col="poj" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.pojSilnika!=null?v.pojSilnika.toLocaleString('pl-PL')+' cm³':'—'}</td>
       <td data-col="mocKw" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.mocKW!=null?v.mocKW+' kW':'—'}</td>
-      <td data-col="masaWl" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.masaWlasna!=null?v.masaWlasna.toLocaleString('pl-PL')+' kg':'—'}</td>
+      <td data-col="masaWl" style="font-size:11px;text-align:right;font-family:var(--mono)">${(v.masaWlasna??v.masaWlKg)!=null?(v.masaWlasna??v.masaWlKg).toLocaleString('pl-PL')+' kg':'—'}</td>
       <td data-col="msc" style="font-size:11px;text-align:center">${v.miejscaSied!=null?v.miejscaSied:'—'}</td>
       <td data-col="euro" style="font-size:11px">${v.euro||'—'}</td>
       <td data-col="dmcF2" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.dmcKg2!=null&&v.dmcKg2!==''?Number(v.dmcKg2).toLocaleString('pl-PL')+' kg':'—'}</td>
-      <td data-col="ladownosc" style="font-size:11px;text-align:right;font-family:var(--mono)">${(()=>{const l=v.ladownosc!=null&&v.ladownosc!==''?Number(v.ladownosc):((v.dmcKg2||v.dmc)&&v.masaWlasna&&(Number(v.dmcKg2||v.dmc)>Number(v.masaWlasna))?Number(v.dmcKg2||v.dmc)-Number(v.masaWlasna):null);return l!=null?l.toLocaleString('pl-PL')+' kg':'—';})()}</td>
-      <td data-col="dataRej" style="font-size:11px;white-space:nowrap">${v.dataRejestracji||'—'}</td>
-      <td data-col="katDR" style="font-size:11px;text-align:center">${v.katPojazdu?`<span class="pill pill-gray">${v.katPojazdu}</span>`:'—'}</td>
+      <td data-col="ladownosc" style="font-size:11px;text-align:right;font-family:var(--mono)">${(()=>{const _d=v.dmcKg2||v.dmc||v.dmcMax,_m=v.masaWlasna??v.masaWlKg;const l=v.ladownosc!=null&&v.ladownosc!==''?Number(v.ladownosc):(_d&&_m!=null&&(Number(_d)>Number(_m))?Number(_d)-Number(_m):null);return l!=null?l.toLocaleString('pl-PL')+' kg':'—';})()}</td>
+      <td data-col="dataRej" style="font-size:11px;white-space:nowrap">${v.dataRejestracji||v.dataRej||'—'}</td>
+      <td data-col="katDR" style="font-size:11px;text-align:center">${(v.katPojazdu||v.kategoria)?`<span class="pill pill-gray">${v.katPojazdu||v.kategoria}</span>`:'—'}</td>
       <td style="text-align:center" onclick="event.stopPropagation()">
         <button class="btn btn-gray" style="font-size:11px;padding:3px 8px" onclick="TaxOrderVehicleDetail.open(${v.id})" title="Karta pojazdu">
           <i class="ti ti-id-badge"></i>
@@ -487,7 +496,7 @@ function exportFleetCSV() {
   ];
   const rows = vehs.map(v => [
     v.nrRej||'', v.marka||'', v.model||'', v.rok||'', v.typ||'',
-    v.dmc||'', v.status||'', v.vin||'',
+    (v.dmc||v.dmcMax||''), v.status||'', v.vin||'',
     v.kierowca||'', v.stanKilometrow||'', v.kartaOrlen||'',
     v.ocPolicyNo||'', v.ocInsurer||'', v.ocStart||'', v.ocEnd||'', v.ocPremium||'',
     v.acPolicyNo||'', v.acInsurer||'', v.acStart||'', v.acEnd||'', v.acPremium||'',
@@ -495,7 +504,7 @@ function exportFleetCSV() {
     v.lastInspection||'', v.nextInspection||'', v.inspectionResult||'', v.inspectionStation||'',
     v.udtDeviceType||'', v.udtDeviceNo||'', v.udtCertNo||'', v.udtLastDate||'', v.udtNextDate||'', v.udtResult||'',
     v.tachoNo||'', v.tachoLastCalib||'', v.tachoNextCalib||'',
-    v.katPojazdu||'', v.paliwo||'', v.ladownosc||'', v.masaWlasna||'', v.normaSpalania||'',
+    (v.katPojazdu||v.kategoria)||'', v.paliwo||'', v.ladownosc||'', (v.masaWlasna??v.masaWlKg)||'', v.normaSpalania||'',
     v.wlasciciel||'', v.osie||'', v.zawieszenie||'',
     v.ownership_type||'', v.miesiacePodatku||12
   ]);
@@ -545,10 +554,10 @@ function _vinCell(v) {
 function _dt1Completeness(v) {
   const fields = [
     { key: 'vin',             label: 'VIN',           check: v => v.vin && v.vin.length >= 5 },
-    { key: 'dmc',             label: 'DMC',           check: v => v.dmc > 0 },
+    { key: 'dmc',             label: 'DMC',           check: v => (v.dmc||v.dmcMax||0) > 0 },
     { key: 'osie',            label: 'Osie',          check: v => v.osie > 0 },
     { key: 'zawieszenie',     label: 'Zawieszenie',   check: v => !!v.zawieszenie },
-    { key: 'dataRejestracji', label: 'Data 1. rej.',  check: v => !!v.dataRejestracji },
+    { key: 'dataRejestracji', label: 'Data 1. rej.',  check: v => !!(v.dataRejestracji||v.dataRej) },
     { key: 'rok',             label: 'Rok prod.',     check: v => !!v.rok },
     { key: 'paliwo',          label: 'Paliwo',        check: v => !!v.paliwo },
     { key: 'wlasciciel',      label: 'Właściciel',    check: v => !!v.wlasciciel },
@@ -1491,7 +1500,7 @@ function renderFormularze() {
     const zaw = zawieszMap(v.zawieszenie);
     const eur = euroMap(v.euro);
     const isCiagnik = (v.typ||'').toLowerCase().includes('ciąg')||(v.typ||'').toLowerCase().includes('ciag');
-    const dmc = v.dmc?((v.dmc/1000).toFixed(3)):'';
+    const dmc = (v.dmc||v.dmcMax)?((v.dmc||v.dmcMax)/1000).toFixed(3):'';
     const dmcZ = v.dmcZespolu>0?((v.dmcZespolu/1000).toFixed(3)):'';
     const tax = calcTax(v);
 
@@ -1519,7 +1528,7 @@ function renderFormularze() {
       <tr>
         <td style="border:0.5px solid #000;border-top:none;padding:2px 4px;width:25%">
           <div style="font-size:5.5pt;font-weight:bold">3. Data pierwszej rejestracji na terytorium RP</div>
-          <div style="margin-top:2px">${v.dataRejestracji||'—'}</div>
+          <div style="margin-top:2px">${v.dataRejestracji||v.dataRej||'—'}</div>
         </td>
         <td colspan="5" style="border:0.5px solid #000;border-left:none;border-top:none;padding:2px 4px">
           <div style="font-size:5.5pt;font-weight:bold">4. Numer rejestracyjny pojazdu</div>
@@ -1719,7 +1728,8 @@ function exportPD() {
   const hdrs=['Rodzaj środka transportu','Nr rejestracyjny','VIN','Dopuszczalna masa całkowita pojazdu','Masa własna ciągnika siodłowego','Dopuszczalna masa całkowita zespołu pojazdów','Marka/model/typ','Rok produkcji','Liczba osi pojazdu','Rodzaj zawieszenia','Opis rodzaju zawieszenia','Wpływ na środowisko naturalne','Poziom emisji spalin','Liczba miejsc do siedzenia','Wybierz zdarzenie opisujące pojazd','Data pierwszej rejestracji na terytorium RP','Data Nabycia','Środek transportowy był czasowo wycofany z ruchu od','Środek transportowy był czasowo wycofany z ruchu do','Data sprzedaży/wyrejestrowania','Data zdarzenia powodującego powstanie ostatniego obowiązku podatkowego','Kwota podatku zapłaconego'];
   const rows = taxable.map(v=>{
     const isCiagnik=(v.typ||'').toLowerCase().includes('ciagnik')||(v.typ||'').toLowerCase().includes('ciągnik');
-    return [pdTyp(v.typ),v.nrRej.toUpperCase(),(v.vin||'').toUpperCase(),v.dmc/1000,isCiagnik?v.dmc/1000:null,v.dmcZespolu>0?v.dmcZespolu/1000:null,`${v.marka.toUpperCase()}/${v.model.toUpperCase()}`,String(v.rok),parseInt(v.osie)||2,pdZaw(v.zawieszenie),null,pdEuroW(v.euro),pdEuroL(v.euro),null,'BRAK ZDARZEN',null,null,null,null,null,null,Math.round(v.amount*100)/100];
+    const _dmc=v.dmc||v.dmcMax||0;
+    return [pdTyp(v.typ),v.nrRej.toUpperCase(),(v.vin||'').toUpperCase(),_dmc/1000,isCiagnik?_dmc/1000:null,v.dmcZespolu>0?v.dmcZespolu/1000:null,`${v.marka.toUpperCase()}/${v.model.toUpperCase()}`,String(v.rok),parseInt(v.osie||v.liczbaOsi)||2,pdZaw(v.zawieszenie),null,pdEuroW(v.euro),pdEuroL(v.euro),null,'BRAK ZDARZEN',null,null,null,null,null,null,Math.round(v.amount*100)/100];
   });
   const ws3 = XLSX.utils.aoa_to_sheet([hdrs,...rows]);
   XLSX.utils.book_append_sheet(wb,ws3,'Środek transportu');
@@ -1914,7 +1924,7 @@ async function pobierzWypelnionyPDF(){
         rgp(fm,'Group1',rodzajPodatnika);
         grp.forEach((v,i)=>{
           const[sfx,vnum]=SFXS[i];
-          const dmc=v.dmc?(v.dmc/1000):0;
+          const dmc=(v.dmc||v.dmcMax)?(v.dmc||v.dmcMax)/1000:0;
           const dmcI=Math.floor(dmc).toString();
           const dmcD=Math.round((dmc%1)*100).toString().padStart(2,'0');
           const dmcZ=v.dmcZespolu>0?(v.dmcZespolu/1000).toFixed(2).replace('.',','):'';
@@ -1939,7 +1949,7 @@ async function pobierzWypelnionyPDF(){
           const DF={'':  {rej:'Data rejestracji',  nab:'Dzien nabycia',  zb:'data zbycia1',wyc:'data wycofania',  dop:'data dopuszczenia',  wyr:'data wyrejestrowania'},
                     '2': {rej:'Data rejestracji22',nab:'Dzien nabycia2', zb:'data zbycia2',wyc:'data wycofania2', dop:'data dopuszczenia2', wyr:'data wyrejestrowania2'},
                     '3': {rej:'Data rejestracji3', nab:'Dzien nabycia3', zb:'data zbycia3',wyc:'data wycofania3', dop:'data dopuszczenia3', wyr:'data wyrejestrowania3'}}[sfx];
-          tfp(fm,DF.rej,v.dataRejestracji||'',fa,7);
+          tfp(fm,DF.rej,v.dataRejestracji||v.dataRej||'',fa,7);
           tfp(fm,DF.nab,v.dataNabycia||v.purchaseDate||'',fa,7);
           tfp(fm,DF.zb,v.dataZbycia||v.saleDate||'',fa,7);
           tfp(fm,DF.wyc,v.dataWycofania||'',fa,7);
@@ -2097,7 +2107,7 @@ function runValidation() {
   // 3. Pojazdy bez kategorii
   const brakKat = selT.filter(v=>!v.cat);
   brakKat.forEach(v=>{
-    errors.push({code:'KAT-001',veh:v.nrRej,title:`${v.nrRej} — brak kategorii DT-1`,desc:`Pojazd ${v.marka} ${v.model} (DMC: ${(v.dmc/1000).toFixed(1)} t) nie ma przypisanej kategorii D.1–D.15. Sprawdź typ pojazdu i DMC.`,link:'pojazdy',icon:'ti-alert-circle'});
+    errors.push({code:'KAT-001',veh:v.nrRej,title:`${v.nrRej} — brak kategorii DT-1`,desc:`Pojazd ${v.marka} ${v.model} (DMC: ${((v.dmc||v.dmcMax||0)/1000).toFixed(1)} t) nie ma przypisanej kategorii D.1–D.15. Sprawdź typ pojazdu i DMC.`,link:'pojazdy',icon:'ti-alert-circle'});
   });
   // 4. Przyczepa/naczepa bez DMC zespołu
   selT.forEach(v=>{
@@ -2121,8 +2131,8 @@ function runValidation() {
   // --- OSTRZEŻENIA ---
   // 7. Pojazdy ≥12t bez prawidłowej liczby osi
   selT.forEach(v=>{
-    if(v.dmc>=12000 && (!v.osie||v.osie<2)) {
-      warnings.push({code:'OSI-001',veh:v.nrRej,title:`${v.nrRej} — sprawdź liczbę osi`,desc:`Pojazd o DMC ≥12 t (${(v.dmc/1000).toFixed(1)} t) powinien mieć co najmniej 2 osie. Aktualnie: ${v.osie}. Liczba osi wpływa na stawkę podatkową.`,link:'pojazdy',icon:'ti-settings'});
+    if((v.dmc||v.dmcMax||0)>=12000 && (!v.osie||v.osie<2)) {
+      warnings.push({code:'OSI-001',veh:v.nrRej,title:`${v.nrRej} — sprawdź liczbę osi`,desc:`Pojazd o DMC ≥12 t (${((v.dmc||v.dmcMax||0)/1000).toFixed(1)} t) powinien mieć co najmniej 2 osie. Aktualnie: ${v.osie}. Liczba osi wpływa na stawkę podatkową.`,link:'pojazdy',icon:'ti-settings'});
     }
   });
   // 8. VIN pusty lub za krótki
@@ -2166,7 +2176,7 @@ function runValidation() {
     infos.push({code:'POD-001',title:'Brak danych osoby podpisującej',desc:'Nie uzupełniono imienia i/lub nazwiska osoby podpisującej deklarację (poz. 84–85 DT-1). Uzupełnij w zakładce Podatnik.',link:'podatnik',icon:'ti-user'});
   }
   // 14. Duże pojazdy ciężarowe ≥12t
-  const heavyNoAxle = selT.filter(v=>v.dmc>=12000&&v.osie>=4&&v.cat);
+  const heavyNoAxle = selT.filter(v=>(v.dmc||v.dmcMax||0)>=12000&&v.osie>=4&&v.cat);
   if(heavyNoAxle.length>0) {
     infos.push({code:'OSI-002',title:`${heavyNoAxle.length} pojazd(ów) ≥12 t z 4+ osiami`,desc:`Pojazdy z 4 i więcej osiami mają najwyższe stawki w kategorii D.10. Sprawdź czy liczba osi jest prawidłowa w dowodzie rejestracyjnym.`,link:'pojazdy',icon:'ti-info-circle'});
   }
@@ -2363,7 +2373,7 @@ function renderRaporty() {
         <td>${v.marka} ${v.model} ${isNew?'<span class="pill pill-new" style="font-size:9px">§2</span>':''}</td>
         <td>${v.rok||'—'}</td>
         <td><span class="pill pill-gray" style="font-size:10px">${v.typ}</span></td>
-        <td style="font-family:var(--mono);font-size:12px">${(v.dmc||0).toLocaleString('pl-PL')}</td>
+        <td style="font-family:var(--mono);font-size:12px">${(v.dmc||v.dmcMax||0).toLocaleString('pl-PL')}</td>
         <td><span class="pill ${STAT_LABELS[v.status]||'pill-gray'}">${v.status}</span></td>
         <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis">${v.wlasciciel||'—'}</td>
         <td>${v.cat?`<span class="pill ${CAT_COLORS[v.cat]||'pill-gray'}">${v.cat}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
@@ -2391,7 +2401,7 @@ function exportRaport() {
   const hdrs=['Nr rej.','Marka','Model','Rok','Typ','DMC (kg)','Status','Właściciel','VIN','Kategoria DT-1','Stawka roczna (zł)','Miesiące','Podatek (zł)','I rata (zł)','II rata (zł)','§2 (tak/nie)'];
   const rows = taxes.map(v=>{
     const r1v=Math.round((v.amount||0)/2), r2v=Math.round(v.amount||0)-r1v;
-    return [v.nrRej,v.marka,v.model,v.rok,v.typ,v.dmc,v.status,v.wlasciciel,v.vin||'',v.cat||'brak',v.rate||0,v.miesiacePodatku||12,Math.round(v.amount*100)/100,r1v,r2v,(parseInt(v.rok)||0)>=2024?'TAK':'NIE'];
+    return [v.nrRej,v.marka,v.model,v.rok,v.typ,v.dmc||v.dmcMax||0,v.status,v.wlasciciel,v.vin||'',v.cat||'brak',v.rate||0,v.miesiacePodatku||12,Math.round(v.amount*100)/100,r1v,r2v,(parseInt(v.rok)||0)>=2024?'TAK':'NIE'];
   });
   const ws1 = XLSX.utils.aoa_to_sheet([hdrs,...rows]);
   ws1['!cols'] = hdrs.map((_,i)=>({wch:i===1||i===7?18:i===3?6:12}));
@@ -2488,11 +2498,13 @@ function processOcrFile(f){
         const pdf=await loadingTask.promise;
         const page=await pdf.getPage(1);
         const viewport=page.getViewport({scale:4.0});
-        const canvas=document.createElement('canvas');
+        let canvas=document.createElement('canvas');
         canvas.width=viewport.width;
         canvas.height=viewport.height;
         const ctx=canvas.getContext('2d');
         await page.render({canvasContext:ctx,viewport}).promise;
+        // Auto-orient: jeśli PDF jest poziomy (np. DR zapisany w landscape) — obróć
+        if(canvas.width > canvas.height * 1.1) canvas=_rotateCanvas(canvas,90);
         const imgDataUrl=canvas.toDataURL('image/jpeg',0.97);
         ocrBase64=imgDataUrl.split(',')[1];
         ocrMime='image/jpeg';
@@ -2524,8 +2536,26 @@ function processOcrFile(f){
       }
     }else if(f.type.startsWith('image/')){
       window._ocrIsPdf=false;
+      // Pokaż podgląd; auto-orient nastąpi przy kliknięciu "Uruchom OCR"
       document.getElementById('ocr-img').src=dataUrl;
       document.getElementById('ocr-img').style.display='block';
+      // Pre-orient: jeśli obraz jest poziomy, obróć podgląd od razu
+      try{
+        const preImg=new Image();
+        await new Promise(r=>{preImg.onload=r;preImg.onerror=r;setTimeout(r,8000);preImg.src=dataUrl;});
+        if(preImg.width > preImg.height*1.1){
+          const preC=document.createElement('canvas');
+          preC.width=preImg.height;preC.height=preImg.width;
+          const preCtx=preC.getContext('2d');
+          preCtx.translate(preC.width/2,preC.height/2);
+          preCtx.rotate(Math.PI/2);
+          preCtx.drawImage(preImg,-preImg.width/2,-preImg.height/2);
+          const rotUrl=preC.toDataURL('image/jpeg',0.95);
+          ocrBase64=rotUrl.split(',')[1];ocrMime='image/jpeg';
+          document.getElementById('ocr-img').src=rotUrl;
+          toast('↩ Obraz obrócony automatycznie do orientacji pionowej');
+        }
+      }catch(e2){}
     }else{
       document.getElementById('ocr-img').style.display='none';
     }
@@ -2535,6 +2565,67 @@ function processOcrFile(f){
     document.getElementById('ocr-result').innerHTML='';
   };
   reader.readAsDataURL(f);
+}
+
+// Obraca canvas o podany kąt (stopnie) i zwraca nowy canvas
+function _rotateCanvas(canvas, deg) {
+  if (deg === 0) return canvas;
+  const rad = deg * Math.PI / 180;
+  const c = document.createElement('canvas');
+  if (deg === 90 || deg === 270) { c.width = canvas.height; c.height = canvas.width; }
+  else { c.width = canvas.width; c.height = canvas.height; }
+  const ctx = c.getContext('2d');
+  ctx.translate(c.width / 2, c.height / 2);
+  ctx.rotate(rad);
+  ctx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
+  return c;
+}
+
+// Automatyczna orientacja: Polski DR jest zawsze pionowy (portrait).
+// Jeśli obraz jest poziomy (landscape), obracamy go o 90° — to rozwiązuje
+// problem ze zdjęciami telefonu i skanami zapisanymi w złej orientacji.
+// Zwraca { base64, mime, rotated: bool }
+// Ładuje obraz z base64; nigdy nie zawiesza się (ma onerror + timeout 8s)
+function _loadImg(base64, mime) {
+  return new Promise(res => {
+    const img = new Image();
+    const done = () => res(img);
+    const fail = () => res(null);
+    img.onload  = done;
+    img.onerror = fail;
+    setTimeout(fail, 8000); // zabezpieczenie przed brakiem zdarzeń
+    img.src = 'data:' + mime + ';base64,' + base64;
+  });
+}
+
+async function _autoOrientForDR(base64, mime) {
+  try {
+    const img = await _loadImg(base64, mime);
+    if (!img || img.width === 0) return { base64, mime, rotated: false }; // błąd ładowania — nie obracaj
+    if (img.width <= img.height * 1.1) return { base64, mime, rotated: false }; // już portret
+    // Landscape → obróć 90° zgodnie z ruchem wskazówek
+    const c = document.createElement('canvas');
+    c.width = img.height; c.height = img.width;
+    const ctx = c.getContext('2d');
+    ctx.translate(c.width / 2, c.height / 2);
+    ctx.rotate(Math.PI / 2);
+    ctx.drawImage(img, -img.width / 2, -img.height / 2);
+    return { base64: c.toDataURL('image/jpeg', 0.95).split(',')[1], mime: 'image/jpeg', rotated: true };
+  } catch(e) { return { base64, mime, rotated: false }; }
+}
+
+// Zmniejsza obraz do max `maxSide` px na dłuższym boku (dla AI Vision)
+async function _resizeForVision(base64, mime, maxSide = 1600) {
+  try {
+    const img = await _loadImg(base64, mime);
+    if (!img || img.width === 0) return { base64, mime };
+    if (img.width <= maxSide && img.height <= maxSide) return { base64, mime };
+    const sc = maxSide / Math.max(img.width, img.height);
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return { base64: c.toDataURL('image/jpeg', 0.92).split(',')[1], mime: 'image/jpeg' };
+  } catch(e) { return { base64, mime }; }
 }
 
 // Poprawia kontrast obrazu przed OCR (grayscale + kontrast adaptywny)
@@ -2620,11 +2711,17 @@ async function tryAztecDR(){
   try{
     await loadZXing();
     const img=new Image();
-    await new Promise(r=>{img.onload=r;img.src='data:'+(ocrMime||'image/jpeg')+';base64,'+ocrBase64;});
-    const c=document.createElement('canvas');
-    c.width=img.naturalWidth;c.height=img.naturalHeight;
-    c.getContext('2d').drawImage(img,0,0);
-    const bytes=await tryAztecFromCanvas(c);
+    await new Promise(r=>{img.onload=r;img.onerror=r;setTimeout(r,8000);img.src='data:'+(ocrMime||'image/jpeg')+';base64,'+ocrBase64;});
+    const base=document.createElement('canvas');
+    base.width=img.naturalWidth;base.height=img.naturalHeight;
+    base.getContext('2d').drawImage(img,0,0);
+    // Próbuj kodu AZTEC we wszystkich 4 orientacjach (dokument może być obrócony)
+    let bytes=null;
+    for(const deg of [0,90,270,180]){
+      const c=_rotateCanvas(base,deg);
+      bytes=await tryAztecFromCanvas(c);
+      if(bytes&&bytes.length>=8)break;
+    }
     if(!bytes||bytes.length<8)return false;
     const apiUrl=(window.CF_API_URL||'').replace(/\/$/,'');
     if(!apiUrl)return false;
@@ -2688,14 +2785,28 @@ async function runOCR(){
     try{
       const apiUrl=(window.CF_API_URL||'').replace(/\/$/,'');
       const token=localStorage.getItem('cf_token');
+      console.log('[OCR step2] apiUrl='+apiUrl);
       if(apiUrl){
+        // Auto-orient: DR jest zawsze pionowy; obróć jeśli poziomy
+        const oriented=await _autoOrientForDR(ocrBase64, ocrMime||'image/jpeg');
+        if(oriented.rotated){
+          ocrBase64=oriented.base64; ocrMime=oriented.mime;
+          // Aktualizuj podgląd
+          const prevImg=document.getElementById('ocr-img');
+          if(prevImg){prevImg.src='data:'+ocrMime+';base64,'+ocrBase64;prevImg.style.transform='';}
+        }
+        const resized=await _resizeForVision(oriented.base64, oriented.mime);
+        console.log('[OCR step2] wysyłam do AI Vision, rozmiar base64='+resized.base64.length);
+        const t0=Date.now();
         const visionResp=await fetch(apiUrl+'/api/ai/ocr',{
           method:'POST',
           headers:{'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})},
-          body:JSON.stringify({imageBase64:ocrBase64,mimeType:ocrMime}),
+          body:JSON.stringify({imageBase64:resized.base64,mimeType:resized.mime}),
         });
+        console.log('[OCR step2] odpowiedź: status='+visionResp.status+' czas='+(Date.now()-t0)+'ms');
         if(visionResp.ok){
           const visionData=await visionResp.json();
+          console.log('[OCR step2] visionData:', JSON.stringify(visionData).slice(0,300));
           if(visionData.ok&&visionData.fields){
             bar.style.width='100%';
             const merged={...visionData.fields,pewnosc:'AI-Vision',_aiModel:visionData.model||'ai'};
@@ -2708,9 +2819,12 @@ async function runOCR(){
             document.getElementById('ocr-btn').innerHTML='<i class="ti ti-scan"></i> Uruchom OCR + Wypełnij formularz';
             return;
           }
+        }else{
+          const errTxt=await visionResp.text().catch(()=>'');
+          console.warn('[OCR step2] błąd HTTP '+visionResp.status+': '+errTxt.slice(0,200));
         }
       }
-    }catch(e){/* AI Vision niedostępne — fallback do Tesseract */}
+    }catch(e){console.warn('[OCR step2] wyjątek:',e.message);}
 
     // ── Krok 3: Tesseract OCR (fallback offline gdy AI Vision niedostępne) ──────
     btn.innerHTML='<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> Analizuję...';
@@ -2863,21 +2977,13 @@ async function extractOcrWithVision(){
     const apiUrl=(window.CF_API_URL||'').replace(/\/$/,'');
     if(!apiUrl)throw new Error('Brak adresu API — zaloguj się');
     const token=localStorage.getItem('cf_token');
-    // Zmniejsz obraz jeśli za duży (max 1600px na dłuższym boku)
-    let sendBase64=base64,sendMime=mime;
-    try{
-      const img=new Image();
-      await new Promise(r=>{img.onload=r;img.src='data:'+mime+';base64,'+base64;});
-      const maxSide=1600;
-      if(img.width>maxSide||img.height>maxSide){
-        const sc=maxSide/Math.max(img.width,img.height);
-        const c=document.createElement('canvas');
-        c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);
-        c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-        sendBase64=c.toDataURL('image/jpeg',0.92).split(',')[1];
-        sendMime='image/jpeg';
-      }
-    }catch(e2){}
+    // Auto-orient + resize przed wysłaniem do AI Vision
+    const oriented=await _autoOrientForDR(base64, mime);
+    if(oriented.rotated){
+      const prevImg=document.getElementById('ocr-img');
+      if(prevImg){prevImg.src='data:'+oriented.mime+';base64,'+oriented.base64;prevImg.style.transform='';}
+    }
+    const {base64:sendBase64,mime:sendMime}=await _resizeForVision(oriented.base64, oriented.mime);
     const resp=await fetch(apiUrl+'/api/ai/ocr',{
       method:'POST',
       headers:{'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})},
@@ -3178,6 +3284,8 @@ function parseRegistrationDoc(combinedOcrText){
     d.nrRej=d.nrRej.replace(/\s+/g,'').toUpperCase();
     const mm=d.nrRej.match(/^([A-Z]{2,3})(.*)/);
     if(mm){let suf=mm[2].replace(/(\d)O/g,'$10').replace(/O(\d)/g,'0$1');suf=suf.replace(/00+/g,'0');d.nrRej=mm[1]+suf;}
+    // Odrzuć jeśli brak cyfry (słowa-etykiety: "POJAZDU", "REJESTRACYJNY" itp.)
+    if(!/\d/.test(d.nrRej)) delete d.nrRej;
   }
 
   // Pewność — wymaga kluczowych pól: nrRej+dataRej obowiązkowe dla WYSOKA
@@ -3201,9 +3309,9 @@ async function cepikFillOcrForm(){
   const btn=document.getElementById('ocrf-cepik-btn');
   if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> CEPiK...';}
   try{
-    const json=await cepikFetch(nrRej,getWoj(nrRej));
+    const json=await cepikFetch(nrRej,'auto');
     const items=json?.data||[];
-    if(!items.length){toast('⚠ Pojazd '+nrRej+' nie znaleziony w CEPiK — sprawdź numer');return;}
+    if(!items.length){toast('⚠ Pojazd '+nrRej+' nie znaleziony w CEPiK w żadnym województwie — sprawdź numer');return;}
     const attrs=items[0]?.attributes||{};
     const d=parseCepikAttrs(attrs);
 
@@ -3217,6 +3325,7 @@ async function cepikFillOcrForm(){
     };
     _fill('marka',d.marka);
     _fill('typ',d.model);               // D.2 = CEPIK model
+    _fill('przeznaczenie',d.przeznaczenie); // zwolnienie z DT-1 dla pojazdów specjalnych
     _fill('dmcKg',d.dmc);               // F.1
     _fill('dmcZespolu',d.dmcZespolu);   // F.3
     _fill('masaWlKg',d.masaWlasna);     // G
@@ -3325,6 +3434,7 @@ function showManualForm(d,rawText,conf){
       ${field('dataRej','📅 B — Data 1. rejestracji w RP','np. 15.03.2021',d.dataRej,'DD.MM.RRRR')}
       ${field('marka','🚛 D.1 — Marka','np. SCANIA',d.marka,'')}
       ${field('typ','D.2 — Typ / Model','np. R540',d.typ,'')}
+      ${field('przeznaczenie','🚨 Przeznaczenie pojazdu','np. SAMOCHÓD SPECJALNY',d.przeznaczenie,'wpisz "specjalny" jeśli dotyczy — zwalnia z DT-1!')}
       ${field('vin','🔢 E — Numer VIN','17 znaków',d.vin,'17 znaków')}
       ${field('dmcKg','⚖️ F.1 — DMC pojazdu (kg)','np. 18000',d.dmcKg,'kg')}
       ${field('dmcKg2','📦 F.2 — DMC z ładunkiem (kg)','np. 24000',d.dmcKg2,'kg')}
@@ -3389,7 +3499,7 @@ function showManualForm(d,rawText,conf){
 function submitManualForm(){
   const g=id=>document.getElementById('ocrf-'+id)?.value?.trim()||null;
   const d={
-    nrRej:g('nrRej'),dataRej:g('dataRej'),marka:g('marka'),typ:g('typ'),vin:g('vin'),
+    nrRej:g('nrRej'),dataRej:g('dataRej'),marka:g('marka'),typ:g('typ'),przeznaczenie:g('przeznaczenie'),vin:g('vin'),
     dmcKg:g('dmcKg'),dmcKg2:g('dmcKg2'),dmcZespolu:g('dmcZespolu'),masaWlKg:g('masaWlKg'),
     liczbaOsi:g('liczbaOsi'),zawieszenie:document.getElementById('ocrf-zawieszenie')?.value||'pneumatyczne',
     paliwo:g('paliwo'),pojSilnika:g('pojSilnika'),mocKW:g('mocKW'),
@@ -3443,6 +3553,7 @@ function openUpdateModal(vehId,d){
     {label:'Rok produkcji',key:'rok',newVal:d.rokProd?parseInt(d.rokProd):null},
     {label:'Marka (D.1)',key:'marka',newVal:d.marka},
     {label:'Model (D.2)',key:'model',newVal:d.typ},
+    {label:'Przeznaczenie pojazdu (zwolnienie DT-1)',key:'przeznaczenie',newVal:d.przeznaczenie},
     {label:'Paliwo (P.3)',key:'paliwo',newVal:d.paliwo},
     {label:'Pojemność cm³ (P.1)',key:'pojSilnika',newVal:d.pojSilnika?parseInt(d.pojSilnika):null},
     {label:'Moc kW (P.2)',key:'mocKW',newVal:d.mocKW?parseInt(d.mocKW):null},
@@ -3536,6 +3647,7 @@ function addNewFromOCR(d){
     mocKW:parseInt(d.mocKW)||null,
     miejscaSied:parseInt(d.miejscaSied)||null,
     katPojazdu:d.kategoria||'',
+    przeznaczenie:d.przeznaczenie||'',
   };
   vehs.push(newVeh);
   selected.add(newVeh.id);
@@ -3739,6 +3851,28 @@ function renderFakHistory() {
     <div style="color:var(--text2)">${h.sprzedawca||'—'} ${h.cenaBrutto?'· '+h.cenaBrutto+' zł':''}</div>
     ${h.nrFaktury?`<div style="font-family:var(--mono);font-size:10px;color:var(--text3)">${h.nrFaktury}</div>`:''}
   </div>`).join('');
+}
+
+// ── Eksport faktur kosztowych do pliku CSV (rozwiązanie pośrednie do czasu
+//    potwierdzenia dostępu do API enova365 — import ręczny przez "Mechanizm wymiany danych") ──
+function exportFakturyToFK() {
+  if (!fakHistory.length) { toast('⚠ Brak zdarzeń do eksportu'); return; }
+  const headers = ['Typ', 'Nr dokumentu', 'Data wystawienia', 'Data sprzedaży', 'Kontrahent (nazwa)', 'Kontrahent (NIP)', 'Kwota netto', 'Kwota brutto', 'Nr rej. pojazdu', 'Uwagi'];
+  const rows = fakHistory.map(h => [
+    h.typ || '', h.nrFaktury || '', h.data || '', h.dataSprzedazy || h.data || '',
+    h.sprzedawca || '', h.nipSprzedawcy || '', h.cenaNetto || '', h.cenaBrutto || '',
+    h.nrRej || '', h.uwagi || '',
+  ]);
+  const csv = '﻿' + [headers, ...rows]
+    .map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';'))
+    .join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `faktury_eksport_FK_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`✓ Wyeksportowano ${rows.length} pozycji — gotowe do importu w enova365 (Mechanizm wymiany danych)`);
 }
 
 // ==================== PDF EXPORT ====================
@@ -3967,7 +4101,7 @@ function showImpPreview(rows,source) {
       <td><strong style="font-family:var(--mono)">${v.nrRej||'—'}</strong></td>
       <td>${v.marka}</td><td>${v.model}</td><td>${v.rok||'—'}</td>
       <td><span class="pill pill-gray">${v.typ}</span></td>
-      <td style="font-family:var(--mono)">${v.dmc.toLocaleString('pl-PL')}</td>
+      <td style="font-family:var(--mono)">${(v.dmc||v.dmcMax||0).toLocaleString('pl-PL')}</td>
       <td><span class="pill ${STAT_LABELS[v.status]||'pill-gray'}">${v.status}</span></td>
       <td style="font-size:11px">${v.euro||'—'}</td>
     </tr>`).join('')}
@@ -4015,7 +4149,7 @@ function expXlExport(list,fname) {
   const hdrs=['Nr rej.','Marka','Model','Rok','Typ','DMC (kg)','DMC zesp. (kg)','EURO','VIN','Status','Właściciel','Osie','Zawieszenie','Mies. pod.','Kategoria DT-1','Stawka roczna (zł)','Podatek (zł)','I rata (zł)','II rata (zł)','§2 (tak/nie)'];
   const rows=taxes.map(v=>{
     const r1=Math.round((v.amount||0)/2),r2=Math.round(v.amount||0)-r1;
-    return [v.nrRej,v.marka,v.model,v.rok,v.typ,v.dmc,v.dmcZespolu||0,v.euro||'',v.vin||'',v.status,v.wlasciciel,v.osie,v.zawieszenie,v.miesiacePodatku||12,v.cat||'',v.rate||0,Math.round((v.amount||0)*100)/100,r1,r2,(parseInt(v.rok)||0)>=2024?'TAK':'NIE'];
+    return [v.nrRej,v.marka,v.model,v.rok,v.typ,v.dmc||v.dmcMax||0,v.dmcZespolu||0,v.euro||'',v.vin||'',v.status,v.wlasciciel,v.osie,v.zawieszenie,v.miesiacePodatku||12,v.cat||'',v.rate||0,Math.round((v.amount||0)*100)/100,r1,r2,(parseInt(v.rok)||0)>=2024?'TAK':'NIE'];
   });
   const wb=XLSX.utils.book_new();
   const ws=XLSX.utils.aoa_to_sheet([hdrs,...rows]);
@@ -4063,11 +4197,11 @@ const DEFAULT_USERS = [{id:1,name:'Administrator',email:'adamus1000@gmail.com',p
 const ROLE_LABELS = {admin:'Administrator',kierownik:'Kierownik',ksiegowy:'Księgowy',mechanik:'Mechanik',dyspozytor:'Dyspozytor',kierowca:'Kierowca'};
 const ROLE_COLORS = {admin:'pill-red',kierownik:'pill-blue',ksiegowy:'pill-green',mechanik:'pill-amber',dyspozytor:'pill-blue',kierowca:'pill-gray'};
 const ROLE_TABS = {
-  admin:['dash','pojazdy','kalkulator','formularze','pd','walidacja','raporty','ocr','faktury','pdfexport','impexp','karty','uzytkownicy','cepik'],
-  kierownik:['dash','pojazdy','kalkulator','formularze','raporty','pdfexport','ocr','faktury','karty'],
+  admin:['dash','pojazdy','kalkulator','formularze','pd','walidacja','raporty','ocr','faktury','pdfexport','impexp','karty','szkody','opony-magazyn','zlecenia','protokoly','cfm-klienci','cfm-kontrakty','cfm-faktury','uzytkownicy','api-klucze','cepik'],
+  kierownik:['dash','pojazdy','kalkulator','formularze','raporty','pdfexport','ocr','faktury','karty','szkody','opony-magazyn','zlecenia','protokoly','cfm-klienci','cfm-kontrakty','cfm-faktury'],
   ksiegowy:['dash','kalkulator','formularze','pd','raporty','pdfexport','impexp'],
-  mechanik:['dash','pojazdy','ocr','faktury'],
-  dyspozytor:['dash','pojazdy','raporty','karty','ocr','faktury'],
+  mechanik:['dash','pojazdy','ocr','faktury','szkody','opony-magazyn','zlecenia','protokoly'],
+  dyspozytor:['dash','pojazdy','raporty','karty','ocr','faktury','szkody','opony-magazyn','zlecenia','protokoly'],
   kierowca:['dash','pojazdy'],
 };
 let users = JSON.parse(localStorage.getItem('dt1_users')||JSON.stringify(DEFAULT_USERS));
@@ -4098,19 +4232,23 @@ async function doLogin(){
     supabaseUser = authResult.user;
   }
 
-  let u = users.find(x =>
-    x.email.toLowerCase() === email &&
-    x.active
-  );
-
-  if(!u){
+  let u;
+  if(supabaseUser){
+    // Backend (D1/Worker) jest jedynym autorytatywnym źródłem roli — NIE nadpisuj jej
+    // lokalną listą `users` (localStorage, pozostałość po migracji z Supabase) ani domyślną wartością.
     u = {
-      id: supabaseUser?.id || email,
-      email: email,
-      name: supabaseUser?.user_metadata?.name || email,
-      role: 'admin',
+      id: supabaseUser.id,
+      email: supabaseUser.email || email,
+      name: supabaseUser.name || supabaseUser.user_metadata?.name || email,
+      role: supabaseUser.role || 'kierowca',
       active: true
     };
+  } else {
+    // Tryb offline (brak skonfigurowanego backendu) — lokalna lista users jako jedyny fallback
+    u = users.find(x => x.email.toLowerCase() === email && x.active);
+    if(!u){
+      u = { id: email, email, name: email, role: 'kierowca', active: true };
+    }
   }
 
   currentUser=u;
@@ -4986,17 +5124,29 @@ function copyToken() {
 
 // --- OAuth2 — generowanie tokenu ---
 async function cepikGetToken(key, secret) {
-  // Jeśli jest proxy — pobierz token przez proxy (omija CORS)
-  if(cepikProxy) {
-    const proxyTokenUrl = cepikProxy.replace(/\/$/, '') + '/token';
-    cepikLog(`Pobieranie tokenu przez proxy: ${proxyTokenUrl}`, 'info');
-    const resp = await fetch(proxyTokenUrl);
-    if(!resp.ok) throw new Error('Proxy token HTTP ' + resp.status);
-    return resp.json();
-  }
-  // Bezpośrednie połączenie (może być blokowane przez CORS na mobilnych)
   const credentials = btoa(key + ':' + secret);
-  cepikLog('Generuję token OAuth2 z api-cpa.gov.pl...','info');
+  // Zawsze używaj CF Worker proxy (rozwiązuje CORS + IP whitelist api-cpa.gov.pl)
+  const workerBase = (window.CF_WORKER_URL||'').replace(/\/$/,'');
+  if(workerBase) {
+    cepikLog('Generuję token OAuth2 przez CF Worker proxy...','info');
+    const resp = await fetch(workerBase + '/api/cepik/token', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Basic ' + credentials,
+        'Content-Type':  'application/x-www-form-urlencoded'
+      },
+      body: 'grant_type=client_credentials'
+    });
+    if(!resp.ok) {
+      const txt = await resp.text().catch(()=>'');
+      throw new Error(`CF proxy token: HTTP ${resp.status} — ${txt.slice(0,120)}`);
+    }
+    const data = await resp.json();
+    if(!data.access_token) throw new Error('Brak access_token w odpowiedzi: '+JSON.stringify(data).slice(0,100));
+    return data;
+  }
+  // Fallback: bezpośrednie połączenie (może być blokowane przez CORS)
+  cepikLog('Generuję token OAuth2 z api-cpa.gov.pl (bez proxy)...','info');
   const resp = await fetch(CEPIK_TOKEN_URL, {
     method: 'POST',
     headers: {
@@ -5153,43 +5303,77 @@ function getWoj(nrRej) {
   return document.getElementById('cepik-woj')?.value||'14';
 }
 
-// --- Główna funkcja fetch z proxy obsługą ---
+// Wszystkie kody województw CEPiK
+const ALL_WOJ_CODES = ['02','04','06','08','10','12','14','16','18','20','22','24','26','28','30','32'];
+
+// --- Jedno zapytanie do CEPiK przez CF Worker proxy ---
+async function _cepikFetchOne(nr, wojCode, token, year) {
+  const workerBase = (window.CF_WORKER_URL||'').replace(/\/$/,'');
+  if(workerBase) {
+    // CF Worker proxy — omija CORS i whitelist IP
+    const proxyUrl = `${workerBase}/api/cepik/pojazdy?nr=${encodeURIComponent(nr)}&woj=${wojCode}&rok=${year}`;
+    const resp = await fetch(proxyUrl, { headers: { 'X-Cepik-Token': token } });
+    if(!resp.ok) {
+      const txt = await resp.text().catch(()=>'');
+      throw new Error(`CF proxy ${wojCode}: HTTP ${resp.status} ${txt.slice(0,80)}`);
+    }
+    return resp.json();
+  }
+  // Fallback bezpośredni (może fail CORS)
+  const apiUrl = `${CEPIK_API_URL}/pojazdy?numer-rejestracyjny=${encodeURIComponent(nr)}&wojewodztwo=${wojCode}&data-od=${year}0101&data-do=${year}1231&limit=1&pokaz-wszystkie-pola=true`;
+  const resp = await fetch(apiUrl, {
+    headers: { 'Accept': 'application/vnd.api+json', 'Authorization': 'Bearer ' + token },
+    mode: 'cors'
+  });
+  if(!resp.ok) throw new Error('HTTP '+resp.status);
+  return resp.json();
+}
+
+// --- Główna funkcja fetch z proxy + "szukaj we wszystkich województwach" ---
 async function cepikFetch(nrRej, woj) {
   const nr = (nrRej||'').toUpperCase().replace(/\s/g,'');
-  const wojCode = (woj==='auto'||!woj) ? getWoj(nr) : woj;
+  const guessedWoj = getWoj(nr);
+  const wojCode    = (woj==='auto'||!woj) ? guessedWoj : woj;
+  const searchAll  = (woj==='auto'||!woj); // gdy woj nie podano przez użytkownika
   // Cache 24h
   const cacheKey = nr+'_'+wojCode;
   const cached   = cepikCache[cacheKey];
   if(cached && Date.now()-cached.ts < 24*60*60*1000) {
-    cepikLog(`📦 Cache: ${nr}`,'info');
+    cepikLog(`📦 Cache: ${nr} (woj ${wojCode})`,'info');
     return cached.data;
   }
 
+  const token = await getValidToken();
+  const year  = new Date().getFullYear();
+
+  // 1. Próbuj z odgadniętym/podanym województwem, cofając się 2 lata
   let data;
-  if(cepikProxy) {
-    // === PRZEZ PROXY (rozwiązuje CORS) ===
-    const proxyUrl = cepikProxy.replace(/\/$/, '') + `?nr=${encodeURIComponent(nr)}&woj=${wojCode}`;
-    cepikLog(`📡 Proxy: ${nr} → ${proxyUrl.slice(0,60)}...`, 'info');
-    const resp = await fetch(proxyUrl);
-    if(!resp.ok) throw new Error('Proxy HTTP ' + resp.status);
-    data = await resp.json();
-  } else {
-    // === BEZPOŚREDNIO (może fail CORS w przeglądarce) ===
-    const token = await getValidToken();
-    const year  = new Date().getFullYear();
-    // CEPiK wymaga zakresu dat (max 1 rok) — próbuj od bieżącego roku wstecz
-    for(let y = year; y >= year - 2; y--) {
-      const apiUrl = `${CEPIK_API_URL}/pojazdy?numer-rejestracyjny=${encodeURIComponent(nr)}&wojewodztwo=${wojCode}&data-od=${y}0101&data-do=${y}1231&limit=1&pokaz-wszystkie-pola=true`;
-      cepikLog(`📡 Direct: ${nr} (${y})`, 'info');
-      const resp = await fetch(apiUrl, {
-        method:  'GET',
-        headers: { 'Accept': 'application/vnd.api+json', 'Authorization': 'Bearer '+token },
-        mode: 'cors'
-      });
-      if(!resp.ok) throw new Error('HTTP '+resp.status);
-      data = await resp.json();
-      if((data?.data?.length||0) > 0) break;
-      if(y > year - 2) await new Promise(r=>setTimeout(r,300));
+  for(let y = year; y >= year - 2; y--) {
+    cepikLog(`📡 CF proxy: ${nr} woj=${wojCode} rok=${y}`, 'info');
+    try {
+      data = await _cepikFetchOne(nr, wojCode, token, y);
+    } catch(e) { throw e; }
+    if((data?.data?.length||0) > 0) break;
+    if(y > year - 2) await new Promise(r=>setTimeout(r,250));
+  }
+
+  // 2. Jeśli nie znaleziono i woj było odgadnięte — przeszukaj wszystkie województwa
+  if(searchAll && (data?.data?.length||0) === 0) {
+    const remaining = ALL_WOJ_CODES.filter(c => c !== wojCode);
+    cepikLog(`🔍 Nie znaleziono w woj ${wojCode} — szukam w pozostałych ${remaining.length} województwach...`, 'warn');
+    for(const w of remaining) {
+      await new Promise(r=>setTimeout(r,300));
+      try {
+        const d = await _cepikFetchOne(nr, w, token, year);
+        if((d?.data?.length||0) > 0) {
+          cepikLog(`✅ Znaleziono ${nr} w województwie ${w}`, 'ok');
+          data = d;
+          // Zapisz do cache pod właściwym województwem
+          cepikCache[nr+'_'+w] = {ts:Date.now(), data:d};
+          localStorage.setItem('dt1_cepik_cache', JSON.stringify(cepikCache));
+          return d;
+        }
+      } catch { /* spróbuj kolejne */ }
     }
   }
 
@@ -5238,10 +5422,10 @@ async function cepikCheckSingle() {
   resEl.innerHTML='<div class="ibox"><i class="ti ti-loader" style="animation:spin 1s linear infinite"></i>Odpytuję CEPiK API...</div>';
 
   try {
-    const json = await cepikFetch(nr, woj==='auto'?getWoj(nr):woj);
+    const json = await cepikFetch(nr, woj==='auto'?'auto':woj);
     const items = json?.data||[];
     if(!items.length) {
-      resEl.innerHTML=`<div class="wbox"><i class="ti ti-alert-triangle"></i>Pojazd <strong>${nr}</strong> nie znaleziony w CEPiK. Sprawdź nr rejestracyjny i kod województwa.</div>`;
+      resEl.innerHTML=`<div class="wbox"><i class="ti ti-alert-triangle"></i>Pojazd <strong>${nr}</strong> nie znaleziony w CEPiK w żadnym województwie. Sprawdź numer rejestracyjny.</div>`;
       return;
     }
     const attrs    = items[0]?.attributes||{};
@@ -5306,6 +5490,23 @@ async function cepikBatchCheck(mode) {
   else                  batch=vehs.filter(v=>cepikCache[v.nrRej+'_'+getWoj(v.nrRej)]?.diffs?.length);
   if(!batch.length){toast('⚠ Brak pojazdów do weryfikacji');return;}
 
+  // Pre-flight: sprawdź token 1 wywołaniem zanim uruchomimy cały batch.
+  // Zapobiega 150+ failującym requestom gdy token wygasł / dane logowania są błędne.
+  const res=document.getElementById('cepik-batch-results');
+  if(res) res.innerHTML='<div class="ibox"><i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> Weryfikacja połączenia CEPiK...</div>';
+  try {
+    const testV = batch.find(v => {
+      const ck = v.nrRej+'_'+getWoj(v.nrRej);
+      return !cepikCache[ck] || Date.now()-cepikCache[ck].ts > 24*60*60*1000;
+    }) || batch[0];
+    await cepikFetch(testV.nrRej, getWoj(testV.nrRej));
+    cepikLog('✅ Pre-flight OK — połączenie z CEPiK działa','ok');
+  } catch(e) {
+    if(res) res.innerHTML=`<div class="ebox"><i class="ti ti-alert-circle"></i><div><strong>Błąd CEPiK — batch przerwany.</strong><br><span style="font-size:12px">${e.message}<br>Sprawdź konfigurację tokenu lub odśwież połączenie powyżej.</span></div></div>`;
+    cepikLog('❌ Pre-flight nieudany: '+e.message,'err');
+    return;
+  }
+
   batchRunning=true;
   cepikStats={total:0,ok:0,dmc:0,vin:0,notfound:0,err:0};
   const prog=document.getElementById('cepik-batch-progress');
@@ -5313,21 +5514,32 @@ async function cepikBatchCheck(mode) {
   const stat=document.getElementById('cepik-batch-status');
   const pct=document.getElementById('cepik-batch-pct');
   const detail=document.getElementById('cepik-batch-detail');
-  const res=document.getElementById('cepik-batch-results');
   if(prog) prog.classList.remove('hidden');
   if(res)  res.innerHTML='';
 
   const results=[];
+  let consecutiveErrors=0;
+  const MAX_CONSECUTIVE_ERRORS=5; // abort batch po 5 błędach z rzędu — nie ma sensu odpytywać 150 pojazdów gdy API nie działa
+
   for(let i=0;i<batch.length;i++){
+    if(consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+      cepikLog(`⛔ Batch przerwany po ${MAX_CONSECUTIVE_ERRORS} kolejnych błędach — sprawdź połączenie z CEPiK`,'err');
+      results.push(...batch.slice(i).map(v=>({v,status:'skipped',err:'Batch przerwany po zbyt wielu błędach',diffs:[]})));
+      break;
+    }
     const v=batch[i];
+    const cacheKey=v.nrRej+'_'+getWoj(v.nrRej);
+    const fromCache=cepikCache[cacheKey]&&Date.now()-cepikCache[cacheKey].ts<24*60*60*1000;
     const pctVal=Math.round((i/batch.length)*100);
     if(bar)    bar.style.width=pctVal+'%';
     if(pct)    pct.textContent=pctVal+'%';
-    if(stat)   stat.textContent=`Sprawdzam: ${v.nrRej} (${i+1}/${batch.length})`;
-    if(detail) detail.textContent=`${v.marka} ${v.model} — ${getWoj(v.nrRej)} woj.`;
-    if(i>0)    await new Promise(r=>setTimeout(r,400)); // rate limiting
+    if(stat)   stat.textContent=`${fromCache?'📦 Cache':'📡 API'}: ${v.nrRej} (${i+1}/${batch.length})`;
+    if(detail) detail.textContent=`${v.marka} ${v.model} — ${getWoj(v.nrRej)} woj.${fromCache?' [z cache]':''}`;
+    // Opóźnienie tylko dla żywych żądań API (nie cache)
+    if(i>0 && !fromCache) await new Promise(r=>setTimeout(r,400));
     try {
       const json =await cepikFetch(v.nrRej, getWoj(v.nrRej));
+      consecutiveErrors=0; // reset po udanym wywołaniu
       const items=json?.data||[];
       cepikStats.total++;
       if(!items.length){cepikStats.notfound++;results.push({v,status:'notfound',diffs:[]});continue;}
@@ -5340,9 +5552,9 @@ async function cepikBatchCheck(mode) {
         if(diffs.some(d=>d.key==='przeznaczenie'))cepikStats.vin++;
       }
       results.push({v,status:diffs.length?'diff':'ok',diffs,cepikData});
-      const ck=v.nrRej+'_'+getWoj(v.nrRej);
-      if(cepikCache[ck])cepikCache[ck].diffs=diffs;
+      if(cepikCache[cacheKey])cepikCache[cacheKey].diffs=diffs;
     } catch(e) {
+      consecutiveErrors++;
       cepikStats.err++;
       results.push({v,status:'err',err:e.message,diffs:[]});
       cepikLog('❌ '+v.nrRej+': '+e.message,'err');
@@ -5472,17 +5684,21 @@ function renderApiError(e, nr) {
 }
 
 function showCorsHelp(returnStr=false) {
+  const workerOk = !!(window.CF_WORKER_URL||'');
   const html=`<div style="background:var(--amber-light);border:1px solid #EF9F27;border-radius:var(--radius-lg);padding:16px;margin-top:8px">
     <div style="font-size:13px;font-weight:600;color:#633806;margin-bottom:10px"><i class="ti ti-alert-triangle"></i> Problem CORS — przeglądarka blokuje bezpośrednie zapytania do api.cepik.gov.pl</div>
-    <div style="font-size:12px;color:#633806;margin-bottom:10px">Token jest OK! Problem polega na tym, że CEPiK wymaga, aby zapytania przychodziły z serwera (whitelist IP), a nie bezpośrednio z przeglądarki. Token generujemy pomyślnie z api-cpa.gov.pl, ale samo api.cepik.gov.pl blokuje CORS.</div>
-    <div style="font-size:12px;font-weight:600;color:#633806;margin-bottom:8px">Rozwiązania:</div>
+    ${workerOk
+      ? `<div style="font-size:12px;color:#1a7a2e;font-weight:600;margin-bottom:8px">✅ CF Worker proxy aktywny (${(window.CF_WORKER_URL||'').replace(/https?:\/\//,'')}). Zapytania są kierowane przez serwer — CORS nie powinien blokować. Jeśli problem nadal występuje, sprawdź konfigurację Worker.</div>`
+      : `<div style="font-size:12px;color:#633806;margin-bottom:10px">Token jest OK! Problem polega na tym, że CEPiK wymaga, aby zapytania przychodziły z serwera (whitelist IP), a nie bezpośrednio z przeglądarki. Token generujemy pomyślnie z api-cpa.gov.pl, ale samo api.cepik.gov.pl blokuje CORS.</div>`
+    }
+    <div style="font-size:12px;font-weight:600;color:#633806;margin-bottom:8px">Inne rozwiązania:</div>
     <div style="font-size:11px;color:#7a4a06;line-height:2">
-      <div><strong>1. Proxy Node.js</strong> — uruchom na własnym serwerze: <code style="background:#fff3;padding:2px 6px;border-radius:3px">npm install express node-fetch && node cepik-proxy.js</code></div>
+      <div><strong>1. CF Worker (wbudowany)</strong> — proxy /api/cepik/* w taxorder-pro-api.adamus1000.workers.dev — aktywny automatycznie</div>
       <div><strong>2. Whitelist IP</strong> — złóż wniosek do mc@mc.gov.pl o dodanie IP Twojego serwera</div>
       <div><strong>3. Ręcznie</strong> — sprawdzaj na <a href="https://historiapojazdu.gov.pl" target="_blank" style="color:#633806">historiapojazdu.gov.pl</a> i wpisuj przez formularz OCR w zakładce OCR Dowody</div>
     </div>
     <div style="margin-top:10px">
-      <div style="font-size:11px;font-weight:600;color:#633806;margin-bottom:4px">Wpisz URL proxy jeśli go masz:</div>
+      <div style="font-size:11px;font-weight:600;color:#633806;margin-bottom:4px">Własny URL proxy (opcjonalnie):</div>
       <div style="display:flex;gap:6px">
         <input id="cepik-proxy-inp" class="fi" placeholder="https://moj-serwer.pl/cepik-proxy" value="${cepikProxy}" style="flex:1">
         <button class="btn btn-amber" style="font-size:11px" onclick="saveCepikProxyInline()"><i class="ti ti-plug"></i>Użyj proxy</button>

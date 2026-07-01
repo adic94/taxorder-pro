@@ -187,10 +187,19 @@ window.TaxOrderVehicleDetail = {
           <div style="font-size:13px;color:var(--text2)">${v.marka} ${v.model} · ${v.rok || '—'} · ${v.vin || '—'}</div>
         </div>
         ${isArchived ? '<span class="pill pill-red" style="margin-left:auto">ARCHIWUM</span>' : ''}
-        <div style="display:flex;gap:8px;${isArchived?'':'margin-left:auto'}">
+        <div style="display:flex;align-items:center;gap:8px;${isArchived?'':'margin-left:auto'}">
           ${v.cepikSyncStatus === 'ok' ? '<span class="pill pill-green" style="font-size:10px">CEPiK ✓</span>' :
             v.cepikSyncStatus === 'never' ? '' :
             '<span class="pill pill-amber" style="font-size:10px">CEPiK sync</span>'}
+          <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" onclick="TaxOrderDamages.openModal(null, '${v.nrRej}')">
+            <i class="ti ti-alert-triangle"></i>Zgłoś szkodę
+          </button>
+          <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" onclick="TaxOrderServiceOrders.openModal(null, '${v.nrRej}')">
+            <i class="ti ti-clipboard-list"></i>Zlecenie serwisowe
+          </button>
+          <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" onclick="TaxOrderHandoverProtocol.openModal(null, '${v.nrRej}')">
+            <i class="ti ti-file-signature"></i>Protokół
+          </button>
         </div>
       </div>
 
@@ -1698,7 +1707,15 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
 
   _fillFromOcr(vehId, data) {
     if (!data) return;
-    const map = { vin:'vd-vin', nrRej:'vd-nrRej', dmc:'vd-dmc', masaWlasna:'vd-masaWlasna', paliwo:'vd-paliwo' };
+    const map = {
+      vin:'vd-vin', nrRej:'vd-nrRej', paliwo:'vd-paliwo',
+      dmc:'vd-dmcMax', dmcKg:'vd-dmcMax',
+      masaWlasna:'vd-masaWlasna', masaWlKg:'vd-masaWlasna',
+      dataRej:'vd-dataRej',
+      kategoria:'vd-katPojazdu',
+      homologacja:'vd-homologacja',
+      marka:'vd-marka', model:'vd-model', rok:'vd-rok',
+    };
     let filled = 0;
     Object.entries(map).forEach(([k, elId]) => {
       if (data[k] != null) {

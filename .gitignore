@@ -37,5 +37,11 @@ build/
 # Logs
 *.log
 
+# API Explorer — raporty mogą zawierać tokeny/ciasteczka, nigdy nie commitować
+tools/api-explorer/reports/
+
+# Backupy SQL — mogą zawierać dane wrażliwe, przechowuj lokalnie
+backups/
+
 # Duplicate project directory (git worktree artifact)
 taxorder-pro/

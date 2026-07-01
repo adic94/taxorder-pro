@@ -156,8 +156,16 @@ window.addEventListener('DOMContentLoaded', () => {
   <button class="tnb" id="tnb-podatnik" onclick="showPage('podatnik')"><i class="ti ti-building"></i><span data-i18n="nav.podatnik">Podatnik</span></button>
   <button class="tnb" id="tnb-firmy" onclick="showPage('firmy')"><i class="ti ti-building-community"></i><span data-i18n="nav.firmy">Firmy</span></button>
   <button class="tnb" id="tnb-uzytkownicy" onclick="showPage('uzytkownicy')"><i class="ti ti-users"></i><span data-i18n="nav.uzytkownicy">Użytkownicy</span></button>
+  <button class="tnb" id="tnb-api-klucze" onclick="showPage('api-klucze')"><i class="ti ti-key"></i><span data-i18n="nav.apiKlucze">Klucze API</span></button>
   <button class="tnb" id="tnb-cepik" onclick="showPage('cepik')"><i class="ti ti-database"></i><span data-i18n="nav.cepik">CEPiK</span></button>
   <button class="tnb" id="tnb-karty" onclick="showPage('karty')"><i class="ti ti-credit-card"></i><span data-i18n="nav.karty">Karty Flotowe</span></button>
+  <button class="tnb" id="tnb-szkody" onclick="showPage('szkody')"><i class="ti ti-alert-triangle"></i><span data-i18n="nav.szkody">Szkody</span></button>
+  <button class="tnb" id="tnb-opony-magazyn" onclick="showPage('opony-magazyn')"><i class="ti ti-circle-dot"></i><span data-i18n="nav.oponyMagazyn">Magazyn Opon</span></button>
+  <button class="tnb" id="tnb-zlecenia" onclick="showPage('zlecenia')"><i class="ti ti-clipboard-list"></i><span data-i18n="nav.zlecenia">Zlecenia serwisowe</span></button>
+  <button class="tnb" id="tnb-protokoly" onclick="showPage('protokoly')"><i class="ti ti-file-signature"></i><span data-i18n="nav.protokoly">Protokoły</span></button>
+  <button class="tnb" id="tnb-cfm-klienci" onclick="showPage('cfm-klienci')"><i class="ti ti-building-store"></i><span data-i18n="nav.cfmKlienci">Klienci CFM</span></button>
+  <button class="tnb" id="tnb-cfm-kontrakty" onclick="showPage('cfm-kontrakty')"><i class="ti ti-file-description"></i><span data-i18n="nav.cfmKontrakty">Kontrakty CFM</span></button>
+  <button class="tnb" id="tnb-cfm-faktury" onclick="showPage('cfm-faktury')"><i class="ti ti-file-invoice"></i><span data-i18n="nav.cfmFaktury">Faktury CFM</span></button>
   <button class="tnb" id="tnb-raporty" onclick="showPage('raporty')"><i class="ti ti-chart-line"></i><span data-i18n="nav.raporty">Raporty</span></button>
 
   <div class="sidebar-label" data-i18n="nav.group.ai">AI</div>
@@ -381,6 +389,10 @@ window.addEventListener('DOMContentLoaded', () => {
           <th data-col="masaWl" class="sort-th" onclick="sortBy('masaWlasna')" style="text-align:right" title="Masa własna pojazdu (G DR)">Masa wł. (kg)</th>
           <th data-col="msc" style="text-align:center" title="Miejsca siedzące (S.1 DR)">Msc.</th>
           <th data-col="euro" title="Norma emisji EURO">EURO</th>
+          <th data-col="dmcF2" class="sort-th" onclick="sortBy('dmcKg2')" style="text-align:right" title="F.2 — DMC z ładunkiem (kg DR)">F.2 DMC (kg)</th>
+          <th data-col="ladownosc" class="sort-th" onclick="sortBy('ladownosc')" style="text-align:right" title="Ładowność = F.2 − G">Ładowność (kg)</th>
+          <th data-col="dataRej" class="sort-th" onclick="sortBy('dataRejestracji')" title="B — Data 1. rejestracji w RP">Data 1. rej.</th>
+          <th data-col="katDR" title="J — Kategoria pojazdu z DR (N1/N2/N3/O/M)">Kat. DR</th>
           <th style="text-align:center" title="Karta pojazdu">📎</th>
         </tr>
         <tr id="veh-filter-row" style="display:none">
@@ -415,6 +427,10 @@ window.addEventListener('DOMContentLoaded', () => {
           <th data-col="masaWl"></th>
           <th data-col="msc"></th>
           <th data-col="euro"><input class="col-fi" type="text" placeholder="⌕" oninput="applyColFilter('euro',this.value)"></th>
+          <th data-col="dmcF2"><input class="col-fi" type="text" placeholder="⌕ kg" oninput="applyColFilter('dmcF2',this.value)"></th>
+          <th data-col="ladownosc"><input class="col-fi" type="text" placeholder="⌕ kg" oninput="applyColFilter('ladownosc',this.value)"></th>
+          <th data-col="dataRej"><input class="col-fi" type="text" placeholder="⌕ DD.MM.RRRR" oninput="applyColFilter('dataRej',this.value)"></th>
+          <th data-col="katDR"><input class="col-fi" type="text" placeholder="⌕ N1/N3…" oninput="applyColFilter('katDR',this.value)"></th>
           <th></th>
         </tr>
       </thead>
@@ -1049,6 +1065,7 @@ window.addEventListener('DOMContentLoaded', () => {
         <div class="panel-title"><i class="ti ti-history" style="color:var(--text2)"></i>Historia zdarzeń pojazdu</div>
         <div style="margin-bottom:10px;display:flex;gap:6px">
           <input id="fak-search-veh" class="fi" placeholder="Nr rej. pojazdu..." style="flex:1" oninput="renderFakHistory()">
+          <button class="btn btn-gray" style="font-size:11px;padding:8px 10px" onclick="exportFakturyToFK()" title="Eksport CSV do importu w systemie FK (np. enova365)"><i class="ti ti-download"></i></button>
         </div>
         <div id="fak-history-list" style="font-size:12px;color:var(--text3)">Brak zapisanych zdarzeń</div>
       </div>
@@ -1294,6 +1311,156 @@ window.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 
+<!-- ==================== SZKODY ==================== -->
+<div class="page" id="page-szkody">
+  <div class="pg-title"><i class="ti ti-alert-triangle"></i>Szkody</div>
+  <div class="pg-sub">Rejestr zgłoszonych szkód pojazdów floty, ze zdjęciami</div>
+  <div class="toolbar">
+    <input id="szk-search" class="fi" placeholder="🔍 Nr rej., opis..." style="flex:1" oninput="TaxOrderDamages.render()">
+    <select id="szk-status" class="fi" style="width:160px" onchange="TaxOrderDamages.render()">
+      <option value="">Wszystkie statusy</option>
+      <option value="ZGLOSZONA">Zgłoszona</option>
+      <option value="W_TRAKCIE">W trakcie</option>
+      <option value="ZAMKNIETA">Zamknięta</option>
+    </select>
+    <button class="btn btn-blue" onclick="TaxOrderDamages.openModal()"><i class="ti ti-plus"></i>Zgłoś szkodę</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Nr rej.</th><th>Data zdarzenia</th><th>Opis</th><th>Status</th><th>Koszt</th><th>Zdjęcia</th><th></th>
+      </tr></thead>
+      <tbody id="szkody-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== MAGAZYN OPON ==================== -->
+<div class="page" id="page-opony-magazyn">
+  <div class="pg-title"><i class="ti ti-circle-dot"></i>Magazyn opon</div>
+  <div class="pg-sub">Cykl życia opon — magazyn, montaż na pojeździe, demontaż, złomowanie</div>
+  <div class="toolbar">
+    <input id="opn-search" class="fi" placeholder="🔍 Rozmiar, marka, nr rej..." style="flex:1" oninput="TaxOrderTires.render()">
+    <select id="opn-status" class="fi" style="width:160px" onchange="TaxOrderTires.render()">
+      <option value="">Wszystkie statusy</option>
+      <option value="MAGAZYN">Magazyn</option>
+      <option value="ZAMONTOWANA">Zamontowana</option>
+      <option value="ZLOMOWANA">Złomowana</option>
+    </select>
+    <button class="btn btn-blue" onclick="TaxOrderTires.openModal()"><i class="ti ti-plus"></i>Dodaj oponę</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Status</th><th>Rozmiar</th><th>Marka</th><th>DOT</th><th>Bieżnik</th><th>Sezon</th><th>Pojazd/Lokalizacja</th><th></th>
+      </tr></thead>
+      <tbody id="opony-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== ZLECENIA SERWISOWE ==================== -->
+<div class="page" id="page-zlecenia">
+  <div class="pg-title"><i class="ti ti-clipboard-list"></i>Zlecenia serwisowe</div>
+  <div class="pg-sub">Workflow: zgłoszenie → autoryzacja → realizacja</div>
+  <div class="toolbar">
+    <input id="zlc-search" class="fi" placeholder="🔍 Nr rej., opis..." style="flex:1" oninput="TaxOrderServiceOrders.render()">
+    <select id="zlc-status" class="fi" style="width:170px" onchange="TaxOrderServiceOrders.render()">
+      <option value="">Wszystkie statusy</option>
+      <option value="ZGLOSZONE">Zgłoszone</option>
+      <option value="AUTORYZOWANE">Autoryzowane</option>
+      <option value="ODRZUCONE">Odrzucone</option>
+      <option value="ZREALIZOWANE">Zrealizowane</option>
+    </select>
+    <button class="btn btn-blue" onclick="TaxOrderServiceOrders.openModal()"><i class="ti ti-plus"></i>Zgłoś potrzebę serwisową</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Nr rej.</th><th>Typ</th><th>Opis</th><th>Status</th><th>Koszt szac.</th><th>Zgłoszono</th><th></th>
+      </tr></thead>
+      <tbody id="zlecenia-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== PROTOKOŁY ZDAWCZO-ODBIORCZE ==================== -->
+<div class="page" id="page-protokoly">
+  <div class="pg-title"><i class="ti ti-file-signature"></i>Protokoły zdawczo-odbiorcze</div>
+  <div class="pg-sub">Elektroniczne protokoły wydania i zdania pojazdu</div>
+  <div class="toolbar">
+    <input id="prt-search" class="fi" placeholder="🔍 Nr rej..." style="flex:1" oninput="TaxOrderHandoverProtocol.render()">
+    <button class="btn btn-blue" onclick="TaxOrderHandoverProtocol.openModal()"><i class="ti ti-plus"></i>Nowy protokół</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Nr rej.</th><th>Typ</th><th>Data</th><th>Wydający → Odbierający</th><th>Stan licznika</th><th></th><th></th>
+      </tr></thead>
+      <tbody id="protokoly-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== KLIENCI CFM ==================== -->
+<div class="page" id="page-cfm-klienci">
+  <div class="pg-title"><i class="ti ti-building-store"></i>Klienci CFM</div>
+  <div class="pg-sub">Klienci zewnętrzni wynajmu/leasingu floty (spoza listy firm systemu)</div>
+  <div class="toolbar">
+    <input id="cfmk-search" class="fi" placeholder="🔍 Nazwa, NIP..." style="flex:1" oninput="TaxOrderCfmClients.render()">
+    <button class="btn btn-blue" onclick="TaxOrderCfmClients.openModal()"><i class="ti ti-plus"></i>Dodaj klienta</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Nazwa</th><th>NIP</th><th>Miasto</th><th>Osoba kontaktowa</th><th>Kontakt</th><th></th></tr></thead>
+      <tbody id="cfmk-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== KONTRAKTY CFM ==================== -->
+<div class="page" id="page-cfm-kontrakty">
+  <div class="pg-title"><i class="ti ti-file-description"></i>Kontrakty CFM</div>
+  <div class="pg-sub">Umowy najmu/leasingu pojazdów — 1 pojazd = 1 kontrakt</div>
+  <div class="toolbar">
+    <input id="cfmu-search" class="fi" placeholder="🔍 Nr rej., klient..." style="flex:1" oninput="TaxOrderCfmContracts.render()">
+    <select id="cfmu-status" class="fi" style="width:160px" onchange="TaxOrderCfmContracts.render()">
+      <option value="">Wszystkie statusy</option>
+      <option value="AKTYWNY">Aktywne</option>
+      <option value="ZAKONCZONY">Zakończone</option>
+    </select>
+    <button class="btn btn-blue" onclick="TaxOrderCfmContracts.openModal()"><i class="ti ti-plus"></i>Nowy kontrakt</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Pojazd</th><th>Klient</th><th>Typ</th><th>Okres</th><th>Stawka</th><th>Refaktura</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody id="cfmu-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== FAKTURY CFM ==================== -->
+<div class="page" id="page-cfm-faktury">
+  <div class="pg-title"><i class="ti ti-file-invoice"></i>Faktury CFM</div>
+  <div class="pg-sub">Faktury zbiorcze za wynajem floty + refakturowanie kosztów (paliwo, serwis, szkody)</div>
+  <div class="wbox" style="margin-bottom:14px">
+    <i class="ti ti-alert-triangle"></i>
+    <div>Eksport XML KSeF to struktura poglądowa wg schematu FA — <strong>niewalidowana</strong> względem oficjalnego XSD KSeF. Wymaga weryfikacji przed produkcyjnym wysłaniem.</div>
+  </div>
+  <div class="toolbar">
+    <button class="btn btn-blue" onclick="TaxOrderCfmInvoices.openGenerateModal()"><i class="ti ti-plus"></i>Generuj fakturę</button>
+    <button class="btn btn-gray" onclick="TaxOrderCfmInvoices.exportToFK()" title="Eksport CSV do importu w systemie FK (np. enova365)"><i class="ti ti-download"></i>Eksport do FK</button>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Nr faktury</th><th>Klient</th><th>Okres</th><th>Suma brutto</th><th>Status</th><th>Termin płatności</th><th></th></tr></thead>
+      <tbody id="cfmf-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
 <!-- ==================== UŻYTKOWNICY ==================== -->
 <div class="page" id="page-uzytkownicy">
   <div class="pg-title"><i class="ti ti-users"></i>Zarządzanie użytkownikami</div>
@@ -1338,6 +1505,74 @@ window.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 
+<div class="page" id="page-api-klucze">
+  <div class="pg-title"><i class="ti ti-key"></i>Klucze API</div>
+  <div class="pg-sub">Uwierzytelnianie maszyna-maszyna do eksportu/importu danych przez zewnętrzne integracje (Tekom, ORLEN, enova365, własne skrypty)</div>
+  <div style="display:grid;grid-template-columns:1fr 360px;gap:1.5rem;align-items:start">
+    <div>
+      <div class="toolbar">
+        <button class="btn btn-blue" onclick="TaxOrderApiKeys.openModal()"><i class="ti ti-plus"></i>Nowy klucz</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Nazwa</th><th>Firma</th><th>Zakres</th><th>Status</th><th>Ostatnio użyty</th><th></th>
+          </tr></thead>
+          <tbody id="apik-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div>
+      <div class="panel-right">
+        <div class="panel-title"><i class="ti ti-code" style="color:var(--blue)"></i>Jak używać</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.7">
+          <div>Każdy klucz jest związany z jedną firmą i ma zakres: tylko odczyt, albo odczyt i zapis.</div>
+          <div style="margin-top:8px">Nagłówek żądania:</div>
+          <pre style="background:var(--bg1);border-radius:6px;padding:8px;overflow-x:auto;font-size:11px">Authorization: Bearer tord_live_...</pre>
+          <div>Eksport wszystkich danych firmy:</div>
+          <pre style="background:var(--bg1);border-radius:6px;padding:8px;overflow-x:auto;font-size:11px">curl -H "Authorization: Bearer tord_..." \
+  "https://taxorder-pro-api.adamus1000.workers.dev/api/export?company=mtoilet"</pre>
+          <div>Import (upsert) danych:</div>
+          <pre style="background:var(--bg1);border-radius:6px;padding:8px;overflow-x:auto;font-size:11px">curl -X POST -H "Authorization: Bearer tord_..." \
+  -H "Content-Type: application/json" -d @dane.json \
+  "https://taxorder-pro-api.adamus1000.workers.dev/api/import?company=mtoilet"</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL klucza API -->
+<div class="modal-bg hidden" id="api-key-modal">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);width:460px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.2)">
+    <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:15px;font-weight:600">Nowy klucz API</div>
+      <button onclick="TaxOrderApiKeys.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+    </div>
+    <div style="padding:20px 22px" id="apikm-form">
+      <div class="fg" style="gap:12px">
+        <div class="f full"><label>Nazwa (np. "Tekom GPS sync")</label><input id="apikm-name" class="fi"></div>
+        <div class="f full"><label>Firma</label><select id="apikm-company" class="fi"></select></div>
+        <div class="f full"><label>Zakres dostępu</label>
+          <select id="apikm-scope" class="fi">
+            <option value="read">Tylko odczyt (eksport)</option>
+            <option value="read_write">Odczyt i zapis (eksport + import)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div style="padding:20px 22px" id="apikm-result">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">⚠️ Ten klucz pokazujemy tylko raz — skopiuj go teraz, nie będzie można go ponownie wyświetlić.</div>
+      <pre id="apikm-key-value" style="background:var(--bg1);border-radius:6px;padding:10px;overflow-x:auto;font-size:12px;word-break:break-all;white-space:pre-wrap"></pre>
+      <button class="btn btn-gray" style="margin-top:8px" onclick="TaxOrderApiKeys.copyKey()"><i class="ti ti-copy"></i>Kopiuj</button>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:10px">
+      <button class="btn btn-gray" style="flex:1;justify-content:center" onclick="TaxOrderApiKeys.closeModal()" id="apikm-cancel-btn">Anuluj</button>
+      <button class="btn btn-blue" style="flex:1;justify-content:center" onclick="TaxOrderApiKeys.save()" id="apikm-save-btn"><i class="ti ti-device-floppy"></i>Generuj klucz</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL karty flotowej -->
 <div class="modal-bg hidden" id="karta-modal">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:500px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.2)">
@@ -1377,6 +1612,334 @@ window.addEventListener('DOMContentLoaded', () => {
     <div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:10px">
       <button class="btn btn-gray" style="flex:1;justify-content:center" onclick="document.getElementById('karta-modal').classList.add('hidden')">Anuluj</button>
       <button class="btn btn-blue" style="flex:1;justify-content:center" id="km-save-btn" onclick="saveKarta()"><i class="ti ti-device-floppy"></i>Zapisz kartę</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL szkody -->
+<div class="modal-bg hidden" id="szkoda-modal">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);width:540px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2)">
+    <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:15px;font-weight:600" id="szm-title">Zgłoś szkodę</div>
+      <button onclick="TaxOrderDamages.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+    </div>
+    <div style="padding:20px 22px">
+      <div class="fg" style="gap:12px">
+        <div class="f"><label>Nr rejestracyjny</label>
+          <input id="szm-nrrej" class="fi" placeholder="np. WPR0365T" list="szm-veh-list">
+          <datalist id="szm-veh-list"></datalist>
+        </div>
+        <div class="f"><label>Data zdarzenia</label><input id="szm-data" type="date" class="fi"></div>
+        <div class="f"><label>Status</label>
+          <select id="szm-status" class="fi">
+            <option value="ZGLOSZONA">Zgłoszona</option>
+            <option value="W_TRAKCIE">W trakcie</option>
+            <option value="ZAMKNIETA">Zamknięta</option>
+          </select>
+        </div>
+        <div class="f"><label>Koszt (zł)</label><input id="szm-koszt" type="number" class="fi" placeholder="np. 1500"></div>
+        <div class="f full"><label>Zgłaszający</label><input id="szm-zglaszajacy" class="fi" placeholder="Imię i nazwisko"></div>
+        <div class="f full"><label>Opis</label><textarea id="szm-opis" class="fi" rows="2" placeholder="Co się stało..."></textarea></div>
+        <div class="f full"><label>Przyczyna</label><textarea id="szm-przyczyna" class="fi" rows="2" placeholder="Przyczyna szkody..."></textarea></div>
+        <div class="f full"><label>Uwagi</label><textarea id="szm-uwagi" class="fi" rows="2"></textarea></div>
+        <div class="f full">
+          <label>Zdjęcia</label>
+          <input type="file" id="szm-photo-input" accept="image/*" multiple style="display:none" onchange="TaxOrderDamages.uploadPhotos(this)">
+          <button class="btn btn-gray" id="szm-photo-btn" onclick="document.getElementById('szm-photo-input').click()"><i class="ti ti-camera"></i>Dodaj zdjęcia</button>
+          <div id="szm-photos-grid" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"></div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:10px">
+      <button class="btn btn-gray" style="flex:1;justify-content:center" onclick="TaxOrderDamages.closeModal()">Anuluj</button>
+      <button class="btn btn-blue" style="flex:1;justify-content:center" onclick="TaxOrderDamages.save()"><i class="ti ti-device-floppy"></i>Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL opony -->
+<div class="modal-bg hidden" id="opona-modal">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);width:480px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.2)">
+    <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:15px;font-weight:600" id="opm-title">Dodaj oponę do magazynu</div>
+      <button onclick="TaxOrderTires.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+    </div>
+    <div style="padding:20px 22px">
+      <div class="fg" style="gap:12px">
+        <div class="f"><label>Rozmiar</label><input id="opm-rozmiar" class="fi" placeholder="np. 315/80 R22.5"></div>
+        <div class="f"><label>Marka</label><input id="opm-marka" class="fi" placeholder="np. Michelin"></div>
+        <div class="f"><label>DOT</label><input id="opm-dot" class="fi" placeholder="np. 2324"></div>
+        <div class="f"><label>Bieżnik (mm)</label><input id="opm-bieznik" type="number" step="0.1" class="fi" placeholder="np. 8.5"></div>
+        <div class="f"><label>Sezon</label>
+          <select id="opm-sezon" class="fi">
+            <option value="">— nie określono —</option>
+            <option value="letnie">Letnie</option>
+            <option value="zimowe">Zimowe</option>
+            <option value="caloroczne">Całoroczne</option>
+          </select>
+        </div>
+        <div class="f"><label>Lokalizacja w magazynie</label><input id="opm-lokalizacja" class="fi" placeholder="np. Regał A3"></div>
+        <div class="f"><label>Data zakupu</label><input id="opm-zakup" type="date" class="fi"></div>
+        <div class="f full"><label>Uwagi</label><input id="opm-uwagi" class="fi"></div>
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:10px">
+      <button class="btn btn-gray" style="flex:1;justify-content:center" onclick="TaxOrderTires.closeModal()">Anuluj</button>
+      <button class="btn btn-blue" style="flex:1;justify-content:center" onclick="TaxOrderTires.save()"><i class="ti ti-device-floppy"></i>Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL montażu opony -->
+<div class="modal-bg hidden" id="opona-mount-modal">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);width:420px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.2)">
+    <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:15px;font-weight:600">Zamontuj oponę</div>
+      <button onclick="TaxOrderTires.closeMountModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+    </div>
+    <div style="padding:20px 22px">
+      <div class="fg" style="gap:12px">
+        <div class="f full"><label>Pojazd</label>
+          <input id="opm-mount-nrrej" class="fi" placeholder="np. WPR0365T" list="opm-mount-veh-list">
+          <datalist id="opm-mount-veh-list"></datalist>
+        </div>
+        <div class="f full"><label>Pozycja</label>
+          <select id="opm-mount-pozycja" class="fi">
+            <option value="FL">Przód lewy (FL)</option>
+            <option value="FR">Przód prawy (FR)</option>
+            <option value="RL">Tył lewy (RL)</option>
+            <option value="RR">Tył prawy (RR)</option>
+            <option value="RLi">Tył lewy wew. (RLi)</option>
+            <option value="RRi">Tył prawy wew. (RRi)</option>
+            <option value="SP">Zapasowa (SP)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:10px">
+      <button class="btn btn-gray" style="flex:1;justify-content:center" onclick="TaxOrderTires.closeMountModal()">Anuluj</button>
+      <button class="btn btn-blue" style="flex:1;justify-content:center" onclick="TaxOrderTires.confirmMount()"><i class="ti ti-tool"></i>Zamontuj</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL historii opony -->
+<div class="modal-bg hidden" id="opona-history-modal">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);width:420px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2)">
+    <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:15px;font-weight:600">Historia opony</div>
+      <button onclick="TaxOrderTires.closeHistory()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+    </div>
+    <div style="padding:14px 22px" id="opona-history-body"></div>
+  </div>
+</div>
+
+<!-- MODAL zlecenia serwisowego -->
+<div class="modal-bg hidden" id="zlecenie-modal">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);width:500px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2)">
+    <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:15px;font-weight:600">Zgłoś potrzebę serwisową</div>
+      <button onclick="TaxOrderServiceOrders.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+    </div>
+    <div style="padding:20px 22px">
+      <div class="fg" style="gap:12px">
+        <div class="f"><label>Nr rejestracyjny</label>
+          <input id="zlm-nrrej" class="fi" placeholder="np. WPR0365T" list="zlc-veh-list">
+          <datalist id="zlc-veh-list"></datalist>
+        </div>
+        <div class="f"><label>Typ usługi</label><select id="zlm-typ" class="fi"></select></div>
+        <div class="f"><label>Koszt szacowany (zł)</label><input id="zlm-koszt" type="number" class="fi"></div>
+        <div class="f"><label>Warsztat</label><input id="zlm-warsztat" class="fi"></div>
+        <div class="f full"><label>Zgłaszający</label><input id="zlm-zglaszajacy" class="fi" placeholder="Imię i nazwisko"></div>
+        <div class="f full"><label>Opis potrzeby</label><textarea id="zlm-opis" class="fi" rows="3" placeholder="Co wymaga serwisu..."></textarea></div>
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:10px">
+      <button class="btn btn-gray" style="flex:1;justify-content:center" onclick="TaxOrderServiceOrders.closeModal()">Anuluj</button>
+      <button class="btn btn-blue" style="flex:1;justify-content:center" onclick="TaxOrderServiceOrders.save()"><i class="ti ti-device-floppy"></i>Zgłoś</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL realizacji zlecenia -->
+<div class="modal-bg hidden" id="zlecenie-realizacja-modal">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);width:420px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.2)">
+    <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:15px;font-weight:600">Zrealizuj zlecenie</div>
+      <button onclick="TaxOrderServiceOrders.closeRealizeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+    </div>
+    <div style="padding:20px 22px">
+      <div class="fg" style="gap:12px">
+        <div class="f"><label>Data realizacji</label><input id="zlr-data" type="date" class="fi"></div>
+        <div class="f"><label>Przebieg (km)</label><input id="zlr-km" type="number" class="fi"></div>
+        <div class="f"><label>Koszt rzeczywisty (zł)</label><input id="zlr-koszt" type="number" class="fi"></div>
+        <div class="f"><label>Następny termin</label><input id="zlr-nastepny-termin" type="date" class="fi"></div>
+        <div class="f full"><label>Następny przebieg (km)</label><input id="zlr-nastepny-km" type="number" class="fi"></div>
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:10px">
+      <button class="btn btn-gray" style="flex:1;justify-content:center" onclick="TaxOrderServiceOrders.closeRealizeModal()">Anuluj</button>
+      <button class="btn btn-blue" style="flex:1;justify-content:center" onclick="TaxOrderServiceOrders.confirmRealize()"><i class="ti ti-check"></i>Potwierdź realizację</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL protokołu zdawczo-odbiorczego -->
+<div class="modal-bg hidden" id="protokol-modal">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);width:620px;max-width:95vw;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2)">
+    <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:15px;font-weight:600" id="prm-title">Nowy protokół zdawczo-odbiorczy</div>
+      <button onclick="TaxOrderHandoverProtocol.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+    </div>
+    <div style="padding:20px 22px">
+      <div class="fg" style="gap:12px">
+        <div class="f"><label>Nr rejestracyjny</label>
+          <input id="prm-nrrej" class="fi" placeholder="np. WPR0365T" list="prm-veh-list">
+          <datalist id="prm-veh-list"></datalist>
+        </div>
+        <div class="f"><label>Typ</label>
+          <select id="prm-typ" class="fi"><option value="WYDANIE">Wydanie</option><option value="ZDANIE">Zdanie</option></select>
+        </div>
+        <div class="f"><label>Data</label><input id="prm-data" type="date" class="fi"></div>
+        <div class="f"><label>Stan licznika (km)</label><input id="prm-licznik" type="number" class="fi"></div>
+        <div class="f"><label>Osoba wydająca</label>
+          <input id="prm-wydajaca" class="fi" list="prm-driver-list">
+        </div>
+        <div class="f"><label>Osoba odbierająca</label>
+          <input id="prm-odbierajaca" class="fi" list="prm-driver-list">
+          <datalist id="prm-driver-list"></datalist>
+        </div>
+        <div class="f"><label>Stan paliwa</label>
+          <select id="prm-paliwo" class="fi">
+            <option>Pełny</option><option>3/4</option><option>1/2</option><option>1/4</option><option>Pusty</option>
+          </select>
+        </div>
+        <div class="f full"><label>Wyposażenie</label>
+          <div id="prm-equipment-list" style="background:var(--bg3);border-radius:var(--radius);padding:8px 12px;margin-bottom:6px"></div>
+          <div style="display:flex;gap:6px">
+            <input id="prm-equip-new" class="fi" placeholder="Dodaj pozycję..." style="flex:1">
+            <button class="btn btn-gray" type="button" onclick="TaxOrderHandoverProtocol.addEquip()"><i class="ti ti-plus"></i></button>
+          </div>
+        </div>
+        <div class="f full"><label>Opis uszkodzeń</label><textarea id="prm-uszkodzenia" class="fi" rows="2"></textarea></div>
+        <div class="f full"><label>Uwagi</label><textarea id="prm-uwagi" class="fi" rows="2"></textarea></div>
+        <div class="f full">
+          <label>Zdjęcia</label>
+          <input type="file" id="prm-photo-input" accept="image/*" multiple style="display:none" onchange="TaxOrderHandoverProtocol.uploadPhotos(this)">
+          <button class="btn btn-gray" id="prm-photo-btn" onclick="document.getElementById('prm-photo-input').click()"><i class="ti ti-camera"></i>Dodaj zdjęcia</button>
+          <div id="prm-photos-grid" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"></div>
+        </div>
+        <div class="f"><label>Podpis wydającego</label>
+          <canvas id="sig-wydajacy" width="260" height="100" style="border:1px solid var(--border);border-radius:6px;background:#fff;touch-action:none;cursor:crosshair"></canvas>
+          <button class="btn btn-gray" type="button" style="font-size:11px;margin-top:4px" onclick="TaxOrderHandoverProtocol.clearSignature('wydajacy')">Wyczyść</button>
+        </div>
+        <div class="f"><label>Podpis odbierającego</label>
+          <canvas id="sig-odbierajacy" width="260" height="100" style="border:1px solid var(--border);border-radius:6px;background:#fff;touch-action:none;cursor:crosshair"></canvas>
+          <button class="btn btn-gray" type="button" style="font-size:11px;margin-top:4px" onclick="TaxOrderHandoverProtocol.clearSignature('odbierajacy')">Wyczyść</button>
+        </div>
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:10px">
+      <button class="btn btn-gray" style="flex:1;justify-content:center" onclick="TaxOrderHandoverProtocol.closeModal()">Anuluj</button>
+      <button class="btn btn-blue" style="flex:1;justify-content:center" onclick="TaxOrderHandoverProtocol.save()"><i class="ti ti-device-floppy"></i>Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL klienta CFM -->
+<div class="modal-bg hidden" id="cfm-client-modal">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2)">
+    <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:15px;font-weight:600" id="cfmkm-title">Nowy klient zewnętrzny</div>
+      <button onclick="TaxOrderCfmClients.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+    </div>
+    <div style="padding:20px 22px">
+      <div class="fg" style="gap:12px">
+        <div class="f full"><label>Nazwa firmy</label><input id="cfmkm-nazwa" class="fi"></div>
+        <div class="f"><label>NIP</label><input id="cfmkm-nip" class="fi"></div>
+        <div class="f"><label>REGON</label><input id="cfmkm-regon" class="fi"></div>
+        <div class="f"><label>Ulica i nr</label><input id="cfmkm-ulica" class="fi"></div>
+        <div class="f"><label>Kod pocztowy</label><input id="cfmkm-kod" class="fi" placeholder="00-000"></div>
+        <div class="f"><label>Miasto</label><input id="cfmkm-miasto" class="fi"></div>
+        <div class="f"><label>Email</label><input id="cfmkm-email" class="fi" type="email"></div>
+        <div class="f"><label>Telefon</label><input id="cfmkm-telefon" class="fi"></div>
+        <div class="f full"><label>Osoba kontaktowa</label><input id="cfmkm-osoba" class="fi"></div>
+        <div class="f full"><label>Uwagi</label><textarea id="cfmkm-uwagi" class="fi" rows="2"></textarea></div>
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:10px">
+      <button class="btn btn-gray" style="flex:1;justify-content:center" onclick="TaxOrderCfmClients.closeModal()">Anuluj</button>
+      <button class="btn btn-blue" style="flex:1;justify-content:center" onclick="TaxOrderCfmClients.save()"><i class="ti ti-device-floppy"></i>Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL kontraktu CFM -->
+<div class="modal-bg hidden" id="cfm-contract-modal">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2)">
+    <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:15px;font-weight:600" id="cfmum-title">Nowy kontrakt CFM</div>
+      <button onclick="TaxOrderCfmContracts.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+    </div>
+    <div style="padding:20px 22px">
+      <div class="fg" style="gap:12px">
+        <div class="f full"><label>Pojazd</label>
+          <input id="cfmum-nrrej" class="fi" placeholder="np. WPR0365T" list="cfmum-veh-list">
+          <datalist id="cfmum-veh-list"></datalist>
+        </div>
+        <div class="f full"><label>Typ klienta</label>
+          <select id="cfmum-client-type" class="fi" onchange="TaxOrderCfmContracts._toggleClientType()">
+            <option value="COMPANY">Firma z systemu</option>
+            <option value="EXTERNAL">Klient zewnętrzny</option>
+          </select>
+        </div>
+        <div class="f full" id="cfmum-client-company-wrap"><label>Firma</label><select id="cfmum-client-company" class="fi"></select></div>
+        <div class="f full" id="cfmum-client-external-wrap" style="display:none"><label>Klient zewnętrzny</label><select id="cfmum-client-external" class="fi"></select></div>
+        <div class="f"><label>Typ umowy</label>
+          <select id="cfmum-typ" class="fi"><option value="NAJEM">Najem</option><option value="LEASING">Leasing</option></select>
+        </div>
+        <div class="f"><label>Stawka miesięczna netto (zł)</label><input id="cfmum-stawka" type="number" class="fi"></div>
+        <div class="f"><label>Data od</label><input id="cfmum-od" type="date" class="fi"></div>
+        <div class="f"><label>Data do (puste = bezterminowo)</label><input id="cfmum-do" type="date" class="fi"></div>
+        <div class="f"><label>Dzień płatności (miesiąc)</label><input id="cfmum-dzien" type="number" min="1" max="28" class="fi" value="10"></div>
+        <div class="f" style="display:flex;align-items:center;gap:8px;padding-top:18px">
+          <input type="checkbox" id="cfmum-refaktura" checked>
+          <label for="cfmum-refaktura" style="margin:0">Refakturuj koszty (paliwo/serwis/szkody)</label>
+        </div>
+        <div class="f full"><label>Uwagi</label><textarea id="cfmum-uwagi" class="fi" rows="2"></textarea></div>
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:10px">
+      <button class="btn btn-gray" style="flex:1;justify-content:center" onclick="TaxOrderCfmContracts.closeModal()">Anuluj</button>
+      <button class="btn btn-blue" style="flex:1;justify-content:center" onclick="TaxOrderCfmContracts.save()"><i class="ti ti-device-floppy"></i>Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL generowania faktury CFM -->
+<div class="modal-bg hidden" id="cfm-generate-modal">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);width:420px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.2)">
+    <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:15px;font-weight:600">Generuj fakturę CFM</div>
+      <button onclick="TaxOrderCfmInvoices.closeGenerateModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+    </div>
+    <div style="padding:20px 22px">
+      <div class="fg" style="gap:12px">
+        <div class="f full"><label>Typ klienta</label>
+          <select id="cfmg-client-type" class="fi" onchange="TaxOrderCfmInvoices._toggleGenClientType()">
+            <option value="COMPANY">Firma z systemu</option>
+            <option value="EXTERNAL">Klient zewnętrzny</option>
+          </select>
+        </div>
+        <div class="f full" id="cfmg-client-company-wrap"><label>Firma</label><select id="cfmg-client-company" class="fi"></select></div>
+        <div class="f full" id="cfmg-client-external-wrap" style="display:none"><label>Klient zewnętrzny</label><select id="cfmg-client-external" class="fi"></select></div>
+        <div class="f full"><label>Okres rozliczeniowy</label><input id="cfmg-okres" type="month" class="fi"></div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:10px">Faktura obejmie wszystkie aktywne kontrakty tego klienta w wybranym okresie — najem + refakturowane koszty.</div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:10px">
+      <button class="btn btn-gray" style="flex:1;justify-content:center" onclick="TaxOrderCfmInvoices.closeGenerateModal()">Anuluj</button>
+      <button class="btn btn-blue" style="flex:1;justify-content:center" onclick="TaxOrderCfmInvoices.generate()"><i class="ti ti-file-invoice"></i>Generuj</button>
     </div>
   </div>
 </div>
@@ -1821,6 +2384,14 @@ window.addEventListener('DOMContentLoaded', () => {
   <script src="modules/reports.js"></script>
   <script src="modules/fines.js"></script>
   <script src="modules/documents.js"></script>
+  <script src="modules/damages.js"></script>
+  <script src="modules/tires-warehouse.js"></script>
+  <script src="modules/service-orders.js"></script>
+  <script src="modules/handover-protocol.js"></script>
+  <script src="modules/cfm-clients.js"></script>
+  <script src="modules/cfm-contracts.js"></script>
+  <script src="modules/cfm-invoices.js"></script>
+  <script src="modules/api-keys.js"></script>
   <script src="modules/tekom-import.js"></script>
   <script src="modules/dt1-xml.js"></script>
   <script src="modules/gminy-rates.js"></script>

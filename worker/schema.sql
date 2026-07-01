@@ -85,12 +85,10 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 CREATE INDEX IF NOT EXISTS idx_push_company ON push_subscriptions(company_id);
 
 -- ===================== DANE STARTOWE — ADMINISTRATOR =====================
--- KROK 1: Po deploymencie otwórz w przeglądarce:
---   https://taxorder-pro.<subdomena>.workers.dev/api/auth/setup?password=admin2025
--- KROK 2: Skopiuj wartość "hash" z odpowiedzi JSON
--- KROK 3: Zastąp __HASH_PLACEHOLDER__ skopiowanym hashem i uruchom ponownie:
---   wrangler d1 execute taxorder-pro --file=worker/schema.sql --remote
---
--- Alternatywnie: wrangler d1 execute taxorder-pro --command="UPDATE users SET password_hash='<hash>' WHERE email='adamus1000@gmail.com'" --remote
+-- Hasło administratora ustawia się przez Worker (PBKDF2 + sól per-użytkownik, patrz worker/index.js hashPwd).
+-- Publiczny endpoint /api/auth/setup został usunięty (był tylko jednorazowym narzędziem bootstrapowym, ryzyko bezpieczeństwa jako trwały publiczny endpoint).
+-- Aby zresetować hasło administratora ręcznie: zaloguj się jako admin i użyj panelu Użytkownicy,
+-- albo (awaryjnie, z dostępem do `wrangler`) tymczasowo dodaj lokalnie endpoint debug/skrypt Node wołający hashPwd() i wklej wynik:
+--   wrangler d1 execute taxorder-pro --command="UPDATE users SET password_hash='<hash>', salt='<sól>' WHERE email='adamus1000@gmail.com'" --remote
 INSERT OR IGNORE INTO users(email, name, password_hash, role)
 VALUES('adamus1000@gmail.com', 'Administrator', '__HASH_PLACEHOLDER__', 'admin');

@@ -26,7 +26,16 @@ function json(data, status = 200) {
 function err(msg, status = 400) { return json({ error: msg }, status); }
 
 // ─── CRYPTO ──────────────────────────────────────────────────────────────────
-async function hashPwd(password, salt = 'taxorder-cf-2025') {
+// Stała sól używana przed wprowadzeniem soli per-użytkownik — TYLKO do weryfikacji starych hashy (nie używać do nowych).
+const LEGACY_SALT = 'taxorder-cf-2025';
+
+function genSalt() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return btoa(String.fromCharCode(...bytes));
+}
+
+async function hashPwd(password, salt) {
+  if (!salt) throw new Error('hashPwd: brak soli');
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']
@@ -37,14 +46,27 @@ async function hashPwd(password, salt = 'taxorder-cf-2025') {
   );
   return btoa(String.fromCharCode(...new Uint8Array(bits)));
 }
-async function verifyPwd(password, storedHash) {
-  return (await hashPwd(password)) === storedHash;
+// Jeśli `salt` jest puste (konto sprzed wprowadzenia soli per-użytkownik), weryfikuje względem starej stałej soli.
+async function verifyPwd(password, storedHash, salt) {
+  return (await hashPwd(password, salt || LEGACY_SALT)) === storedHash;
+}
+
+// ─── KLUCZE API (uwierzytelnianie maszyna-maszyna) ────────────────────────────
+function genApiKey() {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  const b64url = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return 'tord_live_' + b64url;
+}
+async function sha256Hex(text) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 // ─── AUTH MIDDLEWARE ──────────────────────────────────────────────────────────
 async function getUser(request, env) {
   const auth = (request.headers.get('Authorization') || '').replace('Bearer ', '').trim();
   if (!auth) return null;
+  if (auth.startsWith('tord_')) return getApiKeyUser(auth, env);
   return env.DB.prepare(
     `SELECT u.* FROM sessions s
      JOIN users u ON s.user_id = u.id
@@ -52,25 +74,69 @@ async function getUser(request, env) {
   ).bind(auth).first();
 }
 
+async function getApiKeyUser(token, env) {
+  const hash = await sha256Hex(token);
+  const row = await env.DB.prepare('SELECT * FROM api_keys WHERE key_hash = ? AND active = 1').bind(hash).first();
+  if (!row) return null;
+  env.DB.prepare('UPDATE api_keys SET last_used_at = datetime(\'now\') WHERE id = ?').bind(row.id).run().catch(() => {});
+  return {
+    id: 'apikey:' + row.id,
+    role: row.scope === 'read_write' ? 'admin' : 'viewer',
+    company_id: row.company_id,
+    active: 1,
+    _apiKey: true,
+    api_key_id: row.id,
+    api_key_name: row.name,
+    api_key_scope: row.scope,
+  };
+}
+
 function safeUser(u) {
   if (!u) return null;
-  const { password_hash, ...rest } = u;
+  const { password_hash, salt, ...rest } = u;
   return rest;
 }
 
 // ─── AUTH HANDLERS ────────────────────────────────────────────────────────────
+// Rate-limiting logowania: max 5 nieudanych prób / 15 min, liczone per (IP, email) w KV PREFS
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_LOCKOUT_SECONDS = 15 * 60;
+
 async function handleLogin(req, env) {
   let body;
   try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
   const { email, password } = body;
   if (!email || !password) return err('Podaj email i hasło');
 
+  const emailLc = email.toLowerCase();
+  const ip = req.headers.get('CF-Connecting-IP') || 'unknown';
+  const rlKey = `loginfail:${ip}:${emailLc}`;
+  let attempts = 0;
+  if (env.PREFS) {
+    attempts = parseInt(await env.PREFS.get(rlKey)) || 0;
+    if (attempts >= LOGIN_MAX_ATTEMPTS) {
+      return err('Zbyt wiele nieudanych prób logowania. Spróbuj ponownie za kilkanaście minut.', 429);
+    }
+  }
+
   const user = await env.DB.prepare(
     'SELECT * FROM users WHERE email = ? AND active = 1'
-  ).bind(email.toLowerCase()).first();
+  ).bind(emailLc).first();
 
-  if (!user || !(await verifyPwd(password, user.password_hash))) {
+  if (!user || !(await verifyPwd(password, user.password_hash, user.salt))) {
+    if (env.PREFS) {
+      await env.PREFS.put(rlKey, String(attempts + 1), { expirationTtl: LOGIN_LOCKOUT_SECONDS });
+    }
     return err('Nieprawidłowy email lub hasło', 401);
+  }
+
+  if (env.PREFS) await env.PREFS.delete(rlKey).catch(() => {});
+
+  // Leniwa migracja: konto sprzed wprowadzenia soli per-użytkownik — dorzuć losową sól przy okazji udanego logowania
+  if (!user.salt) {
+    const newSalt = genSalt();
+    const newHash = await hashPwd(password, newSalt);
+    await env.DB.prepare('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?').bind(newHash, newSalt, user.id).run();
   }
 
   const token = crypto.randomUUID();
@@ -307,6 +373,623 @@ async function handleDocs(req, env, user, url, path) {
   return err('Metoda niedozwolona', 405);
 }
 
+// ─── SZKODY (DAMAGE REPORTS) ───────────────────────────────────────────────────
+async function handleDamages(req, env, user, url, path) {
+  const segs = path.split('/').filter(Boolean); // ['api','damages',...]
+
+  // GET /api/damages?company=&nrRej= — lista (cała flota lub jeden pojazd)
+  if (req.method === 'GET' && segs.length === 2) {
+    const company = url.searchParams.get('company') || 'mtoilet';
+    const nrRej   = url.searchParams.get('nrRej');
+    const rows = nrRej
+      ? await env.DB.prepare('SELECT * FROM damage_reports WHERE company_id=? AND nr_rej=? ORDER BY data_zdarzenia DESC, created_at DESC').bind(company, nrRej).all()
+      : await env.DB.prepare('SELECT * FROM damage_reports WHERE company_id=? ORDER BY data_zdarzenia DESC, created_at DESC').bind(company).all();
+    const reports = rows.results || [];
+    if (reports.length) {
+      const ids = reports.map(r => r.id);
+      const placeholders = ids.map(() => '?').join(',');
+      const photoRows = await env.DB.prepare(
+        `SELECT id, damage_id, r2_key, mime_type FROM damage_photos WHERE damage_id IN (${placeholders})`
+      ).bind(...ids).all();
+      const byDamage = {};
+      (photoRows.results || []).forEach(p => { (byDamage[p.damage_id] ||= []).push(p); });
+      reports.forEach(r => { r.photos = byDamage[r.id] || []; });
+    }
+    return json(reports);
+  }
+
+  // POST /api/damages — utworzenie zgłoszenia (JSON)
+  if (req.method === 'POST' && segs.length === 2) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const company = body.company_id || 'mtoilet';
+    if (!body.nr_rej) return err('Wymagane: nr_rej');
+    const id = crypto.randomUUID();
+    await env.DB.prepare(`
+      INSERT INTO damage_reports(id,company_id,nr_rej,opis,przyczyna,data_zdarzenia,status,koszt,zglaszajacy,uwagi)
+      VALUES(?,?,?,?,?,?,?,?,?,?)`
+    ).bind(
+      id, company, body.nr_rej, body.opis || null, body.przyczyna || null,
+      body.data_zdarzenia || null, body.status || 'ZGLOSZONA',
+      body.koszt != null ? Number(body.koszt) : null, body.zglaszajacy || null, body.uwagi || null
+    ).run();
+    return json({ ok: true, id });
+  }
+
+  // POST /api/damages/:id/photo — upload zdjęcia (FormData)
+  if (req.method === 'POST' && segs[2] && segs[3] === 'photo') {
+    const damageId = segs[2];
+    const report = await env.DB.prepare('SELECT company_id, nr_rej FROM damage_reports WHERE id=?').bind(damageId).first();
+    if (!report) return err('Zgłoszenie nie znalezione', 404);
+    let fd; try { fd = await req.formData(); } catch { return err('Wymagany FormData'); }
+    const file = fd.get('file');
+    if (!file) return err('Wymagane: file');
+    const photoId = crypto.randomUUID();
+    const r2Key = `damage/${report.company_id}/${report.nr_rej}/${damageId}/${photoId}`;
+    await env.DOCS.put(r2Key, file.stream(), {
+      httpMetadata: { contentType: file.type || 'image/jpeg' },
+    });
+    await env.DB.prepare(
+      'INSERT INTO damage_photos(id,damage_id,r2_key,mime_type) VALUES(?,?,?,?)'
+    ).bind(photoId, damageId, r2Key, file.type || 'image/jpeg').run();
+    return json({ ok: true, id: photoId, key: r2Key });
+  }
+
+  // PUT /api/damages/:id — edycja / zmiana statusu
+  if (req.method === 'PUT' && segs[2]) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    await env.DB.prepare(`
+      UPDATE damage_reports SET
+        opis=?, przyczyna=?, data_zdarzenia=?, status=?, koszt=?, zglaszajacy=?, uwagi=?, updated_at=datetime('now')
+      WHERE id=?`
+    ).bind(
+      body.opis || null, body.przyczyna || null, body.data_zdarzenia || null,
+      body.status || 'ZGLOSZONA', body.koszt != null ? Number(body.koszt) : null,
+      body.zglaszajacy || null, body.uwagi || null, segs[2]
+    ).run();
+    return json({ ok: true });
+  }
+
+  // DELETE /api/damages/photo/:photoId — usuń pojedyncze zdjęcie
+  if (req.method === 'DELETE' && segs[2] === 'photo' && segs[3]) {
+    const row = await env.DB.prepare('SELECT r2_key FROM damage_photos WHERE id=?').bind(segs[3]).first();
+    if (row) {
+      await Promise.all([
+        env.DOCS.delete(row.r2_key),
+        env.DB.prepare('DELETE FROM damage_photos WHERE id=?').bind(segs[3]).run(),
+      ]);
+    }
+    return json({ ok: true });
+  }
+
+  // DELETE /api/damages/:id — usuń zgłoszenie (kaskadowo zdjęcia D1 + R2)
+  if (req.method === 'DELETE' && segs[2]) {
+    const photoRows = await env.DB.prepare('SELECT r2_key FROM damage_photos WHERE damage_id=?').bind(segs[2]).all();
+    await Promise.all((photoRows.results || []).map(p => env.DOCS.delete(p.r2_key)));
+    await env.DB.prepare('DELETE FROM damage_reports WHERE id=?').bind(segs[2]).run(); // ON DELETE CASCADE usuwa damage_photos
+    return json({ ok: true });
+  }
+
+  return err('Metoda niedozwolona', 405);
+}
+
+// ─── OPONY — MAGAZYN I CYKL ŻYCIA ──────────────────────────────────────────────
+async function handleTires(req, env, user, url, path) {
+  const segs = path.split('/').filter(Boolean); // ['api','tires',...]
+
+  // GET /api/tires?company=&status=&nrRej=
+  if (req.method === 'GET' && segs.length === 2) {
+    const company = url.searchParams.get('company') || 'mtoilet';
+    const status  = url.searchParams.get('status');
+    const nrRej   = url.searchParams.get('nrRej');
+    let sql = 'SELECT * FROM tires WHERE company_id=?';
+    const params = [company];
+    if (status) { sql += ' AND status=?'; params.push(status); }
+    if (nrRej)  { sql += ' AND nr_rej=?';  params.push(nrRej); }
+    sql += ' ORDER BY updated_at DESC';
+    const rows = await env.DB.prepare(sql).bind(...params).all();
+    return json((rows.results || []).map(r => ({ ...r, historia: JSON.parse(r.historia || '[]') })));
+  }
+
+  // POST /api/tires — nowa opona (domyślnie do magazynu)
+  if (req.method === 'POST' && segs.length === 2) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const company = body.company_id || 'mtoilet';
+    const id = crypto.randomUUID();
+    const historia = [{ data: new Date().toISOString(), akcja: 'UTWORZONA', nrRej: null, pozycja: null }];
+    await env.DB.prepare(`
+      INSERT INTO tires(id,company_id,status,nr_rej,pozycja,rozmiar,marka,dot,bieznik_mm,sezon,lokalizacja_magazyn,data_zakupu,uwagi,historia)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(
+      id, company, 'MAGAZYN', null, null,
+      body.rozmiar || null, body.marka || null, body.dot || null,
+      body.bieznik_mm != null ? Number(body.bieznik_mm) : null, body.sezon || null,
+      body.lokalizacja_magazyn || null, body.data_zakupu || null, body.uwagi || null,
+      JSON.stringify(historia)
+    ).run();
+    return json({ ok: true, id });
+  }
+
+  // PUT /api/tires/:id — edycja pól LUB akcja mount/unmount/scrap
+  if (req.method === 'PUT' && segs[2]) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const row = await env.DB.prepare('SELECT * FROM tires WHERE id=?').bind(segs[2]).first();
+    if (!row) return err('Opona nie znaleziona', 404);
+    const historia = JSON.parse(row.historia || '[]');
+
+    if (body.akcja === 'ZAMONTUJ') {
+      if (!body.nr_rej || !body.pozycja) return err('Wymagane: nr_rej, pozycja');
+      historia.push({ data: new Date().toISOString(), akcja: 'ZAMONTOWANA', nrRej: body.nr_rej, pozycja: body.pozycja });
+      await env.DB.prepare(`UPDATE tires SET status='ZAMONTOWANA', nr_rej=?, pozycja=?, historia=?, updated_at=datetime('now') WHERE id=?`)
+        .bind(body.nr_rej, body.pozycja, JSON.stringify(historia), segs[2]).run();
+      return json({ ok: true });
+    }
+    if (body.akcja === 'ZDEMONTUJ') {
+      historia.push({ data: new Date().toISOString(), akcja: 'ZDEMONTOWANA', nrRej: row.nr_rej, pozycja: row.pozycja });
+      await env.DB.prepare(`UPDATE tires SET status='MAGAZYN', nr_rej=NULL, pozycja=NULL, lokalizacja_magazyn=?, historia=?, updated_at=datetime('now') WHERE id=?`)
+        .bind(body.lokalizacja_magazyn || row.lokalizacja_magazyn || null, JSON.stringify(historia), segs[2]).run();
+      return json({ ok: true });
+    }
+    if (body.akcja === 'ZLOMUJ') {
+      historia.push({ data: new Date().toISOString(), akcja: 'ZLOMOWANA', nrRej: row.nr_rej, pozycja: row.pozycja });
+      await env.DB.prepare(`UPDATE tires SET status='ZLOMOWANA', nr_rej=NULL, pozycja=NULL, historia=?, updated_at=datetime('now') WHERE id=?`)
+        .bind(JSON.stringify(historia), segs[2]).run();
+      return json({ ok: true });
+    }
+
+    // Zwykła edycja pól (bez zmiany statusu/pozycji)
+    await env.DB.prepare(`
+      UPDATE tires SET rozmiar=?, marka=?, dot=?, bieznik_mm=?, sezon=?, lokalizacja_magazyn=?, data_zakupu=?, uwagi=?, updated_at=datetime('now')
+      WHERE id=?`
+    ).bind(
+      body.rozmiar ?? row.rozmiar, body.marka ?? row.marka, body.dot ?? row.dot,
+      body.bieznik_mm != null ? Number(body.bieznik_mm) : row.bieznik_mm, body.sezon ?? row.sezon,
+      body.lokalizacja_magazyn ?? row.lokalizacja_magazyn, body.data_zakupu ?? row.data_zakupu,
+      body.uwagi ?? row.uwagi, segs[2]
+    ).run();
+    return json({ ok: true });
+  }
+
+  // DELETE /api/tires/:id
+  if (req.method === 'DELETE' && segs[2]) {
+    await env.DB.prepare('DELETE FROM tires WHERE id=?').bind(segs[2]).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda niedozwolona', 405);
+}
+
+// ─── ZLECENIA SERWISOWE ─────────────────────────────────────────────────────────
+async function handleServiceOrders(req, env, user, url, path) {
+  const segs = path.split('/').filter(Boolean); // ['api','service-orders',...]
+
+  // GET /api/service-orders?company=&nrRej=&status=
+  if (req.method === 'GET' && segs.length === 2) {
+    const company = url.searchParams.get('company') || 'mtoilet';
+    const nrRej   = url.searchParams.get('nrRej');
+    const status  = url.searchParams.get('status');
+    let sql = 'SELECT * FROM service_orders WHERE company_id=?';
+    const params = [company];
+    if (nrRej)  { sql += ' AND nr_rej=?'; params.push(nrRej); }
+    if (status) { sql += ' AND status=?'; params.push(status); }
+    sql += ' ORDER BY created_at DESC';
+    const rows = await env.DB.prepare(sql).bind(...params).all();
+    return json(rows.results || []);
+  }
+
+  // POST /api/service-orders — nowe zgłoszenie
+  if (req.method === 'POST' && segs.length === 2) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const company = body.company_id || 'mtoilet';
+    if (!body.nr_rej) return err('Wymagane: nr_rej');
+    const id = crypto.randomUUID();
+    await env.DB.prepare(`
+      INSERT INTO service_orders(id,company_id,nr_rej,typ,opis,zglaszajacy,status,koszt_szacowany,warsztat)
+      VALUES(?,?,?,?,?,?,?,?,?)`
+    ).bind(
+      id, company, body.nr_rej, body.typ || null, body.opis || null, body.zglaszajacy || null,
+      'ZGLOSZONE', body.koszt_szacowany != null ? Number(body.koszt_szacowany) : null, body.warsztat || null
+    ).run();
+    return json({ ok: true, id });
+  }
+
+  // PUT /api/service-orders/:id — edycja LUB akcja AUTORYZUJ/ODRZUC/ZREALIZUJ
+  if (req.method === 'PUT' && segs[2]) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const row = await env.DB.prepare('SELECT * FROM service_orders WHERE id=?').bind(segs[2]).first();
+    if (!row) return err('Zlecenie nie znalezione', 404);
+
+    if (body.akcja === 'AUTORYZUJ') {
+      await env.DB.prepare(`UPDATE service_orders SET status='AUTORYZOWANE', autoryzowal=?, data_autoryzacji=datetime('now'), updated_at=datetime('now') WHERE id=?`)
+        .bind(body.autoryzowal || null, segs[2]).run();
+      return json({ ok: true });
+    }
+    if (body.akcja === 'ODRZUC') {
+      await env.DB.prepare(`UPDATE service_orders SET status='ODRZUCONE', powod_odrzucenia=?, updated_at=datetime('now') WHERE id=?`)
+        .bind(body.powod_odrzucenia || null, segs[2]).run();
+      return json({ ok: true });
+    }
+    if (body.akcja === 'ZREALIZUJ') {
+      if (row.status !== 'AUTORYZOWANE') return err('Zlecenie musi być najpierw autoryzowane', 409);
+      await env.DB.prepare(`
+        UPDATE service_orders SET status='ZREALIZOWANE', data_realizacji=?, km_realizacji=?, koszt_rzeczywisty=?,
+          nastepny_termin=?, nastepny_km=?, updated_at=datetime('now') WHERE id=?`
+      ).bind(
+        body.data_realizacji || null, body.km_realizacji != null ? Number(body.km_realizacji) : null,
+        body.koszt_rzeczywisty != null ? Number(body.koszt_rzeczywisty) : null,
+        body.nastepny_termin || null, body.nastepny_km != null ? Number(body.nastepny_km) : null, segs[2]
+      ).run();
+      return json({ ok: true });
+    }
+
+    // Zwykła edycja pól (przed autoryzacją)
+    await env.DB.prepare(`
+      UPDATE service_orders SET typ=?, opis=?, zglaszajacy=?, koszt_szacowany=?, warsztat=?, uwagi=?, updated_at=datetime('now')
+      WHERE id=?`
+    ).bind(
+      body.typ ?? row.typ, body.opis ?? row.opis, body.zglaszajacy ?? row.zglaszajacy,
+      body.koszt_szacowany != null ? Number(body.koszt_szacowany) : row.koszt_szacowany,
+      body.warsztat ?? row.warsztat, body.uwagi ?? row.uwagi, segs[2]
+    ).run();
+    return json({ ok: true });
+  }
+
+  // DELETE /api/service-orders/:id
+  if (req.method === 'DELETE' && segs[2]) {
+    await env.DB.prepare('DELETE FROM service_orders WHERE id=?').bind(segs[2]).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda niedozwolona', 405);
+}
+
+// ─── PROTOKOŁY ZDAWCZO-ODBIORCZE ────────────────────────────────────────────────
+async function handleProtocols(req, env, user, url, path) {
+  const segs = path.split('/').filter(Boolean); // ['api','protocols',...]
+
+  // GET /api/protocols?company=&nrRej=
+  if (req.method === 'GET' && segs.length === 2) {
+    const company = url.searchParams.get('company') || 'mtoilet';
+    const nrRej   = url.searchParams.get('nrRej');
+    const rows = nrRej
+      ? await env.DB.prepare('SELECT * FROM handover_protocols WHERE company_id=? AND nr_rej=? ORDER BY data DESC').bind(company, nrRej).all()
+      : await env.DB.prepare('SELECT * FROM handover_protocols WHERE company_id=? ORDER BY data DESC').bind(company).all();
+    const protocols = rows.results || [];
+    if (protocols.length) {
+      const ids = protocols.map(p => p.id);
+      const placeholders = ids.map(() => '?').join(',');
+      const photoRows = await env.DB.prepare(
+        `SELECT id, protocol_id, r2_key, mime_type FROM protocol_photos WHERE protocol_id IN (${placeholders})`
+      ).bind(...ids).all();
+      const byProtocol = {};
+      (photoRows.results || []).forEach(p => { (byProtocol[p.protocol_id] ||= []).push(p); });
+      protocols.forEach(p => { p.photos = byProtocol[p.id] || []; p.wyposazenie = JSON.parse(p.wyposazenie || '[]'); });
+    }
+    return json(protocols);
+  }
+
+  // POST /api/protocols — nowy protokół
+  if (req.method === 'POST' && segs.length === 2) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const company = body.company_id || 'mtoilet';
+    if (!body.nr_rej) return err('Wymagane: nr_rej');
+    const id = crypto.randomUUID();
+    await env.DB.prepare(`
+      INSERT INTO handover_protocols(id,company_id,nr_rej,typ,data,osoba_wydajaca,osoba_odbierajaca,
+        stan_licznika,stan_paliwa,wyposazenie,uszkodzenia_opis,uwagi,podpis_wydajacy,podpis_odbierajacy)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(
+      id, company, body.nr_rej, body.typ || 'WYDANIE', body.data || new Date().toISOString(),
+      body.osoba_wydajaca || null, body.osoba_odbierajaca || null,
+      body.stan_licznika != null ? Number(body.stan_licznika) : null, body.stan_paliwa || null,
+      JSON.stringify(body.wyposazenie || []), body.uszkodzenia_opis || null, body.uwagi || null,
+      body.podpis_wydajacy || null, body.podpis_odbierajacy || null
+    ).run();
+    return json({ ok: true, id });
+  }
+
+  // POST /api/protocols/:id/photo — upload zdjęcia (FormData)
+  if (req.method === 'POST' && segs[2] && segs[3] === 'photo') {
+    const protocolId = segs[2];
+    const protocol = await env.DB.prepare('SELECT company_id, nr_rej FROM handover_protocols WHERE id=?').bind(protocolId).first();
+    if (!protocol) return err('Protokół nie znaleziony', 404);
+    let fd; try { fd = await req.formData(); } catch { return err('Wymagany FormData'); }
+    const file = fd.get('file');
+    if (!file) return err('Wymagane: file');
+    const photoId = crypto.randomUUID();
+    const r2Key = `protocol/${protocol.company_id}/${protocol.nr_rej}/${protocolId}/${photoId}`;
+    await env.DOCS.put(r2Key, file.stream(), {
+      httpMetadata: { contentType: file.type || 'image/jpeg' },
+    });
+    await env.DB.prepare(
+      'INSERT INTO protocol_photos(id,protocol_id,r2_key,mime_type) VALUES(?,?,?,?)'
+    ).bind(photoId, protocolId, r2Key, file.type || 'image/jpeg').run();
+    return json({ ok: true, id: photoId, key: r2Key });
+  }
+
+  // PUT /api/protocols/:id — edycja
+  if (req.method === 'PUT' && segs[2]) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const row = await env.DB.prepare('SELECT * FROM handover_protocols WHERE id=?').bind(segs[2]).first();
+    if (!row) return err('Protokół nie znaleziony', 404);
+    await env.DB.prepare(`
+      UPDATE handover_protocols SET typ=?, data=?, osoba_wydajaca=?, osoba_odbierajaca=?, stan_licznika=?,
+        stan_paliwa=?, wyposazenie=?, uszkodzenia_opis=?, uwagi=?, podpis_wydajacy=?, podpis_odbierajacy=?
+      WHERE id=?`
+    ).bind(
+      body.typ ?? row.typ, body.data ?? row.data, body.osoba_wydajaca ?? row.osoba_wydajaca,
+      body.osoba_odbierajaca ?? row.osoba_odbierajaca,
+      body.stan_licznika != null ? Number(body.stan_licznika) : row.stan_licznika,
+      body.stan_paliwa ?? row.stan_paliwa,
+      body.wyposazenie ? JSON.stringify(body.wyposazenie) : row.wyposazenie,
+      body.uszkodzenia_opis ?? row.uszkodzenia_opis, body.uwagi ?? row.uwagi,
+      body.podpis_wydajacy ?? row.podpis_wydajacy, body.podpis_odbierajacy ?? row.podpis_odbierajacy,
+      segs[2]
+    ).run();
+    return json({ ok: true });
+  }
+
+  // DELETE /api/protocols/:id — kaskadowo usuwa zdjęcia D1 + R2
+  if (req.method === 'DELETE' && segs[2]) {
+    const photoRows = await env.DB.prepare('SELECT r2_key FROM protocol_photos WHERE protocol_id=?').bind(segs[2]).all();
+    await Promise.all((photoRows.results || []).map(p => env.DOCS.delete(p.r2_key)));
+    await env.DB.prepare('DELETE FROM handover_protocols WHERE id=?').bind(segs[2]).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda niedozwolona', 405);
+}
+
+// ─── KLIENCI CFM (zewnętrzni, spoza COMPANIES) ─────────────────────────────────
+async function handleCfmClients(req, env, user, url, path) {
+  const segs = path.split('/').filter(Boolean); // ['api','cfm-clients',...]
+
+  if (req.method === 'GET' && segs.length === 2) {
+    const company = url.searchParams.get('company') || 'mtoilet';
+    const rows = await env.DB.prepare('SELECT * FROM cfm_clients WHERE company_id=? ORDER BY nazwa').bind(company).all();
+    return json(rows.results || []);
+  }
+
+  if (req.method === 'POST' && segs.length === 2) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const company = body.company_id || 'mtoilet';
+    if (!body.nazwa) return err('Wymagane: nazwa');
+    const id = crypto.randomUUID();
+    await env.DB.prepare(`
+      INSERT INTO cfm_clients(id,company_id,nazwa,nip,regon,ulica,kod,miasto,email,telefon,osoba_kontaktowa,uwagi)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(
+      id, company, body.nazwa, body.nip || null, body.regon || null, body.ulica || null,
+      body.kod || null, body.miasto || null, body.email || null, body.telefon || null,
+      body.osoba_kontaktowa || null, body.uwagi || null
+    ).run();
+    return json({ ok: true, id });
+  }
+
+  if (req.method === 'PUT' && segs[2]) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const row = await env.DB.prepare('SELECT * FROM cfm_clients WHERE id=?').bind(segs[2]).first();
+    if (!row) return err('Klient nie znaleziony', 404);
+    await env.DB.prepare(`
+      UPDATE cfm_clients SET nazwa=?, nip=?, regon=?, ulica=?, kod=?, miasto=?, email=?, telefon=?, osoba_kontaktowa=?, uwagi=?, updated_at=datetime('now')
+      WHERE id=?`
+    ).bind(
+      body.nazwa ?? row.nazwa, body.nip ?? row.nip, body.regon ?? row.regon, body.ulica ?? row.ulica,
+      body.kod ?? row.kod, body.miasto ?? row.miasto, body.email ?? row.email, body.telefon ?? row.telefon,
+      body.osoba_kontaktowa ?? row.osoba_kontaktowa, body.uwagi ?? row.uwagi, segs[2]
+    ).run();
+    return json({ ok: true });
+  }
+
+  if (req.method === 'DELETE' && segs[2]) {
+    await env.DB.prepare('DELETE FROM cfm_clients WHERE id=?').bind(segs[2]).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda niedozwolona', 405);
+}
+
+// ─── KONTRAKTY CFM (1 pojazd = 1 kontrakt) ─────────────────────────────────────
+async function handleCfmContracts(req, env, user, url, path) {
+  const segs = path.split('/').filter(Boolean); // ['api','cfm-contracts',...]
+
+  if (req.method === 'GET' && segs.length === 2) {
+    const company    = url.searchParams.get('company') || 'mtoilet';
+    const clientType = url.searchParams.get('clientType');
+    const clientRef  = url.searchParams.get('clientRef');
+    const nrRej      = url.searchParams.get('nrRej');
+    const status     = url.searchParams.get('status');
+    let sql = 'SELECT * FROM cfm_contracts WHERE company_id=?';
+    const params = [company];
+    if (clientType) { sql += ' AND client_type=?'; params.push(clientType); }
+    if (clientRef)  { sql += ' AND client_ref=?';  params.push(clientRef); }
+    if (nrRej)      { sql += ' AND nr_rej=?';      params.push(nrRej); }
+    if (status)     { sql += ' AND status=?';      params.push(status); }
+    sql += ' ORDER BY created_at DESC';
+    const rows = await env.DB.prepare(sql).bind(...params).all();
+    return json(rows.results || []);
+  }
+
+  if (req.method === 'POST' && segs.length === 2) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const company = body.company_id || 'mtoilet';
+    if (!body.nr_rej || !body.client_type || !body.client_ref) return err('Wymagane: nr_rej, client_type, client_ref');
+    const id = crypto.randomUUID();
+    await env.DB.prepare(`
+      INSERT INTO cfm_contracts(id,company_id,nr_rej,client_type,client_ref,client_name_cache,typ_umowy,
+        data_od,data_do,stawka_miesieczna,dzien_platnosci,refakturowanie_kosztow,status,uwagi)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(
+      id, company, body.nr_rej, body.client_type, body.client_ref, body.client_name_cache || null,
+      body.typ_umowy || 'NAJEM', body.data_od || null, body.data_do || null,
+      body.stawka_miesieczna != null ? Number(body.stawka_miesieczna) : null,
+      body.dzien_platnosci != null ? Number(body.dzien_platnosci) : 10,
+      body.refakturowanie_kosztow ? 1 : 0, 'AKTYWNY', body.uwagi || null
+    ).run();
+    return json({ ok: true, id });
+  }
+
+  if (req.method === 'PUT' && segs[2]) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const row = await env.DB.prepare('SELECT * FROM cfm_contracts WHERE id=?').bind(segs[2]).first();
+    if (!row) return err('Kontrakt nie znaleziony', 404);
+    await env.DB.prepare(`
+      UPDATE cfm_contracts SET typ_umowy=?, data_od=?, data_do=?, stawka_miesieczna=?, dzien_platnosci=?,
+        refakturowanie_kosztow=?, status=?, uwagi=?, updated_at=datetime('now')
+      WHERE id=?`
+    ).bind(
+      body.typ_umowy ?? row.typ_umowy, body.data_od ?? row.data_od, body.data_do ?? row.data_do,
+      body.stawka_miesieczna != null ? Number(body.stawka_miesieczna) : row.stawka_miesieczna,
+      body.dzien_platnosci != null ? Number(body.dzien_platnosci) : row.dzien_platnosci,
+      body.refakturowanie_kosztow != null ? (body.refakturowanie_kosztow ? 1 : 0) : row.refakturowanie_kosztow,
+      body.status ?? row.status, body.uwagi ?? row.uwagi, segs[2]
+    ).run();
+    return json({ ok: true });
+  }
+
+  if (req.method === 'DELETE' && segs[2]) {
+    await env.DB.prepare('DELETE FROM cfm_contracts WHERE id=?').bind(segs[2]).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda niedozwolona', 405);
+}
+
+// ─── FAKTURY CFM (zbiorcze per klient+okres, z refakturowaniem kosztów) ────────
+const _VAT = 23;
+const _num2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
+
+async function handleCfmInvoices(req, env, user, url, path) {
+  const segs = path.split('/').filter(Boolean); // ['api','cfm-invoices',...]
+
+  // GET /api/cfm-invoices?company=&clientType=&clientRef=&okres=
+  if (req.method === 'GET' && segs.length === 2) {
+    const company    = url.searchParams.get('company') || 'mtoilet';
+    const clientType = url.searchParams.get('clientType');
+    const clientRef  = url.searchParams.get('clientRef');
+    const okres      = url.searchParams.get('okres');
+    let sql = 'SELECT * FROM cfm_invoices WHERE company_id=?';
+    const params = [company];
+    if (clientType) { sql += ' AND client_type=?'; params.push(clientType); }
+    if (clientRef)  { sql += ' AND client_ref=?';  params.push(clientRef); }
+    if (okres)      { sql += ' AND okres=?';       params.push(okres); }
+    sql += ' ORDER BY created_at DESC';
+    const rows = await env.DB.prepare(sql).bind(...params).all();
+    return json((rows.results || []).map(r => ({ ...r, pozycje: JSON.parse(r.pozycje || '[]') })));
+  }
+
+  // POST /api/cfm-invoices/generate — agreguje koszty wszystkich aktywnych kontraktów klienta za okres
+  if (req.method === 'POST' && segs[2] === 'generate') {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const company = body.company_id || 'mtoilet';
+    const { client_type, client_ref, okres } = body;
+    if (!client_type || !client_ref || !okres) return err('Wymagane: client_type, client_ref, okres');
+
+    const contracts = await env.DB.prepare(`
+      SELECT * FROM cfm_contracts WHERE company_id=? AND client_type=? AND client_ref=? AND status='AKTYWNY'
+        AND (data_od IS NULL OR data_od <= ?) AND (data_do IS NULL OR data_do >= ?)`
+    ).bind(company, client_type, client_ref, okres + '-31', okres + '-01').all();
+
+    const list = contracts.results || [];
+    if (!list.length) return err('Brak aktywnych kontraktów dla tego klienta w podanym okresie', 404);
+
+    const pozycje = [];
+    for (const c of list) {
+      const vrow = await env.DB.prepare('SELECT data FROM vehicles WHERE company_id=? AND nr_rej=?').bind(company, c.nr_rej).first();
+      let vdata = {};
+      try { vdata = vrow ? JSON.parse(vrow.data || '{}') : {}; } catch { vdata = {}; }
+
+      if (c.stawka_miesieczna != null) {
+        const netto = Number(c.stawka_miesieczna);
+        pozycje.push({ opis: `Najem pojazdu ${c.nr_rej} \u2014 ${okres}`, nrRej: c.nr_rej, ilosc: 1,
+          cena_netto: _num2(netto), vat_proc: _VAT, wartosc_netto: _num2(netto), wartosc_brutto: _num2(netto * (1 + _VAT / 100)) });
+      }
+
+      if (c.refakturowanie_kosztow) {
+        const fuelSum = (vdata.fuelHistory || []).filter(h => (h.date || '').startsWith(okres)).reduce((s, h) => s + (h.totalGross || 0), 0);
+        if (fuelSum > 0) {
+          const netto = _num2(fuelSum / (1 + _VAT / 100));
+          pozycje.push({ opis: `Refaktura paliwa \u2014 ${c.nr_rej}`, nrRej: c.nr_rej, ilosc: 1,
+            cena_netto: netto, vat_proc: _VAT, wartosc_netto: netto, wartosc_brutto: _num2(fuelSum) });
+        }
+        const serviceSum = (vdata.serviceHistory || []).filter(h => (h.date || '').startsWith(okres)).reduce((s, h) => s + (h.cost || 0), 0);
+        if (serviceSum > 0) {
+          const netto = _num2(serviceSum / (1 + _VAT / 100));
+          pozycje.push({ opis: `Refaktura serwisu \u2014 ${c.nr_rej}`, nrRej: c.nr_rej, ilosc: 1,
+            cena_netto: netto, vat_proc: _VAT, wartosc_netto: netto, wartosc_brutto: _num2(serviceSum) });
+        }
+        const dmgRow = await env.DB.prepare(
+          `SELECT SUM(koszt) AS suma FROM damage_reports WHERE company_id=? AND nr_rej=? AND data_zdarzenia LIKE ?`
+        ).bind(company, c.nr_rej, okres + '%').first();
+        const dmgSum = dmgRow?.suma || 0;
+        if (dmgSum > 0) {
+          const netto = _num2(dmgSum / (1 + _VAT / 100));
+          pozycje.push({ opis: `Refaktura szkód \u2014 ${c.nr_rej}`, nrRej: c.nr_rej, ilosc: 1,
+            cena_netto: netto, vat_proc: _VAT, wartosc_netto: netto, wartosc_brutto: _num2(dmgSum) });
+        }
+      }
+    }
+
+    const suma_netto  = _num2(pozycje.reduce((s, p) => s + p.wartosc_netto, 0));
+    const suma_brutto = _num2(pozycje.reduce((s, p) => s + p.wartosc_brutto, 0));
+    const suma_vat     = _num2(suma_brutto - suma_netto);
+
+    const yearNow = new Date().getFullYear();
+    const countRow = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM cfm_invoices WHERE company_id=? AND strftime('%Y', created_at)=?`
+    ).bind(company, String(yearNow)).first();
+    const seq = (countRow?.n || 0) + 1;
+    const dataWyst = new Date();
+    const nrFaktury = `FV/${seq}/${String(dataWyst.getMonth() + 1).padStart(2, '0')}/${yearNow}`;
+    const terminPlatnosci = new Date(dataWyst.getTime() + 14 * 86400000).toISOString().slice(0, 10);
+
+    const id = crypto.randomUUID();
+    try {
+      await env.DB.prepare(`
+        INSERT INTO cfm_invoices(id,company_id,client_type,client_ref,client_name_cache,nr_faktury,okres,
+          data_wystawienia,termin_platnosci,pozycje,suma_netto,suma_vat,suma_brutto,status)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'WYSTAWIONA')`
+      ).bind(
+        id, company, client_type, client_ref, body.client_name_cache || null, nrFaktury, okres,
+        dataWyst.toISOString().slice(0, 10), terminPlatnosci, JSON.stringify(pozycje), suma_netto, suma_vat, suma_brutto
+      ).run();
+    } catch (e) {
+      if (e.message.includes('UNIQUE')) return err('Faktura za ten okres dla tego klienta już istnieje', 409);
+      throw e;
+    }
+    return json({ ok: true, id, nr_faktury: nrFaktury, pozycje, suma_netto, suma_vat, suma_brutto });
+  }
+
+  // PUT /api/cfm-invoices/:id — edycja pozycji/statusu (przeliczenie sum)
+  if (req.method === 'PUT' && segs[2]) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const row = await env.DB.prepare('SELECT * FROM cfm_invoices WHERE id=?').bind(segs[2]).first();
+    if (!row) return err('Faktura nie znaleziona', 404);
+    let pozycje = row.pozycje ? JSON.parse(row.pozycje) : [];
+    if (Array.isArray(body.pozycje)) pozycje = body.pozycje;
+    const suma_netto  = _num2(pozycje.reduce((s, p) => s + (p.wartosc_netto || 0), 0));
+    const suma_brutto = _num2(pozycje.reduce((s, p) => s + (p.wartosc_brutto || 0), 0));
+    const suma_vat    = _num2(suma_brutto - suma_netto);
+    await env.DB.prepare(`
+      UPDATE cfm_invoices SET pozycje=?, suma_netto=?, suma_vat=?, suma_brutto=?, status=?, termin_platnosci=?
+      WHERE id=?`
+    ).bind(
+      JSON.stringify(pozycje), suma_netto, suma_vat, suma_brutto,
+      body.status ?? row.status, body.termin_platnosci ?? row.termin_platnosci, segs[2]
+    ).run();
+    return json({ ok: true });
+  }
+
+  // DELETE /api/cfm-invoices/:id — tylko gdy nieopłacona
+  if (req.method === 'DELETE' && segs[2]) {
+    const row = await env.DB.prepare('SELECT status FROM cfm_invoices WHERE id=?').bind(segs[2]).first();
+    if (row && row.status === 'OPLACONA') return err('Nie można usunąć opłaconej faktury', 409);
+    await env.DB.prepare('DELETE FROM cfm_invoices WHERE id=?').bind(segs[2]).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda niedozwolona', 405);
+}
+
 // ─── USERS (admin) ────────────────────────────────────────────────────────────
 async function handleUsers(req, env, user, url, path) {
   if (user.role !== 'admin') return err('Brak uprawnień administratora', 403);
@@ -325,11 +1008,12 @@ async function handleUsers(req, env, user, url, path) {
     try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
     const { email, name, password, role } = body;
     if (!email || !password) return err('Email i hasło wymagane');
-    const hash = await hashPwd(password);
+    const salt = genSalt();
+    const hash = await hashPwd(password, salt);
     try {
       const res = await env.DB.prepare(
-        'INSERT INTO users(email,name,password_hash,role) VALUES(?,?,?,?)'
-      ).bind(email.toLowerCase(), name || email, hash, role || 'viewer').run();
+        'INSERT INTO users(email,name,password_hash,salt,role) VALUES(?,?,?,?,?)'
+      ).bind(email.toLowerCase(), name || email, hash, salt, role || 'viewer').run();
       return json({ ok: true, id: res.meta.last_row_id });
     } catch (e) {
       if (e.message.includes('UNIQUE')) return err('Email już istnieje', 409);
@@ -344,7 +1028,7 @@ async function handleUsers(req, env, user, url, path) {
     if (body.name)              { sets.push('name=?');          vals.push(body.name); }
     if (body.role)              { sets.push('role=?');          vals.push(body.role); }
     if (body.active !== undefined) { sets.push('active=?');     vals.push(body.active ? 1 : 0); }
-    if (body.password)          { sets.push('password_hash=?'); vals.push(await hashPwd(body.password)); }
+    if (body.password)          { const s=genSalt(); sets.push('password_hash=?','salt=?'); vals.push(await hashPwd(body.password, s), s); }
     if (!sets.length) return err('Brak pól do aktualizacji');
     vals.push(userId);
     await env.DB.prepare(`UPDATE users SET ${sets.join(',')} WHERE id=?`).bind(...vals).run();
@@ -358,6 +1042,164 @@ async function handleUsers(req, env, user, url, path) {
   }
 
   return err('Metoda niedozwolona', 405);
+}
+
+// ─── KLUCZE API (CRUD, admin only) ────────────────────────────────────────────
+async function handleApiKeys(req, env, user, url, path) {
+  if (user.role !== 'admin' || user._apiKey) return err('Brak uprawnień administratora', 403);
+  const segs  = path.split('/').filter(Boolean); // ['api','api-keys',':id']
+  const keyId = segs[2] || null;
+
+  if (req.method === 'GET' && !keyId) {
+    const rows = await env.DB.prepare(
+      'SELECT id,company_id,name,scope,active,created_at,last_used_at FROM api_keys ORDER BY created_at DESC'
+    ).all();
+    return json(rows.results || []);
+  }
+
+  if (req.method === 'POST') {
+    let body;
+    try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const { name, company_id, scope } = body;
+    if (!name || !company_id) return err('Nazwa i firma są wymagane');
+    const finalScope = scope === 'read_write' ? 'read_write' : 'read';
+    const id = crypto.randomUUID();
+    const plaintext = genApiKey();
+    const hash = await sha256Hex(plaintext);
+    await env.DB.prepare(
+      'INSERT INTO api_keys(id,company_id,name,key_hash,scope,created_by) VALUES(?,?,?,?,?,?)'
+    ).bind(id, company_id, name, hash, finalScope, user.id).run();
+    // Token w postaci jawnej zwracany jest tylko raz, tutaj — nigdy więcej nie da się go odtworzyć (przechowywany jest tylko hash).
+    return json({ ok: true, id, key: plaintext });
+  }
+
+  if (req.method === 'PUT' && keyId) {
+    let body;
+    try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const sets = [], vals = [];
+    if (body.name !== undefined)   { sets.push('name=?');   vals.push(body.name); }
+    if (body.scope !== undefined)  { sets.push('scope=?');  vals.push(body.scope === 'read_write' ? 'read_write' : 'read'); }
+    if (body.active !== undefined) { sets.push('active=?'); vals.push(body.active ? 1 : 0); }
+    if (!sets.length) return err('Brak pól do aktualizacji');
+    vals.push(keyId);
+    await env.DB.prepare(`UPDATE api_keys SET ${sets.join(',')} WHERE id=?`).bind(...vals).run();
+    return json({ ok: true });
+  }
+
+  if (req.method === 'DELETE' && keyId) {
+    await env.DB.prepare('DELETE FROM api_keys WHERE id=?').bind(keyId).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda niedozwolona', 405);
+}
+
+// ─── EKSPORT / IMPORT — wszystkie dane firmy w jednym JSON ───────────────────
+const EXPORT_TABLES = [
+  { key: 'damages',      table: 'damage_reports',     jsonCols: [] },
+  { key: 'tires',        table: 'tires',               jsonCols: ['historia'] },
+  { key: 'serviceOrders',table: 'service_orders',       jsonCols: [] },
+  { key: 'protocols',    table: 'handover_protocols',   jsonCols: ['wyposazenie'] },
+  { key: 'cfmClients',   table: 'cfm_clients',          jsonCols: [] },
+  { key: 'cfmContracts', table: 'cfm_contracts',        jsonCols: [] },
+  { key: 'cfmInvoices',  table: 'cfm_invoices',         jsonCols: ['pozycje'] },
+];
+
+function parseJsonCols(row, jsonCols) {
+  const out = { ...row };
+  for (const col of jsonCols) {
+    if (typeof out[col] === 'string') {
+      try { out[col] = JSON.parse(out[col]); } catch { /* zostaw jak jest */ }
+    }
+  }
+  return out;
+}
+
+async function handleExport(env, company) {
+  const vehiclesRes = await env.DB.prepare('SELECT * FROM vehicles WHERE company_id = ? ORDER BY nr_rej').bind(company).all();
+  const vehicles = (vehiclesRes.results || []).map(v => parseJsonCols(v, ['data']));
+
+  const out = { exportedAt: new Date().toISOString(), company_id: company, vehicles };
+
+  for (const { key, table, jsonCols } of EXPORT_TABLES) {
+    const res = await env.DB.prepare(`SELECT * FROM ${table} WHERE company_id = ?`).bind(company).all();
+    out[key] = (res.results || []).map(r => parseJsonCols(r, jsonCols));
+  }
+
+  // Zdjęcia — tylko metadane (r2_key, mime_type), bez binarnej zawartości R2.
+  const damagePhotos = await env.DB.prepare(
+    `SELECT dp.* FROM damage_photos dp JOIN damage_reports dr ON dp.damage_id = dr.id WHERE dr.company_id = ?`
+  ).bind(company).all().catch(() => ({ results: [] }));
+  out.damagePhotos = damagePhotos.results || [];
+
+  const protocolPhotos = await env.DB.prepare(
+    `SELECT pp.* FROM protocol_photos pp JOIN handover_protocols hp ON pp.protocol_id = hp.id WHERE hp.company_id = ?`
+  ).bind(company).all().catch(() => ({ results: [] }));
+  out.protocolPhotos = protocolPhotos.results || [];
+
+  return json(out);
+}
+
+async function handleImport(req, env, company) {
+  let body;
+  try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+
+  const counts = {};
+  const skipped = [];
+
+  if (Array.isArray(body.vehicles) && body.vehicles.length) {
+    const stmt = env.DB.prepare(`
+      INSERT INTO vehicles(company_id,nr_rej,axles_count,suspension_type,
+        dmc_zespolu,miesiace_podatku,dt1_category,dt1_tax_amount,data,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,datetime('now'))
+      ON CONFLICT(company_id,nr_rej) DO UPDATE SET
+        axles_count=excluded.axles_count, suspension_type=excluded.suspension_type,
+        dmc_zespolu=excluded.dmc_zespolu, miesiace_podatku=excluded.miesiace_podatku,
+        dt1_category=excluded.dt1_category, dt1_tax_amount=excluded.dt1_tax_amount,
+        data=excluded.data, updated_at=datetime('now')`);
+    await env.DB.batch(body.vehicles.map(v => stmt.bind(
+      company, v.nr_rej, v.axles_count ?? 2, v.suspension_type ?? 'pneumatyczne',
+      v.dmc_zespolu ?? 0, v.miesiace_podatku ?? 12,
+      v.dt1_category ?? null, v.dt1_tax_amount ?? null,
+      typeof v.data === 'string' ? v.data : JSON.stringify(v.data ?? {})
+    )));
+    counts.vehicles = body.vehicles.length;
+  }
+
+  for (const { key, table, jsonCols } of EXPORT_TABLES) {
+    const rows = body[key];
+    if (!Array.isArray(rows) || !rows.length) continue;
+    let n = 0;
+    for (const row of rows) {
+      const cols = Object.keys(row).filter(c => c !== 'id' && c !== 'company_id');
+      const vals = cols.map(c => {
+        const v = row[c];
+        return jsonCols.includes(c) && v !== null && typeof v !== 'string' ? JSON.stringify(v) : v;
+      });
+      if (row.id) {
+        // Sprawdź, że rekord o tym ID (jeśli istnieje) należy do tej samej firmy — inaczej pomiń (ochrona przed wstrzyknięciem do cudzej firmy).
+        const existing = await env.DB.prepare(`SELECT company_id FROM ${table} WHERE id = ?`).bind(row.id).first();
+        if (existing && existing.company_id !== company) {
+          skipped.push({ table, id: row.id, reason: 'należy do innej firmy' });
+          continue;
+        }
+        const setClause = cols.map(c => `${c}=?`).join(',');
+        await env.DB.prepare(
+          `INSERT INTO ${table}(id,company_id,${cols.join(',')}) VALUES(?,?,${cols.map(() => '?').join(',')})
+           ON CONFLICT(id) DO UPDATE SET ${setClause}`
+        ).bind(row.id, company, ...vals, ...vals).run();
+      } else {
+        const newId = crypto.randomUUID();
+        await env.DB.prepare(
+          `INSERT INTO ${table}(id,company_id,${cols.join(',')}) VALUES(?,?,${cols.map(() => '?').join(',')})`
+        ).bind(newId, company, ...vals).run();
+      }
+      n++;
+    }
+    counts[key] = n;
+  }
+
+  return json({ ok: true, counts, skipped });
 }
 
 // ─── WEB PUSH — VAPID + RFC 8291 (aes128gcm) ─────────────────────────────────
@@ -530,22 +1372,14 @@ async function cleanSessions(env) {
   await env.DB.prepare("DELETE FROM sessions WHERE expires_at < datetime('now')").run();
 }
 
-// ─── SETUP (jednorazowy: ustawia hash hasła w schema.sql) ────────────────────
-// GET /api/auth/setup?password=admin2025 — zwraca hash, nie modyfikuje DB
-async function handleSetup(req) {
-  const url   = new URL(req.url);
-  const pass  = url.searchParams.get('password');
-  if (!pass) return err('Podaj ?password=...');
-  const hash = await hashPwd(pass);
-  return json({ hash, hint: 'Wklej ten hash do schema.sql zamiast __HASH_PLACEHOLDER__' });
-}
 
 // ─── ZMIANA HASŁA (zalogowany użytkownik) ─────────────────────────────────────
 async function handleChangeMyPassword(req, env, user) {
   let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
   if (!body.password || body.password.length < 6) return err('Hasło musi mieć minimum 6 znaków');
-  const hash = await hashPwd(body.password);
-  await env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(hash, user.id).run();
+  const salt = genSalt();
+  const hash = await hashPwd(body.password, salt);
+  await env.DB.prepare('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?').bind(hash, salt, user.id).run();
   return json({ ok: true });
 }
 
@@ -734,19 +1568,57 @@ async function handleAztec(request) {
 function _sanitizeOcrFields(f) {
   if (!f || typeof f !== 'object') return f;
 
-  // nrRej: usuń spacje; musi zaczynać się od 2-3 wielkich liter (tablica polska)
+  // nrRej: usuń spacje; musi zaczynać się od 2-3 wielkich liter i zawierać cyfrę
+  // (odrzuca słowa-etykiety jak "POJAZDU", "REJESTRACYJNY" itp.)
   if (f.nrRej) {
     f.nrRej = String(f.nrRej).replace(/\s+/g, '').toUpperCase().slice(0, 10);
-    if (!/^[A-Z]{2,3}[A-Z0-9]/.test(f.nrRej)) delete f.nrRej;
+    if (!/^[A-Z]{2,3}[A-Z0-9]/.test(f.nrRej) || !/\d/.test(f.nrRej)) delete f.nrRej;
   }
 
-  // D.2 (typ) to kod techniczny (SZN1E, R540) — NIE opis rodzaju pojazdu
-  if (f.typ && /SAMOCH[OÓ]D|SPECJALN|OSOBOW|CI[ĘE][ZŻ]AR|CI[ĄA]GNIK|AUTOBUS/i.test(f.typ)) {
-    delete f.typ;
+  // Przeznaczenie pojazdu (RODZAJ POJAZDU z sekcji bezowej) — decyduje o zwolnieniu z DT-1, zachowaj jako wolny tekst
+  if (f.przeznaczenie) {
+    f.przeznaczenie = String(f.przeznaczenie).trim().slice(0, 60);
+    if (!f.przeznaczenie || /^(brak|nie widoczne|n\/a|none)$/i.test(f.przeznaczenie)) delete f.przeznaczenie;
   }
 
-  const num = v => { const n = parseFloat(String(v || '').replace(/[^\d.]/g, '')); return isNaN(n) ? null : n; };
-  const f1 = num(f.dmcKg), f2 = num(f.dmcKg2), g = num(f.masaWlKg);
+  // D.2 (typ) to kod techniczny (SZN1E, R540) — NIE opis rodzaju ani adres
+  if (f.typ) {
+    const t = String(f.typ).trim();
+    if (/SAMOCH[OÓ]D|SPECJALN|OSOBOW|CI[ĘE][ZŻ]AR|CI[ĄA]GNIK|AUTOBUS/i.test(t)) delete f.typ;
+    // Odrzuć adresy: słowo z "ALEJA/ULICA/..." lub wzorzec "SŁOWO 9A"
+    else if (/\b(ALEJA|ALEJE|ULICA|UL\b|AL\b|STREET|STRASSE|BOULEVARD|PLAC|DROGA)\b/i.test(t)) delete f.typ;
+    else if (/^[A-ZĄĆĘŁŃÓŚŹŻ\s]{4,}\s+\d+[A-Z]{0,2}$/i.test(t)) delete f.typ; // "KATOWICKA 9A" pattern
+  }
+
+  // E (VIN): dokładnie 17 znaków [A-Z0-9], bez I/O/Q; gwiazdki/ukośniki = numer homologacji → odrzuć.
+  // ISO 3779 zabrania liter I/O/Q w VIN — ale OCR nagminnie myli: 0↔O, 1↔I, 0↔Q.
+  // Zamiast usuwać VIN, najpierw koryguj typowe błędy OCR, potem sprawdź długość.
+  if (f.vin) {
+    const rawVin = String(f.vin);
+    console.log('[VIN sanitize] raw:', rawVin);
+    if (/[*/]/.test(rawVin)) {
+      console.log('[VIN sanitize] usunięty — zawiera gwiazdkę/ukośnik (homologacja)');
+      delete f.vin;
+    } else {
+      f.vin = rawVin.toUpperCase()
+        .replace(/[^A-Z0-9]/g, '')
+        .replace(/O/g, '0')
+        .replace(/I/g, '1')
+        .replace(/Q/g, '0');
+      console.log('[VIN sanitize] po korekcie:', f.vin, 'długość:', f.vin.length);
+      if (f.vin.length !== 17) {
+        console.log('[VIN sanitize] usunięty — zła długość:', f.vin.length);
+        delete f.vin;
+      }
+    }
+  } else {
+    console.log('[VIN sanitize] pole vin nieobecne w odpowiedzi AI');
+  }
+
+  // DMC/masa są zawsze całkowitymi kg — usuwamy WSZYSTKIE znaki niebędące cyframi.
+  // Obsługuje formaty: "8 800 kg", "8.800", "8,800", "8800" → zawsze 8800.
+  const num = v => { const n = parseInt(String(v || '').replace(/[^\d]/g, ''), 10); return isNaN(n) ? null : n; };
+  let f1 = num(f.dmcKg), f2 = num(f.dmcKg2), g = num(f.masaWlKg);
 
   // G >= F.1: fizycznie niemożliwe — ZAWSZE usuwamy G, nigdy F.1 (F.1 = podstawa podatku DT-1)
   if (f1 !== null && g !== null && g >= f1) delete f.masaWlKg;
@@ -778,9 +1650,15 @@ async function handleAIOCR(request, env) {
   const { imageBase64, mimeType = 'image/jpeg' } = body;
   if (!imageBase64) return err('Brak obrazu (imageBase64)');
 
-  const prompt = `Jestes ekspertem od polskich Dowodow Rejestracyjnych (DR). Dokument ma 3 sekcje: bezowa (homologacja), zolta tabela (dane rejestracyjne) i niebieska (dane pojazdu). Wyodrebnij pola TYLKO z oznaczeniami literowymi A/B/D.1/D.2/E/F.1/F.2/F.3/G/J/K/L/O.1/O.2/P.1/P.2/P.3/S.1.
+  const prompt = `Jestes ekspertem od polskich Dowodow Rejestracyjnych (DR). Dokument ma 3 sekcje: bezowa (homologacja gory), zolta tabela (srodek — dane rejestracyjne), niebieska (dol — dane pojazdu). Wyodrebnij pola TYLKO z ich literowymi oznaczeniami.
+UWAGI KRYTYCZNE:
+- Pole E (VIN) to DOKLADNIE 17 znakow TYLKO LITERY i CYFRY (A-Z 0-9), BEZ gwiazdek, ukosnikow, spacji. Szukaj VIN w dwoch miejscach: (a) obok litery E w sekcji niebieskiej, np "E WMA15VUZ3N9017358", (b) w strefie MRZ u gory lub dolu dokumentu — wiersz ze strzalkami >>>> zawiera VIN jako pierwsze 17 znakow, np "WMA15VUZ3N9017358>>>>>>>>". Przyklad VIN: WMA15VUZ3N9017358 lub WVWZZZ3BZWE689420. UWAGA: pole K (homologacja) zaczyna sie od "e" po ktorym sa gwiazdki np "e32*..." — to ABSOLUTNIE NIE jest VIN. VIN NIGDY nie zaczyna sie od malego "e" z gwiazdka. Typ pojazdu to np WMA (MAN), VF1 (Renault), WDB (Mercedes), WJM (Volvo), YV2 (Volvo).
+- Pole D.2 to KROTKI KOD techniczny pojazdu (do 20 znakow, np TGE140 lub R490 lub 316d). NIE jest to adres firmy, ulica, NIP ani opis slowny. Jesli widzisz adres lub slowa zamiast kodu — zwroc pusty string.
+- Pole B to DATA PIERWSZEJ rejestracji (DD.MM.RRRR), nie termin przegladu technicznego.
+- Pola F.1/F.2/F.3/G to tylko liczby kilogramow z ZOLTEJ tabeli (nie z sekcji bezowej).
+- W sekcji bezowej (gora dokumentu) szukaj etykiety "RODZAJ POJAZDU" lub "PRZEZNACZENIE" — to KRYTYCZNE pole podatkowe: jesli pojazd jest oznaczony jako "SAMOCHOD SPECJALNY" (np. do czyszczenia, asenizacyjny, szambiarka, wodolejka itp.), pojazd jest ZWOLNIONY z podatku DT-1. Zwroc dokladny tekst tej etykiety.
 Zwroc WYLACZNIE JSON bez markdown:
-{"nrRej":"A — numer rejestracyjny np WPR0365T lub WA0677L (2-3 wielkie litery + cyfry/litery, BEZ spacji)","dataRej":"B — data PIERWSZEJ rejestracji DD.MM.RRRR (nie termin przegladu)","marka":"D.1 — marka np MAN lub SCANIA","typ":"D.2 — kod techniczny np SZN1E lub R490 (NIE SAMOCHOD SPECJALNY ani opis rodzaju)","vin":"E — 17 znakow VIN","dmcKg":"F.1 — DMC kg z ZOLTEJ tabeli (jesli dwie wartosci F.1 wybierz WIEKSZA)","dmcKg2":"F.2 — DMC z ladunkiem kg","dmcZespolu":"F.3 — DMC zespolu kg (>= F.1)","masaWlKg":"G — masa wlasna kg (MUSI byc mniejsza niz F.1)","liczbaOsi":"L — liczba osi 1-5","kategoria":"J — kategoria np N1 N2 N3 M1","pojSilnika":"P.1 — pojemnosc cm3 tylko cyfry","mocKW":"P.2 — moc kW tylko cyfry","paliwo":"P.3 — D lub B lub G","miejscaSied":"S.1 — miejsca siedzace cyfra","rokProd":"rok produkcji 4 cyfry","dmcPrzyczHam":"O.1 — masa przyczepy z hamulcem kg","dmcPrzyczNieham":"O.2 — masa przyczepy bez hamulca kg (< O.1)","nrHomolog":"K — nr homologacji np e32*IV18/858*NI15391"}`;
+{"nrRej":"A — numer rejestracyjny np WPR0365T lub WA0677L (2-3 wielkie litery + cyfry, BEZ spacji)","dataRej":"B — data PIERWSZEJ rejestracji DD.MM.RRRR","marka":"D.1 — marka np MAN lub SCANIA","typ":"D.2 — krotki kod techniczny np TGE140 lub R490 (NIE adres, NIE opis slowny)","przeznaczenie":"RODZAJ POJAZDU / PRZEZNACZENIE z sekcji bezowej, np SAMOCHOD SPECJALNY lub SAMOCHOD CIEZAROWY (puste jesli nie widoczne)","vin":"E — dokladnie 17 znakow VIN np WMA29VUZ7R9018317 (litery A-H J-N P R-Z i cyfry 0-9, NIGDY I O Q, NIGDY gwiazdki)","dmcKg":"F.1 — DMC kg z ZOLTEJ tabeli (jesli dwie wartosci wybierz WIEKSZA)","dmcKg2":"F.2 — DMC z ladunkiem kg","dmcZespolu":"F.3 — DMC zespolu kg (>= F.1)","masaWlKg":"G — masa wlasna kg (mniejsza niz F.1)","liczbaOsi":"L — liczba osi 1-5","kategoria":"J — kategoria np N1 N2 N3 M1","pojSilnika":"P.1 — pojemnosc cm3 cyfry","mocKW":"P.2 — moc kW cyfry","paliwo":"P.3 — D lub B lub G","miejscaSied":"S.1 — miejsca siedzace cyfra","rokProd":"rok produkcji 4 cyfry","dmcPrzyczHam":"O.1 — masa przyczepy z hamulcem kg","dmcPrzyczNieham":"O.2 — masa przyczepy bez hamulca kg","nrHomolog":"K — nr homologacji np e32*IV18/858*NI15391"}`;
 
   // ── Próba 0: Python PaddleOCR Service (najdokładniejszy — przestrzenne bounding boxy) ──
   if (env.OCR_PYTHON_URL) {
@@ -791,12 +1669,17 @@ Zwroc WYLACZNIE JSON bez markdown:
         method: 'POST',
         headers,
         body: JSON.stringify({ imageBase64, mimeType }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(8000),
       });
       if (pyResp.ok) {
         const pyData = await pyResp.json();
-        if (pyData.ok && pyData.fields && (pyData.fields.nrRej || pyData.fields.vin || pyData.fields.dmcKg)) {
-          return json({ ok: true, fields: _sanitizeOcrFields(pyData.fields), model: 'paddleocr' });
+        if (pyData.ok && pyData.fields) {
+          const sanitized = _sanitizeOcrFields(pyData.fields);
+          // Sprawdź po sanityzacji — jeśli kluczowe pola puste, przejdź do Groq
+          if (sanitized.nrRej || sanitized.vin || sanitized.marka || sanitized.dmcKg) {
+            return json({ ok: true, fields: sanitized, model: 'paddleocr' });
+          }
+          console.log('[OCR PaddleOCR] wynik po sanityzacji pusty — fallthrough do Groq');
         }
       }
     } catch (e) { /* fall through — Python service niedostępny */ }
@@ -814,14 +1697,18 @@ Zwroc WYLACZNIE JSON bez markdown:
         max_tokens: 768,
       });
       const answer = cfResult?.response || '';
+      console.log('[OCR CF-AI raw]', answer.slice(0, 500));
       const jm = answer.match(/\{[\s\S]*\}/);
       if (jm) {
-        const fields = _sanitizeOcrFields(JSON.parse(jm[0]));
+        const parsed = JSON.parse(jm[0]);
+        console.log('[OCR CF-AI parsed vin]', parsed.vin ?? 'BRAK');
+        const fields = _sanitizeOcrFields(parsed);
+        console.log('[OCR CF-AI after sanitize vin]', fields.vin ?? 'USUNIĘTY');
         if (fields.nrRej || fields.vin || fields.marka || fields.dmcKg) {
           return json({ ok: true, fields, model: 'cf-workers-ai-llama-3.2-11b' });
         }
       }
-    } catch (e) { /* fall through to Groq */ }
+    } catch (e) { console.log('[OCR CF-AI error]', e?.message); /* fall through to Groq */ }
   }
 
   // ── Próba 2: Groq Vision — 4-modelowy łańcuch fallback ───────────────────────
@@ -856,9 +1743,14 @@ Zwroc WYLACZNIE JSON bez markdown:
       }
       const data = await resp.json();
       const answer = data.choices?.[0]?.message?.content || '';
+      console.log(`[OCR Groq ${model} raw]`, answer.slice(0, 500));
       const jm = answer.match(/\{[\s\S]*\}/);
       if (!jm) { lastErr = 'AI nie zwróciło JSON: ' + answer.slice(0, 100); continue; }
-      return json({ ok: true, fields: _sanitizeOcrFields(JSON.parse(jm[0])), model });
+      const parsed = JSON.parse(jm[0]);
+      console.log(`[OCR Groq ${model} parsed vin]`, parsed.vin ?? 'BRAK');
+      const fields = _sanitizeOcrFields(parsed);
+      console.log(`[OCR Groq ${model} after sanitize vin]`, fields.vin ?? 'USUNIĘTY');
+      return json({ ok: true, fields, model });
     } catch (e) {
       lastErr = `${model}: ${e?.message}`;
     }
@@ -866,11 +1758,99 @@ Zwroc WYLACZNIE JSON bez markdown:
   return err('Błąd AI Vision: ' + lastErr, 502);
 }
 
+// ─── CEPIK PROXY ─────────────────────────────────────────────────────────────
+// Browser cannot call api.cepik.gov.pl directly (CORS + IP whitelist).
+// These endpoints forward requests server-side from the Worker.
+
+async function handleCepikToken(request) {
+  // POST /api/cepik/token — proxy to api-cpa.gov.pl/token
+  let body;
+  try { body = await request.text(); } catch { return err('Nieprawidłowe ciało żądania'); }
+  const authHeader = request.headers.get('Authorization') || '';
+  try {
+    const resp = await fetch('https://api-cpa.gov.pl/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': authHeader,
+      },
+      body,
+    });
+    const data = await resp.text();
+    return new Response(data, {
+      status: resp.status,
+      headers: { 'Content-Type': 'application/json', ...CORS },
+    });
+  } catch (e) {
+    return err('Błąd proxy tokenu CEPiK: ' + e.message, 502);
+  }
+}
+
+async function handleCepikPojazdy(request, url) {
+  // GET /api/cepik/pojazdy?nr=...&woj=...&rok=...
+  // Forwards Bearer token from X-Cepik-Token header
+  const token = request.headers.get('X-Cepik-Token') || '';
+  if (!token) return err('Brak X-Cepik-Token', 401);
+
+  const nr   = url.searchParams.get('nr')  || '';
+  const woj  = url.searchParams.get('woj') || '14';
+  const rok  = url.searchParams.get('rok') || String(new Date().getFullYear());
+  if (!nr) return err('Brak parametru nr');
+
+  const apiUrl = `https://api.cepik.gov.pl/pojazdy?numer-rejestracyjny=${encodeURIComponent(nr)}&wojewodztwo=${woj}&data-od=${rok}0101&data-do=${rok}1231&limit=1&pokaz-wszystkie-pola=true`;
+  try {
+    const resp = await fetch(apiUrl, {
+      headers: {
+        'Accept': 'application/vnd.api+json',
+        'Authorization': 'Bearer ' + token,
+      },
+    });
+    const data = await resp.text();
+    return new Response(data, {
+      status: resp.status,
+      headers: { 'Content-Type': 'application/vnd.api+json', ...CORS },
+    });
+  } catch (e) {
+    return err('Błąd proxy CEPiK: ' + e.message, 502);
+  }
+}
+
+// ─── CEPIK — KIEROWCY (SPIKE, niezweryfikowane) ───────────────────────────────
+// UWAGA: w odróżnieniu od /pojazdy (potwierdzone, publiczne API z OAuth2 client-credentials),
+// weryfikacja uprawnień kierowcy po PESEL/nr prawa jazdy NIE ma potwierdzonego publicznego
+// endpointu w tym samym przepływie — usługa "Sprawdź uprawnienia kierowcy" w CEPiK jest
+// typowo dostępna tylko przez portal gov.pl z logowaniem obywatela (Profil Zaufany/mObywatel),
+// nie przez B2B token. Ten handler to spike: próbuje wywołać prawdopodobny endpoint i zwraca
+// jasny komunikat ok:false z diagnostyką, jeśli się nie powiedzie — frontend ma wtedy fallback
+// na ręczne wprowadzanie danych (patrz modules/drivers.js + notifications.js).
+async function handleCepikKierowca(request, url) {
+  const token = request.headers.get('X-Cepik-Token') || '';
+  if (!token) return err('Brak X-Cepik-Token', 401);
+
+  const pesel  = url.searchParams.get('pesel')  || '';
+  const nrPrawaJazdy = url.searchParams.get('nrPrawaJazdy') || '';
+  if (!pesel || !nrPrawaJazdy) return err('Brak parametrów: pesel, nrPrawaJazdy');
+
+  const apiUrl = `https://api.cepik.gov.pl/kierowcy?pesel=${encodeURIComponent(pesel)}&nr-prawa-jazdy=${encodeURIComponent(nrPrawaJazdy)}`;
+  try {
+    const resp = await fetch(apiUrl, {
+      headers: { 'Accept': 'application/vnd.api+json', 'Authorization': 'Bearer ' + token },
+    });
+    if (resp.status === 404 || resp.status === 403) {
+      return json({ ok: false, available: false, status: resp.status,
+        message: 'Publiczne API CEPiK nie udostępnia weryfikacji uprawnień kierowcy w tym przepływie (status ' + resp.status + '). Wprowadź dane ręcznie.' });
+    }
+    const data = await resp.text();
+    return new Response(data, { status: resp.status, headers: { 'Content-Type': 'application/vnd.api+json', ...CORS } });
+  } catch (e) {
+    return json({ ok: false, available: false, message: 'Błąd proxy CEPiK kierowcy: ' + e.message });
+  }
+}
+
 // ─── MAIN FETCH ───────────────────────────────────────────────────────────────
 async function handleRequest(request, env, url, path) {
   // Public endpoints (no auth required)
   if (path === '/api/auth/login'            && request.method === 'POST') return handleLogin(request, env);
-  if (path === '/api/auth/setup'            && request.method === 'GET')  return handleSetup(request);
   if (path === '/api/auth/logout'           && request.method === 'POST') return handleLogout(request, env);
   if (path === '/api/push/vapid-public-key' && request.method === 'GET')  return handleVapidPublicKey(request, env);
   if (path === '/api/push/subscribe'        && request.method === 'POST') return handlePushSubscribe(request, env);
@@ -879,7 +1859,48 @@ async function handleRequest(request, env, url, path) {
   // Protected endpoints
   const user = await getUser(request, env);
 
-  if (path === '/api/auth/me')                    return json(safeUser(user));
+  // Klucze API są związane z JEDNĄ firmą — w przeciwieństwie do sesji ludzkich (które mogą przełączać firmy w UI),
+  // każde żądanie kluczem API musi dotyczyć dokładnie tej firmy, do której klucz został wydany.
+  if (user && user._apiKey) {
+    const reqCompany = url.searchParams.get('company');
+    if (reqCompany && reqCompany !== user.company_id) {
+      return err('Klucz API nie ma dostępu do tej firmy', 403);
+    }
+    if (request.method === 'POST' || request.method === 'PUT') {
+      try {
+        const clone = request.clone();
+        const peek = await clone.json();
+        if (peek && peek.company_id && peek.company_id !== user.company_id) {
+          return err('Klucz API nie ma dostępu do tej firmy', 403);
+        }
+      } catch { /* body nie jest JSON-em lub jest puste — pomiń */ }
+    }
+  }
+
+  if (path === '/api/export' && request.method === 'GET') {
+    if (!user) return err('Nieautoryzowany', 401);
+    const company = url.searchParams.get('company');
+    if (!company) return err('Podaj parametr ?company=');
+    if (!user._apiKey && !['admin', 'kierownik'].includes(user.role)) return err('Brak uprawnień do eksportu danych', 403);
+    return handleExport(env, company);
+  }
+  if (path === '/api/import' && request.method === 'POST') {
+    if (!user) return err('Nieautoryzowany', 401);
+    const company = url.searchParams.get('company');
+    if (!company) return err('Podaj parametr ?company=');
+    if (user._apiKey) {
+      if (user.api_key_scope !== 'read_write') return err('Klucz API ma tylko uprawnienia do odczytu', 403);
+    } else if (!['admin', 'kierownik'].includes(user.role)) {
+      return err('Brak uprawnień do importu danych', 403);
+    }
+    return handleImport(request, env, company);
+  }
+  if (path.startsWith('/api/api-keys')) { if (!user) return err('Nieautoryzowany', 401); return handleApiKeys(request, env, user, url, path); }
+
+  if (path === '/api/auth/me') {
+    if (!user) return err('Nieautoryzowany', 401);
+    return json(safeUser(user));
+  }
   if (path === '/api/users/me/password' && request.method === 'PUT') {
     if (!user) return err('Nieautoryzowany — zaloguj się', 401);
     return handleChangeMyPassword(request, env, user);
@@ -888,10 +1909,27 @@ async function handleRequest(request, env, url, path) {
   if (path.startsWith('/api/state/'))   { if (!user) return err('Nieautoryzowany', 401); return handleState(request, env, user, url, path); }
   if (path.startsWith('/api/prefs'))    { if (!user) return err('Nieautoryzowany', 401); return handlePrefs(request, env, user); }
   if (path.startsWith('/api/docs'))     { if (!user) return err('Nieautoryzowany', 401); return handleDocs(request, env, user, url, path); }
+  if (path.startsWith('/api/damages'))  { if (!user) return err('Nieautoryzowany', 401); return handleDamages(request, env, user, url, path); }
+  if (path.startsWith('/api/tires'))    { if (!user) return err('Nieautoryzowany', 401); return handleTires(request, env, user, url, path); }
+  if (path.startsWith('/api/service-orders')) { if (!user) return err('Nieautoryzowany', 401); return handleServiceOrders(request, env, user, url, path); }
+  if (path.startsWith('/api/protocols'))      { if (!user) return err('Nieautoryzowany', 401); return handleProtocols(request, env, user, url, path); }
+  // CFM — dane finansowo-kontraktowe, dostęp tylko admin/kierownik (spójne z ograniczeniem ROLE_TABS w UI)
+  if (path.startsWith('/api/cfm-')) {
+    if (!user) return err('Nieautoryzowany', 401);
+    if (!['admin', 'kierownik'].includes(user.role)) return err('Brak uprawnień do modułu CFM', 403);
+    if (path.startsWith('/api/cfm-clients'))   return handleCfmClients(request, env, user, url, path);
+    if (path.startsWith('/api/cfm-contracts')) return handleCfmContracts(request, env, user, url, path);
+    if (path.startsWith('/api/cfm-invoices'))  return handleCfmInvoices(request, env, user, url, path);
+  }
   if (path.startsWith('/api/users'))    { if (!user) return err('Nieautoryzowany', 401); return handleUsers(request, env, user, url, path); }
   if (path === '/api/ai/chat')          return handleAI(request, env);
   if (path === '/api/ai/ocr' && request.method === 'POST') return handleAIOCR(request, env);
   if (path === '/api/aztec'  && request.method === 'POST') return handleAztec(request);
+
+  // CEPiK proxy — public (token passed in X-Cepik-Token / Authorization header)
+  if (path === '/api/cepik/token'   && request.method === 'POST') return handleCepikToken(request);
+  if (path === '/api/cepik/pojazdy' && request.method === 'GET')  return handleCepikPojazdy(request, url);
+  if (path === '/api/cepik/kierowca' && request.method === 'GET') return handleCepikKierowca(request, url);
 
   // Push (authenticated parts)
   if (path === '/api/push/generate-keys' && request.method === 'GET') {

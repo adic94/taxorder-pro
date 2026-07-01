@@ -127,6 +127,33 @@ window.TaxOrderNotifications = (function () {
       });
     });
 
+    // Alert wygasającego prawa jazdy kierowców
+    (window.TaxOrderDrivers?.getAll() || []).forEach(d => {
+      if (!d.licenseExpiry) return;
+      const days = _daysUntil(d.licenseExpiry);
+      if (days === null || days > WARN_DAYS) return;
+
+      const key = `drv_${d.id}__licenseExpiry`;
+      if (_wasSentToday(key)) return;
+
+      const dateStr = new Date(d.licenseExpiry).toLocaleDateString('pl-PL');
+      let title, body;
+      if (days < 0) {
+        title = `❌ ${d.name} — Prawo jazdy WYGASŁO`;
+        body = `Termin: ${dateStr} (${Math.abs(days)} dni temu)`;
+      } else if (days === 0) {
+        title = `🚨 ${d.name} — Prawo jazdy wygasa DZISIAJ`;
+        body = `Sprawdź dokument przed wyjazdem`;
+      } else {
+        title = `⚠ ${d.name} — Prawo jazdy wygasa za ${days} dni`;
+        body = `Termin: ${dateStr}`;
+      }
+
+      _send(title, body, key);
+      _markSent(key);
+      sent++;
+    });
+
     if (sent > 0) console.log(`[Notifications] Wysłano ${sent} powiadomień`);
 
     // Jeśli mamy subskrypcję push serwera, wyślij alerty do wszystkich urządzeń firmy
@@ -212,6 +239,22 @@ window.TaxOrderNotifications = (function () {
           urgent: d <= 7,
           expired: d < 0,
         });
+      });
+    });
+
+    // Alert wygasającego prawa jazdy kierowców
+    (window.TaxOrderDrivers?.getAll() || []).forEach(d => {
+      if (!d.licenseExpiry) return;
+      const dd = _daysUntil(d.licenseExpiry);
+      if (dd === null || dd > days) return;
+      alerts.push({
+        nrRej: '👤 ' + d.name,
+        marka: '', model: '',
+        label: 'Prawo jazdy',
+        date: d.licenseExpiry,
+        days: dd,
+        urgent: dd <= 7,
+        expired: dd < 0,
       });
     });
 
@@ -341,7 +384,7 @@ window.TaxOrderNotifications = (function () {
 
   // ── Push subscription (VAPID / Server Push) ──────────────────────────────
   // Używa window.CF_WORKER_URL jeśli zdefiniowane w app.js, inaczej prod default
-  function _cfApi() { return window.CF_WORKER_URL || 'https://taxorder-pro-api.acichocki.workers.dev'; }
+  function _cfApi() { return window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev'; }
   const PUSH_SUB_KEY = 'taxPushSubscribed';
 
   async function _getVapidPublicKey() {
