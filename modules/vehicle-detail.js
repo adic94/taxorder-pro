@@ -16,6 +16,33 @@ window.TaxOrderVehicleDetail = {
     document.getElementById('vd-modal').style.display = 'none';
   },
 
+  async deleteVehicle() {
+    const vehId = this._currentVehId;
+    const v = (window.vehs || []).find(x => x.id === vehId);
+    if (!v) return;
+    if (!confirm(`Usunąć pojazd ${v.nrRej} (${v.marka} ${v.model}) z floty?\n\nTa operacja jest nieodwracalna.`)) return;
+
+    // Usuń z lokalnej tablicy i zamknij modal
+    const idx = window.vehs.indexOf(v);
+    if (idx !== -1) window.vehs.splice(idx, 1);
+    selected.delete(vehId);
+    this.close();
+    if (typeof renderVeh === 'function') renderVeh();
+    if (typeof updateCounters === 'function') updateCounters();
+
+    // Usuń z bazy danych (Supabase)
+    if (v.dbId && window.TaxOrderFleetCloud?.deleteVehicle) {
+      const result = await window.TaxOrderFleetCloud.deleteVehicle(v);
+      if (result.ok) {
+        toast(`✓ Usunięto ${v.nrRej}`);
+      } else {
+        toast(`⚠ ${v.nrRej} usunięty lokalnie — błąd sync z bazą`);
+      }
+    } else {
+      toast(`✓ Usunięto ${v.nrRej}`);
+    }
+  },
+
   async save(vehId) {
     const v = vehs.find(x => x.id === vehId);
     if (!v) return;

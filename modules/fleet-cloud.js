@@ -151,6 +151,24 @@ window.TaxOrderFleetCloud = {
     return { ok: failed === 0, saved, failed };
   },
 
+  // Usuwa pojazd z Supabase
+  async deleteVehicle(v) {
+    if (!v.dbId || !window.supabaseClient) return { ok: false };
+
+    const { error } = await window.supabaseClient
+      .from("vehicles")
+      .delete()
+      .eq("id", v.dbId);
+
+    if (error) {
+      console.error("[FleetCloud] Błąd usunięcia:", v.nrRej, error.message);
+      return { ok: false, error };
+    }
+
+    console.log("[FleetCloud] ✓ Usunięto z Supabase:", v.nrRej);
+    return { ok: true };
+  },
+
   // Synchronizuje dane pojazdu z CEPiK przez skonfigurowany proxy
   async syncFromCepik(v) {
     const proxyUrl = (localStorage.getItem('dt1_cepik_proxy') || '').trim();
