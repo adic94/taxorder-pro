@@ -259,6 +259,7 @@ window.TaxOrderVehicleDetail = {
           ['dokumenty', '📄 Dokumenty'],
           ['mandaty',   '🚨 Mandaty'],
           ['gps',       '🗺 GPS'],
+          ['karty',     '💳 Karty'],
         ].map(([tabKey, fallback], i) => {
           const label = window.t ? (window.t('vd.tab.' + tabKey) !== 'vd.tab.' + tabKey ? window.t('vd.tab.' + tabKey) : fallback) : fallback;
           return `
@@ -708,12 +709,12 @@ window.TaxOrderVehicleDetail = {
         <div id="vd-gps-body">${this._renderGpsTab(v)}</div>
       </div>
 
-      <!-- PRZYPISANE KARTY FLOTOWE -->
-      <div style="margin-top:20px;padding-top:16px;border-top:0.5px solid var(--border)">
-        <div style="font-size:13px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:8px">
-          <i class="ti ti-credit-card" style="color:var(--blue)"></i>Karty flotowe
-          <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="TaxOrderVehicleDetail._addCard(${v.id})">
-            <i class="ti ti-plus"></i>Dodaj
+      <!-- TAB: KARTY FLOTOWE -->
+      <div id="vd-tab-karty-content" class="vd-tab-content" style="display:none">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:14px">Przypisane karty flotowe</div>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+          <button class="btn btn-blue" style="font-size:12px" onclick="TaxOrderVehicleDetail._addCard(${v.id})">
+            <i class="ti ti-plus"></i>Dodaj kartę
           </button>
         </div>
         <div id="vd-cards-list">${this._renderCards(v)}</div>
