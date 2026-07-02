@@ -9,6 +9,7 @@ window.TaxOrderVehicleDetail = {
     this._currentVehId = vehId;
     this._render(v);
     document.getElementById('vd-modal').style.display = 'flex';
+    setTimeout(() => this._initTabScroll(), 0);
   },
 
   close() {
@@ -209,8 +210,13 @@ window.TaxOrderVehicleDetail = {
         </div>
       </div>
 
-      <!-- TABS — 8 zakładek, scrollowane -->
-      <div id="vd-tabs" style="display:flex;gap:2px;margin-bottom:20px;background:var(--bg3);border-radius:var(--radius);padding:3px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:thin">
+      <!-- TABS — scrollowane z przyciskami nawigacji -->
+      <div style="position:relative;margin-bottom:20px">
+        <button id="vd-tabs-prev" onclick="TaxOrderVehicleDetail._scrollTabs(-1)"
+          style="position:absolute;left:0;top:0;bottom:0;z-index:2;border:none;background:linear-gradient(to right,var(--bg3) 55%,transparent);padding:0 14px 0 4px;cursor:pointer;display:none;align-items:center;border-radius:var(--radius) 0 0 var(--radius)">
+          <i class="ti ti-chevron-left" style="font-size:14px;color:var(--text2)"></i>
+        </button>
+        <div id="vd-tabs" style="display:flex;gap:2px;background:var(--bg3);border-radius:var(--radius);padding:3px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none">
         ${[
           ['dr',        '📋 DR'],
           ['insurance', '🛡 Polisy'],
@@ -235,6 +241,11 @@ window.TaxOrderVehicleDetail = {
             ${label}
           </button>`;
         }).join('')}
+        </div>
+        <button id="vd-tabs-next" onclick="TaxOrderVehicleDetail._scrollTabs(1)"
+          style="position:absolute;right:0;top:0;bottom:0;z-index:2;border:none;background:linear-gradient(to left,var(--bg3) 55%,transparent);padding:0 4px 0 14px;cursor:pointer;display:none;align-items:center;border-radius:0 var(--radius) var(--radius) 0">
+          <i class="ti ti-chevron-right" style="font-size:14px;color:var(--text2)"></i>
+        </button>
       </div>
 
       <!-- TAB: DOWÓD REJESTRACYJNY -->
@@ -1463,6 +1474,24 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
     win.document.write(html); win.document.close();
   },
 
+  _scrollTabs(dir) {
+    const tabs = document.getElementById('vd-tabs');
+    if (tabs) tabs.scrollBy({ left: dir * 220, behavior: 'smooth' });
+  },
+
+  _initTabScroll() {
+    const tabs = document.getElementById('vd-tabs');
+    const prev = document.getElementById('vd-tabs-prev');
+    const next = document.getElementById('vd-tabs-next');
+    if (!tabs || !prev || !next) return;
+    const update = () => {
+      prev.style.display = tabs.scrollLeft < 4 ? 'none' : 'flex';
+      next.style.display = tabs.scrollLeft + tabs.clientWidth >= tabs.scrollWidth - 4 ? 'none' : 'flex';
+    };
+    tabs.addEventListener('scroll', update);
+    update();
+  },
+
   _tab(name) {
     document.querySelectorAll('.vd-tab-content').forEach(el => el.style.display = 'none');
     document.querySelectorAll('[id^="vd-tab-"]').forEach(btn => {
@@ -1474,7 +1503,11 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
     const contentEl = document.getElementById('vd-tab-' + name + '-content');
     if (contentEl) contentEl.style.display = '';
     const btn = document.getElementById('vd-tab-' + name);
-    if (btn) { btn.style.background = 'var(--bg)'; btn.style.color = 'var(--text)'; }
+    if (btn) {
+      btn.style.background = 'var(--bg)';
+      btn.style.color = 'var(--text)';
+      btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    }
   },
 
   _onArchiveToggle(cb) {

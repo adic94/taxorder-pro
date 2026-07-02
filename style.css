@@ -399,3 +399,6 @@ thead tr:has(.col-fi) th{padding:3px 4px!important;background:var(--bg2)!importa
 /* Fleet per-column filter row */
 #veh-filter-row th{padding:3px 4px!important;background:var(--bg2)!important}
 #veh-filter-row .col-fi{min-width:40px}
+
+/* Modal tab bar — ukryj scrollbar we wszystkich przeglądarkach (nawigacja przez przyciski ‹›) */
+#vd-tabs::-webkit-scrollbar{display:none}
