@@ -995,7 +995,18 @@ window.addEventListener('DOMContentLoaded', () => {
         <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
           <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text2)">Odczytywane pola DT-1:</div>
           <div style="display:flex;flex-wrap:wrap;gap:4px">
-            ${['A: Nr rej.','B: Data 1. rej.','D.1: Marka','D.2: Typ','E: VIN','F.1: DMC (kg)','F.3: DMC zesp.','G: Masa wł.','J: Kategoria','L: Liczba osi','P.3: Paliwo','S.1: Miejsca'].map(f=>`<span style="font-size:10px;padding:2px 7px;background:var(--bg3);border-radius:4px;font-family:var(--mono)">${f}</span>`).join('')}
+            <span style="font-size:10px;padding:2px 7px;background:var(--bg3);border-radius:4px;font-family:var(--mono)">A: Nr rej.</span>
+            <span style="font-size:10px;padding:2px 7px;background:var(--bg3);border-radius:4px;font-family:var(--mono)">B: Data 1. rej.</span>
+            <span style="font-size:10px;padding:2px 7px;background:var(--bg3);border-radius:4px;font-family:var(--mono)">D.1: Marka</span>
+            <span style="font-size:10px;padding:2px 7px;background:var(--bg3);border-radius:4px;font-family:var(--mono)">D.2: Typ</span>
+            <span style="font-size:10px;padding:2px 7px;background:var(--bg3);border-radius:4px;font-family:var(--mono)">E: VIN</span>
+            <span style="font-size:10px;padding:2px 7px;background:var(--bg3);border-radius:4px;font-family:var(--mono)">F.1: DMC (kg)</span>
+            <span style="font-size:10px;padding:2px 7px;background:var(--bg3);border-radius:4px;font-family:var(--mono)">F.3: DMC zesp.</span>
+            <span style="font-size:10px;padding:2px 7px;background:var(--bg3);border-radius:4px;font-family:var(--mono)">G: Masa wł.</span>
+            <span style="font-size:10px;padding:2px 7px;background:var(--bg3);border-radius:4px;font-family:var(--mono)">J: Kategoria</span>
+            <span style="font-size:10px;padding:2px 7px;background:var(--bg3);border-radius:4px;font-family:var(--mono)">L: Liczba osi</span>
+            <span style="font-size:10px;padding:2px 7px;background:var(--bg3);border-radius:4px;font-family:var(--mono)">P.3: Paliwo</span>
+            <span style="font-size:10px;padding:2px 7px;background:var(--bg3);border-radius:4px;font-family:var(--mono)">S.1: Miejsca</span>
           </div>
         </div>
       </div>
@@ -1493,12 +1504,10 @@ window.addEventListener('DOMContentLoaded', () => {
       <div class="panel-right" style="margin-bottom:1rem">
         <div class="panel-title"><i class="ti ti-shield" style="color:var(--blue)"></i>Role i uprawnienia</div>
         <div style="font-size:12px;line-height:1.8">
-          ${[
-            ['Admin','Pełny dostęp — wszystkie zakładki, zarządzanie użytkownikami','var(--red)'],
-            ['Kierownik','Pulpit, pojazdy, kalkulator, DT-1, raporty, PDF','var(--blue)'],
-            ['Księgowy','Kalkulator, DT-1, raporty, eksport, Przyjazne Dekl.','var(--green)'],
-            ['Mechanik','Pulpit, pojazdy, OCR, faktury','var(--amber)'],
-          ].map(([r,d,c])=>`<div style="margin-bottom:8px"><span style="font-size:10px;padding:2px 8px;border-radius:4px;background:${c};color:#fff;font-weight:600">${r}</span><div style="font-size:11px;color:var(--text2);margin-top:3px">${d}</div></div>`).join('')}
+          <div style="margin-bottom:8px"><span style="font-size:10px;padding:2px 8px;border-radius:4px;background:var(--red);color:#fff;font-weight:600">Admin</span><div style="font-size:11px;color:var(--text2);margin-top:3px">Pełny dostęp — wszystkie zakładki, zarządzanie użytkownikami</div></div>
+          <div style="margin-bottom:8px"><span style="font-size:10px;padding:2px 8px;border-radius:4px;background:var(--blue);color:#fff;font-weight:600">Kierownik</span><div style="font-size:11px;color:var(--text2);margin-top:3px">Pulpit, pojazdy, kalkulator, DT-1, raporty, PDF</div></div>
+          <div style="margin-bottom:8px"><span style="font-size:10px;padding:2px 8px;border-radius:4px;background:var(--green);color:#fff;font-weight:600">Księgowy</span><div style="font-size:11px;color:var(--text2);margin-top:3px">Kalkulator, DT-1, raporty, eksport, Przyjazne Dekl.</div></div>
+          <div style="margin-bottom:8px"><span style="font-size:10px;padding:2px 8px;border-radius:4px;background:var(--amber);color:#fff;font-weight:600">Mechanik</span><div style="font-size:11px;color:var(--text2);margin-top:3px">Pulpit, pojazdy, OCR, faktury</div></div>
         </div>
       </div>
       <div class="panel-right">
@@ -2103,31 +2112,47 @@ window.addEventListener('DOMContentLoaded', () => {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
       <div>
         <div style="font-weight:500;margin-bottom:10px;font-size:13px">🔑 Ścieżka 1 — Portal Deweloperski (szybsza, bezpłatna)</div>
-        ${[
-          ['1','Wejdź na','cpa.gov.pl/store/apis/info?name=CEPiK','Portal Deweloperski CEPiK'],
-          ['2','Zarejestruj konto lub zaloguj się przez','gov.pl','login.gov.pl'],
-          ['3','Kliknij <strong>Subskrybuj do API CEPiK</strong> → wybierz plan (bezpłatny dostęp do danych zagregowanych)','',''],
-          ['4','Skopiuj wygenerowany <strong>Token Bearer</strong> i wklej go powyżej w polu Konfiguracja','',''],
-          ['5','Kliknij <strong>Zapisz i przetestuj połączenie</strong>','',''],
-        ].map(([n,t,url,label])=>`<div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start">
-          <div style="min-width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${n}</div>
-          <div style="font-size:12px;color:var(--text2);line-height:1.5">${t}${url?` <a href="https://${url}" target="_blank" style="color:var(--blue)">${label||url}</a>`:''}.</div>
-        </div>`).join('')}
+        <div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start">
+          <div style="min-width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">1</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.5">Wejdź na <a href="https://cpa.gov.pl/store/apis/info?name=CEPiK" target="_blank" style="color:var(--blue)">Portal Deweloperski CEPiK</a>.</div>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start">
+          <div style="min-width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">2</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.5">Zarejestruj konto lub zaloguj się przez <a href="https://gov.pl" target="_blank" style="color:var(--blue)">login.gov.pl</a>.</div>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start">
+          <div style="min-width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">3</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.5">Kliknij <strong>Subskrybuj do API CEPiK</strong> → wybierz plan (bezpłatny dostęp do danych zagregowanych).</div>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start">
+          <div style="min-width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">4</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.5">Skopiuj wygenerowany <strong>Token Bearer</strong> i wklej go powyżej w polu Konfiguracja.</div>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start">
+          <div style="min-width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">5</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.5">Kliknij <strong>Zapisz i przetestuj połączenie</strong>.</div>
+        </div>
       </div>
       <div>
         <div style="font-weight:500;margin-bottom:10px;font-size:13px">📋 Ścieżka 2 — Wniosek przez ePUAP (pełny dostęp do danych pojazdów)</div>
         <div style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:10px">
           Dla firm chcących sprawdzać konkretne pojazdy (np. weryfikacja DMC, daty rejestracji, właściciela) wymagany jest formalny wniosek:
         </div>
-        ${[
-          'Zaloguj się na ePUAP z kwalifikowanym podpisem elektronicznym lub podpisem zaufanym',
-          'Wypełnij wniosek: <em>Usługa CEP: Przyjmowanie wniosków o udostępnienie danych</em>',
-          'W rubryce nr 4 wpisz dokładny cel — <strong>"weryfikacja danych pojazdów własnej floty dla celów podatkowych (DT-1)"</strong>',
-          'Wniosek rozpatrywany w ciągu 14–30 dni',
-          'Po akceptacji otrzymasz klucz API z dostępem do pełnych danych pojazdu po nr rej.',
-        ].map((t,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px;font-size:11px;color:var(--text2)">
-          <i class="ti ti-circle-check" style="color:var(--green);flex-shrink:0;margin-top:1px"></i>${t}
-        </div>`).join('')}
+        <div style="display:flex;gap:8px;margin-bottom:8px;font-size:11px;color:var(--text2)">
+          <i class="ti ti-circle-check" style="color:var(--green);flex-shrink:0;margin-top:1px"></i>Zaloguj się na ePUAP z kwalifikowanym podpisem elektronicznym lub podpisem zaufanym
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;font-size:11px;color:var(--text2)">
+          <i class="ti ti-circle-check" style="color:var(--green);flex-shrink:0;margin-top:1px"></i>Wypełnij wniosek: <em>Usługa CEP: Przyjmowanie wniosków o udostępnienie danych</em>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;font-size:11px;color:var(--text2)">
+          <i class="ti ti-circle-check" style="color:var(--green);flex-shrink:0;margin-top:1px"></i>W rubryce nr 4 wpisz dokładny cel — <strong>"weryfikacja danych pojazdów własnej floty dla celów podatkowych (DT-1)"</strong>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;font-size:11px;color:var(--text2)">
+          <i class="ti ti-circle-check" style="color:var(--green);flex-shrink:0;margin-top:1px"></i>Wniosek rozpatrywany w ciągu 14–30 dni
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;font-size:11px;color:var(--text2)">
+          <i class="ti ti-circle-check" style="color:var(--green);flex-shrink:0;margin-top:1px"></i>Po akceptacji otrzymasz klucz API z dostępem do pełnych danych pojazdu po nr rej.
+        </div>
       </div>
     </div>
     <div style="background:var(--amber-light);border:1px solid #EF9F27;border-radius:var(--radius);padding:10px 14px;margin-top:10px;font-size:12px;color:#633806">
@@ -2239,7 +2264,14 @@ window.addEventListener('DOMContentLoaded', () => {
         <div style="margin-bottom:10px">
           <label class="flabel">Godzina weryfikacji</label>
           <select id="cepik-auto-hour" class="fi" style="width:100%">
-            ${Array.from({length:24},(_,h)=>`<option value="${h}" ${h===6?'selected':''}>${String(h).padStart(2,'0')}:00</option>`).join('')}
+            <option value="0">00:00</option><option value="1">01:00</option><option value="2">02:00</option>
+            <option value="3">03:00</option><option value="4">04:00</option><option value="5">05:00</option>
+            <option value="6" selected>06:00</option><option value="7">07:00</option><option value="8">08:00</option>
+            <option value="9">09:00</option><option value="10">10:00</option><option value="11">11:00</option>
+            <option value="12">12:00</option><option value="13">13:00</option><option value="14">14:00</option>
+            <option value="15">15:00</option><option value="16">16:00</option><option value="17">17:00</option>
+            <option value="18">18:00</option><option value="19">19:00</option><option value="20">20:00</option>
+            <option value="21">21:00</option><option value="22">22:00</option><option value="23">23:00</option>
           </select>
         </div>
         <div style="margin-bottom:10px">
@@ -2268,7 +2300,19 @@ window.addEventListener('DOMContentLoaded', () => {
       <div class="panel-right">
         <div class="panel-title"><i class="ti ti-table" style="color:var(--text2)"></i>Pola weryfikowane z CEPiK</div>
         <div style="font-size:11px;color:var(--text2);line-height:1.8">
-          ${['DMC pojazdu (F.1)','DMC zespołu pojazdów (F.3)','Liczba osi (L)','Numer VIN (E)','Marka i model (D.1/D.2)','Rok produkcji','Data 1. rejestracji w RP (B)','Masa własna (G)','Rodzaj paliwa (P.3)','Pojemność silnika (P.1)','Moc silnika kW (P.2)','Kategoria pojazdu (J)','Rodzaj zawieszenia (§17 DT-1/A)'].map(f=>`<div>✓ ${f}</div>`).join('')}
+          <div>✓ DMC pojazdu (F.1)</div>
+          <div>✓ DMC zespołu pojazdów (F.3)</div>
+          <div>✓ Liczba osi (L)</div>
+          <div>✓ Numer VIN (E)</div>
+          <div>✓ Marka i model (D.1/D.2)</div>
+          <div>✓ Rok produkcji</div>
+          <div>✓ Data 1. rejestracji w RP (B)</div>
+          <div>✓ Masa własna (G)</div>
+          <div>✓ Rodzaj paliwa (P.3)</div>
+          <div>✓ Pojemność silnika (P.1)</div>
+          <div>✓ Moc silnika kW (P.2)</div>
+          <div>✓ Kategoria pojazdu (J)</div>
+          <div>✓ Rodzaj zawieszenia (§17 DT-1/A)</div>
         </div>
       </div>
     </div>
