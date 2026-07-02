@@ -350,7 +350,20 @@ window.FleetReports = (function () {
             }).join('')}
           </tbody>
         </table>
-      </div>`;
+      </div>
+      ${(() => {
+        const withOC = new Set(policies.filter(p=>p.type==='OC').map(p=>p.nrRej));
+        const noOC = (window.vehs||[]).filter(v => v.is_active!==false && !withOC.has(v.nrRej));
+        if (!noOC.length) return '';
+        return `<div style="margin-top:16px;padding:12px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:var(--radius)">
+          <div style="font-weight:700;color:var(--red);font-size:12px;margin-bottom:8px">
+            <i class="ti ti-alert-triangle"></i> ${noOC.length} pojazd${noOC.length>1?'ów':''} bez polisy OC:
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            ${noOC.map(v=>`<span style="font-family:var(--mono);font-size:11px;background:#fff;border:1px solid #fca5a5;border-radius:4px;padding:2px 8px;font-weight:600">${v.nrRej}</span>`).join('')}
+          </div>
+        </div>`;
+      })()}`;
   }
 
   function exportInsuranceExcel() {

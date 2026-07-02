@@ -129,15 +129,18 @@ window.VehicleImport = (function () {
     reader.readAsArrayBuffer(file);
   }
 
+  let _unmappedCols = [];
+
   function _mapRows(raw) {
-    return raw.map(row => {
+    const unmapped = new Set();
+    const rows = raw.map(row => {
       const mapped = {
         osie: 2, zawieszenie: 'pneumatyczne', dmcZespolu: 0, miesiacePodatku: 12,
         fuelHistory: [], serviceHistory: [], gpsHistory: [], inspectionHistory: [],
       };
       Object.entries(row).forEach(([col, val]) => {
         const key = COL_MAP[col.toLowerCase().trim()];
-        if (!key) return;
+        if (!key) { if (col.trim()) unmapped.add(col.trim()); return; }
         if (key === '_dmcT') {
           mapped['dmc'] = Math.round(parseFloat(val) * 1000) || 0;
         } else if (['rok','dmc','dmcZespolu','osie','miesiacePodatku','miejsca'].includes(key)) {
@@ -148,6 +151,8 @@ window.VehicleImport = (function () {
       });
       return mapped;
     }).filter(v => v.nrRej);
+    _unmappedCols = [...unmapped];
+    return rows;
   }
 
   function _showPreview(rows) {
@@ -168,6 +173,12 @@ window.VehicleImport = (function () {
         <span style="font-weight:400;font-size:12px;color:var(--green);margin-left:8px">${newCount} ${t('vi.toast.new')}</span>
         <span style="font-weight:400;font-size:12px;color:var(--amber);margin-left:8px">${updCount} ${t('vi.toast.upd')}</span>
       </div>
+      ${_unmappedCols.length ? `
+      <div style="background:rgba(245,175,25,.12);border:1px solid var(--amber);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px;font-size:11px">
+        <div style="font-weight:700;color:var(--amber);margin-bottom:4px">⚠ Nierozpoznane kolumny (zostaną pominięte):</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">${_unmappedCols.map(c=>`<span style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-family:monospace">${c}</span>`).join('')}</div>
+        <div style="color:var(--text2);margin-top:4px">Upewnij się, że nagłówki kolumn są poprawne lub użyj szablonu.</div>
+      </div>` : ''}
       <div style="max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:14px">
         <table style="width:100%;border-collapse:collapse;font-size:11px">
           <thead>

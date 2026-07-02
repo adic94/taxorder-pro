@@ -194,6 +194,9 @@ window.TaxOrderVehicleDetail = {
           ${v.cepikSyncStatus === 'ok' ? '<span class="pill pill-green" style="font-size:10px">CEPiK ✓</span>' :
             v.cepikSyncStatus === 'never' ? '' :
             '<span class="pill pill-amber" style="font-size:10px">CEPiK sync</span>'}
+          <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" onclick="TaxOrderVehicleDetail.printCard()">
+            <i class="ti ti-printer"></i>Drukuj kartę
+          </button>
           <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" onclick="TaxOrderDamages.openModal(null, '${v.nrRej}')">
             <i class="ti ti-alert-triangle"></i>Zgłoś szkodę
           </button>
@@ -1395,6 +1398,33 @@ window.TaxOrderVehicleDetail = {
         <td style="padding:5px 10px;text-align:right;font-family:monospace;font-size:11px">${s.km?s.km.toLocaleString('pl-PL')+' km':'—'}</td>
         <td style="padding:5px 10px;text-align:right;font-family:monospace;font-size:11px">${s.cost?s.cost.toFixed(2)+' zł':'—'}</td>
       </tr>`).join('');
+    // DT-1 tax block
+    const tax = window.calcTax ? window.calcTax(v) : null;
+    const dt1Html = tax ? `
+<h2>Podatek DT-1</h2>
+<table>
+  ${row('Kategoria podatku', tax.exempt ? 'Zwolniony (pojazd specjalny)' : tax.cat||'—')}
+  ${!tax.exempt && tax.stawkaRoczna != null ? row('Stawka roczna', fz(tax.stawkaRoczna)) : ''}
+  ${!tax.exempt && tax.kwota != null ? row(`Kwota (${v.miesiacePodatku||12} mies.)`, `<span style="color:#1d4ed8;font-weight:700">${fz(tax.kwota)}</span>`) : ''}
+  ${!tax.exempt && tax.gminaName ? row('Gmina stawek', tax.gminaName) : ''}
+</table>` : '';
+    // TCO summary
+    const yr = String(new Date().getFullYear());
+    const fuelCost = (v.fuelHistory||[]).filter(h=>(h.date||'').startsWith(yr)).reduce((s,h)=>s+(+h.totalCost||0),0);
+    const svcCost  = (v.serviceHistory||[]).filter(h=>(h.date||'').startsWith(yr)).reduce((s,h)=>s+(+h.cost||0),0);
+    const insCost  = (v.ocPremium||0) + (v.acPremium||0) + (v.assistPremium||0);
+    const tcoTotal = fuelCost + svcCost + insCost;
+    const kmPts    = (v.fuelHistory||[]).filter(h=>(h.date||'').startsWith(yr)&&h.km>0).sort((a,b)=>a.km-b.km);
+    const kmDriven = kmPts.length>=2 ? kmPts[kmPts.length-1].km - kmPts[0].km : null;
+    const tcoHtml  = tcoTotal > 0 ? `
+<h2>TCO ${yr}</h2>
+<table>
+  ${row('Paliwo', fz(fuelCost))}
+  ${row('Serwis / naprawy', fz(svcCost))}
+  ${row('Ubezpieczenia', fz(insCost))}
+  ${row('Łącznie', `<span style="color:#1d4ed8;font-weight:700">${fz(tcoTotal)}</span>`)}
+  ${kmDriven ? row('Koszt/km', fz(tcoTotal/kmDriven).replace(' zł','')+' zł/km') : ''}
+</table>` : '';
     const html = `<!DOCTYPE html>
 <html lang="pl"><head><meta charset="UTF-8">
 <title>Karta pojazdu — ${v.nrRej}</title>
@@ -1410,7 +1440,7 @@ table{width:100%;border-collapse:collapse}th{background:#f9fafb;font-size:10px;f
 <div style="font-size:10px;color:#9ca3af;margin-bottom:14px">Wygenerowano: ${new Date().toLocaleDateString('pl-PL')} | TaxOrder Pro</div>
 <h2>Identyfikacja</h2>
 <table>${row('VIN',`<span style="font-family:monospace">${v.vin||'—'}</span>`)}
-${row('DMC',(v.dmc||0).toLocaleString('pl-PL')+' kg')}${row('EURO',v.euro)}
+${row('DMC',(v.dmc||v.dmcMax||0).toLocaleString('pl-PL')+' kg')}${row('EURO',v.euro)}
 ${row('Status własności',v.status)}${row('Właściciel',v.wlasciciel)}
 ${row('Kierowca',v.kierowca)}${row('Stan licznika',v.stanKilometrow!=null?v.stanKilometrow.toLocaleString('pl-PL')+' km':null)}</table>
 <h2>Ubezpieczenia</h2>
@@ -1422,6 +1452,8 @@ ${row('AC ważne do',fd(v.acEnd))}${row('Ubezpieczyciel AC',v.acInsurer)}</table
 ${v.hasUdt?row('Badanie UDT',fd(v.udtNextDate)):''}
 ${v.hasTacho?row('Legalizacja tachografu',fd(v.tachoNextCalib)):''}
 ${v.tireNextChange?row('Zmiana opon',fd(v.tireNextChange)):''}</table>
+${dt1Html}
+${tcoHtml}
 ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
 <table><thead><tr><th>Data</th><th>Typ</th><th>Opis</th><th style="text-align:right">Km</th><th style="text-align:right">Koszt</th></tr></thead>
 <tbody>${svcRows}</tbody></table>`:''}
