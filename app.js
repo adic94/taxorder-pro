@@ -1048,6 +1048,7 @@ function renderDash() {
   _renderServiceDash();
   _renderFinesDash();
   _renderFleetKpi();
+  _renderAgeDist();
 }
 
 function _renderServiceDash() {
@@ -1172,6 +1173,62 @@ function _renderFleetKpi() {
           </div>
         </div>`).join('')}
     </div>`;
+}
+
+function _renderAgeDist() {
+  const el = document.getElementById('dash-age-dist');
+  if (!el || !vehs.length) return;
+
+  // Rozkład wiekowy
+  const GROUPS = [
+    { label: '≤ 2018', test: r => r <= 2018, color: 'var(--text3)' },
+    { label: '2019–2021', test: r => r >= 2019 && r <= 2021, color: 'var(--text2)' },
+    { label: '2022–2023', test: r => r >= 2022 && r <= 2023, color: 'var(--blue)' },
+    { label: '≥ 2024 ↓', test: r => r >= 2024, color: 'var(--green)', hint: 'obniżona stawka DT-1' },
+  ];
+  const total = vehs.length;
+  const ageCounts = GROUPS.map(g => ({ ...g, count: vehs.filter(v => g.test(parseInt(v.rok)||0)).length }));
+
+  // Rozkład typów
+  const typeMap = {};
+  vehs.forEach(v => {
+    const typ = (v.typ||'inny').replace(/\s*\(.*\)/, '').trim() || 'inny';
+    typeMap[typ] = (typeMap[typ]||0) + 1;
+  });
+  const types = Object.entries(typeMap).sort((a,b) => b[1]-a[1]).slice(0,6);
+  const typeTotal = types.reduce((s,[,n]) => s+n, 0);
+  const TYPE_COLORS = ['var(--blue)','var(--green)','var(--amber)','var(--red)','var(--text2)','var(--text3)'];
+
+  const bar = (pct, color) => `<div style="height:8px;border-radius:4px;background:${color};width:${Math.max(pct,2)}%;transition:width .4s"></div>`;
+
+  el.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px">
+      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px">Roczniki</div>
+      ${ageCounts.map(g => {
+        const pct = total ? Math.round(g.count/total*100) : 0;
+        return `<div style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+            <span style="color:${g.color};font-weight:600">${g.label}</span>
+            <span>${g.count} (${pct}%)${g.hint?`<span style="font-size:10px;color:var(--text3);margin-left:4px">${g.hint}</span>`:''}
+          </div>
+          <div style="background:var(--bg3);border-radius:4px;overflow:hidden">${bar(pct, g.color)}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px">
+      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px">Typy pojazdów</div>
+      ${types.map(([typ, cnt], i) => {
+        const pct = typeTotal ? Math.round(cnt/typeTotal*100) : 0;
+        return `<div style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+            <span style="color:${TYPE_COLORS[i]};font-weight:600">${typ}</span>
+            <span>${cnt} (${pct}%)</span>
+          </div>
+          <div style="background:var(--bg3);border-radius:4px;overflow:hidden">${bar(pct, TYPE_COLORS[i])}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
 }
 
 // ==================== FORMULARZE ====================

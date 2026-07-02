@@ -125,6 +125,9 @@ window.TaxOrderVehicleDetail = {
       tireSP:  { size:g('tireSP_size'),  brand:g('tireSP_brand'),  dot:g('tireSP_dot') },
       // === UWAGI ===
       uwagi: g('uwagi'),
+      // === PODATEK DT-1 ===
+      gmina:           g('gmina') || 'Warszawa',
+      miesiacePodatku: gi('miesiacePodatku') || 12,
     });
 
     // Archiwizacja
@@ -282,6 +285,27 @@ window.TaxOrderVehicleDetail = {
             onclick="TaxOrderVehicleDetail._syncCepik(${v.id})">
             <i class="ti ti-refresh"></i>${window.t?.('vd.btn.sync.cepik') || 'Synchronizuj z CEPiK'}
           </button>
+        </div>
+
+        <!-- PODATEK DT-1 — podgląd kategorii i kwoty w oparciu o dane DR -->
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px">Podatek DT-1</div>
+          <div id="vd-dt1-box">${this._renderDt1Box(v)}</div>
+          <div class="vdfg" style="margin-top:8px">
+            <div class="vdf">
+              <label class="vdl">Gmina (stawki)</label>
+              <select id="vd-gmina" class="fi"
+                onchange="document.getElementById('vd-dt1-box').innerHTML=TaxOrderVehicleDetail._renderDt1BoxFromForm(${v.id})">
+                ${(window.GminyRates ? GminyRates.listGminy() : ['Warszawa']).map(gn => `<option ${(v.gmina||'Warszawa')===gn?'selected':''}>${gn}</option>`).join('')}
+              </select>
+            </div>
+            <div class="vdf">
+              <label class="vdl">Miesiące podatkowe</label>
+              <input type="number" id="vd-miesiacePodatku" class="fi" min="1" max="12"
+                value="${v.miesiacePodatku||12}"
+                onchange="document.getElementById('vd-dt1-box').innerHTML=TaxOrderVehicleDetail._renderDt1BoxFromForm(${v.id})">
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1207,6 +1231,50 @@ window.TaxOrderVehicleDetail = {
     const gps = document.getElementById('vd-gps-body');
     if (gps) gps.innerHTML = this._renderGpsTab(v);
     this.refreshServiceTab(vehId);
+  },
+
+  _renderDt1Box(v) {
+    const tax = window.calcTax ? calcTax(v) : null;
+    if (!tax || !tax.cat) {
+      return `<div style="padding:10px 14px;background:var(--bg3);border-radius:var(--radius);font-size:12px;color:var(--text2)">
+        <i class="ti ti-info-circle"></i> Pojazd nie podlega podatkowi DT-1 (DMC ≤ 3,5t lub typ specjalny)
+      </div>`;
+    }
+    return this._dt1Chips(tax, v);
+  },
+
+  _renderDt1BoxFromForm(vehId) {
+    const v = vehs.find(x => x.id === vehId);
+    if (!v) return '';
+    const gmina = document.getElementById('vd-gmina')?.value || v.gmina || 'Warszawa';
+    const m = parseInt(document.getElementById('vd-miesiacePodatku')?.value) || v.miesiacePodatku || 12;
+    const vProxy = { ...v, gmina, miesiacePodatku: m };
+    const tax = window.calcTax ? calcTax(vProxy) : null;
+    if (!tax || !tax.cat) {
+      return `<div style="padding:10px 14px;background:var(--bg3);border-radius:var(--radius);font-size:12px;color:var(--text2)">
+        <i class="ti ti-info-circle"></i> Pojazd nie podlega podatkowi DT-1
+      </div>`;
+    }
+    return this._dt1Chips(tax, vProxy);
+  },
+
+  _dt1Chips(tax, v) {
+    const chip = (label, val, color) => `
+      <div style="background:var(--bg3);border-radius:var(--radius);padding:9px 10px;text-align:center">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">${label}</div>
+        <div style="font-size:15px;font-weight:700;font-family:var(--mono);color:${color||'var(--text)'}">${val}</div>
+      </div>`;
+    const gmina = v.gmina || 'Warszawa';
+    return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+      ${chip('Kategoria', tax.cat, 'var(--blue)')}
+      ${chip('Stawka roczna', tax.rate.toLocaleString('pl-PL')+' zł')}
+      ${chip('Kwota', tax.amount.toLocaleString('pl-PL')+' zł', 'var(--green)')}
+      ${chip('Rok prod.', tax.isNew ? '≥2024 ✓' : '<2024', tax.isNew ? 'var(--green)' : 'var(--text2)')}
+    </div>
+    <div style="margin-top:6px;font-size:11px;color:var(--text3)">
+      <i class="ti ti-map-pin" style="font-size:10px"></i> Gmina: <b>${gmina}</b> · ${v.miesiacePodatku||12} miesięcy
+      ${gmina !== 'Warszawa' ? '<span style="color:var(--amber)"> · stawki własnej gminy</span>' : ''}
+    </div>`;
   },
 
   _renderGpsTab(v) {
