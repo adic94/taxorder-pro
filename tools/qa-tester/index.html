@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TaxOrder QA Tester</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f9fafb;--bg2:#fff;--bg3:#f3f4f6;--border:#e5e7eb;--text:#111827;--text2:#6b7280;--text3:#9ca3af;--blue:#2563eb;--green:#16a34a;--red:#dc2626;--amber:#d97706;--mono:'JetBrains Mono',monospace;--radius:8px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:13px}
+h1{font-size:18px;font-weight:800;letter-spacing:-.02em}
+h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:5px}
+.layout{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:20px 14px}
+.sidebar h1{margin-bottom:4px;color:var(--blue)}
+.sidebar p{font-size:11px;color:var(--text3);margin-bottom:20px}
+.nav-btn{display:block;width:100%;text-align:left;background:none;border:none;padding:8px 10px;border-radius:var(--radius);cursor:pointer;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:2px;transition:all .15s}
+.nav-btn:hover,.nav-btn.active{background:var(--bg3);color:var(--text)}
+.nav-btn.active{font-weight:700;color:var(--blue)}
+.main{padding:24px 28px;overflow-y:auto}
+.panel{display:none}.panel.active{display:block}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px}
+.drop{border:2px dashed var(--border);border-radius:var(--radius);padding:2.5rem;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:12px}
+.drop:hover,.drop.drag-over{border-color:var(--blue);background:#eff6ff}
+.drop i{font-size:36px;display:block;margin-bottom:8px;color:var(--text3)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:var(--radius);border:none;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s}
+.btn-blue{background:var(--blue);color:#fff}.btn-green{background:var(--green);color:#fff}.btn-gray{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
+.btn:hover{opacity:.85}
+.result-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:12px}
+.result-table th{background:var(--bg3);padding:5px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text2);border-bottom:1px solid var(--border)}
+.result-table td{padding:5px 8px;border-bottom:1px solid var(--border)}
+.result-table tr:hover td{background:#f9fafb}
+.pass{color:var(--green);font-weight:700}.fail{color:var(--red);font-weight:700}.warn{color:var(--amber);font-weight:600}
+.badge{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700}
+.badge-green{background:#dcfce7;color:var(--green)}.badge-red{background:#fee2e2;color:var(--red)}.badge-amber{background:#fef3c7;color:var(--amber)}.badge-blue{background:#dbeafe;color:var(--blue)}.badge-gray{background:var(--bg3);color:var(--text2)}
+.summary{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;min-width:100px}
+.stat .val{font-size:22px;font-weight:800;line-height:1}.stat .lbl{font-size:10px;color:var(--text2);margin-top:2px}
+.mono{font-family:var(--mono);font-size:10px}
+input[type=file]{display:none}
+.field-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;margin-top:10px}
+.field-box{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
+.field-box .lbl{font-size:10px;color:var(--text2);margin-bottom:3px;font-weight:600}
+.field-box .val{font-weight:700;font-size:12px}
+.field-box.match{border-color:var(--green)}.field-box.mismatch{border-color:var(--red);background:#fef2f2}
+.field-box.empty{border-color:var(--text3);opacity:.6}
+.log{background:#111;color:#00ff88;font-family:var(--mono);font-size:11px;padding:12px;border-radius:var(--radius);max-height:300px;overflow-y:auto;margin-top:10px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<div class="layout">
+  <div class="sidebar">
+    <h1>TaxOrder QA</h1>
+    <p>Narzędzie testowe</p>
+    <button class="nav-btn active" onclick="showPanel('dt1')">📊 Test DT-1 (calcTax)</button>
+    <button class="nav-btn" onclick="showPanel('import')">📥 Test importu Excel/CSV</button>
+    <button class="nav-btn" onclick="showPanel('ocr')">🔍 Test OCR (skan DR)</button>
+    <button class="nav-btn" onclick="showPanel('api')">🌐 Test API Workera</button>
+  </div>
+  <div class="main">
+
+    <!-- ═══════════════ DT-1 TEST ═══════════════ -->
+    <div class="panel active" id="panel-dt1">
+      <h2>Test obliczania podatku DT-1</h2>
+      <div class="card">
+        <p style="font-size:12px;color:var(--text2);margin-bottom:14px">
+          Wgraj plik Excel lub CSV z danymi pojazdów aby zweryfikować poprawność kategorii i stawek DT-1.
+          Wymagane kolumny: <span class="mono">nrRej, dmc, typ, rok, osie</span>
+        </p>
+        <div class="drop" id="dt1-drop" onclick="document.getElementById('dt1-file').click()"
+          ondragover="event.preventDefault();this.classList.add('drag-over')"
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="event.preventDefault();this.classList.remove('drag-over');DT1Test.handleFile(event.dataTransfer.files[0])">
+          <i>📊</i>
+          <div style="font-size:14px;font-weight:600">Przeciągnij plik lub kliknij</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">.xlsx .xls .csv · kolumny: nrRej, dmc, typ, rok, osie</div>
+        </div>
+        <input type="file" id="dt1-file" accept=".xlsx,.xls,.csv" onchange="DT1Test.handleFile(this.files[0])">
+        <div style="margin-bottom:8px;font-size:11px;color:var(--text2)">Lub wklej dane JSON (tablica pojazdów):</div>
+        <textarea id="dt1-json" style="width:100%;height:80px;font-family:var(--mono);font-size:11px;border:1px solid var(--border);border-radius:var(--radius);padding:8px;resize:vertical" placeholder='[{"nrRej":"WA1234X","dmc":8800,"typ":"Ciężarowy","rok":2024,"osie":2}]'></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-blue" onclick="DT1Test.runFromJson()">▶ Testuj JSON</button>
+          <button class="btn btn-gray" onclick="DT1Test.loadD1Sample()">⬇ Załaduj próbkę z D1</button>
+        </div>
+      </div>
+      <div id="dt1-results"></div>
+    </div>
+
+    <!-- ═══════════════ IMPORT TEST ═══════════════ -->
+    <div class="panel" id="panel-import">
+      <h2>Test importu pojazdów z Excel/CSV</h2>
+      <div class="card">
+        <p style="font-size:12px;color:var(--text2);margin-bottom:14px">
+          Wgraj plik z wykazem pojazdów. Narzędzie sprawdzi mapowanie kolumn, wykryje nierozpoznane nagłówki
+          i wyświetli podgląd importowanych danych.
+        </p>
+        <div class="drop" id="imp-drop" onclick="document.getElementById('imp-file').click()"
+          ondragover="event.preventDefault();this.classList.add('drag-over')"
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="event.preventDefault();this.classList.remove('drag-over');ImportTest.handleFile(event.dataTransfer.files[0])">
+          <i>📥</i>
+          <div style="font-size:14px;font-weight:600">Wgraj wykaz pojazdów (.xlsx / .csv)</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">Dowolny format — narzędzie spróbuje zmapować kolumny</div>
+        </div>
+        <input type="file" id="imp-file" accept=".xlsx,.xls,.csv" onchange="ImportTest.handleFile(this.files[0])">
+      </div>
+      <div id="import-results"></div>
+    </div>
+
+    <!-- ═══════════════ OCR TEST ═══════════════ -->
+    <div class="panel" id="panel-ocr">
+      <h2>Test OCR — skan dowodu rejestracyjnego</h2>
+      <div class="card">
+        <p style="font-size:12px;color:var(--text2);margin-bottom:14px">
+          Wgraj skan lub zdjęcie dowodu rejestracyjnego. System wyśle go do endpointu OCR i pokaże
+          wyekstrahowane pola. Możesz podać oczekiwane wartości aby zweryfikować poprawność.
+        </p>
+        <div class="drop" id="ocr-drop" onclick="document.getElementById('ocr-file').click()"
+          ondragover="event.preventDefault();this.classList.add('drag-over')"
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="event.preventDefault();this.classList.remove('drag-over');OCRTest.handleFile(event.dataTransfer.files[0])">
+          <i>🔍</i>
+          <div style="font-size:14px;font-weight:600">Wgraj skan dowodu rejestracyjnego</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">.jpg .png .pdf · Wysyła do endpointu /api/ocr/dr</div>
+        </div>
+        <input type="file" id="ocr-file" accept="image/*,.pdf" onchange="OCRTest.handleFile(this.files[0])">
+        <div style="margin-top:10px">
+          <div style="font-size:11px;font-weight:600;margin-bottom:6px;color:var(--text2)">Oczekiwane wartości (opcjonalne — do weryfikacji):</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+            <div><label style="font-size:10px;color:var(--text2);display:block;margin-bottom:2px">Nr rej.</label><input id="exp-nrRej" class="fi" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px" placeholder="WA1234X"></div>
+            <div><label style="font-size:10px;color:var(--text2);display:block;margin-bottom:2px">VIN</label><input id="exp-vin" class="fi" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px" placeholder="WDB..."></div>
+            <div><label style="font-size:10px;color:var(--text2);display:block;margin-bottom:2px">DMC (kg)</label><input id="exp-dmc" class="fi" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px" placeholder="9500"></div>
+            <div><label style="font-size:10px;color:var(--text2);display:block;margin-bottom:2px">Marka</label><input id="exp-marka" class="fi" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px" placeholder="Mercedes"></div>
+            <div><label style="font-size:10px;color:var(--text2);display:block;margin-bottom:2px">Model</label><input id="exp-model" class="fi" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px" placeholder="Actros"></div>
+            <div><label style="font-size:10px;color:var(--text2);display:block;margin-bottom:2px">Rok prod.</label><input id="exp-rok" class="fi" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px" placeholder="2022"></div>
+          </div>
+        </div>
+        <div id="ocr-preview-img" style="margin-top:12px"></div>
+      </div>
+      <div id="ocr-results"></div>
+    </div>
+
+    <!-- ═══════════════ API TEST ═══════════════ -->
+    <div class="panel" id="panel-api">
+      <h2>Test API Workera</h2>
+      <div class="card">
+        <div style="margin-bottom:10px">
+          <label style="font-size:11px;font-weight:600;display:block;margin-bottom:4px">Worker URL</label>
+          <input id="api-url" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px;font-family:var(--mono)" value="https://taxorder-pro-api.adamus1000.workers.dev">
+        </div>
+        <div style="margin-bottom:10px">
+          <label style="font-size:11px;font-weight:600;display:block;margin-bottom:4px">Token sesji (z localStorage lub klucz API)</label>
+          <input id="api-token" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px;font-family:var(--mono)" placeholder="Bearer token lub tord_live_...">
+          <button class="btn btn-gray" style="margin-top:4px;font-size:11px" onclick="APITest.loadFromStorage()">⬇ Załaduj z localStorage</button>
+        </div>
+        <button class="btn btn-blue" onclick="APITest.runAll()">▶ Uruchom wszystkie testy</button>
+      </div>
+      <div id="api-results"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── Panel navigation ────────────────────────────────────────────────────────
+function showPanel(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ─── calcTax (kopia z app.js) ─────────────────────────────────────────────────
+function _getRate(v) {
+  const dT=(v.dmc??v.dmcMax??0)/1000, dzT=(v.dmcZespolu||0)/1000, refZ=dzT>0?dzT:dT;
+  const typ=(v.typ||'').toLowerCase(), osie=parseInt(v.osie||v.liczbaOsi)||2, rok=parseInt(v.rok)||0, isNew=rok>=2024;
+  if(typ.includes('autobus')) return isNew?1320:(parseInt(v.miejsca)||0)<30?1488:1872;
+  if(typ.includes('naczepa')||typ.includes('przyczepa')) {
+    if(refZ>=7&&refZ<12) return isNew?1128:1248;
+    if(refZ>=12) {
+      if(osie===1){if(refZ<18)return 744;if(refZ<25)return 840;if(refZ<=36)return 984;return 1128;}
+      if(osie===2){if(refZ<28)return 1488;if(refZ<33)return 1776;if(refZ<38)return 2256;return 2976;}
+      if(refZ<=36)return 1872;if(refZ<38)return 2040;return 2232;
+    }
+    return null;
+  }
+  if(typ.includes('ciągnik')||typ.includes('ciagnik')) {
+    if(refZ>=3.5&&refZ<12) return isNew?1248:1392;
+    if(refZ>=12) {
+      if(osie<=2){if(refZ<18)return 1128;if(refZ<25)return 1680;if(refZ<31)return 2232;if(refZ<=36)return 3384;return 3384;}
+      if(refZ<=36)return 2784;if(refZ<40)return 2832;return 4200;
+    }
+    return null;
+  }
+  if(dT<=3.5) return null;
+  if(dT<12){if(isNew){if(dT<=5.5)return 744;if(dT<=9)return 1008;return 1344;}if(dT<=5.5)return 840;if(dT<=9)return 1128;return 1488;}
+  if(osie===2){if(dT<13)return 1200;if(dT<14)return 1488;if(dT<15)return 1680;return 2184;}
+  if(osie===3){if(dT<17)return 1488;if(dT<19)return 1704;if(dT<21)return 1872;if(dT<23)return 2136;return 2760;}
+  if(dT<25)return 1488;if(dT<27)return 1824;if(dT<29)return 2880;return 4296;
+}
+function _getCat(v) {
+  const dT=(v.dmc??v.dmcMax??0)/1000, dzT=(v.dmcZespolu||0)/1000, refZ=dzT>0?dzT:dT;
+  const typ=(v.typ||'').toLowerCase(), osie=parseInt(v.osie||v.liczbaOsi)||2;
+  if(typ.includes('specjaln')||(v.przeznaczenie||'').toLowerCase().includes('specjaln')) return null;
+  if(typ.includes('autobus')) return (parseInt(v.miejsca)||0)<22?'D6':'D7';
+  if(typ.includes('naczepa')||typ.includes('przyczepa')) {
+    if(refZ>=12) return osie===1?'D13':osie===2?'D14':'D15';
+    if(refZ>=7) return 'D5';
+    return null;
+  }
+  if(typ.includes('ciągnik')||typ.includes('ciagnik')) {
+    if(refZ>=12) return osie<=2?'D11':'D12';
+    if(refZ>=3.5) return 'D4';
+    return null;
+  }
+  if(dT<=3.5) return null;
+  if(dT>=12) return osie===2?'D8':osie===3?'D9':'D10';
+  if(dT<=5.5) return 'D1'; if(dT<=9) return 'D2'; if(dT<12) return 'D3';
+  return null;
+}
+function calcTax(v) {
+  const cat=_getCat(v); if(!cat) return {cat:null,amount:0,rate:0,exempt:true};
+  const rate=_getRate(v)||0;
+  const m=parseInt(v.miesiacePodatku)||12;
+  return {cat, amount:Math.round((rate*m)/12*100)/100, rate, isNew:(parseInt(v.rok)||0)>=2024};
+}
+
+const CAT_LABELS={D1:'Sam.cięż. 3,5–5,5t',D2:'Sam.cięż. 5,5–9t',D3:'Sam.cięż. 9–12t',D4:'Ciągnik <12t',D5:'Przyczepa 7–12t',D6:'Autobus <22m.',D7:'Autobus ≥22m.',D8:'Cięż.≥12t 2oś',D9:'Cięż.≥12t 3oś',D10:'Cięż.≥12t 4+',D11:'Ciągnik≥12t 2oś',D12:'Ciągnik≥12t 3+',D13:'Przy.≥12t 1oś',D14:'Przy.≥12t 2oś',D15:'Przy.≥12t 3+'};
+
+// ─── COL_MAP (kopia z vehicle-import.js) ─────────────────────────────────────
+const COL_MAP = {
+  'nrrej':'nrRej','nr rej':'nrRej','numer rejestracyjny':'nrRej','rejestracja':'nrRej',
+  'marka':'marka','model':'model','rok':'rok','rok produkcji':'rok','rocznik':'rok',
+  'typ':'typ','rodzaj':'typ','dmc':'dmc','dmc [kg]':'dmc','masa':'dmc','dmc [t]':'_dmcT',
+  'dmczespolu':'dmcZespolu','dmc zespołu':'dmcZespolu','dmc zespolu':'dmcZespolu',
+  'vin':'vin','nr vin':'vin','euro':'euro','norma euro':'euro','status':'status',
+  'właściciel':'wlasciciel','wlasciciel':'wlasciciel','firma':'wlasciciel',
+  'gmina':'gmina','osie':'osie','liczba osi':'osie','zawieszenie':'zawieszenie',
+  'paliwo':'paliwo','rodzaj paliwa':'paliwo','miejsca':'miejsca','kierowca':'kierowca',
+  'oc':'ocEnd','oc koniec':'ocEnd','oc do':'ocEnd','ac koniec':'acEnd','ac do':'acEnd',
+  'przegląd':'nextInspection','data przeglądu':'nextInspection','nastepny przeglad':'nextInspection','przeglad':'nextInspection',
+  'notatki':'notes','uwagi':'notes',
+};
+
+// ─── DT1 Test ────────────────────────────────────────────────────────────────
+const DT1Test = {
+  handleFile(file) {
+    if (!file || typeof XLSX === 'undefined') { alert('Brak biblioteki XLSX'); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(ws, {defval:''});
+      const vehs = raw.map(row => {
+        const v = {osie:2,miesiacePodatku:12,zawieszenie:'pneumatyczne',dmcZespolu:0};
+        Object.entries(row).forEach(([col,val]) => {
+          const key = COL_MAP[col.toLowerCase().trim()];
+          if (!key) return;
+          if (key==='_dmcT') v.dmc = Math.round(parseFloat(val)*1000)||0;
+          else if(['rok','dmc','dmcZespolu','osie','miesiacePodatku','miejsca'].includes(key)) v[key]=parseInt(val)||0;
+          else v[key]=String(val).trim();
+        });
+        return v;
+      }).filter(v => v.nrRej || v.dmc);
+      this.render(vehs);
+    };
+    reader.readAsArrayBuffer(file);
+  },
+
+  runFromJson() {
+    try {
+      const raw = JSON.parse(document.getElementById('dt1-json').value);
+      const vehs = (Array.isArray(raw) ? raw : [raw]).map(v => ({osie:2,miesiacePodatku:12,zawieszenie:'pneumatyczne',dmcZespolu:0,...v}));
+      this.render(vehs);
+    } catch(e) { alert('Błędny JSON: ' + e.message); }
+  },
+
+  loadD1Sample() {
+    const sample = [
+      {nrRej:'WGM87205',marka:'Fuso',model:'Canter 9/18',rok:2020,dmc:8500,typ:'Ciężarowy',osie:2},
+      {nrRej:'WGM0065L',marka:'MAN',model:'TGL 8.190-M',rok:2024,dmc:8800,typ:'Ciężarowy',osie:2},
+      {nrRej:'WZ124HW',marka:'MAN',model:'TGE 6.160 5.5T',rok:2024,dmc:5500,typ:'Ciężarowy',osie:2},
+      {nrRej:'WA9885J',marka:'Mercedes',model:'Actros',rok:2016,dmc:26000,typ:'Ciężarowy',osie:2},
+      {nrRej:'WZ621FY',marka:'Scania',model:'R580',rok:2015,dmc:30000,typ:'Ciężarowy',osie:3},
+      {nrRej:'WA1697F',marka:'Volvo',model:'FMX 8x4',rok:2011,dmc:32000,typ:'Ciężarowy',osie:4},
+      {nrRej:'WW024AF',marka:'GFOLLNER',model:'APL 2/4 TL',rok:2015,dmc:14000,typ:'Przyczepa',osie:2},
+      {nrRej:'WZ209LJ',marka:'Meprozet',model:'PN-1 asenizacyjna',rok:2025,dmc:16200,typ:'Przyczepa',osie:2},
+    ];
+    document.getElementById('dt1-json').value = JSON.stringify(sample, null, 2);
+    this.render(sample.map(v=>({osie:2,miesiacePodatku:12,zawieszenie:'pneumatyczne',dmcZespolu:0,...v})));
+  },
+
+  render(vehs) {
+    const el = document.getElementById('dt1-results');
+    if (!vehs.length) { el.innerHTML='<div style="color:var(--red)">Brak pojazdów do analizy</div>'; return; }
+
+    const rows = vehs.map(v => ({v, tax: calcTax(v)}));
+    const taxable = rows.filter(r => r.tax.cat);
+    const exempt  = rows.filter(r => !r.tax.cat);
+    const totalTax= taxable.reduce((s,r)=>s+r.tax.amount,0);
+
+    const summary = `
+    <div class="summary">
+      <div class="stat"><div class="val">${vehs.length}</div><div class="lbl">Pojazdów</div></div>
+      <div class="stat"><div class="val" style="color:var(--blue)">${taxable.length}</div><div class="lbl">Podlega DT-1</div></div>
+      <div class="stat"><div class="val" style="color:var(--text2)">${exempt.length}</div><div class="lbl">Zwolnionych</div></div>
+      <div class="stat"><div class="val" style="color:var(--green)">${Math.round(totalTax).toLocaleString('pl-PL')} zł</div><div class="lbl">Łączny podatek/rok</div></div>
+    </div>`;
+
+    const tableRows = rows.map(({v,tax}) => {
+      const catBadge = tax.cat
+        ? `<span class="badge badge-blue">${tax.cat}</span> <span style="font-size:10px;color:var(--text2)">${CAT_LABELS[tax.cat]||''}</span>`
+        : `<span class="badge badge-gray">${(v.typ||'').toLowerCase().includes('specjaln')?'Specjalny':'Nie podlega'}</span>`;
+      const newBadge = tax.isNew ? '<span class="badge badge-green" style="margin-left:4px">2024+↓</span>' : '';
+      return `<tr>
+        <td class="mono">${v.nrRej||'—'}</td>
+        <td>${v.marka||'—'} ${v.model||''}</td>
+        <td style="text-align:right" class="mono">${v.dmc?(v.dmc/1000).toFixed(1)+'t':'—'}</td>
+        <td style="text-align:center">${v.rok||'—'}${newBadge}</td>
+        <td style="text-align:center">${v.osie||2}</td>
+        <td>${catBadge}</td>
+        <td style="text-align:right" class="mono">${tax.cat?tax.rate+' zł':'—'}</td>
+        <td style="text-align:right;font-weight:700" class="mono">${tax.cat?tax.amount.toFixed(2)+' zł':'—'}</td>
+      </tr>`;
+    }).join('');
+
+    el.innerHTML = summary + `
+    <table class="result-table">
+      <thead><tr>
+        <th>Nr rej.</th><th>Pojazd</th><th style="text-align:right">DMC</th>
+        <th style="text-align:center">Rok</th><th style="text-align:center">Osie</th>
+        <th>Kategoria DT-1</th><th style="text-align:right">Stawka</th><th style="text-align:right">Kwota/rok</th>
+      </tr></thead>
+      <tbody>${tableRows}</tbody>
+      <tfoot><tr style="font-weight:700;background:var(--bg3)">
+        <td colspan="7" style="text-align:right;padding:6px 8px">ŁĄCZNIE:</td>
+        <td style="text-align:right;padding:6px 8px" class="mono">${Math.round(totalTax).toLocaleString('pl-PL')} zł</td>
+      </tr></tfoot>
+    </table>`;
+  }
+};
+
+// ─── Import Test ──────────────────────────────────────────────────────────────
+const ImportTest = {
+  handleFile(file) {
+    if (!file || typeof XLSX === 'undefined') return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(ws, {defval:''});
+      if (!raw.length) { document.getElementById('import-results').innerHTML='<div style="color:var(--red)">Pusty arkusz</div>'; return; }
+      this.analyze(raw);
+    };
+    reader.readAsArrayBuffer(file);
+  },
+
+  analyze(raw) {
+    const el = document.getElementById('import-results');
+    const allCols = Object.keys(raw[0]||{});
+    const mapped=[], unmapped=[];
+    allCols.forEach(col => {
+      const key = COL_MAP[col.toLowerCase().trim()];
+      if (key && key!=='_dmcT') mapped.push({col, field:key});
+      else if (key==='_dmcT') mapped.push({col, field:'dmc (z ton)'});
+      else unmapped.push(col);
+    });
+
+    const rows = raw.map(row => {
+      const v={osie:2,miesiacePodatku:12,zawieszenie:'pneumatyczne',dmcZespolu:0};
+      Object.entries(row).forEach(([col,val])=>{
+        const key=COL_MAP[col.toLowerCase().trim()];
+        if(!key) return;
+        if(key==='_dmcT') v.dmc=Math.round(parseFloat(val)*1000)||0;
+        else if(['rok','dmc','dmcZespolu','osie','miesiacePodatku','miejsca'].includes(key)) v[key]=parseInt(val)||0;
+        else v[key]=String(val).trim();
+      });
+      return v;
+    }).filter(v=>v.nrRej);
+
+    const noReg = raw.length - rows.length;
+    const missingRej = noReg > 0 ? `<div style="margin-top:8px;color:var(--amber);font-size:11px">⚠ ${noReg} wierszy bez nr rej. (pominiętych)</div>` : '';
+
+    const unmappedHtml = unmapped.length ? `
+    <div style="background:#fef3c7;border:1px solid var(--amber);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px">
+      <div style="font-weight:700;color:var(--amber);margin-bottom:6px">⚠ ${unmapped.length} nierozpoznanych kolumn (zostaną pominięte):</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">${unmapped.map(c=>`<span style="font-family:var(--mono);font-size:11px;background:#fff;border:1px solid #fcd34d;border-radius:4px;padding:2px 7px">${c}</span>`).join('')}</div>
+    </div>` : '<div style="color:var(--green);font-weight:600;margin-bottom:8px">✅ Wszystkie kolumny rozpoznane</div>';
+
+    const mappedHtml = `
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:600;margin-bottom:6px">Rozpoznane mapowania (${mapped.length}):</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">${mapped.map(m=>`<span style="font-size:11px;background:#dcfce7;border:1px solid #86efac;border-radius:4px;padding:2px 7px"><span style="color:var(--text2)">${m.col}</span> → <strong>${m.field}</strong></span>`).join('')}</div>
+    </div>`;
+
+    const preview = rows.slice(0,10).map(v=>`<tr>
+      <td class="mono">${v.nrRej}</td>
+      <td>${v.marka||'—'}</td><td>${v.model||'—'}</td>
+      <td style="text-align:right">${v.dmc?(v.dmc/1000).toFixed(1)+'t':'—'}</td>
+      <td>${v.rok||'—'}</td><td>${v.typ||'—'}</td>
+      <td>${v.vin||'—'}</td><td>${v.status||'—'}</td>
+    </tr>`).join('');
+
+    el.innerHTML = `
+    <div class="summary">
+      <div class="stat"><div class="val">${raw.length}</div><div class="lbl">Wierszy w pliku</div></div>
+      <div class="stat"><div class="val" style="color:var(--green)">${rows.length}</div><div class="lbl">Pojazdów rozp.</div></div>
+      <div class="stat"><div class="val" style="color:var(--blue)">${mapped.length}</div><div class="lbl">Kolumn zmapowanych</div></div>
+      <div class="stat"><div class="val" style="color:${unmapped.length?'var(--amber)':'var(--green)'}">${unmapped.length}</div><div class="lbl">Nierozpoznanych</div></div>
+    </div>
+    ${unmappedHtml}${mappedHtml}${missingRej}
+    <div style="font-size:11px;font-weight:600;margin-bottom:6px;margin-top:4px">Podgląd (pierwsze 10 wierszy):</div>
+    <div style="overflow-x:auto"><table class="result-table">
+      <thead><tr><th>Nr rej.</th><th>Marka</th><th>Model</th><th>DMC</th><th>Rok</th><th>Typ</th><th>VIN</th><th>Status</th></tr></thead>
+      <tbody>${preview}</tbody>
+    </table></div>`;
+  }
+};
+
+// ─── OCR Test ─────────────────────────────────────────────────────────────────
+const OCRTest = {
+  handleFile(file) {
+    if (!file) return;
+    // Podgląd obrazu
+    const preview = document.getElementById('ocr-preview-img');
+    if (file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
+      preview.innerHTML = `<img src="${url}" style="max-width:100%;max-height:300px;border-radius:var(--radius);border:1px solid var(--border)">`;
+    } else {
+      preview.innerHTML = `<div style="padding:8px;background:var(--bg3);border-radius:var(--radius);font-size:11px">📄 ${file.name} (${(file.size/1024).toFixed(0)} KB)</div>`;
+    }
+
+    const workerUrl = 'https://taxorder-pro-api.adamus1000.workers.dev';
+    const el = document.getElementById('ocr-results');
+    el.innerHTML = `<div class="log">⏳ Wysyłanie do ${workerUrl}/api/ocr/dr...\n</div>`;
+
+    const form = new FormData();
+    form.append('file', file);
+
+    fetch(`${workerUrl}/api/ocr/dr`, { method:'POST', body:form })
+      .then(r => {
+        if (!r.ok) return r.text().then(t => { throw new Error(`HTTP ${r.status}: ${t.slice(0,200)}`); });
+        return r.json();
+      })
+      .then(data => this.render(data))
+      .catch(err => {
+        el.innerHTML = `<div style="color:var(--red);padding:10px">❌ Błąd OCR: ${err.message}</div>`;
+      });
+  },
+
+  render(data) {
+    const el = document.getElementById('ocr-results');
+    const expected = {
+      nrRej: document.getElementById('exp-nrRej').value.trim().toUpperCase(),
+      vin:   document.getElementById('exp-vin').value.trim().toUpperCase(),
+      dmc:   document.getElementById('exp-dmc').value.trim(),
+      marka: document.getElementById('exp-marka').value.trim().toUpperCase(),
+      model: document.getElementById('exp-model').value.trim().toUpperCase(),
+      rok:   document.getElementById('exp-rok').value.trim(),
+    };
+
+    const fields = [
+      {key:'nrRej',   label:'Nr rejestracyjny (A)',  val: data.nrRej||data.A},
+      {key:'vin',     label:'VIN / Nr identyf. (E)', val: data.vin||data.E},
+      {key:'marka',   label:'Marka (D.1)',            val: data.marka||data.D1},
+      {key:'model',   label:'Model (D.2)',            val: data.model||data.D2},
+      {key:'rok',     label:'Rok produkcji (B)',      val: data.rok||data.B},
+      {key:'dmc',     label:'DMC (F.1) kg',           val: data.dmc||data.F1||data['F.1']},
+      {key:'dmcMax',  label:'DMC max (F.2) kg',       val: data.dmcMax||data.F2||data['F.2']},
+      {key:'osie',    label:'Liczba osi (L)',          val: data.osie||data.L},
+      {key:'euro',    label:'Norma EURO',              val: data.euro},
+      {key:'dataRej', label:'Data 1. rejestr. (I)',   val: data.dataRej||data.I},
+    ];
+
+    const hasExpected = Object.values(expected).some(v=>v);
+
+    const fieldHtml = fields.map(f => {
+      const got = String(f.val||'').toUpperCase().replace(/\s+/g,'');
+      const exp = (expected[f.key]||'').toUpperCase().replace(/\s+/g,'');
+      let cls = 'field-box';
+      let badge = '';
+      if (hasExpected && exp) {
+        const ok = got === exp;
+        cls += ok ? ' match' : ' mismatch';
+        badge = ok
+          ? '<span class="badge badge-green" style="float:right">✅ OK</span>'
+          : `<span class="badge badge-red" style="float:right">❌ oczek.: ${expected[f.key]}</span>`;
+      } else if (!f.val) {
+        cls += ' empty';
+      }
+      return `<div class="${cls}">
+        <div class="lbl">${badge}${f.label}</div>
+        <div class="val">${f.val||'<span style="color:var(--text3)">—</span>'}</div>
+      </div>`;
+    }).join('');
+
+    const logText = JSON.stringify(data, null, 2);
+
+    el.innerHTML = `
+    <div class="card">
+      <h2>Wynik OCR</h2>
+      <div class="field-grid">${fieldHtml}</div>
+    </div>
+    <div class="card">
+      <h2>Surowa odpowiedź JSON</h2>
+      <div class="log">${logText}</div>
+    </div>`;
+  }
+};
+
+// ─── API Test ─────────────────────────────────────────────────────────────────
+const APITest = {
+  loadFromStorage() {
+    try {
+      // Próbuj załadować z localStorage (gdy strona jest otwarta z głównej aplikacji)
+      const token = localStorage.getItem('cf_token') || '';
+      if (token) document.getElementById('api-token').value = token;
+      else alert('Brak tokenu w localStorage. Zaloguj się w aplikacji głównej i wróć tutaj.');
+    } catch { alert('localStorage niedostępny (cross-origin). Podaj token ręcznie.'); }
+  },
+
+  async runAll() {
+    const url   = document.getElementById('api-url').value.trim();
+    const token = document.getElementById('api-token').value.trim();
+    const el    = document.getElementById('api-results');
+    const log   = [];
+    const results = [];
+
+    const req = async (method, path, body) => {
+      const t0 = Date.now();
+      try {
+        const opts = { method, headers: { 'Content-Type':'application/json', ...(token?{Authorization:`Bearer ${token}`}:{}) } };
+        if (body) opts.body = JSON.stringify(body);
+        const r = await fetch(url + path, opts);
+        const ms = Date.now() - t0;
+        const text = await r.text();
+        let json; try { json=JSON.parse(text); } catch { json=text; }
+        return { status:r.status, ok:r.ok, ms, json };
+      } catch(e) {
+        return { status:0, ok:false, ms:Date.now()-t0, json:{error:e.message} };
+      }
+    };
+
+    const check = async (label, method, path, expectStatus, verify) => {
+      const r = await req(method, path);
+      const statusOk = r.status === expectStatus;
+      const verifyOk = verify ? verify(r.json) : true;
+      const ok = statusOk && verifyOk;
+      results.push({ label, status:r.status, ms:r.ms, ok });
+      log.push(`${ok?'✅':'❌'} [${r.status}] ${method} ${path} (${r.ms}ms)${ok?'':' → '+JSON.stringify(r.json).slice(0,80)}`);
+      el.querySelector('.log').textContent = log.join('\n');
+    };
+
+    el.innerHTML = `<div class="card"><h2>Wyniki</h2><div class="log">⏳ Testuję...\n</div></div>`;
+
+    // Testy bez autoryzacji
+    await check('Health check',  'GET', '/',                      200);
+    await check('404 nieistn.',  'GET', '/api/nieistniejace',     404);
+    await check('Auth required', 'GET', '/api/vehicles?company=test', token?200:401);
+
+    // Testy z autoryzacją (jeśli jest token)
+    if (token) {
+      await check('Lista pojazdów',   'GET', '/api/vehicles?company=mtoilet', 200, d => Array.isArray(d)||d?.results);
+      await check('Push public key',  'GET', '/api/push/vapid-public-key',    200, d => d?.publicKey);
+      await check('Lista firm',       'GET', '/api/companies',                200);
+    }
+
+    // Podsumowanie
+    const pass = results.filter(r=>r.ok).length;
+    const fail = results.filter(r=>!r.ok).length;
+    const avgMs = Math.round(results.reduce((s,r)=>s+r.ms,0)/results.length);
+
+    const rows = results.map(r=>`<tr>
+      <td>${r.ok?'✅':'❌'}</td>
+      <td>${r.label}</td>
+      <td style="text-align:center;font-family:var(--mono)">${r.status}</td>
+      <td style="text-align:right;font-family:var(--mono)">${r.ms}ms</td>
+    </tr>`).join('');
+
+    el.innerHTML = `
+    <div class="summary">
+      <div class="stat"><div class="val" style="color:var(--green)">${pass}</div><div class="lbl">PASS</div></div>
+      <div class="stat"><div class="val" style="color:var(--red)">${fail}</div><div class="lbl">FAIL</div></div>
+      <div class="stat"><div class="val">${avgMs}ms</div><div class="lbl">Avg latency</div></div>
+    </div>
+    <table class="result-table"><thead><tr><th></th><th>Test</th><th>Status</th><th style="text-align:right">Czas</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    <div class="card" style="margin-top:12px"><h2>Log</h2><div class="log">${log.join('\n')}</div></div>`;
+  }
+};
+</script>
+</body>
+</html>
