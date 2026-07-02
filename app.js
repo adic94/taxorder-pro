@@ -191,7 +191,12 @@ function filterVeh() {
     if (fTyp && v.typ !== fTyp) return false;
     if (fStat && v.status !== fStat) return false;
     if (fWl && v.wlasciciel !== fWl) return false;
-    if (fAlert && (fAlert === 'alert' ? !_hasExpiryAlert(v) : _hasExpiryAlert(v))) return false;
+    if (fAlert) {
+      const _isExpired = vv => [vv.ocEnd, vv.acEnd, vv.nextInspection].some(d => d && new Date(d) < new Date());
+      if (fAlert === 'alert'   && !_hasExpiryAlert(v)) return false;
+      if (fAlert === 'expired' && !_isExpired(v))      return false;
+      if (fAlert === 'ok'      && _hasExpiryAlert(v))  return false;
+    }
     // Per-column filters
     for (const [col, val] of Object.entries(_colFilters)) {
       if (!val) continue;
@@ -2243,6 +2248,33 @@ function runValidation() {
   if(dupes.length>0) {
     infos.push({code:'DUP-001',title:`Zduplikowane pojazdy: ${dupes.join(', ')}`,desc:'Te same numery rejestracyjne pojawiają się więcej niż raz w bazie danych. Sprawdź i usuń duplikaty.',link:'pojazdy',icon:'ti-copy'});
   }
+
+  // --- UBEZPIECZENIA I BADANIA TECHNICZNE (cała flota) ---
+  const allFleet = vehs.filter(v => v.is_active !== false);
+  const _daysDiff = dateStr => { if(!dateStr) return null; const d=new Date(dateStr)-new Date(); return Math.round(d/86400000); };
+  allFleet.forEach(v => {
+    const checks = [
+      { label:'OC', date: v.ocEnd,           code: 'OC' },
+      { label:'AC', date: v.acEnd,           code: 'AC' },
+      { label:'Przegląd tech.', date: v.nextInspection, code: 'PRZE' },
+      ...(v.hasUdt && v.udtNextDate   ? [{ label:'Badanie UDT',      date: v.udtNextDate,    code:'UDT' }] : []),
+      ...(v.hasTacho && v.tachoNextCalib ? [{ label:'Legalizacja tacho', date: v.tachoNextCalib, code:'TACH' }] : []),
+    ];
+    checks.forEach(({ label, date, code }) => {
+      const days = _daysDiff(date);
+      if (days === null) {
+        if (code === 'OC') infos.push({code:`${code}-BRAK-${v.nrRej}`,veh:v.nrRej,title:`${v.nrRej} — brak daty ${label}`,desc:`Pojazd ${v.marka} ${v.model} nie ma uzupełnionej daty końca ${label}. Uzupełnij w karcie pojazdu.`,link:'pojazdy',icon:'ti-shield-off'});
+        return;
+      }
+      if (days < 0) {
+        errors.push({code:`${code}-EXP-${v.nrRej}`,veh:v.nrRej,title:`${v.nrRej} — ${label} WYGASŁO ${Math.abs(days)} dni temu`,desc:`Pojazd ${v.marka} ${v.model}: ${label} wygasło ${new Date(date).toLocaleDateString('pl-PL')}. Wymaga natychmiastowego uregulowania.`,link:'pojazdy',icon:'ti-shield-x'});
+      } else if (days <= 14) {
+        warnings.push({code:`${code}-SOON-${v.nrRej}`,veh:v.nrRej,title:`${v.nrRej} — ${label} wygasa za ${days} dni`,desc:`Pojazd ${v.marka} ${v.model}: ${label} wygasa ${new Date(date).toLocaleDateString('pl-PL')}. Odnów ubezpieczenie/badanie.`,link:'pojazdy',icon:'ti-alert-triangle'});
+      } else if (days <= 30) {
+        infos.push({code:`${code}-NEAR-${v.nrRej}`,veh:v.nrRej,title:`${v.nrRej} — ${label} wygasa za ${days} dni`,desc:`Pojazd ${v.marka} ${v.model}: ${label} wygasa ${new Date(date).toLocaleDateString('pl-PL')}.`,link:'pojazdy',icon:'ti-calendar'});
+      }
+    });
+  });
 
   // Aktualizuj badge
   const totalIssues = errors.length+warnings.length;

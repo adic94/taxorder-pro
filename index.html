@@ -327,6 +327,7 @@ window.addEventListener('DOMContentLoaded', () => {
     <select id="f-alert" onchange="renderVeh()" title="Filtruj wg stanu alertów terminowych">
       <option value="" data-i18n="filter.all.alerts">Wszystkie</option>
       <option value="alert" data-i18n="filter.alerts.yes">Z alertami (60 dni)</option>
+      <option value="expired" data-i18n="filter.alerts.expired">Wygasłe OC/AC/przegląd</option>
       <option value="ok" data-i18n="filter.alerts.no">Bez alertów</option>
     </select>
     <button class="btn btn-blue" onclick="selAll()"><i class="ti ti-checkbox"></i><span data-i18n="btn.sel.all">Zaznacz wszystkie</span></button>
