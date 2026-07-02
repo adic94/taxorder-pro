@@ -1471,7 +1471,8 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
       btn.style.color = 'var(--text2)';
       btn.classList.remove('vd-tab-active');
     });
-    document.getElementById('vd-tab-' + name + '-content').style.display = '';
+    const contentEl = document.getElementById('vd-tab-' + name + '-content');
+    if (contentEl) contentEl.style.display = '';
     const btn = document.getElementById('vd-tab-' + name);
     if (btn) { btn.style.background = 'var(--bg)'; btn.style.color = 'var(--text)'; }
   },
