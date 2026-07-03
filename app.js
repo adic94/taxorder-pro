@@ -1011,13 +1011,14 @@ function renderPaliwoPage() {
     mSel.innerHTML = opts.join('');
   }
 
-  // --- Wypełnienie selecta pojazdów ---
+  // --- Wypełnienie selecta pojazdów (odświeżane przy każdym wejściu) ---
   const vSel = document.getElementById('paliwo-veh-sel');
-  if (vSel && !vSel.dataset.init) {
-    vSel.dataset.init = '1';
+  if (vSel) {
+    const prev = vSel.value;
     const withFuel = vehs.filter(v => v.fuelHistory?.length);
     vSel.innerHTML = '<option value="">Wszystkie pojazdy</option>' +
       withFuel.map(v => `<option value="${v.id}">${v.nrRej} — ${v.marka} ${v.model}</option>`).join('');
+    if (prev) vSel.value = prev;
   }
 
   const selMonth = mSel?.value || now.toISOString().slice(0, 7);
@@ -1096,14 +1097,14 @@ function renderPaliwoPage() {
       top10El.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:1rem">Brak danych</td></tr>`;
     } else {
       top10El.innerHTML = sorted.map((x, i) => {
-        const avg = x.liters > 0 && x.v.przebieg > 0 ? '—' : '—';
+        const avg = (x.liters > 0 && x.v.przebieg > 0) ? ((x.liters / x.v.przebieg) * 100).toFixed(1) + ' l/100km' : '—';
         return `<tr>
           <td style="color:var(--text3);font-size:13px">${i + 1}</td>
           <td style="font-weight:600;font-family:var(--mono)">${x.v.nrRej}</td>
           <td style="font-size:12px;color:var(--text2)">${x.v.marka} ${x.v.model}</td>
           <td style="text-align:right;font-family:var(--mono)">${x.liters.toFixed(1)}</td>
           <td style="text-align:right;font-family:var(--mono);font-weight:600">${x.cost.toFixed(2)} zł</td>
-          <td style="text-align:right;color:var(--text3)">—</td>
+          <td style="text-align:right;color:var(--text3)">${avg}</td>
         </tr>`;
       }).join('');
     }

@@ -336,7 +336,7 @@ window.TaxOrderDiagnostics = (function () {
   <button onclick="TaxOrderDiagnostics.close()" title="Zamknij">✕</button>
 </div>
 <div id="dg-tabs">
-  ${TABS.map(t => `<div class="dg-tab${t === 'health' ? ' active' : ''}" data-tab="${t}" onclick="TaxOrderDiagnostics.showTab('${t}')">${TAB_LABELS[t]}<span id="dg-err-badge" style="display:none;margin-left:4px;background:#fee2e2;color:#dc2626;border-radius:9px;padding:0 5px;font-size:9px"></span></div>`).join('')}
+  ${TABS.map(t => `<div class="dg-tab${t === 'health' ? ' active' : ''}" data-tab="${t}" onclick="TaxOrderDiagnostics.showTab('${t}')">${TAB_LABELS[t]}<span class="dg-err-badge" style="display:none;margin-left:4px;background:#fee2e2;color:#dc2626;border-radius:9px;padding:0 5px;font-size:9px"></span></div>`).join('')}
 </div>
 <div id="dg-body"></div>`;
     document.body.appendChild(el);
@@ -565,9 +565,7 @@ window.TaxOrderDiagnostics = (function () {
   }
 
   function refresh() {
-    const badge = document.getElementById('diag-err-badge') || document.querySelector('#dg-tabs .dg-tab[data-tab="errors"] #dg-err-badge');
-    // update all err badges
-    document.querySelectorAll('#dg-err-badge').forEach(b => {
+    document.querySelectorAll('.dg-err-badge').forEach(b => {
       if (_errors.length) { b.textContent = _errors.length; b.style.display = ''; }
       else b.style.display = 'none';
     });

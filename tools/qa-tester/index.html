@@ -340,7 +340,6 @@ const HumanSim = {
 
   async req(method, path, body, noAuth) {
     const url   = document.getElementById('hs-url').value.trim();
-    const token = document.getElementById('hs-token-store') || null;
     const tok   = HumanSim._token || '';
     const h = { 'Content-Type': 'application/json', ...(tok && !noAuth ? { Authorization: 'Bearer ' + tok } : {}) };
     const t0 = performance.now();
