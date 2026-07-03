@@ -2077,19 +2077,21 @@ async function handleAlertTypes(req, env, user, url, path) {
     const rows = await env.DB.prepare(
       'SELECT * FROM alert_types WHERE (company_id IS NULL OR company_id=?) AND active=1 ORDER BY sort_order,name'
     ).bind(company).all();
-    return json(rows.results || []);
+    return json({ ok: true, types: rows.results || [] });
   }
   if (!canManage) return err('Brak uprawnień', 403);
   if (req.method === 'POST') {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
     if (!body.name || !body.category) return err('Wymagane: name, category');
     const id = crypto.randomUUID();
+    const ddays = Array.isArray(body.default_days) ? body.default_days
+      : (typeof body.default_days === 'string' ? JSON.parse(body.default_days) : [30,14,7]);
     await env.DB.prepare(
       `INSERT INTO alert_types(id,company_id,name,category,trigger_time,trigger_km,default_days,default_km,icon,sort_order)
        VALUES(?,?,?,?,?,?,?,?,?,?)`
     ).bind(id, company, body.name, body.category,
       body.trigger_time ? 1 : 0, body.trigger_km ? 1 : 0,
-      JSON.stringify(body.default_days || [30,14,7]),
+      JSON.stringify(ddays),
       body.default_km || null, body.icon || 'ti-bell', body.sort_order || 99
     ).run();
     return json({ ok: true, id });
@@ -2099,7 +2101,11 @@ async function handleAlertTypes(req, env, user, url, path) {
     const sets = [], vals = [];
     if (body.name !== undefined)        { sets.push('name=?');         vals.push(body.name); }
     if (body.active !== undefined)      { sets.push('active=?');       vals.push(body.active ? 1 : 0); }
-    if (body.default_days !== undefined){ sets.push('default_days=?'); vals.push(JSON.stringify(body.default_days)); }
+    if (body.default_days !== undefined){
+      const dd = Array.isArray(body.default_days) ? body.default_days
+        : (typeof body.default_days === 'string' ? JSON.parse(body.default_days) : [30,14,7]);
+      sets.push('default_days=?'); vals.push(JSON.stringify(dd));
+    }
     if (body.default_km !== undefined)  { sets.push('default_km=?');   vals.push(body.default_km || null); }
     if (body.icon !== undefined)        { sets.push('icon=?');         vals.push(body.icon); }
     if (!sets.length) return err('Brak pól');
@@ -2108,6 +2114,9 @@ async function handleAlertTypes(req, env, user, url, path) {
     return json({ ok: true });
   }
   if (req.method === 'DELETE' && segs[2]) {
+    const existing = await env.DB.prepare('SELECT company_id FROM alert_types WHERE id=?').bind(segs[2]).first();
+    if (!existing) return err('Typ alertu nie istnieje', 404);
+    if (existing.company_id === null) return err('Nie można usunąć wbudowanego typu alertu', 403);
     await env.DB.prepare('UPDATE alert_types SET active=0 WHERE id=? AND company_id IS NOT NULL').bind(segs[2]).run();
     return json({ ok: true });
   }
@@ -2120,11 +2129,21 @@ async function handleNotifPrefs(req, env, user, url) {
     const rows = await env.DB.prepare(
       'SELECT * FROM notification_prefs WHERE user_id=?'
     ).bind(user.id).all();
-    return json(rows.results || []);
+    return json({ ok: true, prefs: rows.results || [] });
   }
   if (req.method === 'PUT') {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
     if (!body.alert_type_id) return err('Wymagane alert_type_id');
+    // Normalize threshold_days: accept array or JSON string
+    let tdays = null;
+    if (body.threshold_days != null) {
+      const arr = Array.isArray(body.threshold_days) ? body.threshold_days
+        : JSON.parse(body.threshold_days);
+      tdays = JSON.stringify(arr);
+    }
+    const channels = typeof body.channels === 'object' && body.channels !== null
+      ? JSON.stringify(body.channels)
+      : JSON.stringify({ push: true, email: false, sms: false });
     await env.DB.prepare(`
       INSERT INTO notification_prefs(user_id,alert_type_id,enabled,channels,threshold_days,threshold_km,quiet_from,quiet_to)
       VALUES(?,?,?,?,?,?,?,?)
@@ -2135,8 +2154,7 @@ async function handleNotifPrefs(req, env, user, url) {
     `).bind(
       user.id, body.alert_type_id,
       body.enabled !== false ? 1 : 0,
-      JSON.stringify(body.channels || { push: true, email: false, sms: false }),
-      body.threshold_days ? JSON.stringify(body.threshold_days) : null,
+      channels, tdays,
       body.threshold_km || null,
       body.quiet_from || '22:00',
       body.quiet_to   || '07:00',
@@ -2154,11 +2172,18 @@ async function handleNotifLog(req, env, user, url, path) {
   if (req.method === 'GET') {
     const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '100'), 500);
     const offset = parseInt(url.searchParams.get('offset') || '0');
-    const rows = await env.DB.prepare(
-      `SELECT * FROM notification_log WHERE company_id=? AND (user_id=? OR ? IN ('admin','kierownik'))
-       ORDER BY sent_at DESC LIMIT ? OFFSET ?`
-    ).bind(company, user.id, user.role, limit, offset).all();
-    return json(rows.results || []);
+    const alertTypeFilter = url.searchParams.get('alert_type_id');
+    const vehicleFilter   = url.searchParams.get('vehicle_nr_rej');
+    const channelFilter   = url.searchParams.get('channel');
+    let q = `SELECT * FROM notification_log WHERE company_id=? AND (user_id=? OR ? IN ('admin','kierownik'))`;
+    const params = [company, user.id, user.role];
+    if (alertTypeFilter) { q += ' AND alert_type_id=?'; params.push(alertTypeFilter); }
+    if (vehicleFilter)   { q += ' AND vehicle_nr_rej=?'; params.push(vehicleFilter); }
+    if (channelFilter)   { q += ' AND channel=?'; params.push(channelFilter); }
+    q += ' ORDER BY sent_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+    const rows = await env.DB.prepare(q).bind(...params).all();
+    return json({ ok: true, entries: rows.results || [] });
   }
   if (req.method === 'POST') {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
@@ -2205,22 +2230,26 @@ async function handleMaintenanceTemplates(req, env, user, url, path) {
       'SELECT * FROM maintenance_templates WHERE company_id=? ORDER BY name'
     ).bind(company).all();
     const parsed = (rows.results || []).map(r => ({ ...r, items: JSON.parse(r.items || '[]') }));
-    return json(parsed);
+    return json({ ok: true, templates: parsed });
   }
   if (!canManage) return err('Brak uprawnień', 403);
   if (req.method === 'POST') {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    if (!body.name) return err('Wymagane: name');
-    // action: 'apply' — przypisuje szablon do pojazdów (zapisuje maintenanceItems)
+    // action: 'apply' — przypisuje szablon do pojazdów (template ID z URL segs[2])
     if (body.action === 'apply') {
-      const { templateId, nrRejes } = body;
-      if (!templateId || !Array.isArray(nrRejes) || !nrRejes.length) return err('Wymagane: templateId, nrRejes[]');
-      const tpl = await env.DB.prepare('SELECT * FROM maintenance_templates WHERE id=?').bind(templateId).first();
+      const templateId = segs[2] || body.templateId;
+      const vehicleIds = body.vehicle_ids || body.nrRejes;
+      if (!templateId) return err('Wymagane: template ID w URL');
+      if (!Array.isArray(vehicleIds) || !vehicleIds.length) return err('Wymagane: vehicle_ids[]');
+      const tpl = await env.DB.prepare('SELECT * FROM maintenance_templates WHERE id=? AND company_id=?').bind(templateId, company).first();
       if (!tpl) return err('Szablon nie istnieje', 404);
       const items = JSON.parse(tpl.items || '[]');
-      let updated = 0;
-      for (const nrRej of nrRejes) {
-        const vRow = await env.DB.prepare('SELECT data FROM vehicles WHERE company_id=? AND nr_rej=?').bind(company, nrRej).first();
+      let applied = 0;
+      for (const vid of vehicleIds) {
+        // Akceptujemy zarówno numeryczne ID jak i nr_rej
+        const vRow = isNaN(vid)
+          ? await env.DB.prepare('SELECT id,data FROM vehicles WHERE company_id=? AND nr_rej=?').bind(company, vid).first()
+          : await env.DB.prepare('SELECT id,data FROM vehicles WHERE company_id=? AND id=?').bind(company, String(vid)).first();
         if (!vRow) continue;
         let data = {}; try { data = JSON.parse(vRow.data || '{}'); } catch {}
         if (!data.maintenanceItems) data.maintenanceItems = [];
@@ -2232,12 +2261,13 @@ async function handleMaintenanceTemplates(req, env, user, url, path) {
               lastDate: null, lastKm: null, nextDate: null, nextKm: null });
           }
         }
-        await env.DB.prepare('UPDATE vehicles SET data=?,updated_at=datetime(\'now\') WHERE company_id=? AND nr_rej=?')
-          .bind(JSON.stringify(data), company, nrRej).run();
-        updated++;
+        await env.DB.prepare("UPDATE vehicles SET data=?,updated_at=datetime('now') WHERE id=? AND company_id=?")
+          .bind(JSON.stringify(data), vRow.id, company).run();
+        applied++;
       }
-      return json({ ok: true, updated });
+      return json({ ok: true, applied });
     }
+    if (!body.name) return err('Wymagane: name');
     const id = crypto.randomUUID().replace(/-/g,'').slice(0,12);
     await env.DB.prepare(
       'INSERT INTO maintenance_templates(id,company_id,name,description,items,created_by) VALUES(?,?,?,?,?,?)'
@@ -2279,7 +2309,7 @@ async function handleUserPermissions(req, env, user, url, path) {
   if (req.method === 'PUT') {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
     const allowed = ['manage_alert_types','manage_templates','manage_notifications','manage_roles'];
-    const perms = (body.permissions || []).filter(p => allowed.includes(p));
+    const perms = (body.extra_permissions || body.permissions || []).filter(p => allowed.includes(p));
     // Użytkownik bez manage_roles nie może nadawać manage_roles
     if (!myPerms.includes('manage_roles') && user.role !== 'admin' && perms.includes('manage_roles')) {
       return err('Brak uprawnień do nadawania manage_roles', 403);
