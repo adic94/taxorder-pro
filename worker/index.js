@@ -1297,16 +1297,17 @@ async function sendPushMsg(sub, payload, env) {
 // POST /api/push/subscribe — public (no Worker auth, Supabase session is enough)
 async function handlePushSubscribe(req, env) {
   let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-  const { subscription, company_id, label } = body;
+  const { subscription, company_id, label, user_id } = body;
   if (!subscription?.endpoint || !subscription?.keys) return err('Nieprawidłowa subskrypcja');
   if (!company_id) return err('Wymagane company_id');
   await env.DB.prepare(`
-    INSERT INTO push_subscriptions(company_id,endpoint,p256dh,auth_key,label,updated_at)
-    VALUES(?,?,?,?,?,datetime('now'))
+    INSERT INTO push_subscriptions(company_id,user_id,endpoint,p256dh,auth_key,label,updated_at)
+    VALUES(?,?,?,?,?,?,datetime('now'))
     ON CONFLICT(endpoint) DO UPDATE SET
-      company_id=excluded.company_id,p256dh=excluded.p256dh,auth_key=excluded.auth_key,
+      company_id=excluded.company_id,user_id=excluded.user_id,
+      p256dh=excluded.p256dh,auth_key=excluded.auth_key,
       label=excluded.label,updated_at=datetime('now')`
-  ).bind(company_id, subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth, label || null).run();
+  ).bind(company_id, user_id || null, subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth, label || null).run();
   return json({ ok: true });
 }
 
@@ -2446,38 +2447,97 @@ async function handleRequest(request, env, url, path) {
   return err('Endpoint nie istnieje', 404);
 }
 
-// Cron: wysyła push alerty z uwzględnieniem preferencji użytkowników i maintenanceItems
-async function sendScheduledPushAlerts(env) {
-  if (!env.VAPID_PRIVATE_KEY || !env.VAPID_PUBLIC_KEY) return;
-
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-
-  function daysUntil(dateStr) {
-    if (!dateStr) return null;
-    const d = new Date(dateStr);
-    if (isNaN(d)) return null;
-    return Math.round((d - now) / 86400000);
-  }
-
-  // Mapa typeId → pola w danych pojazdu (wbudowane typy)
-  const BUILTIN_FIELDS = {
-    oc:            v => ({ date: v.ocEnd }),
-    ac:            v => ({ date: v.acEnd }),
-    przeglad_tech: v => ({ date: v.nextInspection }),
-    udt:           v => (v.hasUdt && v.udtNextDate ? { date: v.udtNextDate } : null),
-    tacho:         v => (v.hasTacho && v.tachoNextCalib ? { date: v.tachoNextCalib } : null),
-    opony_zmiana:  v => (v.tireNextChange ? { date: v.tireNextChange } : null),
+// ─── HELPERS dla budowania alertów (push/email/sms używają tego samego) ─────────
+function buildVehicleAlerts(vehRows, alertTypes) {
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const daysUntil = ds => {
+    if (!ds) return null;
+    const d = new Date(ds);
+    return isNaN(d) ? null : Math.round((d - now) / 86400000);
   };
+  const BUILTIN_FIELDS = {
+    oc:            v => v.ocEnd           ? { date: v.ocEnd }           : null,
+    ac:            v => v.acEnd           ? { date: v.acEnd }           : null,
+    przeglad_tech: v => v.nextInspection  ? { date: v.nextInspection }  : null,
+    udt:           v => v.hasUdt && v.udtNextDate ? { date: v.udtNextDate } : null,
+    tacho:         v => v.hasTacho && v.tachoNextCalib ? { date: v.tachoNextCalib } : null,
+    opony_zmiana:  v => v.tireNextChange  ? { date: v.tireNextChange }  : null,
+  };
+  const alerts = [];
+  for (const vRow of vehRows) {
+    let v = {}; try { v = JSON.parse(vRow.data || '{}'); } catch {}
+    for (const [typeId, getter] of Object.entries(BUILTIN_FIELDS)) {
+      const res = getter(v);
+      if (!res) continue;
+      const days = daysUntil(res.date);
+      if (days === null) continue;
+      alerts.push({ nrRej: vRow.nr_rej, typeId, label: alertTypes.find(a => a.id === typeId)?.name || typeId, days, km: null, expired: days < 0 });
+    }
+    for (const item of (v.maintenanceItems || [])) {
+      const at = alertTypes.find(a => a.id === item.typeId);
+      const itemLabel = item.label || at?.name || item.typeId;
+      if (item.nextDate) {
+        const days = daysUntil(item.nextDate);
+        if (days !== null) alerts.push({ nrRej: vRow.nr_rej, typeId: item.typeId, label: itemLabel, days, km: null, expired: days < 0 });
+      }
+      if (item.nextKm && v.stanKilometrow) {
+        const kmLeft = item.nextKm - v.stanKilometrow;
+        alerts.push({ nrRej: vRow.nr_rej, typeId: item.typeId, label: itemLabel, days: null, km: kmLeft, expired: kmLeft < 0 });
+      }
+    }
+  }
+  return alerts;
+}
 
-  // Pobierz wszystkie firmy z aktywną subskrypcją push
+function filterAlertsForUser(vehicleAlerts, prefs) {
+  const DEFAULT_DAYS = 14;
+  return vehicleAlerts.filter(a => {
+    const pref = prefs[a.typeId];
+    if (pref?.enabled === 0) return false;
+    let threshDays = null;
+    try { threshDays = pref?.threshold_days ? JSON.parse(pref.threshold_days) : null; } catch {}
+    const threshKm = pref?.threshold_km ?? null;
+    if (a.days !== null) return a.days <= (threshDays ? Math.max(...threshDays) : DEFAULT_DAYS);
+    if (a.km  !== null) return a.km  <= (threshKm ?? 500);
+    return false;
+  });
+}
+
+function buildPushPayload(myAlerts) {
+  myAlerts.sort((a, b) => (a.days ?? 9999) - (b.days ?? 9999));
+  const first = myAlerts[0];
+  const expiredCount = myAlerts.filter(a => a.expired).length;
+  const title = expiredCount
+    ? `TaxOrder — ${expiredCount} termin${expiredCount > 1 ? 'y' : ''} WYGASŁ${expiredCount > 1 ? 'Y' : ''}`
+    : `TaxOrder — ${myAlerts.length} alert${myAlerts.length > 1 ? 'y' : ''} wkrótce`;
+  const bodyMsg = first.days !== null
+    ? `${first.nrRej}: ${first.label} ${first.expired ? `wygasło ${Math.abs(first.days)} dni temu` : `wygasa za ${first.days} dni`}`
+    : `${first.nrRej}: ${first.label} za ${first.km} km`;
+  return { title, body: bodyMsg + (myAlerts.length > 1 ? ` (+${myAlerts.length - 1} więcej)` : ''), urgent: expiredCount > 0, first };
+}
+
+function isInQuietHours(prefs, nowHour) {
+  const firstPref = Object.values(prefs)[0];
+  if (!firstPref?.quiet_from || !firstPref?.quiet_to) return false;
+  const from = parseInt(firstPref.quiet_from.split(':')[0], 10);
+  const to   = parseInt(firstPref.quiet_to.split(':')[0],   10);
+  return from > to ? (nowHour >= from || nowHour < to) : (nowHour >= from && nowHour < to);
+}
+
+// ─── CRON: kolejkuje zadania powiadomień → Queue consumer wysyła asynchronicznie ─
+async function queueNotificationJobs(env) {
+  // Jeśli brak Queue (lokalny dev), fallback do synchronicznego wysyłania
+  if (!env.NOTIF_QUEUE) return _sendNotificationsSync(env);
+
+  const atRows = await env.DB.prepare('SELECT * FROM alert_types WHERE active=1').all();
+  const alertTypes = atRows.results || [];
+
   const subsRows = await env.DB.prepare('SELECT DISTINCT company_id FROM push_subscriptions').all();
   const companies = (subsRows.results || []).map(r => r.company_id);
   if (!companies.length) return;
 
-  // Załaduj typy alertów raz
-  const atRows = await env.DB.prepare('SELECT * FROM alert_types WHERE active=1').all();
-  const alertTypes = atRows.results || [];
+  const nowHour = new Date().getUTCHours();
+  const jobBatch = [];
 
   for (const company_id of companies) {
     const subRows = await env.DB.prepare('SELECT * FROM push_subscriptions WHERE company_id=?').bind(company_id).all();
@@ -2485,109 +2545,134 @@ async function sendScheduledPushAlerts(env) {
     if (!subs.length) continue;
 
     const vehRows = await env.DB.prepare('SELECT nr_rej, data FROM vehicles WHERE company_id=?').bind(company_id).all();
+    const vehicleAlerts = buildVehicleAlerts(vehRows.results || [], alertTypes);
+    if (!vehicleAlerts.length) continue;
 
-    // Zbierz wszystkich użytkowników firmy z subskrypcjami push
-    const userSubRows = await env.DB.prepare(
-      `SELECT u.id as user_id, u.extra_permissions, np.alert_type_id, np.enabled,
-              np.threshold_days, np.threshold_km, np.quiet_from, np.quiet_to
-       FROM push_subscriptions ps
-       JOIN users u ON u.active=1
-       JOIN notification_prefs np ON np.user_id=u.id AND np.enabled=1
-       WHERE ps.company_id=?`
-    ).bind(company_id).all().catch(() => ({ results: [] }));
-
-    // Grupuj preferencje per user
+    // Załaduj preferencje wszystkich użytkowników firmy
+    const prefRows = await env.DB.prepare(
+      `SELECT np.user_id, np.alert_type_id, np.enabled, np.threshold_days, np.threshold_km, np.quiet_from, np.quiet_to
+       FROM notification_prefs np
+       JOIN users u ON u.id=np.user_id AND u.active=1`
+    ).all().catch(() => ({ results: [] }));
     const userPrefs = {};
-    for (const row of (userSubRows.results || [])) {
+    for (const row of (prefRows.results || [])) {
       if (!userPrefs[row.user_id]) userPrefs[row.user_id] = {};
       userPrefs[row.user_id][row.alert_type_id] = row;
     }
 
-    // Zbierz alerty per pojazd
-    const vehicleAlerts = []; // { nrRej, typeId, label, days, km }
-    for (const vRow of vehRows.results || []) {
-      let v = {}; try { v = JSON.parse(vRow.data || '{}'); } catch {}
-
-      // Wbudowane typy
-      for (const [typeId, getter] of Object.entries(BUILTIN_FIELDS)) {
-        const res = getter(v);
-        if (!res) continue;
-        const days = daysUntil(res.date);
-        if (days === null) continue;
-        vehicleAlerts.push({ nrRej: vRow.nr_rej, typeId, label: alertTypes.find(a=>a.id===typeId)?.name || typeId, days, km: null, expired: days < 0 });
-      }
-
-      // maintenanceItems (własne + wg szablonów)
-      for (const item of (v.maintenanceItems || [])) {
-        const at = alertTypes.find(a => a.id === item.typeId);
-        const itemLabel = item.label || at?.name || item.typeId;
-        if (item.nextDate) {
-          const days = daysUntil(item.nextDate);
-          if (days !== null) vehicleAlerts.push({ nrRej: vRow.nr_rej, typeId: item.typeId, label: itemLabel, days, km: null, expired: days < 0 });
-        }
-        if (item.nextKm && v.stanKilometrow) {
-          const kmLeft = item.nextKm - v.stanKilometrow;
-          vehicleAlerts.push({ nrRej: vRow.nr_rej, typeId: item.typeId, label: itemLabel, days: null, km: kmLeft, expired: kmLeft < 0 });
-        }
-      }
-    }
-
-    if (!vehicleAlerts.length) continue;
-
-    // Sprawdź cicha godzina (UTC)
-    const nowHour = new Date().getUTCHours();
-    const isQuiet = h => { const [hh] = h.split(':').map(Number); return hh === nowHour; };
-
-    // Wyślij push dla każdej subskrypcji
     for (const sub of subs) {
-      // Filtruj alerty wg preferencji tego użytkownika (jeśli ma preferencje)
-      // Fallback: jeśli nie ma preferencji, używaj defaults (progi 14 dni)
-      const prefs = userPrefs[sub.id] || {};
-      const DEFAULT_DAYS = 14;
+      const prefs = userPrefs[sub.user_id] || {};
+      if (isInQuietHours(prefs, nowHour)) continue;
 
-      const myAlerts = vehicleAlerts.filter(a => {
-        const pref = prefs[a.typeId];
-        if (pref?.enabled === 0) return false;
-        const threshDays = pref?.threshold_days ? JSON.parse(pref.threshold_days) : null;
-        const threshKm   = pref?.threshold_km ?? null;
-        if (a.days !== null) {
-          const maxDays = threshDays ? Math.max(...threshDays) : DEFAULT_DAYS;
-          return a.days <= maxDays;
-        }
-        if (a.km !== null) {
-          const maxKm = threshKm ?? 500;
-          return a.km <= maxKm;
-        }
-        return false;
-      });
-
+      const myAlerts = filterAlertsForUser(vehicleAlerts, prefs);
       if (!myAlerts.length) continue;
 
-      // Sprawdź cicha godzina
-      if (prefs) {
-        const firstPref = Object.values(prefs)[0];
-        if (firstPref?.quiet_from && firstPref?.quiet_to && isQuiet(firstPref.quiet_from)) continue;
-      }
-
-      myAlerts.sort((a, b) => (a.days ?? 9999) - (b.days ?? 9999));
-      const first = myAlerts[0];
-      const expiredCount = myAlerts.filter(a => a.expired).length;
-      const title = expiredCount
-        ? `TaxOrder — ${expiredCount} termin${expiredCount > 1 ? 'y' : ''} WYGASŁ${expiredCount > 1 ? 'Y' : ''}`
-        : `TaxOrder — ${myAlerts.length} alert${myAlerts.length > 1 ? 'y' : ''} wkrótce`;
-      const bodyMsg = first.days !== null
-        ? `${first.nrRej}: ${first.label} ${first.expired ? `wygasło ${Math.abs(first.days)} dni temu` : `wygasa za ${first.days} dni`}`
-        : `${first.nrRej}: ${first.label} za ${first.km} km`;
-      const bodyFull = bodyMsg + (myAlerts.length > 1 ? ` (+${myAlerts.length - 1} więcej)` : '');
-
-      const payload = { title, body: bodyFull, tag: 'taxorder-cron-alert', url: '/?page=powiadomienia', urgent: expiredCount > 0 };
-      const res = await sendPushMsg({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } }, payload, env).catch(() => ({ status: 0 }));
-      if (res.status === 410) {
-        await env.DB.prepare('DELETE FROM push_subscriptions WHERE id=?').bind(sub.id).run();
-      }
+      const { title, body, urgent, first } = buildPushPayload([...myAlerts]);
+      jobBatch.push({ body: {
+        type: 'push',
+        company_id,
+        user_id: sub.user_id || null,
+        sub_id: sub.id,
+        endpoint: sub.endpoint,
+        p256dh: sub.p256dh,
+        auth_key: sub.auth_key,
+        alert_type_id: first.typeId,
+        vehicle_nr_rej: first.nrRej,
+        label: body,
+        days_until: first.days,
+        km_until: first.km,
+        title, body, urgent,
+      }});
     }
+    console.log(`[Notif queue] ${company_id}: ${vehicleAlerts.length} alertów, ${subs.length} sub`);
+  }
 
-    console.log(`[Push cron] ${company_id}: ${vehicleAlerts.length} alertów dla ${subs.length} subskrybentów`);
+  // Wyślij do kolejki partiami po 100 (limit CF)
+  for (let i = 0; i < jobBatch.length; i += 100) {
+    await env.NOTIF_QUEUE.sendBatch(jobBatch.slice(i, i + 100));
+  }
+  console.log(`[Notif queue] Zakolejkowano ${jobBatch.length} zadań`);
+}
+
+// ─── QUEUE CONSUMER: przetwarza zadania push/email/sms ────────────────────────
+async function processNotifQueue(batch, env) {
+  for (const msg of batch.messages) {
+    const job = msg.body;
+    try {
+      if (job.type === 'push') {
+        if (!env.VAPID_PRIVATE_KEY) { msg.ack(); continue; }
+        const res = await sendPushMsg(
+          { endpoint: job.endpoint, keys: { p256dh: job.p256dh, auth: job.auth_key } },
+          { title: job.title, body: job.body, tag: 'taxorder-alert', url: '/?page=powiadomienia', urgent: job.urgent || false },
+          env
+        ).catch(() => ({ status: 0 }));
+
+        if (res.status === 410) {
+          await env.DB.prepare('DELETE FROM push_subscriptions WHERE id=?').bind(job.sub_id).run().catch(() => {});
+          msg.ack();
+        } else if (res.status >= 200 && res.status < 300) {
+          // Log sukces
+          const logId = crypto.randomUUID().replace(/-/g, '').toLowerCase();
+          await env.DB.prepare(
+            `INSERT INTO notification_log(id,company_id,user_id,alert_type_id,vehicle_nr_rej,label,days_until,km_until,channel)
+             VALUES(?,?,?,?,?,?,?,?,?)`
+          ).bind(logId, job.company_id, job.user_id || null, job.alert_type_id || null,
+            job.vehicle_nr_rej || null, job.label, job.days_until ?? null, job.km_until ?? null, 'push'
+          ).run().catch(() => {});
+          msg.ack();
+        } else {
+          // Błąd serwera push — retry po 60s
+          msg.retry({ delaySeconds: 60 });
+        }
+      } else if (job.type === 'email') {
+        // Faza 2 — email przez Resend API (zostanie zaimplementowane)
+        msg.ack();
+      } else if (job.type === 'sms') {
+        // Faza 3 — SMS przez SMSAPI.pl (zostanie zaimplementowane)
+        msg.ack();
+      } else {
+        msg.ack();
+      }
+    } catch (e) {
+      console.error('[Queue consumer]', e.message, 'job:', JSON.stringify(job).slice(0, 200));
+      msg.retry({ delaySeconds: 300 });
+    }
+  }
+}
+
+// Fallback synchroniczny gdy brak NOTIF_QUEUE (lokalny dev)
+async function _sendNotificationsSync(env) {
+  if (!env.VAPID_PRIVATE_KEY || !env.VAPID_PUBLIC_KEY) return;
+  const atRows = await env.DB.prepare('SELECT * FROM alert_types WHERE active=1').all();
+  const alertTypes = atRows.results || [];
+  const subsRows = await env.DB.prepare('SELECT DISTINCT company_id FROM push_subscriptions').all();
+  const companies = (subsRows.results || []).map(r => r.company_id);
+  const nowHour = new Date().getUTCHours();
+  for (const company_id of companies) {
+    const subRows = await env.DB.prepare('SELECT * FROM push_subscriptions WHERE company_id=?').bind(company_id).all();
+    const subs = subRows.results || [];
+    if (!subs.length) continue;
+    const vehRows = await env.DB.prepare('SELECT nr_rej, data FROM vehicles WHERE company_id=?').bind(company_id).all();
+    const vehicleAlerts = buildVehicleAlerts(vehRows.results || [], alertTypes);
+    if (!vehicleAlerts.length) continue;
+    const prefRows = await env.DB.prepare(
+      `SELECT np.user_id, np.alert_type_id, np.enabled, np.threshold_days, np.threshold_km, np.quiet_from, np.quiet_to
+       FROM notification_prefs np JOIN users u ON u.id=np.user_id AND u.active=1`
+    ).all().catch(() => ({ results: [] }));
+    const userPrefs = {};
+    for (const row of (prefRows.results || [])) {
+      if (!userPrefs[row.user_id]) userPrefs[row.user_id] = {};
+      userPrefs[row.user_id][row.alert_type_id] = row;
+    }
+    for (const sub of subs) {
+      const prefs = userPrefs[sub.user_id] || {};
+      if (isInQuietHours(prefs, nowHour)) continue;
+      const myAlerts = filterAlertsForUser(vehicleAlerts, prefs);
+      if (!myAlerts.length) continue;
+      const { title, body, urgent } = buildPushPayload([...myAlerts]);
+      const res = await sendPushMsg({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } }, { title, body, tag: 'taxorder-alert', url: '/?page=powiadomienia', urgent }, env).catch(() => ({ status: 0 }));
+      if (res.status === 410) await env.DB.prepare('DELETE FROM push_subscriptions WHERE id=?').bind(sub.id).run();
+    }
   }
 }
 
@@ -2618,7 +2703,12 @@ export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil(Promise.all([
       cleanSessions(env),
-      sendScheduledPushAlerts(env),
+      queueNotificationJobs(env),
     ]));
+  },
+
+  // Cloudflare Queue consumer — przetwarza zadania push/email/sms asynchronicznie
+  async queue(batch, env) {
+    await processNotifQueue(batch, env);
   },
 };

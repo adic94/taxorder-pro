@@ -4572,6 +4572,7 @@ async function doLogin(){
   }
 
   currentUser=u;
+  window.currentUserId = u.id || null;
 
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
@@ -6128,6 +6129,7 @@ window.addEventListener('load', async () => {
     const u=users.find(x=>x.email===savedEmail&&x.active);
     if(u){
       currentUser=u;
+      window.currentUserId = u.id || null;
       document.getElementById('login-screen').style.display='none';
       document.getElementById('app').style.display='flex';
       document.getElementById('user-avatar').textContent=u.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();

@@ -454,10 +454,11 @@ window.TaxOrderNotifications = (function () {
     });
 
     const company_id = window.currentCompanyId || 'default';
+    const user_id = window.currentUserId || null;
     const r = await fetch(`${_cfApi()}/api/push/subscribe`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription: sub.toJSON(), company_id, label: navigator.userAgent.slice(0, 50) }),
+      body: JSON.stringify({ subscription: sub.toJSON(), company_id, user_id, label: navigator.userAgent.slice(0, 50) }),
     });
 
     if (!r.ok) { toast('❌ Błąd rejestracji push — ' + (await r.json().catch(() => ({}))).error); return false; }
