@@ -168,8 +168,9 @@ async function run_Vehicles() {
     const rows = await _page.$$('#veh-tbody tr');
     const vehsLen = await _page.evaluate(() => window.vehs?.length ?? -1);
     if (rows.length === 0) throw new Error('Brak pojazdów w tabeli');
-    if (rows.length !== vehsLen) throw new Error(`Niezgodność: tabela ma ${rows.length} wierszy, vehs.length=${vehsLen}`);
-    console.log(`    → ${rows.length} wierszy (vehs.length=${vehsLen})`);
+    // Pagination is active: page shows up to _vehPageSize (100) rows, not all vehs
+    if (rows.length > 100) throw new Error(`Za dużo wierszy na stronie: ${rows.length} (max pageSize=100)`);
+    console.log(`    → ${rows.length} wierszy na str. 1 (vehs.length=${vehsLen})`);
   });
 
   await test('Wyszukiwanie pojazdu po nr rej.', 'Pojazdy', async () => {
@@ -193,8 +194,11 @@ async function run_Vehicles() {
     await _page.waitForTimeout(200);
     const allCount = await _page.evaluate(() => document.querySelectorAll('#veh-tbody tr').length);
     const totalVehs = await _page.evaluate(() => window.vehs?.length ?? -1);
-    if (allCount !== totalVehs) throw new Error(`Filtr nie wyzerował się: ${allCount} wierszy zamiast ${totalVehs}`);
-    console.log(`    → ${allCount} wierszy po resecie filtra`);
+    const pageSize = 100;
+    // With pagination, after reset we expect min(totalVehs, pageSize) rows on page 1
+    const expectedRows = Math.min(totalVehs, pageSize);
+    if (allCount !== expectedRows) throw new Error(`Filtr nie wyzerował się: ${allCount} wierszy zamiast ${expectedRows}`);
+    console.log(`    → ${allCount} wierszy po resecie filtra (z ${totalVehs} łącznie)`);
   });
 
   await test('Zmiana widoku: Karty flotowe', 'Pojazdy', async () => {
@@ -204,8 +208,10 @@ async function run_Vehicles() {
     await _page.waitForTimeout(500);
     const cards = await _page.$$('.fleet-card, .veh-card');
     const totalVehs = await _page.evaluate(() => window.vehs?.length ?? -1);
-    if (cards.length !== totalVehs) throw new Error(`Karty: ${cards.length} kart zamiast ${totalVehs}`);
-    console.log(`    → ${cards.length} kart`);
+    const pageSize = 100;
+    const expectedCards = Math.min(totalVehs, pageSize);
+    if (cards.length !== expectedCards) throw new Error(`Karty: ${cards.length} kart zamiast ${expectedCards} (strona 1)`);
+    console.log(`    → ${cards.length} kart (strona 1 z ${totalVehs})`);
     // switch back to fleet/table view
     const fleetBtn = await _page.$('#view-btn-fleet');
     if (fleetBtn) await fleetBtn.click();
@@ -246,12 +252,10 @@ async function run_Vehicles() {
       const pager = document.getElementById('veh-pager');
       const rows  = document.querySelectorAll('#veh-tbody tr').length;
       const totalVehs = window.vehs?.length ?? 0;
-      const pagerHtml = pager ? pager.innerHTML.substring(0, 200) : 'BRAK ELEMENTU';
       const hasPager = !!(pager && pager.children.length > 0);
-      return { rows, hasPager, totalVehs, pagerHtml };
+      return { rows, hasPager, totalVehs };
     });
 
-    console.log(`    → DEBUG pager html: "${state.pagerHtml}"`);
     if (!state.hasPager) throw new Error(`Brak paginatora dla ${state.totalVehs} pojazdów (pageSize=100)`);
 
     // Navigate to page 2 and verify it has rows
@@ -441,6 +445,25 @@ async function run_API() {
       { label: 'GET /api/export', path: `/api/export?company=${CFG.company}`, verify: d => !!d?.vehicles },
       { label: 'GET /api/auth/me', path: '/api/auth/me', verify: d => !!d?.id || !!d?.email },
     ];
+
+    await test('POST /api/import — round-trip (1 pojazd)', 'API', async () => {
+      const result = await _page.evaluate(async ({ url, tok, company }) => {
+        const exp = await fetch(`${url}/api/export?company=${company}`, { headers: { Authorization: `Bearer ${tok}` } });
+        if (!exp.ok) return { error: 'export failed ' + exp.status };
+        const data = await exp.json();
+        const slice = { vehicles: (data.vehicles || []).slice(0, 1) };
+        const imp = await fetch(`${url}/api/import?company=${company}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+          body: JSON.stringify(slice),
+        });
+        if (!imp.ok) return { error: 'import failed ' + imp.status };
+        return imp.json();
+      }, { url: workerUrl, tok: token, company: CFG.company });
+      if (!result.ok) throw new Error('Import zwrócił błąd: ' + JSON.stringify(result));
+      if (result.counts?.vehicles !== 1) throw new Error(`Oczekiwano counts.vehicles=1, got: ${JSON.stringify(result.counts)}`);
+      console.log(`    → import counts: ${JSON.stringify(result.counts)}`);
+    });
 
     for (const ep of apiTests) {
       await test(ep.label, 'API', async () => {
