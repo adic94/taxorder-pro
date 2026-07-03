@@ -167,6 +167,7 @@ function showPage(id) {
   if(id==='cepik') initCepikPage();
   if(id==='firmy') { if(typeof renderCompanyOverview==='function') renderCompanyOverview(); }
   if(id==='paliwo') renderPaliwoPage();
+  if(id==='raporty') FleetReports?.initPdfSelectors?.();
   updateCounters();
 }
 

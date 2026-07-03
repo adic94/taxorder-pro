@@ -13,6 +13,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <link rel="stylesheet" href="style.css">
 <link rel="manifest" href="/manifest.json">
@@ -854,6 +855,32 @@ window.addEventListener('DOMContentLoaded', () => {
 <div class="page" id="page-raporty">
   <div class="pg-title"><i class="ti ti-chart-line"></i><span data-i18n="rpt.title">Raporty kosztowe — podatek transportowy</span></div>
   <div class="pg-sub">Analiza kosztów podatkowych floty w ujęciu rocznym, wg marki, kategorii i właściciela</div>
+
+  <!-- Raport miesięczny PDF -->
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;margin-bottom:1.2rem;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <i class="ti ti-file-type-pdf" style="font-size:22px;color:#dc2626"></i>
+    <strong style="font-size:13px;white-space:nowrap">Raport miesięczny PDF</strong>
+    <select id="fr-pdf-month" class="fi" style="width:132px;margin:0">
+      <option value="1">Styczeń</option><option value="2">Luty</option>
+      <option value="3">Marzec</option><option value="4">Kwiecień</option>
+      <option value="5">Maj</option><option value="6">Czerwiec</option>
+      <option value="7">Lipiec</option><option value="8">Sierpień</option>
+      <option value="9">Wrzesień</option><option value="10">Październik</option>
+      <option value="11">Listopad</option><option value="12">Grudzień</option>
+    </select>
+    <select id="fr-pdf-year" class="fi" style="width:86px;margin:0">
+      <option>2026</option><option>2025</option><option>2024</option><option>2023</option>
+    </select>
+    <select id="fr-pdf-company" class="fi" style="width:140px;margin:0">
+      <option value="">Cała flota</option>
+      <option value="mToilet">mToilet</option>
+      <option value="GCON">GCON</option>
+      <option value="KJR Supply">KJR Supply</option>
+    </select>
+    <button class="btn" style="background:#dc2626;color:#fff;border-color:#dc2626" onclick="FleetReports.generateMonthlyPdf()">
+      <i class="ti ti-file-type-pdf"></i>Generuj PDF
+    </button>
+  </div>
 
   <div class="toolbar">
     <select id="rp-wl" onchange="renderRaporty()">

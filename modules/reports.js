@@ -1188,5 +1188,214 @@ tr:hover td{background:#f9fafb}
     toast('✓ Otworzono klienta poczty z raportem floty');
   }
 
-  return { renderPage, exportExcel, exportCsv, renderServicePlan, exportServicePlanExcel, exportServicePlanHtml, saveBudgetInputs, renderKobize, exportKobizeCsv, exportKobizeExcel, renderTco, exportTcoExcel, renderInsuranceReport, exportInsuranceExcel, exportExecutiveSummary, emailExecutiveSummary };
+  // ── Raport miesięczny PDF ─────────────────────────────────────────────────
+  function initPdfSelectors() {
+    const now  = new Date();
+    const prev = now.getMonth() === 0 ? 12 : now.getMonth(); // poprzedni miesiąc (1-12)
+    const yr   = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const mSel = document.getElementById('fr-pdf-month');
+    const ySel = document.getElementById('fr-pdf-year');
+    if (mSel && !mSel._initialized) { mSel.value = String(prev); mSel._initialized = true; }
+    if (ySel && !ySel._initialized) { ySel.value = String(yr);   ySel._initialized = true; }
+  }
+
+  function generateMonthlyPdf() {
+    if (typeof window.jspdf === 'undefined') { toast('⚠ Biblioteka jsPDF niedostępna'); return; }
+
+    const month   = +(document.getElementById('fr-pdf-month')?.value || (new Date().getMonth() || 12));
+    const year    = +(document.getElementById('fr-pdf-year')?.value  || new Date().getFullYear());
+    const company =   document.getElementById('fr-pdf-company')?.value || '';
+
+    const prefix  = `${year}-${String(month).padStart(2, '0')}`;
+    const MNAMES  = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec',
+                     'Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
+    const monthLabel = MNAMES[month - 1] + ' ' + year;
+
+    let vehicles = window.vehs || [];
+    if (company) vehicles = vehicles.filter(v => v.wlasciciel === company);
+
+    // Agregacja paliwa
+    const FACTORS = { ON:2.679, PB:2.302, PB95:2.302, PB98:2.302, LPG:1.626, CNG:1.963, HVO:0.481, EV:0 };
+    const fuelRows = vehicles.map(v => {
+      const entries = (v.fuelHistory || []).filter(h => (h.date || '').startsWith(prefix));
+      if (!entries.length) return null;
+      const liters = entries.reduce((s, h) => s + (h.liters || 0), 0);
+      const cost   = entries.reduce((s, h) => s + (h.totalGross || 0), 0);
+      const co2    = entries.reduce((s, h) => s + (h.co2kg != null ? +h.co2kg : (h.liters||0) * (FACTORS[h.product||'ON'] ?? 2.679)), 0);
+      const kms    = entries.map(h => h.km).filter(k => k > 0).sort((a, b) => a - b);
+      const dist   = kms.length >= 2 ? kms[kms.length - 1] - kms[0] : 0;
+      const avg    = dist > 10 ? liters / dist * 100 : 0;
+      return { v, liters, cost, co2, dist, avg };
+    }).filter(Boolean).sort((a, b) => b.liters - a.liters);
+
+    // Agregacja serwisu
+    const svcRows = vehicles.flatMap(v =>
+      (v.serviceHistory || [])
+        .filter(h => (h.date || '').startsWith(prefix))
+        .map(h => ({ v, ...h }))
+    ).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+    const totLiters = fuelRows.reduce((s, r) => s + r.liters, 0);
+    const totCost   = fuelRows.reduce((s, r) => s + r.cost, 0);
+    const totCo2    = fuelRows.reduce((s, r) => s + r.co2, 0);
+    const totSvc    = svcRows.reduce((s, h) => s + (h.cost || 0), 0);
+
+    const { jsPDF } = window.jspdf;
+    const doc  = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const W    = 210;
+    const BLUE  = [41, 98, 194];
+    const GREEN = [22, 120, 60];
+    const GRAY  = [100, 100, 100];
+    const LGRAY = [245, 245, 248];
+
+    // Banner nagłówkowy
+    doc.setFillColor(...BLUE);
+    doc.rect(0, 0, W, 42, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(20);
+    doc.text('Raport Miesięczny Floty', 14, 18);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'normal');
+    doc.text(monthLabel, 14, 29);
+    if (company) { doc.setFontSize(10); doc.text(company, 14, 38); }
+    doc.setFontSize(8);
+    doc.text(`Wygenerowano: ${new Date().toLocaleString('pl-PL')}`, W - 14, 38, { align: 'right' });
+
+    // KPI chips
+    const chips = [
+      { label: 'Pojazdy z tankowaniami', value: String(fuelRows.length) },
+      { label: 'Paliwo łącznie',         value: totLiters.toFixed(0) + ' l' },
+      { label: 'Koszt paliwa',           value: totCost.toFixed(0) + ' zł' },
+      { label: 'Koszt serwisu',          value: totSvc.toFixed(0) + ' zł' },
+      { label: 'Emisja CO₂',             value: totCo2.toFixed(0) + ' kg' },
+    ];
+    const cW = 36, cH = 18, cGap = 2;
+    let cx = (W - (chips.length * cW + (chips.length - 1) * cGap)) / 2;
+    chips.forEach(chip => {
+      doc.setFillColor(...LGRAY);
+      doc.roundedRect(cx, 48, cW, cH, 2, 2, 'F');
+      doc.setTextColor(...BLUE);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text(chip.value, cx + cW / 2, 57, { align: 'center' });
+      doc.setTextColor(...GRAY);
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(chip.label, cx + cW / 2, 62, { align: 'center' });
+      cx += cW + cGap;
+    });
+
+    // Tabela paliwa
+    doc.setTextColor(...BLUE);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Zestawienie tankowań', 14, 75);
+
+    if (fuelRows.length) {
+      doc.autoTable({
+        startY: 78,
+        head: [['Nr rej.', 'Marka / Model', 'Litry (l)', 'Śr. l/100km', 'Koszt (zł)', 'CO₂ (kg)']],
+        body: [
+          ...fuelRows.map(r => [
+            r.v.nrRej,
+            `${r.v.marka} ${r.v.model}`.substring(0, 28),
+            r.liters.toFixed(1),
+            r.avg > 0 ? r.avg.toFixed(1) : '—',
+            r.cost  > 0 ? r.cost.toFixed(2)  : '—',
+            r.co2.toFixed(1),
+          ]),
+          ['ŁĄCZNIE', '', totLiters.toFixed(1), '', totCost > 0 ? totCost.toFixed(2) : '—', totCo2.toFixed(1)],
+        ],
+        headStyles: { fillColor: BLUE, fontSize: 8, halign: 'center', textColor: [255,255,255] },
+        bodyStyles: { fontSize: 8 },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 22 },
+          1: { cellWidth: 54 },
+          2: { halign: 'right', cellWidth: 22 },
+          3: { halign: 'right', cellWidth: 28 },
+          4: { halign: 'right', cellWidth: 28 },
+          5: { halign: 'right', cellWidth: 24 },
+        },
+        didParseCell(data) {
+          if (data.row.index === fuelRows.length && data.section === 'body') {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fillColor = [220, 230, 255];
+          }
+        },
+        alternateRowStyles: { fillColor: [248, 250, 255] },
+        margin: { left: 14, right: 14 },
+      });
+    } else {
+      doc.setTextColor(...GRAY);
+      doc.setFontSize(9);
+      doc.text('Brak danych paliwowych w wybranym okresie.', 14, 85);
+    }
+
+    // Tabela serwisu
+    const svcY = (doc.lastAutoTable?.finalY || 90) + 12;
+    doc.setTextColor(...GREEN);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Zdarzenia serwisowe', 14, svcY);
+
+    if (svcRows.length) {
+      doc.autoTable({
+        startY: svcY + 3,
+        head: [['Data', 'Nr rej.', 'Marka / Model', 'Opis', 'Koszt (zł)']],
+        body: [
+          ...svcRows.map(h => [
+            h.date || '—',
+            h.v.nrRej,
+            `${h.v.marka} ${h.v.model}`.substring(0, 22),
+            (h.description || h.type || '—').substring(0, 42),
+            h.cost > 0 ? (+h.cost).toFixed(2) : '—',
+          ]),
+          ['ŁĄCZNIE', '', '', '', totSvc > 0 ? totSvc.toFixed(2) : '—'],
+        ],
+        headStyles: { fillColor: GREEN, fontSize: 8, textColor: [255,255,255] },
+        bodyStyles: { fontSize: 8 },
+        columnStyles: {
+          0: { cellWidth: 22 },
+          1: { fontStyle: 'bold', cellWidth: 22 },
+          2: { cellWidth: 42 },
+          3: { cellWidth: 76 },
+          4: { halign: 'right', cellWidth: 20 },
+        },
+        didParseCell(data) {
+          if (data.row.index === svcRows.length && data.section === 'body') {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fillColor = [220, 255, 220];
+          }
+        },
+        alternateRowStyles: { fillColor: [248, 255, 248] },
+        margin: { left: 14, right: 14 },
+      });
+    } else {
+      doc.setTextColor(...GRAY);
+      doc.setFontSize(9);
+      doc.text('Brak zdarzeń serwisowych w wybranym okresie.', 14, svcY + 8);
+    }
+
+    // Numeracja stron + stopka
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setDrawColor(200, 200, 200);
+      doc.line(14, 288, W - 14, 288);
+      doc.setTextColor(180, 180, 180);
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(
+        `TaxOrder Pro — Raport ${monthLabel}${company ? ' / ' + company : ''} | Strona ${i} z ${pageCount}`,
+        W / 2, 292, { align: 'center' }
+      );
+    }
+
+    const safe = (s) => s.replace(/[^a-zA-Z0-9_-]/g, '_');
+    doc.save(`raport_${year}_${String(month).padStart(2,'0')}${company ? '_' + safe(company) : ''}.pdf`);
+    toast(`✓ Pobrano raport PDF: ${monthLabel}`);
+  }
+
+  return { renderPage, exportExcel, exportCsv, renderServicePlan, exportServicePlanExcel, exportServicePlanHtml, saveBudgetInputs, renderKobize, exportKobizeCsv, exportKobizeExcel, renderTco, exportTcoExcel, renderInsuranceReport, exportInsuranceExcel, exportExecutiveSummary, emailExecutiveSummary, generateMonthlyPdf, initPdfSelectors };
 })();
