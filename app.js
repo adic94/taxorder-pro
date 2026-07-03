@@ -7,6 +7,7 @@ window.vehs = vehs;
 let selected = new Set();
 window.selected = selected;
 let sortKey = 'nrRej', sortAsc = true;
+var _vehPage = 0, _vehPageSize = 100, _lastFilteredLen = -1;
 
 // ── Konfiguracja API ──────────────────────────────────────────────────────────
 window.CF_WORKER_URL = 'https://taxorder-pro-api.adamus1000.workers.dev';
@@ -267,28 +268,74 @@ function _datePill(dateStr) {
   return `<span style="font-size:11px;color:var(--text2)">${label}</span>`;
 }
 
+function _renderVehPager(fullList) {
+  const el = document.getElementById('veh-pager');
+  if (!el) return;
+  const totalPages = Math.ceil(fullList.length / _vehPageSize);
+  if (totalPages <= 1) { el.innerHTML = ''; return; }
+  const start = _vehPage * _vehPageSize + 1;
+  const end   = Math.min((_vehPage + 1) * _vehPageSize, fullList.length);
+  const maxBtns = 7;
+  let pages = [];
+  if (totalPages <= maxBtns) {
+    pages = Array.from({length: totalPages}, (_, i) => i);
+  } else {
+    pages = [0];
+    const lo = Math.max(1, _vehPage - 2), hi = Math.min(totalPages - 2, _vehPage + 2);
+    if (lo > 1) pages.push(-1);
+    for (let i = lo; i <= hi; i++) pages.push(i);
+    if (hi < totalPages - 2) pages.push(-1);
+    pages.push(totalPages - 1);
+  }
+  el.style.cssText = 'display:flex;align-items:center;gap:6px;padding:10px 0;font-size:13px;flex-wrap:wrap';
+  el.innerHTML = `
+    <button class="btn btn-gray" style="padding:4px 10px" onclick="vehGoPage(${_vehPage-1})" ${_vehPage===0?'disabled':''}>‹</button>
+    <span style="color:var(--text2);min-width:110px;text-align:center">${start}–${end} z ${fullList.length}</span>
+    ${pages.map(i => i < 0
+      ? `<span style="color:var(--text3)">…</span>`
+      : `<button class="btn ${i===_vehPage?'btn-blue':'btn-gray'}" style="padding:4px 8px;min-width:32px" onclick="vehGoPage(${i})">${i+1}</button>`
+    ).join('')}
+    <button class="btn btn-gray" style="padding:4px 10px" onclick="vehGoPage(${_vehPage+1})" ${_vehPage===totalPages-1?'disabled':''}>›</button>
+  `;
+}
+
+function vehGoPage(page) {
+  const list = filterVeh();
+  const totalPages = Math.ceil(list.length / _vehPageSize);
+  _vehPage = Math.max(0, Math.min(page, totalPages - 1));
+  _lastFilteredLen = list.length;
+  renderVeh();
+}
+
 function renderVeh() {
   if (!_colVis) _initColVis();
   _renderFleetKpiStrip();
   _syncViewModeButtons();
   const list = filterVeh();
 
+  // Reset page when filter result set changes
+  if (list.length !== _lastFilteredLen) { _vehPage = 0; }
+  _lastFilteredLen = list.length;
+  const pageList = list.slice(_vehPage * _vehPageSize, (_vehPage + 1) * _vehPageSize);
+
   // Widok kart
   const tblWrap = document.getElementById('fleet-tbl-wrap');
   const cardsEl = document.getElementById('fleet-cards');
   if (_viewMode === 'cards') {
     if (tblWrap) tblWrap.style.display = 'none';
-    if (cardsEl) { cardsEl.style.display = 'grid'; _renderCards(list); }
+    if (cardsEl) { cardsEl.style.display = 'grid'; _renderCards(pageList); }
+    _renderVehPager(list);
     updateCounters();
     return;
   }
   if (tblWrap) tblWrap.style.display = '';
   if (cardsEl) cardsEl.style.display = 'none';
+  _renderVehPager(list);
 
   const tbody = document.getElementById('veh-tbody');
   if(!tbody) return;
   const isTrailer = v => (v.typ||'').toLowerCase().includes('przy')||(v.typ||'').toLowerCase().includes('nacz');
-  tbody.innerHTML = list.map(v => {
+  tbody.innerHTML = pageList.map(v => {
     const t = calcTax(v);
     const isSel = selected.has(v.id);
     const isNew = (parseInt(v.rok)||0)>=2024;

@@ -1847,6 +1847,226 @@ async function handleCepikKierowca(request, url) {
   }
 }
 
+// ─── GPS WEBHOOK ──────────────────────────────────────────────────────────────
+function _parseTekomCsv(text) {
+  const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const sep = [';', ',', '\t'].sort((a, b) =>
+    (lines[0].split(b).length - lines[0].split(a).length))[0];
+  const headers = lines[0].split(sep).map(h => h.trim().toLowerCase()
+    .replace(/\s+/g, '_').replace(/[ą]/g,'a').replace(/[ę]/g,'e').replace(/[ó]/g,'o')
+    .replace(/[ś]/g,'s').replace(/[ź]/g,'z').replace(/[ż]/g,'z').replace(/[ń]/g,'n')
+    .replace(/[ć]/g,'c').replace(/[ł]/g,'l').replace(/[ź]/g,'z'));
+  const ALIASES = {
+    vehicle:   ['rejestracja','nrrej','nr_rej','registration','vehicle','pojazd','tablica'],
+    odometer:  ['km','odometer','licznik','przebieg','mileage','stan_km','odometr'],
+    timestamp: ['data','date','datetime','data_czas','dzien'],
+    driver:    ['kierowca','driver','operator'],
+    speed:     ['predkosc','speed','v_max','v_avg','predkosc_max'],
+    lat:       ['lat','latitude','szerokosc'],
+    lon:       ['lon','lng','longitude','dlugosc'],
+    location:  ['lokalizacja','location','miejsce','adres','address'],
+  };
+  const fieldMap = {};
+  headers.forEach((h, i) => {
+    for (const [canonical, aliases] of Object.entries(ALIASES)) {
+      if (aliases.some(a => h.includes(a))) { fieldMap[i] = canonical; break; }
+    }
+  });
+  return lines.slice(1).map(line => {
+    const vals = line.split(sep).map(v => v.trim().replace(/^"|"$/g, ''));
+    const rec = {};
+    Object.entries(fieldMap).forEach(([i, f]) => { if (vals[i] !== undefined) rec[f] = vals[i]; });
+    return rec;
+  }).filter(r => r.vehicle);
+}
+
+async function handleGpsWebhook(req, env, user, url) {
+  const ct = req.headers.get('content-type') || '';
+  let records;
+  if (ct.includes('application/json')) {
+    const body = await req.json().catch(() => null);
+    if (!body) return err('Nieprawidłowy JSON');
+    records = Array.isArray(body) ? body : [body];
+  } else {
+    records = _parseTekomCsv(await req.text());
+  }
+  if (!records.length) return err('Brak danych GPS w payload');
+
+  const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
+  if (user._apiKey && user.company_id && user.company_id !== company)
+    return err('Brak dostępu do tej firmy', 403);
+
+  let updated = 0;
+  const skipped = [];
+
+  for (const rec of records) {
+    const nrRej = (rec.vehicle || rec.nr_rej || rec.rejestracja || rec.registration || '').toUpperCase();
+    if (!nrRej) { skipped.push({ reason: 'brak nr rej', rec }); continue; }
+
+    const row = await env.DB.prepare(
+      'SELECT * FROM vehicles WHERE company_id = ? AND nr_rej = ?'
+    ).bind(company, nrRej).first();
+    if (!row) { skipped.push({ reason: 'pojazd nie znaleziony', nrRej }); continue; }
+
+    let data = {};
+    try { data = typeof row.data === 'string' ? JSON.parse(row.data) : (row.data || {}); } catch {}
+
+    const km = rec.odometer ?? rec.km ?? rec.licznik ?? rec.mileage ?? rec.przebieg;
+    if (km != null && Number(km) > (data.stanKilometrow || 0)) data.stanKilometrow = Number(km);
+    if (rec.driver || rec.kierowca) data.kierowca = rec.driver || rec.kierowca;
+
+    const entry = {};
+    const ts = rec.timestamp || rec.datetime || rec.data || new Date().toISOString();
+    entry.ts = ts;
+    if (km != null) entry.km = Number(km);
+    if (rec.lat != null) entry.lat = Number(rec.lat);
+    if (rec.lon != null) entry.lon = Number(rec.lon);
+    if (rec.speed != null) entry.speed = Number(rec.speed);
+    if (rec.driver || rec.kierowca) entry.driver = rec.driver || rec.kierowca;
+    if (rec.location || rec.lokalizacja) entry.location = rec.location || rec.lokalizacja;
+
+    if (!data.gpsHistory) data.gpsHistory = [];
+    data.gpsHistory.push(entry);
+    if (data.gpsHistory.length > 500) data.gpsHistory = data.gpsHistory.slice(-500);
+
+    await env.DB.prepare(
+      "UPDATE vehicles SET data = ?, updated_at = datetime('now') WHERE company_id = ? AND nr_rej = ?"
+    ).bind(JSON.stringify(data), company, nrRej).run();
+    updated++;
+  }
+
+  return json({ ok: true, updated, skipped: skipped.length, errors: skipped.slice(0, 10) });
+}
+
+// ─── FUEL CARD WEBHOOK ────────────────────────────────────────────────────────
+function _parseFuelCsv(text) {
+  const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const sep = [';', ',', '\t'].sort((a, b) =>
+    (lines[0].split(b).length - lines[0].split(a).length))[0];
+  function norm(s) {
+    return String(s || '').toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]/g, ' ').trim();
+  }
+  const headers = lines[0].split(sep).map(h => h.trim().replace(/^"|"$/g, ''));
+  const ALIASES = {
+    date:       ['data','data transakcji','data tankowania','transaction date','date'],
+    time:       ['godzina','czas','time','godzina transakcji'],
+    nrRej:      ['nr rejestracyjny','nr rej','rejestracja','nr.rej.','plate','vehicle reg','registration'],
+    liters:     ['ilosc','litry','litrow','volume','quantity','vol l','fuel qty','ilosc l','ilosc (l)','ilosc paliwa','liters','litres'],
+    pricePerL:  ['cena','cena za litr','cena/l','unit price','price','cena jedn'],
+    totalGross: ['kwota brutto','kwota','total','total amount','amount','wartosc','wartosc brutto','suma','kwota transakcji'],
+    totalNet:   ['kwota netto','net','net amount','wartosc netto','suma netto'],
+    station:    ['stacja','stacja paliw','station','site name','site'],
+    product:    ['produkt','product','fuel type','rodzaj paliwa','paliwo','fuel','typ paliwa'],
+    km:         ['przebieg','licznik','km','odometer','mileage','stan km'],
+    cardNo:     ['nr karty','numer karty','card number','card no','karta paliwowa'],
+  };
+  const fieldMap = {};
+  headers.forEach((h, i) => {
+    const hn = norm(h);
+    for (const [canonical, aliases] of Object.entries(ALIASES)) {
+      if (fieldMap[i]) continue;
+      if (aliases.some(a => { const an = norm(a); return hn === an || hn.includes(an); }))
+        fieldMap[i] = canonical;
+    }
+  });
+  const PRODUCT_MAP = {
+    on:'diesel','on evo':'diesel',diesel:'diesel',dieselevo:'diesel',
+    pb95:'pb95',pb98:'pb98',benzyna:'pb95',
+    lpg:'lpg',lng:'lng',cng:'cng',
+    adblue:'mocznik',mocznik:'mocznik',
+  };
+  return lines.slice(1).map(line => {
+    const vals = line.split(sep).map(v => v.trim().replace(/^"|"$/g, ''));
+    const rec = {};
+    Object.entries(fieldMap).forEach(([i, f]) => { if (vals[i] !== undefined) rec[f] = vals[i]; });
+    if (!rec.nrRej) return null;
+    if (rec.liters)     rec.liters     = parseFloat(String(rec.liters).replace(',','.'))     || null;
+    if (rec.pricePerL)  rec.pricePerL  = parseFloat(String(rec.pricePerL).replace(',','.'))  || null;
+    if (rec.totalGross) rec.totalGross = parseFloat(String(rec.totalGross).replace(',','.')) || null;
+    if (rec.totalNet)   rec.totalNet   = parseFloat(String(rec.totalNet).replace(',','.'))   || null;
+    if (rec.km)         rec.km         = parseFloat(String(rec.km).replace(',','.'))         || null;
+    if (rec.product) {
+      const pn = norm(rec.product);
+      rec.product = PRODUCT_MAP[pn] || Object.entries(PRODUCT_MAP).find(([k]) => pn.includes(k))?.[1] || 'inne';
+    }
+    return rec;
+  }).filter(Boolean);
+}
+
+async function handleFuelWebhook(req, env, user, url) {
+  const ct = req.headers.get('content-type') || '';
+  let records;
+  if (ct.includes('application/json')) {
+    const body = await req.json().catch(() => null);
+    if (!body) return err('Nieprawidłowy JSON');
+    records = Array.isArray(body) ? body : [body];
+  } else {
+    records = _parseFuelCsv(await req.text());
+  }
+  if (!records.length) return err('Brak wierszy tankowań w payload');
+
+  const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
+  if (user._apiKey && user.company_id && user.company_id !== company)
+    return err('Brak dostępu do tej firmy', 403);
+
+  const KOBIZE = { diesel:2.679, pb95:2.302, pb98:2.302, lpg:1.626, cng:2.154, lng:2.750 };
+  let updated = 0;
+  const skipped = [];
+
+  for (const rec of records) {
+    const nrRej = (rec.nrRej || '').toUpperCase().replace(/\s/g, '');
+    if (!nrRej) { skipped.push({ reason: 'brak nr rej', rec }); continue; }
+
+    const row = await env.DB.prepare(
+      'SELECT * FROM vehicles WHERE company_id = ? AND nr_rej = ?'
+    ).bind(company, nrRej).first();
+    if (!row) { skipped.push({ reason: 'pojazd nie znaleziony', nrRej }); continue; }
+
+    let data = {};
+    try { data = typeof row.data === 'string' ? JSON.parse(row.data) : (row.data || {}); } catch {}
+
+    const entry = {
+      id: crypto.randomUUID(),
+      date: rec.date || new Date().toISOString().slice(0, 10),
+      time: rec.time || '',
+      liters: rec.liters ?? null,
+      pricePerL: rec.pricePerL ?? null,
+      totalGross: rec.totalGross ?? null,
+      totalNet: rec.totalNet ?? null,
+      station: rec.station || '',
+      product: rec.product || 'diesel',
+      km: rec.km ?? null,
+      cardNo: rec.cardNo || '',
+      source: 'webhook',
+    };
+    if (entry.liters) entry.co2kg = +(entry.liters * (KOBIZE[entry.product] || 0)).toFixed(3);
+
+    if (!data.fuelHistory) data.fuelHistory = [];
+    // Deduplicate by date+station+liters (avoid double-push from repeated webhooks)
+    const isDup = data.fuelHistory.some(f =>
+      f.date === entry.date && Math.abs((f.liters||0) - (entry.liters||0)) < 0.01 &&
+      f.station === entry.station);
+    if (!isDup) {
+      data.fuelHistory.push(entry);
+      if (data.fuelHistory.length > 1000) data.fuelHistory = data.fuelHistory.slice(-1000);
+    }
+
+    if (rec.km != null && Number(rec.km) > (data.stanKilometrow || 0))
+      data.stanKilometrow = Number(rec.km);
+
+    await env.DB.prepare(
+      "UPDATE vehicles SET data = ?, updated_at = datetime('now') WHERE company_id = ? AND nr_rej = ?"
+    ).bind(JSON.stringify(data), company, nrRej).run();
+    updated++;
+  }
+
+  return json({ ok: true, updated, skipped: skipped.length, errors: skipped.slice(0, 10) });
+}
+
 // ─── MAIN FETCH ───────────────────────────────────────────────────────────────
 async function handleRequest(request, env, url, path) {
   // Public endpoints (no auth required)
@@ -1896,6 +2116,30 @@ async function handleRequest(request, env, url, path) {
     return handleImport(request, env, company);
   }
   if (path.startsWith('/api/api-keys')) { if (!user) return err('Nieautoryzowany', 401); return handleApiKeys(request, env, user, url, path); }
+
+  if (path === '/api/webhook/gps' || path === '/api/webhook/tekom') {
+    if (request.method !== 'POST') return err('Tylko POST', 405);
+    let webhookUser = user;
+    if (!webhookUser) {
+      const keyParam = url.searchParams.get('key');
+      if (keyParam && keyParam.startsWith('tord_')) webhookUser = await getApiKeyUser(keyParam, env);
+    }
+    if (!webhookUser) return err('Nieautoryzowany', 401);
+    if (webhookUser._apiKey && webhookUser.api_key_scope !== 'read_write') return err('Klucz API tylko do odczytu', 403);
+    return handleGpsWebhook(request, env, webhookUser, url);
+  }
+
+  if (path === '/api/webhook/fuel') {
+    if (request.method !== 'POST') return err('Tylko POST', 405);
+    let webhookUser = user;
+    if (!webhookUser) {
+      const keyParam = url.searchParams.get('key');
+      if (keyParam && keyParam.startsWith('tord_')) webhookUser = await getApiKeyUser(keyParam, env);
+    }
+    if (!webhookUser) return err('Nieautoryzowany', 401);
+    if (webhookUser._apiKey && webhookUser.api_key_scope !== 'read_write') return err('Klucz API tylko do odczytu', 403);
+    return handleFuelWebhook(request, env, webhookUser, url);
+  }
 
   if (path === '/api/auth/me') {
     if (!user) return err('Nieautoryzowany', 401);
