@@ -2915,5 +2915,18 @@ window.addEventListener('DOMContentLoaded', () => {
     <div id="vd-modal-body" style="padding:20px;flex:1"></div>
   </div>
 </div>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      .then(reg => {
+        console.log('[SW] Zarejestrowany:', reg.scope);
+        window._swRegistration = reg;
+        window.TaxOrderNotifications?._startAutoCheck?.();
+      })
+      .catch(e => console.warn('[SW] Błąd rejestracji:', e.message));
+  });
+}
+</script>
 </body>
 </html>

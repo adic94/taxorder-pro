@@ -25,7 +25,7 @@ crons = ["0 3 * * *"]
 
 [vars]
 ENVIRONMENT = "production"
-VAPID_PUBLIC_KEY = "BBH5nuzWfPg7U04Fw6ZvH9_LN3Vj5H7U4ViNcu9H0N2Skvl0xStXJ4rpcCF1WwrRZokOFGzeFLGIAcK5c2g8B5A"
+VAPID_PUBLIC_KEY = "BLb0fmlA2iRulkwWHEIwQKYEnIWCvsRjQR55MHuxoKSNV7tczQ7Tr0cb-5Zo6N6C34UqIz10Or-ZV2eDQwd-EPE"
 OCR_PYTHON_URL = "https://taxorder-pro-production.up.railway.app"
 # OCR_PYTHON_SECRET — ustaw jako Cloudflare Secret (szyfrowany):
 # npx wrangler secret put OCR_PYTHON_SECRET
