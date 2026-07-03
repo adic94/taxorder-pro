@@ -1,0 +1,16 @@
+{
+  "name": "taxorder-qa-tester",
+  "version": "1.0.0",
+  "description": "TaxOrder Pro — zestaw narzędzi QA: testy ręczne, automatyczny robot Playwright, raporty",
+  "private": true,
+  "scripts": {
+    "test": "node playwright-runner.js",
+    "test:headed": "node playwright-runner.js --headed",
+    "test:prod": "node playwright-runner.js --url https://taxorder-pro.pages.dev",
+    "test:local": "node playwright-runner.js --url http://localhost:8788",
+    "install-browsers": "npx playwright install chromium"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}

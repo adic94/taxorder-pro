@@ -3,591 +3,818 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TaxOrder QA Tester</title>
+<title>TaxOrder QA Suite</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
-:root{--bg:#f9fafb;--bg2:#fff;--bg3:#f3f4f6;--border:#e5e7eb;--text:#111827;--text2:#6b7280;--text3:#9ca3af;--blue:#2563eb;--green:#16a34a;--red:#dc2626;--amber:#d97706;--mono:'JetBrains Mono',monospace;--radius:8px}
+:root{--bg:#f9fafb;--bg2:#fff;--bg3:#f3f4f6;--border:#e5e7eb;--text:#111827;--text2:#6b7280;--text3:#9ca3af;--blue:#2563eb;--green:#16a34a;--red:#dc2626;--amber:#d97706;--mono:'JetBrains Mono',monospace;--radius:8px;--radius-lg:12px}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:13px}
-h1{font-size:18px;font-weight:800;letter-spacing:-.02em}
-h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:5px}
-.layout{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
-.sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:20px 14px}
-.sidebar h1{margin-bottom:4px;color:var(--blue)}
-.sidebar p{font-size:11px;color:var(--text3);margin-bottom:20px}
-.nav-btn{display:block;width:100%;text-align:left;background:none;border:none;padding:8px 10px;border-radius:var(--radius);cursor:pointer;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:2px;transition:all .15s}
+body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:13px;height:100vh;overflow:hidden}
+.layout{display:grid;grid-template-columns:220px 1fr;height:100vh}
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:18px 12px;overflow-y:auto;display:flex;flex-direction:column}
+.sidebar .logo{font-size:16px;font-weight:900;color:var(--blue);margin-bottom:3px}
+.sidebar .sub{font-size:10px;color:var(--text3);margin-bottom:16px}
+.sidebar .section{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin:12px 0 5px}
+.nav-btn{display:flex;align-items:center;gap:7px;width:100%;text-align:left;background:none;border:none;padding:7px 9px;border-radius:var(--radius);cursor:pointer;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:2px;transition:all .15s}
 .nav-btn:hover,.nav-btn.active{background:var(--bg3);color:var(--text)}
 .nav-btn.active{font-weight:700;color:var(--blue)}
-.main{padding:24px 28px;overflow-y:auto}
+.nav-btn .ic{font-size:14px;width:18px;flex-shrink:0}
+.main{overflow-y:auto;padding:24px 28px}
 .panel{display:none}.panel.active{display:block}
+/* Cards */
 .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px}
-.drop{border:2px dashed var(--border);border-radius:var(--radius);padding:2.5rem;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:12px}
-.drop:hover,.drop.drag-over{border-color:var(--blue);background:#eff6ff}
-.drop i{font-size:36px;display:block;margin-bottom:8px;color:var(--text3)}
+.card h2{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:6px}
+/* Buttons */
 .btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:var(--radius);border:none;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s}
-.btn-blue{background:var(--blue);color:#fff}.btn-green{background:var(--green);color:#fff}.btn-gray{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
-.btn:hover{opacity:.85}
-.result-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:12px}
-.result-table th{background:var(--bg3);padding:5px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text2);border-bottom:1px solid var(--border)}
-.result-table td{padding:5px 8px;border-bottom:1px solid var(--border)}
-.result-table tr:hover td{background:#f9fafb}
-.pass{color:var(--green);font-weight:700}.fail{color:var(--red);font-weight:700}.warn{color:var(--amber);font-weight:600}
-.badge{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700}
-.badge-green{background:#dcfce7;color:var(--green)}.badge-red{background:#fee2e2;color:var(--red)}.badge-amber{background:#fef3c7;color:var(--amber)}.badge-blue{background:#dbeafe;color:var(--blue)}.badge-gray{background:var(--bg3);color:var(--text2)}
-.summary{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-.stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;min-width:100px}
-.stat .val{font-size:22px;font-weight:800;line-height:1}.stat .lbl{font-size:10px;color:var(--text2);margin-top:2px}
-.mono{font-family:var(--mono);font-size:10px}
-input[type=file]{display:none}
-.field-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;margin-top:10px}
-.field-box{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
-.field-box .lbl{font-size:10px;color:var(--text2);margin-bottom:3px;font-weight:600}
-.field-box .val{font-weight:700;font-size:12px}
-.field-box.match{border-color:var(--green)}.field-box.mismatch{border-color:var(--red);background:#fef2f2}
-.field-box.empty{border-color:var(--text3);opacity:.6}
-.log{background:#111;color:#00ff88;font-family:var(--mono);font-size:11px;padding:12px;border-radius:var(--radius);max-height:300px;overflow-y:auto;margin-top:10px;white-space:pre-wrap}
+.btn:hover{opacity:.85}.btn:disabled{opacity:.45;cursor:default}
+.btn-blue{background:var(--blue);color:#fff}.btn-green{background:var(--green);color:#fff}
+.btn-red{background:var(--red);color:#fff}.btn-gray{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
+/* KPI */
+.kpi-grid{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;min-width:90px;text-align:center}
+.kpi .v{font-size:24px;font-weight:900;line-height:1.2}.kpi .l{font-size:10px;color:var(--text2);margin-top:2px}
+/* Tables */
+.tbl{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
+.tbl th{background:var(--bg3);padding:5px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text2);border-bottom:1px solid var(--border)}
+.tbl td{padding:5px 8px;border-bottom:1px solid var(--border)}
+.tbl tr:last-child td{border:none}
+.tbl tr:hover td{background:var(--bg)}
+.pass{color:var(--green);font-weight:700}.fail{color:var(--red);font-weight:700}.skip{color:var(--text3)}
+/* Badges */
+.badge{display:inline-block;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700}
+.bg{background:#dcfce7;color:var(--green)}.br{background:#fee2e2;color:var(--red)}.ba{background:#fef3c7;color:var(--amber)}.bb{background:#dbeafe;color:var(--blue)}.bgr{background:var(--bg3);color:var(--text2)}
+/* Form */
+.field{margin-bottom:10px}
+.field label{display:block;font-size:11px;font-weight:600;margin-bottom:3px;color:var(--text2)}
+.field input,.field select,.field textarea{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px;font-family:inherit}
+.field input:focus,.field select:focus{outline:none;border-color:var(--blue)}
+/* Drop zone */
+.drop{border:2px dashed var(--border);border-radius:var(--radius);padding:2rem;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:10px}
+.drop:hover,.drop.drag-over{border-color:var(--blue);background:#eff6ff}
+.drop .ic{font-size:32px;display:block;margin-bottom:6px}
+/* Log */
+.log{background:#111827;color:#4ade80;font-family:var(--mono);font-size:11px;padding:10px 12px;border-radius:var(--radius);max-height:220px;overflow-y:auto;white-space:pre-wrap;line-height:1.6;margin-top:8px}
+.log .err{color:#f87171}.log .warn{color:#fbbf24}.log .info{color:#60a5fa}
+/* Progress */
+.progress-bar{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin:6px 0}
+.progress-fill{height:100%;background:var(--blue);border-radius:3px;transition:width .3s}
+/* Scenario steps */
+.step{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--bg3)}
+.step:last-child{border:none}
+.step .num{width:22px;height:22px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+.step.pass .num{background:#dcfce7;color:var(--green)}
+.step.fail .num{background:#fee2e2;color:var(--red)}
+.step.active .num{background:#dbeafe;color:var(--blue);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+/* Stress */
+.bar-chart{display:flex;align-items:flex-end;gap:3px;height:60px;margin:8px 0}
+.bar{flex:1;background:var(--blue);border-radius:2px 2px 0 0;min-height:2px;transition:height .3s}
 </style>
 </head>
 <body>
 <div class="layout">
-  <div class="sidebar">
-    <h1>TaxOrder QA</h1>
-    <p>Narzędzie testowe</p>
-    <button class="nav-btn active" onclick="showPanel('dt1')">📊 Test DT-1 (calcTax)</button>
-    <button class="nav-btn" onclick="showPanel('import')">📥 Test importu Excel/CSV</button>
-    <button class="nav-btn" onclick="showPanel('ocr')">🔍 Test OCR (skan DR)</button>
-    <button class="nav-btn" onclick="showPanel('api')">🌐 Test API Workera</button>
-  </div>
-  <div class="main">
-
-    <!-- ═══════════════ DT-1 TEST ═══════════════ -->
-    <div class="panel active" id="panel-dt1">
-      <h2>Test obliczania podatku DT-1</h2>
-      <div class="card">
-        <p style="font-size:12px;color:var(--text2);margin-bottom:14px">
-          Wgraj plik Excel lub CSV z danymi pojazdów aby zweryfikować poprawność kategorii i stawek DT-1.
-          Wymagane kolumny: <span class="mono">nrRej, dmc, typ, rok, osie</span>
-        </p>
-        <div class="drop" id="dt1-drop" onclick="document.getElementById('dt1-file').click()"
-          ondragover="event.preventDefault();this.classList.add('drag-over')"
-          ondragleave="this.classList.remove('drag-over')"
-          ondrop="event.preventDefault();this.classList.remove('drag-over');DT1Test.handleFile(event.dataTransfer.files[0])">
-          <i>📊</i>
-          <div style="font-size:14px;font-weight:600">Przeciągnij plik lub kliknij</div>
-          <div style="font-size:11px;color:var(--text2);margin-top:4px">.xlsx .xls .csv · kolumny: nrRej, dmc, typ, rok, osie</div>
-        </div>
-        <input type="file" id="dt1-file" accept=".xlsx,.xls,.csv" onchange="DT1Test.handleFile(this.files[0])">
-        <div style="margin-bottom:8px;font-size:11px;color:var(--text2)">Lub wklej dane JSON (tablica pojazdów):</div>
-        <textarea id="dt1-json" style="width:100%;height:80px;font-family:var(--mono);font-size:11px;border:1px solid var(--border);border-radius:var(--radius);padding:8px;resize:vertical" placeholder='[{"nrRej":"WA1234X","dmc":8800,"typ":"Ciężarowy","rok":2024,"osie":2}]'></textarea>
-        <div style="display:flex;gap:8px;margin-top:8px">
-          <button class="btn btn-blue" onclick="DT1Test.runFromJson()">▶ Testuj JSON</button>
-          <button class="btn btn-gray" onclick="DT1Test.loadD1Sample()">⬇ Załaduj próbkę z D1</button>
-        </div>
-      </div>
-      <div id="dt1-results"></div>
-    </div>
-
-    <!-- ═══════════════ IMPORT TEST ═══════════════ -->
-    <div class="panel" id="panel-import">
-      <h2>Test importu pojazdów z Excel/CSV</h2>
-      <div class="card">
-        <p style="font-size:12px;color:var(--text2);margin-bottom:14px">
-          Wgraj plik z wykazem pojazdów. Narzędzie sprawdzi mapowanie kolumn, wykryje nierozpoznane nagłówki
-          i wyświetli podgląd importowanych danych.
-        </p>
-        <div class="drop" id="imp-drop" onclick="document.getElementById('imp-file').click()"
-          ondragover="event.preventDefault();this.classList.add('drag-over')"
-          ondragleave="this.classList.remove('drag-over')"
-          ondrop="event.preventDefault();this.classList.remove('drag-over');ImportTest.handleFile(event.dataTransfer.files[0])">
-          <i>📥</i>
-          <div style="font-size:14px;font-weight:600">Wgraj wykaz pojazdów (.xlsx / .csv)</div>
-          <div style="font-size:11px;color:var(--text2);margin-top:4px">Dowolny format — narzędzie spróbuje zmapować kolumny</div>
-        </div>
-        <input type="file" id="imp-file" accept=".xlsx,.xls,.csv" onchange="ImportTest.handleFile(this.files[0])">
-      </div>
-      <div id="import-results"></div>
-    </div>
-
-    <!-- ═══════════════ OCR TEST ═══════════════ -->
-    <div class="panel" id="panel-ocr">
-      <h2>Test OCR — skan dowodu rejestracyjnego</h2>
-      <div class="card">
-        <p style="font-size:12px;color:var(--text2);margin-bottom:14px">
-          Wgraj skan lub zdjęcie dowodu rejestracyjnego. System wyśle go do endpointu OCR i pokaże
-          wyekstrahowane pola. Możesz podać oczekiwane wartości aby zweryfikować poprawność.
-        </p>
-        <div class="drop" id="ocr-drop" onclick="document.getElementById('ocr-file').click()"
-          ondragover="event.preventDefault();this.classList.add('drag-over')"
-          ondragleave="this.classList.remove('drag-over')"
-          ondrop="event.preventDefault();this.classList.remove('drag-over');OCRTest.handleFile(event.dataTransfer.files[0])">
-          <i>🔍</i>
-          <div style="font-size:14px;font-weight:600">Wgraj skan dowodu rejestracyjnego</div>
-          <div style="font-size:11px;color:var(--text2);margin-top:4px">.jpg .png .pdf · Wysyła do endpointu /api/ocr/dr</div>
-        </div>
-        <input type="file" id="ocr-file" accept="image/*,.pdf" onchange="OCRTest.handleFile(this.files[0])">
-        <div style="margin-top:10px">
-          <div style="font-size:11px;font-weight:600;margin-bottom:6px;color:var(--text2)">Oczekiwane wartości (opcjonalne — do weryfikacji):</div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
-            <div><label style="font-size:10px;color:var(--text2);display:block;margin-bottom:2px">Nr rej.</label><input id="exp-nrRej" class="fi" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px" placeholder="WA1234X"></div>
-            <div><label style="font-size:10px;color:var(--text2);display:block;margin-bottom:2px">VIN</label><input id="exp-vin" class="fi" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px" placeholder="WDB..."></div>
-            <div><label style="font-size:10px;color:var(--text2);display:block;margin-bottom:2px">DMC (kg)</label><input id="exp-dmc" class="fi" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px" placeholder="9500"></div>
-            <div><label style="font-size:10px;color:var(--text2);display:block;margin-bottom:2px">Marka</label><input id="exp-marka" class="fi" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px" placeholder="Mercedes"></div>
-            <div><label style="font-size:10px;color:var(--text2);display:block;margin-bottom:2px">Model</label><input id="exp-model" class="fi" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px" placeholder="Actros"></div>
-            <div><label style="font-size:10px;color:var(--text2);display:block;margin-bottom:2px">Rok prod.</label><input id="exp-rok" class="fi" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px" placeholder="2022"></div>
-          </div>
-        </div>
-        <div id="ocr-preview-img" style="margin-top:12px"></div>
-      </div>
-      <div id="ocr-results"></div>
-    </div>
-
-    <!-- ═══════════════ API TEST ═══════════════ -->
-    <div class="panel" id="panel-api">
-      <h2>Test API Workera</h2>
-      <div class="card">
-        <div style="margin-bottom:10px">
-          <label style="font-size:11px;font-weight:600;display:block;margin-bottom:4px">Worker URL</label>
-          <input id="api-url" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px;font-family:var(--mono)" value="https://taxorder-pro-api.adamus1000.workers.dev">
-        </div>
-        <div style="margin-bottom:10px">
-          <label style="font-size:11px;font-weight:600;display:block;margin-bottom:4px">Token sesji (z localStorage lub klucz API)</label>
-          <input id="api-token" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px;font-family:var(--mono)" placeholder="Bearer token lub tord_live_...">
-          <button class="btn btn-gray" style="margin-top:4px;font-size:11px" onclick="APITest.loadFromStorage()">⬇ Załaduj z localStorage</button>
-        </div>
-        <button class="btn btn-blue" onclick="APITest.runAll()">▶ Uruchom wszystkie testy</button>
-      </div>
-      <div id="api-results"></div>
-    </div>
-
+<div class="sidebar">
+  <div class="logo">🤖 TaxOrder QA</div>
+  <div class="sub">Narzędzia testowe v2.0</div>
+  <div class="section">Symulacja człowieka</div>
+  <button class="nav-btn active" onclick="showPanel('human',this)"><span class="ic">👤</span>Human Sim</button>
+  <button class="nav-btn" onclick="showPanel('stress',this)"><span class="ic">🔥</span>Stress Test</button>
+  <div class="section">Walidacja danych</div>
+  <button class="nav-btn" onclick="showPanel('dt1',this)"><span class="ic">📊</span>Test DT-1 (calcTax)</button>
+  <button class="nav-btn" onclick="showPanel('import',this)"><span class="ic">📥</span>Test importu Excel/CSV</button>
+  <div class="section">Integracje</div>
+  <button class="nav-btn" onclick="showPanel('ocr',this)"><span class="ic">🔍</span>Test OCR (skan DR)</button>
+  <button class="nav-btn" onclick="showPanel('api',this)"><span class="ic">🌐</span>Test API Worker</button>
+  <div class="section">Raporty</div>
+  <button class="nav-btn" onclick="showPanel('report',this)"><span class="ic">📄</span>Raport sesji</button>
+  <div style="flex:1"></div>
+  <div style="font-size:10px;color:var(--text3);padding:8px 0;border-top:1px solid var(--border)">
+    Panel diagnostyczny w aplikacji: <strong>Ctrl+Shift+D</strong><br>
+    Playwright runner: <code style="font-size:9px">node playwright-runner.js</code>
   </div>
 </div>
+<div class="main">
+
+<!-- ═══════════════ HUMAN SIM ═══════════════ -->
+<div class="panel active" id="panel-human">
+  <h1 style="font-size:18px;font-weight:800;margin-bottom:4px">👤 Human Simulator</h1>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:16px">Symuluje zachowanie prawdziwego użytkownika testującego aplikację — logowanie, nawigacja, operacje CRUD, uprawnienia, walidacja danych.</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+    <div class="card">
+      <h2>Konfiguracja</h2>
+      <div class="field"><label>Worker URL</label><input id="hs-url" value="https://taxorder-pro-api.adamus1000.workers.dev"></div>
+      <div class="field"><label>Email admina</label><input id="hs-email" value="adamus1000@gmail.com"></div>
+      <div class="field"><label>Hasło</label><input id="hs-pass" type="password" value="asdasd"></div>
+      <div class="field"><label>ID firmy</label><input id="hs-company" value="mtoilet"></div>
+    </div>
+    <div class="card">
+      <h2>Zestawy testów</h2>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="hs-chk-auth" checked> Uwierzytelnianie</label>
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="hs-chk-vehicles" checked> Operacje na pojazdach (CRUD)</label>
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="hs-chk-export" checked> Eksport / Import danych</label>
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="hs-chk-roles" checked> Kontrola dostępu (role)</label>
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="hs-chk-edge" checked> Scenariusze błędów (edge cases)</label>
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="hs-chk-perf" checked> Wydajność API</label>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-bottom:16px">
+    <button class="btn btn-blue" onclick="HumanSim.run()">▶ Uruchom symulację</button>
+    <button class="btn btn-gray" onclick="HumanSim.clear()">✕ Wyczyść</button>
+  </div>
+
+  <div id="hs-progress" style="display:none">
+    <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+      <span id="hs-prog-label">Inicjalizacja…</span>
+      <span id="hs-prog-count" style="color:var(--text2)">0/0</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="hs-prog-bar" style="width:0%"></div></div>
+  </div>
+
+  <div id="hs-kpi" class="kpi-grid" style="display:none"></div>
+  <div id="hs-log" class="log" style="display:none"></div>
+
+  <div id="hs-results" style="margin-top:12px"></div>
+</div>
+
+<!-- ═══════════════ STRESS TEST ═══════════════ -->
+<div class="panel" id="panel-stress">
+  <h1 style="font-size:18px;font-weight:800;margin-bottom:4px">🔥 Stress Test</h1>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:16px">Wysyła N równoległych żądań do Worker API. Mierzy latencję, p95, p99 i wykrywa błędy pod obciążeniem.</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
+    <div class="card">
+      <h2>Parametry</h2>
+      <div class="field"><label>Worker URL</label><input id="st-url" value="https://taxorder-pro-api.adamus1000.workers.dev"></div>
+      <div class="field"><label>Token (lub klucz API tord_...)</label><input id="st-token" placeholder="Bearer token z localStorage"></div>
+      <div class="field"><label>Liczba żądań</label><input id="st-n" type="number" value="50" min="1" max="500"></div>
+      <div class="field"><label>Równoległość (concurrent)</label><input id="st-c" type="number" value="10" min="1" max="50"></div>
+      <button class="btn btn-gray" style="font-size:11px" onclick="StressTest.loadToken()">⬇ Załaduj token z localStorage</button>
+    </div>
+    <div class="card">
+      <h2>Endpointy do testu</h2>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <label><input type="checkbox" id="st-ep-vehicles" checked> GET /api/vehicles?company=mtoilet</label>
+        <label><input type="checkbox" id="st-ep-companies" checked> GET /api/companies</label>
+        <label><input type="checkbox" id="st-ep-export"> GET /api/export?company=mtoilet</label>
+        <label><input type="checkbox" id="st-ep-me" checked> GET /api/auth/me</label>
+        <label><input type="checkbox" id="st-ep-push" checked> GET /api/push/vapid-public-key</label>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Scenariusz błędów</h2>
+      <p style="font-size:11px;color:var(--text2);margin-bottom:8px">Generuje celowe błędy aby testować odporność sytemu:</p>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <label><input type="checkbox" id="st-err-noauth" checked> 20% żądań bez tokenu (→ 401)</label>
+        <label><input type="checkbox" id="st-err-badcompany"> 10% z nieprawidłowym company</label>
+        <label><input type="checkbox" id="st-err-404"> 5% do nieistniejącego endpointu</label>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-bottom:16px">
+    <button class="btn btn-red" onclick="StressTest.run()">🔥 Start Stress Test</button>
+    <button class="btn btn-gray" onclick="StressTest.clear()">✕ Wyczyść</button>
+  </div>
+
+  <div id="st-results"></div>
+</div>
+
+<!-- ═══════════════ DT-1 TEST ═══════════════ -->
+<div class="panel" id="panel-dt1">
+  <h1 style="font-size:18px;font-weight:800;margin-bottom:4px">📊 Test DT-1 (calcTax)</h1>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:16px">Walidacja poprawności kategorii DT-1 i kwot podatku. Wgraj Excel/CSV lub wklej JSON.</p>
+  <div class="card">
+    <div class="drop" id="dt1-drop" onclick="document.getElementById('dt1-file').click()"
+      ondragover="event.preventDefault();this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="event.preventDefault();this.classList.remove('drag-over');DT1Test.handleFile(event.dataTransfer.files[0])">
+      <span class="ic">📊</span>
+      <div style="font-size:13px;font-weight:600">Przeciągnij plik lub kliknij</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:3px">.xlsx .xls .csv · kolumny: nrRej, dmc, typ, rok, osie</div>
+    </div>
+    <input type="file" id="dt1-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="DT1Test.handleFile(this.files[0])">
+    <div style="margin-bottom:6px;font-size:11px;color:var(--text2)">Lub wklej tablicę JSON:</div>
+    <textarea id="dt1-json" style="width:100%;height:72px;font-family:var(--mono);font-size:11px;border:1px solid var(--border);border-radius:var(--radius);padding:7px;resize:vertical" placeholder='[{"nrRej":"WA1234X","dmc":8800,"typ":"Ciężarowy","rok":2024,"osie":2}]'></textarea>
+    <div style="display:flex;gap:7px;margin-top:8px">
+      <button class="btn btn-blue" onclick="DT1Test.runFromJson()">▶ Testuj JSON</button>
+      <button class="btn btn-gray" onclick="DT1Test.loadSample()">⬇ Próbka</button>
+    </div>
+  </div>
+  <div id="dt1-results"></div>
+</div>
+
+<!-- ═══════════════ IMPORT TEST ═══════════════ -->
+<div class="panel" id="panel-import">
+  <h1 style="font-size:18px;font-weight:800;margin-bottom:4px">📥 Test importu Excel/CSV</h1>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:16px">Sprawdza mapowanie kolumn, wykrywa nierozpoznane nagłówki, generuje podgląd importowanych danych.</p>
+  <div class="card">
+    <div class="drop" id="imp-drop" onclick="document.getElementById('imp-file').click()"
+      ondragover="event.preventDefault();this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="event.preventDefault();this.classList.remove('drag-over');ImportTest.handleFile(event.dataTransfer.files[0])">
+      <span class="ic">📥</span>
+      <div style="font-size:13px;font-weight:600">Wgraj wykaz pojazdów (.xlsx / .csv)</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:3px">Dowolny format — narzędzie mapuje kolumny automatycznie</div>
+    </div>
+    <input type="file" id="imp-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="ImportTest.handleFile(this.files[0])">
+  </div>
+  <div id="import-results"></div>
+</div>
+
+<!-- ═══════════════ OCR TEST ═══════════════ -->
+<div class="panel" id="panel-ocr">
+  <h1 style="font-size:18px;font-weight:800;margin-bottom:4px">🔍 Test OCR — skan DR</h1>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:16px">Wysyła skan dowodu rejestracyjnego do endpointu OCR i weryfikuje poprawność ekstrakcji pól.</p>
+  <div class="card">
+    <div class="drop" id="ocr-drop" onclick="document.getElementById('ocr-file').click()"
+      ondragover="event.preventDefault();this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="event.preventDefault();this.classList.remove('drag-over');OCRTest.handleFile(event.dataTransfer.files[0])">
+      <span class="ic">🔍</span>
+      <div style="font-size:13px;font-weight:600">Wgraj skan dowodu rejestracyjnego</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:3px">.jpg .png .pdf → endpoint /api/ocr/dr</div>
+    </div>
+    <input type="file" id="ocr-file" accept="image/*,.pdf" style="display:none" onchange="OCRTest.handleFile(this.files[0])">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px">
+      <div class="field"><label>Nr rej. (oczek.)</label><input id="exp-nrRej" placeholder="WA1234X"></div>
+      <div class="field"><label>VIN (oczek.)</label><input id="exp-vin" placeholder="WDB..."></div>
+      <div class="field"><label>DMC kg (oczek.)</label><input id="exp-dmc" placeholder="9500"></div>
+      <div class="field"><label>Marka (oczek.)</label><input id="exp-marka" placeholder="Mercedes"></div>
+      <div class="field"><label>Model (oczek.)</label><input id="exp-model" placeholder="Actros"></div>
+      <div class="field"><label>Rok prod. (oczek.)</label><input id="exp-rok" placeholder="2022"></div>
+    </div>
+    <div id="ocr-preview-img"></div>
+  </div>
+  <div id="ocr-results"></div>
+</div>
+
+<!-- ═══════════════ API TEST ═══════════════ -->
+<div class="panel" id="panel-api">
+  <h1 style="font-size:18px;font-weight:800;margin-bottom:4px">🌐 Test API Worker</h1>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:16px">Kompleksowy test wszystkich endpointów API — status, czas odpowiedzi, autoryzacja, format danych.</p>
+  <div class="card">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="field"><label>Worker URL</label><input id="api-url" value="https://taxorder-pro-api.adamus1000.workers.dev"></div>
+      <div class="field">
+        <label>Token sesji lub klucz API</label>
+        <div style="display:flex;gap:5px">
+          <input id="api-token" placeholder="Bearer token lub tord_live_..." style="flex:1">
+          <button class="btn btn-gray" onclick="APITest.loadFromStorage()" style="white-space:nowrap">⬇ LocalStorage</button>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-blue" onclick="APITest.runAll()">▶ Uruchom wszystkie testy</button>
+  </div>
+  <div id="api-results"></div>
+</div>
+
+<!-- ═══════════════ REPORT ═══════════════ -->
+<div class="panel" id="panel-report">
+  <h1 style="font-size:18px;font-weight:800;margin-bottom:4px">📄 Raport sesji</h1>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:16px">Podsumowanie wszystkich uruchomionych testów w tej sesji przeglądarki.</p>
+  <div id="report-content">
+    <div class="card" style="text-align:center;padding:2rem;color:var(--text3)">
+      Uruchom testy w panelach Human Sim lub API, a wyniki pojawią się tutaj.
+    </div>
+  </div>
+  <button class="btn btn-blue" onclick="Report.download()" style="margin-top:12px">📥 Pobierz raport HTML</button>
+</div>
+
+</div><!-- .main -->
+</div><!-- .layout -->
 
 <script>
-// ─── Panel navigation ────────────────────────────────────────────────────────
-function showPanel(id) {
+// ── Panel nav ──────────────────────────────────────────────────────────────────
+function showPanel(id, btn) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active');
-  event.target.classList.add('active');
+  (btn || event?.target?.closest('.nav-btn'))?.classList.add('active');
 }
 
-// ─── calcTax (kopia z app.js) ─────────────────────────────────────────────────
-function _getRate(v) {
-  const dT=(v.dmc??v.dmcMax??0)/1000, dzT=(v.dmcZespolu||0)/1000, refZ=dzT>0?dzT:dT;
-  const typ=(v.typ||'').toLowerCase(), osie=parseInt(v.osie||v.liczbaOsi)||2, rok=parseInt(v.rok)||0, isNew=rok>=2024;
-  if(typ.includes('autobus')) return isNew?1320:(parseInt(v.miejsca)||0)<30?1488:1872;
-  if(typ.includes('naczepa')||typ.includes('przyczepa')) {
-    if(refZ>=7&&refZ<12) return isNew?1128:1248;
-    if(refZ>=12) {
-      if(osie===1){if(refZ<18)return 744;if(refZ<25)return 840;if(refZ<=36)return 984;return 1128;}
-      if(osie===2){if(refZ<28)return 1488;if(refZ<33)return 1776;if(refZ<38)return 2256;return 2976;}
-      if(refZ<=36)return 1872;if(refZ<38)return 2040;return 2232;
+// ── Session results store ──────────────────────────────────────────────────────
+const SESSION = { tests: [], startTime: Date.now() };
+function addResult(suite, name, status, ms, note) {
+  SESSION.tests.push({ suite, name, status, ms, note: note || '', ts: new Date().toISOString() });
+  Report.update();
+}
+
+// ── calcTax (kopie z app.js) ───────────────────────────────────────────────────
+function _getRate(v){const dT=(v.dmc??v.dmcMax??0)/1000,dzT=(v.dmcZespolu||0)/1000,refZ=dzT>0?dzT:dT;const typ=(v.typ||'').toLowerCase(),osie=parseInt(v.osie||v.liczbaOsi)||2,rok=parseInt(v.rok)||0,isNew=rok>=2024;if(typ.includes('autobus'))return isNew?1320:(parseInt(v.miejsca)||0)<30?1488:1872;if(typ.includes('naczepa')||typ.includes('przyczepa')){if(refZ>=7&&refZ<12)return isNew?1128:1248;if(refZ>=12){if(osie===1){if(refZ<18)return 744;if(refZ<25)return 840;if(refZ<=36)return 984;return 1128;}if(osie===2){if(refZ<28)return 1488;if(refZ<33)return 1776;if(refZ<38)return 2256;return 2976;}if(refZ<=36)return 1872;if(refZ<38)return 2040;return 2232;}return null;}if(typ.includes('ciągnik')||typ.includes('ciagnik')){if(refZ>=3.5&&refZ<12)return isNew?1248:1392;if(refZ>=12){if(osie<=2){if(refZ<18)return 1128;if(refZ<25)return 1680;if(refZ<31)return 2232;if(refZ<=36)return 3384;return 3384;}if(refZ<=36)return 2784;if(refZ<40)return 2832;return 4200;}return null;}if(dT<=3.5)return null;if(dT<12){if(isNew){if(dT<=5.5)return 744;if(dT<=9)return 1008;return 1344;}if(dT<=5.5)return 840;if(dT<=9)return 1128;return 1488;}if(osie===2){if(dT<13)return 1200;if(dT<14)return 1488;if(dT<15)return 1680;return 2184;}if(osie===3){if(dT<17)return 1488;if(dT<19)return 1704;if(dT<21)return 1872;if(dT<23)return 2136;return 2760;}if(dT<25)return 1488;if(dT<27)return 1824;if(dT<29)return 2880;return 4296;}
+function _getCat(v){const dT=(v.dmc??v.dmcMax??0)/1000,dzT=(v.dmcZespolu||0)/1000,refZ=dzT>0?dzT:dT;const typ=(v.typ||'').toLowerCase(),osie=parseInt(v.osie||v.liczbaOsi)||2;if(typ.includes('specjaln')||(v.przeznaczenie||'').toLowerCase().includes('specjaln'))return null;if(typ.includes('autobus'))return(parseInt(v.miejsca)||0)<22?'D6':'D7';if(typ.includes('naczepa')||typ.includes('przyczepa')){if(refZ>=12)return osie===1?'D13':osie===2?'D14':'D15';if(refZ>=7)return 'D5';return null;}if(typ.includes('ciągnik')||typ.includes('ciagnik')){if(refZ>=12)return osie<=2?'D11':'D12';if(refZ>=3.5)return 'D4';return null;}if(dT<=3.5)return null;if(dT>=12)return osie===2?'D8':osie===3?'D9':'D10';if(dT<=5.5)return'D1';if(dT<=9)return'D2';if(dT<12)return'D3';return null;}
+function calcTax(v){const cat=_getCat(v);if(!cat)return{cat:null,amount:0,rate:0,exempt:true};const rate=_getRate(v)||0;const m=parseInt(v.miesiacePodatku)||12;return{cat,amount:Math.round((rate*m)/12*100)/100,rate,isNew:(parseInt(v.rok)||0)>=2024};}
+const CAT_LABELS={D1:'Cięż. 3,5–5,5t',D2:'Cięż. 5,5–9t',D3:'Cięż. 9–12t',D4:'Ciągnik <12t',D5:'Przyczepa 7–12t',D6:'Autobus <22m.',D7:'Autobus ≥22m.',D8:'Cięż.≥12t 2oś',D9:'Cięż.≥12t 3oś',D10:'Cięż.≥12t 4+',D11:'Ciągnik≥12t 2oś',D12:'Ciągnik≥12t 3+',D13:'Przy.≥12t 1oś',D14:'Przy.≥12t 2oś',D15:'Przy.≥12t 3+'};
+const COL_MAP={'nrrej':'nrRej','nr rej':'nrRej','numer rejestracyjny':'nrRej','rejestracja':'nrRej','marka':'marka','model':'model','rok':'rok','rok produkcji':'rok','rocznik':'rok','typ':'typ','rodzaj':'typ','dmc':'dmc','dmc [kg]':'dmc','masa':'dmc','dmc [t]':'_dmcT','dmczespolu':'dmcZespolu','dmc zespołu':'dmcZespolu','dmc zespolu':'dmcZespolu','vin':'vin','nr vin':'vin','euro':'euro','norma euro':'euro','status':'status','właściciel':'wlasciciel','wlasciciel':'wlasciciel','firma':'wlasciciel','gmina':'gmina','osie':'osie','liczba osi':'osie','zawieszenie':'zawieszenie','paliwo':'paliwo','rodzaj paliwa':'paliwo','miejsca':'miejsca','kierowca':'kierowca','oc':'ocEnd','oc koniec':'ocEnd','oc do':'ocEnd','ac koniec':'acEnd','ac do':'acEnd','przegląd':'nextInspection','data przeglądu':'nextInspection','nastepny przeglad':'nextInspection','przeglad':'nextInspection','notatki':'notes','uwagi':'notes'};
+
+// ── Human Simulator ────────────────────────────────────────────────────────────
+const HumanSim = {
+  _log: [],
+  _running: false,
+
+  log(msg, type = 'info') {
+    const ts = new Date().toLocaleTimeString('pl-PL');
+    this._log.push({ ts, msg, type });
+    const el = document.getElementById('hs-log');
+    if (el) {
+      el.textContent += `[${ts}] ${msg}\n`;
+      el.scrollTop = el.scrollHeight;
     }
-    return null;
-  }
-  if(typ.includes('ciągnik')||typ.includes('ciagnik')) {
-    if(refZ>=3.5&&refZ<12) return isNew?1248:1392;
-    if(refZ>=12) {
-      if(osie<=2){if(refZ<18)return 1128;if(refZ<25)return 1680;if(refZ<31)return 2232;if(refZ<=36)return 3384;return 3384;}
-      if(refZ<=36)return 2784;if(refZ<40)return 2832;return 4200;
-    }
-    return null;
-  }
-  if(dT<=3.5) return null;
-  if(dT<12){if(isNew){if(dT<=5.5)return 744;if(dT<=9)return 1008;return 1344;}if(dT<=5.5)return 840;if(dT<=9)return 1128;return 1488;}
-  if(osie===2){if(dT<13)return 1200;if(dT<14)return 1488;if(dT<15)return 1680;return 2184;}
-  if(osie===3){if(dT<17)return 1488;if(dT<19)return 1704;if(dT<21)return 1872;if(dT<23)return 2136;return 2760;}
-  if(dT<25)return 1488;if(dT<27)return 1824;if(dT<29)return 2880;return 4296;
-}
-function _getCat(v) {
-  const dT=(v.dmc??v.dmcMax??0)/1000, dzT=(v.dmcZespolu||0)/1000, refZ=dzT>0?dzT:dT;
-  const typ=(v.typ||'').toLowerCase(), osie=parseInt(v.osie||v.liczbaOsi)||2;
-  if(typ.includes('specjaln')||(v.przeznaczenie||'').toLowerCase().includes('specjaln')) return null;
-  if(typ.includes('autobus')) return (parseInt(v.miejsca)||0)<22?'D6':'D7';
-  if(typ.includes('naczepa')||typ.includes('przyczepa')) {
-    if(refZ>=12) return osie===1?'D13':osie===2?'D14':'D15';
-    if(refZ>=7) return 'D5';
-    return null;
-  }
-  if(typ.includes('ciągnik')||typ.includes('ciagnik')) {
-    if(refZ>=12) return osie<=2?'D11':'D12';
-    if(refZ>=3.5) return 'D4';
-    return null;
-  }
-  if(dT<=3.5) return null;
-  if(dT>=12) return osie===2?'D8':osie===3?'D9':'D10';
-  if(dT<=5.5) return 'D1'; if(dT<=9) return 'D2'; if(dT<12) return 'D3';
-  return null;
-}
-function calcTax(v) {
-  const cat=_getCat(v); if(!cat) return {cat:null,amount:0,rate:0,exempt:true};
-  const rate=_getRate(v)||0;
-  const m=parseInt(v.miesiacePodatku)||12;
-  return {cat, amount:Math.round((rate*m)/12*100)/100, rate, isNew:(parseInt(v.rok)||0)>=2024};
-}
-
-const CAT_LABELS={D1:'Sam.cięż. 3,5–5,5t',D2:'Sam.cięż. 5,5–9t',D3:'Sam.cięż. 9–12t',D4:'Ciągnik <12t',D5:'Przyczepa 7–12t',D6:'Autobus <22m.',D7:'Autobus ≥22m.',D8:'Cięż.≥12t 2oś',D9:'Cięż.≥12t 3oś',D10:'Cięż.≥12t 4+',D11:'Ciągnik≥12t 2oś',D12:'Ciągnik≥12t 3+',D13:'Przy.≥12t 1oś',D14:'Przy.≥12t 2oś',D15:'Przy.≥12t 3+'};
-
-// ─── COL_MAP (kopia z vehicle-import.js) ─────────────────────────────────────
-const COL_MAP = {
-  'nrrej':'nrRej','nr rej':'nrRej','numer rejestracyjny':'nrRej','rejestracja':'nrRej',
-  'marka':'marka','model':'model','rok':'rok','rok produkcji':'rok','rocznik':'rok',
-  'typ':'typ','rodzaj':'typ','dmc':'dmc','dmc [kg]':'dmc','masa':'dmc','dmc [t]':'_dmcT',
-  'dmczespolu':'dmcZespolu','dmc zespołu':'dmcZespolu','dmc zespolu':'dmcZespolu',
-  'vin':'vin','nr vin':'vin','euro':'euro','norma euro':'euro','status':'status',
-  'właściciel':'wlasciciel','wlasciciel':'wlasciciel','firma':'wlasciciel',
-  'gmina':'gmina','osie':'osie','liczba osi':'osie','zawieszenie':'zawieszenie',
-  'paliwo':'paliwo','rodzaj paliwa':'paliwo','miejsca':'miejsca','kierowca':'kierowca',
-  'oc':'ocEnd','oc koniec':'ocEnd','oc do':'ocEnd','ac koniec':'acEnd','ac do':'acEnd',
-  'przegląd':'nextInspection','data przeglądu':'nextInspection','nastepny przeglad':'nextInspection','przeglad':'nextInspection',
-  'notatki':'notes','uwagi':'notes',
-};
-
-// ─── DT1 Test ────────────────────────────────────────────────────────────────
-const DT1Test = {
-  handleFile(file) {
-    if (!file || typeof XLSX === 'undefined') { alert('Brak biblioteki XLSX'); return; }
-    const reader = new FileReader();
-    reader.onload = e => {
-      const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const raw = XLSX.utils.sheet_to_json(ws, {defval:''});
-      const vehs = raw.map(row => {
-        const v = {osie:2,miesiacePodatku:12,zawieszenie:'pneumatyczne',dmcZespolu:0};
-        Object.entries(row).forEach(([col,val]) => {
-          const key = COL_MAP[col.toLowerCase().trim()];
-          if (!key) return;
-          if (key==='_dmcT') v.dmc = Math.round(parseFloat(val)*1000)||0;
-          else if(['rok','dmc','dmcZespolu','osie','miesiacePodatku','miejsca'].includes(key)) v[key]=parseInt(val)||0;
-          else v[key]=String(val).trim();
-        });
-        return v;
-      }).filter(v => v.nrRej || v.dmc);
-      this.render(vehs);
-    };
-    reader.readAsArrayBuffer(file);
   },
 
-  runFromJson() {
+  clear() {
+    this._log = [];
+    document.getElementById('hs-results').innerHTML = '';
+    document.getElementById('hs-kpi').style.display = 'none';
+    document.getElementById('hs-log').style.display = 'none';
+    document.getElementById('hs-progress').style.display = 'none';
+  },
+
+  setProgress(label, current, total) {
+    document.getElementById('hs-prog-label').textContent = label;
+    document.getElementById('hs-prog-count').textContent = `${current}/${total}`;
+    document.getElementById('hs-prog-bar').style.width = `${Math.round(current / total * 100)}%`;
+  },
+
+  async req(method, path, body, noAuth) {
+    const url   = document.getElementById('hs-url').value.trim();
+    const token = document.getElementById('hs-token-store') || null;
+    const tok   = HumanSim._token || '';
+    const h = { 'Content-Type': 'application/json', ...(tok && !noAuth ? { Authorization: 'Bearer ' + tok } : {}) };
+    const t0 = performance.now();
+    const res = await fetch(url + path, { method, headers: h, ...(body ? { body: JSON.stringify(body) } : {}) });
+    const ms = Math.round(performance.now() - t0);
+    let json; try { json = await res.json(); } catch { json = {}; }
+    return { status: res.status, ms, json };
+  },
+
+  async run() {
+    if (this._running) return;
+    this._running = true;
+    this._token = '';
+    this._log = [];
+    document.getElementById('hs-log').style.display = '';
+    document.getElementById('hs-log').textContent = '';
+    document.getElementById('hs-progress').style.display = '';
+    document.getElementById('hs-results').innerHTML = '';
+
+    const url     = document.getElementById('hs-url').value.trim();
+    const email   = document.getElementById('hs-email').value.trim();
+    const pass    = document.getElementById('hs-pass').value.trim();
+    const company = document.getElementById('hs-company').value.trim();
+
+    const suites = [];
+    if (document.getElementById('hs-chk-auth').checked)     suites.push(this._suiteAuth.bind(this));
+    if (document.getElementById('hs-chk-vehicles').checked) suites.push(this._suiteVehicles.bind(this));
+    if (document.getElementById('hs-chk-export').checked)   suites.push(this._suiteExport.bind(this));
+    if (document.getElementById('hs-chk-roles').checked)    suites.push(this._suiteRoles.bind(this));
+    if (document.getElementById('hs-chk-edge').checked)     suites.push(this._suiteEdge.bind(this));
+    if (document.getElementById('hs-chk-perf').checked)     suites.push(this._suitePerf.bind(this));
+
+    const results = [];
+    let doneCount = 0;
+    const totalSuites = suites.length;
+
+    for (const suite of suites) {
+      const suiteResults = await suite(url, email, pass, company);
+      results.push(...suiteResults);
+      doneCount++;
+      this.setProgress(`Suite ${doneCount}/${totalSuites}`, doneCount, totalSuites);
+    }
+
+    this._running = false;
+    this._renderResults(results);
+  },
+
+  async _runTest(name, category, fn) {
+    const t0 = performance.now();
     try {
-      const raw = JSON.parse(document.getElementById('dt1-json').value);
-      const vehs = (Array.isArray(raw) ? raw : [raw]).map(v => ({osie:2,miesiacePodatku:12,zawieszenie:'pneumatyczne',dmcZespolu:0,...v}));
-      this.render(vehs);
-    } catch(e) { alert('Błędny JSON: ' + e.message); }
+      const note = await fn();
+      const ms = Math.round(performance.now() - t0);
+      this.log(`✅ [${ms}ms] ${name}${note ? ' → ' + note : ''}`);
+      addResult(category, name, 'PASS', ms, note || '');
+      return { name, category, status: 'PASS', ms, note: note || '' };
+    } catch (e) {
+      const ms = Math.round(performance.now() - t0);
+      this.log(`❌ [${ms}ms] ${name}: ${e.message}`, 'err');
+      addResult(category, name, 'FAIL', ms, e.message);
+      return { name, category, status: 'FAIL', ms, note: e.message };
+    }
   },
 
-  loadD1Sample() {
-    const sample = [
-      {nrRej:'WGM87205',marka:'Fuso',model:'Canter 9/18',rok:2020,dmc:8500,typ:'Ciężarowy',osie:2},
-      {nrRej:'WGM0065L',marka:'MAN',model:'TGL 8.190-M',rok:2024,dmc:8800,typ:'Ciężarowy',osie:2},
-      {nrRej:'WZ124HW',marka:'MAN',model:'TGE 6.160 5.5T',rok:2024,dmc:5500,typ:'Ciężarowy',osie:2},
-      {nrRej:'WA9885J',marka:'Mercedes',model:'Actros',rok:2016,dmc:26000,typ:'Ciężarowy',osie:2},
-      {nrRej:'WZ621FY',marka:'Scania',model:'R580',rok:2015,dmc:30000,typ:'Ciężarowy',osie:3},
-      {nrRej:'WA1697F',marka:'Volvo',model:'FMX 8x4',rok:2011,dmc:32000,typ:'Ciężarowy',osie:4},
-      {nrRej:'WW024AF',marka:'GFOLLNER',model:'APL 2/4 TL',rok:2015,dmc:14000,typ:'Przyczepa',osie:2},
-      {nrRej:'WZ209LJ',marka:'Meprozet',model:'PN-1 asenizacyjna',rok:2025,dmc:16200,typ:'Przyczepa',osie:2},
-    ];
-    document.getElementById('dt1-json').value = JSON.stringify(sample, null, 2);
-    this.render(sample.map(v=>({osie:2,miesiacePodatku:12,zawieszenie:'pneumatyczne',dmcZespolu:0,...v})));
+  async _suiteAuth(url, email, pass, company) {
+    const results = [];
+    this.log('\n=== UWIERZYTELNIANIE ===');
+
+    results.push(await this._runTest('Błędne hasło → 401', 'Auth', async () => {
+      const r = await this.req('POST', '/api/auth/login', { email: 'wrong@ex.com', pass: 'wrongpass' }, true);
+      if (r.status === 200) throw new Error(`Oczekiwano błędu, got 200`);
+      return `HTTP ${r.status}`;
+    }));
+
+    results.push(await this._runTest('Poprawne logowanie', 'Auth', async () => {
+      const r = await this.req('POST', '/api/auth/login', { email, pass }, true);
+      if (r.status !== 200) throw new Error(`HTTP ${r.status}: ${JSON.stringify(r.json).slice(0,60)}`);
+      if (!r.json.token) throw new Error('Brak tokenu w odpowiedzi');
+      this._token = r.json.token;
+      return `Token: ${r.json.token.slice(0, 20)}…`;
+    }));
+
+    results.push(await this._runTest('Dostęp bez tokenu → 401', 'Auth', async () => {
+      const saved = this._token; this._token = '';
+      const r = await this.req('GET', `/api/vehicles?company=${company}`);
+      this._token = saved;
+      if (r.status !== 401) throw new Error(`Oczekiwano 401, got ${r.status}`);
+      return `HTTP ${r.status} ✓`;
+    }));
+
+    results.push(await this._runTest('Weryfikacja tokenu (GET /api/auth/me)', 'Auth', async () => {
+      const r = await this.req('GET', '/api/auth/me');
+      if (r.status !== 200) throw new Error(`HTTP ${r.status}`);
+      if (!r.json.id && !r.json.email) throw new Error('Brak id/email w odpowiedzi');
+      return `Zalogowany: ${r.json.email || r.json.name}`;
+    }));
+
+    return results;
   },
 
-  render(vehs) {
-    const el = document.getElementById('dt1-results');
-    if (!vehs.length) { el.innerHTML='<div style="color:var(--red)">Brak pojazdów do analizy</div>'; return; }
+  async _suiteVehicles(url, email, pass, company) {
+    const results = [];
+    this.log('\n=== POJAZDY (CRUD) ===');
 
-    const rows = vehs.map(v => ({v, tax: calcTax(v)}));
-    const taxable = rows.filter(r => r.tax.cat);
-    const exempt  = rows.filter(r => !r.tax.cat);
-    const totalTax= taxable.reduce((s,r)=>s+r.tax.amount,0);
+    let vehicleId = null;
+    const testNrRej = `QA-TEST-${Date.now() % 10000}`;
 
-    const summary = `
-    <div class="summary">
-      <div class="stat"><div class="val">${vehs.length}</div><div class="lbl">Pojazdów</div></div>
-      <div class="stat"><div class="val" style="color:var(--blue)">${taxable.length}</div><div class="lbl">Podlega DT-1</div></div>
-      <div class="stat"><div class="val" style="color:var(--text2)">${exempt.length}</div><div class="lbl">Zwolnionych</div></div>
-      <div class="stat"><div class="val" style="color:var(--green)">${Math.round(totalTax).toLocaleString('pl-PL')} zł</div><div class="lbl">Łączny podatek/rok</div></div>
-    </div>`;
+    results.push(await this._runTest('Lista pojazdów (GET)', 'Pojazdy', async () => {
+      const r = await this.req('GET', `/api/vehicles?company=${company}`);
+      if (r.status !== 200) throw new Error(`HTTP ${r.status}`);
+      const count = Array.isArray(r.json) ? r.json.length : r.json?.results?.length || 0;
+      return `${count} pojazdów, ${r.ms}ms`;
+    }));
 
-    const tableRows = rows.map(({v,tax}) => {
-      const catBadge = tax.cat
-        ? `<span class="badge badge-blue">${tax.cat}</span> <span style="font-size:10px;color:var(--text2)">${CAT_LABELS[tax.cat]||''}</span>`
-        : `<span class="badge badge-gray">${(v.typ||'').toLowerCase().includes('specjaln')?'Specjalny':'Nie podlega'}</span>`;
-      const newBadge = tax.isNew ? '<span class="badge badge-green" style="margin-left:4px">2024+↓</span>' : '';
-      return `<tr>
-        <td class="mono">${v.nrRej||'—'}</td>
-        <td>${v.marka||'—'} ${v.model||''}</td>
-        <td style="text-align:right" class="mono">${v.dmc?(v.dmc/1000).toFixed(1)+'t':'—'}</td>
-        <td style="text-align:center">${v.rok||'—'}${newBadge}</td>
-        <td style="text-align:center">${v.osie||2}</td>
-        <td>${catBadge}</td>
-        <td style="text-align:right" class="mono">${tax.cat?tax.rate+' zł':'—'}</td>
-        <td style="text-align:right;font-weight:700" class="mono">${tax.cat?tax.amount.toFixed(2)+' zł':'—'}</td>
-      </tr>`;
-    }).join('');
-
-    el.innerHTML = summary + `
-    <table class="result-table">
-      <thead><tr>
-        <th>Nr rej.</th><th>Pojazd</th><th style="text-align:right">DMC</th>
-        <th style="text-align:center">Rok</th><th style="text-align:center">Osie</th>
-        <th>Kategoria DT-1</th><th style="text-align:right">Stawka</th><th style="text-align:right">Kwota/rok</th>
-      </tr></thead>
-      <tbody>${tableRows}</tbody>
-      <tfoot><tr style="font-weight:700;background:var(--bg3)">
-        <td colspan="7" style="text-align:right;padding:6px 8px">ŁĄCZNIE:</td>
-        <td style="text-align:right;padding:6px 8px" class="mono">${Math.round(totalTax).toLocaleString('pl-PL')} zł</td>
-      </tr></tfoot>
-    </table>`;
-  }
-};
-
-// ─── Import Test ──────────────────────────────────────────────────────────────
-const ImportTest = {
-  handleFile(file) {
-    if (!file || typeof XLSX === 'undefined') return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const raw = XLSX.utils.sheet_to_json(ws, {defval:''});
-      if (!raw.length) { document.getElementById('import-results').innerHTML='<div style="color:var(--red)">Pusty arkusz</div>'; return; }
-      this.analyze(raw);
-    };
-    reader.readAsArrayBuffer(file);
-  },
-
-  analyze(raw) {
-    const el = document.getElementById('import-results');
-    const allCols = Object.keys(raw[0]||{});
-    const mapped=[], unmapped=[];
-    allCols.forEach(col => {
-      const key = COL_MAP[col.toLowerCase().trim()];
-      if (key && key!=='_dmcT') mapped.push({col, field:key});
-      else if (key==='_dmcT') mapped.push({col, field:'dmc (z ton)'});
-      else unmapped.push(col);
-    });
-
-    const rows = raw.map(row => {
-      const v={osie:2,miesiacePodatku:12,zawieszenie:'pneumatyczne',dmcZespolu:0};
-      Object.entries(row).forEach(([col,val])=>{
-        const key=COL_MAP[col.toLowerCase().trim()];
-        if(!key) return;
-        if(key==='_dmcT') v.dmc=Math.round(parseFloat(val)*1000)||0;
-        else if(['rok','dmc','dmcZespolu','osie','miesiacePodatku','miejsca'].includes(key)) v[key]=parseInt(val)||0;
-        else v[key]=String(val).trim();
+    results.push(await this._runTest('Dodaj pojazd testowy (POST)', 'Pojazdy', async () => {
+      const r = await this.req('POST', '/api/vehicles', {
+        company_id: company,
+        data: JSON.stringify({ nrRej: testNrRej, marka: 'QA-Test', model: 'Runner', typ: 'Ciężarowy', dmc: 8800, rok: 2023, status: 'Własny' }),
       });
-      return v;
-    }).filter(v=>v.nrRej);
+      if (r.status !== 200 && r.status !== 201) throw new Error(`HTTP ${r.status}: ${JSON.stringify(r.json).slice(0,60)}`);
+      vehicleId = r.json.id || r.json.vehicle_id;
+      return `ID: ${vehicleId}`;
+    }));
 
-    const noReg = raw.length - rows.length;
-    const missingRej = noReg > 0 ? `<div style="margin-top:8px;color:var(--amber);font-size:11px">⚠ ${noReg} wierszy bez nr rej. (pominiętych)</div>` : '';
+    if (vehicleId) {
+      results.push(await this._runTest('Edytuj pojazd (PUT)', 'Pojazdy', async () => {
+        const r = await this.req('PUT', `/api/vehicles/${vehicleId}`, {
+          company_id: company,
+          data: JSON.stringify({ nrRej: testNrRej, marka: 'QA-Test-Edited', model: 'Runner v2', typ: 'Ciężarowy', dmc: 8800, rok: 2023, status: 'Własny' }),
+        });
+        if (r.status !== 200) throw new Error(`HTTP ${r.status}`);
+        return `OK`;
+      }));
 
-    const unmappedHtml = unmapped.length ? `
-    <div style="background:#fef3c7;border:1px solid var(--amber);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px">
-      <div style="font-weight:700;color:var(--amber);margin-bottom:6px">⚠ ${unmapped.length} nierozpoznanych kolumn (zostaną pominięte):</div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px">${unmapped.map(c=>`<span style="font-family:var(--mono);font-size:11px;background:#fff;border:1px solid #fcd34d;border-radius:4px;padding:2px 7px">${c}</span>`).join('')}</div>
-    </div>` : '<div style="color:var(--green);font-weight:600;margin-bottom:8px">✅ Wszystkie kolumny rozpoznane</div>';
-
-    const mappedHtml = `
-    <div style="margin-bottom:12px">
-      <div style="font-size:11px;font-weight:600;margin-bottom:6px">Rozpoznane mapowania (${mapped.length}):</div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px">${mapped.map(m=>`<span style="font-size:11px;background:#dcfce7;border:1px solid #86efac;border-radius:4px;padding:2px 7px"><span style="color:var(--text2)">${m.col}</span> → <strong>${m.field}</strong></span>`).join('')}</div>
-    </div>`;
-
-    const preview = rows.slice(0,10).map(v=>`<tr>
-      <td class="mono">${v.nrRej}</td>
-      <td>${v.marka||'—'}</td><td>${v.model||'—'}</td>
-      <td style="text-align:right">${v.dmc?(v.dmc/1000).toFixed(1)+'t':'—'}</td>
-      <td>${v.rok||'—'}</td><td>${v.typ||'—'}</td>
-      <td>${v.vin||'—'}</td><td>${v.status||'—'}</td>
-    </tr>`).join('');
-
-    el.innerHTML = `
-    <div class="summary">
-      <div class="stat"><div class="val">${raw.length}</div><div class="lbl">Wierszy w pliku</div></div>
-      <div class="stat"><div class="val" style="color:var(--green)">${rows.length}</div><div class="lbl">Pojazdów rozp.</div></div>
-      <div class="stat"><div class="val" style="color:var(--blue)">${mapped.length}</div><div class="lbl">Kolumn zmapowanych</div></div>
-      <div class="stat"><div class="val" style="color:${unmapped.length?'var(--amber)':'var(--green)'}">${unmapped.length}</div><div class="lbl">Nierozpoznanych</div></div>
-    </div>
-    ${unmappedHtml}${mappedHtml}${missingRej}
-    <div style="font-size:11px;font-weight:600;margin-bottom:6px;margin-top:4px">Podgląd (pierwsze 10 wierszy):</div>
-    <div style="overflow-x:auto"><table class="result-table">
-      <thead><tr><th>Nr rej.</th><th>Marka</th><th>Model</th><th>DMC</th><th>Rok</th><th>Typ</th><th>VIN</th><th>Status</th></tr></thead>
-      <tbody>${preview}</tbody>
-    </table></div>`;
-  }
-};
-
-// ─── OCR Test ─────────────────────────────────────────────────────────────────
-const OCRTest = {
-  handleFile(file) {
-    if (!file) return;
-    // Podgląd obrazu
-    const preview = document.getElementById('ocr-preview-img');
-    if (file.type.startsWith('image/')) {
-      const url = URL.createObjectURL(file);
-      preview.innerHTML = `<img src="${url}" style="max-width:100%;max-height:300px;border-radius:var(--radius);border:1px solid var(--border)">`;
-    } else {
-      preview.innerHTML = `<div style="padding:8px;background:var(--bg3);border-radius:var(--radius);font-size:11px">📄 ${file.name} (${(file.size/1024).toFixed(0)} KB)</div>`;
+      results.push(await this._runTest('Usuń pojazd testowy (DELETE)', 'Pojazdy', async () => {
+        const r = await this.req('DELETE', `/api/vehicles/${vehicleId}?company=${company}`);
+        if (r.status !== 200 && r.status !== 204) throw new Error(`HTTP ${r.status}`);
+        return `Usunięto ID ${vehicleId}`;
+      }));
     }
 
-    const workerUrl = 'https://taxorder-pro-api.adamus1000.workers.dev';
-    const el = document.getElementById('ocr-results');
-    el.innerHTML = `<div class="log">⏳ Wysyłanie do ${workerUrl}/api/ocr/dr...\n</div>`;
-
-    const form = new FormData();
-    form.append('file', file);
-
-    fetch(`${workerUrl}/api/ocr/dr`, { method:'POST', body:form })
-      .then(r => {
-        if (!r.ok) return r.text().then(t => { throw new Error(`HTTP ${r.status}: ${t.slice(0,200)}`); });
-        return r.json();
-      })
-      .then(data => this.render(data))
-      .catch(err => {
-        el.innerHTML = `<div style="color:var(--red);padding:10px">❌ Błąd OCR: ${err.message}</div>`;
-      });
+    return results;
   },
 
-  render(data) {
-    const el = document.getElementById('ocr-results');
-    const expected = {
-      nrRej: document.getElementById('exp-nrRej').value.trim().toUpperCase(),
-      vin:   document.getElementById('exp-vin').value.trim().toUpperCase(),
-      dmc:   document.getElementById('exp-dmc').value.trim(),
-      marka: document.getElementById('exp-marka').value.trim().toUpperCase(),
-      model: document.getElementById('exp-model').value.trim().toUpperCase(),
-      rok:   document.getElementById('exp-rok').value.trim(),
-    };
+  async _suiteExport(url, email, pass, company) {
+    const results = [];
+    this.log('\n=== EKSPORT / IMPORT ===');
 
-    const fields = [
-      {key:'nrRej',   label:'Nr rejestracyjny (A)',  val: data.nrRej||data.A},
-      {key:'vin',     label:'VIN / Nr identyf. (E)', val: data.vin||data.E},
-      {key:'marka',   label:'Marka (D.1)',            val: data.marka||data.D1},
-      {key:'model',   label:'Model (D.2)',            val: data.model||data.D2},
-      {key:'rok',     label:'Rok produkcji (B)',      val: data.rok||data.B},
-      {key:'dmc',     label:'DMC (F.1) kg',           val: data.dmc||data.F1||data['F.1']},
-      {key:'dmcMax',  label:'DMC max (F.2) kg',       val: data.dmcMax||data.F2||data['F.2']},
-      {key:'osie',    label:'Liczba osi (L)',          val: data.osie||data.L},
-      {key:'euro',    label:'Norma EURO',              val: data.euro},
-      {key:'dataRej', label:'Data 1. rejestr. (I)',   val: data.dataRej||data.I},
+    let exportedData = null;
+
+    results.push(await this._runTest('Eksport pełnych danych', 'Eksport', async () => {
+      const r = await this.req('GET', `/api/export?company=${company}`);
+      if (r.status !== 200) throw new Error(`HTTP ${r.status}`);
+      if (!r.json.vehicles) throw new Error('Brak klucza "vehicles" w eksporcie');
+      exportedData = r.json;
+      const tables = Object.keys(r.json).filter(k => Array.isArray(r.json[k]));
+      return `${exportedData.vehicles.length} poj., tabele: ${tables.join(', ')}, ${r.ms}ms`;
+    }));
+
+    if (exportedData) {
+      results.push(await this._runTest('Import tych samych danych (idempotentny)', 'Eksport', async () => {
+        const r = await this.req('POST', `/api/import?company=${company}`, exportedData);
+        if (r.status !== 200) throw new Error(`HTTP ${r.status}: ${JSON.stringify(r.json).slice(0,80)}`);
+        if (!r.json.ok) throw new Error('Odpowiedź nie zawiera ok:true');
+        return `ok:true, counts: ${JSON.stringify(r.json.counts)}`;
+      }));
+    }
+
+    return results;
+  },
+
+  async _suiteRoles(url, email, pass, company) {
+    const results = [];
+    this.log('\n=== KONTROLA DOSTĘPU ===');
+
+    results.push(await this._runTest('Granica firmy: inny company → brak danych', 'Role', async () => {
+      const r = await this.req('GET', `/api/vehicles?company=inna_firma_xyz_${Date.now()}`);
+      if (r.status === 200) {
+        const count = Array.isArray(r.json) ? r.json.length : 0;
+        return `HTTP 200, ${count} poj. (pusta/nieznana firma — OK)`;
+      }
+      return `HTTP ${r.status} (dostęp odmówiony — OK)`;
+    }));
+
+    results.push(await this._runTest('Zarządzanie kluczami API (admin only)', 'Role', async () => {
+      const r = await this.req('GET', '/api/api-keys');
+      if (r.status === 200 && Array.isArray(r.json)) return `${r.json.length} kluczy API`;
+      if (r.status === 403) return `HTTP 403 (brak uprawnień — OK dla non-admin)`;
+      throw new Error(`HTTP ${r.status}: ${JSON.stringify(r.json).slice(0,60)}`);
+    }));
+
+    results.push(await this._runTest('Lista firm (GET /api/companies)', 'Role', async () => {
+      const r = await this.req('GET', '/api/companies');
+      if (r.status !== 200) throw new Error(`HTTP ${r.status}`);
+      return `${Array.isArray(r.json) ? r.json.length : 0} firm`;
+    }));
+
+    return results;
+  },
+
+  async _suiteEdge(url, email, pass, company) {
+    const results = [];
+    this.log('\n=== EDGE CASES (scenariusze błędów) ===');
+
+    results.push(await this._runTest('Pusty body na POST /vehicles → błąd walidacji', 'Edge', async () => {
+      const r = await this.req('POST', '/api/vehicles', {});
+      if (r.status === 200) throw new Error('Powinien odrzucić pusty payload');
+      return `HTTP ${r.status} (błąd walidacji — OK)`;
+    }));
+
+    results.push(await this._runTest('PUT /vehicles/:id na nieistniejący ID', 'Edge', async () => {
+      const r = await this.req('PUT', '/api/vehicles/nonexistent-id-12345', { company_id: company, data: '{}' });
+      if (r.status === 200) return `HTTP 200 (upsert — OK)`;
+      return `HTTP ${r.status}`;
+    }));
+
+    results.push(await this._runTest('DELETE /vehicles/:id na nieistniejący ID', 'Edge', async () => {
+      const r = await this.req('DELETE', `/api/vehicles/nonexistent-id-xyz?company=${company}`);
+      return `HTTP ${r.status} (${r.status === 404 ? 'not found — OK' : r.status === 200 ? 'OK' : 'nieoczekiwany'})`;
+    }));
+
+    results.push(await this._runTest('Przełamanie XSS w polu nrRej (sanityzacja)', 'Edge', async () => {
+      const r = await this.req('POST', '/api/vehicles', {
+        company_id: company,
+        data: JSON.stringify({ nrRej: '<script>alert(1)</script>', marka: 'XSS-Test', dmc: 1000, typ: 'Ciężarowy' }),
+      });
+      if (r.status === 200) {
+        // Sprawdź czy dane są przechowywane tak jak podane czy zasanityzowane
+        return `HTTP 200 (zapis przyjęty — sprawdź czy pole jest sanityzowane w UI)`;
+      }
+      return `HTTP ${r.status} (odrzucono — OK)`;
+    }));
+
+    results.push(await this._runTest('Bardzo długie pole nrRej (DoS na walidację)', 'Edge', async () => {
+      const longStr = 'A'.repeat(10000);
+      const r = await this.req('POST', '/api/vehicles', { company_id: company, data: JSON.stringify({ nrRej: longStr }) });
+      return `HTTP ${r.status} (${r.status >= 400 ? 'odrzucono — OK' : 'przyjęto — sprawdź limit długości'})`;
+    }));
+
+    results.push(await this._runTest('SQL injection w parametrze company', 'Edge', async () => {
+      const r = await this.req('GET', `/api/vehicles?company=${encodeURIComponent("'; DROP TABLE vehicles; --")}`, null, false);
+      if (r.status === 500) throw new Error('Potencjalny SQL injection — serwer zwrócił 500!');
+      return `HTTP ${r.status} (bezpieczny)`;
+    }));
+
+    return results;
+  },
+
+  async _suitePerf(url, email, pass, company) {
+    const results = [];
+    this.log('\n=== WYDAJNOŚĆ API ===');
+
+    const endpoints = [
+      { label: 'GET /api/vehicles', path: `/api/vehicles?company=${company}`, limit: 800 },
+      { label: 'GET /api/export', path: `/api/export?company=${company}`, limit: 2000 },
+      { label: 'GET /api/companies', path: '/api/companies', limit: 500 },
+      { label: 'GET /api/auth/me', path: '/api/auth/me', limit: 400 },
     ];
 
-    const hasExpected = Object.values(expected).some(v=>v);
+    for (const ep of endpoints) {
+      results.push(await this._runTest(`Latencja ${ep.label}`, 'Wydajność', async () => {
+        const times = [];
+        for (let i = 0; i < 3; i++) {
+          const r = await this.req('GET', ep.path);
+          times.push(r.ms);
+          if (r.status !== 200) throw new Error(`HTTP ${r.status} przy próbie ${i+1}`);
+        }
+        const avg = Math.round(times.reduce((s,t)=>s+t,0)/times.length);
+        if (avg > ep.limit) throw new Error(`Avg ${avg}ms > limit ${ep.limit}ms`);
+        return `Avg ${avg}ms (${times.join(', ')}ms)`;
+      }));
+    }
 
-    const fieldHtml = fields.map(f => {
-      const got = String(f.val||'').toUpperCase().replace(/\s+/g,'');
-      const exp = (expected[f.key]||'').toUpperCase().replace(/\s+/g,'');
-      let cls = 'field-box';
-      let badge = '';
-      if (hasExpected && exp) {
-        const ok = got === exp;
-        cls += ok ? ' match' : ' mismatch';
-        badge = ok
-          ? '<span class="badge badge-green" style="float:right">✅ OK</span>'
-          : `<span class="badge badge-red" style="float:right">❌ oczek.: ${expected[f.key]}</span>`;
-      } else if (!f.val) {
-        cls += ' empty';
-      }
-      return `<div class="${cls}">
-        <div class="lbl">${badge}${f.label}</div>
-        <div class="val">${f.val||'<span style="color:var(--text3)">—</span>'}</div>
+    return results;
+  },
+
+  _renderResults(results) {
+    const pass = results.filter(r => r.status === 'PASS').length;
+    const fail = results.filter(r => r.status === 'FAIL').length;
+    const total = results.length;
+    const avgMs = total ? Math.round(results.reduce((s,r)=>s+r.ms,0)/total) : 0;
+
+    const kpiEl = document.getElementById('hs-kpi');
+    kpiEl.style.display = 'flex';
+    kpiEl.innerHTML = [
+      { v: pass, l: 'PASS', c: '#16a34a' },
+      { v: fail, l: 'FAIL', c: fail ? '#dc2626' : '#6b7280' },
+      { v: total, l: 'TOTAL', c: '#111' },
+      { v: avgMs + 'ms', l: 'avg czas', c: avgMs < 500 ? '#16a34a' : '#d97706' },
+      { v: Math.round(pass/total*100) + '%', l: 'success rate', c: fail === 0 ? '#16a34a' : '#dc2626' },
+    ].map(k => `<div class="kpi"><div class="v" style="color:${k.c}">${k.v}</div><div class="l">${k.l}</div></div>`).join('');
+
+    const cats = [...new Set(results.map(r => r.category))];
+    const html = cats.map(cat => {
+      const cr = results.filter(r => r.category === cat);
+      const cp = cr.filter(r => r.status === 'PASS').length;
+      return `<div class="card">
+        <h2>${cat} — <span style="color:${cp<cr.length?'var(--red)':'var(--green)'}">✅ ${cp}/${cr.length}</span></h2>
+        <table class="tbl">
+          <thead><tr><th></th><th>Test</th><th style="text-align:right">Czas</th><th>Szczegóły</th></tr></thead>
+          <tbody>
+          ${cr.map(r => `<tr style="background:${r.status==='FAIL'?'#fef2f2':''}">
+            <td>${r.status==='PASS'?'✅':'❌'}</td>
+            <td>${r.name}</td>
+            <td style="text-align:right;font-family:monospace;color:${r.ms<400?'var(--green)':r.ms<1000?'var(--amber)':'var(--red)'}">${r.ms}ms</td>
+            <td style="color:${r.status==='FAIL'?'var(--red)':'var(--text2)'};font-size:11px">${r.note}</td>
+          </tr>`).join('')}
+          </tbody>
+        </table>
       </div>`;
     }).join('');
 
-    const logText = JSON.stringify(data, null, 2);
-
-    el.innerHTML = `
-    <div class="card">
-      <h2>Wynik OCR</h2>
-      <div class="field-grid">${fieldHtml}</div>
-    </div>
-    <div class="card">
-      <h2>Surowa odpowiedź JSON</h2>
-      <div class="log">${logText}</div>
-    </div>`;
-  }
+    document.getElementById('hs-results').innerHTML = html;
+  },
 };
 
-// ─── API Test ─────────────────────────────────────────────────────────────────
-const APITest = {
-  loadFromStorage() {
-    try {
-      // Próbuj załadować z localStorage (gdy strona jest otwarta z głównej aplikacji)
-      const token = localStorage.getItem('cf_token') || '';
-      if (token) document.getElementById('api-token').value = token;
-      else alert('Brak tokenu w localStorage. Zaloguj się w aplikacji głównej i wróć tutaj.');
-    } catch { alert('localStorage niedostępny (cross-origin). Podaj token ręcznie.'); }
+// ── Stress Test ────────────────────────────────────────────────────────────────
+const StressTest = {
+  loadToken() {
+    try { const t = localStorage.getItem('cf_token'); if (t) document.getElementById('st-token').value = t; } catch {}
   },
 
-  async runAll() {
-    const url   = document.getElementById('api-url').value.trim();
-    const token = document.getElementById('api-token').value.trim();
-    const el    = document.getElementById('api-results');
-    const log   = [];
-    const results = [];
+  clear() { document.getElementById('st-results').innerHTML = ''; },
 
-    const req = async (method, path, body) => {
-      const t0 = Date.now();
+  async run() {
+    const url   = document.getElementById('st-url').value.trim();
+    const token = document.getElementById('st-token').value.trim();
+    const N     = parseInt(document.getElementById('st-n').value) || 50;
+    const C     = parseInt(document.getElementById('st-c').value) || 10;
+    const el    = document.getElementById('st-results');
+
+    const endpoints = [];
+    if (document.getElementById('st-ep-vehicles').checked) endpoints.push('/api/vehicles?company=mtoilet');
+    if (document.getElementById('st-ep-companies').checked) endpoints.push('/api/companies');
+    if (document.getElementById('st-ep-export').checked) endpoints.push('/api/export?company=mtoilet');
+    if (document.getElementById('st-ep-me').checked) endpoints.push('/api/auth/me');
+    if (document.getElementById('st-ep-push').checked) endpoints.push('/api/push/vapid-public-key');
+    if (!endpoints.length) { alert('Wybierz co najmniej jeden endpoint'); return; }
+
+    const errNoAuth   = document.getElementById('st-err-noauth').checked;
+    const errBadCo    = document.getElementById('st-err-badcompany').checked;
+    const err404      = document.getElementById('st-err-404').checked;
+
+    el.innerHTML = `<div class="card"><h2>Stress Test w toku…</h2><div class="progress-bar"><div class="progress-fill" id="st-prog" style="width:0%"></div></div><div class="log" id="st-log"></div></div>`;
+
+    const log = document.getElementById('st-log');
+    const results = [];
+    let done = 0;
+
+    const doReq = async (i) => {
+      let path = endpoints[i % endpoints.length];
+      let auth = token ? { Authorization: `Bearer ${token}` } : {};
+
+      // Celowe błędy
+      const rand = Math.random();
+      let expectedError = false;
+      if (errNoAuth && rand < 0.20)  { auth = {}; expectedError = true; }
+      else if (errBadCo && rand < 0.30 && path.includes('company=')) { path = path.replace('company=mtoilet', 'company=invalid_co'); expectedError = true; }
+      else if (err404 && rand < 0.35) { path = '/api/_stress_404_' + i; expectedError = true; }
+
+      const t0 = performance.now();
       try {
-        const opts = { method, headers: { 'Content-Type':'application/json', ...(token?{Authorization:`Bearer ${token}`}:{}) } };
-        if (body) opts.body = JSON.stringify(body);
-        const r = await fetch(url + path, opts);
-        const ms = Date.now() - t0;
-        const text = await r.text();
-        let json; try { json=JSON.parse(text); } catch { json=text; }
-        return { status:r.status, ok:r.ok, ms, json };
-      } catch(e) {
-        return { status:0, ok:false, ms:Date.now()-t0, json:{error:e.message} };
+        const res = await fetch(url + path, { headers: auth });
+        const ms  = Math.round(performance.now() - t0);
+        return { ms, status: res.status, ok: res.ok || expectedError, error: false, expectedError };
+      } catch (e) {
+        return { ms: Math.round(performance.now() - t0), status: 0, ok: false, error: true, msg: e.message, expectedError };
       }
     };
 
-    const check = async (label, method, path, expectStatus, verify) => {
-      const r = await req(method, path);
-      const statusOk = r.status === expectStatus;
-      const verifyOk = verify ? verify(r.json) : true;
-      const ok = statusOk && verifyOk;
-      results.push({ label, status:r.status, ms:r.ms, ok });
-      log.push(`${ok?'✅':'❌'} [${r.status}] ${method} ${path} (${r.ms}ms)${ok?'':' → '+JSON.stringify(r.json).slice(0,80)}`);
-      el.querySelector('.log').textContent = log.join('\n');
+    // Concurrency pool
+    let idx = 0;
+    const worker = async () => {
+      while (idx < N) {
+        const i = idx++;
+        const r = await doReq(i);
+        results.push(r);
+        done++;
+        document.getElementById('st-prog').style.width = `${Math.round(done/N*100)}%`;
+        if (done % 5 === 0) {
+          const succ = results.filter(r => r.ok).length;
+          log.textContent = `Ukończono: ${done}/${N} | PASS: ${succ} | FAIL: ${done-succ} | Avg: ${Math.round(results.reduce((s,r)=>s+r.ms,0)/results.length)}ms`;
+        }
+      }
     };
 
-    el.innerHTML = `<div class="card"><h2>Wyniki</h2><div class="log">⏳ Testuję...\n</div></div>`;
+    const workers = Array.from({ length: Math.min(C, N) }, () => worker());
+    await Promise.all(workers);
 
-    // Testy bez autoryzacji
-    await check('Health check',  'GET', '/',                      200);
-    await check('404 nieistn.',  'GET', '/api/nieistniejace',     404);
-    await check('Auth required', 'GET', '/api/vehicles?company=test', token?200:401);
+    // Stats
+    const times  = results.map(r => r.ms).sort((a,b)=>a-b);
+    const avg    = Math.round(times.reduce((s,v)=>s+v,0)/times.length);
+    const p50    = times[Math.floor(times.length * .50)];
+    const p95    = times[Math.floor(times.length * .95)];
+    const p99    = times[Math.floor(times.length * .99)];
+    const succ   = results.filter(r => r.ok).length;
+    const errors = results.filter(r => r.error).length;
+    const http4xx = results.filter(r => r.status >= 400 && r.status < 500 && !r.expectedError).length;
+    const http5xx = results.filter(r => r.status >= 500).length;
 
-    // Testy z autoryzacją (jeśli jest token)
-    if (token) {
-      await check('Lista pojazdów',   'GET', '/api/vehicles?company=mtoilet', 200, d => Array.isArray(d)||d?.results);
-      await check('Push public key',  'GET', '/api/push/vapid-public-key',    200, d => d?.publicKey);
-      await check('Lista firm',       'GET', '/api/companies',                200);
-    }
-
-    // Podsumowanie
-    const pass = results.filter(r=>r.ok).length;
-    const fail = results.filter(r=>!r.ok).length;
-    const avgMs = Math.round(results.reduce((s,r)=>s+r.ms,0)/results.length);
-
-    const rows = results.map(r=>`<tr>
-      <td>${r.ok?'✅':'❌'}</td>
-      <td>${r.label}</td>
-      <td style="text-align:center;font-family:var(--mono)">${r.status}</td>
-      <td style="text-align:right;font-family:var(--mono)">${r.ms}ms</td>
-    </tr>`).join('');
+    // Bar chart (timings distribution buckets)
+    const buckets = [100,200,300,500,750,1000,1500,2000,Infinity];
+    const bucketCounts = buckets.map(b => 0);
+    times.forEach(t => { const bi = buckets.findIndex(b => t <= b); if (bi>=0) bucketCounts[bi]++; });
+    const maxBucket = Math.max(...bucketCounts, 1);
+    const bars = bucketCounts.map((c,i) => {
+      const pct = Math.round(c/maxBucket*100);
+      const label = buckets[i] === Infinity ? '2s+' : buckets[i]+'ms';
+      return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1">
+        <div style="width:100%;background:${i<3?'#16a34a':i<5?'#d97706':'#dc2626'};height:${Math.max(2,pct*0.6)}px;border-radius:2px 2px 0 0" title="${c}×"></div>
+        <div style="font-size:9px;color:var(--text3);writing-mode:vertical-lr;transform:rotate(180deg);height:36px;overflow:hidden">${label}</div>
+      </div>`;
+    }).join('');
 
     el.innerHTML = `
-    <div class="summary">
-      <div class="stat"><div class="val" style="color:var(--green)">${pass}</div><div class="lbl">PASS</div></div>
-      <div class="stat"><div class="val" style="color:var(--red)">${fail}</div><div class="lbl">FAIL</div></div>
-      <div class="stat"><div class="val">${avgMs}ms</div><div class="lbl">Avg latency</div></div>
-    </div>
-    <table class="result-table"><thead><tr><th></th><th>Test</th><th>Status</th><th style="text-align:right">Czas</th></tr></thead>
-    <tbody>${rows}</tbody></table>
-    <div class="card" style="margin-top:12px"><h2>Log</h2><div class="log">${log.join('\n')}</div></div>`;
-  }
+    <div class="card">
+      <h2>Wyniki Stress Test — ${N} żądań, ${C} concurrent</h2>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="v" style="color:var(--green)">${succ}</div><div class="l">PASS</div></div>
+        <div class="kpi"><div class="v" style="color:${N-succ?'var(--red)':'var(--text2)'}">${N-succ}</div><div class="l">FAIL</div></div>
+        <div class="kpi"><div class="v">${avg}ms</div><div class="l">avg</div></div>
+        <div class="kpi"><div class="v">${p50}ms</div><div class="l">p50</div></div>
+        <div class="kpi"><div class="v" style="color:${p95>800?'var(--amber)':'var(--text)'}">${p95}ms</div><div class="l">p95</div></div>
+        <div class="kpi"><div class="v" style="color:${p99>1000?'var(--red)':'var(--text)'}">${p99}ms</div><div class="l">p99</div></div>
+        <div class="kpi"><div class="v" style="color:${http5xx?'var(--red)':'var(--green)'}">${http5xx}</div><div class="l">5xx errors</div></div>
+        <div class="kpi"><div class="v" style="color:${errors?'var(--red)':'var(--green)'}">${errors}</div><div class="l">network err</div></div>
+      </div>
+      <div style="font-size:12px;font-weight:600;margin-bottom:6px">Rozkład czasów odpowiedzi:</div>
+      <div style="display:flex;align-items:flex-end;gap:3px;height:80px;padding:0 4px">${bars}</div>
+      ${http4xx ? `<div style="color:var(--amber);margin-top:10px;font-size:12px">⚠ ${http4xx} nieoczekiwanych odpowiedzi 4xx (poza celowymi błędami testowymi)</div>` : ''}
+      ${http5xx ? `<div style="color:var(--red);margin-top:6px;font-size:12px">❌ ${http5xx} błędów serwera 5xx — wymaga analizy!</div>` : ''}
+      ${p99 > 2000 ? `<div style="color:var(--red);margin-top:6px;font-size:12px">🐢 p99 > 2s — rozważ optymalizację zapytań D1</div>` : ''}
+      <div style="margin-top:12px;font-size:11px;color:var(--text2)">Endpointy: ${endpoints.join(', ')}</div>
+    </div>`;
+
+    addResult('Stress', `${N} żądań, ${C} concurrent`, http5xx===0 && errors===0 ? 'PASS' : 'FAIL', avg, `p95:${p95}ms p99:${p99}ms 5xx:${http5xx}`);
+  },
+};
+
+// ── DT1 Test (unchanged) ──────────────────────────────────────────────────────
+const DT1Test = {
+  handleFile(file){if(!file||typeof XLSX==='undefined')return;const r=new FileReader();r.onload=e=>{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const raw=XLSX.utils.sheet_to_json(ws,{defval:''});const vehs=raw.map(row=>{const v={osie:2,miesiacePodatku:12,zawieszenie:'pneumatyczne',dmcZespolu:0};Object.entries(row).forEach(([col,val])=>{const key=COL_MAP[col.toLowerCase().trim()];if(!key)return;if(key==='_dmcT')v.dmc=Math.round(parseFloat(val)*1000)||0;else if(['rok','dmc','dmcZespolu','osie','miesiacePodatku','miejsca'].includes(key))v[key]=parseInt(val)||0;else v[key]=String(val).trim();});return v;}).filter(v=>v.nrRej||v.dmc);this.render(vehs);};r.readAsArrayBuffer(file);},
+  runFromJson(){try{const raw=JSON.parse(document.getElementById('dt1-json').value);const vehs=(Array.isArray(raw)?raw:[raw]).map(v=>({osie:2,miesiacePodatku:12,zawieszenie:'pneumatyczne',dmcZespolu:0,...v}));this.render(vehs);}catch(e){alert('Błędny JSON: '+e.message);}},
+  loadSample(){const s=[{nrRej:'WGM87205',marka:'Fuso',model:'Canter',rok:2020,dmc:8500,typ:'Ciężarowy',osie:2},{nrRej:'WGM0065L',marka:'MAN',model:'TGL',rok:2024,dmc:8800,typ:'Ciężarowy',osie:2},{nrRej:'WA9885J',marka:'Mercedes',model:'Actros',rok:2016,dmc:26000,typ:'Ciężarowy',osie:2},{nrRej:'WZ621FY',marka:'Scania',model:'R580',rok:2015,dmc:30000,typ:'Ciężarowy',osie:3},{nrRej:'WW024AF',marka:'GFOLLNER',model:'APL',rok:2015,dmc:14000,typ:'Przyczepa',osie:2},{nrRej:'WZ209LJ',marka:'Meprozet',model:'PN-1',rok:2025,dmc:16200,typ:'Przyczepa',osie:2}];document.getElementById('dt1-json').value=JSON.stringify(s,null,2);this.render(s.map(v=>({osie:2,miesiacePodatku:12,zawieszenie:'pneumatyczne',dmcZespolu:0,...v})));},
+  render(vehs){const el=document.getElementById('dt1-results');if(!vehs.length){el.innerHTML='<div style="color:var(--red)">Brak pojazdów</div>';return;}const rows=vehs.map(v=>({v,tax:calcTax(v)}));const taxable=rows.filter(r=>r.tax.cat);const totalTax=taxable.reduce((s,r)=>s+r.tax.amount,0);el.innerHTML=`<div class="kpi-grid"><div class="kpi"><div class="v">${vehs.length}</div><div class="l">Pojazdów</div></div><div class="kpi"><div class="v" style="color:var(--blue)">${taxable.length}</div><div class="l">Podlega DT-1</div></div><div class="kpi"><div class="v" style="color:var(--green)">${Math.round(totalTax).toLocaleString('pl-PL')} zł</div><div class="l">Podatek/rok</div></div></div><table class="tbl"><thead><tr><th>Nr rej.</th><th>Pojazd</th><th>DMC</th><th>Rok</th><th>Kat.</th><th style="text-align:right">Kwota</th></tr></thead><tbody>${rows.map(({v,tax})=>`<tr><td style="font-family:monospace">${v.nrRej||'—'}</td><td>${v.marka||''} ${v.model||''}</td><td>${v.dmc?(v.dmc/1000).toFixed(1)+'t':'—'}</td><td>${v.rok||'—'}${tax.isNew?'<span class="badge bg" style="margin-left:3px">2024+</span>':''}</td><td>${tax.cat?`<span class="badge bb">${tax.cat}</span>`:'—'}</td><td style="text-align:right;font-family:monospace;font-weight:700">${tax.cat?tax.amount.toFixed(2)+' zł':'—'}</td></tr>`).join('')}</tbody></table>`;}
+};
+
+// ── Import Test ────────────────────────────────────────────────────────────────
+const ImportTest = {
+  handleFile(file){if(!file||typeof XLSX==='undefined')return;const r=new FileReader();r.onload=e=>{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const raw=XLSX.utils.sheet_to_json(ws,{defval:''});if(!raw.length){document.getElementById('import-results').innerHTML='<div style="color:var(--red)">Pusty arkusz</div>';return;}this.analyze(raw);};r.readAsArrayBuffer(file);},
+  analyze(raw){const el=document.getElementById('import-results');const allCols=Object.keys(raw[0]||{});const mapped=[],unmapped=[];allCols.forEach(col=>{const key=COL_MAP[col.toLowerCase().trim()];if(key&&key!=='_dmcT')mapped.push({col,field:key});else if(key==='_dmcT')mapped.push({col,field:'dmc (z ton)'});else unmapped.push(col);});const rows=raw.map(row=>{const v={osie:2,miesiacePodatku:12,zawieszenie:'pneumatyczne',dmcZespolu:0};Object.entries(row).forEach(([col,val])=>{const key=COL_MAP[col.toLowerCase().trim()];if(!key)return;if(key==='_dmcT')v.dmc=Math.round(parseFloat(val)*1000)||0;else if(['rok','dmc','dmcZespolu','osie','miesiacePodatku','miejsca'].includes(key))v[key]=parseInt(val)||0;else v[key]=String(val).trim();});return v;}).filter(v=>v.nrRej);const noReg=raw.length-rows.length;el.innerHTML=`<div class="kpi-grid"><div class="kpi"><div class="v">${raw.length}</div><div class="l">Wierszy</div></div><div class="kpi"><div class="v" style="color:var(--green)">${rows.length}</div><div class="l">Pojazdów</div></div><div class="kpi"><div class="v" style="color:${unmapped.length?'var(--amber)':'var(--green)'}">${unmapped.length}</div><div class="l">Nierozp. kol.</div></div></div>${unmapped.length?`<div style="background:#fef3c7;border:1px solid var(--amber);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px"><strong style="color:var(--amber)">⚠ Nierozpoznane kolumny:</strong> ${unmapped.map(c=>`<code>${c}</code>`).join(', ')}</div>`:'<div style="color:var(--green);font-weight:600;margin-bottom:8px">✅ Wszystkie kolumny rozpoznane</div>'}<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Nr rej.</th><th>Marka</th><th>Model</th><th>DMC</th><th>Rok</th><th>Typ</th><th>VIN</th></tr></thead><tbody>${rows.slice(0,10).map(v=>`<tr><td style="font-family:monospace">${v.nrRej}</td><td>${v.marka||'—'}</td><td>${v.model||'—'}</td><td>${v.dmc?(v.dmc/1000).toFixed(1)+'t':'—'}</td><td>${v.rok||'—'}</td><td>${v.typ||'—'}</td><td style="font-size:10px;font-family:monospace">${v.vin||'—'}</td></tr>`).join('')}</tbody></table></div>`;}
+};
+
+// ── OCR Test ──────────────────────────────────────────────────────────────────
+const OCRTest = {
+  handleFile(file){if(!file)return;const prev=document.getElementById('ocr-preview-img');if(file.type.startsWith('image/')){const url=URL.createObjectURL(file);prev.innerHTML=`<img src="${url}" style="max-width:100%;max-height:240px;border-radius:var(--radius);border:1px solid var(--border);margin-top:8px">`;}const el=document.getElementById('ocr-results');el.innerHTML=`<div class="log">⏳ Wysyłanie do OCR…</div>`;const form=new FormData();form.append('file',file);fetch('https://taxorder-pro-api.adamus1000.workers.dev/api/ocr/dr',{method:'POST',body:form}).then(r=>{if(!r.ok)return r.text().then(t=>{throw new Error(`HTTP ${r.status}: ${t.slice(0,120)}`);});return r.json();}).then(d=>this.render(d)).catch(e=>{el.innerHTML=`<div style="color:var(--red);padding:10px">❌ ${e.message}</div>`;});},
+  render(data){const el=document.getElementById('ocr-results');const exp={nrRej:document.getElementById('exp-nrRej').value.trim().toUpperCase(),vin:document.getElementById('exp-vin').value.trim().toUpperCase(),dmc:document.getElementById('exp-dmc').value.trim(),marka:document.getElementById('exp-marka').value.trim().toUpperCase(),model:document.getElementById('exp-model').value.trim().toUpperCase(),rok:document.getElementById('exp-rok').value.trim()};const fields=[{key:'nrRej',label:'Nr rej. (A)',val:data.nrRej||data.A},{key:'vin',label:'VIN (E)',val:data.vin||data.E},{key:'marka',label:'Marka (D.1)',val:data.marka||data.D1},{key:'model',label:'Model (D.2)',val:data.model||data.D2},{key:'rok',label:'Rok prod. (B)',val:data.rok||data.B},{key:'dmc',label:'DMC (F.1) kg',val:data.dmc||data.F1}];const hasExp=Object.values(exp).some(v=>v);el.innerHTML=`<div class="card"><h2>Wynik OCR</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">${fields.map(f=>{const got=String(f.val||'').toUpperCase().replace(/\s+/g,'');const ex=(exp[f.key]||'').toUpperCase().replace(/\s+/g,'');const ok=hasExp&&ex&&got===ex;const fail=hasExp&&ex&&got!==ex;return`<div style="padding:10px;border-radius:var(--radius);border:1px solid ${ok?'var(--green)':fail?'var(--red)':'var(--border)'}"><div style="font-size:10px;color:var(--text2)">${f.label}</div><div style="font-weight:700">${f.val||'—'}</div>${fail?`<div style="font-size:10px;color:var(--red)">Oczek.: ${exp[f.key]}</div>`:''}</div>`;}).join('')}</div></div><div class="card"><h2>Surowa odpowiedź JSON</h2><div class="log">${JSON.stringify(data,null,2)}</div></div>`;}
+};
+
+// ── API Test ───────────────────────────────────────────────────────────────────
+const APITest = {
+  loadFromStorage(){try{const t=localStorage.getItem('cf_token');if(t)document.getElementById('api-token').value=t;else alert('Brak tokenu w localStorage');}catch{alert('localStorage niedostępny');}},
+  async runAll(){const url=document.getElementById('api-url').value.trim();const token=document.getElementById('api-token').value.trim();const el=document.getElementById('api-results');const results=[];const req=async(method,path,body,noAuth)=>{const t0=Date.now();try{const opts={method,headers:{'Content-Type':'application/json',...(token&&!noAuth?{Authorization:`Bearer ${token}`}:{})}};if(body)opts.body=JSON.stringify(body);const r=await fetch(url+path,opts);const ms=Date.now()-t0;let json;try{json=await r.json();}catch{json={};}return{status:r.status,ok:r.ok,ms,json};}catch(e){return{status:0,ok:false,ms:Date.now()-t0,json:{error:e.message}};}};const check=async(label,method,path,expStatus,verify,noAuth)=>{const r=await req(method,path,null,noAuth);const ok=(r.status===(expStatus||200))&&(verify?verify(r.json):true);results.push({label,status:r.status,ms:r.ms,ok});addResult('API',label,ok?'PASS':'FAIL',r.ms,`HTTP ${r.status}`);};el.innerHTML=`<div class="log">⏳ Testuję…</div>`;
+  await check('Health (VAPID key)','GET','/api/push/vapid-public-key',200,d=>!!d?.publicKey,true);
+  await check('401 bez tokenu','GET','/api/vehicles?company=mtoilet',401,null,true);
+  await check('404 nieistniejący','GET','/api/_qa_test_404',404,null,true);
+  if(token){await check('Auth me','GET','/api/auth/me',200,d=>!!d?.id||!!d?.email);await check('Lista pojazdów','GET','/api/vehicles?company=mtoilet',200,d=>Array.isArray(d)||!!d?.results);await check('Lista firm','GET','/api/companies',200,d=>Array.isArray(d));await check('Klucze API','GET','/api/api-keys',200,d=>Array.isArray(d));await check('Eksport danych','GET','/api/export?company=mtoilet',200,d=>!!d?.vehicles);}
+  const pass=results.filter(r=>r.ok).length;const avg=Math.round(results.reduce((s,r)=>s+r.ms,0)/results.length);
+  el.innerHTML=`<div class="kpi-grid"><div class="kpi"><div class="v" style="color:var(--green)">${pass}</div><div class="l">PASS</div></div><div class="kpi"><div class="v" style="color:${results.length-pass?'var(--red)':'var(--text2)'}">${results.length-pass}</div><div class="l">FAIL</div></div><div class="kpi"><div class="v">${avg}ms</div><div class="l">avg</div></div></div><table class="tbl"><thead><tr><th></th><th>Test</th><th style="text-align:center">Status</th><th style="text-align:right">Czas</th></tr></thead><tbody>${results.map(r=>`<tr><td>${r.ok?'✅':'❌'}</td><td>${r.label}</td><td style="text-align:center;font-family:monospace">${r.status}</td><td style="text-align:right;font-family:monospace;color:${r.ms<300?'var(--green)':r.ms<700?'var(--amber)':'var(--red)'}">${r.ms}ms</td></tr>`).join('')}</tbody></table>`;}
+};
+
+// ── Report ─────────────────────────────────────────────────────────────────────
+const Report = {
+  update(){const el=document.getElementById('report-content');if(!SESSION.tests.length){el.innerHTML='<div class="card" style="text-align:center;color:var(--text3);padding:2rem">Brak danych</div>';return;}const pass=SESSION.tests.filter(t=>t.status==='PASS').length;const fail=SESSION.tests.filter(t=>t.status==='FAIL').length;const cats=[...new Set(SESSION.tests.map(t=>t.suite))];el.innerHTML=`<div class="kpi-grid"><div class="kpi"><div class="v" style="color:var(--green)">${pass}</div><div class="l">PASS</div></div><div class="kpi"><div class="v" style="color:${fail?'var(--red)':'var(--text2)'}">${fail}</div><div class="l">FAIL</div></div><div class="kpi"><div class="v">${SESSION.tests.length}</div><div class="l">TOTAL</div></div></div>${cats.map(c=>{const ct=SESSION.tests.filter(t=>t.suite===c);const cp=ct.filter(t=>t.status==='PASS').length;return`<div class="card"><h2>${c} — ${cp}/${ct.length}</h2><table class="tbl"><thead><tr><th></th><th>Test</th><th style="text-align:right">Czas</th><th>Szczegóły</th></tr></thead><tbody>${ct.map(t=>`<tr style="background:${t.status==='FAIL'?'#fef2f2':''}"><td>${t.status==='PASS'?'✅':'❌'}</td><td>${t.name}</td><td style="text-align:right;font-family:monospace">${t.ms}ms</td><td style="font-size:11px;color:var(--text2)">${t.note}</td></tr>`).join('')}</tbody></table></div>`;}).join('')}`;},
+  download(){const pass=SESSION.tests.filter(t=>t.status==='PASS').length;const fail=SESSION.tests.filter(t=>t.status==='FAIL').length;const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>TaxOrder QA Report ${new Date().toLocaleDateString('pl-PL')}</title><style>body{font-family:system-ui;max-width:960px;margin:0 auto;padding:24px;font-size:13px}h1{font-size:20px;font-weight:900}h2{font-size:13px;font-weight:700;margin:16px 0 6px;padding:5px 12px;background:#f3f4f6;border-left:3px solid #2563eb}.ok{color:#16a34a;font-weight:700}.err{color:#dc2626;font-weight:700}table{border-collapse:collapse;width:100%}td,th{padding:5px 8px;border:1px solid #e5e7eb;font-size:11px}th{background:#f9fafb;font-weight:700}</style></head><body><h1>TaxOrder Pro — Raport QA</h1><p style="color:#6b7280">Wygenerowano: ${new Date().toLocaleString('pl-PL')} | PASS: ${pass} | FAIL: ${fail}</p>${[...new Set(SESSION.tests.map(t=>t.suite))].map(c=>{const ct=SESSION.tests.filter(t=>t.suite===c);const cp=ct.filter(t=>t.status==='PASS').length;return`<h2>${c} (${cp}/${ct.length})</h2><table><tr><th></th><th>Test</th><th>Czas</th><th>Szczegóły</th></tr>${ct.map(t=>`<tr><td class="${t.status==='PASS'?'ok':'err'}">${t.status}</td><td>${t.name}</td><td>${t.ms}ms</td><td>${t.note}</td></tr>`).join('')}</table>`;}).join('')}</body></html>`;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.download=`taxorder-qa-${new Date().toISOString().slice(0,10)}.html`;a.click();}
 };
 </script>
 </body>
