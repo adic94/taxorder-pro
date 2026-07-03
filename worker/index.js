@@ -2428,6 +2428,12 @@ async function handleRequest(request, env, url, path) {
   if (path.startsWith('/api/notif-prefs'))         { if (!user) return err('Nieautoryzowany', 401); return handleNotifPrefs(request, env, user, url); }
   if (path.startsWith('/api/notif-log'))           { if (!user) return err('Nieautoryzowany', 401); return handleNotifLog(request, env, user, url, path); }
   if (path.startsWith('/api/maintenance-templates')){ if (!user) return err('Nieautoryzowany', 401); return handleMaintenanceTemplates(request, env, user, url, path); }
+  // Admin: ręczne wyzwolenie kolejkowania powiadomień (do testów bez crona)
+  if (path === '/api/notif-trigger' && request.method === 'POST') {
+    if (!user || user.role !== 'admin') return err('Brak uprawnień', 403);
+    await queueNotificationJobs(env);
+    return json({ ok: true, msg: 'Kolejkowanie zakończone — sprawdź zakładkę Historia za chwilę' });
+  }
   if (path === '/api/ai/chat')          return handleAI(request, env);
   if (path === '/api/ai/ocr' && request.method === 'POST') return handleAIOCR(request, env);
   if (path === '/api/aztec'  && request.method === 'POST') return handleAztec(request);

@@ -216,7 +216,10 @@ window.TaxOrderNotifSettings = (function () {
               <i class="ti ti-bell-off"></i>Wyłącz
             </button>
             <button class="btn btn-gray" style="font-size:11px" onclick="TaxOrderNotifSettings._testPush()">
-              <i class="ti ti-send"></i>Test
+              <i class="ti ti-send"></i>Test push
+            </button>
+            <button class="btn btn-gray" style="font-size:11px" onclick="TaxOrderNotifSettings._triggerQueue()">
+              <i class="ti ti-player-play"></i>Wyzwól kolejkę
             </button>
           </div>
         </div>
@@ -433,6 +436,17 @@ window.TaxOrderNotifSettings = (function () {
       body: JSON.stringify({ company_id: company(), title: 'TaxOrder Pro — test push', message: 'Powiadomienia push działają poprawnie ✓', url: '/?page=powiadomienia', urgent: false }),
     });
     window.toast?.(r.ok ? '✓ Testowe powiadomienie wysłane' : '❌ Błąd wysyłki push');
+  }
+
+  async function _triggerQueue() {
+    const r = await fetch(`${API()}/api/notif-trigger`, { method: 'POST', headers: hdrs() });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) {
+      window.toast?.('✓ ' + (d.msg || 'Kolejkowanie wyzwolone'));
+      setTimeout(() => _renderHistoria(document.getElementById('ns-content')), 3000);
+    } else {
+      window.toast?.('❌ Błąd: ' + (d.error || r.status));
+    }
   }
 
   async function _addCustomType() {
