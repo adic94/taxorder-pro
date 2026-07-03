@@ -106,7 +106,42 @@ window.TaxOrderNotifications = (function () {
         sent++;
       });
 
-      // KM-based service alerts
+      // Własne elementy konserwacji z maintenanceItems (km + czas)
+      (v.maintenanceItems || []).forEach(item => {
+        const itemLabel = item.label || item.typeId || 'Konserwacja';
+        if (item.nextDate) {
+          const days = _daysUntil(item.nextDate);
+          if (days !== null && days <= WARN_DAYS) {
+            const key = `${v.nrRej}__maint_${item.id || item.typeId}`;
+            if (!_wasSentToday(key)) {
+              const dateStr = new Date(item.nextDate).toLocaleDateString('pl-PL');
+              const title = days < 0
+                ? `❌ ${v.nrRej} — ${itemLabel} PRZETERMINOWANE`
+                : days === 0 ? `🚨 ${v.nrRej} — ${itemLabel} DZISIAJ`
+                : `⚠ ${v.nrRej} — ${itemLabel} za ${days} dni`;
+              _send(title, `${v.marka} ${v.model}\nTermin: ${dateStr}`, key);
+              _markSent(key);
+              sent++;
+            }
+          }
+        }
+        if (item.nextKm && v.stanKilometrow) {
+          const kmLeft = item.nextKm - v.stanKilometrow;
+          if (kmLeft <= 1000) {
+            const key = `${v.nrRej}__maint_km_${item.id || item.typeId}`;
+            if (!_wasSentToday(key)) {
+              const title = kmLeft <= 0
+                ? `❌ ${v.nrRej} — ${itemLabel} PRZETERMINOWANE (km)`
+                : `⚠ ${v.nrRej} — ${itemLabel} za ${Math.round(kmLeft)} km`;
+              _send(title, `${v.marka} ${v.model}\nPlan: ${item.nextKm} km, stan: ${v.stanKilometrow} km`, key);
+              _markSent(key);
+              sent++;
+            }
+          }
+        }
+      });
+
+      // KM-based service alerts (legacy serviceHistory)
       (v.serviceHistory||[]).filter(s => s.nextServiceKm && v.stanKilometrow).forEach(s => {
         const kmLeft = +s.nextServiceKm - (+v.stanKilometrow||0);
         if (kmLeft > 500) return;

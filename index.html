@@ -167,6 +167,9 @@ window.addEventListener('DOMContentLoaded', () => {
   <button class="tnb" id="tnb-walidacja" onclick="showPage('walidacja')"><i class="ti ti-shield-check"></i><span data-i18n="nav.walidacja">Walidacja</span> <span class="badge" id="badge-err" style="background:var(--red)">0</span></button>
   <button class="tnb" id="tnb-faktury" onclick="showPage('faktury')"><i class="ti ti-file-invoice"></i><span data-i18n="nav.faktury">Faktury</span></button>
 
+  <div class="sidebar-label">Powiadomienia</div>
+  <button class="tnb" id="tnb-powiadomienia" onclick="showPage('powiadomienia')"><i class="ti ti-bell-cog"></i><span>Centrum powiadomień</span></button>
+
   <div class="sidebar-label">Administracja</div>
   <button class="tnb" id="tnb-firmy" onclick="showPage('firmy')"><i class="ti ti-building-community"></i><span data-i18n="nav.firmy">Firmy</span></button>
   <button class="tnb" id="tnb-uzytkownicy" onclick="showPage('uzytkownicy')"><i class="ti ti-users"></i><span data-i18n="nav.uzytkownicy">Użytkownicy</span></button>
@@ -1573,6 +1576,9 @@ window.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 
+<!-- ==================== CENTRUM POWIADOMIEŃ ==================== -->
+<div class="page" id="page-powiadomienia"></div>
+
 <!-- ==================== UŻYTKOWNICY ==================== -->
 <div class="page" id="page-uzytkownicy">
   <div class="pg-title"><i class="ti ti-users"></i>Zarządzanie użytkownikami</div>
@@ -2537,6 +2543,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <script src="modules/cfm-contracts.js"></script>
   <script src="modules/cfm-invoices.js"></script>
   <script src="modules/api-keys.js"></script>
+  <script src="modules/notification-settings.js"></script>
   <script src="modules/diagnostics.js"></script>
   <script src="modules/tekom-import.js"></script>
   <script src="modules/dt1-xml.js"></script>

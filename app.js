@@ -168,6 +168,7 @@ function showPage(id) {
   if(id==='firmy') { if(typeof renderCompanyOverview==='function') renderCompanyOverview(); }
   if(id==='paliwo') renderPaliwoPage();
   if(id==='raporty') FleetReports?.initPdfSelectors?.();
+  if(id==='powiadomienia') window.TaxOrderNotifSettings?.load();
   updateCounters();
 }
 

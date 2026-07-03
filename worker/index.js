@@ -2067,6 +2067,229 @@ async function handleFuelWebhook(req, env, user, url) {
   return json({ ok: true, updated, skipped: skipped.length, errors: skipped.slice(0, 10) });
 }
 
+// ─── ALERT TYPES ─────────────────────────────────────────────────────────────
+async function handleAlertTypes(req, env, user, url, path) {
+  const segs = path.split('/').filter(Boolean);
+  const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
+  const canManage = user.role === 'admin' || (JSON.parse(user.extra_permissions || '[]')).includes('manage_alert_types');
+
+  if (req.method === 'GET') {
+    const rows = await env.DB.prepare(
+      'SELECT * FROM alert_types WHERE (company_id IS NULL OR company_id=?) AND active=1 ORDER BY sort_order,name'
+    ).bind(company).all();
+    return json(rows.results || []);
+  }
+  if (!canManage) return err('Brak uprawnień', 403);
+  if (req.method === 'POST') {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!body.name || !body.category) return err('Wymagane: name, category');
+    const id = crypto.randomUUID();
+    await env.DB.prepare(
+      `INSERT INTO alert_types(id,company_id,name,category,trigger_time,trigger_km,default_days,default_km,icon,sort_order)
+       VALUES(?,?,?,?,?,?,?,?,?,?)`
+    ).bind(id, company, body.name, body.category,
+      body.trigger_time ? 1 : 0, body.trigger_km ? 1 : 0,
+      JSON.stringify(body.default_days || [30,14,7]),
+      body.default_km || null, body.icon || 'ti-bell', body.sort_order || 99
+    ).run();
+    return json({ ok: true, id });
+  }
+  if (req.method === 'PUT' && segs[2]) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const sets = [], vals = [];
+    if (body.name !== undefined)        { sets.push('name=?');         vals.push(body.name); }
+    if (body.active !== undefined)      { sets.push('active=?');       vals.push(body.active ? 1 : 0); }
+    if (body.default_days !== undefined){ sets.push('default_days=?'); vals.push(JSON.stringify(body.default_days)); }
+    if (body.default_km !== undefined)  { sets.push('default_km=?');   vals.push(body.default_km || null); }
+    if (body.icon !== undefined)        { sets.push('icon=?');         vals.push(body.icon); }
+    if (!sets.length) return err('Brak pól');
+    vals.push(segs[2]);
+    await env.DB.prepare(`UPDATE alert_types SET ${sets.join(',')} WHERE id=?`).bind(...vals).run();
+    return json({ ok: true });
+  }
+  if (req.method === 'DELETE' && segs[2]) {
+    await env.DB.prepare('UPDATE alert_types SET active=0 WHERE id=? AND company_id IS NOT NULL').bind(segs[2]).run();
+    return json({ ok: true });
+  }
+  return err('Metoda niedozwolona', 405);
+}
+
+// ─── NOTIFICATION PREFS ───────────────────────────────────────────────────────
+async function handleNotifPrefs(req, env, user, url) {
+  if (req.method === 'GET') {
+    const rows = await env.DB.prepare(
+      'SELECT * FROM notification_prefs WHERE user_id=?'
+    ).bind(user.id).all();
+    return json(rows.results || []);
+  }
+  if (req.method === 'PUT') {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!body.alert_type_id) return err('Wymagane alert_type_id');
+    await env.DB.prepare(`
+      INSERT INTO notification_prefs(user_id,alert_type_id,enabled,channels,threshold_days,threshold_km,quiet_from,quiet_to)
+      VALUES(?,?,?,?,?,?,?,?)
+      ON CONFLICT(user_id,alert_type_id) DO UPDATE SET
+        enabled=excluded.enabled, channels=excluded.channels,
+        threshold_days=excluded.threshold_days, threshold_km=excluded.threshold_km,
+        quiet_from=excluded.quiet_from, quiet_to=excluded.quiet_to
+    `).bind(
+      user.id, body.alert_type_id,
+      body.enabled !== false ? 1 : 0,
+      JSON.stringify(body.channels || { push: true, email: false, sms: false }),
+      body.threshold_days ? JSON.stringify(body.threshold_days) : null,
+      body.threshold_km || null,
+      body.quiet_from || '22:00',
+      body.quiet_to   || '07:00',
+    ).run();
+    return json({ ok: true });
+  }
+  return err('Metoda niedozwolona', 405);
+}
+
+// ─── NOTIFICATION LOG ─────────────────────────────────────────────────────────
+async function handleNotifLog(req, env, user, url, path) {
+  const segs = path.split('/').filter(Boolean);
+  const company = url.searchParams.get('company') || 'mtoilet';
+
+  if (req.method === 'GET') {
+    const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '100'), 500);
+    const offset = parseInt(url.searchParams.get('offset') || '0');
+    const rows = await env.DB.prepare(
+      `SELECT * FROM notification_log WHERE company_id=? AND (user_id=? OR ? IN ('admin','kierownik'))
+       ORDER BY sent_at DESC LIMIT ? OFFSET ?`
+    ).bind(company, user.id, user.role, limit, offset).all();
+    return json(rows.results || []);
+  }
+  if (req.method === 'POST') {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    // actions: acknowledge | snooze | add
+    if (body.action === 'acknowledge' && body.id) {
+      await env.DB.prepare(
+        "UPDATE notification_log SET acknowledged_at=datetime('now') WHERE id=? AND (user_id=? OR ?='admin')"
+      ).bind(body.id, user.id, user.role).run();
+      return json({ ok: true });
+    }
+    if (body.action === 'snooze' && body.id) {
+      const days = Math.max(1, Math.min(parseInt(body.days || 7), 90));
+      await env.DB.prepare(
+        `UPDATE notification_log SET snoozed_until=datetime('now','+'||?||' days'),snooze_days=?
+         WHERE id=? AND (user_id=? OR ?='admin')`
+      ).bind(days, days, body.id, user.id, user.role).run();
+      return json({ ok: true });
+    }
+    if (body.action === 'add') {
+      const id = crypto.randomUUID().replace(/-/g,'').toLowerCase();
+      await env.DB.prepare(
+        `INSERT INTO notification_log(id,company_id,user_id,alert_type_id,vehicle_nr_rej,label,detail,days_until,km_until,channel)
+         VALUES(?,?,?,?,?,?,?,?,?,?)`
+      ).bind(id, company, user.id, body.alert_type_id || null,
+        body.vehicle_nr_rej || null, body.label, body.detail || null,
+        body.days_until ?? null, body.km_until ?? null, body.channel || 'inapp'
+      ).run();
+      return json({ ok: true, id });
+    }
+    return err('Nieznana akcja');
+  }
+  return err('Metoda niedozwolona', 405);
+}
+
+// ─── MAINTENANCE TEMPLATES ────────────────────────────────────────────────────
+async function handleMaintenanceTemplates(req, env, user, url, path) {
+  const segs = path.split('/').filter(Boolean);
+  const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
+  const canManage = user.role === 'admin' || user.role === 'kierownik'
+    || (JSON.parse(user.extra_permissions || '[]')).includes('manage_templates');
+
+  if (req.method === 'GET') {
+    const rows = await env.DB.prepare(
+      'SELECT * FROM maintenance_templates WHERE company_id=? ORDER BY name'
+    ).bind(company).all();
+    const parsed = (rows.results || []).map(r => ({ ...r, items: JSON.parse(r.items || '[]') }));
+    return json(parsed);
+  }
+  if (!canManage) return err('Brak uprawnień', 403);
+  if (req.method === 'POST') {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!body.name) return err('Wymagane: name');
+    // action: 'apply' — przypisuje szablon do pojazdów (zapisuje maintenanceItems)
+    if (body.action === 'apply') {
+      const { templateId, nrRejes } = body;
+      if (!templateId || !Array.isArray(nrRejes) || !nrRejes.length) return err('Wymagane: templateId, nrRejes[]');
+      const tpl = await env.DB.prepare('SELECT * FROM maintenance_templates WHERE id=?').bind(templateId).first();
+      if (!tpl) return err('Szablon nie istnieje', 404);
+      const items = JSON.parse(tpl.items || '[]');
+      let updated = 0;
+      for (const nrRej of nrRejes) {
+        const vRow = await env.DB.prepare('SELECT data FROM vehicles WHERE company_id=? AND nr_rej=?').bind(company, nrRej).first();
+        if (!vRow) continue;
+        let data = {}; try { data = JSON.parse(vRow.data || '{}'); } catch {}
+        if (!data.maintenanceItems) data.maintenanceItems = [];
+        for (const item of items) {
+          const exists = data.maintenanceItems.find(m => m.typeId === item.typeId);
+          if (!exists) {
+            data.maintenanceItems.push({ id: crypto.randomUUID(), typeId: item.typeId, label: item.label || null,
+              intervalDays: item.intervalDays || null, intervalKm: item.intervalKm || null,
+              lastDate: null, lastKm: null, nextDate: null, nextKm: null });
+          }
+        }
+        await env.DB.prepare('UPDATE vehicles SET data=?,updated_at=datetime(\'now\') WHERE company_id=? AND nr_rej=?')
+          .bind(JSON.stringify(data), company, nrRej).run();
+        updated++;
+      }
+      return json({ ok: true, updated });
+    }
+    const id = crypto.randomUUID().replace(/-/g,'').slice(0,12);
+    await env.DB.prepare(
+      'INSERT INTO maintenance_templates(id,company_id,name,description,items,created_by) VALUES(?,?,?,?,?,?)'
+    ).bind(id, company, body.name, body.description || null, JSON.stringify(body.items || []), user.id).run();
+    return json({ ok: true, id });
+  }
+  if (req.method === 'PUT' && segs[2]) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const sets = [], vals = [];
+    if (body.name !== undefined)        { sets.push('name=?');        vals.push(body.name); }
+    if (body.description !== undefined) { sets.push('description=?'); vals.push(body.description); }
+    if (body.items !== undefined)       { sets.push('items=?');       vals.push(JSON.stringify(body.items)); }
+    if (!sets.length) return err('Brak pól');
+    vals.push(segs[2]);
+    await env.DB.prepare(`UPDATE maintenance_templates SET ${sets.join(',')} WHERE id=?`).bind(...vals).run();
+    return json({ ok: true });
+  }
+  if (req.method === 'DELETE' && segs[2]) {
+    await env.DB.prepare('DELETE FROM maintenance_templates WHERE id=? AND company_id=?').bind(segs[2], company).run();
+    return json({ ok: true });
+  }
+  return err('Metoda niedozwolona', 405);
+}
+
+// ─── USER PERMISSIONS (admin nadaje extra_permissions innym użytkownikom) ─────
+async function handleUserPermissions(req, env, user, url, path) {
+  const segs = path.split('/').filter(Boolean); // /api/users/:id/permissions
+  const targetId = segs[2];
+  if (!targetId) return err('Wymagane user id');
+  const myPerms = JSON.parse(user.extra_permissions || '[]');
+  const canManage = user.role === 'admin' || myPerms.includes('manage_roles');
+  if (!canManage) return err('Brak uprawnień', 403);
+
+  if (req.method === 'GET') {
+    const row = await env.DB.prepare('SELECT id,name,role,extra_permissions FROM users WHERE id=?').bind(targetId).first();
+    if (!row) return err('Użytkownik nie istnieje', 404);
+    return json({ ...row, extra_permissions: JSON.parse(row.extra_permissions || '[]') });
+  }
+  if (req.method === 'PUT') {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const allowed = ['manage_alert_types','manage_templates','manage_notifications','manage_roles'];
+    const perms = (body.permissions || []).filter(p => allowed.includes(p));
+    // Użytkownik bez manage_roles nie może nadawać manage_roles
+    if (!myPerms.includes('manage_roles') && user.role !== 'admin' && perms.includes('manage_roles')) {
+      return err('Brak uprawnień do nadawania manage_roles', 403);
+    }
+    await env.DB.prepare('UPDATE users SET extra_permissions=? WHERE id=?').bind(JSON.stringify(perms), targetId).run();
+    return json({ ok: true, permissions: perms });
+  }
+  return err('Metoda niedozwolona', 405);
+}
+
 // ─── MAIN FETCH ───────────────────────────────────────────────────────────────
 async function handleRequest(request, env, url, path) {
   // Public endpoints (no auth required)
@@ -2165,7 +2388,15 @@ async function handleRequest(request, env, url, path) {
     if (path.startsWith('/api/cfm-contracts')) return handleCfmContracts(request, env, user, url, path);
     if (path.startsWith('/api/cfm-invoices'))  return handleCfmInvoices(request, env, user, url, path);
   }
-  if (path.startsWith('/api/users'))    { if (!user) return err('Nieautoryzowany', 401); return handleUsers(request, env, user, url, path); }
+  if (path.startsWith('/api/users')) {
+    if (!user) return err('Nieautoryzowany', 401);
+    if (path.match(/^\/api\/users\/\d+\/permissions/)) return handleUserPermissions(request, env, user, url, path);
+    return handleUsers(request, env, user, url, path);
+  }
+  if (path.startsWith('/api/alert-types'))        { if (!user) return err('Nieautoryzowany', 401); return handleAlertTypes(request, env, user, url, path); }
+  if (path.startsWith('/api/notif-prefs'))         { if (!user) return err('Nieautoryzowany', 401); return handleNotifPrefs(request, env, user, url); }
+  if (path.startsWith('/api/notif-log'))           { if (!user) return err('Nieautoryzowany', 401); return handleNotifLog(request, env, user, url, path); }
+  if (path.startsWith('/api/maintenance-templates')){ if (!user) return err('Nieautoryzowany', 401); return handleMaintenanceTemplates(request, env, user, url, path); }
   if (path === '/api/ai/chat')          return handleAI(request, env);
   if (path === '/api/ai/ocr' && request.method === 'POST') return handleAIOCR(request, env);
   if (path === '/api/aztec'  && request.method === 'POST') return handleAztec(request);
@@ -2185,24 +2416,38 @@ async function handleRequest(request, env, url, path) {
   return err('Endpoint nie istnieje', 404);
 }
 
-// Cron: wysyła push alerty do wszystkich firm z subskrybentami
+// Cron: wysyła push alerty z uwzględnieniem preferencji użytkowników i maintenanceItems
 async function sendScheduledPushAlerts(env) {
   if (!env.VAPID_PRIVATE_KEY || !env.VAPID_PUBLIC_KEY) return;
 
-  const WARN_DAYS = 14;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
 
   function daysUntil(dateStr) {
     if (!dateStr) return null;
     const d = new Date(dateStr);
     if (isNaN(d)) return null;
-    return Math.round((d - today) / 86400000);
+    return Math.round((d - now) / 86400000);
   }
 
+  // Mapa typeId → pola w danych pojazdu (wbudowane typy)
+  const BUILTIN_FIELDS = {
+    oc:            v => ({ date: v.ocEnd }),
+    ac:            v => ({ date: v.acEnd }),
+    przeglad_tech: v => ({ date: v.nextInspection }),
+    udt:           v => (v.hasUdt && v.udtNextDate ? { date: v.udtNextDate } : null),
+    tacho:         v => (v.hasTacho && v.tachoNextCalib ? { date: v.tachoNextCalib } : null),
+    opony_zmiana:  v => (v.tireNextChange ? { date: v.tireNextChange } : null),
+  };
+
+  // Pobierz wszystkie firmy z aktywną subskrypcją push
   const subsRows = await env.DB.prepare('SELECT DISTINCT company_id FROM push_subscriptions').all();
   const companies = (subsRows.results || []).map(r => r.company_id);
   if (!companies.length) return;
+
+  // Załaduj typy alertów raz
+  const atRows = await env.DB.prepare('SELECT * FROM alert_types WHERE active=1').all();
+  const alertTypes = atRows.results || [];
 
   for (const company_id of companies) {
     const subRows = await env.DB.prepare('SELECT * FROM push_subscriptions WHERE company_id=?').bind(company_id).all();
@@ -2210,47 +2455,109 @@ async function sendScheduledPushAlerts(env) {
     if (!subs.length) continue;
 
     const vehRows = await env.DB.prepare('SELECT nr_rej, data FROM vehicles WHERE company_id=?').bind(company_id).all();
-    const alerts = [];
 
-    for (const row of vehRows.results || []) {
-      let v = {};
-      try { v = JSON.parse(row.data || '{}'); } catch {}
-      const checks = [
-        { label: 'OC',              date: v.ocEnd },
-        { label: 'AC',              date: v.acEnd },
-        { label: 'Przegląd tech.',  date: v.nextInspection },
-        ...(v.hasUdt && v.udtNextDate     ? [{ label: 'Badanie UDT',      date: v.udtNextDate }]    : []),
-        ...(v.hasTacho && v.tachoNextCalib? [{ label: 'Legalizacja tacho', date: v.tachoNextCalib }] : []),
-        ...(v.tireNextChange              ? [{ label: 'Zmiana opon',       date: v.tireNextChange }]  : []),
-      ];
-      for (const { label, date } of checks) {
-        const days = daysUntil(date);
-        if (days === null || days > WARN_DAYS) continue;
-        alerts.push({ nrRej: row.nr_rej, label, days, expired: days < 0 });
+    // Zbierz wszystkich użytkowników firmy z subskrypcjami push
+    const userSubRows = await env.DB.prepare(
+      `SELECT u.id as user_id, u.extra_permissions, np.alert_type_id, np.enabled,
+              np.threshold_days, np.threshold_km, np.quiet_from, np.quiet_to
+       FROM push_subscriptions ps
+       JOIN users u ON u.active=1
+       JOIN notification_prefs np ON np.user_id=u.id AND np.enabled=1
+       WHERE ps.company_id=?`
+    ).bind(company_id).all().catch(() => ({ results: [] }));
+
+    // Grupuj preferencje per user
+    const userPrefs = {};
+    for (const row of (userSubRows.results || [])) {
+      if (!userPrefs[row.user_id]) userPrefs[row.user_id] = {};
+      userPrefs[row.user_id][row.alert_type_id] = row;
+    }
+
+    // Zbierz alerty per pojazd
+    const vehicleAlerts = []; // { nrRej, typeId, label, days, km }
+    for (const vRow of vehRows.results || []) {
+      let v = {}; try { v = JSON.parse(vRow.data || '{}'); } catch {}
+
+      // Wbudowane typy
+      for (const [typeId, getter] of Object.entries(BUILTIN_FIELDS)) {
+        const res = getter(v);
+        if (!res) continue;
+        const days = daysUntil(res.date);
+        if (days === null) continue;
+        vehicleAlerts.push({ nrRej: vRow.nr_rej, typeId, label: alertTypes.find(a=>a.id===typeId)?.name || typeId, days, km: null, expired: days < 0 });
+      }
+
+      // maintenanceItems (własne + wg szablonów)
+      for (const item of (v.maintenanceItems || [])) {
+        const at = alertTypes.find(a => a.id === item.typeId);
+        const itemLabel = item.label || at?.name || item.typeId;
+        if (item.nextDate) {
+          const days = daysUntil(item.nextDate);
+          if (days !== null) vehicleAlerts.push({ nrRej: vRow.nr_rej, typeId: item.typeId, label: itemLabel, days, km: null, expired: days < 0 });
+        }
+        if (item.nextKm && v.stanKilometrow) {
+          const kmLeft = item.nextKm - v.stanKilometrow;
+          vehicleAlerts.push({ nrRej: vRow.nr_rej, typeId: item.typeId, label: itemLabel, days: null, km: kmLeft, expired: kmLeft < 0 });
+        }
       }
     }
 
-    if (!alerts.length) continue;
-    alerts.sort((a, b) => a.days - b.days);
+    if (!vehicleAlerts.length) continue;
 
-    const first = alerts[0];
-    const expiredCount = alerts.filter(a => a.expired).length;
-    const title = expiredCount
-      ? `TaxOrder — ${expiredCount} termin${expiredCount > 1 ? 'y' : ''} WYGASŁ${expiredCount > 1 ? 'Y' : ''}`
-      : `TaxOrder — ${alerts.length} termin${alerts.length > 1 ? 'y wygasają' : ' wygasa'} wkrótce`;
-    const message = `${first.nrRej}: ${first.label} ${first.expired ? `wygasło ${Math.abs(first.days)} dni temu` : `wygasa za ${first.days} dni`}${alerts.length > 1 ? ` (+${alerts.length - 1} więcej)` : ''}`;
+    // Sprawdź cicha godzina (UTC)
+    const nowHour = new Date().getUTCHours();
+    const isQuiet = h => { const [hh] = h.split(':').map(Number); return hh === nowHour; };
 
-    const payload = { title, body: message, tag: 'taxorder-cron-alert', url: '/?page=pojazdy', urgent: expiredCount > 0 };
-    const results = await Promise.allSettled(
-      subs.map(s => sendPushMsg({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth_key } }, payload, env))
-    );
+    // Wyślij push dla każdej subskrypcji
+    for (const sub of subs) {
+      // Filtruj alerty wg preferencji tego użytkownika (jeśli ma preferencje)
+      // Fallback: jeśli nie ma preferencji, używaj defaults (progi 14 dni)
+      const prefs = userPrefs[sub.id] || {};
+      const DEFAULT_DAYS = 14;
 
-    const expiredSubs = subs.filter((_, i) => results[i].status === 'fulfilled' && results[i].value.status === 410);
-    for (const s of expiredSubs) {
-      await env.DB.prepare('DELETE FROM push_subscriptions WHERE id=?').bind(s.id).run();
+      const myAlerts = vehicleAlerts.filter(a => {
+        const pref = prefs[a.typeId];
+        if (pref?.enabled === 0) return false;
+        const threshDays = pref?.threshold_days ? JSON.parse(pref.threshold_days) : null;
+        const threshKm   = pref?.threshold_km ?? null;
+        if (a.days !== null) {
+          const maxDays = threshDays ? Math.max(...threshDays) : DEFAULT_DAYS;
+          return a.days <= maxDays;
+        }
+        if (a.km !== null) {
+          const maxKm = threshKm ?? 500;
+          return a.km <= maxKm;
+        }
+        return false;
+      });
+
+      if (!myAlerts.length) continue;
+
+      // Sprawdź cicha godzina
+      if (prefs) {
+        const firstPref = Object.values(prefs)[0];
+        if (firstPref?.quiet_from && firstPref?.quiet_to && isQuiet(firstPref.quiet_from)) continue;
+      }
+
+      myAlerts.sort((a, b) => (a.days ?? 9999) - (b.days ?? 9999));
+      const first = myAlerts[0];
+      const expiredCount = myAlerts.filter(a => a.expired).length;
+      const title = expiredCount
+        ? `TaxOrder — ${expiredCount} termin${expiredCount > 1 ? 'y' : ''} WYGASŁ${expiredCount > 1 ? 'Y' : ''}`
+        : `TaxOrder — ${myAlerts.length} alert${myAlerts.length > 1 ? 'y' : ''} wkrótce`;
+      const bodyMsg = first.days !== null
+        ? `${first.nrRej}: ${first.label} ${first.expired ? `wygasło ${Math.abs(first.days)} dni temu` : `wygasa za ${first.days} dni`}`
+        : `${first.nrRej}: ${first.label} za ${first.km} km`;
+      const bodyFull = bodyMsg + (myAlerts.length > 1 ? ` (+${myAlerts.length - 1} więcej)` : '');
+
+      const payload = { title, body: bodyFull, tag: 'taxorder-cron-alert', url: '/?page=powiadomienia', urgent: expiredCount > 0 };
+      const res = await sendPushMsg({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } }, payload, env).catch(() => ({ status: 0 }));
+      if (res.status === 410) {
+        await env.DB.prepare('DELETE FROM push_subscriptions WHERE id=?').bind(sub.id).run();
+      }
     }
 
-    console.log(`[Push cron] ${company_id}: ${alerts.length} alertów → ${subs.length} subskrybentów`);
+    console.log(`[Push cron] ${company_id}: ${vehicleAlerts.length} alertów dla ${subs.length} subskrybentów`);
   }
 }
 

@@ -260,6 +260,7 @@ window.TaxOrderVehicleDetail = {
           ['mandaty',   '🚨 Mandaty'],
           ['gps',       '🗺 GPS'],
           ['karty',     '💳 Karty'],
+          ['konserwacja','🔨 Konserwacja'],
         ].map(([tabKey, fallback], i) => {
           const label = window.t ? (window.t('vd.tab.' + tabKey) !== 'vd.tab.' + tabKey ? window.t('vd.tab.' + tabKey) : fallback) : fallback;
           return `
@@ -718,6 +719,18 @@ window.TaxOrderVehicleDetail = {
           </button>
         </div>
         <div id="vd-cards-list">${this._renderCards(v)}</div>
+      </div>
+
+      <!-- TAB: KONSERWACJA -->
+      <div id="vd-tab-konserwacja-content" class="vd-tab-content" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase">Elementy konserwacji</div>
+          <button class="btn btn-blue" style="font-size:12px" onclick="TaxOrderVehicleDetail._addMaintItem(${v.id})">
+            <i class="ti ti-plus"></i>Dodaj element
+          </button>
+        </div>
+        <div id="vd-maint-list">${this._renderMaintItems(v)}</div>
+        ${!(v.stanKilometrow) ? `<div class="wbox" style="margin-top:12px;font-size:12px"><i class="ti ti-alert-triangle"></i> Uzupełnij licznik km w zakładce DR aby alerty km-based działały poprawnie.</div>` : ''}
       </div>
     `;
 
@@ -1226,6 +1239,110 @@ window.TaxOrderVehicleDetail = {
     this._logAudit('tacho_remove', vehId, {});
     const el = document.getElementById('vd-tacho-history');
     if (el) el.innerHTML = this._renderTachoHistory(v);
+  },
+
+  _renderMaintItems(v) {
+    const items = v.maintenanceItems || [];
+    if (!items.length) return '<div style="font-size:12px;color:var(--text3);padding:20px;text-align:center"><i class="ti ti-tool" style="font-size:28px;display:block;margin-bottom:6px"></i>Brak elementów konserwacji. Dodaj element lub przypisz szablon w Centrum Powiadomień.</div>';
+    const now = new Date();
+    return items.map(item => {
+      const daysDue = item.nextDate ? Math.round((new Date(item.nextDate) - now) / 86400000) : null;
+      const kmDue   = (item.nextKm && v.stanKilometrow) ? item.nextKm - v.stanKilometrow : null;
+      const isOk    = (daysDue === null || daysDue > 14) && (kmDue === null || kmDue > 500);
+      const color   = daysDue !== null && daysDue < 0 || kmDue !== null && kmDue < 0 ? 'var(--red)' : (!isOk ? 'var(--amber)' : 'var(--green)');
+      return `<div style="background:var(--bg3);border-radius:var(--radius);border-left:3px solid ${color};padding:10px 14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:180px">
+          <div style="font-weight:600;font-size:13px">${item.label || item.typeId}</div>
+          ${item.intervalDays ? `<div style="font-size:11px;color:var(--text2)">Cykl: co ${item.intervalDays} dni</div>` : ''}
+          ${item.intervalKm   ? `<div style="font-size:11px;color:var(--text2)">Cykl: co ${item.intervalKm} km</div>` : ''}
+        </div>
+        <div style="min-width:120px;font-size:12px">
+          ${item.nextDate ? `<div>📅 ${new Date(item.nextDate).toLocaleDateString('pl-PL')}</div>` : ''}
+          ${daysDue !== null ? `<div style="color:${color};font-weight:600">${daysDue < 0 ? `Wygasło ${Math.abs(daysDue)} dni temu` : `za ${daysDue} dni`}</div>` : ''}
+          ${item.nextKm ? `<div>🔢 ${item.nextKm.toLocaleString('pl-PL')} km</div>` : ''}
+          ${kmDue !== null ? `<div style="color:${kmDue<0?'var(--red)':'var(--text2)'}${kmDue<500&&kmDue>=0?';color:var(--amber)':''}">za ${kmDue} km</div>` : ''}
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          <button class="tbtn" onclick="TaxOrderVehicleDetail._editMaintItem(${v.id},'${item.id}')" title="Edytuj"><i class="ti ti-pencil"></i></button>
+          <button class="tbtn" style="color:var(--red)" onclick="TaxOrderVehicleDetail._deleteMaintItem(${v.id},'${item.id}')" title="Usuń"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>`;
+    }).join('');
+  },
+
+  _addMaintItem(vId) { this._openMaintModal(vId, null); },
+  _editMaintItem(vId, itemId) {
+    const v = (window.vehs||[]).find(v=>v.id===vId);
+    const item = (v?.maintenanceItems||[]).find(m=>m.id===itemId);
+    if (item) this._openMaintModal(vId, item);
+  },
+
+  _openMaintModal(vId, item) {
+    const types = window._ns_alertTypes || [];
+    const typeOpts = types.map(a => `<option value="${a.id}" ${item?.typeId===a.id?'selected':''}>${a.name}</option>`).join('');
+    const fmtDate = d => d ? new Date(d).toISOString().slice(0,10) : '';
+    const html = `<div id="maint-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:5002;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)this.remove()">
+      <div style="background:var(--bg);border-radius:var(--radius-lg);width:420px;max-width:95vw;padding:24px;box-shadow:0 8px 40px rgba(0,0,0,.25)">
+        <strong style="font-size:15px">${item?'Edytuj':'Dodaj'} element konserwacji</strong>
+        <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px">
+          <div class="f"><label>Typ</label><select id="mi-type" class="fi">${typeOpts||'<option value="">—</option>'}</select></div>
+          <div class="f"><label>Własna nazwa (opcjonalna)</label><input id="mi-label" class="fi" value="${item?.label||''}" placeholder="np. Olej 10W-40 Shell"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="f"><label>Ostatnia data</label><input id="mi-lastDate" type="date" class="fi" value="${fmtDate(item?.lastDate)}"></div>
+            <div class="f"><label>Ostatnie km</label><input id="mi-lastKm" type="number" class="fi" value="${item?.lastKm||''}" placeholder="np. 145000"></div>
+            <div class="f"><label>Interwał dni</label><input id="mi-intDays" type="number" class="fi" value="${item?.intervalDays||''}" placeholder="np. 365"></div>
+            <div class="f"><label>Interwał km</label><input id="mi-intKm" type="number" class="fi" value="${item?.intervalKm||''}" placeholder="np. 15000"></div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+          <button class="btn btn-gray" onclick="document.getElementById('maint-modal').remove()">Anuluj</button>
+          <button class="btn btn-blue" onclick="TaxOrderVehicleDetail._saveMaintItem(${vId},'${item?.id||''}')"><i class="ti ti-check"></i>Zapisz</button>
+        </div>
+      </div>
+    </div>`;
+    document.getElementById('maint-modal')?.remove();
+    // Załaduj typy alertów jeśli nie ma
+    if (!types.length) {
+      fetch(`${window.CF_WORKER_URL||'https://taxorder-pro-api.adamus1000.workers.dev'}/api/alert-types?company=${window.currentCompanyId||'mtoilet'}`,
+        { headers: { Authorization: 'Bearer ' + (localStorage.getItem('cf_token')||'') } })
+        .then(r=>r.json()).then(list=>{ window._ns_alertTypes=list; document.getElementById('mi-type').innerHTML=list.map(a=>`<option value="${a.id}" ${item?.typeId===a.id?'selected':''}>${a.name}</option>`).join(''); }).catch(()=>{});
+    }
+    document.body.insertAdjacentHTML('beforeend', html);
+  },
+
+  async _saveMaintItem(vId, existingId) {
+    const v = (window.vehs||[]).find(v=>v.id===vId);
+    if (!v) return;
+    const typeId   = document.getElementById('mi-type')?.value;
+    const label    = document.getElementById('mi-label')?.value?.trim() || null;
+    const lastDate = document.getElementById('mi-lastDate')?.value || null;
+    const lastKm   = parseInt(document.getElementById('mi-lastKm')?.value) || null;
+    const intDays  = parseInt(document.getElementById('mi-intDays')?.value) || null;
+    const intKm    = parseInt(document.getElementById('mi-intKm')?.value) || null;
+    const nextDate = (lastDate && intDays) ? new Date(new Date(lastDate).getTime() + intDays*86400000).toISOString().slice(0,10) : null;
+    const nextKm   = (lastKm && intKm) ? lastKm + intKm : null;
+
+    if (!v.maintenanceItems) v.maintenanceItems = [];
+    if (existingId) {
+      const idx = v.maintenanceItems.findIndex(m=>m.id===existingId);
+      if (idx >= 0) v.maintenanceItems[idx] = { id: existingId, typeId, label, lastDate, lastKm, intervalDays: intDays, intervalKm: intKm, nextDate, nextKm };
+    } else {
+      v.maintenanceItems.push({ id: crypto.randomUUID(), typeId, label, lastDate, lastKm, intervalDays: intDays, intervalKm: intKm, nextDate, nextKm });
+    }
+    await this.save(vId, true);
+    document.getElementById('maint-modal')?.remove();
+    document.getElementById('vd-maint-list').innerHTML = this._renderMaintItems(v);
+    window.toast?.('✓ Element konserwacji zapisany');
+  },
+
+  async _deleteMaintItem(vId, itemId) {
+    if (!confirm('Usunąć element konserwacji?')) return;
+    const v = (window.vehs||[]).find(v=>v.id===vId);
+    if (!v) return;
+    v.maintenanceItems = (v.maintenanceItems||[]).filter(m=>m.id!==itemId);
+    await this.save(vId, true);
+    document.getElementById('vd-maint-list').innerHTML = this._renderMaintItems(v);
+    window.toast?.('✓ Element usunięty');
   },
 
   _renderCards(v) {
