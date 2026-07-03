@@ -165,6 +165,7 @@ function showPage(id) {
   if(id==='api-klucze') window.TaxOrderApiKeys?.load();
   if(id==='cepik') initCepikPage();
   if(id==='firmy') { if(typeof renderCompanyOverview==='function') renderCompanyOverview(); }
+  if(id==='paliwo') renderPaliwoPage();
   updateCounters();
 }
 
@@ -990,6 +991,186 @@ function renderFuelDash() {
           ${sCO2>0?`<span style="color:var(--green);font-size:10px">${sCO2.toFixed(0)} kg CO₂</span>`:''}
         </div>
       </div>`}).join('')}`;
+}
+
+// ==================== PALIWO PAGE ====================
+function renderPaliwoPage() {
+  const now = new Date();
+
+  // --- Wypełnienie selecta miesięcy (18 ostatnich) ---
+  const mSel = document.getElementById('paliwo-month-sel');
+  if (mSel && !mSel.dataset.init) {
+    mSel.dataset.init = '1';
+    const opts = [];
+    for (let i = 0; i < 18; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const val = d.toISOString().slice(0, 7);
+      const label = d.toLocaleDateString('pl-PL', { year: 'numeric', month: 'long' });
+      opts.push(`<option value="${val}"${i === 0 ? ' selected' : ''}>${label}</option>`);
+    }
+    mSel.innerHTML = opts.join('');
+  }
+
+  // --- Wypełnienie selecta pojazdów ---
+  const vSel = document.getElementById('paliwo-veh-sel');
+  if (vSel && !vSel.dataset.init) {
+    vSel.dataset.init = '1';
+    const withFuel = vehs.filter(v => v.fuelHistory?.length);
+    vSel.innerHTML = '<option value="">Wszystkie pojazdy</option>' +
+      withFuel.map(v => `<option value="${v.id}">${v.nrRej} — ${v.marka} ${v.model}</option>`).join('');
+  }
+
+  const selMonth = mSel?.value || now.toISOString().slice(0, 7);
+  const selVeh   = vSel?.value || '';
+  const selFuel  = document.getElementById('paliwo-fuel-sel')?.value || '';
+
+  // --- Zbieranie danych tankowań ---
+  let rows = [];
+  vehs.forEach(v => {
+    if (!Array.isArray(v.fuelHistory)) return;
+    if (selVeh && String(v.id) !== selVeh) return;
+    v.fuelHistory.forEach(h => {
+      if (!(h.date || '').startsWith(selMonth)) return;
+      if (selFuel && h.product !== selFuel) return;
+      rows.push({ v, h });
+    });
+  });
+  rows.sort((a, b) => (b.h.date || '').localeCompare(a.h.date || ''));
+
+  const totalLiters = rows.reduce((s, r) => s + (r.h.liters || 0), 0);
+  const totalCost   = rows.reduce((s, r) => s + (r.h.totalGross || 0), 0);
+  const avgPrice    = totalLiters > 0 ? totalCost / totalLiters : 0;
+  const totalCO2    = rows.reduce((s, r) => s + (r.h.co2kg || 0), 0);
+
+  // --- KPI karty ---
+  const kpiEl = document.getElementById('paliwo-kpi');
+  if (kpiEl) {
+    kpiEl.innerHTML = [
+      { label: 'Łączny koszt paliwa', val: totalCost.toFixed(2) + ' zł', color: 'var(--amber)', icon: 'ti-currency-dollar' },
+      { label: 'Ilość zatankowana', val: totalLiters.toFixed(1) + ' l', color: 'var(--blue)', icon: 'ti-droplet' },
+      { label: 'Śr. cena za litr', val: avgPrice > 0 ? avgPrice.toFixed(3) + ' zł/l' : '—', color: 'var(--text2)', icon: 'ti-tag' },
+      { label: 'Tankowania', val: rows.length, color: 'var(--text2)', icon: 'ti-list' },
+      { label: 'Emisja CO₂ (KOBIZE)', val: totalCO2 > 0 ? (totalCO2 >= 1000 ? (totalCO2/1000).toFixed(2)+' t' : totalCO2.toFixed(0)+' kg') : '—', color: 'var(--green)', icon: 'ti-leaf' },
+    ].map(k => `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">
+          <i class="ti ${k.icon}"></i> ${k.label}
+        </div>
+        <div style="font-size:22px;font-weight:700;font-family:var(--mono);color:${k.color}">${k.val}</div>
+      </div>`).join('');
+  }
+
+  // --- Tabela tankowań ---
+  const fmt = (n) => n != null ? n.toFixed(2) : '—';
+  const tbody = document.getElementById('paliwo-tbody');
+  if (tbody) {
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:2rem">Brak danych tankowań w wybranym okresie</td></tr>`;
+    } else {
+      tbody.innerHTML = rows.slice(0, 200).map(({ v, h }) => `<tr>
+        <td style="font-family:var(--mono);font-size:12px">${h.date || '—'}</td>
+        <td style="font-weight:600;font-family:var(--mono)">${v.nrRej}</td>
+        <td style="font-size:12px;color:var(--text2)">${v.marka} ${v.model}</td>
+        <td><span class="pill pill-gray" style="font-size:11px">${h.product || '—'}</span></td>
+        <td style="text-align:right;font-family:var(--mono)">${(h.liters||0).toFixed(1)}</td>
+        <td style="text-align:right;font-family:var(--mono)">${h.pricePerLiter ? h.pricePerLiter.toFixed(3) : '—'}</td>
+        <td style="text-align:right;font-family:var(--mono);font-weight:600">${fmt(h.totalGross)}</td>
+        <td style="font-size:12px;color:var(--text2)">${h.station || '—'}</td>
+        <td style="font-size:12px;color:var(--text2)">${h.cardNumber || '—'}</td>
+      </tr>`).join('');
+    }
+  }
+
+  // --- Top 10 pojazdów wg kosztu ---
+  const top10El = document.getElementById('paliwo-top10');
+  if (top10El) {
+    const byVeh = {};
+    rows.forEach(({ v, h }) => {
+      if (!byVeh[v.id]) byVeh[v.id] = { v, cost: 0, liters: 0, km: 0, count: 0 };
+      byVeh[v.id].cost   += h.totalGross || 0;
+      byVeh[v.id].liters += h.liters || 0;
+      byVeh[v.id].count++;
+    });
+    const sorted = Object.values(byVeh).sort((a, b) => b.cost - a.cost).slice(0, 10);
+    if (!sorted.length) {
+      top10El.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:1rem">Brak danych</td></tr>`;
+    } else {
+      top10El.innerHTML = sorted.map((x, i) => {
+        const avg = x.liters > 0 && x.v.przebieg > 0 ? '—' : '—';
+        return `<tr>
+          <td style="color:var(--text3);font-size:13px">${i + 1}</td>
+          <td style="font-weight:600;font-family:var(--mono)">${x.v.nrRej}</td>
+          <td style="font-size:12px;color:var(--text2)">${x.v.marka} ${x.v.model}</td>
+          <td style="text-align:right;font-family:var(--mono)">${x.liters.toFixed(1)}</td>
+          <td style="text-align:right;font-family:var(--mono);font-weight:600">${x.cost.toFixed(2)} zł</td>
+          <td style="text-align:right;color:var(--text3)">—</td>
+        </tr>`;
+      }).join('');
+    }
+  }
+
+  // --- Mini wykres miesięczny (12 miesięcy wstecz) ---
+  const chartEl = document.getElementById('paliwo-chart-monthly');
+  if (chartEl) {
+    const months = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push(d.toISOString().slice(0, 7));
+    }
+    const mCosts = months.map(m => {
+      let c = 0;
+      vehs.forEach(v => {
+        if (!Array.isArray(v.fuelHistory)) return;
+        if (selVeh && String(v.id) !== selVeh) return;
+        v.fuelHistory.forEach(h => {
+          if ((h.date || '').startsWith(m)) c += h.totalGross || 0;
+        });
+      });
+      return c;
+    });
+    const maxCost = Math.max(...mCosts, 1);
+    chartEl.innerHTML = `<div style="display:flex;align-items:flex-end;gap:4px;height:80px">` +
+      mCosts.map((c, i) => {
+        const pct = Math.round(c / maxCost * 100);
+        const label = months[i].slice(5);
+        const isSelected = months[i] === selMonth;
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer" onclick="document.getElementById('paliwo-month-sel').value='${months[i]}';renderPaliwoPage()">
+          <div style="width:100%;height:${pct}%;min-height:2px;background:${isSelected?'var(--blue)':'var(--border)'};border-radius:2px 2px 0 0;transition:background .15s" title="${c.toFixed(0)} zł"></div>
+          <div style="font-size:9px;color:${isSelected?'var(--blue)':'var(--text3)'};font-weight:${isSelected?'700':'400'}">${label}</div>
+        </div>`;
+      }).join('') + `</div>`;
+  }
+
+  // --- Rozkład wg rodzaju paliwa ---
+  const fuelTypeEl = document.getElementById('paliwo-chart-fuel-type');
+  if (fuelTypeEl) {
+    const byType = {};
+    rows.forEach(({ h }) => {
+      const p = h.product || 'Inne';
+      if (!byType[p]) byType[p] = { liters: 0, cost: 0 };
+      byType[p].liters += h.liters || 0;
+      byType[p].cost   += h.totalGross || 0;
+    });
+    const types = Object.entries(byType).sort((a, b) => b[1].cost - a[1].cost);
+    const COLORS = ['var(--blue)','var(--amber)','var(--green)','var(--red)','var(--text2)'];
+    if (!types.length) {
+      fuelTypeEl.innerHTML = `<div style="color:var(--text3);font-size:12px;padding:16px 0">Brak danych</div>`;
+    } else {
+      fuelTypeEl.innerHTML = types.map(([type, d], i) => {
+        const pct = totalCost > 0 ? (d.cost / totalCost * 100) : 0;
+        return `<div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+            <span style="font-weight:600">${type}</span>
+            <span style="color:var(--text2);font-family:var(--mono)">${d.cost.toFixed(0)} zł (${pct.toFixed(0)}%)</span>
+          </div>
+          <div style="height:6px;background:var(--bg3);border-radius:3px">
+            <div style="height:100%;width:${pct}%;background:${COLORS[i%COLORS.length]};border-radius:3px"></div>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${d.liters.toFixed(1)} l</div>
+        </div>`;
+      }).join('');
+    }
+  }
 }
 
 // ==================== DASH ====================
@@ -4286,12 +4467,12 @@ const DEFAULT_USERS = [{id:1,name:'Administrator',email:'adamus1000@gmail.com',p
 const ROLE_LABELS = {admin:'Administrator',kierownik:'Kierownik',ksiegowy:'Księgowy',mechanik:'Mechanik',dyspozytor:'Dyspozytor',kierowca:'Kierowca'};
 const ROLE_COLORS = {admin:'pill-red',kierownik:'pill-blue',ksiegowy:'pill-green',mechanik:'pill-amber',dyspozytor:'pill-blue',kierowca:'pill-gray'};
 const ROLE_TABS = {
-  admin:['dash','pojazdy','kalkulator','formularze','pd','walidacja','raporty','ocr','faktury','pdfexport','impexp','karty','szkody','opony-magazyn','zlecenia','protokoly','cfm-klienci','cfm-kontrakty','cfm-faktury','uzytkownicy','api-klucze','cepik'],
-  kierownik:['dash','pojazdy','kalkulator','formularze','raporty','pdfexport','ocr','faktury','karty','szkody','opony-magazyn','zlecenia','protokoly','cfm-klienci','cfm-kontrakty','cfm-faktury'],
-  ksiegowy:['dash','kalkulator','formularze','pd','raporty','pdfexport','impexp'],
-  mechanik:['dash','pojazdy','ocr','faktury','szkody','opony-magazyn','zlecenia','protokoly'],
-  dyspozytor:['dash','pojazdy','raporty','karty','ocr','faktury','szkody','opony-magazyn','zlecenia','protokoly'],
-  kierowca:['dash','pojazdy'],
+  admin:['dash','pojazdy','paliwo','kalkulator','formularze','stawki','pd','walidacja','raporty','ocr','faktury','pdfexport','impexp','karty','szkody','opony-magazyn','zlecenia','protokoly','cfm-klienci','cfm-kontrakty','cfm-faktury','uzytkownicy','api-klucze','cepik','podatnik','firmy','ai'],
+  kierownik:['dash','pojazdy','paliwo','kalkulator','formularze','stawki','raporty','pdfexport','ocr','faktury','karty','szkody','opony-magazyn','zlecenia','protokoly','cfm-klienci','cfm-kontrakty','cfm-faktury','ai'],
+  ksiegowy:['dash','paliwo','kalkulator','formularze','stawki','pd','raporty','pdfexport','impexp','podatnik','ai'],
+  mechanik:['dash','pojazdy','paliwo','ocr','faktury','szkody','opony-magazyn','zlecenia','protokoly'],
+  dyspozytor:['dash','pojazdy','paliwo','raporty','karty','ocr','faktury','szkody','opony-magazyn','zlecenia','protokoly'],
+  kierowca:['dash','pojazdy','paliwo'],
 };
 let users = JSON.parse(localStorage.getItem('dt1_users')||JSON.stringify(DEFAULT_USERS));
 let currentUser = null;

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TaxOrder Pro — DT-1 Podatek Transportowy</title>
+<title>TaxOrder Pro — System zarządzania flotą</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <!-- Leaflet.js — mapa GPS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -80,9 +80,9 @@ window.addEventListener('DOMContentLoaded', () => {
 <div class="topbar">
   <button class="mob-menu-btn" onclick="toggleMobileNav()" aria-label="Menu"><i class="ti ti-menu-2"></i></button>
   <div class="brand">
-    <i class="ti ti-file-invoice"></i>
+    <i class="ti ti-truck"></i>
     TaxOrder Pro
-    <span class="brand-badge">DT-1</span>
+    <span class="brand-badge">FLEET</span>
   </div>
   <div class="company-sel-wrap" style="display:flex;align-items:center;gap:6px;padding:3px 10px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">
     <span style="font-size:10px;color:var(--text2);white-space:nowrap">Firma:</span>
@@ -132,43 +132,47 @@ window.addEventListener('DOMContentLoaded', () => {
 <nav class="sidebar" id="main-sidebar">
   <button class="tnb active" id="tnb-dash" onclick="showPage('dash')"><i class="ti ti-home"></i><span data-i18n="nav.pulpit">Pulpit</span></button>
 
-  <div class="sidebar-label" data-i18n="nav.group.flota">Flota</div>
+  <div class="sidebar-label">Flota</div>
   <button class="tnb" id="tnb-pojazdy" onclick="showPage('pojazdy')"><i class="ti ti-truck"></i><span data-i18n="nav.pojazdy">Pojazdy</span> <span class="badge" id="badge-sel">0</span></button>
-  <button class="tnb" id="tnb-impexp" onclick="showPage('impexp')"><i class="ti ti-arrows-exchange"></i><span data-i18n="nav.impexp">Import / Eksport</span></button>
-  <button class="tnb" onclick="TaxOrderDrivers.open()"><i class="ti ti-users"></i><span data-i18n="nav.kierowcy">Kierowcy</span></button>
+  <button class="tnb" onclick="TaxOrderDrivers.open()"><i class="ti ti-id-badge"></i><span data-i18n="nav.kierowcy">Kierowcy</span></button>
   <button class="tnb" onclick="FleetCalendar.open()"><i class="ti ti-calendar"></i><span data-i18n="nav.kalendarz">Kalendarz</span></button>
-  <button class="tnb" onclick="ServiceModule.open()"><i class="ti ti-tools"></i><span data-i18n="nav.serwis">Serwis floty</span></button>
-  <button class="tnb" onclick="FinesModule.open()" style="position:relative"><i class="ti ti-alert-triangle"></i><span data-i18n="nav.mandaty">Mandaty</span><span id="fines-nav-badge" style="display:none;position:absolute;top:4px;right:4px;background:var(--red);color:#fff;border-radius:9px;font-size:9px;font-weight:700;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 4px"></span></button>
+  <button class="tnb" id="tnb-protokoly" onclick="showPage('protokoly')"><i class="ti ti-file-signature"></i><span data-i18n="nav.protokoly">Protokoły</span></button>
 
-  <div class="sidebar-label" data-i18n="nav.group.podatki">Podatki</div>
-  <button class="tnb" id="tnb-kalkulator" onclick="showPage('kalkulator')"><i class="ti ti-calculator"></i><span data-i18n="nav.kalkulator">Kalkulator</span></button>
-  <button class="tnb" id="tnb-formularze" onclick="showPage('formularze')"><i class="ti ti-file-text"></i><span data-i18n="nav.formularze">DT-1 / DT-1/A</span></button>
+  <div class="sidebar-label">Eksploatacja</div>
+  <button class="tnb" id="tnb-zlecenia" onclick="showPage('zlecenia')"><i class="ti ti-clipboard-list"></i><span data-i18n="nav.zlecenia">Serwis / Zlecenia</span></button>
+  <button class="tnb" id="tnb-opony-magazyn" onclick="showPage('opony-magazyn')"><i class="ti ti-circle-dot"></i><span data-i18n="nav.oponyMagazyn">Opony</span></button>
+  <button class="tnb" id="tnb-szkody" onclick="showPage('szkody')"><i class="ti ti-alert-triangle"></i><span data-i18n="nav.szkody">Szkody</span></button>
+  <button class="tnb" onclick="FinesModule.open()" style="position:relative"><i class="ti ti-ticket"></i><span data-i18n="nav.mandaty">Mandaty</span><span id="fines-nav-badge" style="display:none;position:absolute;top:4px;right:4px;background:var(--red);color:#fff;border-radius:9px;font-size:9px;font-weight:700;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 4px"></span></button>
+
+  <div class="sidebar-label">Koszty</div>
+  <button class="tnb" id="tnb-paliwo" onclick="showPage('paliwo')"><i class="ti ti-gas-station"></i><span data-i18n="nav.paliwo">Paliwo</span></button>
+  <button class="tnb" id="tnb-karty" onclick="showPage('karty')"><i class="ti ti-credit-card"></i><span data-i18n="nav.karty">Karty flotowe</span></button>
+  <button class="tnb" id="tnb-cfm-klienci" onclick="showPage('cfm-klienci')"><i class="ti ti-building-store"></i><span data-i18n="nav.cfmKlienci">Klienci CFM</span></button>
+  <button class="tnb" id="tnb-cfm-kontrakty" onclick="showPage('cfm-kontrakty')"><i class="ti ti-file-description"></i><span data-i18n="nav.cfmKontrakty">Kontrakty CFM</span></button>
+  <button class="tnb" id="tnb-cfm-faktury" onclick="showPage('cfm-faktury')"><i class="ti ti-file-invoice"></i><span data-i18n="nav.cfmFaktury">Faktury CFM</span></button>
+
+  <div class="sidebar-label">Dokumenty</div>
+  <button class="tnb" id="tnb-impexp" onclick="showPage('impexp')"><i class="ti ti-arrows-exchange"></i><span data-i18n="nav.impexp">Import / Eksport</span></button>
+  <button class="tnb" id="tnb-ocr" onclick="showPage('ocr')"><i class="ti ti-scan"></i><span data-i18n="nav.ocr">OCR Dowodów</span></button>
+  <button class="tnb" id="tnb-pdfexport" onclick="showPage('pdfexport')"><i class="ti ti-file-type-pdf"></i><span data-i18n="nav.pdfexport">Eksport PDF</span></button>
+  <button class="tnb" id="tnb-raporty" onclick="showPage('raporty')"><i class="ti ti-chart-line"></i><span data-i18n="nav.raporty">Raporty</span></button>
+
+  <div class="sidebar-label">Podatki</div>
+  <button class="tnb" id="tnb-kalkulator" onclick="showPage('kalkulator')"><i class="ti ti-calculator"></i><span data-i18n="nav.kalkulator">Kalkulator DT-1</span></button>
+  <button class="tnb" id="tnb-formularze" onclick="showPage('formularze')"><i class="ti ti-file-text"></i><span data-i18n="nav.formularze">Deklaracja DT-1</span></button>
   <button class="tnb" id="tnb-stawki" onclick="showPage('stawki')"><i class="ti ti-building-bank"></i><span data-i18n="nav.stawki">Stawki 2026</span></button>
+  <button class="tnb" id="tnb-podatnik" onclick="showPage('podatnik')"><i class="ti ti-building"></i><span data-i18n="nav.podatnik">Podatnik</span></button>
   <button class="tnb" id="tnb-pd" onclick="showPage('pd')"><i class="ti ti-upload"></i><span data-i18n="nav.pd">Eksport PD</span></button>
   <button class="tnb" id="tnb-walidacja" onclick="showPage('walidacja')"><i class="ti ti-shield-check"></i><span data-i18n="nav.walidacja">Walidacja</span> <span class="badge" id="badge-err" style="background:var(--red)">0</span></button>
-
-  <div class="sidebar-label" data-i18n="nav.group.dokumenty">Dokumenty</div>
-  <button class="tnb" id="tnb-ocr" onclick="showPage('ocr')"><i class="ti ti-scan"></i><span data-i18n="nav.ocr">OCR Dowody</span></button>
   <button class="tnb" id="tnb-faktury" onclick="showPage('faktury')"><i class="ti ti-file-invoice"></i><span data-i18n="nav.faktury">Faktury</span></button>
-  <button class="tnb" id="tnb-pdfexport" onclick="showPage('pdfexport')"><i class="ti ti-file-type-pdf"></i><span data-i18n="nav.pdfexport">Eksport PDF</span></button>
 
-  <div class="sidebar-label" data-i18n="nav.group.administracja">Administracja</div>
-  <button class="tnb" id="tnb-podatnik" onclick="showPage('podatnik')"><i class="ti ti-building"></i><span data-i18n="nav.podatnik">Podatnik</span></button>
+  <div class="sidebar-label">Administracja</div>
   <button class="tnb" id="tnb-firmy" onclick="showPage('firmy')"><i class="ti ti-building-community"></i><span data-i18n="nav.firmy">Firmy</span></button>
   <button class="tnb" id="tnb-uzytkownicy" onclick="showPage('uzytkownicy')"><i class="ti ti-users"></i><span data-i18n="nav.uzytkownicy">Użytkownicy</span></button>
   <button class="tnb" id="tnb-api-klucze" onclick="showPage('api-klucze')"><i class="ti ti-key"></i><span data-i18n="nav.apiKlucze">Klucze API</span></button>
   <button class="tnb" id="tnb-cepik" onclick="showPage('cepik')"><i class="ti ti-database"></i><span data-i18n="nav.cepik">CEPiK</span></button>
-  <button class="tnb" id="tnb-karty" onclick="showPage('karty')"><i class="ti ti-credit-card"></i><span data-i18n="nav.karty">Karty Flotowe</span></button>
-  <button class="tnb" id="tnb-szkody" onclick="showPage('szkody')"><i class="ti ti-alert-triangle"></i><span data-i18n="nav.szkody">Szkody</span></button>
-  <button class="tnb" id="tnb-opony-magazyn" onclick="showPage('opony-magazyn')"><i class="ti ti-circle-dot"></i><span data-i18n="nav.oponyMagazyn">Magazyn Opon</span></button>
-  <button class="tnb" id="tnb-zlecenia" onclick="showPage('zlecenia')"><i class="ti ti-clipboard-list"></i><span data-i18n="nav.zlecenia">Zlecenia serwisowe</span></button>
-  <button class="tnb" id="tnb-protokoly" onclick="showPage('protokoly')"><i class="ti ti-file-signature"></i><span data-i18n="nav.protokoly">Protokoły</span></button>
-  <button class="tnb" id="tnb-cfm-klienci" onclick="showPage('cfm-klienci')"><i class="ti ti-building-store"></i><span data-i18n="nav.cfmKlienci">Klienci CFM</span></button>
-  <button class="tnb" id="tnb-cfm-kontrakty" onclick="showPage('cfm-kontrakty')"><i class="ti ti-file-description"></i><span data-i18n="nav.cfmKontrakty">Kontrakty CFM</span></button>
-  <button class="tnb" id="tnb-cfm-faktury" onclick="showPage('cfm-faktury')"><i class="ti ti-file-invoice"></i><span data-i18n="nav.cfmFaktury">Faktury CFM</span></button>
-  <button class="tnb" id="tnb-raporty" onclick="showPage('raporty')"><i class="ti ti-chart-line"></i><span data-i18n="nav.raporty">Raporty</span></button>
 
-  <div class="sidebar-label" data-i18n="nav.group.ai">AI</div>
+  <div class="sidebar-label">AI</div>
   <button class="tnb" id="tnb-ai" onclick="showPage('ai')"><i class="ti ti-robot"></i><span data-i18n="nav.ai">Asystent AI</span></button>
 </nav>
 
@@ -176,109 +180,18 @@ window.addEventListener('DOMContentLoaded', () => {
 
 <!-- ==================== PULPIT ==================== -->
 <div class="page active" id="page-dash">
-  <div class="pg-title"><i class="ti ti-chart-bar"></i><span data-i18n="dash.title">Pulpit — Podatek od środków transportowych</span></div>
-  <div class="pg-sub">Uchwała XXIX/1065/2025 Rady m.st. Warszawy z 20.11.2025 r. | obowiązuje od 01.01.2026</div>
-  <div class="stats" id="dash-stats">
-    <div class="stat" onclick="showPage('pojazdy')">
-      <div class="stat-label" data-i18n="dash.stat.total">Pojazdy w bazie</div>
-      <div class="stat-val" id="s-total">191</div>
-      <div class="stat-sub" data-i18n="dash.stat.total.sub">podlegające opodatkowaniu</div>
-    </div>
-    <div class="stat" onclick="showPage('kalkulator')">
-      <div class="stat-label" data-i18n="dash.stat.sel">Zaznaczono do deklaracji</div>
-      <div class="stat-val" id="s-sel" style="color:var(--blue)">0</div>
-      <div class="stat-sub" data-i18n="dash.stat.sel.sub">kliknij aby wybrać pojazdy</div>
-    </div>
-    <div class="stat" onclick="showPage('kalkulator')">
-      <div class="stat-label" data-i18n="dash.stat.tax">Podatek razem (poz. 80)</div>
-      <div class="stat-val" id="s-tax" style="color:var(--green)">0 zł</div>
-      <div class="stat-sub">suma DT-1</div>
-    </div>
-    <div class="stat" onclick="showPage('stawki')">
-      <div class="stat-label" data-i18n="dash.stat.new">Pojazdy ≥ 2024 (§2 obniż.)</div>
-      <div class="stat-val" id="s-new" style="color:var(--amber)">—</div>
-      <div class="stat-sub">niższa stawka Warszawy</div>
-    </div>
-  </div>
+  <div class="pg-title"><i class="ti ti-truck"></i><span>Pulpit — Zarządzanie flotą</span></div>
 
+  <!-- Główne KPI floty -->
   <div id="dash-fleet-kpi" style="margin-bottom:1.5rem"></div>
 
-  <div class="ibox" style="margin-bottom:1.5rem">
-    <i class="ti ti-info-circle"></i>
-    <div>
-      <strong>Jak korzystać z TaxOrder Pro?</strong><br>
-      1. Przejdź do <strong>Pojazdy</strong> → zaznacz checkboxem pojazdy do deklaracji → ustaw liczbę osi i zawieszenie dla każdego.<br>
-      2. Przejdź do <strong>Kalkulator</strong> → uzupełnij dane podatnika → sprawdź wyliczone kwoty.<br>
-      3. Kliknij <strong>DT-1 / DT-1/A</strong> → wydrukuj gotowe formularze lub eksportuj do Przyjaznych Deklaracji.<br>
-      4. <strong>Ważne:</strong> dla przyczep i naczep wpisz DMC zespołu pojazdów (przyczepa + ciągnik) — inaczej kategoria nie zostanie przypisana.
-    </div>
-  </div>
-
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
-    <div>
-      <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px"><i class="ti ti-chart-pie" style="color:var(--text2)"></i>Struktura floty wg marki</div>
-      <div class="tbl-wrap"><table>
-        <thead><tr><th>Marka</th><th>Liczba</th><th>Kategorie DT-1</th></tr></thead>
-        <tbody id="dash-brands"></tbody>
-      </table></div>
-    </div>
-    <div>
-      <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px"><i class="ti ti-calendar" style="color:var(--text2)"></i>Ważne terminy 2026</div>
-      <div class="tbl-wrap"><table>
-        <thead><tr><th>Data</th><th>Zdarzenie</th></tr></thead>
-        <tbody>
-          <tr><td style="font-family:var(--mono);font-weight:600;color:var(--red)">15.02.2026</td><td>Termin złożenia DT-1 i wpłaty I raty</td></tr>
-          <tr><td style="font-family:var(--mono);font-weight:600">15.09.2026</td><td>Termin wpłaty II raty podatku</td></tr>
-          <tr><td style="font-family:var(--mono)">14 dni</td><td>Od nabycia / rejestracji nowego pojazdu</td></tr>
-          <tr><td style="font-family:var(--mono)">14 dni</td><td>Od wyrejestrowania / sprzedaży pojazdu</td></tr>
-          <tr><td style="font-family:var(--mono)">01.01.2026</td><td>Wejście w życie stawek Uchwała XXIX/1065/2025</td></tr>
-        </tbody>
-      </table></div>
-    </div>
-  </div>
-
-  <!-- Widget rozkładu wiekowego + struktury typów floty -->
-  <div style="margin-top:1.5rem">
-    <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
-      <i class="ti ti-chart-bar" style="color:var(--blue)"></i>Struktura floty wg roku i typu
-    </div>
-    <div id="dash-age-dist"></div>
-  </div>
-
-  <!-- Widget kosztów paliwa -->
-  <div style="margin-top:1.5rem">
-    <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
-      <i class="ti ti-gas-station" style="color:var(--amber)"></i>Koszty paliwa — bieżący miesiąc
-      <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="FuelImport.open()">
-        <i class="ti ti-file-import"></i>Import tankowań
-      </button>
-      <button class="btn btn-gray" style="font-size:11px" onclick="FuelImport.exportKobize(new Date().getFullYear()-1)" title="Eksportuj raport emisji CO2 wg KOBIZE">
-        <i class="ti ti-leaf"></i>Raport CO₂ KOBIZE
-      </button>
-    </div>
-    <div id="dash-fuel" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-bottom:8px"></div>
-  </div>
-
-  <!-- Widget serwisowy -->
-  <div style="margin-top:1.5rem">
-    <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
-      <i class="ti ti-tools" style="color:var(--blue)"></i>Serwisy — nadchodzące (30 dni)
-      <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="ServiceModule.open()">
-        <i class="ti ti-external-link"></i>Wszystkie
-      </button>
-      <button class="btn btn-gray" style="font-size:11px" onclick="ServiceModule.addServiceGlobal()">
-        <i class="ti ti-plus"></i>Dodaj serwis
-      </button>
-    </div>
-    <div id="dash-service" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;max-height:220px;overflow-y:auto"></div>
-  </div>
-
-  <!-- Widget mandatów -->
-  <div id="dash-fines" style="margin-top:1.5rem;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);padding:12px 16px;display:none"></div>
-
-  <div style="margin-top:1.5rem">
+  <!-- Alerty floty — PRIORYTET -->
+  <div style="margin-bottom:1.5rem">
     <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
       <i class="ti ti-bell-ringing" style="color:var(--red)"></i>Alerty floty — wygasające terminy (60 dni)
+      <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="showPage('pojazdy')">
+        <i class="ti ti-truck"></i>Przejdź do floty
+      </button>
     </div>
     <div class="tbl-wrap"><table>
       <thead><tr>
@@ -286,6 +199,156 @@ window.addEventListener('DOMContentLoaded', () => {
         <th>OC do</th><th>AC do</th><th>Przegląd do</th><th>UDT / Tacho</th><th style="text-align:center">Akcja</th>
       </tr></thead>
       <tbody id="dash-alerts"><tr><td colspan="7" style="color:var(--text3);text-align:center">Brak alertów</td></tr></tbody>
+    </table></div>
+  </div>
+
+  <!-- Widget mandatów -->
+  <div id="dash-fines" style="margin-bottom:1.5rem;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);padding:12px 16px;display:none"></div>
+
+  <!-- Serwis + Paliwo obok siebie -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem">
+    <div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+        <i class="ti ti-tools" style="color:var(--blue)"></i>Serwisy — nadchodzące (30 dni)
+        <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="ServiceModule.open()">
+          <i class="ti ti-external-link"></i>Wszystkie
+        </button>
+        <button class="btn btn-gray" style="font-size:11px" onclick="ServiceModule.addServiceGlobal()">
+          <i class="ti ti-plus"></i>Dodaj
+        </button>
+      </div>
+      <div id="dash-service" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;max-height:260px;overflow-y:auto"></div>
+    </div>
+    <div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+        <i class="ti ti-gas-station" style="color:var(--amber)"></i>Paliwo — bieżący miesiąc
+        <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="showPage('paliwo')">
+          <i class="ti ti-external-link"></i>Moduł paliwa
+        </button>
+        <button class="btn btn-gray" style="font-size:11px" onclick="FuelImport.open()">
+          <i class="ti ti-file-import"></i>Import
+        </button>
+      </div>
+      <div id="dash-fuel" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px"></div>
+    </div>
+  </div>
+
+  <!-- Struktura floty + DT-1 mini -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.5rem;margin-bottom:1.5rem">
+    <div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+        <i class="ti ti-chart-pie" style="color:var(--text2)"></i>Struktura marki
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Marka</th><th>Liczba</th><th>Kategorie DT-1</th></tr></thead>
+        <tbody id="dash-brands"></tbody>
+      </table></div>
+    </div>
+    <div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+        <i class="ti ti-chart-bar" style="color:var(--blue)"></i>Struktura wiekowa
+      </div>
+      <div id="dash-age-dist"></div>
+    </div>
+    <div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+        <i class="ti ti-building-bank" style="color:var(--green)"></i>Podatek DT-1
+        <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="showPage('kalkulator')">
+          <i class="ti ti-calculator"></i>Kalkulator
+        </button>
+      </div>
+      <div class="stats" id="dash-stats" style="grid-template-columns:1fr;gap:8px;margin-bottom:0">
+        <div class="stat" onclick="showPage('pojazdy')" style="cursor:pointer">
+          <div class="stat-label">Pojazdy w bazie</div>
+          <div class="stat-val" id="s-total">—</div>
+          <div class="stat-sub">podlegające opodatkowaniu</div>
+        </div>
+        <div class="stat" onclick="showPage('kalkulator')" style="cursor:pointer">
+          <div class="stat-label">Zaznaczono do deklaracji</div>
+          <div class="stat-val" id="s-sel" style="color:var(--blue)">0</div>
+          <div class="stat-sub">kliknij aby wybrać</div>
+        </div>
+        <div class="stat" onclick="showPage('kalkulator')" style="cursor:pointer">
+          <div class="stat-label">Podatek razem (poz. 80)</div>
+          <div class="stat-val" id="s-tax" style="color:var(--green)">0 zł</div>
+          <div class="stat-sub">suma DT-1</div>
+        </div>
+        <div class="stat" onclick="showPage('stawki')" style="cursor:pointer">
+          <div class="stat-label">Pojazdy ≥ 2024 (§2 obniż.)</div>
+          <div class="stat-val" id="s-new" style="color:var(--amber)">—</div>
+          <div class="stat-sub">niższa stawka Warszawy</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== PALIWO ==================== -->
+<div class="page" id="page-paliwo">
+  <div class="pg-title"><i class="ti ti-gas-station"></i>Moduł Paliwa</div>
+  <div class="pg-sub">Tankowania · statystyki · karty flotowe · raport KOBIZE</div>
+
+  <!-- KPI paliwa -->
+  <div id="paliwo-kpi" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:1.5rem"></div>
+
+  <!-- Toolbar -->
+  <div class="toolbar" style="margin-bottom:1rem">
+    <select id="paliwo-month-sel" onchange="renderPaliwoPage()" style="min-width:160px">
+    </select>
+    <select id="paliwo-veh-sel" onchange="renderPaliwoPage()" style="min-width:200px">
+      <option value="">Wszystkie pojazdy</option>
+    </select>
+    <select id="paliwo-fuel-sel" onchange="renderPaliwoPage()">
+      <option value="">Wszystkie paliwa</option>
+      <option>ON</option><option>PB95</option><option>PB98</option><option>LPG</option><option>CNG</option><option>HVO</option><option>Elektryczny</option>
+    </select>
+    <div style="margin-left:auto;display:flex;gap:6px">
+      <button class="btn btn-gray" style="font-size:11px" onclick="FuelImport.open()">
+        <i class="ti ti-file-import"></i>Import tankowań
+      </button>
+      <button class="btn btn-gray" style="font-size:11px" onclick="FuelImport.exportKobize(new Date().getFullYear()-1)" title="Eksportuj raport emisji CO2 wg KOBIZE">
+        <i class="ti ti-leaf"></i>Raport CO₂ KOBIZE
+      </button>
+    </div>
+  </div>
+
+  <!-- Wykres miesięczny + rozkład paliw -->
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:1.5rem;margin-bottom:1.5rem">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+        <i class="ti ti-chart-bar" style="color:var(--blue)"></i>Koszt paliwa wg miesięcy (rok bieżący)
+      </div>
+      <div id="paliwo-chart-monthly"></div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+        <i class="ti ti-chart-pie" style="color:var(--amber)"></i>Rozkład wg rodzaju paliwa
+      </div>
+      <div id="paliwo-chart-fuel-type"></div>
+    </div>
+  </div>
+
+  <!-- Tabela tankowań -->
+  <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+    <i class="ti ti-list-details" style="color:var(--text2)"></i>Historia tankowań
+  </div>
+  <div class="tbl-wrap"><table>
+    <thead><tr>
+      <th>Data</th><th>Nr rej.</th><th>Pojazd</th><th>Rodzaj</th>
+      <th style="text-align:right">Ilość (l)</th><th style="text-align:right">Cena/l</th>
+      <th style="text-align:right">Kwota (zł)</th><th>Stacja</th><th>Karta</th>
+    </tr></thead>
+    <tbody id="paliwo-tbody"><tr><td colspan="9" style="text-align:center;color:var(--text3);padding:2rem">Brak danych tankowań</td></tr></tbody>
+  </table></div>
+
+  <!-- Top 10 pojazdów wg zużycia -->
+  <div style="margin-top:1.5rem">
+    <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <i class="ti ti-podium" style="color:var(--text2)"></i>Top 10 pojazdów wg kosztu paliwa (wybrany okres)
+    </div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>#</th><th>Nr rej.</th><th>Pojazd</th><th style="text-align:right">Ilość (l)</th><th style="text-align:right">Koszt (zł)</th><th style="text-align:right">Avg l/100km</th></tr></thead>
+      <tbody id="paliwo-top10"></tbody>
     </table></div>
   </div>
 </div>
