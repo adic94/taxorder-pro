@@ -25,21 +25,25 @@ window.TaxOrderNotifSettings = (function () {
   // ── API calls ───────────────────────────────────────────────────────────────
   async function _loadAlertTypes() {
     const r = await fetch(`${API()}/api/alert-types?company=${company()}`, { headers: hdrs() });
-    _alertTypes = r.ok ? await r.json() : [];
+    const d = r.ok ? await r.json() : {};
+    _alertTypes = d.types || d || [];
   }
   async function _loadPrefs() {
     const r = await fetch(`${API()}/api/notif-prefs`, { headers: hdrs() });
-    const list = r.ok ? await r.json() : [];
+    const d = r.ok ? await r.json() : {};
+    const list = d.prefs || d || [];
     _prefs = {};
     list.forEach(p => { _prefs[p.alert_type_id] = p; });
   }
   async function _loadTemplates() {
     const r = await fetch(`${API()}/api/maintenance-templates?company=${company()}`, { headers: hdrs() });
-    _templates = r.ok ? await r.json() : [];
+    const d = r.ok ? await r.json() : {};
+    _templates = d.templates || d || [];
   }
   async function _loadLog() {
     const r = await fetch(`${API()}/api/notif-log?company=${company()}&limit=100`, { headers: hdrs() });
-    _log = r.ok ? await r.json() : [];
+    const d = r.ok ? await r.json() : {};
+    _log = d.entries || d || [];
   }
 
   async function _savePref(typeId, patch) {
@@ -457,7 +461,7 @@ window.TaxOrderNotifSettings = (function () {
     const cat = cats[catKey?.toLowerCase()] || 'wlasny';
     const timeOk = confirm('Czy alert ma być wyzwalany wg daty?');
     const kmOk   = confirm('Czy alert ma być wyzwalany wg przebiegu km?');
-    const r = await fetch(`${API()}/api/alert-types`, {
+    const r = await fetch(`${API()}/api/alert-types?company=${company()}`, {
       method: 'POST', headers: hdrs(),
       body: JSON.stringify({ name: name.trim(), category: cat, trigger_time: timeOk ? 1 : 0, trigger_km: kmOk ? 1 : 0 }),
     });
@@ -646,7 +650,7 @@ window.TaxOrderNotifSettings = (function () {
     });
     document.getElementById('apply-modal')?.remove();
     const data = await r.json();
-    window.toast?.(r.ok ? `✓ Szablon przypisany do ${data.updated} pojazdów` : '❌ Błąd przypisania');
+    window.toast?.(r.ok ? `✓ Szablon przypisany do ${data.applied} pojazdów` : '❌ Błąd przypisania');
   }
 
   return { load, _tab, _toggleEnabled, _toggleChannel, _removeDay, _addDay, _saveKm, _saveQuiet,

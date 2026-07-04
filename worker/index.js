@@ -2430,7 +2430,13 @@ async function handleRequest(request, env, url, path) {
   if (path.startsWith('/api/maintenance-templates')){ if (!user) return err('Nieautoryzowany', 401); return handleMaintenanceTemplates(request, env, user, url, path); }
   // Admin: ręczne wyzwolenie kolejkowania powiadomień (do testów bez crona)
   if (path === '/api/notif-trigger' && request.method === 'POST') {
-    if (!user || user.role !== 'admin') return err('Brak uprawnień', 403);
+    if (!user) return err('Nieautoryzowany', 401);
+    if (user.role !== 'admin') return err('Brak uprawnień', 403);
+    const dryRun = url.searchParams.get('dry_run') === '1';
+    if (dryRun) {
+      const preview = await previewNotificationJobs(env);
+      return json({ ok: true, dry_run: true, ...preview });
+    }
     await queueNotificationJobs(env);
     return json({ ok: true, msg: 'Kolejkowanie zakończone — sprawdź zakładkę Historia za chwilę' });
   }
@@ -2530,6 +2536,97 @@ function isInQuietHours(prefs, nowHour) {
   return from > to ? (nowHour >= from || nowHour < to) : (nowHour >= from && nowHour < to);
 }
 
+// ─── DRY RUN: podgląd co zostałoby zakolejkowane ────────────────────────────────
+async function previewNotificationJobs(env) {
+  const atRows = await env.DB.prepare('SELECT * FROM alert_types WHERE active=1').all();
+  const alertTypes = atRows.results || [];
+  const subsRows = await env.DB.prepare('SELECT DISTINCT company_id FROM push_subscriptions').all();
+  const companies = (subsRows.results || []).map(r => r.company_id);
+  const nowHour = new Date().getUTCHours();
+  const preview = [];
+  let totalSubs = 0;
+
+  for (const company_id of companies) {
+    const subRows = await env.DB.prepare('SELECT * FROM push_subscriptions WHERE company_id=?').bind(company_id).all();
+    const subs = subRows.results || [];
+    totalSubs += subs.length;
+    const vehRows = await env.DB.prepare('SELECT nr_rej, data FROM vehicles WHERE company_id=?').bind(company_id).all();
+    const vehicleAlerts = buildVehicleAlerts(vehRows.results || [], alertTypes);
+    const prefRows = await env.DB.prepare(
+      `SELECT np.user_id, np.alert_type_id, np.enabled, np.threshold_days, np.threshold_km, np.quiet_from, np.quiet_to
+       FROM notification_prefs np JOIN users u ON u.id=np.user_id AND u.active=1`
+    ).all().catch(() => ({ results: [] }));
+    const userPrefs = {};
+    for (const row of (prefRows.results || [])) {
+      if (!userPrefs[row.user_id]) userPrefs[row.user_id] = {};
+      userPrefs[row.user_id][row.alert_type_id] = row;
+    }
+    for (const sub of subs) {
+      const prefs = userPrefs[sub.user_id] || {};
+      const quiet = isInQuietHours(prefs, nowHour);
+      const myAlerts = filterAlertsForUser(vehicleAlerts, prefs);
+      if (myAlerts.length) {
+        const { title, body, first } = buildPushPayload([...myAlerts]);
+        preview.push({ type: 'push', sub_id: sub.id, user_id: sub.user_id, company_id, quiet, alerts_count: myAlerts.length, title, body,
+          top_alert: { nrRej: first.nrRej, typeId: first.typeId, days: first.days, km: first.km, expired: first.expired },
+          all_alerts: myAlerts.map(a => ({ nrRej: a.nrRej, typeId: a.typeId, days: a.days, km: a.km, expired: a.expired })) });
+      }
+    }
+    // Email preview
+    const emailUserRows = await env.DB.prepare(
+      `SELECT u.id, u.email FROM users u
+       WHERE u.email IS NOT NULL AND u.email != '' AND u.active=1
+         AND EXISTS (
+           SELECT 1 FROM notification_prefs np
+           WHERE np.user_id=u.id AND np.enabled=1 AND json_extract(np.channels,'$.email')=1
+         )`
+    ).all().catch(() => ({ results: [] }));
+    for (const usr of (emailUserRows.results || [])) {
+      const prefs = userPrefs[usr.id] || {};
+      const quiet = isInQuietHours(prefs, nowHour);
+      const myAlerts = filterAlertsForUser(vehicleAlerts, prefs);
+      if (myAlerts.length) {
+        const { title, first } = buildPushPayload([...myAlerts]);
+        preview.push({ type: 'email', user_id: usr.id, to_email: usr.email, company_id, quiet, alerts_count: myAlerts.length, title,
+          top_alert: { nrRej: first.nrRej, typeId: first.typeId, days: first.days, km: first.km, expired: first.expired } });
+      }
+    }
+    // SMS preview
+    const smsUserRows = await env.DB.prepare(
+      `SELECT u.id, u.telefon FROM users u
+       WHERE u.telefon IS NOT NULL AND u.telefon != '' AND u.active=1
+         AND EXISTS (
+           SELECT 1 FROM notification_prefs np
+           WHERE np.user_id=u.id AND np.enabled=1 AND json_extract(np.channels,'$.sms')=1
+         )`
+    ).all().catch(() => ({ results: [] }));
+    for (const usr of (smsUserRows.results || [])) {
+      const prefs = userPrefs[usr.id] || {};
+      const quiet = isInQuietHours(prefs, nowHour);
+      const myAlerts = filterAlertsForUser(vehicleAlerts, prefs);
+      if (myAlerts.length) {
+        const { title, first } = buildPushPayload([...myAlerts]);
+        preview.push({ type: 'sms', user_id: usr.id, to_phone: usr.telefon, company_id, quiet, alerts_count: myAlerts.length, title,
+          top_alert: { nrRej: first.nrRej, typeId: first.typeId, days: first.days, km: first.km } });
+      }
+    }
+  }
+  const pushJobs  = preview.filter(p => p.type === 'push');
+  const emailJobs = preview.filter(p => p.type === 'email');
+  const smsJobs   = preview.filter(p => p.type === 'sms');
+  return {
+    companies: companies.length, total_subscriptions: totalSubs,
+    would_queue: preview.length,
+    push_jobs: pushJobs.length,
+    email_jobs: emailJobs.length,
+    sms_jobs: smsJobs.length,
+    resend_configured: !!env.RESEND_API_KEY,
+    smsapi_configured: !!env.SMSAPI_TOKEN,
+    vehicle_alerts_total: preview.reduce((s,p) => s + p.alerts_count, 0),
+    jobs: preview,
+  };
+}
+
 // ─── CRON: kolejkuje zadania powiadomień → Queue consumer wysyła asynchronicznie ─
 async function queueNotificationJobs(env) {
   // Jeśli brak Queue (lokalny dev), fallback do synchronicznego wysyłania
@@ -2590,6 +2687,70 @@ async function queueNotificationJobs(env) {
         title, body, urgent,
       }});
     }
+
+    // Email jobs — dla użytkowników firmy z channels.email=true
+    if (env.RESEND_API_KEY) {
+      const userRows = await env.DB.prepare(
+        `SELECT u.id, u.email FROM users u
+         WHERE u.email IS NOT NULL AND u.email != '' AND u.active=1
+           AND EXISTS (
+             SELECT 1 FROM notification_prefs np
+             WHERE np.user_id=u.id AND np.enabled=1 AND json_extract(np.channels,'$.email')=1
+           )`
+      ).all().catch(() => ({ results: [] }));
+      for (const usr of (userRows.results || [])) {
+        const prefs = userPrefs[usr.id] || {};
+        if (isInQuietHours(prefs, nowHour)) continue;
+        const myAlerts = filterAlertsForUser(vehicleAlerts, prefs);
+        if (!myAlerts.length) continue;
+        const { title, first } = buildPushPayload([...myAlerts]);
+        jobBatch.push({ body: {
+          type: 'email',
+          company_id,
+          user_id: usr.id,
+          to_email: usr.email,
+          alert_type_id: first.typeId,
+          vehicle_nr_rej: first.nrRej,
+          label: title,
+          days_until: first.days,
+          km_until: first.km,
+          title,
+          alerts: myAlerts.map(a => ({ nrRej: a.nrRej, typeId: a.typeId, label: a.label, days: a.days, km: a.km, expired: a.expired })),
+        }});
+      }
+    }
+
+    // SMS jobs — dla użytkowników firmy z channels.sms=true i wypełnionym telefonem
+    if (env.SMSAPI_TOKEN) {
+      const smsUserRows = await env.DB.prepare(
+        `SELECT u.id, u.telefon FROM users u
+         WHERE u.telefon IS NOT NULL AND u.telefon != '' AND u.active=1
+           AND EXISTS (
+             SELECT 1 FROM notification_prefs np
+             WHERE np.user_id=u.id AND np.enabled=1 AND json_extract(np.channels,'$.sms')=1
+           )`
+      ).all().catch(() => ({ results: [] }));
+      for (const usr of (smsUserRows.results || [])) {
+        const prefs = userPrefs[usr.id] || {};
+        if (isInQuietHours(prefs, nowHour)) continue;
+        const myAlerts = filterAlertsForUser(vehicleAlerts, prefs);
+        if (!myAlerts.length) continue;
+        const { title, first } = buildPushPayload([...myAlerts]);
+        jobBatch.push({ body: {
+          type: 'sms',
+          company_id,
+          user_id: usr.id,
+          to_phone: usr.telefon,
+          alert_type_id: first.typeId,
+          vehicle_nr_rej: first.nrRej,
+          label: title,
+          days_until: first.days,
+          km_until: first.km,
+          alerts: myAlerts.map(a => ({ nrRej: a.nrRej, typeId: a.typeId, label: a.label, days: a.days, km: a.km, expired: a.expired })),
+        }});
+      }
+    }
+
     console.log(`[Notif queue] ${company_id}: ${vehicleAlerts.length} alertów, ${subs.length} sub`);
   }
 
@@ -2598,6 +2759,66 @@ async function queueNotificationJobs(env) {
     await env.NOTIF_QUEUE.sendBatch(jobBatch.slice(i, i + 100));
   }
   console.log(`[Notif queue] Zakolejkowano ${jobBatch.length} zadań`);
+}
+
+// ─── EMAIL: Resend API ───────────────────────────────────────────────────────
+function buildEmailHtml(alerts) {
+  const rows = alerts.map(a => {
+    const daysStr = a.days != null
+      ? (a.days <= 0 ? '<b style="color:#c0392b">WYGASŁO</b>' : `za <b>${a.days}</b> dni`)
+      : '';
+    const kmStr   = a.km   != null ? `, za <b>${a.km}</b> km` : '';
+    return `<tr><td style="padding:6px 12px;border-bottom:1px solid #eee">${a.nrRej}</td>
+              <td style="padding:6px 12px;border-bottom:1px solid #eee">${a.label || a.typeId}</td>
+              <td style="padding:6px 12px;border-bottom:1px solid #eee">${daysStr}${kmStr}</td></tr>`;
+  }).join('');
+  return `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px;margin:0 auto">
+  <h2 style="color:#2c3e50;border-bottom:2px solid #3498db;padding-bottom:8px">TaxOrder Pro — Alerty flotowe</h2>
+  <table style="width:100%;border-collapse:collapse">
+    <thead><tr style="background:#3498db;color:#fff">
+      <th style="padding:8px 12px;text-align:left">Nr rej.</th>
+      <th style="padding:8px 12px;text-align:left">Typ alertu</th>
+      <th style="padding:8px 12px;text-align:left">Termin</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <p style="margin-top:16px;font-size:13px;color:#666">
+    Zaloguj się do <a href="https://taxorder-pro.pages.dev">TaxOrder Pro</a>, aby zarządzać alertami.
+  </p></body></html>`;
+}
+
+async function sendEmailViaResend(env, to, subject, html) {
+  if (!env.RESEND_API_KEY) return { status: 0 };
+  const from = env.RESEND_FROM_EMAIL || 'TaxOrder Pro <noreply@taxorderpro.com>';
+  return fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to: [to], subject, html }),
+  }).catch(() => ({ status: 0 }));
+}
+
+// ─── SMS: SMSAPI.pl ──────────────────────────────────────────────────────────
+function buildSmsText(alerts) {
+  if (!alerts.length) return 'TaxOrder: brak alertów';
+  const top = alerts[0];
+  const more = alerts.length > 1 ? ` (+${alerts.length - 1})` : '';
+  const daysStr = top.days != null ? (top.days <= 0 ? 'WYGASŁO' : `za ${top.days} dni`) : '';
+  return `TaxOrder: ${top.nrRej} ${top.label || top.typeId} ${daysStr}${more}`.slice(0, 160);
+}
+
+async function sendSmsViaSmsApi(env, to, message) {
+  if (!env.SMSAPI_TOKEN) return { status: 0 };
+  const params = new URLSearchParams({
+    to,
+    message,
+    format: 'json',
+    from: env.SMSAPI_SENDER || 'TaxOrder',
+  });
+  return fetch('https://api.smsapi.pl/sms.do', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${env.SMSAPI_TOKEN}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString(),
+  }).catch(() => ({ status: 0 }));
 }
 
 // ─── QUEUE CONSUMER: przetwarza zadania push/email/sms ────────────────────────
@@ -2631,11 +2852,49 @@ async function processNotifQueue(batch, env) {
           msg.retry({ delaySeconds: 60 });
         }
       } else if (job.type === 'email') {
-        // Faza 2 — email przez Resend API (zostanie zaimplementowane)
-        msg.ack();
+        if (!env.RESEND_API_KEY) { msg.ack(); continue; }
+        const subject = job.title || 'TaxOrder Pro — Alerty flotowe';
+        const html    = buildEmailHtml(job.alerts || []);
+        const res     = await sendEmailViaResend(env, job.to_email, subject, html);
+        if (res.status === 200 || res.status === 201) {
+          const logId = crypto.randomUUID().replace(/-/g, '').toLowerCase();
+          await env.DB.prepare(
+            `INSERT INTO notification_log(id,company_id,user_id,alert_type_id,vehicle_nr_rej,label,days_until,km_until,channel)
+             VALUES(?,?,?,?,?,?,?,?,?)`
+          ).bind(logId, job.company_id, job.user_id || null, job.alert_type_id || null,
+            job.vehicle_nr_rej || null, job.label, job.days_until ?? null, job.km_until ?? null, 'email'
+          ).run().catch(() => {});
+          msg.ack();
+        } else if (res.status === 429 || res.status === 500 || res.status === 503 || res.status === 0) {
+          msg.retry({ delaySeconds: 300 });
+        } else {
+          msg.ack(); // 4xx (np. zły adres email) — nie retryować
+        }
       } else if (job.type === 'sms') {
-        // Faza 3 — SMS przez SMSAPI.pl (zostanie zaimplementowane)
-        msg.ack();
+        if (!env.SMSAPI_TOKEN) { msg.ack(); continue; }
+        const message = buildSmsText(job.alerts || []);
+        const res     = await sendSmsViaSmsApi(env, job.to_phone, message);
+        const ok      = res.status === 200 || res.status === 201;
+        if (ok) {
+          let bodyText = '';
+          try { bodyText = await res.text(); } catch (_) {}
+          const hasError = bodyText.includes('"invalid_login"') || bodyText.includes('"ERR"');
+          if (hasError) { msg.ack(); } // błąd API (zły token, zły numer) — nie retry
+          else {
+            const logId = crypto.randomUUID().replace(/-/g, '').toLowerCase();
+            await env.DB.prepare(
+              `INSERT INTO notification_log(id,company_id,user_id,alert_type_id,vehicle_nr_rej,label,days_until,km_until,channel)
+               VALUES(?,?,?,?,?,?,?,?,?)`
+            ).bind(logId, job.company_id, job.user_id || null, job.alert_type_id || null,
+              job.vehicle_nr_rej || null, job.label, job.days_until ?? null, job.km_until ?? null, 'sms'
+            ).run().catch(() => {});
+            msg.ack();
+          }
+        } else if (res.status === 429 || res.status === 500 || res.status === 503 || res.status === 0) {
+          msg.retry({ delaySeconds: 300 });
+        } else {
+          msg.ack();
+        }
       } else {
         msg.ack();
       }
