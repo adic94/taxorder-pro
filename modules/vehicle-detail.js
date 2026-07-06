@@ -20,7 +20,7 @@ window.TaxOrderVehicleDetail = {
     const vehId = this._currentVehId;
     const v = (window.vehs || []).find(x => x.id === vehId);
     if (!v) return;
-    if (!confirm(`Usunąć pojazd ${v.nrRej} (${v.marka} ${v.model}) z floty?\n\nTa operacja jest nieodwracalna.`)) return;
+    if (!confirm(t('vd.confirm.del.vehicle').replace('{0}', v.nrRej).replace('{1}', v.marka).replace('{2}', v.model))) return;
 
     // Usuń z lokalnej tablicy i zamknij modal
     const idx = window.vehs.indexOf(v);
@@ -178,12 +178,12 @@ window.TaxOrderVehicleDetail = {
     if (window.TaxOrderFleetCloud?.saveVehicle) {
       const r = await window.TaxOrderFleetCloud.saveVehicle(v);
       if (r.ok) {
-        toast('✓ Dane pojazdu ' + v.nrRej + ' zapisane');
+        toast(t('vd.toast.saved').replace('{0}', v.nrRej));
       } else {
-        toast('⚠ Błąd zapisu do chmury — dane zapisane lokalnie');
+        toast(t('vd.toast.save.local'));
       }
     } else {
-      toast('✓ Dane pojazdu ' + v.nrRej + ' zaktualizowane');
+      toast(t('vd.toast.updated').replace('{0}', v.nrRej));
     }
     this.close();
   },
@@ -964,7 +964,7 @@ window.TaxOrderVehicleDetail = {
     const docNr   = document.getElementById('_ins-doc')?.value?.trim() || '';
     const nip     = document.getElementById('_ins-nip')?.value?.replace(/[^0-9]/g,'') || '';
     const notes   = document.getElementById('_ins-notes')?.value?.trim() || '';
-    if (!date) { if (typeof toast === 'function') toast('⚠ Podaj datę przeglądu'); return; }
+    if (!date) { if (typeof toast === 'function') toast(t('vd.toast.inspection.req')); return; }
 
     if (!Array.isArray(v.inspectionHistory)) v.inspectionHistory = [];
     v.inspectionHistory.push({
@@ -981,7 +981,7 @@ window.TaxOrderVehicleDetail = {
     btn.closest('[style*=fixed]').remove();
     const histEl = document.getElementById('vd-inspection-history');
     if (histEl) histEl.innerHTML = this._renderInspectionHistory(v);
-    if (typeof toast === 'function') toast('✓ Wpis przeglądu dodany — kliknij Zapisz aby utrwalić');
+    if (typeof toast === 'function') toast(t('vd.toast.inspection.added'));
   },
 
   _removeInspection(vehId, index) {
@@ -1094,7 +1094,7 @@ window.TaxOrderVehicleDetail = {
     const v = (window.vehs||[]).find(x=>x.id===vehId);
     if (!v) return;
     const date  = document.getElementById('_udt-date')?.value || '';
-    if (!date) { toast('⚠ Podaj datę'); return; }
+    if (!date) { toast(t('vd.toast.date.req')); return; }
     const entry = {
       date,
       typ:    document.getElementById('_udt-typ')?.value || '',
@@ -1113,7 +1113,7 @@ window.TaxOrderVehicleDetail = {
     const el = document.getElementById('vd-udt-history');
     if (el) el.innerHTML = this._renderUdtHistory(v);
     this._logAudit('udt_add', vehId, { date, typ: entry.typ });
-    toast('✓ Wpis UDT dodany — kliknij Zapisz aby utrwalić');
+    toast(t('vd.toast.udt.added'));
   },
 
   _removeUdtEntry(vehId, index) {
@@ -1216,7 +1216,7 @@ window.TaxOrderVehicleDetail = {
     const v = (window.vehs||[]).find(x=>x.id===vehId);
     if (!v) return;
     const date = document.getElementById('_tch-date')?.value || '';
-    if (!date) { toast('⚠ Podaj datę'); return; }
+    if (!date) { toast(t('vd.toast.date.req')); return; }
     const entry = {
       date,
       typ:    document.getElementById('_tch-typ')?.value || '',
@@ -1236,7 +1236,7 @@ window.TaxOrderVehicleDetail = {
     const el = document.getElementById('vd-tacho-history');
     if (el) el.innerHTML = this._renderTachoHistory(v);
     this._logAudit('tacho_add', vehId, { date, typ: entry.typ });
-    toast('✓ Wpis tachografu dodany — kliknij Zapisz aby utrwalić');
+    toast(t('vd.toast.tacho.added'));
   },
 
   _removeTachoEntry(vehId, index) {
@@ -1344,7 +1344,7 @@ window.TaxOrderVehicleDetail = {
   },
 
   async _deleteMaintItem(vId, itemId) {
-    if (!confirm('Usunąć element konserwacji?')) return;
+    if (!confirm(t('vd.confirm.del.maintenance'))) return;
     const v = (window.vehs||[]).find(v=>v.id===vId);
     if (!v) return;
     v.maintenanceItems = (v.maintenanceItems||[]).filter(m=>m.id!==itemId);
@@ -1374,15 +1374,15 @@ window.TaxOrderVehicleDetail = {
   },
 
   async _removeCard(nrRej, cardId) {
-    if (!confirm('Usunąć tę kartę flotową?')) return;
+    if (!confirm(t('vd.confirm.del.card'))) return;
     const api = window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
     const tok = localStorage.getItem('cf_token');
     const co = window.currentCompanyId || 'mtoilet';
     const hdrs = { 'Content-Type': 'application/json', ...(tok ? { Authorization: 'Bearer ' + tok } : {}) };
     try {
       const r = await fetch(`${api}/api/fleet-cards/${cardId}?company=${co}`, { method: 'DELETE', headers: hdrs });
-      if (!r.ok) { toast('⚠ Błąd usuwania karty: ' + r.status); return; }
-    } catch { toast('⚠ Błąd połączenia'); return; }
+      if (!r.ok) { toast(t('vd.toast.card.err').replace('{0}', r.status)); return; }
+    } catch { toast(t('vd.toast.conn')); return; }
     const v = (window.vehs||[]).find(x => x.nrRej === nrRej);
     const listEl = document.getElementById('vd-cards-list');
     if (typeof window.getFlotCards === 'function') {
@@ -1391,7 +1391,7 @@ window.TaxOrderVehicleDetail = {
       if (idx !== -1) cards.splice(idx, 1);
     }
     if (listEl && v) listEl.innerHTML = this._renderCards(v);
-    toast('Karta usunięta');
+    toast(t('vd.toast.card.deleted'));
   },
 
   refreshServiceTab(vehId) {
@@ -1565,7 +1565,7 @@ window.TaxOrderVehicleDetail = {
 
   printCard() {
     const v = (window.vehs||[]).find(x => x.id === this._currentVehId);
-    if (!v) { toast('⚠ Otwórz kartę pojazdu'); return; }
+    if (!v) { toast(t('vd.toast.open.card')); return; }
     const fd = d => d ? new Date(d).toLocaleDateString('pl-PL') : '—';
     const fz = n => n != null ? (+n).toFixed(2).replace('.',',') + ' zł' : '—';
     const row = (lbl, val) => `<tr><td style="padding:5px 10px;color:#6b7280;font-size:11px;width:200px">${lbl}</td><td style="padding:5px 10px;font-weight:600;font-size:12px">${val||'—'}</td></tr>`;
@@ -1638,7 +1638,7 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
 <tbody>${svcRows}</tbody></table>`:''}
 </body></html>`;
     const win = window.open('', '_blank', 'width=860,height=960');
-    if (!win) { toast('⚠ Zezwól na wyskakujące okna w przeglądarce'); return; }
+    if (!win) { toast(t('vd.toast.popups')); return; }
     win.document.write(html); win.document.close();
   },
 
@@ -1701,7 +1701,7 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
       localStorage.setItem('cepik_bearer_token', token.trim());
     }
 
-    toast('⏳ CEPiK: pobieranie danych dla ' + v.nrRej + '…');
+    toast(t('vd.toast.cepik.loading').replace('{0}', v.nrRej));
     const woj = _cepikWojFromNrRej(v.nrRej);
 
     try {
@@ -1712,7 +1712,7 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
 
       if (resp.status === 401 || resp.status === 403) {
         localStorage.removeItem('cepik_bearer_token');
-        return toast('⚠ CEPiK: token wygasł lub brak uprawnień — kliknij ponownie i podaj nowy token.');
+        return toast(t('vd.toast.cepik.token'));
       }
       if (!resp.ok) {
         const txt = await resp.text().catch(() => '');
@@ -1721,7 +1721,7 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
 
       const payload = await resp.json();
       const attrs = payload?.data?.[0]?.attributes;
-      if (!attrs) return toast('⚠ CEPiK: brak rekordu dla ' + v.nrRej + '. Sprawdź numer rejestracyjny.');
+      if (!attrs) return toast(t('vd.toast.cepik.notfound').replace('{0}', v.nrRej));
 
       const formMap = _cepikMapToForm(attrs);
       let filled = 0;
@@ -1737,7 +1737,7 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
 
       toast(`✅ CEPiK: uzupełniono ${filled} pól dla ${v.nrRej}`);
     } catch (e) {
-      toast('⚠ CEPiK błąd połączenia: ' + e.message);
+      toast(t('vd.toast.cepik.err').replace('{0}', e.message));
     }
   },
 
@@ -1751,14 +1751,14 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
         if (el) { el.value = v.nrRej; }
       }, 50);
     } else {
-      toast('⚠ Moduł kart flotowych nie jest dostępny');
+      toast(t('vd.toast.fleet.na'));
     }
   },
 
   _scanInvoice(vehId) {
     this.close();
     if (typeof showPage === 'function') showPage('faktury');
-    toast('ℹ Wgraj skan faktury — dane zostaną przypisane do pojazdu');
+    toast(t('vd.toast.upload.hint'));
   },
 
   // ── OC → AC/Ass sync helpers ─────────────────────────────────────────────
