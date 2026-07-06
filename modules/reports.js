@@ -947,13 +947,13 @@ window.FleetReports = (function () {
 
       });
 
-    // Mandaty — z centralnej listy FinesModule
-    const allFines = window.FinesModule?.getAll?.() || [];
+    // Mandaty — z centralnej listy FinesModule (sync cache)
+    const allFines = window.FinesModule?.getAllSync?.() || [];
     allFines.filter(f => prefix ? (f.date||'').startsWith(prefix) : true).forEach(f => {
-      const fDrv = f.driverName || '(brak)';
+      const fDrv = f.driver_name || '(brak)';
       if (!drivers[fDrv]) drivers[fDrv] = { fuelCost:0, fuelL:0, svcCost:0, fines:0, withKm:[], vehs:new Set() };
       drivers[fDrv].fines += (f.amount || 0);
-      if (f.nrRej) drivers[fDrv].vehs.add(f.nrRej);
+      if (f.nr_rej) drivers[fDrv].vehs.add(f.nr_rej);
     });
 
     const rows = Object.entries(drivers)

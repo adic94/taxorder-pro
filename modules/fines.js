@@ -370,6 +370,8 @@ window.FinesModule = (function () {
     return _fines.filter(f => !f.paid && f.deadline && _days(f.deadline) <= 14);
   }
 
+  function getAllSync() { return [..._fines]; }
+
   function exportExcel() {
     if (typeof XLSX === 'undefined') { toast('⚠ Brak XLSX'); return; }
     const headers = ['Nr rej.','Kierowca','Data','Typ','Kwota (zł)','Termin płatności','Zapłacono','Data zapłaty','Opis','Nr mandatu','Wystawił','Punkty'];
@@ -387,5 +389,5 @@ window.FinesModule = (function () {
 
   async function getAll() { if (!_loaded) await _load(); return [..._fines]; }
 
-  return { open, close, add, edit, save, remove, markPaid, renderForVehicle, getUnpaidAlerts, getUnpaidAlertsSync, exportExcel, getAll, load: _load, FINE_TYPES };
+  return { open, close, add, edit, save, remove, markPaid, renderForVehicle, getUnpaidAlerts, getUnpaidAlertsSync, getAllSync, exportExcel, getAll, load: _load, FINE_TYPES };
 })();
