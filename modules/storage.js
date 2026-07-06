@@ -40,14 +40,6 @@ const Storage = {
     this.setJson("dt1_users", users);
   },
 
-  getFleetCards() {
-    return this.getJson("dt1_karty", []);
-  },
-
-  saveFleetCards(cards) {
-    this.setJson("dt1_karty", cards);
-  },
-
   getCepikSettings() {
     return {
       key: localStorage.getItem("dt1_cepik_key") || "",

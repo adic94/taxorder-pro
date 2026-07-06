@@ -1382,8 +1382,9 @@ function _renderFleetKpi() {
   const archived    = allVehs.length - active.length;
   const svcUpcoming = window.ServiceModule?.getUpcomingServices(14) || [];
   const svcOverdue  = svcUpcoming.filter(x => x.days < 0);
-  const unpaidFines = window.FinesModule?.getUnpaidAlertsSync() || [];
-  const finesAmt    = unpaidFines.reduce((s,f) => s+(f.amount||0), 0);
+  const allUnpaidFines = (window.FinesModule?.getAllSync?.() || []).filter(f => !f.paid);
+  const urgentFines    = window.FinesModule?.getUnpaidAlertsSync?.() || [];
+  const finesAmt       = allUnpaidFines.reduce((s,f) => s+(f.amount||0), 0);
   let docAlerts = 0;
   allVehs.forEach(v => { docAlerts += (window.DocumentsModule?.getDocAlerts(v, 30)||[]).length; });
   const now = new Date();
@@ -1421,7 +1422,7 @@ function _renderFleetKpi() {
     { icon:'ti-currency-zloty', label:t('kpi.costs'),          val:`${tcoFmt} ${_pln}`,     unit:'paliwo + serwis YTD',  color:'var(--text)', click:"showPage('raporty')" },
     { icon:'ti-alert-circle',   label:t('kpi.alerts'),         val:withAlerts,              unit:`${t('common.vehicles')} (60 dni)`, color:withAlerts>0?'var(--amber)':'var(--green)', click:'' },
     { icon:'ti-tools',          label:t('kpi.service'),        val:svcUpcoming.length,      unit:svcOverdue.length>0?`${svcOverdue.length} zaległe`:'nadchodzące', color:svcOverdue.length>0?'var(--red)':svcUpcoming.length>0?'var(--amber)':'var(--green)', click:'' },
-    { icon:'ti-alert-triangle', label:t('kpi.fines'),          val:unpaidFines.length,      unit:finesAmt>0?`${finesAmt.toFixed(0)} ${_pln}`:'', color:unpaidFines.length>0?'var(--red)':'var(--green)', click:"FinesModule.open()" },
+    { icon:'ti-alert-triangle', label:t('kpi.fines'),          val:allUnpaidFines.length,   unit:urgentFines.length>0?`${urgentFines.length} pilnych ≤14 dni`:finesAmt>0?`${finesAmt.toFixed(0)} ${_pln}`:'', color:urgentFines.length>0?'var(--red)':allUnpaidFines.length>0?'var(--amber)':'var(--green)', click:"FinesModule.open()" },
     { icon:'ti-files',          label:t('kpi.docs'),           val:docAlerts,               unit:'w ciągu 30 dni', color:docAlerts>0?'var(--amber)':'var(--green)', click:'' },
     { icon:'ti-clipboard-check',label:t('kpi.dt1.incomplete'), val:dt1Incomplete,           unit:t('common.vehicles'), color:dt1Incomplete>0?'var(--amber)':'var(--green)', click:"showPage('pojazdy')" },
     { icon:'ti-id',             label:t('kpi.vin.errors'),     val:vinErrors,               unit:vinErrors>0?'do weryfikacji':'', color:vinErrors>0?'var(--red)':'var(--green)', click:'' },
