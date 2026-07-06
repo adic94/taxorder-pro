@@ -1179,6 +1179,71 @@ async function handleFines(req, env, user, url, path) {
   return err('Metoda niedozwolona', 405);
 }
 
+// ─── REZERWACJE (Kalendarz floty) ─────────────────────────────────────────────
+async function handleReservations(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const segs  = path.split('/').filter(Boolean);
+  const resId = segs[2] || null;
+
+  if (req.method === 'GET' && !resId) {
+    const from = url.searchParams.get('from') || '';
+    const to   = url.searchParams.get('to')   || '';
+    let q = 'SELECT * FROM reservations WHERE company_id = ?';
+    const params = [company];
+    if (from) { q += ' AND end >= ?'; params.push(from); }
+    if (to)   { q += ' AND start <= ?'; params.push(to); }
+    q += ' ORDER BY start';
+    const res = await env.DB.prepare(q).bind(...params).all();
+    return json({ reservations: res.results || [] });
+  }
+
+  if (req.method === 'POST') {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!body.nr_rej || !body.start || !body.end) return err('Wymagane: nr_rej, start, end');
+    if (body.start > body.end) return err('Data końca musi być >= początku');
+    // Sprawdź konflikt
+    const conflict = await env.DB.prepare(
+      `SELECT id FROM reservations WHERE company_id=? AND nr_rej=? AND status!='rejected' AND start<=? AND end>=?`
+    ).bind(company, body.nr_rej, body.end, body.start).first();
+    if (conflict) return err('Konflikt rezerwacji: pojazd zajęty w tym terminie', 409);
+    const id = body.id || crypto.randomUUID();
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO reservations(id,company_id,nr_rej,user_name,start,end,status,notes,updated_at)
+       VALUES(?,?,?,?,?,?,?,?,datetime('now'))`
+    ).bind(id, company, body.nr_rej, body.user_name||'Użytkownik', body.start, body.end,
+      body.status||'pending', body.notes||null
+    ).run();
+    return json({ ok: true, id });
+  }
+
+  if (req.method === 'PUT' && resId) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const existing = await env.DB.prepare('SELECT * FROM reservations WHERE id=?').bind(resId).first();
+    if (!existing) return err('Rezerwacja nie istnieje', 404);
+    if (existing.company_id !== company) return err('Brak dostępu', 403);
+    const sets = [], vals = [];
+    for (const f of ['nr_rej','user_name','start','end','status','notes']) {
+      if (body[f] !== undefined) { sets.push(`${f}=?`); vals.push(body[f] === '' ? null : body[f]); }
+    }
+    if (!sets.length) return err('Brak pól do aktualizacji');
+    sets.push("updated_at=datetime('now')");
+    vals.push(resId);
+    await env.DB.prepare(`UPDATE reservations SET ${sets.join(',')} WHERE id=?`).bind(...vals).run();
+    return json({ ok: true });
+  }
+
+  if (req.method === 'DELETE' && resId) {
+    const existing = await env.DB.prepare('SELECT company_id FROM reservations WHERE id=?').bind(resId).first();
+    if (!existing) return err('Rezerwacja nie istnieje', 404);
+    if (existing.company_id !== company) return err('Brak dostępu', 403);
+    await env.DB.prepare('DELETE FROM reservations WHERE id=?').bind(resId).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda niedozwolona', 405);
+}
+
 // ─── KARTY FLOTOWE ────────────────────────────────────────────────────────────
 async function handleFleetCards(req, env, user, url, path) {
   const company = url.searchParams.get('company') || user.company_id;
@@ -2594,10 +2659,11 @@ async function handleRequest(request, env, url, path) {
     }
     return handleImport(request, env, company);
   }
-  if (path.startsWith('/api/drivers'))     { if (!user) return err('Nieautoryzowany', 401); return handleDrivers(request, env, user, url, path); }
-  if (path.startsWith('/api/fines'))       { if (!user) return err('Nieautoryzowany', 401); return handleFines(request, env, user, url, path); }
-  if (path.startsWith('/api/fleet-cards')) { if (!user) return err('Nieautoryzowany', 401); return handleFleetCards(request, env, user, url, path); }
-  if (path.startsWith('/api/api-keys'))    { if (!user) return err('Nieautoryzowany', 401); return handleApiKeys(request, env, user, url, path); }
+  if (path.startsWith('/api/drivers'))      { if (!user) return err('Nieautoryzowany', 401); return handleDrivers(request, env, user, url, path); }
+  if (path.startsWith('/api/fines'))        { if (!user) return err('Nieautoryzowany', 401); return handleFines(request, env, user, url, path); }
+  if (path.startsWith('/api/fleet-cards'))  { if (!user) return err('Nieautoryzowany', 401); return handleFleetCards(request, env, user, url, path); }
+  if (path.startsWith('/api/reservations')) { if (!user) return err('Nieautoryzowany', 401); return handleReservations(request, env, user, url, path); }
+  if (path.startsWith('/api/api-keys'))     { if (!user) return err('Nieautoryzowany', 401); return handleApiKeys(request, env, user, url, path); }
 
   if (path === '/api/webhook/gps' || path === '/api/webhook/tekom') {
     if (request.method !== 'POST') return err('Tylko POST', 405);
