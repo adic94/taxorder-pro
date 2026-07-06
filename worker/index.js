@@ -1053,9 +1053,10 @@ async function handleDrivers(req, env, user, url, path) {
   const canWrite = user.role === 'admin' || user.role === 'kierownik' || user.role === 'dyspozytor';
 
   if (req.method === 'GET') {
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || '500'), 2000);
     const rows = await env.DB.prepare(
-      'SELECT * FROM drivers WHERE company_id=? ORDER BY name ASC'
-    ).bind(company).all();
+      'SELECT * FROM drivers WHERE company_id=? ORDER BY name ASC LIMIT ?'
+    ).bind(company, limit).all();
     return json({ ok: true, drivers: rows.results || [] });
   }
 
@@ -1187,13 +1188,15 @@ async function handleReservations(req, env, user, url, path) {
   const resId = segs[2] || null;
 
   if (req.method === 'GET' && !resId) {
-    const from = url.searchParams.get('from') || '';
-    const to   = url.searchParams.get('to')   || '';
+    const from  = url.searchParams.get('from') || '';
+    const to    = url.searchParams.get('to')   || '';
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || '500'), 2000);
     let q = 'SELECT * FROM reservations WHERE company_id = ?';
     const params = [company];
     if (from) { q += ' AND end >= ?'; params.push(from); }
     if (to)   { q += ' AND start <= ?'; params.push(to); }
-    q += ' ORDER BY start';
+    q += ' ORDER BY start LIMIT ?';
+    params.push(limit);
     const res = await env.DB.prepare(q).bind(...params).all();
     return json({ reservations: res.results || [] });
   }
@@ -1201,6 +1204,7 @@ async function handleReservations(req, env, user, url, path) {
   if (req.method === 'POST') {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
     if (!body.nr_rej || !body.start || !body.end) return err('Wymagane: nr_rej, start, end');
+    if (isNaN(Date.parse(body.start)) || isNaN(Date.parse(body.end))) return err('Daty muszą być w formacie YYYY-MM-DD');
     if (body.start > body.end) return err('Data końca musi być >= początku');
     // Sprawdź konflikt
     const conflict = await env.DB.prepare(

@@ -72,14 +72,15 @@ window.FinesModule = (function () {
   }
 
   // ── Ładowanie z API ───────────────────────────────────────────────────────
-  async function _load(nrRej) {
+  // Zawsze ładuje WSZYSTKIE mandaty firmy — filtr per pojazd stosowany w pamięci.
+  // Nie przyjmuje nrRej aby uniknąć nadpisania globalnego cache częściowymi danymi.
+  async function _load() {
     if (_loading) return;
     _loading = true;
     try {
       await _migrateLocalStorage();
-      const qs  = nrRej ? `&nr_rej=${encodeURIComponent(nrRej)}` : '';
-      const r   = await fetch(`${API()}/api/fines?company=${company()}${qs}`, { headers: hdrs() });
-      const d   = r.ok ? await r.json() : {};
+      const r = await fetch(`${API()}/api/fines?company=${company()}&limit=1000`, { headers: hdrs() });
+      const d = r.ok ? await r.json() : {};
       _fines  = d.fines || [];
       _loaded = true;
     } catch {
@@ -313,7 +314,7 @@ window.FinesModule = (function () {
 
   // ── Dla vehicle-detail ────────────────────────────────────────────────────
   async function renderForVehicle(nrRej) {
-    await _load(nrRej);
+    await _load();
     const vFines = _fines.filter(f => f.nr_rej === nrRej);
     const cont   = document.getElementById('fines-vehicle-container');
 
