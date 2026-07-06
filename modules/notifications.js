@@ -66,17 +66,17 @@ window.TaxOrderNotifications = (function () {
     let sent = 0;
     vehs.forEach(v => {
       const checks = [
-        { field: 'ocEnd',          label: 'OC',                date: v.ocEnd },
-        { field: 'acEnd',          label: 'AC',                date: v.acEnd },
-        { field: 'nextInspection', label: 'Przegląd tech.',    date: v.nextInspection },
-        ...(v.hasUdt && v.udtNextDate ? [{ field: 'udtNextDate', label: 'Badanie UDT', date: v.udtNextDate }] : []),
-        ...(v.hasTacho && v.tachoNextCalib ? [{ field: 'tachoNextCalib', label: 'Legalizacja tacho', date: v.tachoNextCalib }] : []),
+        { field: 'ocEnd',          label: 'OC',                           date: v.ocEnd },
+        { field: 'acEnd',          label: 'AC',                           date: v.acEnd },
+        { field: 'nextInspection', label: t('notif.label.inspection'),    date: v.nextInspection },
+        ...(v.hasUdt && v.udtNextDate ? [{ field: 'udtNextDate', label: t('notif.label.udt'), date: v.udtNextDate }] : []),
+        ...(v.hasTacho && v.tachoNextCalib ? [{ field: 'tachoNextCalib', label: t('notif.label.tacho'), date: v.tachoNextCalib }] : []),
         // Alerty serwisowe z historii serwisów
         ...(v.serviceHistory || [])
           .filter(s => s.nextServiceDate)
           .map(s => ({ field: 'svc_'+s.id, label: (window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label || 'Serwis'), date: s.nextServiceDate })),
         // Alert zmiany opon
-        ...(v.tireNextChange ? [{ field: 'tireChange', label: 'Zmiana opon', date: v.tireNextChange }] : []),
+        ...(v.tireNextChange ? [{ field: 'tireChange', label: t('notif.label.tires'), date: v.tireNextChange }] : []),
         // Alerty dokumentów z DocumentsModule
         ...(window.DocumentsModule?.getDocAlerts(v, WARN_DAYS) || []),
       ];
@@ -108,7 +108,7 @@ window.TaxOrderNotifications = (function () {
 
       // Własne elementy konserwacji z maintenanceItems (km + czas)
       (v.maintenanceItems || []).forEach(item => {
-        const itemLabel = item.label || item.typeId || 'Konserwacja';
+        const itemLabel = item.label || item.typeId || t('notif.label.maintenance');
         if (item.nextDate) {
           const days = _daysUntil(item.nextDate);
           if (days !== null && days <= WARN_DAYS) {
@@ -171,16 +171,17 @@ window.TaxOrderNotifications = (function () {
       const key = `drv_${d.id}__license_expiry`;
       if (_wasSentToday(key)) return;
 
-      const dateStr = new Date(d.license_expiry).toLocaleDateString('pl-PL');
+      const dateStr = new Date(d.license_expiry).toLocaleDateString();
+      const licLabel = t('notif.label.license');
       let title, body;
       if (days < 0) {
-        title = `❌ ${d.name} — Prawo jazdy WYGASŁO`;
+        title = `❌ ${d.name} — ${licLabel} WYGASŁO`;
         body = `Termin: ${dateStr} (${Math.abs(days)} dni temu)`;
       } else if (days === 0) {
-        title = `🚨 ${d.name} — Prawo jazdy wygasa DZISIAJ`;
-        body = `Sprawdź dokument przed wyjazdem`;
+        title = `🚨 ${d.name} — ${licLabel} wygasa DZISIAJ`;
+        body = `Termin: ${dateStr}`;
       } else {
-        title = `⚠ ${d.name} — Prawo jazdy wygasa za ${days} dni`;
+        title = `⚠ ${d.name} — ${licLabel} wygasa za ${days} dni`;
         body = `Termin: ${dateStr}`;
       }
 
@@ -250,12 +251,12 @@ window.TaxOrderNotifications = (function () {
 
     vehs.forEach(v => {
       const checks = [
-        { field: 'ocEnd',          label: 'OC',                date: v.ocEnd },
-        { field: 'acEnd',          label: 'AC',                date: v.acEnd },
-        { field: 'nextInspection', label: 'Przegląd tech.',    date: v.nextInspection },
-        ...(v.hasUdt && v.udtNextDate   ? [{ field: 'udtNextDate',    label: 'Badanie UDT',      date: v.udtNextDate }]    : []),
-        ...(v.hasTacho && v.tachoNextCalib ? [{ field: 'tachoNextCalib', label: 'Legalizacja tacho', date: v.tachoNextCalib }] : []),
-        ...(v.tireNextChange ? [{ field: 'tireChange', label: 'Zmiana opon', date: v.tireNextChange }] : []),
+        { field: 'ocEnd',          label: 'OC',                             date: v.ocEnd },
+        { field: 'acEnd',          label: 'AC',                             date: v.acEnd },
+        { field: 'nextInspection', label: t('notif.label.inspection'),      date: v.nextInspection },
+        ...(v.hasUdt && v.udtNextDate   ? [{ field: 'udtNextDate',    label: t('notif.label.udt'),   date: v.udtNextDate }]    : []),
+        ...(v.hasTacho && v.tachoNextCalib ? [{ field: 'tachoNextCalib', label: t('notif.label.tacho'), date: v.tachoNextCalib }] : []),
+        ...(v.tireNextChange ? [{ field: 'tireChange', label: t('notif.label.tires'), date: v.tireNextChange }] : []),
         ...(v.serviceHistory||[])
           .filter(s => s.nextServiceDate)
           .map(s => ({ field: 'svc_'+s.id, label: (window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label || 'Serwis'), date: s.nextServiceDate })),
@@ -285,7 +286,7 @@ window.TaxOrderNotifications = (function () {
       alerts.push({
         nrRej: '👤 ' + d.name,
         marka: '', model: '',
-        label: 'Prawo jazdy',
+        label: t('notif.label.license'),
         date: d.license_expiry,
         days: dd,
         urgent: dd <= 7,
@@ -322,25 +323,25 @@ window.TaxOrderNotifications = (function () {
     const pushSt = await getPushStatus();
 
     const permHtml = perm === 'granted'
-      ? `<div class="gbox" style="margin-bottom:12px"><i class="ti ti-check"></i> Powiadomienia przeglądarkowe <b>włączone</b></div>`
+      ? `<div class="gbox" style="margin-bottom:12px"><i class="ti ti-check"></i> ${t('notif.perm.granted')}</div>`
       : perm === 'denied'
-      ? `<div class="ebox" style="margin-bottom:12px"><i class="ti ti-alert-circle"></i> Powiadomienia <b>zablokowane</b> — odblokuj w ustawieniach przeglądarki</div>`
+      ? `<div class="ebox" style="margin-bottom:12px"><i class="ti ti-alert-circle"></i> ${t('notif.perm.denied')}</div>`
       : `<div class="wbox" style="margin-bottom:12px"><i class="ti ti-bell-ringing"></i>
-          Powiadomienia nieaktywne &nbsp;
+          ${t('notif.perm.inactive')} &nbsp;
           <button class="btn btn-blue" style="font-size:11px;padding:4px 10px;margin-left:8px"
             onclick="Notification.requestPermission().then(p=>{if(p==='granted'){window.TaxOrderNotifications.check();document.getElementById('notif-center-modal')?.remove();window.TaxOrderNotifications.openCenter();}})">
-            Zezwól
+            ${t('notif.perm.allow')}
           </button>
         </div>`;
 
     const pushHtml = pushSt === 'unsupported' ? '' : pushSt === 'subscribed'
       ? `<div class="gbox" style="margin-bottom:12px;display:flex;align-items:center;gap:10px">
-          <span style="flex:1"><i class="ti ti-device-mobile"></i> Powiadomienia <b>push</b> aktywne — działają gdy aplikacja jest zamknięta</span>
-          <button class="btn btn-gray" style="font-size:11px" onclick="window.TaxOrderNotifications.unsubscribeFromPush().then(()=>{document.getElementById('notif-center-modal')?.remove();window.TaxOrderNotifications.openCenter();})">Wyłącz</button>
+          <span style="flex:1"><i class="ti ti-device-mobile"></i> ${t('notif.push.active.desc')}</span>
+          <button class="btn btn-gray" style="font-size:11px" onclick="window.TaxOrderNotifications.unsubscribeFromPush().then(()=>{document.getElementById('notif-center-modal')?.remove();window.TaxOrderNotifications.openCenter();})">${t('notif.push.disable')}</button>
         </div>`
       : `<div class="wbox" style="margin-bottom:12px;display:flex;align-items:center;gap:10px">
-          <span style="flex:1"><i class="ti ti-device-mobile-off"></i> Powiadomienia <b>push</b> nieaktywne (wymagane gdy aplikacja zamknięta)</span>
-          <button class="btn btn-blue" style="font-size:11px" onclick="window.TaxOrderNotifications.subscribeToPush().then(ok=>{if(ok){document.getElementById('notif-center-modal')?.remove();window.TaxOrderNotifications.openCenter();}})">Włącz push</button>
+          <span style="flex:1"><i class="ti ti-device-mobile-off"></i> ${t('notif.push.inactive.desc')}</span>
+          <button class="btn btn-blue" style="font-size:11px" onclick="window.TaxOrderNotifications.subscribeToPush().then(ok=>{if(ok){document.getElementById('notif-center-modal')?.remove();window.TaxOrderNotifications.openCenter();}})">${t('notif.push.enable')}</button>
         </div>`;
 
     const expired  = alerts.filter(a => a.expired);
@@ -352,8 +353,8 @@ window.TaxOrderNotifications = (function () {
       const rows = list.map(a => {
         const dateStr = a.date ? new Date(a.date).toLocaleDateString('pl-PL') : '—';
         const daysStr = a.expired
-          ? `<span style="color:var(--red);font-weight:700">Wygasło ${Math.abs(a.days)} dni temu</span>`
-          : `<span style="color:${color};font-weight:600">za ${a.days} dni</span>`;
+          ? `<span style="color:var(--red);font-weight:700">${t('notif.days.ago').replace('{0}',Math.abs(a.days))}</span>`
+          : `<span style="color:${color};font-weight:600">${t('notif.in.days').replace('{0}',a.days)}</span>`;
         return `<tr>
           <td style="font-weight:600">${a.nrRej}</td>
           <td>${a.marka} ${a.model}</td>
@@ -361,7 +362,7 @@ window.TaxOrderNotifications = (function () {
           <td>${dateStr}</td>
           <td>${daysStr}</td>
           <td><button class="btn btn-gray" style="font-size:10px;padding:3px 8px"
-            onclick="showPage('pojazdy');document.getElementById('notif-center-modal')?.remove()">Otwórz</button></td>
+            onclick="showPage('pojazdy');document.getElementById('notif-center-modal')?.remove()">${t('notif.open.btn')}</button></td>
         </tr>`;
       }).join('');
       return `<div style="margin-bottom:16px">
@@ -369,17 +370,17 @@ window.TaxOrderNotifications = (function () {
         <div class="tbl-wrap" style="overflow-x:auto">
         <table style="min-width:500px">
           <thead><tr>
-            <th>Nr rej.</th><th>Pojazd</th><th>Rodzaj</th><th>Termin</th><th>Pozostało</th><th></th>
+            <th>${t('col.plate')}</th><th>${t('cal.col.vehicle')}</th><th>${t('notif.col.type')}</th><th>${t('notif.col.date')}</th><th>${t('notif.col.left')}</th><th></th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table></div></div>`;
     }
 
     const body = (!alerts.length)
-      ? `<div class="gbox"><i class="ti ti-circle-check"></i> Brak alertów — flota OK</div>`
-      : _groupHtml(expired, 'var(--red)', '❌ Przeterminowane')
-      + _groupHtml(urgent7, 'var(--amber)', '⚠ Pilne — 7 dni')
-      + _groupHtml(soon, 'var(--text2)', '📅 Nadchodzące — 60 dni');
+      ? `<div class="gbox"><i class="ti ti-circle-check"></i> ${t('notif.no.alerts')}</div>`
+      : _groupHtml(expired, 'var(--red)', t('notif.group.expired'))
+      + _groupHtml(urgent7, 'var(--amber)', t('notif.group.urgent'))
+      + _groupHtml(soon, 'var(--text2)', t('notif.group.soon'));
 
     const html = `<div id="notif-center-modal"
       style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:5000;display:flex;align-items:center;justify-content:center"
@@ -388,9 +389,9 @@ window.TaxOrderNotifications = (function () {
         overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);display:flex;flex-direction:column">
         <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0;position:sticky;top:0;background:var(--bg2);z-index:1">
           <i class="ti ti-bell" style="font-size:20px;color:var(--blue)"></i>
-          <div style="font-size:16px;font-weight:700;flex:1">Centrum Powiadomień</div>
+          <div style="font-size:16px;font-weight:700;flex:1">${t('notif.center.title')}</div>
           <button class="btn btn-gray" style="font-size:11px" onclick="window.TaxOrderNotifications.check()">
-            <i class="ti ti-refresh"></i> Sprawdź teraz
+            <i class="ti ti-refresh"></i> ${t('notif.check.now')}
           </button>
           <button onclick="document.getElementById('notif-center-modal')?.remove()"
             style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2);padding:4px;line-height:1">×</button>
@@ -442,11 +443,11 @@ window.TaxOrderNotifications = (function () {
 
   async function subscribeToPush() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      toast('⚠ Przeglądarka nie obsługuje Push API'); return false;
+      toast(t('notif.push.no.browser')); return false;
     }
     const reg = await navigator.serviceWorker.ready;
     const vapidKey = await _getVapidPublicKey();
-    if (!vapidKey) { toast('⚠ Serwer push niedostępny — skonfiguruj klucze VAPID'); return false; }
+    if (!vapidKey) { toast(t('notif.push.no.vapid')); return false; }
 
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
@@ -461,10 +462,10 @@ window.TaxOrderNotifications = (function () {
       body: JSON.stringify({ subscription: sub.toJSON(), company_id, user_id, label: navigator.userAgent.slice(0, 50) }),
     });
 
-    if (!r.ok) { toast('❌ Błąd rejestracji push — ' + (await r.json().catch(() => ({}))).error); return false; }
+    if (!r.ok) { toast(t('notif.push.reg.err') + ' — ' + (await r.json().catch(() => ({}))).error); return false; }
 
     localStorage.setItem(PUSH_SUB_KEY, JSON.stringify({ company_id, endpoint: sub.endpoint }));
-    toast('✓ Powiadomienia push aktywne — otrzymasz alerty nawet gdy aplikacja jest zamknięta');
+    toast(t('notif.push.activated'));
     return true;
   }
 
@@ -480,7 +481,7 @@ window.TaxOrderNotifications = (function () {
     }).catch(() => {});
     await sub.unsubscribe();
     localStorage.removeItem(PUSH_SUB_KEY);
-    toast('✓ Powiadomienia push wyłączone');
+    toast(t('notif.push.deactivated'));
   }
 
   async function getPushStatus() {

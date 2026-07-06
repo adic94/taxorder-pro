@@ -9,7 +9,7 @@ window.FleetCalendar = (function () {
     accepted: { bg:'var(--green-light,#ecfdf5)',  border:'var(--green)',  text:'var(--green)' },
     rejected: { bg:'rgba(239,68,68,.08)',          border:'var(--red)',    text:'var(--red)' },
   };
-  const STATUS_LABELS = { pending:'⏳ Oczekuje', accepted:'✅ Zatwierdzona', rejected:'❌ Odrzucona' };
+  const _statusLabel = s => ({ pending: t('cal.status.pending'), accepted: t('cal.status.accepted'), rejected: t('cal.status.rejected') })[s] || s;
 
   let _view   = 'week';
   let _anchor = new Date();
@@ -54,7 +54,7 @@ window.FleetCalendar = (function () {
         if (resp.ok) migrated++;
       } catch {}
     }
-    if (migrated > 0) { localStorage.removeItem('taxReservations'); if (typeof toast === 'function') toast(`✓ Przeniesiono ${migrated} rezerwacji do chmury`); }
+    if (migrated > 0) { localStorage.removeItem('taxReservations'); if (typeof toast === 'function') toast(t('cal.toast.migrated').replace('{0}', migrated)); }
     else localStorage.removeItem('taxReservations');
   }
 
@@ -103,8 +103,8 @@ window.FleetCalendar = (function () {
   function _renderLegend() {
     const el = document.getElementById('cal-legend');
     if (!el) return;
-    el.innerHTML = Object.entries(STATUS_LABELS).map(([k,l]) =>
-      `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:10px;background:${STATUS_COLORS[k].bg};border:1px solid ${STATUS_COLORS[k].border};color:${STATUS_COLORS[k].text}">${l}</span>`
+    el.innerHTML = Object.keys(STATUS_COLORS).map(k =>
+      `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:10px;background:${STATUS_COLORS[k].bg};border:1px solid ${STATUS_COLORS[k].border};color:${STATUS_COLORS[k].text}">${_statusLabel(k)}</span>`
     ).join('');
   }
 
@@ -113,15 +113,16 @@ window.FleetCalendar = (function () {
     const el = document.getElementById('cal-body');
     if (!el) return;
     const vehs = (window.vehs || []).filter(v => v.is_active !== false);
-    if (!vehs.length) { el.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3)">Brak aktywnych pojazdów w bazie.</div>'; return; }
+    if (!vehs.length) { el.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--text3)">${t('cal.no.vehicles')}</div>`; return; }
 
     const days = Array.from({length:7}, (_,i) => _addDays(_anchor, i));
     const todayStr = _isoDate(new Date());
+    const _DOW = [t('cal.day.mon'),t('cal.day.tue'),t('cal.day.wed'),t('cal.day.thu'),t('cal.day.fri'),t('cal.day.sat'),t('cal.day.sun')];
 
     const dayHeaders = days.map(d => {
       const ds = _isoDate(d);
       const isToday = ds === todayStr;
-      const dow = ['Pn','Wt','Śr','Cz','Pt','So','Nd'][d.getDay() === 0 ? 6 : d.getDay()-1];
+      const dow = _DOW[d.getDay() === 0 ? 6 : d.getDay()-1];
       return `<th style="padding:6px 4px;text-align:center;font-size:11px;white-space:nowrap;min-width:80px;font-weight:${isToday?'700':'500'};color:${isToday?'var(--blue)':'var(--text2)'};background:${isToday?'var(--blue-light)':''}">
         ${dow}<br><span style="font-family:var(--mono)">${d.getDate()}.${String(d.getMonth()+1).padStart(2,'0')}</span>
       </th>`;
@@ -137,7 +138,7 @@ window.FleetCalendar = (function () {
         if (!rForDay.length) {
           return `<td style="padding:2px 3px;border-left:0.5px solid var(--border);min-width:80px;background:${cellBg};cursor:pointer"
             onclick="FleetCalendar.startNew('${v.nrRej}','${ds}')"
-            title="Kliknij aby zarezerwować ${v.nrRej} na ${ds}">&nbsp;</td>`;
+            title="${t('cal.click.reserve').replace('{0}',v.nrRej).replace('{1}',ds)}">&nbsp;</td>`;
         }
         const r = rForDay[0];
         const sc = STATUS_COLORS[r.status] || STATUS_COLORS.pending;
@@ -161,7 +162,7 @@ window.FleetCalendar = (function () {
       <div style="overflow-x:auto">
         <table style="border-collapse:collapse;width:100%;min-width:680px">
           <thead><tr>
-            <th style="padding:6px 10px;text-align:left;position:sticky;left:0;background:var(--bg3);z-index:2;font-size:12px;border-right:1px solid var(--border)">Pojazd</th>
+            <th style="padding:6px 10px;text-align:left;position:sticky;left:0;background:var(--bg3);z-index:2;font-size:12px;border-right:1px solid var(--border)">${t('cal.col.vehicle')}</th>
             ${dayHeaders}
           </tr></thead>
           <tbody style="border-top:1px solid var(--border)">${rows}</tbody>
@@ -180,11 +181,11 @@ window.FleetCalendar = (function () {
     const todayStr = _isoDate(new Date());
 
     const days = Array.from({length:28}, (_,i) => _addDays(_anchor, i));
-    const MONTHS = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
+    const MONTHS = [1,2,3,4,5,6,7,8,9,10,11,12].map(n => t(`cal.month.${n}`));
 
     document.getElementById('cal-range').textContent = MONTHS[_anchor.getMonth()] + ' ' + _anchor.getFullYear();
 
-    const DOW = ['Pn','Wt','Śr','Cz','Pt','So','Nd'];
+    const DOW = [t('cal.day.mon'),t('cal.day.tue'),t('cal.day.wed'),t('cal.day.thu'),t('cal.day.fri'),t('cal.day.sat'),t('cal.day.sun')];
     const header = DOW.map(d => `<th style="padding:6px;text-align:center;font-size:11px;color:var(--text2)">${d}</th>`).join('');
 
     const cells = days.map(d => {
@@ -198,7 +199,7 @@ window.FleetCalendar = (function () {
           return `<div style="font-size:9px;padding:1px 4px;margin-top:2px;border-radius:3px;background:${sc.bg};border-left:2px solid ${sc.border};cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
             onclick="FleetCalendar.editRes('${r.id}')" title="${r.nr_rej}: ${r.user_name}">${r.nr_rej} – ${r.user_name}</div>`;
         }).join('')}
-        ${rForDay.length > 3 ? `<div style="font-size:9px;color:var(--text3)">+${rForDay.length-3} więcej</div>` : ''}
+        ${rForDay.length > 3 ? `<div style="font-size:9px;color:var(--text3)">${t('cal.more').replace('{0}',rForDay.length-3)}</div>` : ''}
       </td>`;
     }).join('');
 
@@ -221,12 +222,12 @@ window.FleetCalendar = (function () {
     overlay.innerHTML = `
       <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:460px;max-width:98vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
         <div style="font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px">
-          <i class="ti ti-calendar-plus" style="color:var(--blue)"></i>Nowa rezerwacja
+          <i class="ti ti-calendar-plus" style="color:var(--blue)"></i>${t('cal.new.title')}
           ${nrRej ? `<span style="font-family:var(--mono);font-size:13px">${nrRej}</span>` : ''}
         </div>
         <div class="vdfg" style="margin-bottom:14px">
           <div class="vdf">
-            <label class="vdl">Pojazd *</label>
+            <label class="vdl">${t('cal.field.vehicle')}</label>
             <select id="_res-nrrej" class="fi">
               ${(window.vehs||[]).filter(v=>v.is_active!==false).map(v=>
                 `<option value="${v.nrRej}" ${v.nrRej===nrRej?'selected':''}>${v.nrRej} — ${v.marka} ${v.model}</option>`
@@ -234,26 +235,26 @@ window.FleetCalendar = (function () {
             </select>
           </div>
           <div class="vdf">
-            <label class="vdl">Kierowca / Cel *</label>
-            <input id="_res-user" type="text" class="fi" list="drivers-datalist" value="${_currentUser()}" placeholder="Imię, nazwisko lub cel...">
+            <label class="vdl">${t('cal.field.driver')}</label>
+            <input id="_res-user" type="text" class="fi" list="drivers-datalist" value="${_currentUser()}" placeholder="${t('cal.field.notes.ph')}">
           </div>
           <div class="vdf">
-            <label class="vdl">Od *</label>
+            <label class="vdl">${t('cal.field.from')}</label>
             <input id="_res-start" type="date" class="fi" value="${dateStr || _isoDate(new Date())}">
           </div>
           <div class="vdf">
-            <label class="vdl">Do *</label>
+            <label class="vdl">${t('cal.field.to')}</label>
             <input id="_res-end" type="date" class="fi" value="${dateStr || _isoDate(new Date())}">
           </div>
           <div class="vdf" style="grid-column:1/-1">
-            <label class="vdl">Cel / Uwagi</label>
-            <input id="_res-notes" type="text" class="fi" placeholder="np. delegacja, serwis, wynajem...">
+            <label class="vdl">${t('cal.field.notes')}</label>
+            <input id="_res-notes" type="text" class="fi" placeholder="${t('cal.field.notes.ph')}">
           </div>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button class="btn btn-gray" onclick="this.closest('[style*=fixed]').remove()">Anuluj</button>
+          <button class="btn btn-gray" onclick="this.closest('[style*=fixed]').remove()">${t('btn.cancel')}</button>
           <button class="btn btn-blue" onclick="FleetCalendar.saveRes(null,this)">
-            <i class="ti ti-check"></i>Zarezerwuj
+            <i class="ti ti-check"></i>${t('cal.btn.reserve')}
           </button>
         </div>
       </div>`;
@@ -267,8 +268,8 @@ window.FleetCalendar = (function () {
     const user_name = g('_res-user');
     const start = g('_res-start');
     const end   = g('_res-end');
-    if (!nr_rej || !user_name || !start || !end) { toast('⚠ Wypełnij wszystkie wymagane pola'); return; }
-    if (end < start) { toast('⚠ Data końca musi być >= data początku'); return; }
+    if (!nr_rej || !user_name || !start || !end) { toast(t('cal.toast.required')); return; }
+    if (end < start) { toast(t('cal.toast.date.end')); return; }
     const status = g('_res-status') || (_isAdmin() ? 'accepted' : 'pending');
     try {
       const r = await fetch(`${_api()}/api/reservations?company=${_co()}`, {
@@ -277,11 +278,11 @@ window.FleetCalendar = (function () {
       });
       if (!r.ok) {
         const e = await r.json().catch(() => ({}));
-        toast('⚠ ' + (e.error || 'Błąd zapisu: ' + r.status)); return;
+        toast('⚠ ' + (e.error || r.status)); return;
       }
       btn.closest('[style*=fixed]').remove();
-      await _loadApi(); _render(); toast('✓ Rezerwacja zapisana');
-    } catch { toast('⚠ Błąd połączenia'); }
+      await _loadApi(); _render(); toast(t('cal.toast.saved'));
+    } catch { toast(t('cal.toast.conn')); }
   }
 
   function editRes(resId) {
@@ -293,13 +294,13 @@ window.FleetCalendar = (function () {
     overlay.innerHTML = `
       <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:460px;max-width:98vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
         <div style="font-size:15px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:8px">
-          <i class="ti ti-calendar" style="color:var(--blue)"></i>Rezerwacja
-          <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${sc.bg};color:${sc.text};border:1px solid ${sc.border}">${STATUS_LABELS[r.status]||r.status}</span>
+          <i class="ti ti-calendar" style="color:var(--blue)"></i>${t('cal.edit.title')}
+          <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${sc.bg};color:${sc.text};border:1px solid ${sc.border}">${_statusLabel(r.status)}</span>
         </div>
-        <div style="font-size:11px;color:var(--text2);margin-bottom:14px">Dodana: ${r.created_at ? new Date(r.created_at.replace(' ','T')+'Z').toLocaleString('pl-PL') : '—'}</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:14px">${r.created_at ? new Date(r.created_at.replace(' ','T')+'Z').toLocaleString() : '—'}</div>
         <div class="vdfg" style="margin-bottom:14px">
           <div class="vdf">
-            <label class="vdl">Pojazd</label>
+            <label class="vdl">${t('cal.col.vehicle')}</label>
             <select id="_res-nrrej" class="fi">
               ${(window.vehs||[]).filter(v=>v.is_active!==false).map(v=>
                 `<option value="${v.nrRej}" ${v.nrRej===r.nr_rej?'selected':''}>${v.nrRej} — ${v.marka} ${v.model}</option>`
@@ -307,39 +308,39 @@ window.FleetCalendar = (function () {
             </select>
           </div>
           <div class="vdf">
-            <label class="vdl">Kierowca / Cel</label>
+            <label class="vdl">${t('cal.field.driver.edit')}</label>
             <input id="_res-user" type="text" class="fi" list="drivers-datalist" value="${r.user_name}">
           </div>
           <div class="vdf">
-            <label class="vdl">Od</label>
+            <label class="vdl">${t('common.from')}</label>
             <input id="_res-start" type="date" class="fi" value="${r.start}">
           </div>
           <div class="vdf">
-            <label class="vdl">Do</label>
+            <label class="vdl">${t('common.to')}</label>
             <input id="_res-end" type="date" class="fi" value="${r.end}">
           </div>
           <div class="vdf" style="grid-column:1/-1">
-            <label class="vdl">Uwagi</label>
+            <label class="vdl">${t('cal.field.notes')}</label>
             <input id="_res-notes" type="text" class="fi" value="${r.notes||''}">
           </div>
           ${_isAdmin() ? `
           <div class="vdf" style="grid-column:1/-1">
-            <label class="vdl">Status (admin)</label>
+            <label class="vdl">${t('cal.field.status')}</label>
             <select id="_res-status" class="fi">
-              <option value="pending" ${r.status==='pending'?'selected':''}>⏳ Oczekuje</option>
-              <option value="accepted" ${r.status==='accepted'?'selected':''}>✅ Zatwierdzona</option>
-              <option value="rejected" ${r.status==='rejected'?'selected':''}>❌ Odrzucona</option>
+              <option value="pending" ${r.status==='pending'?'selected':''}>${t('cal.status.pending')}</option>
+              <option value="accepted" ${r.status==='accepted'?'selected':''}>${t('cal.status.accepted')}</option>
+              <option value="rejected" ${r.status==='rejected'?'selected':''}>${t('cal.status.rejected')}</option>
             </select>
           </div>` : ''}
         </div>
         <div style="display:flex;gap:8px;justify-content:space-between">
           <button class="btn btn-gray" style="color:var(--red)" onclick="FleetCalendar.deleteRes('${resId}',this)">
-            <i class="ti ti-trash"></i>Usuń
+            <i class="ti ti-trash"></i>${t('btn.delete')}
           </button>
           <div style="display:flex;gap:8px">
-            <button class="btn btn-gray" onclick="this.closest('[style*=fixed]').remove()">Anuluj</button>
+            <button class="btn btn-gray" onclick="this.closest('[style*=fixed]').remove()">${t('btn.cancel')}</button>
             <button class="btn btn-blue" onclick="FleetCalendar.updateRes('${resId}',this)">
-              <i class="ti ti-check"></i>Zapisz
+              <i class="ti ti-check"></i>${t('btn.save')}
             </button>
           </div>
         </div>
@@ -351,7 +352,7 @@ window.FleetCalendar = (function () {
     const g = id => document.getElementById(id)?.value?.trim()||'';
     const start = g('_res-start');
     const end   = g('_res-end');
-    if (end < start) { toast('⚠ Data końca musi być >= data początku'); return; }
+    if (end < start) { toast(t('cal.toast.date.end')); return; }
     const body = {
       nr_rej:    g('_res-nrrej'),
       user_name: g('_res-user'),
@@ -365,18 +366,18 @@ window.FleetCalendar = (function () {
       });
       if (!r.ok) { const e = await r.json().catch(()=>({})); toast('⚠ ' + (e.error || r.status)); return; }
       btn.closest('[style*=fixed]').remove();
-      await _loadApi(); _render(); toast('✓ Rezerwacja zaktualizowana');
-    } catch { toast('⚠ Błąd połączenia'); }
+      await _loadApi(); _render(); toast(t('cal.toast.updated'));
+    } catch { toast(t('cal.toast.conn')); }
   }
 
   async function deleteRes(resId, btn) {
-    if (!confirm('Usunąć rezerwację?')) return;
+    if (!confirm(t('cal.confirm.delete'))) return;
     try {
       const r = await fetch(`${_api()}/api/reservations/${resId}?company=${_co()}`, { method: 'DELETE', headers: _hdrs() });
-      if (!r.ok) { toast('⚠ Błąd usuwania: ' + r.status); return; }
+      if (!r.ok) { toast('⚠ ' + r.status); return; }
       btn.closest('[style*=fixed]').remove();
-      await _loadApi(); _render(); toast('Rezerwacja usunięta');
-    } catch { toast('⚠ Błąd połączenia'); }
+      await _loadApi(); _render(); toast(t('cal.toast.deleted'));
+    } catch { toast(t('cal.toast.conn')); }
   }
 
   return { open, close, prev, next, today, setView, startNew, saveRes, editRes, updateRes, deleteRes };
