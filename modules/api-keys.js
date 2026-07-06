@@ -67,7 +67,7 @@ window.TaxOrderApiKeys = (function () {
     const name = document.getElementById('apikm-name').value.trim();
     const company_id = document.getElementById('apikm-company').value;
     const scope = document.getElementById('apikm-scope').value;
-    if (!name) { toast('⚠ Wpisz nazwę klucza'); return; }
+    if (!name) { toast(t('apikeys.toast.name.req')); return; }
     try {
       const resp = await fetch(`${_cfApi()}/api/api-keys`, {
         method: 'POST', headers: _headers({ 'Content-Type': 'application/json' }),
@@ -82,13 +82,13 @@ window.TaxOrderApiKeys = (function () {
       document.getElementById('apikm-cancel-btn').textContent = 'Zamknij';
       await load();
     } catch (e) {
-      toast('⚠ Błąd zapisu: ' + e.message);
+      toast(t('apikeys.toast.save.err').replace('{0}', e.message));
     }
   }
 
   function copyKey() {
     const val = document.getElementById('apikm-key-value').textContent;
-    navigator.clipboard?.writeText(val).then(() => toast('✓ Skopiowano do schowka'));
+    navigator.clipboard?.writeText(val).then(() => toast(t('apikeys.toast.copied')));
   }
 
   async function toggleActive(id, active) {
@@ -100,19 +100,19 @@ window.TaxOrderApiKeys = (function () {
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       await load();
     } catch (e) {
-      toast('⚠ Błąd: ' + e.message);
+      toast(t('apikeys.toast.err').replace('{0}', e.message));
     }
   }
 
   async function remove(id) {
-    if (!confirm('Usunąć klucz API? Tej operacji nie można cofnąć — wszelkie integracje używające tego klucza przestaną działać.')) return;
+    if (!confirm(t('apikeys.confirm.del'))) return;
     try {
       const resp = await fetch(`${_cfApi()}/api/api-keys/${id}`, { method: 'DELETE', headers: _headers() });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      toast('✓ Klucz usunięty');
+      toast(t('apikeys.toast.deleted'));
       await load();
     } catch (e) {
-      toast('⚠ Błąd usuwania: ' + e.message);
+      toast(t('apikeys.toast.del.err').replace('{0}', e.message));
     }
   }
 

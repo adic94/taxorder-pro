@@ -421,7 +421,7 @@ window.TaxOrderNotifSettings = (function () {
     } else {
       await Promise.all(updates);
     }
-    window.toast?.('✓ Cicha godzina zapisana');
+    window.toast?.(t('ns.toast.quiet.saved'));
   }
 
   async function _enablePush() {
@@ -434,22 +434,22 @@ window.TaxOrderNotifSettings = (function () {
   }
   async function _testPush() {
     const sub = await window.TaxOrderNotifications?.getPushStatus?.();
-    if (sub !== 'subscribed') { window.toast?.('⚠ Najpierw włącz powiadomienia push'); return; }
+    if (sub !== 'subscribed') { window.toast?.(t('ns.toast.push.first')); return; }
     const r = await fetch(`${API()}/api/push/send`, {
       method: 'POST', headers: hdrs(),
       body: JSON.stringify({ company_id: company(), title: 'TaxOrder Pro — test push', message: 'Powiadomienia push działają poprawnie ✓', url: '/?page=powiadomienia', urgent: false }),
     });
-    window.toast?.(r.ok ? '✓ Testowe powiadomienie wysłane' : '❌ Błąd wysyłki push');
+    window.toast?.(t(r.ok ? 'ns.toast.test.ok' : 'ns.toast.push.err'));
   }
 
   async function _triggerQueue() {
     const r = await fetch(`${API()}/api/notif-trigger`, { method: 'POST', headers: hdrs() });
     const d = await r.json().catch(() => ({}));
     if (r.ok) {
-      window.toast?.('✓ ' + (d.msg || 'Kolejkowanie wyzwolone'));
+      window.toast?.('✓ ' + (d.msg || t('ns.toast.trigger.ok')));
       setTimeout(() => _renderHistoria(document.getElementById('ns-content')), 3000);
     } else {
-      window.toast?.('❌ Błąd: ' + (d.error || r.status));
+      window.toast?.(t('ns.toast.err').replace('{0}', d.error || r.status));
     }
   }
 
@@ -459,8 +459,8 @@ window.TaxOrderNotifSettings = (function () {
     const cats = { d:'dokumenty', s:'serwis', w:'wyposazenie', x:'wlasny' };
     const catKey = prompt('Kategoria: d=Dokumenty, s=Serwis, w=Wyposażenie, x=Własne', 'x');
     const cat = cats[catKey?.toLowerCase()] || 'wlasny';
-    const timeOk = confirm('Czy alert ma być wyzwalany wg daty?');
-    const kmOk   = confirm('Czy alert ma być wyzwalany wg przebiegu km?');
+    const timeOk = confirm(t('ns.confirm.alert.date'));
+    const kmOk   = confirm(t('ns.confirm.alert.km'));
     const r = await fetch(`${API()}/api/alert-types?company=${company()}`, {
       method: 'POST', headers: hdrs(),
       body: JSON.stringify({ name: name.trim(), category: cat, trigger_time: timeOk ? 1 : 0, trigger_km: kmOk ? 1 : 0 }),
@@ -468,12 +468,12 @@ window.TaxOrderNotifSettings = (function () {
     if (r.ok) {
       await _loadAlertTypes();
       _renderAlerty(document.getElementById('ns-content'));
-      window.toast?.('✓ Dodano typ alertu: ' + name.trim());
+      window.toast?.(t('ns.toast.alert.added').replace('{0}', name.trim()));
     }
   }
 
   async function _deleteCustomType(id) {
-    if (!confirm('Usunąć ten typ alertu?')) return;
+    if (!confirm(t('ns.confirm.alert.del'))) return;
     await fetch(`${API()}/api/alert-types/${id}`, { method: 'DELETE', headers: hdrs() });
     await _loadAlertTypes();
     _renderAlerty(document.getElementById('ns-content'));
@@ -608,11 +608,11 @@ window.TaxOrderNotifSettings = (function () {
     document.getElementById('tpl-modal')?.remove();
     await _loadTemplates();
     _renderSzablony(document.getElementById('ns-content'));
-    window.toast?.('✓ Szablon zapisany');
+    window.toast?.(t('ns.toast.template.saved'));
   }
 
   async function _deleteTemplate(id) {
-    if (!confirm('Usunąć szablon?')) return;
+    if (!confirm(t('ns.confirm.template.del'))) return;
     await fetch(`${API()}/api/maintenance-templates/${id}?company=${company()}`, { method: 'DELETE', headers: hdrs() });
     await _loadTemplates();
     _renderSzablony(document.getElementById('ns-content'));
@@ -650,7 +650,7 @@ window.TaxOrderNotifSettings = (function () {
     });
     document.getElementById('apply-modal')?.remove();
     const data = await r.json();
-    window.toast?.(r.ok ? `✓ Szablon przypisany do ${data.applied} pojazdów` : '❌ Błąd przypisania');
+    window.toast?.(r.ok ? t('ns.toast.template.applied').replace('{0}', data.applied) : t('ns.toast.err.assign'));
   }
 
   return { load, _tab, _toggleEnabled, _toggleChannel, _removeDay, _addDay, _saveKm, _saveQuiet,
