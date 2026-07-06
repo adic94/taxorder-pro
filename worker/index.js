@@ -1179,6 +1179,69 @@ async function handleFines(req, env, user, url, path) {
   return err('Metoda niedozwolona', 405);
 }
 
+// ─── KARTY FLOTOWE ────────────────────────────────────────────────────────────
+async function handleFleetCards(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const segs   = path.split('/').filter(Boolean);
+  const cardId = segs[2] || null;
+  const canWrite = user.role === 'admin' || user.role === 'kierownik';
+  const canSeePins = user.role === 'admin' || user.role === 'kierownik';
+
+  if (req.method === 'GET' && !cardId) {
+    const res = await env.DB.prepare(
+      'SELECT * FROM fleet_cards WHERE company_id = ? ORDER BY type, card_no'
+    ).bind(company).all();
+    const cards = (res.results || []).map(c => ({
+      ...c,
+      pin: canSeePins ? c.pin : (c.pin ? '****' : null),
+    }));
+    return json({ cards });
+  }
+
+  if (!canWrite) return err('Brak uprawnień', 403);
+
+  if (req.method === 'POST') {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!body.card_no) return err('Wymagane: card_no');
+    const id = body.id || crypto.randomUUID();
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO fleet_cards(id,company_id,card_no,pin,nr_rej,type,provider,limit_pln,expires,status,notes,updated_at)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?,datetime('now'))`
+    ).bind(id, company, body.card_no, body.pin||null, body.nr_rej||null,
+      body.type||'PALIWOWA', body.provider||null, body.limit_pln??null,
+      body.expires||null, body.status||'AKTYWNA', body.notes||null
+    ).run();
+    return json({ ok: true, id });
+  }
+
+  if (req.method === 'PUT' && cardId) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const existing = await env.DB.prepare('SELECT company_id FROM fleet_cards WHERE id=?').bind(cardId).first();
+    if (!existing) return err('Karta nie istnieje', 404);
+    if (existing.company_id !== company) return err('Brak dostępu', 403);
+    const sets = [], vals = [];
+    for (const f of ['card_no','pin','nr_rej','type','provider','limit_pln','expires','status','notes']) {
+      if (body[f] !== undefined) { sets.push(`${f}=?`); vals.push(body[f] === '' ? null : body[f]); }
+    }
+    if (!sets.length) return err('Brak pól do aktualizacji');
+    sets.push("updated_at=datetime('now')");
+    vals.push(cardId);
+    await env.DB.prepare(`UPDATE fleet_cards SET ${sets.join(',')} WHERE id=?`).bind(...vals).run();
+    return json({ ok: true });
+  }
+
+  if (req.method === 'DELETE' && cardId) {
+    const existing = await env.DB.prepare('SELECT company_id FROM fleet_cards WHERE id=?').bind(cardId).first();
+    if (!existing) return err('Karta nie istnieje', 404);
+    if (existing.company_id !== company) return err('Brak dostępu', 403);
+    await env.DB.prepare('DELETE FROM fleet_cards WHERE id=?').bind(cardId).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda niedozwolona', 405);
+}
+
 // ─── KLUCZE API (CRUD, admin only) ────────────────────────────────────────────
 async function handleApiKeys(req, env, user, url, path) {
   if (user.role !== 'admin' || user._apiKey) return err('Brak uprawnień administratora', 403);
@@ -1240,6 +1303,7 @@ const EXPORT_TABLES = [
   { key: 'cfmInvoices',  table: 'cfm_invoices',         jsonCols: ['pozycje'] },
   { key: 'fines',        table: 'fines',                jsonCols: [],  skipImport: false },
   { key: 'drivers',      table: 'drivers',              jsonCols: [],  skipImport: true  },
+  { key: 'fleetCards',   table: 'fleet_cards',          jsonCols: [],  skipImport: false },
 ];
 
 function parseJsonCols(row, jsonCols) {
@@ -2530,9 +2594,10 @@ async function handleRequest(request, env, url, path) {
     }
     return handleImport(request, env, company);
   }
-  if (path.startsWith('/api/drivers')) { if (!user) return err('Nieautoryzowany', 401); return handleDrivers(request, env, user, url, path); }
-  if (path.startsWith('/api/fines')) { if (!user) return err('Nieautoryzowany', 401); return handleFines(request, env, user, url, path); }
-  if (path.startsWith('/api/api-keys')) { if (!user) return err('Nieautoryzowany', 401); return handleApiKeys(request, env, user, url, path); }
+  if (path.startsWith('/api/drivers'))     { if (!user) return err('Nieautoryzowany', 401); return handleDrivers(request, env, user, url, path); }
+  if (path.startsWith('/api/fines'))       { if (!user) return err('Nieautoryzowany', 401); return handleFines(request, env, user, url, path); }
+  if (path.startsWith('/api/fleet-cards')) { if (!user) return err('Nieautoryzowany', 401); return handleFleetCards(request, env, user, url, path); }
+  if (path.startsWith('/api/api-keys'))    { if (!user) return err('Nieautoryzowany', 401); return handleApiKeys(request, env, user, url, path); }
 
   if (path === '/api/webhook/gps' || path === '/api/webhook/tekom') {
     if (request.method !== 'POST') return err('Tylko POST', 405);

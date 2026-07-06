@@ -4927,36 +4927,79 @@ function showAuditLog() {
   document.body.appendChild(overlay);
 }
 
-// ==================== KARTY FLOTOWE ====================
-let flotCards=JSON.parse(localStorage.getItem('dt1_karty')||'[]');
-let editKartaId=null;
+// ==================== KARTY FLOTOWE (D1) ====================
+let _cards = [];
+let _cardsLoaded = false;
+let editKartaId = null;
 
-function saveKarty(){localStorage.setItem('dt1_karty',JSON.stringify(flotCards));}
+function _cfApi() { return window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev'; }
+function _cfHdrs(extra) {
+  const t = localStorage.getItem('cf_token');
+  return { 'Content-Type': 'application/json', ...(t ? { Authorization: 'Bearer ' + t } : {}), ...(extra || {}) };
+}
+function _cfCo() { return window.currentCompanyId || 'mtoilet'; }
 
-function renderKarty(){
-  const tbody=document.getElementById('karty-tbody');
-  if(!tbody)return;
-  const q=(document.getElementById('kf-search')?.value||'').toLowerCase();
-  const typ=document.getElementById('kf-typ')?.value||'';
-  const list=flotCards.filter(k=>
-    (!q||(k.nr||'').toLowerCase().includes(q)||(k.nrRej||'').toLowerCase().includes(q)||(k.dostawca||'').toLowerCase().includes(q))&&
-    (!typ||k.typ===typ)
+async function _migrateKartyLocalStorage() {
+  const raw = localStorage.getItem('dt1_karty');
+  if (!raw) return;
+  let old; try { old = JSON.parse(raw); } catch { localStorage.removeItem('dt1_karty'); return; }
+  if (!Array.isArray(old) || !old.length) { localStorage.removeItem('dt1_karty'); return; }
+  let migrated = 0;
+  for (const k of old) {
+    if (!k.nr) continue;
+    try {
+      const r = await fetch(`${_cfApi()}/api/fleet-cards?company=${_cfCo()}`, {
+        method: 'POST', headers: _cfHdrs(),
+        body: JSON.stringify({ card_no:k.nr, pin:k.pin||null, nr_rej:k.nrRej||null, type:k.typ||'PALIWOWA',
+          provider:k.dostawca||null, limit_pln:k.limit||null, expires:k.wazna||null,
+          status:k.status||'AKTYWNA', notes:k.uwagi||null }),
+      });
+      if (r.ok) migrated++;
+    } catch {}
+  }
+  if (migrated > 0) { localStorage.removeItem('dt1_karty'); toast(`✓ Przeniesiono ${migrated} kart flotowych do chmury`); }
+}
+
+async function _loadKarty() {
+  try {
+    await _migrateKartyLocalStorage();
+    const r = await fetch(`${_cfApi()}/api/fleet-cards?company=${_cfCo()}`, { headers: _cfHdrs() });
+    const d = r.ok ? await r.json() : {};
+    _cards = d.cards || [];
+    _cardsLoaded = true;
+  } catch { _cards = []; }
+}
+
+function renderKarty() {
+  const tbody = document.getElementById('karty-tbody');
+  if (!tbody) return;
+  if (!_cardsLoaded) { _loadKarty().then(() => renderKarty()); return; }
+  const q = (document.getElementById('kf-search')?.value || '').toLowerCase();
+  const typ = document.getElementById('kf-typ')?.value || '';
+  const list = _cards.filter(k =>
+    (!q || (k.card_no||'').toLowerCase().includes(q) || (k.nr_rej||'').toLowerCase().includes(q) || (k.provider||'').toLowerCase().includes(q)) &&
+    (!typ || k.type === typ)
   );
-  if(!list.length){tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text3)"><i class="ti ti-credit-card" style="font-size:32px;display:block;margin-bottom:8px"></i>Brak kart flotowych — kliknij Dodaj kartę</td></tr>`;updateKartySummary();return;}
-  tbody.innerHTML=list.map(k=>`<tr>
-    <td style="font-family:var(--mono);font-size:12px;font-weight:600">${maskCard(k.nr)}</td>
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text3)"><i class="ti ti-credit-card" style="font-size:32px;display:block;margin-bottom:8px"></i>Brak kart flotowych — kliknij Dodaj kartę</td></tr>`;
+    updateKartySummary(); return;
+  }
+  const TYPE_COLORS = { PALIWOWA:'pill-blue', 'OPŁATY':'pill-amber', PARKING:'pill-green', INNA:'pill-gray' };
+  const STATUS_COLORS = { AKTYWNA:'pill-green', ZABLOKOWANA:'pill-red', NIEAKTYWNA:'pill-gray' };
+  tbody.innerHTML = list.map(k => `<tr>
+    <td style="font-family:var(--mono);font-size:12px;font-weight:600">${maskCard(k.card_no)}</td>
     <td>
       <div style="display:flex;align-items:center;gap:6px">
         <span id="pin-${k.id}" style="font-family:var(--mono);letter-spacing:2px">••••</span>
-        <button class="tbtn" style="padding:3px 8px;font-size:10px" onclick="togglePin('${k.id}','${k.pin}')">Pokaż</button>
+        <button class="tbtn" style="padding:3px 8px;font-size:10px" onclick="togglePin('${k.id}','${(k.pin||'').replace(/'/g,"\\'")}')">Pokaż</button>
       </div>
     </td>
-    <td><strong style="font-family:var(--mono)">${k.nrRej||'—'}</strong></td>
-    <td><span class="pill ${{PALIWOWA:'pill-blue','OPŁATY':'pill-amber',PARKING:'pill-green',INNA:'pill-gray'}[k.typ]||'pill-gray'}">${k.typ}</span></td>
-    <td>${k.dostawca||'—'}</td>
-    <td style="font-family:var(--mono)">${k.limit?k.limit.toLocaleString('pl-PL')+' zł':'—'}</td>
-    <td style="font-size:12px">${k.wazna||'—'}</td>
-    <td><span class="pill ${{AKTYWNA:'pill-green',ZABLOKOWANA:'pill-red',WYGASŁA:'pill-gray'}[k.status]||'pill-gray'}">${k.status}</span></td>
+    <td><strong style="font-family:var(--mono)">${k.nr_rej||'—'}</strong></td>
+    <td><span class="pill ${TYPE_COLORS[k.type]||'pill-gray'}">${k.type}</span></td>
+    <td>${k.provider||'—'}</td>
+    <td style="font-family:var(--mono)">${k.limit_pln ? Number(k.limit_pln).toLocaleString('pl-PL')+' zł' : '—'}</td>
+    <td style="font-size:12px">${k.expires||'—'}</td>
+    <td><span class="pill ${STATUS_COLORS[k.status]||'pill-gray'}">${k.status}</span></td>
     <td>
       <div style="display:flex;gap:4px">
         <button class="tbtn" onclick="openKartaModal('${k.id}')"><i class="ti ti-edit"></i></button>
@@ -4967,109 +5010,128 @@ function renderKarty(){
   updateKartySummary();
 }
 
-function maskCard(nr){return (nr||'').replace(/\d(?=\d{4})/g,'•').replace(/(.{4})/g,'$1 ').trim();}
+function maskCard(nr) { return (nr||'').replace(/\d(?=\d{4})/g, '•').replace(/(.{4})/g, '$1 ').trim(); }
 
-function togglePin(id,pin){
-  const el=document.getElementById('pin-'+id);
-  if(!el)return;
-  if(el.textContent==='••••'){el.textContent=pin||'????';el.nextElementSibling.textContent='Ukryj';}
-  else{el.textContent='••••';el.nextElementSibling.textContent='Pokaż';}
+function togglePin(id, pin) {
+  const el = document.getElementById('pin-' + id);
+  if (!el) return;
+  if (el.textContent === '••••') { el.textContent = pin || '????'; el.nextElementSibling.textContent = 'Ukryj'; }
+  else { el.textContent = '••••'; el.nextElementSibling.textContent = 'Pokaż'; }
 }
 
-function updateKartySummary(){
-  const el=document.getElementById('karty-summary');if(!el)return;
-  if(!flotCards.length){el.innerHTML='<span style="color:var(--text3)">Brak kart</span>';return;}
-  const byTyp={};flotCards.forEach(k=>{if(!byTyp[k.typ])byTyp[k.typ]=0;byTyp[k.typ]++;});
-  const aktywne=flotCards.filter(k=>k.status==='AKTYWNA').length;
-  el.innerHTML=`<div class="sum-row"><span>Kart łącznie</span><span class="sum-val">${flotCards.length}</span></div>
+function updateKartySummary() {
+  const el = document.getElementById('karty-summary'); if (!el) return;
+  if (!_cards.length) { el.innerHTML = '<span style="color:var(--text3)">Brak kart</span>'; return; }
+  const byTyp = {}; _cards.forEach(k => { if (!byTyp[k.type]) byTyp[k.type] = 0; byTyp[k.type]++; });
+  const aktywne = _cards.filter(k => k.status === 'AKTYWNA').length;
+  el.innerHTML = `<div class="sum-row"><span>Kart łącznie</span><span class="sum-val">${_cards.length}</span></div>
     <div class="sum-row"><span>Aktywnych</span><span class="sum-val green">${aktywne}</span></div>
-    ${Object.entries(byTyp).map(([t,n])=>`<div class="sum-row"><span>${t}</span><span class="sum-val">${n}</span></div>`).join('')}`;
+    ${Object.entries(byTyp).map(([t, n]) => `<div class="sum-row"><span>${t}</span><span class="sum-val">${n}</span></div>`).join('')}`;
 }
 
-function openKartaModal(id){
-  editKartaId=id||null;
-  const k=id?flotCards.find(x=>x.id===id):null;
-  document.getElementById('km-title').textContent=k?'Edytuj kartę':'Dodaj kartę flotową';
-  document.getElementById('km-nr').value=k?.nr||'';
-  document.getElementById('km-pin').value=k?.pin||'';
-  document.getElementById('km-nrrej').value=k?.nrRej||'';
-  document.getElementById('km-typ').value=k?.typ||'PALIWOWA';
-  document.getElementById('km-dostawca').value=k?.dostawca||'';
-  document.getElementById('km-limit').value=k?.limit||'';
-  document.getElementById('km-wazna').value=k?.wazna||'';
-  document.getElementById('km-status').value=k?.status||'AKTYWNA';
-  document.getElementById('km-uwagi').value=k?.uwagi||'';
-  // Wypełnij datalist pojazdów
-  const dl=document.getElementById('km-veh-list');
-  if(dl) dl.innerHTML=vehs.map(v=>`<option value="${v.nrRej}">${v.nrRej} — ${v.marka} ${v.model}</option>`).join('');
+function openKartaModal(id) {
+  editKartaId = id || null;
+  const k = id ? _cards.find(x => x.id === id) : null;
+  document.getElementById('km-title').textContent = k ? 'Edytuj kartę' : 'Dodaj kartę flotową';
+  document.getElementById('km-nr').value      = k?.card_no  || '';
+  document.getElementById('km-pin').value     = k?.pin      || '';
+  document.getElementById('km-nrrej').value   = k?.nr_rej   || '';
+  document.getElementById('km-typ').value     = k?.type     || 'PALIWOWA';
+  document.getElementById('km-dostawca').value= k?.provider || '';
+  document.getElementById('km-limit').value   = k?.limit_pln|| '';
+  document.getElementById('km-wazna').value   = k?.expires  || '';
+  document.getElementById('km-status').value  = k?.status   || 'AKTYWNA';
+  document.getElementById('km-uwagi').value   = k?.notes    || '';
+  const dl = document.getElementById('km-veh-list');
+  if (dl) dl.innerHTML = vehs.map(v => `<option value="${v.nrRej}">${v.nrRej} — ${v.marka} ${v.model}</option>`).join('');
   document.getElementById('karta-modal').classList.remove('hidden');
 }
 
-function saveKarta(){
-  const nr=document.getElementById('km-nr').value.trim();
-  const pin=document.getElementById('km-pin').value.trim();
-  if(!nr){toast('⚠ Wpisz numer karty');return;}
-  const data={
-    id:editKartaId||('k'+Date.now()),
-    nr,pin,nrRej:document.getElementById('km-nrrej').value.trim().toUpperCase(),
-    typ:document.getElementById('km-typ').value,
-    dostawca:document.getElementById('km-dostawca').value.trim(),
-    limit:parseFloat(document.getElementById('km-limit').value)||0,
-    wazna:document.getElementById('km-wazna').value.trim(),
-    status:document.getElementById('km-status').value,
-    uwagi:document.getElementById('km-uwagi').value.trim()
+async function saveKarta() {
+  const nr = document.getElementById('km-nr').value.trim();
+  if (!nr) { toast('⚠ Wpisz numer karty'); return; }
+  const body = {
+    card_no:   nr,
+    pin:       document.getElementById('km-pin').value.trim() || null,
+    nr_rej:    document.getElementById('km-nrrej').value.trim().toUpperCase() || null,
+    type:      document.getElementById('km-typ').value,
+    provider:  document.getElementById('km-dostawca').value.trim() || null,
+    limit_pln: parseFloat(document.getElementById('km-limit').value) || null,
+    expires:   document.getElementById('km-wazna').value.trim() || null,
+    status:    document.getElementById('km-status').value,
+    notes:     document.getElementById('km-uwagi').value.trim() || null,
   };
-  if(editKartaId){const i=flotCards.findIndex(x=>x.id===editKartaId);if(i>=0)flotCards[i]=data;}
-  else flotCards.push(data);
-  saveKarty();document.getElementById('karta-modal').classList.add('hidden');
-  renderKarty();toast(`✓ Karta ${nr} zapisana`);editKartaId=null;
-}
-
-function deleteKarta(id){
-  if(!confirm('Usunąć kartę?'))return;
-  flotCards=flotCards.filter(x=>x.id!==id);saveKarty();renderKarty();toast('✓ Karta usunięta');
-}
-
-function importKarty(inp){
-  if(!inp.files[0])return;
-  const reader=new FileReader();
-  reader.onload=e=>{
-    try{
-      const wb=XLSX.read(e.target.result,{type:'array'});
-      const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
-      let added=0;
-      rows.forEach(r=>{
-        const nr=String(r['Nr karty']||r['nr karty']||r['number']||'').trim();
-        if(!nr)return;
-        flotCards.push({
-          id:'k'+Date.now()+added,
-          nr,pin:String(r['PIN']||r['pin']||'').trim(),
-          nrRej:String(r['Nr rej']||r['nr rej']||r['nrRej']||'').trim().toUpperCase(),
-          typ:String(r['Typ']||r['typ']||'PALIWOWA').trim().toUpperCase(),
-          dostawca:String(r['Dostawca']||r['dostawca']||'').trim(),
-          limit:parseFloat(r['Limit']||r['limit']||'0')||0,
-          wazna:String(r['Ważna do']||r['wazna']||'').trim(),
-          status:String(r['Status']||r['status']||'AKTYWNA').trim().toUpperCase(),
-          uwagi:String(r['Uwagi']||r['uwagi']||'').trim()
-        });added++;
+  try {
+    let r;
+    if (editKartaId) {
+      r = await fetch(`${_cfApi()}/api/fleet-cards/${editKartaId}?company=${_cfCo()}`, {
+        method: 'PUT', headers: _cfHdrs(), body: JSON.stringify(body),
       });
-      saveKarty();renderKarty();toast(`✓ Zaimportowano ${added} kart`);
-    }catch(err){toast('⚠ Błąd importu: '+err.message);}
+    } else {
+      r = await fetch(`${_cfApi()}/api/fleet-cards?company=${_cfCo()}`, {
+        method: 'POST', headers: _cfHdrs(), body: JSON.stringify(body),
+      });
+    }
+    if (!r.ok) { const e = await r.json().catch(() => ({})); toast('⚠ ' + (e.error || 'Błąd: ' + r.status)); return; }
+    await _loadKarty();
+    document.getElementById('karta-modal').classList.add('hidden');
+    renderKarty(); toast(`✓ Karta ${nr} zapisana`); editKartaId = null;
+  } catch { toast('⚠ Błąd połączenia'); }
+}
+
+async function deleteKarta(id) {
+  if (!confirm('Usunąć kartę?')) return;
+  try {
+    const r = await fetch(`${_cfApi()}/api/fleet-cards/${id}?company=${_cfCo()}`, { method: 'DELETE', headers: _cfHdrs() });
+    if (!r.ok) { toast('⚠ Błąd usuwania: ' + r.status); return; }
+    await _loadKarty(); renderKarty(); toast('✓ Karta usunięta');
+  } catch { toast('⚠ Błąd połączenia'); }
+}
+
+async function importKarty(inp) {
+  if (!inp.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      let added = 0;
+      for (const r of rows) {
+        const nr = String(r['Nr karty']||r['nr karty']||r['number']||'').trim();
+        if (!nr) continue;
+        const body = {
+          card_no:   nr,
+          pin:       String(r['PIN']||r['pin']||'').trim() || null,
+          nr_rej:    String(r['Nr rej']||r['nr rej']||r['nrRej']||'').trim().toUpperCase() || null,
+          type:      String(r['Typ']||r['typ']||'PALIWOWA').trim().toUpperCase(),
+          provider:  String(r['Dostawca']||r['dostawca']||'').trim() || null,
+          limit_pln: parseFloat(r['Limit']||r['limit']||'') || null,
+          expires:   String(r['Ważna do']||r['wazna']||'').trim() || null,
+          status:    String(r['Status']||r['status']||'AKTYWNA').trim().toUpperCase(),
+          notes:     String(r['Uwagi']||r['uwagi']||'').trim() || null,
+        };
+        const res = await fetch(`${_cfApi()}/api/fleet-cards?company=${_cfCo()}`, {
+          method: 'POST', headers: _cfHdrs(), body: JSON.stringify(body),
+        });
+        if (res.ok) added++;
+      }
+      await _loadKarty(); renderKarty(); toast(`✓ Zaimportowano ${added} kart`);
+    } catch (err) { toast('⚠ Błąd importu: ' + err.message); }
   };
   reader.readAsArrayBuffer(inp.files[0]);
 }
 
-function exportKarty(){
-  if(!flotCards.length){toast('⚠ Brak kart do eksportu');return;}
-  const hdrs=['Nr karty','PIN','Nr rej.','Typ','Dostawca','Limit (zł)','Ważna do','Status','Uwagi'];
-  const rows=flotCards.map(k=>[k.nr,k.pin,k.nrRej,k.typ,k.dostawca,k.limit,k.wazna,k.status,k.uwagi]);
-  const wb=XLSX.utils.book_new();
-  const ws=XLSX.utils.aoa_to_sheet([hdrs,...rows]);
-  ws['!cols']=[{wch:20},{wch:8},{wch:12},{wch:12},{wch:12},{wch:10},{wch:10},{wch:12},{wch:20}];
-  XLSX.utils.book_append_sheet(wb,ws,'Karty Flotowe');
-  XLSX.writeFile(wb,'karty_flotowe_'+new Date().toISOString().slice(0,10)+'.xlsx');
-  toast(`✓ Eksport ${flotCards.length} kart`);
+function exportKarty() {
+  if (!_cards.length) { toast('⚠ Brak kart do eksportu'); return; }
+  const hdrs = ['Nr karty','PIN','Nr rej.','Typ','Dostawca','Limit (zł)','Ważna do','Status','Uwagi'];
+  const rows = _cards.map(k => [k.card_no, k.pin, k.nr_rej, k.type, k.provider, k.limit_pln, k.expires, k.status, k.notes]);
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([hdrs, ...rows]);
+  ws['!cols'] = [{wch:20},{wch:8},{wch:12},{wch:12},{wch:12},{wch:10},{wch:10},{wch:12},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Karty Flotowe');
+  XLSX.writeFile(wb, 'karty_flotowe_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  toast(`✓ Eksport ${_cards.length} kart`);
 }
 
 // ==================== DOKUMENTY POJAZDÓW (Dowody rej.) ====================
