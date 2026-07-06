@@ -1044,6 +1044,73 @@ async function handleUsers(req, env, user, url, path) {
   return err('Metoda niedozwolona', 405);
 }
 
+// ─── KIEROWCY ─────────────────────────────────────────────────────────────────
+async function handleDrivers(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const segs     = path.split('/').filter(Boolean);
+  const driverId = segs[2] || null;
+  const canWrite = user.role === 'admin' || user.role === 'kierownik' || user.role === 'dyspozytor';
+
+  if (req.method === 'GET') {
+    const rows = await env.DB.prepare(
+      'SELECT * FROM drivers WHERE company_id=? ORDER BY name ASC'
+    ).bind(company).all();
+    return json({ ok: true, drivers: rows.results || [] });
+  }
+
+  if (!canWrite) return err('Brak uprawnień', 403);
+
+  if (req.method === 'POST') {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!body.name?.trim()) return err('Wymagane: name');
+    const id = body.id || crypto.randomUUID();
+    try {
+      await env.DB.prepare(
+        `INSERT INTO drivers(id,company_id,name,phone,email,license_no,license_expiry,notes,updated_at)
+         VALUES(?,?,?,?,?,?,?,?,datetime('now'))`
+      ).bind(id, company, body.name.trim(), body.phone||null, body.email||null,
+        body.license_no||null, body.license_expiry||null, body.notes||null
+      ).run();
+    } catch (e) {
+      if (e.message?.includes('UNIQUE')) return err('Kierowca o tej nazwie już istnieje', 409);
+      throw e;
+    }
+    return json({ ok: true, id });
+  }
+
+  if (req.method === 'PUT' && driverId) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const existing = await env.DB.prepare('SELECT company_id FROM drivers WHERE id=?').bind(driverId).first();
+    if (!existing) return err('Kierowca nie istnieje', 404);
+    if (existing.company_id !== company) return err('Brak dostępu', 403);
+    const sets = [], vals = [];
+    for (const f of ['name','phone','email','license_no','license_expiry','notes']) {
+      if (body[f] !== undefined) { sets.push(`${f}=?`); vals.push(body[f] === '' ? null : body[f]); }
+    }
+    if (!sets.length) return err('Brak pól do aktualizacji');
+    sets.push("updated_at=datetime('now')");
+    vals.push(driverId);
+    try {
+      await env.DB.prepare(`UPDATE drivers SET ${sets.join(',')} WHERE id=?`).bind(...vals).run();
+    } catch (e) {
+      if (e.message?.includes('UNIQUE')) return err('Kierowca o tej nazwie już istnieje', 409);
+      throw e;
+    }
+    return json({ ok: true });
+  }
+
+  if (req.method === 'DELETE' && driverId) {
+    const existing = await env.DB.prepare('SELECT company_id FROM drivers WHERE id=?').bind(driverId).first();
+    if (!existing) return err('Kierowca nie istnieje', 404);
+    if (existing.company_id !== company) return err('Brak dostępu', 403);
+    await env.DB.prepare('DELETE FROM drivers WHERE id=?').bind(driverId).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda niedozwolona', 405);
+}
+
 // ─── MANDATY I NARUSZENIA ─────────────────────────────────────────────────────
 async function handleFines(req, env, user, url, path) {
   const company = url.searchParams.get('company') || user.company_id;
@@ -2437,6 +2504,7 @@ async function handleRequest(request, env, url, path) {
     }
     return handleImport(request, env, company);
   }
+  if (path.startsWith('/api/drivers')) { if (!user) return err('Nieautoryzowany', 401); return handleDrivers(request, env, user, url, path); }
   if (path.startsWith('/api/fines')) { if (!user) return err('Nieautoryzowany', 401); return handleFines(request, env, user, url, path); }
   if (path.startsWith('/api/api-keys')) { if (!user) return err('Nieautoryzowany', 401); return handleApiKeys(request, env, user, url, path); }
 
