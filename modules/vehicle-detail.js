@@ -701,7 +701,7 @@ window.TaxOrderVehicleDetail = {
       <!-- TAB: MANDATY -->
       <div id="vd-tab-mandaty-content" class="vd-tab-content" style="display:none">
         <div id="vd-mandaty-body">
-          ${window.FinesModule ? window.FinesModule.renderForVehicle(v.nrRej) : '<div style="padding:20px;text-align:center;color:var(--text3)">Ładowanie modułu mandatów...</div>'}
+          <div style="padding:20px;text-align:center;color:var(--text3)"><i class="ti ti-loader-2" style="font-size:20px"></i></div>
         </div>
       </div>
 
@@ -733,6 +733,14 @@ window.TaxOrderVehicleDetail = {
         ${!(v.stanKilometrow) ? `<div class="wbox" style="margin-top:12px;font-size:12px"><i class="ti ti-alert-triangle"></i> Uzupełnij licznik km w zakładce DR aby alerty km-based działały poprawnie.</div>` : ''}
       </div>
     `;
+
+    // Async load fines after HTML is in DOM
+    if (window.FinesModule) {
+      window.FinesModule.renderForVehicle(v.nrRej).then(html => {
+        const man = document.getElementById('vd-mandaty-body');
+        if (man && html) man.innerHTML = html;
+      });
+    }
 
     // Obsługa zmiany typu własności
     document.getElementById('vd-ownershipType')?.addEventListener('change', function() {
@@ -1386,7 +1394,10 @@ window.TaxOrderVehicleDetail = {
     const dok = document.getElementById('vd-dokumenty-body');
     if (dok && window.DocumentsModule) dok.innerHTML = window.DocumentsModule.renderForVehicle(v);
     const man = document.getElementById('vd-mandaty-body');
-    if (man && window.FinesModule) man.innerHTML = window.FinesModule.renderForVehicle(v.nrRej);
+    if (man && window.FinesModule) {
+      man.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3)"><i class="ti ti-loader-2" style="font-size:20px"></i></div>';
+      window.FinesModule.renderForVehicle(v.nrRej).then(html => { if (html) man.innerHTML = html; });
+    }
     const gps = document.getElementById('vd-gps-body');
     if (gps) gps.innerHTML = this._renderGpsTab(v);
     this.refreshServiceTab(vehId);
