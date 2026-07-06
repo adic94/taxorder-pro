@@ -3,18 +3,31 @@
 
 window.FleetBackup = (function () {
 
-  const BACKUP_VERSION = 2;
+  const BACKUP_VERSION = 3;
 
+  // Klucze localStorage które nadal warto backupować (ustawienia lokalne, nie dane firmowe)
   const LS_KEYS = [
-    'taxFines', 'taxDrivers', 'taxFleetBudget', 'taxColVis',
-    'dt1_users', 'dt1_karty', 'dt1_company_states', 'dt1_current_company',
+    'taxFleetBudget', 'taxColVis',
+    'dt1_company_states', 'dt1_current_company',
     'dt1_cepik_proxy', 'dt1_cepik_settings',
     'taxDocuments',
   ];
 
-  function exportBackup() {
+  const _api = () => window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
+  const _tok = () => localStorage.getItem('cf_token');
+  const _hdrs = () => ({ 'Content-Type': 'application/json', ...(_tok() ? { Authorization: 'Bearer ' + _tok() } : {}) });
+  const _co  = () => window.currentCompanyId || 'mtoilet';
+
+  async function exportBackup() {
     const now = new Date();
     const dateStr = now.toISOString().slice(0, 10);
+
+    // Pobierz dane D1 przez API eksportu
+    let d1Data = null;
+    try {
+      const r = await fetch(`${_api()}/api/export?company=${_co()}`, { headers: _hdrs() });
+      if (r.ok) d1Data = await r.json();
+    } catch {}
 
     const lsData = {};
     LS_KEYS.forEach(key => {
@@ -25,13 +38,14 @@ window.FleetBackup = (function () {
     const vehicles = (window.vehs || []).map(v => ({ ...v }));
 
     const backup = {
-      _version:   BACKUP_VERSION,
-      _exportedAt: now.toISOString(),
-      _app:       'TaxOrder Pro',
-      _company:   window.currentCompanyId || 'unknown',
+      _version:      BACKUP_VERSION,
+      _exportedAt:   now.toISOString(),
+      _app:          'TaxOrder Pro',
+      _company:      _co(),
       _vehicleCount: vehicles.length,
       vehicles,
-      localStorage: lsData,
+      d1:            d1Data,
+      localStorage:  lsData,
     };
 
     const json = JSON.stringify(backup, null, 2);
@@ -42,13 +56,15 @@ window.FleetBackup = (function () {
     a.download = `taxorder_backup_${dateStr}.json`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast(`${t('backup.toast.saved')} — ${vehicles.length} ${t('backup.vehicles')}, ${Object.keys(lsData).length} ${t('backup.datasets')}`);
+
+    const d1Info = d1Data ? ` + ${d1Data.fines?.length||0} mandatów, ${d1Data.drivers?.length||0} kierowców` : '';
+    toast(`${t('backup.toast.saved')} — ${vehicles.length} ${t('backup.vehicles')}${d1Info}`);
   }
 
-  function importBackup(file) {
+  async function importBackup(file) {
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = e => {
+    reader.onload = async e => {
       let backup;
       try {
         backup = JSON.parse(e.target.result);
@@ -62,19 +78,31 @@ window.FleetBackup = (function () {
       }
 
       const vCount  = backup.vehicles?.length || 0;
-      const lsCount = Object.keys(backup.localStorage || {}).length;
+      const d1Info  = backup.d1 ? `\nMandaty: ${backup.d1.fines?.length||0}, Kierowcy: ${backup.d1.drivers?.length||0}, Karty: ${backup.d1.fleetCards?.length||0}` : '';
       const date    = backup._exportedAt?.slice(0, 10) || '?';
 
-      const msg = `${t('backup.confirm.from')} ${date}.\n\n${t('backup.confirm.contains')} ${vCount} ${t('backup.vehicles')}, ${lsCount} ${t('backup.datasets')}.\n\n${t('backup.confirm.overwrite')}`;
+      const msg = `${t('backup.confirm.from')} ${date}.\n\n${t('backup.confirm.contains')} ${vCount} ${t('backup.vehicles')}${d1Info}.\n\n${t('backup.confirm.overwrite')}`;
       if (!confirm(msg)) return;
 
+      // Przywróć localStorage
       const ls = backup.localStorage || {};
       Object.entries(ls).forEach(([key, val]) => {
         try { localStorage.setItem(key, val); } catch(e) {}
       });
 
+      // Przywróć pojazdy
       if (backup.vehicles?.length && typeof window.setTaxOrderVehicles === 'function') {
         window.setTaxOrderVehicles(backup.vehicles);
+      }
+
+      // Przywróć dane D1 (jeśli backup v3+)
+      if (backup.d1) {
+        try {
+          const r = await fetch(`${_api()}/api/import?company=${_co()}`, {
+            method: 'POST', headers: _hdrs(), body: JSON.stringify(backup.d1),
+          });
+          if (!r.ok) toast('⚠ Błąd importu D1: ' + r.status);
+        } catch { toast('⚠ Błąd połączenia przy imporcie D1'); }
       }
 
       if (typeof renderVeh === 'function') renderVeh();
@@ -88,7 +116,6 @@ window.FleetBackup = (function () {
   }
 
   function openModal() {
-    // Always rebuild so language changes take effect
     const existing = document.getElementById('backup-modal');
     if (existing) existing.remove();
 
