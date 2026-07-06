@@ -67,7 +67,7 @@ window.FinesModule = (function () {
     }
     if (migrated > 0) {
       localStorage.removeItem(LS_KEY);
-      if (typeof toast === 'function') toast(`✓ Przeniesiono ${migrated} mandatów z lokalnej bazy do chmury`);
+      if (typeof toast === 'function') toast(t('fines.toast.migrated').replace('{0}', migrated));
     }
   }
 
@@ -244,7 +244,7 @@ window.FinesModule = (function () {
     const gf = id => { const v = g(id); return v ? parseFloat(v.replace(',', '.')) : null; };
     const gi = id => { const v = g(id); return v ? parseInt(v) : null; };
 
-    if (!g('_fn-date')) { toast('⚠ Podaj datę zdarzenia'); return; }
+    if (!g('_fn-date')) { toast(t('fines.toast.date.req')); return; }
 
     btn.disabled = true;
     const body = {
@@ -272,14 +272,14 @@ window.FinesModule = (function () {
           method: 'POST', headers: hdrs(), body: JSON.stringify(body),
         });
       }
-      if (!r.ok) { toast('⚠ Błąd zapisu: ' + r.status); btn.disabled = false; return; }
+      if (!r.ok) { toast(t('fines.toast.save.err').replace('{0}', r.status)); btn.disabled = false; return; }
       btn.closest('[style*=fixed]').remove();
-      toast('✓ Mandat zapisany');
+      toast(t('fines.toast.saved'));
       await _load();
       _render();
       if (typeof renderDash === 'function') renderDash();
     } catch {
-      toast('⚠ Błąd połączenia');
+      toast(t('fines.toast.conn'));
       btn.disabled = false;
     }
   }
@@ -289,12 +289,12 @@ window.FinesModule = (function () {
       const r = await fetch(`${API()}/api/fines/${fineId}?company=${company()}`, {
         method: 'DELETE', headers: hdrs(),
       });
-      if (!r.ok) { toast('⚠ Błąd usuwania: ' + r.status); return; }
+      if (!r.ok) { toast(t('fines.toast.del.err').replace('{0}', r.status)); return; }
       btn.closest('[style*=fixed]').remove();
-      toast('Mandat usunięty');
+      toast(t('fines.toast.deleted'));
       await _load();
       _render();
-    } catch { toast('⚠ Błąd połączenia'); }
+    } catch { toast(t('fines.toast.conn')); }
   }
 
   async function markPaid(fineId) {
@@ -303,13 +303,13 @@ window.FinesModule = (function () {
         method: 'PUT', headers: hdrs(),
         body: JSON.stringify({ paid: 1, paid_date: new Date().toISOString().slice(0, 10) }),
       });
-      if (!r.ok) { toast('⚠ Błąd: ' + r.status); return; }
-      toast('✓ Mandat oznaczony jako zapłacony');
+      if (!r.ok) { toast(t('fines.toast.err').replace('{0}', r.status)); return; }
+      toast(t('fines.toast.paid'));
       const f = _fines.find(x => x.id === fineId);
       if (f) { f.paid = 1; f.paid_date = new Date().toISOString().slice(0, 10); }
       _render();
       if (typeof renderDash === 'function') renderDash();
-    } catch { toast('⚠ Błąd połączenia'); }
+    } catch { toast(t('fines.toast.conn')); }
   }
 
   // ── Dla vehicle-detail ────────────────────────────────────────────────────
@@ -374,7 +374,7 @@ window.FinesModule = (function () {
   function getAllSync() { return [..._fines]; }
 
   function exportExcel() {
-    if (typeof XLSX === 'undefined') { toast('⚠ Brak XLSX'); return; }
+    if (typeof XLSX === 'undefined') { toast(t('fines.toast.xlsx.na')); return; }
     const headers = ['Nr rej.','Kierowca','Data','Typ','Kwota (zł)','Termin płatności','Zapłacono','Data zapłaty','Opis','Nr mandatu','Wystawił','Punkty'];
     const data = [headers, ..._fines.map(f => [
       f.nr_rej || '', f.driver_name || '', f.date || '',
@@ -385,7 +385,7 @@ window.FinesModule = (function () {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(data), 'Mandaty');
     XLSX.writeFile(wb, `mandaty_${new Date().toISOString().slice(0, 7)}.xlsx`);
-    toast('✓ Eksport mandatów gotowy');
+    toast(t('fines.toast.export.ok'));
   }
 
   async function getAll() { if (!_loaded) await _load(); return [..._fines]; }
