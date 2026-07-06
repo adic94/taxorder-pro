@@ -1238,6 +1238,8 @@ const EXPORT_TABLES = [
   { key: 'cfmClients',   table: 'cfm_clients',          jsonCols: [] },
   { key: 'cfmContracts', table: 'cfm_contracts',        jsonCols: [] },
   { key: 'cfmInvoices',  table: 'cfm_invoices',         jsonCols: ['pozycje'] },
+  { key: 'fines',        table: 'fines',                jsonCols: [],  skipImport: false },
+  { key: 'drivers',      table: 'drivers',              jsonCols: [],  skipImport: true  },
 ];
 
 function parseJsonCols(row, jsonCols) {
@@ -1301,7 +1303,31 @@ async function handleImport(req, env, company) {
     counts.vehicles = body.vehicles.length;
   }
 
-  for (const { key, table, jsonCols } of EXPORT_TABLES) {
+  // Drivers — dedykowany upsert po (company_id, name) żeby respektować UNIQUE constraint
+  if (Array.isArray(body.drivers) && body.drivers.length) {
+    let n = 0;
+    for (const d of body.drivers) {
+      if (!d.name?.trim()) { skipped.push({ table: 'drivers', id: d.id || null, reason: 'brak name' }); continue; }
+      const id = d.id || crypto.randomUUID();
+      try {
+        await env.DB.prepare(`
+          INSERT INTO drivers(id,company_id,name,phone,email,license_no,license_expiry,notes,updated_at)
+          VALUES(?,?,?,?,?,?,?,?,datetime('now'))
+          ON CONFLICT(company_id,name) DO UPDATE SET
+            phone=excluded.phone, email=excluded.email,
+            license_no=excluded.license_no, license_expiry=excluded.license_expiry,
+            notes=excluded.notes, updated_at=datetime('now')
+        `).bind(id, company, d.name.trim(), d.phone||null, d.email||null,
+          d.license_no||null, d.license_expiry||null, d.notes||null
+        ).run();
+        n++;
+      } catch (e) { skipped.push({ table: 'drivers', id: d.id || null, reason: e.message }); }
+    }
+    counts.drivers = n;
+  }
+
+  for (const { key, table, jsonCols, skipImport } of EXPORT_TABLES) {
+    if (skipImport) continue;
     const rows = body[key];
     if (!Array.isArray(rows) || !rows.length) continue;
     let n = 0;
