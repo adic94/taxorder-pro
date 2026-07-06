@@ -1044,6 +1044,74 @@ async function handleUsers(req, env, user, url, path) {
   return err('Metoda niedozwolona', 405);
 }
 
+// ─── MANDATY I NARUSZENIA ─────────────────────────────────────────────────────
+async function handleFines(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const segs   = path.split('/').filter(Boolean);
+  const fineId = segs[2] || null;
+  const canWrite = user.role === 'admin' || user.role === 'kierownik' || user.role === 'dyspozytor';
+
+  if (req.method === 'GET') {
+    const nrRej  = url.searchParams.get('nr_rej');
+    const paid   = url.searchParams.get('paid');
+    const limit  = Math.min(parseInt(url.searchParams.get('limit') || '500'), 1000);
+    let q = 'SELECT * FROM fines WHERE company_id=?';
+    const p = [company];
+    if (nrRej) { q += ' AND nr_rej=?'; p.push(nrRej); }
+    if (paid === '0') q += ' AND paid=0';
+    if (paid === '1') q += ' AND paid=1';
+    q += ' ORDER BY date DESC LIMIT ?';
+    p.push(limit);
+    const rows = await env.DB.prepare(q).bind(...p).all();
+    return json({ ok: true, fines: rows.results || [] });
+  }
+
+  if (!canWrite) return err('Brak uprawnień', 403);
+
+  if (req.method === 'POST') {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!body.date) return err('Wymagane: date');
+    const id = body.id || crypto.randomUUID();
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO fines(id,company_id,nr_rej,driver_name,type,date,amount,deadline,
+        description,fine_no,issuer,points,notes,paid,paid_date,created_by,updated_at)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))`
+    ).bind(id, company, body.nr_rej||null, body.driver_name||null, body.type||'inne', body.date,
+      body.amount??null, body.deadline||null, body.description||null,
+      body.fine_no||null, body.issuer||null, body.points??null, body.notes||null,
+      body.paid?1:0, body.paid_date||null, user._apiKey ? null : user.id
+    ).run();
+    return json({ ok: true, id });
+  }
+
+  if (req.method === 'PUT' && fineId) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const existing = await env.DB.prepare('SELECT company_id FROM fines WHERE id=?').bind(fineId).first();
+    if (!existing) return err('Mandat nie istnieje', 404);
+    if (existing.company_id !== company) return err('Brak dostępu', 403);
+    const sets = [], vals = [];
+    for (const f of ['nr_rej','driver_name','type','date','amount','deadline','description','fine_no','issuer','points','notes','paid','paid_date']) {
+      if (body[f] !== undefined) { sets.push(`${f}=?`); vals.push(body[f] === '' ? null : body[f]); }
+    }
+    if (!sets.length) return err('Brak pól do aktualizacji');
+    sets.push("updated_at=datetime('now')");
+    vals.push(fineId);
+    await env.DB.prepare(`UPDATE fines SET ${sets.join(',')} WHERE id=?`).bind(...vals).run();
+    return json({ ok: true });
+  }
+
+  if (req.method === 'DELETE' && fineId) {
+    const existing = await env.DB.prepare('SELECT company_id FROM fines WHERE id=?').bind(fineId).first();
+    if (!existing) return err('Mandat nie istnieje', 404);
+    if (existing.company_id !== company) return err('Brak dostępu', 403);
+    await env.DB.prepare('DELETE FROM fines WHERE id=?').bind(fineId).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda niedozwolona', 405);
+}
+
 // ─── KLUCZE API (CRUD, admin only) ────────────────────────────────────────────
 async function handleApiKeys(req, env, user, url, path) {
   if (user.role !== 'admin' || user._apiKey) return err('Brak uprawnień administratora', 403);
@@ -2369,6 +2437,7 @@ async function handleRequest(request, env, url, path) {
     }
     return handleImport(request, env, company);
   }
+  if (path.startsWith('/api/fines')) { if (!user) return err('Nieautoryzowany', 401); return handleFines(request, env, user, url, path); }
   if (path.startsWith('/api/api-keys')) { if (!user) return err('Nieautoryzowany', 401); return handleApiKeys(request, env, user, url, path); }
 
   if (path === '/api/webhook/gps' || path === '/api/webhook/tekom') {
