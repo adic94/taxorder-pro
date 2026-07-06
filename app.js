@@ -1283,6 +1283,7 @@ function renderDash() {
   renderFuelDash();
   _renderServiceDash();
   _renderFinesDash();
+  _renderDriversDash();
   _renderFleetKpi();
   _renderAgeDist();
 }
@@ -1342,6 +1343,37 @@ function _renderFinesDash() {
     }).join('')}`;
 }
 
+function _renderDriversDash() {
+  const el = document.getElementById('dash-drivers');
+  if (!el || !window.TaxOrderDrivers) return;
+  const drivers = window.TaxOrderDrivers.getAll();
+  const now = new Date();
+  const DAYS90 = 90 * 86400000;
+  const expiring = drivers
+    .filter(d => d.license_expiry)
+    .map(d => ({ d, ms: new Date(d.license_expiry) - now }))
+    .filter(({ ms }) => ms < DAYS90)
+    .sort((a, b) => a.ms - b.ms);
+  if (!expiring.length) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.innerHTML = `
+    <div style="font-size:12px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px;color:var(--amber)">
+      <i class="ti ti-id-badge"></i>Prawo jazdy — wygasa wkrótce (${expiring.length})
+      <button onclick="TaxOrderDrivers.open()" style="margin-left:auto;font-size:10px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer;color:var(--text2)">Wszyscy</button>
+    </div>
+    ${expiring.slice(0, 4).map(({ d, ms }) => {
+      const days = Math.round(ms / 86400000);
+      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border)">
+        <i class="ti ti-id-badge" style="color:var(--amber);font-size:13px;flex-shrink:0"></i>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;font-weight:700">${d.name}</div>
+          <div style="font-size:11px;color:var(--text2)">${d.license_no ? 'Nr: '+d.license_no : 'Brak numeru prawa jazdy'}</div>
+        </div>
+        <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${days<0?'var(--red)':days<=14?'var(--red)':'var(--amber)'}">${days<0?Math.abs(days)+'d temu':'za '+days+'d'}</span>
+      </div>`;
+    }).join('')}`;
+}
+
 function _renderFleetKpi() {
   const el = document.getElementById('dash-fleet-kpi');
   if (!el) return;
@@ -1393,6 +1425,7 @@ function _renderFleetKpi() {
     { icon:'ti-files',          label:t('kpi.docs'),           val:docAlerts,               unit:'w ciągu 30 dni', color:docAlerts>0?'var(--amber)':'var(--green)', click:'' },
     { icon:'ti-clipboard-check',label:t('kpi.dt1.incomplete'), val:dt1Incomplete,           unit:t('common.vehicles'), color:dt1Incomplete>0?'var(--amber)':'var(--green)', click:"showPage('pojazdy')" },
     { icon:'ti-id',             label:t('kpi.vin.errors'),     val:vinErrors,               unit:vinErrors>0?'do weryfikacji':'', color:vinErrors>0?'var(--red)':'var(--green)', click:'' },
+    { icon:'ti-steering-wheel', label:'Kierowcy',               val:(window.TaxOrderDrivers?.getAll()||[]).length, unit:'w kartotece', color:'var(--blue)', click:"TaxOrderDrivers.open()" },
   ];
 
   el.innerHTML = `
@@ -6152,8 +6185,8 @@ window.addEventListener('load', async () => {
     if (window.TaxOrderNotifications?.requestAndCheck) {
       window.TaxOrderNotifications.requestAndCheck();
     }
-    if (window.TaxOrderDrivers?.init) window.TaxOrderDrivers.init();
-    window.FinesModule?.load?.();
+    if (window.TaxOrderDrivers?.init) window.TaxOrderDrivers.init().then(() => { if (typeof _renderDriversDash === 'function') _renderDriversDash(); });
+    window.FinesModule?.load?.().then(() => { if (typeof _renderFinesDash === 'function') _renderFinesDash(); });
     // Przypomnienie KOBIZE — co roku w marcu
     _checkKobizeReminder();
   }, 3000);
