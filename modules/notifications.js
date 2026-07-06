@@ -164,14 +164,14 @@ window.TaxOrderNotifications = (function () {
 
     // Alert wygasającego prawa jazdy kierowców
     (window.TaxOrderDrivers?.getAll() || []).forEach(d => {
-      if (!d.licenseExpiry) return;
-      const days = _daysUntil(d.licenseExpiry);
+      if (!d.license_expiry) return;
+      const days = _daysUntil(d.license_expiry);
       if (days === null || days > WARN_DAYS) return;
 
-      const key = `drv_${d.id}__licenseExpiry`;
+      const key = `drv_${d.id}__license_expiry`;
       if (_wasSentToday(key)) return;
 
-      const dateStr = new Date(d.licenseExpiry).toLocaleDateString('pl-PL');
+      const dateStr = new Date(d.license_expiry).toLocaleDateString('pl-PL');
       let title, body;
       if (days < 0) {
         title = `❌ ${d.name} — Prawo jazdy WYGASŁO`;
@@ -279,14 +279,14 @@ window.TaxOrderNotifications = (function () {
 
     // Alert wygasającego prawa jazdy kierowców
     (window.TaxOrderDrivers?.getAll() || []).forEach(d => {
-      if (!d.licenseExpiry) return;
-      const dd = _daysUntil(d.licenseExpiry);
+      if (!d.license_expiry) return;
+      const dd = _daysUntil(d.license_expiry);
       if (dd === null || dd > days) return;
       alerts.push({
         nrRej: '👤 ' + d.name,
         marka: '', model: '',
         label: 'Prawo jazdy',
-        date: d.licenseExpiry,
+        date: d.license_expiry,
         days: dd,
         urgent: dd <= 7,
         expired: dd < 0,
