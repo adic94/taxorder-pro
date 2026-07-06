@@ -1369,6 +1369,7 @@ const EXPORT_TABLES = [
   { key: 'fines',        table: 'fines',                jsonCols: [],  skipImport: false },
   { key: 'drivers',      table: 'drivers',              jsonCols: [],  skipImport: true  },
   { key: 'fleetCards',   table: 'fleet_cards',          jsonCols: [],  skipImport: false },
+  { key: 'reservations', table: 'reservations',         jsonCols: [],  skipImport: false },
 ];
 
 function parseJsonCols(row, jsonCols) {

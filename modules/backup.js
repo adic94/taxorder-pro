@@ -57,7 +57,7 @@ window.FleetBackup = (function () {
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    const d1Info = d1Data ? ` + ${d1Data.fines?.length||0} mandatów, ${d1Data.drivers?.length||0} kierowców` : '';
+    const d1Info = d1Data ? ` + ${d1Data.fines?.length||0} mandatów, ${d1Data.drivers?.length||0} kierowców, ${d1Data.reservations?.length||0} rezerwacji` : '';
     toast(`${t('backup.toast.saved')} — ${vehicles.length} ${t('backup.vehicles')}${d1Info}`);
   }
 
@@ -78,7 +78,7 @@ window.FleetBackup = (function () {
       }
 
       const vCount  = backup.vehicles?.length || 0;
-      const d1Info  = backup.d1 ? `\nMandaty: ${backup.d1.fines?.length||0}, Kierowcy: ${backup.d1.drivers?.length||0}, Karty: ${backup.d1.fleetCards?.length||0}` : '';
+      const d1Info  = backup.d1 ? `\nMandaty: ${backup.d1.fines?.length||0}, Kierowcy: ${backup.d1.drivers?.length||0}, Karty: ${backup.d1.fleetCards?.length||0}, Rezerwacje: ${backup.d1.reservations?.length||0}` : '';
       const date    = backup._exportedAt?.slice(0, 10) || '?';
 
       const msg = `${t('backup.confirm.from')} ${date}.\n\n${t('backup.confirm.contains')} ${vCount} ${t('backup.vehicles')}${d1Info}.\n\n${t('backup.confirm.overwrite')}`;
