@@ -1314,7 +1314,7 @@ function _renderServiceDash() {
 function _renderFinesDash() {
   const el = document.getElementById('dash-fines');
   if (!el || !window.FinesModule) return;
-  const alerts = window.FinesModule.getUnpaidAlerts();
+  const alerts = window.FinesModule.getUnpaidAlertsSync();
   const badge = document.getElementById('fines-nav-badge');
   if (badge) { badge.textContent = alerts.length || ''; badge.style.display = alerts.length ? '' : 'none'; }
   if (!alerts.length) {
@@ -1334,7 +1334,7 @@ function _renderFinesDash() {
       return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border)">
         <i class="ti ${t.icon}" style="color:${t.color};font-size:13px;flex-shrink:0"></i>
         <div style="flex:1;min-width:0">
-          <div style="font-size:11px;font-weight:700;font-family:var(--mono)">${f.nrRej||'—'}</div>
+          <div style="font-size:11px;font-weight:700;font-family:var(--mono)">${f.nr_rej||'—'}</div>
           <div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.label}${f.amount?' · '+f.amount+' zł':''}</div>
         </div>
         <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${dl===null?'var(--text3)':dl<0?'var(--red)':dl<=3?'var(--red)':'var(--amber)'}">${dl===null?'—':dl<0?Math.abs(dl)+'d temu':'za '+dl+'d'}</span>
@@ -1350,7 +1350,7 @@ function _renderFleetKpi() {
   const archived    = allVehs.length - active.length;
   const svcUpcoming = window.ServiceModule?.getUpcomingServices(14) || [];
   const svcOverdue  = svcUpcoming.filter(x => x.days < 0);
-  const unpaidFines = window.FinesModule?.getUnpaidAlerts() || [];
+  const unpaidFines = window.FinesModule?.getUnpaidAlertsSync() || [];
   const finesAmt    = unpaidFines.reduce((s,f) => s+(f.amount||0), 0);
   let docAlerts = 0;
   allVehs.forEach(v => { docAlerts += (window.DocumentsModule?.getDocAlerts(v, 30)||[]).length; });
@@ -6153,6 +6153,7 @@ window.addEventListener('load', async () => {
       window.TaxOrderNotifications.requestAndCheck();
     }
     if (window.TaxOrderDrivers?.init) window.TaxOrderDrivers.init();
+    window.FinesModule?.load?.();
     // Przypomnienie KOBIZE — co roku w marcu
     _checkKobizeReminder();
   }, 3000);
