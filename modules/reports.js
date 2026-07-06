@@ -144,7 +144,7 @@ window.FleetReports = (function () {
   }
 
   function exportKobizeExcel() {
-    if (typeof XLSX === 'undefined') { toast('⚠ Biblioteka XLSX niedostępna'); return; }
+    if (typeof XLSX === 'undefined') { toast(t('rep.toast.xlsx.na')); return; }
     const yr = document.getElementById('fr-kobize-year')?.value || new Date().getFullYear();
     const prefix = String(yr);
     const rows = (window.vehs||[]).map(v => {
@@ -261,7 +261,7 @@ window.FleetReports = (function () {
   }
 
   function exportTcoExcel() {
-    if (typeof XLSX === 'undefined') { toast('⚠ Biblioteka XLSX niedostępna'); return; }
+    if (typeof XLSX === 'undefined') { toast(t('rep.toast.xlsx.na')); return; }
     const yr = document.getElementById('fr-tco-year')?.value || new Date().getFullYear();
     const pfx = String(yr);
     const rows = (window.vehs||[]).map(v => {
@@ -367,7 +367,7 @@ window.FleetReports = (function () {
   }
 
   function exportInsuranceExcel() {
-    if (typeof XLSX === 'undefined') { toast('⚠ Biblioteka XLSX niedostępna'); return; }
+    if (typeof XLSX === 'undefined') { toast(t('rep.toast.xlsx.na')); return; }
     const now = new Date();
     const fd  = d => d ? new Date(d).toLocaleDateString('pl-PL') : '';
     const policies = [];
@@ -667,7 +667,7 @@ window.FleetReports = (function () {
 
   // ── Eksport Excel ─────────────────────────────────────────────────────────
   function exportExcel() {
-    if (typeof XLSX === 'undefined') { toast('⚠ Biblioteka XLSX niedostępna'); return; }
+    if (typeof XLSX === 'undefined') { toast(t('rep.toast.xlsx.na')); return; }
     const rows = _buildRows();
     const prefix = _getPrefix();
     const yr  = document.getElementById('fr-year')?.value || new Date().getFullYear();
@@ -726,7 +726,7 @@ window.FleetReports = (function () {
     const a = document.createElement('a'); a.href=url;
     a.download=`raport_flota_${yr}${mo?'_'+mo:''}.csv`; a.click();
     URL.revokeObjectURL(url);
-    toast('✓ CSV wyeksportowany');
+    toast(t('rep.toast.csv.ok'));
   }
 
   // ── Raport planowanych serwisów ───────────────────────────────────────────
@@ -755,7 +755,7 @@ window.FleetReports = (function () {
   }
 
   function exportServicePlanExcel() {
-    if (typeof XLSX === 'undefined') { toast('⚠ Biblioteka XLSX niedostępna'); return; }
+    if (typeof XLSX === 'undefined') { toast(t('rep.toast.xlsx.na')); return; }
     const upcoming = window.ServiceModule?.getUpcomingServices(180) || [];
     const headers = ['Nr rej.','Marka','Model','Typ serwisu','Termin','Km do serwisu','Dni pozostało','Warsztat'];
     const data = [headers, ...upcoming.map(({v,s,days})=>[
@@ -766,7 +766,7 @@ window.FleetReports = (function () {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(data), 'Plan serwisowy');
     XLSX.writeFile(wb, `plan_serwisowy_${new Date().toISOString().slice(0,7)}.xlsx`);
-    toast('✓ Plan serwisowy wyeksportowany');
+    toast(t('rep.toast.svc.ok'));
   }
 
   function _renderMonthlyTrend() {
@@ -846,7 +846,7 @@ window.FleetReports = (function () {
     const g = id => parseFloat(document.getElementById(id)?.value || 0) || 0;
     _saveBudget(yr, { fuel: g('fb-fuel'), service: g('fb-service'), insurance: g('fb-insurance') });
     _renderBudget();
-    toast('✓ Budżet flotowy zapisany');
+    toast(t('rep.toast.budget.ok'));
   }
 
   function _renderBudget() {
@@ -1082,7 +1082,7 @@ tr:hover td{background:#f9fafb}
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href=url; a.download=`plan_serwisowy_${today}.html`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-    toast('✓ HTML do e-maila wyeksportowany');
+    toast(t('rep.toast.html.ok'));
   }
 
   function _buildServicePlanRows() {
@@ -1178,14 +1178,14 @@ tr:hover td{background:#f9fafb}
 
     // mailto ma limit ~2000 znaków — jeśli przekracza, otwiera raport HTML i informuje
     if (mailtoUrl.length > 1900) {
-      toast('✓ Otwieranie klienta e-mail… (długi raport — może wymagać ręcznego wklejenia)');
+      toast(t('rep.toast.email.long'));
     }
 
     const a = document.createElement('a');
     a.href = mailtoUrl;
     a.click();
 
-    toast('✓ Otworzono klienta poczty z raportem floty');
+    toast(t('rep.toast.email.ok'));
   }
 
   // ── Raport miesięczny PDF ─────────────────────────────────────────────────
@@ -1200,7 +1200,7 @@ tr:hover td{background:#f9fafb}
   }
 
   function generateMonthlyPdf() {
-    if (typeof window.jspdf === 'undefined') { toast('⚠ Biblioteka jsPDF niedostępna'); return; }
+    if (typeof window.jspdf === 'undefined') { toast(t('rep.toast.jspdf.na')); return; }
 
     const month   = +(document.getElementById('fr-pdf-month')?.value || (new Date().getMonth() || 12));
     const year    = +(document.getElementById('fr-pdf-year')?.value  || new Date().getFullYear());

@@ -386,6 +386,14 @@ window.I18n = (function () {
       'rep.toast.mgmt.ok':        '✓ Raport zarządu wygenerowany — otwórz w przeglądarce lub wydrukuj',
       'rep.toast.export.ok':      '✓ Eksportowano: {0}',
       'rep.toast.pdf.ok':         '✓ Pobrano raport PDF: {0}',
+      'rep.toast.xlsx.na':        '⚠ Biblioteka XLSX niedostępna',
+      'rep.toast.jspdf.na':       '⚠ Biblioteka jsPDF niedostępna',
+      'rep.toast.csv.ok':         '✓ CSV wyeksportowany',
+      'rep.toast.svc.ok':         '✓ Plan serwisowy wyeksportowany',
+      'rep.toast.budget.ok':      '✓ Budżet flotowy zapisany',
+      'rep.toast.html.ok':        '✓ HTML do e-maila wyeksportowany',
+      'rep.toast.email.long':     '✓ Otwieranie klienta e-mail… (długi raport — może wymagać ręcznego wklejenia)',
+      'rep.toast.email.ok':       '✓ Otworzono klienta poczty z raportem floty',
     },
 
     // ═══════════════════════════════ ENGLISH ═══════════════════════════════════
@@ -743,6 +751,14 @@ window.I18n = (function () {
       'rep.toast.mgmt.ok':        '✓ Management report generated — open in browser or print',
       'rep.toast.export.ok':      '✓ Exported: {0}',
       'rep.toast.pdf.ok':         '✓ PDF report downloaded: {0}',
+      'rep.toast.xlsx.na':        '⚠ XLSX library not available',
+      'rep.toast.jspdf.na':       '⚠ jsPDF library not available',
+      'rep.toast.csv.ok':         '✓ CSV exported',
+      'rep.toast.svc.ok':         '✓ Service plan exported',
+      'rep.toast.budget.ok':      '✓ Fleet budget saved',
+      'rep.toast.html.ok':        '✓ HTML for email exported',
+      'rep.toast.email.long':     '✓ Opening email client… (long report — may require manual paste)',
+      'rep.toast.email.ok':       '✓ Email client opened with fleet report',
     },
 
     // ═══════════════════════════════ GERMAN ════════════════════════════════════
@@ -1099,6 +1115,14 @@ window.I18n = (function () {
       'rep.toast.mgmt.ok':        '✓ Geschäftsbericht erstellt — im Browser öffnen oder drucken',
       'rep.toast.export.ok':      '✓ Exportiert: {0}',
       'rep.toast.pdf.ok':         '✓ PDF-Bericht heruntergeladen: {0}',
+      'rep.toast.xlsx.na':        '⚠ XLSX-Bibliothek nicht verfügbar',
+      'rep.toast.jspdf.na':       '⚠ jsPDF-Bibliothek nicht verfügbar',
+      'rep.toast.csv.ok':         '✓ CSV exportiert',
+      'rep.toast.svc.ok':         '✓ Wartungsplan exportiert',
+      'rep.toast.budget.ok':      '✓ Flottenbudget gespeichert',
+      'rep.toast.html.ok':        '✓ HTML für E-Mail exportiert',
+      'rep.toast.email.long':     '✓ E-Mail-Client wird geöffnet… (langer Bericht — ggf. manuell einfügen)',
+      'rep.toast.email.ok':       '✓ E-Mail-Client mit Flottenbericht geöffnet',
     },
 
     // ═══════════════════════════════ UKRAINIAN ══════════════════════════════════
@@ -1455,6 +1479,14 @@ window.I18n = (function () {
       'rep.toast.mgmt.ok':        '✓ Звіт керівництва сформовано — відкрийте в браузері або роздрукуйте',
       'rep.toast.export.ok':      '✓ Експортовано: {0}',
       'rep.toast.pdf.ok':         '✓ PDF звіт завантажено: {0}',
+      'rep.toast.xlsx.na':        '⚠ Бібліотека XLSX недоступна',
+      'rep.toast.jspdf.na':       '⚠ Бібліотека jsPDF недоступна',
+      'rep.toast.csv.ok':         '✓ CSV експортовано',
+      'rep.toast.svc.ok':         '✓ План обслуговування експортовано',
+      'rep.toast.budget.ok':      '✓ Бюджет автопарку збережено',
+      'rep.toast.html.ok':        '✓ HTML для e-mail експортовано',
+      'rep.toast.email.long':     '✓ Відкривається поштовий клієнт… (великий звіт — може потребувати ручної вставки)',
+      'rep.toast.email.ok':       '✓ Поштовий клієнт відкрито зі звітом автопарку',
     },
 
     // ═══════════════════════════════ LATVIAN ════════════════════════════════════
@@ -1808,6 +1840,14 @@ window.I18n = (function () {
       'rep.toast.mgmt.ok':        '✓ Vadības pārskats ģenerēts — atveriet pārlūkprogrammā vai izdrukājiet',
       'rep.toast.export.ok':      '✓ Eksportēts: {0}',
       'rep.toast.pdf.ok':         '✓ PDF pārskats lejupielādēts: {0}',
+      'rep.toast.xlsx.na':        '⚠ XLSX bibliotēka nav pieejama',
+      'rep.toast.jspdf.na':       '⚠ jsPDF bibliotēka nav pieejama',
+      'rep.toast.csv.ok':         '✓ CSV eksportēts',
+      'rep.toast.svc.ok':         '✓ Apkopes plāns eksportēts',
+      'rep.toast.budget.ok':      '✓ Flotes budžets saglabāts',
+      'rep.toast.html.ok':        '✓ HTML e-pastam eksportēts',
+      'rep.toast.email.long':     '✓ Tiek atvērts e-pasta klients… (garais pārskats — var būt nepieciešama manuāla ielīmēšana)',
+      'rep.toast.email.ok':       '✓ E-pasta klients atvērts ar flotes pārskatu',
     },
 
     // ═══════════════════════════════ LITHUANIAN ══════════════════════════════════
@@ -2161,6 +2201,14 @@ window.I18n = (function () {
       'rep.toast.mgmt.ok':        '✓ Vadybos ataskaita sugeneruota — atidarykite naršyklėje arba spausdinkite',
       'rep.toast.export.ok':      '✓ Eksportuota: {0}',
       'rep.toast.pdf.ok':         '✓ PDF ataskaita atsisiųsta: {0}',
+      'rep.toast.xlsx.na':        '⚠ XLSX biblioteka nepasiekiama',
+      'rep.toast.jspdf.na':       '⚠ jsPDF biblioteka nepasiekiama',
+      'rep.toast.csv.ok':         '✓ CSV eksportuota',
+      'rep.toast.svc.ok':         '✓ Techninės priežiūros planas eksportuotas',
+      'rep.toast.budget.ok':      '✓ Parko biudžetas išsaugotas',
+      'rep.toast.html.ok':        '✓ HTML el. paštui eksportuotas',
+      'rep.toast.email.long':     '✓ Atidaromas el. pašto klientas… (ilga ataskaita — gali reikėti įklijuoti rankiniu būdu)',
+      'rep.toast.email.ok':       '✓ El. pašto klientas atidarytas su parko ataskaita',
     },
 
     // ═══════════════════════════════ ESTONIAN ════════════════════════════════════
@@ -2514,6 +2562,14 @@ window.I18n = (function () {
       'rep.toast.mgmt.ok':        '✓ Juhtkonna aruanne loodud — avage brauseris või printige',
       'rep.toast.export.ok':      '✓ Eksporditud: {0}',
       'rep.toast.pdf.ok':         '✓ PDF aruanne alla laaditud: {0}',
+      'rep.toast.xlsx.na':        '⚠ XLSX teek pole saadaval',
+      'rep.toast.jspdf.na':       '⚠ jsPDF teek pole saadaval',
+      'rep.toast.csv.ok':         '✓ CSV eksporditud',
+      'rep.toast.svc.ok':         '✓ Hooldusskeem eksporditud',
+      'rep.toast.budget.ok':      '✓ Flottieelarve salvestatud',
+      'rep.toast.html.ok':        '✓ HTML e-posti jaoks eksporditud',
+      'rep.toast.email.long':     '✓ Avatakse meiliklient… (pikk aruanne — võib vajada käsitsi kleepimist)',
+      'rep.toast.email.ok':       '✓ Meiliklient avatud flotiiaruandega',
     },
   };
 
