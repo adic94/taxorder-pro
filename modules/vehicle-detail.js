@@ -1354,31 +1354,43 @@ window.TaxOrderVehicleDetail = {
   },
 
   _renderCards(v) {
-    const cards = (window.flotCards || []).filter(c => c.nrRej === v.nrRej);
+    const cards = (window.getFlotCards?.() || []).filter(c => c.nr_rej === v.nrRej);
     if (!cards.length) return '<div style="font-size:12px;color:var(--text3)">Brak przypisanych kart. Kliknij "Dodaj" aby przypisać.</div>';
-    return cards.map((c, i) => `
+    const STATUS_CLS = { AKTYWNA:'pill-green', ZABLOKOWANA:'pill-red', NIEAKTYWNA:'pill-gray' };
+    return cards.map(c => `
       <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--radius);margin-bottom:6px;font-size:12px;border-left:3px solid var(--blue)">
         <i class="ti ti-credit-card" style="color:var(--blue);font-size:16px;flex-shrink:0;margin-top:2px"></i>
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span style="font-family:var(--mono);font-weight:600;font-size:13px">${c.nr}</span>
-            <span class="pill pill-gray" style="font-size:10px">${c.typ||'—'}</span>
-            <span class="pill ${c.status==='AKTYWNA'?'pill-green':c.status==='ZABLOKOWANA'?'pill-red':'pill-gray'}" style="font-size:10px">${c.status||'—'}</span>
+            <span style="font-family:var(--mono);font-weight:600;font-size:13px">${(c.card_no||'').replace(/\d(?=\d{4})/g,'•')}</span>
+            <span class="pill pill-blue" style="font-size:10px">${c.type||'—'}</span>
+            <span class="pill ${STATUS_CLS[c.status]||'pill-gray'}" style="font-size:10px">${c.status||'—'}</span>
           </div>
-          ${c.user?`<div style="font-size:11px;color:var(--text2);margin-top:2px"><i class="ti ti-user" style="font-size:10px"></i> ${c.user}</div>`:''}
+          ${c.provider?`<div style="font-size:11px;color:var(--text2);margin-top:2px"><i class="ti ti-building" style="font-size:10px"></i> ${c.provider}</div>`:''}
           ${c.notes?`<div style="font-size:11px;color:var(--text3)">${c.notes}</div>`:''}
         </div>
-        <button onclick="TaxOrderVehicleDetail._removeCard('${c.nrRej}',${c.id||i})" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px" title="Usuń kartę">&times;</button>
+        <button onclick="TaxOrderVehicleDetail._removeCard('${v.nrRej}','${c.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px" title="Usuń kartę">&times;</button>
       </div>`).join('');
   },
 
-  _removeCard(nrRej, cardId) {
+  async _removeCard(nrRej, cardId) {
     if (!confirm('Usunąć tę kartę flotową?')) return;
-    window.flotCards = (window.flotCards||[]).filter(c => c.id !== cardId);
+    const api = window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
+    const tok = localStorage.getItem('cf_token');
+    const co = window.currentCompanyId || 'mtoilet';
+    const hdrs = { 'Content-Type': 'application/json', ...(tok ? { Authorization: 'Bearer ' + tok } : {}) };
+    try {
+      const r = await fetch(`${api}/api/fleet-cards/${cardId}?company=${co}`, { method: 'DELETE', headers: hdrs });
+      if (!r.ok) { toast('⚠ Błąd usuwania karty: ' + r.status); return; }
+    } catch { toast('⚠ Błąd połączenia'); return; }
     const v = (window.vehs||[]).find(x => x.nrRej === nrRej);
     const listEl = document.getElementById('vd-cards-list');
+    if (typeof window.getFlotCards === 'function') {
+      const cards = window.getFlotCards();
+      const idx = cards.findIndex(c => c.id === cardId);
+      if (idx !== -1) cards.splice(idx, 1);
+    }
     if (listEl && v) listEl.innerHTML = this._renderCards(v);
-    this._logAudit('card_remove', null, { nrRej, cardId });
     toast('Karta usunięta');
   },
 
@@ -1731,88 +1743,16 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
 
   _addCard(vehId) {
     const v = (window.vehs||[]).find(x => x.id === vehId);
-    const drivers = [...new Set((window.vehs||[]).map(x=>x.kierowca).filter(Boolean))];
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9300;display:flex;align-items:center;justify-content:center;padding:1rem';
-    overlay.innerHTML = `
-      <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:460px;max-width:98vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
-        <div style="font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px">
-          <i class="ti ti-credit-card" style="color:var(--blue)"></i>Nowa karta flotowa${v?' — '+v.nrRej:''}
-        </div>
-        <div class="vdfg" style="margin-bottom:14px">
-          <div class="vdf">
-            <label class="vdl">Nr karty flotowej *</label>
-            <input id="_fc-nr" type="text" class="fi" placeholder="np. 1234 5678 9012 3456">
-          </div>
-          <div class="vdf">
-            <label class="vdl">Kod PIN (opcjonalnie)</label>
-            <input id="_fc-pin" type="password" class="fi" maxlength="6" placeholder="4–6 cyfr">
-          </div>
-          <div class="vdf">
-            <label class="vdl">Typ / operator karty</label>
-            <select id="_fc-typ" class="fi">
-              <option>ORLEN Card</option>
-              <option>BP Fleet</option>
-              <option>DKV</option>
-              <option>UTA</option>
-              <option>Lotos Card</option>
-              <option>Shell</option>
-              <option>Inna</option>
-            </select>
-          </div>
-          <div class="vdf">
-            <label class="vdl">Status</label>
-            <select id="_fc-status" class="fi">
-              <option value="AKTYWNA">Aktywna</option>
-              <option value="WOLNA">Wolna (nieprzypisana)</option>
-              <option value="ZABLOKOWANA">Zablokowana</option>
-            </select>
-          </div>
-          <div class="vdf" style="grid-column:1/-1">
-            <label class="vdl">Przypisany użytkownik / kierowca</label>
-            <input id="_fc-user" type="text" class="fi" placeholder="Imię i nazwisko" list="_fc-drivers"
-              value="${v?.kierowca||''}">
-            <datalist id="_fc-drivers">${drivers.map(d=>`<option value="${d}">`).join('')}</datalist>
-          </div>
-          <div class="vdf" style="grid-column:1/-1">
-            <label class="vdl">Opis / uwagi</label>
-            <textarea id="_fc-notes" class="fi" style="height:60px;resize:vertical" placeholder="Opcjonalnie"></textarea>
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button class="btn btn-gray" onclick="this.closest('[style*=fixed]').remove()">Anuluj</button>
-          <button class="btn btn-blue" onclick="TaxOrderVehicleDetail._saveCard(${vehId},this)">
-            <i class="ti ti-check"></i>Zapisz kartę
-          </button>
-        </div>
-      </div>`;
-    document.body.appendChild(overlay);
-    document.getElementById('_fc-nr')?.focus();
-  },
-
-  _saveCard(vehId, btn) {
-    const nr  = document.getElementById('_fc-nr')?.value?.trim();
-    if (!nr) { toast('⚠ Podaj numer karty'); return; }
-    const v   = (window.vehs||[]).find(x => x.id === vehId);
-    const pin = document.getElementById('_fc-pin')?.value?.trim();
-    const typ = document.getElementById('_fc-typ')?.value;
-    const status = document.getElementById('_fc-status')?.value;
-    const user = document.getElementById('_fc-user')?.value?.trim();
-    const notes = document.getElementById('_fc-notes')?.value?.trim();
-    if (!window.flotCards) window.flotCards = [];
-    window.flotCards.push({
-      id: Date.now(),
-      nr, pin, typ, status,
-      nrRej: v?.nrRej || null,
-      user, notes,
-      addedAt: new Date().toISOString(),
-      addedBy: window.currentUser?.name || window.currentUser?.email || null
-    });
-    btn.closest('[style*=fixed]').remove();
-    const listEl = document.getElementById('vd-cards-list');
-    if (listEl && v) listEl.innerHTML = this._renderCards(v);
-    if (typeof toast === 'function') toast('✓ Karta flotowa dodana');
-    this._logAudit('card_add', vehId, { nr, typ });
+    if (!v) return;
+    if (typeof openKartaModal === 'function') {
+      openKartaModal(null);
+      setTimeout(() => {
+        const el = document.getElementById('km-nrrej');
+        if (el) { el.value = v.nrRej; }
+      }, 50);
+    } else {
+      toast('⚠ Moduł kart flotowych nie jest dostępny');
+    }
   },
 
   _scanInvoice(vehId) {

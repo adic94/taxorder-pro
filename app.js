@@ -4931,6 +4931,7 @@ function showAuditLog() {
 let _cards = [];
 let _cardsLoaded = false;
 let editKartaId = null;
+window.getFlotCards = () => _cards;
 
 function _cfApi() { return window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev'; }
 function _cfHdrs(extra) {
@@ -5076,6 +5077,13 @@ async function saveKarta() {
     await _loadKarty();
     document.getElementById('karta-modal').classList.add('hidden');
     renderKarty(); toast(`✓ Karta ${nr} zapisana`); editKartaId = null;
+    // Odśwież listę kart w otwartej karcie pojazdu
+    const vdNrRej = document.getElementById('km-nrrej')?.value || body.nr_rej;
+    if (vdNrRej) {
+      const v = (window.vehs||[]).find(x => x.nrRej === vdNrRej);
+      const cardList = document.getElementById('vd-cards-list');
+      if (cardList && v && window.TaxOrderVehicleDetail) cardList.innerHTML = window.TaxOrderVehicleDetail._renderCards(v);
+    }
   } catch { toast('⚠ Błąd połączenia'); }
 }
 
