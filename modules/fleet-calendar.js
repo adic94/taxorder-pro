@@ -63,14 +63,12 @@ window.FleetCalendar = (function () {
   function _addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
 
   function _currentUser() {
-    try {
-      const d = JSON.parse(localStorage.getItem('cf_user') || '{}');
-      return d.name || d.email || 'Użytkownik';
-    } catch { return 'Użytkownik'; }
+    const u = window.currentUser;
+    return u?.name || u?.email || 'Użytkownik';
   }
 
   function _isAdmin() {
-    try { return ['admin','kierownik'].includes(localStorage.getItem('taxUserRole') || ''); } catch { return false; }
+    return ['admin','kierownik'].includes(window.currentUser?.role || '');
   }
 
   // ── Open / Close / Navigate ───────────────────────────────────────────────
