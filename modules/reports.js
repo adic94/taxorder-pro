@@ -140,7 +140,7 @@ window.FleetReports = (function () {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href=url; a.download=`kobize_co2_${yr}.csv`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-    toast(`✓ KOBIZE CSV: ${rows.length} pojazdów za ${yr}`);
+    toast(t('rep.toast.kobize.csv').replace('{0}', rows.length).replace('{1}', yr));
   }
 
   function exportKobizeExcel() {
@@ -165,7 +165,7 @@ window.FleetReports = (function () {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(data), `KOBIZE CO2 ${yr}`);
     XLSX.writeFile(wb, `kobize_co2_${yr}.xlsx`);
-    toast(`✓ KOBIZE Excel: ${rows.length} pojazdów`);
+    toast(t('rep.toast.kobize.xls').replace('{0}', rows.length));
   }
 
   // ── TCO per pojazd ────────────────────────────────────────────────────────
@@ -277,7 +277,7 @@ window.FleetReports = (function () {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers,...rows]), `TCO ${yr}`);
     XLSX.writeFile(wb, `tco_flota_${yr}.xlsx`);
-    toast(`✓ TCO Excel: ${rows.length} pojazdów za ${yr}`);
+    toast(t('rep.toast.tco.xls').replace('{0}', rows.length).replace('{1}', yr));
   }
 
   // ── Raport polis ubezpieczeniowych ────────────────────────────────────────
@@ -381,7 +381,7 @@ window.FleetReports = (function () {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers,...policies]), 'Polisy ubezpieczeniowe');
     XLSX.writeFile(wb, `polisy_ubezpieczen_${new Date().toISOString().slice(0,10)}.xlsx`);
-    toast(`✓ Polisy Excel: ${policies.length} wierszy`);
+    toast(t('rep.toast.policies.xls').replace('{0}', policies.length));
   }
 
   // ── Raport zarządu — Executive Summary HTML export ───────────────────────
@@ -503,7 +503,7 @@ window.FleetReports = (function () {
     a.download = `raport_zarzadu_${yr}_${today}.html`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast(`✓ Raport zarządu wygenerowany — otwórz w przeglądarce lub wydrukuj`);
+    toast(t('rep.toast.mgmt.ok'));
   }
 
   // ── renderPage — buduje zawartość page-raporty-fleet ─────────────────────
@@ -707,7 +707,7 @@ window.FleetReports = (function () {
 
     const fname = `raport_flota_${yr}${mo?'_'+mo:''}.xlsx`;
     XLSX.writeFile(wb, fname);
-    toast(`✓ Eksportowano: ${fname}`);
+    toast(t('rep.toast.export.ok').replace('{0}', fname));
   }
 
   function exportCsv() {
@@ -1394,7 +1394,7 @@ tr:hover td{background:#f9fafb}
 
     const safe = (s) => s.replace(/[^a-zA-Z0-9_-]/g, '_');
     doc.save(`raport_${year}_${String(month).padStart(2,'0')}${company ? '_' + safe(company) : ''}.pdf`);
-    toast(`✓ Pobrano raport PDF: ${monthLabel}`);
+    toast(t('rep.toast.pdf.ok').replace('{0}', monthLabel));
   }
 
   return { renderPage, exportExcel, exportCsv, renderServicePlan, exportServicePlanExcel, exportServicePlanHtml, saveBudgetInputs, renderKobize, exportKobizeCsv, exportKobizeExcel, renderTco, exportTcoExcel, renderInsuranceReport, exportInsuranceExcel, exportExecutiveSummary, emailExecutiveSummary, generateMonthlyPdf, initPdfSelectors };

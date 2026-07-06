@@ -84,7 +84,7 @@ window.TaxOrderServiceOrders = (function () {
 
   async function save() {
     const nrRej = document.getElementById('zlm-nrrej').value.trim().toUpperCase();
-    if (!nrRej) { toast('⚠ Wpisz numer rejestracyjny'); return; }
+    if (!nrRej) { toast(t('so.toast.nrreg.req')); return; }
     const body = {
       company_id: _company(),
       nr_rej: nrRej,
@@ -97,11 +97,11 @@ window.TaxOrderServiceOrders = (function () {
     try {
       const resp = await fetch(`${_cfApi()}/api/service-orders`, { method: 'POST', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      toast('✓ Zlecenie zgłoszone');
+      toast(t('so.toast.submitted'));
       closeModal();
       await load();
     } catch (e) {
-      toast('⚠ Błąd zapisu: ' + e.message);
+      toast(t('so.toast.save.err').replace('{0}', e.message));
     }
   }
 
@@ -111,10 +111,10 @@ window.TaxOrderServiceOrders = (function () {
     try {
       const resp = await fetch(`${_cfApi()}/api/service-orders/${id}`, { method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ akcja: 'AUTORYZUJ', autoryzowal }) });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      toast('✓ Zlecenie autoryzowane');
+      toast(t('so.toast.authorized'));
       await load();
     } catch (e) {
-      toast('⚠ Błąd: ' + e.message);
+      toast(t('so.toast.err').replace('{0}', e.message));
     }
   }
 
@@ -124,10 +124,10 @@ window.TaxOrderServiceOrders = (function () {
     try {
       const resp = await fetch(`${_cfApi()}/api/service-orders/${id}`, { method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ akcja: 'ODRZUC', powod_odrzucenia: powod }) });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      toast('✓ Zlecenie odrzucone');
+      toast(t('so.toast.rejected'));
       await load();
     } catch (e) {
-      toast('⚠ Błąd: ' + e.message);
+      toast(t('so.toast.err').replace('{0}', e.message));
     }
   }
 
@@ -161,11 +161,11 @@ window.TaxOrderServiceOrders = (function () {
         throw new Error(e.error || 'HTTP ' + resp.status);
       }
       _syncToServiceHistory(order, body);
-      toast('✓ Zlecenie zrealizowane — wpis dodany do historii serwisowej pojazdu');
+      toast(t('so.toast.done'));
       closeRealizeModal();
       await load();
     } catch (e) {
-      toast('⚠ Błąd realizacji: ' + e.message);
+      toast(t('so.toast.done.err').replace('{0}', e.message));
     }
   }
 
@@ -194,14 +194,14 @@ window.TaxOrderServiceOrders = (function () {
   }
 
   async function remove(id) {
-    if (!confirm('Usunąć zlecenie?')) return;
+    if (!confirm(t('so.confirm.del'))) return;
     try {
       const resp = await fetch(`${_cfApi()}/api/service-orders/${id}`, { method: 'DELETE', headers: _headers() });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      toast('✓ Zlecenie usunięte');
+      toast(t('so.toast.deleted'));
       await load();
     } catch (e) {
-      toast('⚠ Błąd usuwania: ' + e.message);
+      toast(t('so.toast.del.err').replace('{0}', e.message));
     }
   }
 
