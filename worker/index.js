@@ -2597,13 +2597,14 @@ async function handleRequest(request, env, url, path) {
 }
 
 // ─── HELPERS dla budowania alertów (push/email/sms używają tego samego) ─────────
-function buildVehicleAlerts(vehRows, alertTypes) {
+function _daysUntil(ds) {
+  if (!ds) return null;
   const now = new Date(); now.setHours(0, 0, 0, 0);
-  const daysUntil = ds => {
-    if (!ds) return null;
-    const d = new Date(ds);
-    return isNaN(d) ? null : Math.round((d - now) / 86400000);
-  };
+  const d = new Date(ds);
+  return isNaN(d) ? null : Math.round((d - now) / 86400000);
+}
+
+function buildVehicleAlerts(vehRows, alertTypes) {
   const BUILTIN_FIELDS = {
     oc:            v => v.ocEnd           ? { date: v.ocEnd }           : null,
     ac:            v => v.acEnd           ? { date: v.acEnd }           : null,
@@ -2618,22 +2619,63 @@ function buildVehicleAlerts(vehRows, alertTypes) {
     for (const [typeId, getter] of Object.entries(BUILTIN_FIELDS)) {
       const res = getter(v);
       if (!res) continue;
-      const days = daysUntil(res.date);
+      const days = _daysUntil(res.date);
       if (days === null) continue;
-      alerts.push({ nrRej: vRow.nr_rej, typeId, label: alertTypes.find(a => a.id === typeId)?.name || typeId, days, km: null, expired: days < 0 });
+      alerts.push({ subject: vRow.nr_rej, nrRej: vRow.nr_rej, typeId, label: alertTypes.find(a => a.id === typeId)?.name || typeId, days, km: null, expired: days < 0 });
     }
     for (const item of (v.maintenanceItems || [])) {
       const at = alertTypes.find(a => a.id === item.typeId);
       const itemLabel = item.label || at?.name || item.typeId;
       if (item.nextDate) {
-        const days = daysUntil(item.nextDate);
-        if (days !== null) alerts.push({ nrRej: vRow.nr_rej, typeId: item.typeId, label: itemLabel, days, km: null, expired: days < 0 });
+        const days = _daysUntil(item.nextDate);
+        if (days !== null) alerts.push({ subject: vRow.nr_rej, nrRej: vRow.nr_rej, typeId: item.typeId, label: itemLabel, days, km: null, expired: days < 0 });
       }
       if (item.nextKm && v.stanKilometrow) {
         const kmLeft = item.nextKm - v.stanKilometrow;
-        alerts.push({ nrRej: vRow.nr_rej, typeId: item.typeId, label: itemLabel, days: null, km: kmLeft, expired: kmLeft < 0 });
+        alerts.push({ subject: vRow.nr_rej, nrRej: vRow.nr_rej, typeId: item.typeId, label: itemLabel, days: null, km: kmLeft, expired: kmLeft < 0 });
       }
     }
+  }
+  return alerts;
+}
+
+function buildDriverAlerts(driverRows) {
+  const alerts = [];
+  for (const d of driverRows) {
+    if (!d.license_expiry) continue;
+    const days = _daysUntil(d.license_expiry);
+    if (days === null) continue;
+    alerts.push({
+      subject: d.name,
+      nrRej: null,
+      driverName: d.name,
+      typeId: 'driver_license',
+      label: `Prawo jazdy: ${d.name}`,
+      days,
+      km: null,
+      expired: days < 0,
+    });
+  }
+  return alerts;
+}
+
+function buildFineAlerts(fineRows) {
+  const alerts = [];
+  for (const f of fineRows) {
+    if (!f.deadline || f.paid) continue;
+    const days = _daysUntil(f.deadline);
+    if (days === null) continue;
+    const subj = f.nr_rej || f.driver_name || 'Mandat';
+    alerts.push({
+      subject: subj,
+      nrRej: f.nr_rej || null,
+      driverName: f.driver_name || null,
+      typeId: 'fine_deadline',
+      label: `Termin zapłaty mandatu${f.nr_rej ? ` ${f.nr_rej}` : ''}${f.driver_name ? ` / ${f.driver_name}` : ''}`,
+      days,
+      km: null,
+      expired: days < 0,
+    });
   }
   return alerts;
 }
@@ -2659,9 +2701,10 @@ function buildPushPayload(myAlerts) {
   const title = expiredCount
     ? `TaxOrder — ${expiredCount} termin${expiredCount > 1 ? 'y' : ''} WYGASŁ${expiredCount > 1 ? 'Y' : ''}`
     : `TaxOrder — ${myAlerts.length} alert${myAlerts.length > 1 ? 'y' : ''} wkrótce`;
+  const subj = first.subject || first.nrRej || '—';
   const bodyMsg = first.days !== null
-    ? `${first.nrRej}: ${first.label} ${first.expired ? `wygasło ${Math.abs(first.days)} dni temu` : `wygasa za ${first.days} dni`}`
-    : `${first.nrRej}: ${first.label} za ${first.km} km`;
+    ? `${subj}: ${first.label} ${first.expired ? `wygasło ${Math.abs(first.days)} dni temu` : `wygasa za ${first.days} dni`}`
+    : `${subj}: ${first.label} za ${first.km} km`;
   return { title, body: bodyMsg + (myAlerts.length > 1 ? ` (+${myAlerts.length - 1} więcej)` : ''), urgent: expiredCount > 0, first };
 }
 
@@ -2687,8 +2730,18 @@ async function previewNotificationJobs(env) {
     const subRows = await env.DB.prepare('SELECT * FROM push_subscriptions WHERE company_id=?').bind(company_id).all();
     const subs = subRows.results || [];
     totalSubs += subs.length;
-    const vehRows = await env.DB.prepare('SELECT nr_rej, data FROM vehicles WHERE company_id=?').bind(company_id).all();
-    const vehicleAlerts = buildVehicleAlerts(vehRows.results || [], alertTypes);
+
+    const [vehRows, drvRows, fineRows] = await Promise.all([
+      env.DB.prepare('SELECT nr_rej, data FROM vehicles WHERE company_id=?').bind(company_id).all(),
+      env.DB.prepare('SELECT name, license_expiry FROM drivers WHERE company_id=?').bind(company_id).all().catch(() => ({ results: [] })),
+      env.DB.prepare('SELECT nr_rej, driver_name, deadline, paid FROM fines WHERE company_id=? AND paid=0').bind(company_id).all().catch(() => ({ results: [] })),
+    ]);
+    const allAlerts = [
+      ...buildVehicleAlerts(vehRows.results || [], alertTypes),
+      ...buildDriverAlerts(drvRows.results || []),
+      ...buildFineAlerts(fineRows.results || []),
+    ];
+
     const prefRows = await env.DB.prepare(
       `SELECT np.user_id, np.alert_type_id, np.enabled, np.threshold_days, np.threshold_km, np.quiet_from, np.quiet_to
        FROM notification_prefs np JOIN users u ON u.id=np.user_id AND u.active=1`
@@ -2701,12 +2754,12 @@ async function previewNotificationJobs(env) {
     for (const sub of subs) {
       const prefs = userPrefs[sub.user_id] || {};
       const quiet = isInQuietHours(prefs, nowHour);
-      const myAlerts = filterAlertsForUser(vehicleAlerts, prefs);
+      const myAlerts = filterAlertsForUser(allAlerts, prefs);
       if (myAlerts.length) {
         const { title, body, first } = buildPushPayload([...myAlerts]);
         preview.push({ type: 'push', sub_id: sub.id, user_id: sub.user_id, company_id, quiet, alerts_count: myAlerts.length, title, body,
-          top_alert: { nrRej: first.nrRej, typeId: first.typeId, days: first.days, km: first.km, expired: first.expired },
-          all_alerts: myAlerts.map(a => ({ nrRej: a.nrRej, typeId: a.typeId, days: a.days, km: a.km, expired: a.expired })) });
+          top_alert: { subject: first.subject, nrRej: first.nrRej, typeId: first.typeId, days: first.days, km: first.km, expired: first.expired },
+          all_alerts: myAlerts.map(a => ({ subject: a.subject, nrRej: a.nrRej, typeId: a.typeId, days: a.days, km: a.km, expired: a.expired })) });
       }
     }
     // Email preview
@@ -2721,11 +2774,11 @@ async function previewNotificationJobs(env) {
     for (const usr of (emailUserRows.results || [])) {
       const prefs = userPrefs[usr.id] || {};
       const quiet = isInQuietHours(prefs, nowHour);
-      const myAlerts = filterAlertsForUser(vehicleAlerts, prefs);
+      const myAlerts = filterAlertsForUser(allAlerts, prefs);
       if (myAlerts.length) {
         const { title, first } = buildPushPayload([...myAlerts]);
         preview.push({ type: 'email', user_id: usr.id, to_email: usr.email, company_id, quiet, alerts_count: myAlerts.length, title,
-          top_alert: { nrRej: first.nrRej, typeId: first.typeId, days: first.days, km: first.km, expired: first.expired } });
+          top_alert: { subject: first.subject, nrRej: first.nrRej, typeId: first.typeId, days: first.days, km: first.km, expired: first.expired } });
       }
     }
     // SMS preview
@@ -2740,11 +2793,11 @@ async function previewNotificationJobs(env) {
     for (const usr of (smsUserRows.results || [])) {
       const prefs = userPrefs[usr.id] || {};
       const quiet = isInQuietHours(prefs, nowHour);
-      const myAlerts = filterAlertsForUser(vehicleAlerts, prefs);
+      const myAlerts = filterAlertsForUser(allAlerts, prefs);
       if (myAlerts.length) {
         const { title, first } = buildPushPayload([...myAlerts]);
         preview.push({ type: 'sms', user_id: usr.id, to_phone: usr.telefon, company_id, quiet, alerts_count: myAlerts.length, title,
-          top_alert: { nrRej: first.nrRej, typeId: first.typeId, days: first.days, km: first.km } });
+          top_alert: { subject: first.subject, nrRej: first.nrRej, typeId: first.typeId, days: first.days, km: first.km } });
       }
     }
   }
@@ -2784,9 +2837,17 @@ async function queueNotificationJobs(env) {
     const subs = subRows.results || [];
     if (!subs.length) continue;
 
-    const vehRows = await env.DB.prepare('SELECT nr_rej, data FROM vehicles WHERE company_id=?').bind(company_id).all();
-    const vehicleAlerts = buildVehicleAlerts(vehRows.results || [], alertTypes);
-    if (!vehicleAlerts.length) continue;
+    const [vehRows, drvRows, fineRows] = await Promise.all([
+      env.DB.prepare('SELECT nr_rej, data FROM vehicles WHERE company_id=?').bind(company_id).all(),
+      env.DB.prepare('SELECT name, license_expiry FROM drivers WHERE company_id=?').bind(company_id).all().catch(() => ({ results: [] })),
+      env.DB.prepare('SELECT nr_rej, driver_name, deadline, paid FROM fines WHERE company_id=? AND paid=0').bind(company_id).all().catch(() => ({ results: [] })),
+    ]);
+    const allAlerts = [
+      ...buildVehicleAlerts(vehRows.results || [], alertTypes),
+      ...buildDriverAlerts(drvRows.results || []),
+      ...buildFineAlerts(fineRows.results || []),
+    ];
+    if (!allAlerts.length) continue;
 
     // Załaduj preferencje wszystkich użytkowników firmy
     const prefRows = await env.DB.prepare(
@@ -2804,7 +2865,7 @@ async function queueNotificationJobs(env) {
       const prefs = userPrefs[sub.user_id] || {};
       if (isInQuietHours(prefs, nowHour)) continue;
 
-      const myAlerts = filterAlertsForUser(vehicleAlerts, prefs);
+      const myAlerts = filterAlertsForUser(allAlerts, prefs);
       if (!myAlerts.length) continue;
 
       const { title, body, urgent, first } = buildPushPayload([...myAlerts]);
@@ -2817,7 +2878,8 @@ async function queueNotificationJobs(env) {
         p256dh: sub.p256dh,
         auth_key: sub.auth_key,
         alert_type_id: first.typeId,
-        vehicle_nr_rej: first.nrRej,
+        vehicle_nr_rej: first.nrRej || null,
+        subject: first.subject,
         label: body,
         days_until: first.days,
         km_until: first.km,
