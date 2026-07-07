@@ -8,4 +8,5 @@
  * Lokalny development (wrangler dev):
  *   window.CF_API_URL = 'http://localhost:8787';
  */
-window.CF_API_URL = 'https://taxorder-pro-api.adamus1000.workers.dev';
+window.CF_API_URL    = 'https://taxorder-pro-api.adamus1000.workers.dev';
+window.CF_WORKER_URL = window.CF_API_URL;   // alias dla starszych modułów
