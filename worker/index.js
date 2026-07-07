@@ -2646,6 +2646,15 @@ async function handleRequest(request, env, url, path) {
     }
   }
 
+  // Sesyjni użytkownicy z rolą inną niż admin są ograniczeni do własnej firmy.
+  // Admin może odpytywać dowolną firmę (zarządzanie wieloma klientami z jednego konta).
+  if (user && !user._apiKey && user.role !== 'admin') {
+    const reqCompany = url.searchParams.get('company');
+    if (reqCompany && reqCompany !== user.company_id) {
+      return err('Brak dostępu do tej firmy', 403);
+    }
+  }
+
   if (path === '/api/export' && request.method === 'GET') {
     if (!user) return err('Nieautoryzowany', 401);
     const company = url.searchParams.get('company');
