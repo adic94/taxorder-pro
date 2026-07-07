@@ -1,4 +1,6 @@
-FROM python:3.11-slim
+# Przypinamy wydanie Debiana (trixie), bo ruchomy tag python:3.11-slim
+# zmienił bazę bez ostrzeżenia i wywalił build na Railway 24.06.2026.
+FROM python:3.11-slim-trixie
 
 # Tesseract OCR + języki PL i EN
 RUN apt-get update && apt-get install -y --no-install-recommends \

@@ -1,0 +1,24 @@
+name: JS syntax check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check syntax (node --check)
+        run: |
+          set -e
+          for f in app.js sw.js; do
+            [ -f "$f" ] && node --check "$f"
+          done
+          for f in modules/*.js worker/*.js; do
+            [ -f "$f" ] && node --check "$f"
+          done
