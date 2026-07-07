@@ -251,9 +251,47 @@ window.TaxOrderDrivers = (function () {
     return _getStatsCached(driverName);
   }
 
+  // ── Import masowy z ZSIA ──────────────────────────────────────────────────
+  // Przyjmuje tablicę obiektów { name, phone, email, license_no, license_category,
+  // license_expiry, _companyId } zwracanych przez zsia-importer._mapDriver().
+  // Pomija istniejących (po name, case-insensitive). Zwraca liczbę dodanych.
+  async function importBulk(drivers) {
+    if (!Array.isArray(drivers) || !drivers.length) return 0;
+    if (!_loaded) await load();
+
+    const existing = new Set(_drivers.map(d => d.name.toLowerCase()));
+    let added = 0;
+
+    for (const d of drivers) {
+      if (!d.name) continue;
+      const key = d.name.toLowerCase();
+      if (existing.has(key)) continue;
+
+      const co = d._companyId || company();
+      const body = {
+        name:             d.name,
+        phone:            d.phone            || null,
+        email:            d.email            || null,
+        license_no:       d.license_no       || null,
+        license_category: d.license_category || null,
+        license_expiry:   d.license_expiry   || null,
+      };
+
+      try {
+        const r = await fetch(`${API()}/api/drivers?company=${co}`, {
+          method: 'POST', headers: hdrs(), body: JSON.stringify(body),
+        });
+        if (r.ok) { added++; existing.add(key); }
+      } catch { /* pomiń rekord przy błędzie sieciowym */ }
+    }
+
+    if (added) await load();
+    return added;
+  }
+
   async function init() {
     await load();
   }
 
-  return { getAll, load, open, close, edit, newDriver, saveDriver, remove, importFromVehicles, init, getStats };
+  return { getAll, load, open, close, edit, newDriver, saveDriver, remove, importFromVehicles, importBulk, init, getStats };
 })();
