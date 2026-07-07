@@ -294,6 +294,18 @@ window.TaxOrderVehicleDetail = {
         <div id="vd-dr-view" style="display:none">${this._renderDrView(v)}</div>
         <!-- Sekcje formularza -->
         <div id="vd-dr-form-sections">
+        <!-- Drop zone: wgraj PDF DR bezpośrednio w karcie pojazdu -->
+        <div id="vd-dr-dropzone"
+          ondragover="event.preventDefault();this.style.borderColor='var(--blue)';this.style.background='var(--blue-light,#eff6ff)'"
+          ondragleave="this.style.borderColor='var(--border2)';this.style.background=''"
+          ondrop="event.preventDefault();this.style.borderColor='var(--border2)';this.style.background='';AztecScanner._vehId=${v.id};AztecScanner._ensureModal();AztecScanner._handleFile(event.dataTransfer.files[0]).then(()=>{if(AztecScanner._parsed)document.getElementById('aztec-modal').style.display='flex';TaxOrderVehicleDetail._refreshDrView(${v.id})})"
+          style="border:1.5px dashed var(--border2);border-radius:var(--radius-lg,10px);padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .15s;font-size:12px;color:var(--text2)"
+          onclick="document.getElementById('vd-dr-file-${v.id}').click()">
+          <i class="ti ti-file-upload" style="font-size:18px;flex-shrink:0;color:var(--text3)"></i>
+          <span>Przeciągnij PDF dowodu rejestracyjnego lub <u style="color:var(--blue);cursor:pointer">kliknij aby wybrać</u></span>
+          <input type="file" id="vd-dr-file-${v.id}" accept="image/*,application/pdf,.pdf" style="display:none"
+            onchange="AztecScanner._vehId=${v.id};AztecScanner._ensureModal();AztecScanner._handleFile(this.files[0]).then(()=>{if(AztecScanner._parsed)document.getElementById('aztec-modal').style.display='flex';TaxOrderVehicleDetail._refreshDrView(${v.id})})">
+        </div>
         <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Identyfikacja dokumentu</div>
         <div class="vdfg" style="margin-bottom:18px">
           ${field('dataRej','B — Data 1. rej. w Polsce', v.dataRejestracji,'date')}
@@ -1431,6 +1443,12 @@ window.TaxOrderVehicleDetail = {
     this.refreshServiceTab(vehId);
   },
 
+  _refreshDrView(vehId) {
+    const v = (window.vehs || []).find(x => x.id === vehId);
+    const el = document.getElementById('vd-dr-view');
+    if (v && el) el.innerHTML = this._renderDrView(v);
+  },
+
   _toggleDrView(showView) {
     const view   = document.getElementById('vd-dr-view');
     const form   = document.getElementById('vd-dr-form-sections');
@@ -1534,12 +1552,48 @@ window.TaxOrderVehicleDetail = {
           font-family:serif
         ">DR</div>
       </div>
-      <div style="margin-top:8px;display:flex;gap:8px">
-        <button class="btn btn-amber" style="flex:1;justify-content:center"
+      <!-- Akcje pod DR -->
+      <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <button class="btn btn-amber" style="justify-content:center"
           onclick="AztecScanner.open(${v.id})">
           <i class="ti ti-qrcode"></i> Skanuj AZTEC
         </button>
-      </div>`;
+        <label class="btn btn-gray" style="justify-content:center;cursor:pointer;position:relative">
+          <i class="ti ti-file-upload"></i> Importuj PDF
+          <input type="file" accept="image/*,application/pdf,.pdf"
+            style="position:absolute;opacity:0;inset:0;cursor:pointer"
+            onchange="AztecScanner._vehId=${v.id};AztecScanner._ensureModal();AztecScanner._handleFile(this.files[0]).then(()=>{if(AztecScanner._parsed)document.getElementById('aztec-modal').style.display='flex'})">
+        </label>
+      </div>
+      ${window.AztecScanner?._lastScanDataUrl ? `
+      <!-- Wariant B: side-by-side ze skanem -->
+      <div style="margin-top:14px;padding-top:10px;border-top:1px dashed #c8b89a">
+        <div style="font-size:9px;color:#7a6a55;margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Ostatni skan dokumentu</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start">
+          <div>
+            <img src="${window.AztecScanner._lastScanDataUrl}"
+              style="width:100%;border-radius:6px;border:1px solid #c8b89a;object-fit:contain;max-height:220px;background:#fff"
+              alt="Skan DR">
+          </div>
+          <div style="font-size:9.5px;color:var(--text2);padding:4px">
+            <div style="font-weight:700;color:var(--text);margin-bottom:6px">Dane w systemie vs. skan</div>
+            <div style="display:flex;flex-direction:column;gap:3px">
+              ${[
+                ['A', 'Nr rej.', v.nrRej],
+                ['D.1', 'Marka', v.marka],
+                ['E', 'VIN', v.vin ? v.vin.slice(0,8)+'…' : null],
+                ['F.1', 'DMC', v.dmcMax ? v.dmcMax+' kg' : null],
+                ['G', 'Masa wł.', v.masaWlasna ? v.masaWlasna+' kg' : null],
+                ['P.3', 'Paliwo', v.paliwo],
+              ].map(([code, label, val]) => `<div style="display:flex;gap:4px;align-items:baseline">
+                <span style="font-size:8px;font-weight:700;color:#7a6a55;min-width:24px">${code}</span>
+                <span style="min-width:52px">${label}:</span>
+                <span style="font-weight:600;color:${val ? 'var(--text)' : 'var(--text3)'}">${val || '—'}</span>
+              </div>`).join('')}
+            </div>
+          </div>
+        </div>
+      </div>` : ''}`;
   },
 
   _renderDt1Box(v) {

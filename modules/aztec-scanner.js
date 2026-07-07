@@ -8,6 +8,7 @@ window.AztecScanner = {
   _vehId: undefined,
   _parsed: null,
   _rawText: '',
+  _lastScanDataUrl: null,   // ostatni skan — używany w Wariancie B (side-by-side)
 
   // ── Punkt wejścia ─────────────────────────────────────────────────────────
   open(vehId) {
@@ -62,8 +63,8 @@ window.AztecScanner = {
             <input type="file" accept="image/*" capture="environment" style="position:absolute;opacity:0;width:100%;height:100%;cursor:pointer" onchange="AztecScanner._handleFile(this.files[0])">
           </label>
           <label class="btn btn-gray" style="justify-content:center;cursor:pointer;position:relative">
-            <i class="ti ti-upload"></i>Wgraj plik
-            <input type="file" accept="image/png,image/jpeg,image/webp,image/bmp,image/tiff,image/*" style="position:absolute;opacity:0;width:100%;height:100%;cursor:pointer" onchange="AztecScanner._handleFile(this.files[0])">
+            <i class="ti ti-upload"></i>Wgraj plik / PDF
+            <input type="file" accept="image/*,application/pdf,.pdf" style="position:absolute;opacity:0;width:100%;height:100%;cursor:pointer" onchange="AztecScanner._handleFile(this.files[0])">
           </label>
         </div>
 
@@ -101,17 +102,30 @@ window.AztecScanner = {
   // ── Obsługa pliku ─────────────────────────────────────────────────────────
   async _handleFile(file) {
     if (!file) return;
+    const isPdf = file.type === 'application/pdf' || file.name?.toLowerCase().endsWith('.pdf');
 
-    // Podgląd
-    const img = document.getElementById('aztec-preview-img');
-    img.style.display = 'block';
-    img.src = URL.createObjectURL(file);
+    const previewImg = document.getElementById('aztec-preview-img');
+    if (!isPdf && previewImg) {
+      previewImg.style.display = 'block';
+      previewImg.src = URL.createObjectURL(file);
+    }
 
-    this._setStatus('loading', 'Dekodowanie kodu AZTEC… może chwilę potrwać.');
+    this._setStatus('loading', isPdf
+      ? 'Odczytuję strony PDF i szukam kodu AZTEC…'
+      : 'Dekodowanie kodu AZTEC… może chwilę potrwać.');
     document.getElementById('aztec-result').style.display = 'none';
 
     try {
-      const text = await this._decode(file);
+      let text;
+      if (isPdf) {
+        text = await this._decodeFromPdf(file);
+      } else {
+        text = await this._decode(file);
+        // Zapamiętaj skan dla Wariantu B (side-by-side)
+        const dataUrl = await this._fileToDataUrl(file);
+        this._lastScanDataUrl = dataUrl;
+        if (previewImg) { previewImg.style.display = 'block'; previewImg.src = dataUrl; }
+      }
       if (!text || !text.trim()) throw new Error('Kod AZTEC pusty lub nieczytelny');
       this._rawText = text;
       this._parsed = this._parse(text);
@@ -119,10 +133,74 @@ window.AztecScanner = {
       this._setStatus('ok', 'Kod AZTEC zdekodowany. Sprawdź dane i kliknij „Zastosuj".');
     } catch (e) {
       this._setStatus('warn',
-        'Nie znaleziono kodu AZTEC. Upewnij się że zdjęcie pokazuje <strong>ostatnią stronę DR</strong> z kwadratowym kodem. ' +
-        'Spróbuj lepszego oświetlenia lub innego kąta. Szczegół: ' + e.message);
+        (isPdf
+          ? 'Nie znaleziono kodu AZTEC w pliku PDF. Upewnij się że to właściwy dokument DR. '
+          : 'Nie znaleziono kodu AZTEC. Upewnij się że zdjęcie pokazuje <strong>ostatnią stronę DR</strong>. ') +
+        'Szczegół: ' + e.message);
       console.error('[AZTEC]', e);
     }
+  },
+
+  // ── Dekodowanie PDF — renderuje każdą stronę i szuka kodu AZTEC ──────────
+  async _decodeFromPdf(file) {
+    if (typeof pdfjsLib === 'undefined') {
+      throw new Error('PDF.js niedostępny — odśwież stronę');
+    }
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const numPages = pdf.numPages;
+
+    // Zacznij od ostatniej strony (Aztec jest z tyłu DR), potem od początku
+    const order = [];
+    for (let i = numPages; i >= 1; i--) order.push(i);
+
+    for (const pageNum of order) {
+      const page = await pdf.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 2.5 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+      // Zapamiętaj ostatnią stronę jako skan (zwykle ta z Aztec)
+      if (pageNum === numPages) {
+        this._lastScanDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+        const previewImg = document.getElementById('aztec-preview-img');
+        if (previewImg) {
+          previewImg.style.display = 'block';
+          previewImg.src = this._lastScanDataUrl;
+        }
+      }
+
+      // Spróbuj zdekodować AZTEC ze wszystkich rotacji
+      const hints = new Map();
+      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.AZTEC]);
+      for (let rot = 0; rot < 4; rot++) {
+        const c = rot === 0 ? canvas : this._rotateCanvas(canvas, rot * 90);
+        try {
+          const lum = new ZXing.HTMLCanvasElementLuminanceSource(c);
+          const rdr = new ZXing.MultiFormatReader();
+          rdr.setHints(hints);
+          const result = rdr.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum)));
+          // Znaleziono — aktualizuj podgląd na właściwą stronę
+          this._lastScanDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+          const previewImg = document.getElementById('aztec-preview-img');
+          if (previewImg) { previewImg.style.display = 'block'; previewImg.src = this._lastScanDataUrl; }
+          return result.getText();
+        } catch { /* następna rotacja / strona */ }
+      }
+    }
+    throw new Error(`Nie znaleziono kodu AZTEC w ${numPages}-stronicowym PDF`);
+  },
+
+  async _fileToDataUrl(file) {
+    return new Promise((res, rej) => {
+      const fr = new FileReader();
+      fr.onload = e => res(e.target.result);
+      fr.onerror = rej;
+      fr.readAsDataURL(file);
+    });
   },
 
   // ── Dekodowanie ZXing ─────────────────────────────────────────────────────
