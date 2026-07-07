@@ -1,130 +1,148 @@
 """
-Dekompresor NRV2E w czystym Pythonie.
+Wrapper ctypes dla UCL NRV2E — Markus Oberhumer (GPL-2).
+Wymaga: libucl1 zainstalowanego w systemie (apt install libucl1).
 
-Algorytm NRV2E jest wariantem kompresji UCL (oblivion-free LZ77):
-  - literały są kopiowane bezpośrednio
-  - kopie opisane są parą (offset, długość) zakodowaną w strumieniu bitowym
-  - koniec strumienia: offset == 1, długość == 3 (sentinel)
+Format payloadu Aztec polskiego DR (potwierdzony eksperymentalnie):
+    base64_decode(aztec_text) → buf
+    buf[0:4]  = little-endian uint32 → oczekiwany rozmiar wyjścia
+    buf[4:]   = dane skompresowane NRV2E
+    decompress(buf[4:], oczekiwany_rozmiar) → bajty UTF-16LE
+    tekst.decode('utf-16-le').split('|') → lista pól
 
-Adaptacja dla polskiego Dowodu Rejestracyjnego:
-  payload z kodu Aztec to: base64 → NRV2E → UTF-16LE tekst z polami
-
-Implementacja wzorowana na open-source referencjach (JS/C):
-  https://github.com/majkrzak/dr-decoder  (JS reference)
-  UCL libnrv2e spec: https://www.oberhumer.com/opensource/ucl/
+Nie modyfikuj tej funkcji bezpośrednio — reszta systemu komunikuje się
+przez interfejs AztecDecoder (extractors/aztec_decoder.py).
 """
 from __future__ import annotations
 
+import ctypes
+import ctypes.util
+import logging
+import struct
+from typing import Optional
 
-class _BitReader:
-    """Czyta bity od najmniej znaczącego (LSB-first) z bufora bajtów."""
+logger = logging.getLogger(__name__)
 
-    def __init__(self, data: bytes) -> None:
-        self._data = data
-        self._byte_pos = 0
-        self._bit_buf = 0
-        self._bit_count = 0
+UCL_E_OK = 0
 
-    def read_bit(self) -> int:
-        if self._bit_count == 0:
-            if self._byte_pos >= len(self._data):
-                raise ValueError("Nieoczekiwany koniec danych NRV2E")
-            self._bit_buf = self._data[self._byte_pos]
-            self._byte_pos += 1
-            self._bit_count = 8
-        bit = self._bit_buf & 1
-        self._bit_buf >>= 1
-        self._bit_count -= 1
-        return bit
-
-    def read_byte(self) -> int:
-        if self._byte_pos >= len(self._data):
-            raise ValueError("Nieoczekiwany koniec danych NRV2E")
-        b = self._data[self._byte_pos]
-        self._byte_pos += 1
-        return b
-
-    def read_unary(self) -> int:
-        """Czyta liczbę jedynek aż do zera (kod unary → wartość = liczba_jedynek)."""
-        n = 0
-        while self.read_bit() == 1:
-            n += 1
-        return n
+# Nazwy do przeszukania (ldconfig może wyeksportować różnie)
+_LIB_NAMES = ["libucl.so.1", "libucl.so", "ucl"]
 
 
-def decompress(data: bytes) -> bytes:
+def _load_ucl() -> Optional[ctypes.CDLL]:
+    """Ładuje libucl. Zwraca None jeśli biblioteka niedostępna."""
+    # Najpierw find_library (używa ldconfig/ld.so)
+    found = ctypes.util.find_library("ucl")
+    candidates = ([found] if found else []) + _LIB_NAMES
+
+    for name in candidates:
+        if not name:
+            continue
+        try:
+            lib = ctypes.cdll.LoadLibrary(name)
+            _configure(lib)
+            logger.info("libucl załadowana: %s", name)
+            return lib
+        except OSError:
+            continue
+
+    logger.warning("libucl niedostępna — dekodowanie Aztec DR niemożliwe")
+    return None
+
+
+def _configure(lib: ctypes.CDLL) -> None:
+    """Ustawia argtypes/restype dla funkcji dekompresji."""
+    fn = lib.ucl_nrv2e_decompress_safe_8
+    fn.argtypes = [
+        ctypes.c_char_p,                   # src
+        ctypes.c_uint32,                   # src_len
+        ctypes.c_char_p,                   # dst (bufor wyjściowy)
+        ctypes.POINTER(ctypes.c_uint32),   # dst_len: wejście = max, wyjście = rzeczywisty
+        ctypes.c_void_p,                   # wrkmem (NULL — niepotrzebne przy dekompresji)
+    ]
+    fn.restype = ctypes.c_int
+
+
+# Singleton — libucl ładowana raz przy pierwszym użyciu
+_lib: Optional[ctypes.CDLL] = None
+_lib_loaded = False
+
+
+def _get_lib() -> Optional[ctypes.CDLL]:
+    global _lib, _lib_loaded
+    if not _lib_loaded:
+        _lib = _load_ucl()
+        _lib_loaded = True
+    return _lib
+
+
+def is_available() -> bool:
+    """Zwraca True gdy libucl1 jest zainstalowana i możliwa do załadowania."""
+    return _get_lib() is not None
+
+
+def decompress(compressed: bytes, expected_size: int) -> bytes:
     """
-    Dekompresuje dane NRV2E.
-    Rzuca ValueError dla uszkodzonego strumienia.
+    Dekompresuje dane NRV2E przez libucl.
+
+    Parametry:
+        compressed    — skompresowane bajty (bez 4-bajtowego nagłówka rozmiaru)
+        expected_size — oczekiwany rozmiar wyjścia (z nagłówka LE uint32)
+
+    Zwraca: bajty zdekomresowane (UTF-16LE dla DR).
+    Rzuca: RuntimeError gdy libucl niedostępna.
+           ValueError gdy UCL zwróci błąd.
     """
-    if not data:
-        return b''
+    lib = _get_lib()
+    if lib is None:
+        raise RuntimeError(
+            "libucl1 niedostępna — zainstaluj: apt install libucl1  "
+            "(Dockerfile już zawiera libucl1)"
+        )
 
-    reader = _BitReader(data)
-    out = bytearray()
-    last_m_off = 1  # poprzedni offset (inicjalnie 1)
+    dst_buf = ctypes.create_string_buffer(expected_size)
+    dst_len = ctypes.c_uint32(expected_size)
 
-    while True:
-        # Czytaj literały dopóki bit == 1
-        while reader.read_bit() == 1:
-            out.append(reader.read_byte())
+    ret = lib.ucl_nrv2e_decompress_safe_8(
+        compressed,
+        ctypes.c_uint32(len(compressed)),
+        dst_buf,
+        ctypes.byref(dst_len),
+        None,
+    )
 
-        # Zakodowany offset (gamma kod Eliasa, MSB-first)
-        # UCL NRV2E: offset dekodowany przez kolejne bity gamma
-        m_off = 1
-        while True:
-            m_off = (m_off << 1) | reader.read_bit()
-            if reader.read_bit() == 0:
-                break
-            m_off += 1
+    if ret != UCL_E_OK:
+        raise ValueError(
+            f"ucl_nrv2e_decompress_safe_8 zwróciła kod błędu {ret} "
+            f"(wejście {len(compressed)} B, oczekiwano {expected_size} B wyjścia)"
+        )
 
-        if m_off == 2:
-            # Użyj poprzedniego offsetu
-            m_off = last_m_off
-        else:
-            # Odczytaj dolny bajt offsetu
-            low_byte = reader.read_byte()
-            m_off = ((m_off - 3) << 8) + low_byte + 1
-            if m_off == 0xFFFF_FFFE:  # sentinel końca
-                break
-            last_m_off = m_off
-
-        # Dekoduj długość dopasowania (gamma + 2)
-        m_len = 1
-        while True:
-            bit = reader.read_bit()
-            m_len = (m_len << 1) | reader.read_bit()
-            if bit == 0:
-                break
-        m_len += 2
-        if last_m_off > 0xD00:
-            m_len += 1
-        elif last_m_off > 0x500:
-            # bez korekty
-            pass
-        # (opcjonalne korekty długości zależne od offsetu — pomijamy dla uproszczenia)
-
-        # Kopiowanie
-        src = len(out) - m_off
-        if src < 0:
-            raise ValueError(f"NRV2E: nieprawidłowe odwołanie wsteczne (offset={m_off})")
-        for _ in range(m_len):
-            out.append(out[src])
-            src += 1
-
-    return bytes(out)
+    actual = dst_len.value
+    return bytes(dst_buf[:actual])
 
 
-def decode_aztec_payload(raw_bytes: bytes) -> str:
+def decode_dr_payload(raw: bytes) -> str:
     """
-    Dekoduje surowy payload z kodu Aztec polskiego DR.
-    Wejście: bajty z kodu Aztec (już po base64-decode jeśli był b64).
-    Wyjście: string z polami rozdzielonymi '|'.
+    Dekoduje surowe bajty payloadu Aztec DR (po base64-decode).
+
+    Format wejściowy:
+        raw[0:4]  — LE uint32: rozmiar wyjścia po dekompresji
+        raw[4:]   — dane NRV2E
+
+    Zwraca: string pól rozdzielonych '|' (UTF-16LE).
     """
-    try:
-        decompressed = decompress(raw_bytes)
-    except Exception as e:
-        raise ValueError(f"Błąd dekompresji NRV2E: {e}") from e
+    if len(raw) < 4:
+        raise ValueError(f"Payload zbyt krótki: {len(raw)} B (minimum 4)")
+
+    expected_size = struct.unpack_from("<I", raw, 0)[0]
+    compressed = raw[4:]
+
+    if expected_size == 0 or expected_size > 65536:
+        raise ValueError(
+            f"Nieprawdopodobny rozmiar wyjścia: {expected_size} B "
+            "(oczekiwano 100–65536 B dla DR)"
+        )
+
+    decompressed = decompress(compressed, expected_size)
 
     try:
         text = decompressed.decode("utf-16-le")

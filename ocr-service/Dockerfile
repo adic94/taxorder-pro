@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr-eng \
     libgomp1 \
     poppler-utils \
+    libucl1 \
+    libucl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
