@@ -74,7 +74,7 @@ window.CSVImport = (function () {
     const rows = [headers, ...examples];
     const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\r\n');
     _download('﻿' + csv, 'szablon_ubezpieczenia.csv', 'text/csv;charset=utf-8');
-    if (typeof toast === 'function') toast('📥 Szablon pobrany — uzupełnij w Excel i wgraj');
+    if (typeof toast === 'function') toast(t('csvi.toast.template.dl'));
   }
 
   function handleFile(input) {
@@ -82,7 +82,7 @@ window.CSVImport = (function () {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = e => _parse(e.target.result);
-    reader.onerror = () => { if (typeof toast === 'function') toast('⚠ Błąd odczytu pliku'); };
+    reader.onerror = () => { if (typeof toast === 'function') toast(t('csvi.toast.file.err')); };
     reader.readAsText(file, 'UTF-8');
   }
 
@@ -91,7 +91,7 @@ window.CSVImport = (function () {
     const sep = (text.split(';').length >= text.split(',').length) ? ';' : ',';
     const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
     if (lines.length < 2) {
-      if (typeof toast === 'function') toast('⚠ Plik jest pusty lub ma tylko nagłówek');
+      if (typeof toast === 'function') toast(t('csvi.toast.empty'));
       return;
     }
 
@@ -223,9 +223,9 @@ window.CSVImport = (function () {
     });
 
     const notFoundMsg = notFound.length
-      ? ` · nie znaleziono: ${notFound.slice(0, 3).join(', ')}${notFound.length > 3 ? `...+${notFound.length - 3}` : ''}`
+      ? ` · ${t('csvi.not.found')}: ${notFound.slice(0, 3).join(', ')}${notFound.length > 3 ? `...+${notFound.length - 3}` : ''}`
       : '';
-    if (typeof toast === 'function') toast(`✅ Zaktualizowano ${updated} pojazdów${notFoundMsg}`);
+    if (typeof toast === 'function') toast(t('csvi.toast.updated').replace('{0}', updated) + notFoundMsg);
 
     if (window.TaxOrderFleetCloud?.saveVehicle) {
       for (const v of updatedVehs) {

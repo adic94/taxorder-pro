@@ -170,7 +170,7 @@ window.TaxOrderHandoverProtocol = (function () {
 
   async function save() {
     const nrRej = document.getElementById('prm-nrrej').value.trim().toUpperCase();
-    if (!nrRej) { toast('⚠ Wpisz numer rejestracyjny'); return; }
+    if (!nrRej) { toast(t('hp.toast.nrreg.req')); return; }
     const body = {
       company_id: _company(),
       nr_rej: nrRej,
@@ -199,11 +199,11 @@ window.TaxOrderHandoverProtocol = (function () {
         for (const file of pendingPhotos) await _uploadOne(id, file);
         pendingPhotos = [];
       }
-      toast('✓ Protokół zapisany');
+      toast(t('hp.toast.saved'));
       closeModal();
       await load();
     } catch (e) {
-      toast('⚠ Błąd zapisu: ' + e.message);
+      toast(t('hp.toast.save.err').replace('{0}', e.message));
     }
   }
 
@@ -220,7 +220,7 @@ window.TaxOrderHandoverProtocol = (function () {
     if (!files.length) return;
     if (!editId) {
       pendingPhotos.push(...files);
-      toast(`ℹ ${files.length} zdjęcie(a) zostaną wysłane po zapisaniu protokołu`);
+      toast(t('hp.toast.photos.pending').replace('{0}', files.length));
       input.value = '';
       return;
     }
@@ -230,22 +230,22 @@ window.TaxOrderHandoverProtocol = (function () {
       const fresh = await resp.json();
       list = fresh;
       _renderPhotos(fresh.find(x => x.id === editId)?.photos || []);
-      toast('✓ Zdjęcia dodane');
+      toast(t('hp.toast.photos.added'));
     } catch (e) {
-      toast('⚠ Błąd uploadu: ' + e.message);
+      toast(t('hp.toast.upload.err').replace('{0}', e.message));
     }
     input.value = '';
   }
 
   async function remove(id) {
-    if (!confirm('Usunąć protokół?')) return;
+    if (!confirm(t('hp.confirm.del'))) return;
     try {
       const resp = await fetch(`${_cfApi()}/api/protocols/${id}`, { method: 'DELETE', headers: _headers() });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      toast('✓ Protokół usunięty');
+      toast(t('hp.toast.deleted'));
       await load();
     } catch (e) {
-      toast('⚠ Błąd usuwania: ' + e.message);
+      toast(t('hp.toast.del.err').replace('{0}', e.message));
     }
   }
 

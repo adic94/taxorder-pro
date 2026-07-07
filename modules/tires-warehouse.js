@@ -127,11 +127,11 @@ window.TaxOrderTires = (function () {
         body: JSON.stringify({ akcja: 'ZAMONTUJ', nr_rej: nrRej, pozycja })
       });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      toast(`✓ Opona zamontowana na ${nrRej} (${POZYCJE[pozycja]})`);
+      toast(t('tw.toast.mounted').replace('{0}', nrRej).replace('{1}', POZYCJE[pozycja]));
       closeMountModal();
       await load();
     } catch (e) {
-      toast('⚠ Błąd montażu: ' + e.message);
+      toast(t('tw.toast.mount.err').replace('{0}', e.message));
     }
   }
 

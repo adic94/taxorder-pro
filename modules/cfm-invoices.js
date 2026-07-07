@@ -100,11 +100,11 @@ window.TaxOrderCfmInvoices = (function () {
         throw new Error(e.error || 'HTTP ' + resp.status);
       }
       const data = await resp.json();
-      toast(`✓ Wygenerowano fakturę ${data.nr_faktury} (${Number(data.suma_brutto).toLocaleString('pl-PL')} zł)`);
+      toast(t('cfminv.toast.generated').replace('{0}', data.nr_faktury).replace('{1}', Number(data.suma_brutto).toLocaleString('pl-PL')));
       closeGenerateModal();
       await load();
     } catch (e) {
-      toast('⚠ Błąd generowania: ' + e.message);
+      toast(t('cfminv.toast.gen.err').replace('{0}', e.message));
     }
   }
 
@@ -310,7 +310,7 @@ window.TaxOrderCfmInvoices = (function () {
     a.href = URL.createObjectURL(blob);
     a.download = `faktury_cfm_eksport_FK_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
-    toast(`✓ Wyeksportowano ${rows.length} faktur — gotowe do importu w enova365 (Mechanizm wymiany danych)`);
+    toast(t('cfminv.toast.export.ok').replace('{0}', rows.length));
   }
 
   return { load, render, openGenerateModal, closeGenerateModal, generate, markPaid, remove, downloadPdf, downloadXml, exportToFK, _toggleGenClientType };

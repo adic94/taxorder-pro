@@ -152,7 +152,7 @@ window.FuelImport = (function () {
     _loadSchemas();
     _savedSchemas[name] = { colMap: {..._colMap}, headers: [..._headers] };
     localStorage.setItem('fuelImportSchemas', JSON.stringify(_savedSchemas));
-    toast('✓ Schemat "' + name + '" zapisany');
+    toast(t('fi.toast.schema.saved').replace('{0}', name));
   }
 
   function _applySchema(name) {
@@ -197,7 +197,7 @@ window.FuelImport = (function () {
         const dec = new TextDecoder('windows-1250');
         text = dec.decode(new Uint8Array([...text].map(c=>c.charCodeAt(0))));
       }
-      if (!_parse(text)) { toast('⚠ Nie można odczytać pliku CSV'); return; }
+      if (!_parse(text)) { toast(t('fi.toast.csv.err')); return; }
       _autoMap();
       document.getElementById('fuel-import-step1').style.display = 'none';
       document.getElementById('fuel-import-step2').style.display = 'block';
@@ -302,7 +302,7 @@ window.FuelImport = (function () {
   }
 
   async function doImport() {
-    if (!_parsedRows.length) { toast('⚠ Brak danych do importu'); return; }
+    if (!_parsedRows.length) { toast(t('fi.toast.no.data')); return; }
 
     let imported = 0, skipped = 0;
     _parsedRows.forEach(row => {
@@ -350,7 +350,7 @@ window.FuelImport = (function () {
         <div style="font-size:13px">Dodano <strong>${imported}</strong> tankowań | Pominięto: ${skipped}</div>
       </div>`;
 
-    toast(`✓ Zaimportowano ${imported} tankowań`);
+    toast(t('fi.toast.imported').replace('{0}', imported));
     if (typeof renderDash === 'function') renderDash();
   }
 
@@ -437,7 +437,7 @@ window.FuelImport = (function () {
 
     const date = g('_fuel-date');
     const liters = gf('_fuel-liters');
-    if (!date || !liters) { toast('⚠ Data i ilość litrów są wymagane'); return; }
+    if (!date || !liters) { toast(t('fi.toast.fields.req')); return; }
 
     const product = g('_fuel-product');
     const co2kg = liters != null ? +(liters * (KOBIZE_FACTORS[product] || 0)).toFixed(3) : null;
@@ -462,7 +462,7 @@ window.FuelImport = (function () {
 
     btn.closest('[style*=fixed]').remove();
     if (window.TaxOrderFleetCloud?.saveVehicle) await window.TaxOrderFleetCloud.saveVehicle(v);
-    toast('✓ Tankowanie zapisane');
+    toast(t('fi.toast.fuel.saved'));
     if (typeof renderDash === 'function') renderDash();
     // Odśwież zakładkę kosztów jeśli otwarta
     if (document.getElementById('vd-tab-koszty-content')?.style.display !== 'none') {
@@ -475,7 +475,7 @@ window.FuelImport = (function () {
     if (!v || !v.fuelHistory) return;
     v.fuelHistory = v.fuelHistory.filter(h => h.id !== fuelId);
     if (window.TaxOrderFleetCloud?.saveVehicle) await window.TaxOrderFleetCloud.saveVehicle(v);
-    toast('Tankowanie usunięte');
+    toast(t('fi.toast.fuel.deleted'));
     window.TaxOrderVehicleDetail?._refreshKoszty?.(vehId);
   }
 
@@ -549,7 +549,7 @@ window.FuelImport = (function () {
     const a = document.createElement('a'); a.href=url;
     a.download=`raport_emisji_CO2_KOBIZE_${year}.csv`; a.click();
     URL.revokeObjectURL(url);
-    toast(`✓ Raport KOBIZE ${year}: ${totalCO2.toFixed(0)} kg CO2 / ${(totalCO2/1000).toFixed(2)} t CO2`);
+    toast(t('fi.toast.kobize.ok').replace('{0}', year).replace('{1}', totalCO2.toFixed(0)).replace('{2}', (totalCO2/1000).toFixed(2)));
   }
 
   // ── Podsumowanie CO2 dla całej floty za dany miesiąc ─────────────────────

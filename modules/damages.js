@@ -95,7 +95,7 @@ window.TaxOrderDamages = (function () {
 
   async function save() {
     const nrRej = document.getElementById('szm-nrrej').value.trim().toUpperCase();
-    if (!nrRej) { toast('⚠ Wpisz numer rejestracyjny'); return; }
+    if (!nrRej) { toast(t('dmg.toast.nrreg.req')); return; }
     const body = {
       company_id: _company(),
       nr_rej: nrRej,
@@ -121,11 +121,11 @@ window.TaxOrderDamages = (function () {
         for (const file of pendingPhotos) await _uploadOne(id, file);
         pendingPhotos = [];
       }
-      toast(`✓ Zgłoszenie szkody zapisane`);
+      toast(t('dmg.toast.saved'));
       closeModal();
       await load();
     } catch (e) {
-      toast('⚠ Błąd zapisu: ' + e.message);
+      toast(t('dmg.toast.save.err').replace('{0}', e.message));
     }
   }
 
@@ -143,7 +143,7 @@ window.TaxOrderDamages = (function () {
     if (!editId) {
       // Zgłoszenie jeszcze niezapisane — zapamiętaj do wysłania po save()
       pendingPhotos.push(...files);
-      toast(`ℹ ${files.length} zdjęcie(a) zostaną wysłane po zapisaniu zgłoszenia`);
+      toast(t('dmg.toast.photos.pending').replace('{0}', files.length));
       input.value = '';
       return;
     }
@@ -154,15 +154,15 @@ window.TaxOrderDamages = (function () {
       list = fresh;
       const d = fresh.find(x => x.id === editId);
       _renderPhotos(d?.photos || []);
-      toast('✓ Zdjęcia dodane');
+      toast(t('dmg.toast.photos.added'));
     } catch (e) {
-      toast('⚠ Błąd uploadu: ' + e.message);
+      toast(t('dmg.toast.upload.err').replace('{0}', e.message));
     }
     input.value = '';
   }
 
   async function removePhoto(photoId) {
-    if (!confirm('Usunąć zdjęcie?')) return;
+    if (!confirm(t('dmg.confirm.del.photo'))) return;
     try {
       const delResp = await fetch(`${_cfApi()}/api/damages/photo/${photoId}`, { method: 'DELETE', headers: _headers() });
       if (!delResp.ok) throw new Error('HTTP ' + delResp.status);
@@ -172,19 +172,19 @@ window.TaxOrderDamages = (function () {
       const d = fresh.find(x => x.id === editId);
       _renderPhotos(d?.photos || []);
     } catch (e) {
-      toast('⚠ Błąd usuwania zdjęcia: ' + e.message);
+      toast(t('dmg.toast.photo.del.err').replace('{0}', e.message));
     }
   }
 
   async function remove(id) {
-    if (!confirm('Usunąć zgłoszenie szkody (wraz ze zdjęciami)?')) return;
+    if (!confirm(t('dmg.confirm.del'))) return;
     try {
       const resp = await fetch(`${_cfApi()}/api/damages/${id}`, { method: 'DELETE', headers: _headers() });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      toast('✓ Zgłoszenie usunięte');
+      toast(t('dmg.toast.deleted'));
       await load();
     } catch (e) {
-      toast('⚠ Błąd usuwania: ' + e.message);
+      toast(t('dmg.toast.del.err').replace('{0}', e.message));
     }
   }
 

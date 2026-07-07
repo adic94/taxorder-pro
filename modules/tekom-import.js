@@ -58,7 +58,7 @@ WZ124HW;2025-06-01;07:45:00;12430;Adam Nowak;65;al. Jerozolimskie 120, Warszawa`
   function _detectAndParse(text) {
     // Wykryj separator
     const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
-    if (!lines.length) { toast('⚠ Plik jest pusty'); return; }
+    if (!lines.length) { toast(t('tki.toast.empty')); return; }
 
     const header = lines[0];
     const sep = [';','|','\t',','].find(s => header.includes(s)) || ';';
@@ -78,7 +78,7 @@ WZ124HW;2025-06-01;07:45:00;12430;Adam Nowak;65;al. Jerozolimskie 120, Warszawa`
     }
 
     if (_schema.nrRej === undefined) {
-      toast('⚠ Nie znaleziono kolumny z numerem rejestracyjnym. Sprawdź format pliku.');
+      toast(t('tki.toast.no.col'));
       _showSchemaMapper(headers, sep, lines);
       return;
     }
@@ -316,7 +316,7 @@ WZ124HW;2025-06-01;07:45:00;12430;Adam Nowak;65;al. Jerozolimskie 120, Warszawa`
     if (typeof renderVeh === 'function') renderVeh();
     if (typeof renderDash === 'function') renderDash();
     close();
-    toast(`✓ GPS import: zaktualizowano ${updated} pojazdów, pominięto ${skipped} wpisów`);
+    toast(t('tki.toast.imported').replace('{0}', updated).replace('{1}', skipped));
   }
 
   function downloadSample() {
