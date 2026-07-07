@@ -138,8 +138,8 @@ window.FinesModule = (function () {
                 ? `<span style="color:${dl<0 ? 'var(--red)' : dl<=14 ? 'var(--amber)' : 'var(--text2)'};font-weight:600">${dl<0 ? 'Po terminie '+Math.abs(dl)+' dni' : 'Za '+dl+' dni'}</span>`
                 : '<span style="color:var(--text3)">—</span>';
             return `<tr style="${rowBg}">
-              <td style="font-family:var(--mono);font-weight:700">${f.nr_rej || '—'}</td>
-              <td>${f.driver_name || '—'}</td>
+              <td style="font-family:var(--mono);font-weight:700">${esc(f.nr_rej || '—')}</td>
+              <td>${esc(f.driver_name || '—')}</td>
               <td style="font-family:var(--mono);white-space:nowrap">${_fmtDate(f.date)}</td>
               <td><span style="color:${t.color}"><i class="ti ${t.icon}"></i> ${t.label}</span></td>
               <td style="font-family:var(--mono);font-weight:700;text-align:right">${f.amount ? f.amount.toFixed(2) + ' zł' : '—'}</td>
@@ -168,10 +168,10 @@ window.FinesModule = (function () {
       `<option value="${k}" ${(ex?.type || 'predkosc') === k ? 'selected' : ''}>${t.label}</option>`
     ).join('');
     const vehOpts = (window.vehs || []).map(v =>
-      `<option value="${v.nrRej}" ${(ex?.nr_rej || vehId?.toString()) === v.nrRej ? 'selected' : ''}>${v.nrRej} — ${v.marka} ${v.model}</option>`
+      `<option value="${esc(v.nrRej)}" ${(ex?.nr_rej || vehId?.toString()) === v.nrRej ? 'selected' : ''}>${esc(v.nrRej)} — ${esc(v.marka)} ${esc(v.model)}</option>`
     ).join('');
     const driverOpts = (window.TaxOrderDrivers?.getAll() || []).map(d =>
-      `<option value="${d.name}" ${ex?.driver_name === d.name ? 'selected' : ''}>${d.name}</option>`
+      `<option value="${esc(d.name)}" ${ex?.driver_name === d.name ? 'selected' : ''}>${esc(d.name)}</option>`
     ).join('');
 
     const ov = document.createElement('div');

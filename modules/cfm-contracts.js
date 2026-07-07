@@ -97,7 +97,7 @@ window.TaxOrderCfmContracts = (function () {
     document.getElementById('cfmum-title').textContent = c ? 'Edytuj kontrakt' : 'Nowy kontrakt CFM';
     document.getElementById('cfmum-nrrej').value = c?.nr_rej || presetNrRej || '';
     const dl = document.getElementById('cfmum-veh-list');
-    if (dl) dl.innerHTML = (window.vehs || []).map(v => `<option value="${v.nrRej}">${v.nrRej} — ${v.marka} ${v.model}</option>`).join('');
+    if (dl) dl.innerHTML = (window.vehs || []).map(v => `<option value="${esc(v.nrRej)}">${esc(v.nrRej)} — ${esc(v.marka)} ${esc(v.model)}</option>`).join('');
     _populateClientPickers(c);
     document.getElementById('cfmum-typ').value = c?.typ_umowy || 'NAJEM';
     document.getElementById('cfmum-od').value = c?.data_od || new Date().toISOString().slice(0, 10);

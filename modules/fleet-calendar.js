@@ -144,15 +144,15 @@ window.FleetCalendar = (function () {
         const sc = STATUS_COLORS[r.status] || STATUS_COLORS.pending;
         const isFirst = r.start === ds;
         return `<td style="padding:2px 3px;border-left:0.5px solid var(--border);background:${sc.bg};border-bottom:2px solid ${sc.border}">
-          ${isFirst ? `<div style="font-size:10px;font-weight:600;color:${sc.text};white-space:nowrap;overflow:hidden;max-width:76px;text-overflow:ellipsis" title="${r.user_name}: ${r.start}–${r.end}${r.notes?'\n'+r.notes:''}"
-            onclick="FleetCalendar.editRes('${r.id}')">${r.user_name}</div>
-            ${r.notes ? `<div style="font-size:9px;color:var(--text3);white-space:nowrap;overflow:hidden;max-width:76px;text-overflow:ellipsis">${r.notes}</div>` : ''}` : ''}
+          ${isFirst ? `<div style="font-size:10px;font-weight:600;color:${sc.text};white-space:nowrap;overflow:hidden;max-width:76px;text-overflow:ellipsis" title="${esc(r.user_name)}: ${r.start}–${r.end}${r.notes?'\n'+esc(r.notes):''}"
+            onclick="FleetCalendar.editRes('${r.id}')">${esc(r.user_name)}</div>
+            ${r.notes ? `<div style="font-size:9px;color:var(--text3);white-space:nowrap;overflow:hidden;max-width:76px;text-overflow:ellipsis">${esc(r.notes)}</div>` : ''}` : ''}
         </td>`;
       }).join('');
       return `<tr>
         <td style="padding:6px 10px;font-size:12px;font-weight:500;white-space:nowrap;position:sticky;left:0;background:var(--bg2);z-index:1;border-right:1px solid var(--border);cursor:pointer" onclick="TaxOrderVehicleDetail.open(${v.id})" title="Karta pojazdu">
-          <div style="font-family:var(--mono);font-size:11px;font-weight:700">${v.nrRej}</div>
-          <div style="font-size:10px;color:var(--text3)">${v.marka} ${v.model}</div>
+          <div style="font-family:var(--mono);font-size:11px;font-weight:700">${esc(v.nrRej)}</div>
+          <div style="font-size:10px;color:var(--text3)">${esc(v.marka)} ${esc(v.model)}</div>
         </td>
         ${cells}
       </tr>`;
@@ -197,7 +197,7 @@ window.FleetCalendar = (function () {
         ${rForDay.slice(0,3).map(r => {
           const sc = STATUS_COLORS[r.status] || STATUS_COLORS.pending;
           return `<div style="font-size:9px;padding:1px 4px;margin-top:2px;border-radius:3px;background:${sc.bg};border-left:2px solid ${sc.border};cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-            onclick="FleetCalendar.editRes('${r.id}')" title="${r.nr_rej}: ${r.user_name}">${r.nr_rej} – ${r.user_name}</div>`;
+            onclick="FleetCalendar.editRes('${r.id}')" title="${esc(r.nr_rej)}: ${esc(r.user_name)}">${esc(r.nr_rej)} – ${esc(r.user_name)}</div>`;
         }).join('')}
         ${rForDay.length > 3 ? `<div style="font-size:9px;color:var(--text3)">${t('cal.more').replace('{0}',rForDay.length-3)}</div>` : ''}
       </td>`;
@@ -230,7 +230,7 @@ window.FleetCalendar = (function () {
             <label class="vdl">${t('cal.field.vehicle')}</label>
             <select id="_res-nrrej" class="fi">
               ${(window.vehs||[]).filter(v=>v.is_active!==false).map(v=>
-                `<option value="${v.nrRej}" ${v.nrRej===nrRej?'selected':''}>${v.nrRej} — ${v.marka} ${v.model}</option>`
+                `<option value="${esc(v.nrRej)}" ${v.nrRej===nrRej?'selected':''}>${esc(v.nrRej)} — ${esc(v.marka)} ${esc(v.model)}</option>`
               ).join('')}
             </select>
           </div>
@@ -303,7 +303,7 @@ window.FleetCalendar = (function () {
             <label class="vdl">${t('cal.col.vehicle')}</label>
             <select id="_res-nrrej" class="fi">
               ${(window.vehs||[]).filter(v=>v.is_active!==false).map(v=>
-                `<option value="${v.nrRej}" ${v.nrRej===r.nr_rej?'selected':''}>${v.nrRej} — ${v.marka} ${v.model}</option>`
+                `<option value="${esc(v.nrRej)}" ${v.nrRej===r.nr_rej?'selected':''}>${esc(v.nrRej)} — ${esc(v.marka)} ${esc(v.model)}</option>`
               ).join('')}
             </select>
           </div>

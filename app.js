@@ -344,10 +344,10 @@ function renderVeh() {
     const needsDmcZ = isTrailer(v) && !v.dmcZespolu;
     return `<tr class="${isSel?'row-sel':''}" onclick="toggleRow(${v.id})" ondblclick="event.stopPropagation();TaxOrderVehicleDetail.open(${v.id})" title="Dwuklik = karta pojazdu">
       <td onclick="event.stopPropagation()"><input type="checkbox" ${isSel?'checked':''} onchange="toggleRow(${v.id})"></td>
-      <td><strong style="font-family:var(--mono)">${v.nrRej}</strong></td>
-      <td><div style="font-weight:500">${v.marka} ${v.model}</div><div style="font-size:11px">${v.euro||'—'} · ${_vinCell(v)}</div></td>
+      <td><strong style="font-family:var(--mono)">${esc(v.nrRej)}</strong></td>
+      <td><div style="font-weight:500">${esc(v.marka)} ${esc(v.model)}</div><div style="font-size:11px">${esc(v.euro||'—')} · ${_vinCell(v)}</div></td>
       <td data-col="rok">${v.rok||'—'}${isNew?'<span class="pill pill-new" style="margin-left:6px;font-size:9px">§2</span>':''}</td>
-      <td data-col="typ"><span class="pill pill-gray">${v.typ}</span></td>
+      <td data-col="typ"><span class="pill pill-gray">${esc(v.typ)}</span></td>
       <td data-col="dmc" style="font-family:var(--mono);font-size:12px">${(v.dmc||v.dmcMax||0).toLocaleString('pl-PL')}</td>
       <td data-col="osie" onclick="event.stopPropagation()">
         <select class="isel" onchange="setV(${v.id},'osie',parseInt(this.value))">
@@ -375,22 +375,22 @@ function renderVeh() {
       <td data-col="oc">${_datePill(v.ocEnd)}</td>
       <td data-col="ac">${_datePill(v.acEnd)}</td>
       <td data-col="przeglad">${_datePill(v.nextInspection)}</td>
-      <td data-col="ocInsurer" style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(v.ocInsurer||'')+(v.ocPolicyNo?' · '+v.ocPolicyNo:'')}">
-        ${v.ocInsurer?`<div style="font-weight:500">${v.ocInsurer}</div>`:'<span style="color:var(--text3)">—</span>'}
-        ${v.ocPolicyNo?`<div style="color:var(--text3);font-size:10px;font-family:var(--mono)">${v.ocPolicyNo}</div>`:''}
+      <td data-col="ocInsurer" style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(v.ocInsurer||'')}${v.ocPolicyNo?' · '+esc(v.ocPolicyNo):''}">
+        ${v.ocInsurer?`<div style="font-weight:500">${esc(v.ocInsurer)}</div>`:'<span style="color:var(--text3)">—</span>'}
+        ${v.ocPolicyNo?`<div style="color:var(--text3);font-size:10px;font-family:var(--mono)">${esc(v.ocPolicyNo)}</div>`:''}
       </td>
-      <td data-col="acInsurer" style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(v.acInsurer||'')+(v.acPolicyNo?' · '+v.acPolicyNo:'')}">
-        ${v.acInsurer?`<div style="font-weight:500">${v.acInsurer}</div>`:'<span style="color:var(--text3)">—</span>'}
-        ${v.acPolicyNo?`<div style="color:var(--text3);font-size:10px;font-family:var(--mono)">${v.acPolicyNo}</div>`:''}
+      <td data-col="acInsurer" style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(v.acInsurer||'')}${v.acPolicyNo?' · '+esc(v.acPolicyNo):''}">
+        ${v.acInsurer?`<div style="font-weight:500">${esc(v.acInsurer)}</div>`:'<span style="color:var(--text3)">—</span>'}
+        ${v.acPolicyNo?`<div style="color:var(--text3);font-size:10px;font-family:var(--mono)">${esc(v.acPolicyNo)}</div>`:''}
       </td>
       <td data-col="udt" style="font-size:11px">
         ${v.hasUdt?(v.udtNextDate?_datePill(v.udtNextDate):'<span style="color:var(--amber);font-size:10px">brak daty</span>'):'<span style="color:var(--text3)">—</span>'}
-        ${v.hasUdt&&v.udtDeviceType?`<div style="font-size:10px;color:var(--text3)">${v.udtDeviceType}</div>`:''}
+        ${v.hasUdt&&v.udtDeviceType?`<div style="font-size:10px;color:var(--text3)">${esc(v.udtDeviceType)}</div>`:''}
       </td>
       <td data-col="tacho" style="font-size:11px">
         ${v.hasTacho?(v.tachoNextCalib?_datePill(v.tachoNextCalib):'<span style="color:var(--amber);font-size:10px">brak daty</span>'):'<span style="color:var(--text3)">—</span>'}
       </td>
-      <td data-col="kierowca" style="font-size:12px;white-space:nowrap">${v.kierowca||'<span style="color:var(--text3)">—</span>'}</td>
+      <td data-col="kierowca" style="font-size:12px;white-space:nowrap">${v.kierowca?esc(v.kierowca):'<span style="color:var(--text3)">—</span>'}</td>
       <td data-col="km" style="font-size:12px;text-align:right;font-family:var(--mono)">${v.stanKilometrow!=null?v.stanKilometrow.toLocaleString('pl-PL'):'<span style="color:var(--text3)">—</span>'}</td>
       <td data-col="dt1ok" style="text-align:center">${_dt1CompletenessCell(v)}</td>
       <td data-col="gmina" onclick="event.stopPropagation()" style="font-size:11px">
@@ -445,8 +445,8 @@ function renderKalkulator() {
   if(selT.length===0) { tbody.innerHTML=''; if(warn)warn.classList.remove('hidden'); return; }
   if(warn) warn.classList.add('hidden');
   tbody.innerHTML = selT.map(v => `<tr>
-    <td><strong style="font-family:var(--mono)">${v.nrRej}</strong></td>
-    <td>${v.marka} ${v.model} <span style="font-size:11px;color:var(--text2)">${v.rok||''}</span></td>
+    <td><strong style="font-family:var(--mono)">${esc(v.nrRej)}</strong></td>
+    <td>${esc(v.marka)} ${esc(v.model)} <span style="font-size:11px;color:var(--text2)">${v.rok||''}</span></td>
     <td>${v.cat?`<span class="pill ${CAT_COLORS[v.cat]||'pill-gray'}">${v.cat}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
     <td style="text-align:center">${v.miesiacePodatku||12}</td>
     <td style="text-align:right;font-family:var(--mono);color:var(--text2)">${v.rate?v.rate.toLocaleString('pl-PL')+' zł':'—'}</td>
@@ -600,8 +600,8 @@ function _validateVin(vin) {
 function _vinCell(v) {
   if (!v.vin) return '<span style="color:var(--text3)">—</span>';
   const r = _validateVin(v.vin);
-  if (r.valid) return `<span style="color:var(--text2);font-size:11px;font-family:var(--mono)">${v.vin}</span>`;
-  return `<span style="font-size:11px;font-family:var(--mono);color:var(--red)" title="⚠ VIN: ${r.reason}">${v.vin} ⚠</span>`;
+  if (r.valid) return `<span style="color:var(--text2);font-size:11px;font-family:var(--mono)">${esc(v.vin)}</span>`;
+  return `<span style="font-size:11px;font-family:var(--mono);color:var(--red)" title="⚠ VIN: ${esc(r.reason)}">${esc(v.vin)} ⚠</span>`;
 }
 
 // ==================== DT-1 COMPLETENESS ====================
@@ -1119,14 +1119,14 @@ function renderPaliwoPage() {
     } else {
       tbody.innerHTML = rows.slice(0, 200).map(({ v, h }) => `<tr>
         <td style="font-family:var(--mono);font-size:12px">${h.date || '—'}</td>
-        <td style="font-weight:600;font-family:var(--mono)">${v.nrRej}</td>
-        <td style="font-size:12px;color:var(--text2)">${v.marka} ${v.model}</td>
-        <td><span class="pill pill-gray" style="font-size:11px">${h.product || '—'}</span></td>
+        <td style="font-weight:600;font-family:var(--mono)">${esc(v.nrRej)}</td>
+        <td style="font-size:12px;color:var(--text2)">${esc(v.marka)} ${esc(v.model)}</td>
+        <td><span class="pill pill-gray" style="font-size:11px">${esc(h.product || '—')}</span></td>
         <td style="text-align:right;font-family:var(--mono)">${(h.liters||0).toFixed(1)}</td>
         <td style="text-align:right;font-family:var(--mono)">${h.pricePerLiter ? h.pricePerLiter.toFixed(3) : '—'}</td>
         <td style="text-align:right;font-family:var(--mono);font-weight:600">${fmt(h.totalGross)}</td>
-        <td style="font-size:12px;color:var(--text2)">${h.station || '—'}</td>
-        <td style="font-size:12px;color:var(--text2)">${h.cardNumber || '—'}</td>
+        <td style="font-size:12px;color:var(--text2)">${esc(h.station || '—')}</td>
+        <td style="font-size:12px;color:var(--text2)">${esc(h.cardNumber || '—')}</td>
       </tr>`).join('');
     }
   }
@@ -1149,8 +1149,8 @@ function renderPaliwoPage() {
         const avg = (x.liters > 0 && x.v.przebieg > 0) ? ((x.liters / x.v.przebieg) * 100).toFixed(1) + ' l/100km' : '—';
         return `<tr>
           <td style="color:var(--text3);font-size:13px">${i + 1}</td>
-          <td style="font-weight:600;font-family:var(--mono)">${x.v.nrRej}</td>
-          <td style="font-size:12px;color:var(--text2)">${x.v.marka} ${x.v.model}</td>
+          <td style="font-weight:600;font-family:var(--mono)">${esc(x.v.nrRej)}</td>
+          <td style="font-size:12px;color:var(--text2)">${esc(x.v.marka)} ${esc(x.v.model)}</td>
           <td style="text-align:right;font-family:var(--mono)">${x.liters.toFixed(1)}</td>
           <td style="text-align:right;font-family:var(--mono);font-weight:600">${x.cost.toFixed(2)} zł</td>
           <td style="text-align:right;color:var(--text3)">${avg}</td>
@@ -5072,16 +5072,16 @@ function renderKarty() {
   const TYPE_COLORS = { PALIWOWA:'pill-blue', 'OPŁATY':'pill-amber', PARKING:'pill-green', INNA:'pill-gray' };
   const STATUS_COLORS = { AKTYWNA:'pill-green', ZABLOKOWANA:'pill-red', NIEAKTYWNA:'pill-gray' };
   tbody.innerHTML = list.map(k => `<tr>
-    <td style="font-family:var(--mono);font-size:12px;font-weight:600">${maskCard(k.card_no)}</td>
+    <td style="font-family:var(--mono);font-size:12px;font-weight:600">${esc(maskCard(k.card_no))}</td>
     <td>
       <div style="display:flex;align-items:center;gap:6px">
         <span id="pin-${k.id}" style="font-family:var(--mono);letter-spacing:2px">••••</span>
-        <button class="tbtn" style="padding:3px 8px;font-size:10px" onclick="togglePin('${k.id}','${(k.pin||'').replace(/'/g,"\\'")}')">Pokaż</button>
+        <button class="tbtn" style="padding:3px 8px;font-size:10px" onclick="togglePin('${k.id}','${(k.pin||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">Pokaż</button>
       </div>
     </td>
-    <td><strong style="font-family:var(--mono)">${k.nr_rej||'—'}</strong></td>
-    <td><span class="pill ${TYPE_COLORS[k.type]||'pill-gray'}">${k.type}</span></td>
-    <td>${k.provider||'—'}</td>
+    <td><strong style="font-family:var(--mono)">${esc(k.nr_rej||'—')}</strong></td>
+    <td><span class="pill ${TYPE_COLORS[k.type]||'pill-gray'}">${esc(k.type)}</span></td>
+    <td>${esc(k.provider||'—')}</td>
     <td style="font-family:var(--mono)">${k.limit_pln ? Number(k.limit_pln).toLocaleString('pl-PL')+' zł' : '—'}</td>
     <td style="font-size:12px">${k.expires||'—'}</td>
     <td><span class="pill ${STATUS_COLORS[k.status]||'pill-gray'}">${k.status}</span></td>
@@ -5128,7 +5128,7 @@ function openKartaModal(id) {
   document.getElementById('km-status').value  = k?.status   || 'AKTYWNA';
   document.getElementById('km-uwagi').value   = k?.notes    || '';
   const dl = document.getElementById('km-veh-list');
-  if (dl) dl.innerHTML = vehs.map(v => `<option value="${v.nrRej}">${v.nrRej} — ${v.marka} ${v.model}</option>`).join('');
+  if (dl) dl.innerHTML = vehs.map(v => `<option value="${esc(v.nrRej)}">${esc(v.nrRej)} — ${esc(v.marka)} ${esc(v.model)}</option>`).join('');
   document.getElementById('karta-modal').classList.remove('hidden');
 }
 

@@ -38,6 +38,11 @@ window.addEventListener('DOMContentLoaded', () => {
   loadAssets().catch(e => console.warn('[Assets] Nie udało się załadować zasobów:', e));
 });
 </script>
+<script>
+/* Globalna funkcja anty-XSS — escapuje znaki specjalne HTML przed wstawieniem do innerHTML.
+   Dostępna jako window.esc() i esc() we wszystkich skryptach strony. */
+window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+</script>
 <script src="pdf-lib.min.js"></script>
 <script src="fontkit.umd.min.js"></script>
 <script src="modules/companies-readonly.js"></script>

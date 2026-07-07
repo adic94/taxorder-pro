@@ -214,8 +214,8 @@ window.TaxOrderVehicleDetail = {
           <i class="ti ti-truck" style="font-size:24px;color:var(--blue)"></i>
         </div>
         <div>
-          <div style="font-size:18px;font-weight:700;font-family:var(--mono)">${v.nrRej}</div>
-          <div style="font-size:13px;color:var(--text2)">${v.marka} ${v.model} · ${v.rok || '—'} · ${v.vin || '—'}</div>
+          <div style="font-size:18px;font-weight:700;font-family:var(--mono)">${esc(v.nrRej)}</div>
+          <div style="font-size:13px;color:var(--text2)">${esc(v.marka)} ${esc(v.model)} · ${v.rok || '—'} · ${esc(v.vin || '—')}</div>
         </div>
         ${isArchived ? '<span class="pill pill-red" style="margin-left:auto">ARCHIWUM</span>' : ''}
         <div style="display:flex;align-items:center;gap:8px;${isArchived?'':'margin-left:auto'}">
@@ -1795,8 +1795,8 @@ table{width:100%;border-collapse:collapse}th{background:#f9fafb;font-size:10px;f
 @media print{button{display:none}body{padding:8px}}</style></head>
 <body>
 <button onclick="window.print()" style="float:right;background:#1d4ed8;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;margin-bottom:8px">🖨 Drukuj</button>
-<h1>${v.nrRej}</h1>
-<div style="color:#6b7280;font-size:13px;margin-bottom:4px">${v.marka} ${v.model} · ${v.rok||'—'} · ${v.typ||'—'}</div>
+<h1>${esc(v.nrRej)}</h1>
+<div style="color:#6b7280;font-size:13px;margin-bottom:4px">${esc(v.marka)} ${esc(v.model)} · ${v.rok||'—'} · ${esc(v.typ||'—')}</div>
 <div style="font-size:10px;color:#9ca3af;margin-bottom:14px">Wygenerowano: ${new Date().toLocaleDateString('pl-PL')} | TaxOrder Pro</div>
 <h2>Identyfikacja</h2>
 <table>${row('VIN',`<span style="font-family:monospace">${v.vin||'—'}</span>`)}

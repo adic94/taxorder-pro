@@ -73,7 +73,7 @@ window.TaxOrderDamages = (function () {
     document.getElementById('szm-przyczyna').value = d?.przyczyna || '';
     document.getElementById('szm-uwagi').value = d?.uwagi || '';
     const dl = document.getElementById('szm-veh-list');
-    if (dl) dl.innerHTML = (window.vehs || []).map(v => `<option value="${v.nrRej}">${v.nrRej} — ${v.marka} ${v.model}</option>`).join('');
+    if (dl) dl.innerHTML = (window.vehs || []).map(v => `<option value="${esc(v.nrRej)}">${esc(v.nrRej)} — ${esc(v.marka)} ${esc(v.model)}</option>`).join('');
     document.getElementById('szm-photo-btn').style.display = d ? 'inline-flex' : 'none';
     _renderPhotos(d?.photos || []);
     document.getElementById('szkoda-modal').classList.remove('hidden');

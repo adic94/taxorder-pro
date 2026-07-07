@@ -70,9 +70,9 @@ window.TaxOrderHandoverProtocol = (function () {
     document.getElementById('prm-typ').value = p?.typ || 'WYDANIE';
     document.getElementById('prm-data').value = p?.data ? p.data.slice(0, 10) : new Date().toISOString().slice(0, 10);
     const dlVeh = document.getElementById('prm-veh-list');
-    if (dlVeh) dlVeh.innerHTML = (window.vehs || []).map(v => `<option value="${v.nrRej}">${v.nrRej} — ${v.marka} ${v.model}</option>`).join('');
+    if (dlVeh) dlVeh.innerHTML = (window.vehs || []).map(v => `<option value="${esc(v.nrRej)}">${esc(v.nrRej)} — ${esc(v.marka)} ${esc(v.model)}</option>`).join('');
     const dlDrv = document.getElementById('prm-driver-list');
-    if (dlDrv) dlDrv.innerHTML = (window.TaxOrderDrivers?.getAll() || []).map(d => `<option value="${d.name}">`).join('');
+    if (dlDrv) dlDrv.innerHTML = (window.TaxOrderDrivers?.getAll() || []).map(d => `<option value="${esc(d.name)}">`).join('');
     document.getElementById('prm-wydajaca').value = p?.osoba_wydajaca || '';
     document.getElementById('prm-odbierajaca').value = p?.osoba_odbierajaca || '';
     document.getElementById('prm-licznik').value = p?.stan_licznika ?? '';

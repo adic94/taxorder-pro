@@ -139,12 +139,12 @@ window.ZsiaImporter = (() => {
         <div class="tbl-wrap" style="margin-bottom:12px;max-height:200px;overflow-y:auto"><table>
           <thead><tr><th>Nr rej.</th><th>Marka/Model</th><th>Rok</th><th>VIN</th><th>Firma</th><th>OC do</th></tr></thead>
           <tbody>${newVehs.slice(0,30).map(v => `<tr>
-            <td><strong style="font-family:var(--mono)">${v.nrRej}</strong></td>
-            <td>${v.marka} ${v.model}</td>
+            <td><strong style="font-family:var(--mono)">${esc(v.nrRej)}</strong></td>
+            <td>${esc(v.marka)} ${esc(v.model)}</td>
             <td>${v.rok||'—'}</td>
-            <td style="font-family:var(--mono);font-size:11px">${v.vin||'—'}</td>
-            <td><span class="pill pill-blue" style="font-size:10px">${v._companyId||'?'}</span></td>
-            <td style="font-size:11px">${v.ocEnd||'—'}</td>
+            <td style="font-family:var(--mono);font-size:11px">${esc(v.vin||'—')}</td>
+            <td><span class="pill pill-blue" style="font-size:10px">${esc(v._companyId||'?')}</span></td>
+            <td style="font-size:11px">${esc(v.ocEnd||'—')}</td>
           </tr>`).join('')}
           ${newVehs.length>30?`<tr><td colspan="6" style="color:var(--text3);text-align:center">... i ${newVehs.length-30} kolejnych</td></tr>`:''}</tbody>
         </table></div>` : ''}
@@ -154,10 +154,10 @@ window.ZsiaImporter = (() => {
         <div class="tbl-wrap" style="margin-bottom:12px;max-height:150px;overflow-y:auto"><table>
           <thead><tr><th>Nr rej.</th><th>Marka/Model</th><th>Firma</th><th>Status w ZSIA</th></tr></thead>
           <tbody>${updVehs.slice(0,20).map(v => `<tr>
-            <td><strong style="font-family:var(--mono)">${v.nrRej}</strong></td>
-            <td>${v.marka} ${v.model}</td>
-            <td><span class="pill pill-blue" style="font-size:10px">${v._companyId||'?'}</span></td>
-            <td><span class="pill ${v.status==='AKTYWNY'?'pill-green':'pill-gray'}" style="font-size:10px">${v.status}</span></td>
+            <td><strong style="font-family:var(--mono)">${esc(v.nrRej)}</strong></td>
+            <td>${esc(v.marka)} ${esc(v.model)}</td>
+            <td><span class="pill pill-blue" style="font-size:10px">${esc(v._companyId||'?')}</span></td>
+            <td><span class="pill ${v.status==='AKTYWNY'?'pill-green':'pill-gray'}" style="font-size:10px">${esc(v.status)}</span></td>
           </tr>`).join('')}</tbody>
         </table></div>` : ''}
 

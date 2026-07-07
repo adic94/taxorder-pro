@@ -66,7 +66,7 @@ window.TaxOrderServiceOrders = (function () {
 
   function openModal(id, presetNrRej) {
     const dl = document.getElementById('zlc-veh-list');
-    if (dl) dl.innerHTML = (window.vehs || []).map(v => `<option value="${v.nrRej}">${v.nrRej} — ${v.marka} ${v.model}</option>`).join('');
+    if (dl) dl.innerHTML = (window.vehs || []).map(v => `<option value="${esc(v.nrRej)}">${esc(v.nrRej)} — ${esc(v.marka)} ${esc(v.model)}</option>`).join('');
     const typSel = document.getElementById('zlm-typ');
     if (typSel && window.ServiceModule?.SERVICE_TYPES) {
       typSel.innerHTML = Object.entries(window.ServiceModule.SERVICE_TYPES)

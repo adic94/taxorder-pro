@@ -621,7 +621,7 @@ window.TaxOrderNotifSettings = (function () {
   async function _applyTemplate(templateId, name) {
     const vehs = window.vehs || [];
     const vehList = vehs.map(v => `<label style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12px">
-      <input type="checkbox" class="aply-cb" value="${v.nrRej}"> ${v.nrRej} — ${v.marka} ${v.model}
+      <input type="checkbox" class="aply-cb" value="${esc(v.nrRej)}"> ${esc(v.nrRej)} — ${esc(v.marka)} ${esc(v.model)}
     </label>`).join('');
 
     const html = `<div id="apply-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:5001;display:flex;align-items:center;justify-content:center">

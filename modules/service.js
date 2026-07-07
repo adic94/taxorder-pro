@@ -164,10 +164,10 @@ window.ServiceModule = (function () {
               const t = SERVICE_TYPES[s.type] || SERVICE_TYPES.inne;
               return `<tr style="cursor:pointer" onclick="TaxOrderVehicleDetail.open(${v.id})">
                 <td style="font-family:var(--mono);white-space:nowrap">${_fmtDate(s.date)}</td>
-                <td style="font-family:var(--mono);font-weight:700">${v.nrRej}</td>
-                <td>${v.marka} ${v.model}</td>
+                <td style="font-family:var(--mono);font-weight:700">${esc(v.nrRej)}</td>
+                <td>${esc(v.marka)} ${esc(v.model)}</td>
                 <td><span style="color:${t.color}"><i class="ti ${t.icon}"></i> ${t.label}</span></td>
-                <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.description || '—'}</td>
+                <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.description || '—')}</td>
                 <td style="font-family:var(--mono);text-align:right">${s.km ? s.km.toLocaleString('pl-PL') : '—'}</td>
                 <td style="font-family:var(--mono);font-weight:600">${s.cost ? s.cost.toFixed(2)+' zł' : '—'}</td>
                 <td>${s.workshop || '—'}</td>
@@ -191,8 +191,8 @@ window.ServiceModule = (function () {
           const t = SERVICE_TYPES[s.type] || SERVICE_TYPES.inne;
           const days = s.nextServiceDate ? _daysDiff(s.nextServiceDate) : null;
           return `<tr>
-            <td onclick="TaxOrderVehicleDetail.open(${v.id})" style="cursor:pointer;font-family:var(--mono);font-weight:700">${v.nrRej}</td>
-            <td>${v.marka} ${v.model}</td>
+            <td onclick="TaxOrderVehicleDetail.open(${v.id})" style="cursor:pointer;font-family:var(--mono);font-weight:700">${esc(v.nrRej)}</td>
+            <td>${esc(v.marka)} ${esc(v.model)}</td>
             <td><span style="color:${t.color}"><i class="ti ${t.icon}"></i> ${t.label}</span></td>
             <td style="font-family:var(--mono)">${_fmtDate(s.nextServiceDate)}</td>
             <td style="font-family:var(--mono)">${s.nextServiceKm ? s.nextServiceKm.toLocaleString('pl-PL')+' km' : '—'}</td>
@@ -231,8 +231,8 @@ window.ServiceModule = (function () {
     ov.innerHTML = `
       <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:620px;max-width:98vw;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25)">
         <div style="font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px">
-          <i class="ti ti-tools" style="color:var(--blue)"></i>${ex ? 'Edytuj' : 'Dodaj'} serwis — <span style="font-family:var(--mono)">${v.nrRej}</span>
-          <span style="font-size:12px;font-weight:400;color:var(--text2);margin-left:4px">${v.marka} ${v.model}</span>
+          <i class="ti ti-tools" style="color:var(--blue)"></i>${ex ? 'Edytuj' : 'Dodaj'} serwis — <span style="font-family:var(--mono)">${esc(v.nrRej)}</span>
+          <span style="font-size:12px;font-weight:400;color:var(--text2);margin-left:4px">${esc(v.marka)} ${esc(v.model)}</span>
         </div>
         <div class="vdfg" style="margin-bottom:14px">
           <div class="vdf">
@@ -347,7 +347,7 @@ window.ServiceModule = (function () {
       <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:420px;max-width:98vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
         <div style="font-size:15px;font-weight:700;margin-bottom:16px">Wybierz pojazd</div>
         <select id="_svc-pick-veh" class="fi" style="margin-bottom:16px">
-          ${vs.map(v => `<option value="${v.id}">${v.nrRej} — ${v.marka} ${v.model}</option>`).join('')}
+          ${vs.map(v => `<option value="${v.id}">${esc(v.nrRej)} — ${esc(v.marka)} ${esc(v.model)}</option>`).join('')}
         </select>
         <div style="display:flex;gap:8px;justify-content:flex-end">
           <button class="btn btn-gray" onclick="this.closest('[style*=fixed]').remove()">Anuluj</button>

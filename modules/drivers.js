@@ -68,7 +68,7 @@ window.TaxOrderDrivers = (function () {
   function _updateDatalist() {
     const dl = document.getElementById('drivers-datalist');
     if (!dl) return;
-    dl.innerHTML = _drivers.map(d => `<option value="${d.name}">`).join('');
+    dl.innerHTML = _drivers.map(d => `<option value="${esc(d.name)}">`).join('');
   }
 
   // ── Fines cache (async, załadowany przy otwieraniu modalu) ────────────────
@@ -121,11 +121,11 @@ window.TaxOrderDrivers = (function () {
       const assignedVeh = (window.vehs || []).find(v => v.kierowca === d.name);
       return `<tr style="border-bottom:0.5px solid var(--border)">
         <td style="padding:8px 10px;font-weight:500">
-          ${d.name}
-          ${assignedVeh ? `<div style="font-size:10px;font-family:var(--mono);color:var(--blue)">${assignedVeh.nrRej}</div>` : ''}
+          ${esc(d.name)}
+          ${assignedVeh ? `<div style="font-size:10px;font-family:var(--mono);color:var(--blue)">${esc(assignedVeh.nrRej)}</div>` : ''}
         </td>
-        <td style="padding:8px 10px;font-family:var(--mono);font-size:11px">${d.phone || '—'}</td>
-        <td style="padding:8px 10px;font-family:var(--mono);font-size:11px">${d.license_no || '—'}</td>
+        <td style="padding:8px 10px;font-family:var(--mono);font-size:11px">${esc(d.phone || '—')}</td>
+        <td style="padding:8px 10px;font-family:var(--mono);font-size:11px">${esc(d.license_no || '—')}</td>
         <td style="padding:8px 10px;font-size:11px;color:${expColor}">
           ${d.license_expiry ? new Date(d.license_expiry).toLocaleDateString('pl-PL') : '—'}
         </td>

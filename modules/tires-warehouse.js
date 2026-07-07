@@ -109,7 +109,7 @@ window.TaxOrderTires = (function () {
   function openMountModal(id) {
     editId = id;
     const dl = document.getElementById('opm-mount-veh-list');
-    if (dl) dl.innerHTML = (window.vehs || []).map(v => `<option value="${v.nrRej}">${v.nrRej} — ${v.marka} ${v.model}</option>`).join('');
+    if (dl) dl.innerHTML = (window.vehs || []).map(v => `<option value="${esc(v.nrRej)}">${esc(v.nrRej)} — ${esc(v.marka)} ${esc(v.model)}</option>`).join('');
     document.getElementById('opm-mount-nrrej').value = '';
     document.getElementById('opm-mount-pozycja').value = 'FL';
     document.getElementById('opona-mount-modal').classList.remove('hidden');
