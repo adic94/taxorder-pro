@@ -101,7 +101,7 @@ window.addEventListener('DOMContentLoaded', () => {
     <label style="font-size:12px;color:var(--text2)">Rok:</label>
     <input id="taxYear" type="number" min="2020" max="2035" value="2026" list="taxYear-list" class="yr-sel" onchange="refreshAll()" oninput="if(this.value.length===4&&parseInt(this.value)>=2020)refreshAll()" style="width:68px;text-align:center;font-size:12px;font-weight:600;padding:4px 6px;border-radius:var(--radius);border:1px solid var(--border)"><datalist id="taxYear-list"><option value="2024"><option value="2025"><option value="2026"><option value="2027"></datalist>
   </div>
-  <div id="i18n-selector" style="display:flex;gap:3px;align-items:center;flex-wrap:wrap;max-width:200px"></div>
+  <div id="i18n-selector" style="display:flex;gap:3px;align-items:center"></div>
   <!-- Dark mode toggle -->
   <button id="dark-mode-btn" onclick="toggleDarkMode()" title="Zmień motyw"
     style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:19px;padding:6px 8px;border-radius:var(--radius-sm);display:flex;align-items:center;flex-shrink:0">
@@ -184,17 +184,30 @@ window.addEventListener('DOMContentLoaded', () => {
 
 <!-- ==================== PULPIT ==================== -->
 <div class="page active" id="page-dash">
-  <div class="pg-title"><i class="ti ti-truck"></i><span>Pulpit — Zarządzanie flotą</span></div>
+  <div class="pg-title"><i class="ti ti-layout-dashboard"></i><span>Pulpit</span></div>
 
-  <!-- Główne KPI floty -->
-  <div id="dash-fleet-kpi" style="margin-bottom:1.5rem"></div>
+  <!-- KPI strip -->
+  <div id="dash-fleet-kpi" style="margin-bottom:1.25rem"></div>
 
-  <!-- Alerty floty — PRIORYTET -->
-  <div style="margin-bottom:1.5rem">
-    <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
-      <i class="ti ti-bell-ringing" style="color:var(--red)"></i>Alerty floty — wygasające terminy (60 dni)
-      <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="showPage('pojazdy')">
-        <i class="ti ti-truck"></i>Przejdź do floty
+  <!-- Powiadomienia — 3 karty zawsze widoczne -->
+  <div class="dash-3col">
+    <div id="dash-fines" class="dash-notif-card dash-notif-red">
+      <span style="font-size:11px;color:var(--text3)">Ładowanie mandatów…</span>
+    </div>
+    <div id="dash-drivers" class="dash-notif-card dash-notif-amber">
+      <span style="font-size:11px;color:var(--text3)">Ładowanie kierowców…</span>
+    </div>
+    <div id="dash-fleet-cards" class="dash-notif-card dash-notif-blue">
+      <span style="font-size:11px;color:var(--text3)">Ładowanie kart flotowych…</span>
+    </div>
+  </div>
+
+  <!-- Alerty — wygasające terminy -->
+  <div class="dash-card">
+    <div class="dash-card-hdr">
+      <i class="ti ti-bell-ringing" style="color:var(--red)"></i>Alerty — wygasające terminy (60 dni)
+      <button class="btn btn-gray" style="font-size:11px;padding:4px 10px;margin-left:auto" onclick="showPage('pojazdy')">
+        <i class="ti ti-truck"></i>Flota
       </button>
     </div>
     <div class="tbl-wrap"><table>
@@ -206,61 +219,50 @@ window.addEventListener('DOMContentLoaded', () => {
     </table></div>
   </div>
 
-  <!-- Widget mandatów -->
-  <div id="dash-fines" style="margin-bottom:1.5rem;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);padding:12px 16px;display:none"></div>
-
-  <!-- Widget prawa jazdy kierowców -->
-  <div id="dash-drivers" style="margin-bottom:1.5rem;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.3);border-radius:var(--radius);padding:12px 16px;display:none"></div>
-
-  <!-- Serwis + Paliwo obok siebie -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem">
-    <div>
-      <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+  <!-- Serwis + Paliwo -->
+  <div class="dash-2col">
+    <div class="dash-card">
+      <div class="dash-card-hdr">
         <i class="ti ti-tools" style="color:var(--blue)"></i>Serwisy — nadchodzące (30 dni)
-        <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="ServiceModule.open()">
+        <button class="btn btn-gray" style="font-size:11px;padding:4px 10px;margin-left:auto" onclick="ServiceModule.open()">
           <i class="ti ti-external-link"></i>Wszystkie
         </button>
-        <button class="btn btn-gray" style="font-size:11px" onclick="ServiceModule.addServiceGlobal()">
+        <button class="btn btn-gray" style="font-size:11px;padding:4px 10px" onclick="ServiceModule.addServiceGlobal()">
           <i class="ti ti-plus"></i>Dodaj
         </button>
       </div>
-      <div id="dash-service" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;max-height:260px;overflow-y:auto"></div>
+      <div id="dash-service" style="max-height:240px;overflow-y:auto"></div>
     </div>
-    <div>
-      <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+    <div class="dash-card">
+      <div class="dash-card-hdr">
         <i class="ti ti-gas-station" style="color:var(--amber)"></i>Paliwo — bieżący miesiąc
-        <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="showPage('paliwo')">
-          <i class="ti ti-external-link"></i>Moduł paliwa
+        <button class="btn btn-gray" style="font-size:11px;padding:4px 10px;margin-left:auto" onclick="showPage('paliwo')">
+          <i class="ti ti-external-link"></i>Moduł
         </button>
-        <button class="btn btn-gray" style="font-size:11px" onclick="FuelImport.open()">
+        <button class="btn btn-gray" style="font-size:11px;padding:4px 10px" onclick="FuelImport.open()">
           <i class="ti ti-file-import"></i>Import
         </button>
       </div>
-      <div id="dash-fuel" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px"></div>
+      <div id="dash-fuel" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px"></div>
     </div>
   </div>
 
-  <!-- Struktura floty + DT-1 mini -->
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.5rem;margin-bottom:1.5rem">
-    <div>
-      <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
-        <i class="ti ti-chart-pie" style="color:var(--text2)"></i>Struktura marki
+  <!-- Struktura floty + DT-1 -->
+  <div class="dash-2col">
+    <div class="dash-card">
+      <div class="dash-card-hdr">
+        <i class="ti ti-chart-pie" style="color:var(--text2)"></i>Struktura floty
       </div>
-      <div class="tbl-wrap"><table>
+      <div class="tbl-wrap" style="margin-bottom:14px"><table>
         <thead><tr><th>Marka</th><th>Liczba</th><th>Kategorie DT-1</th></tr></thead>
         <tbody id="dash-brands"></tbody>
       </table></div>
-    </div>
-    <div>
-      <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
-        <i class="ti ti-chart-bar" style="color:var(--blue)"></i>Struktura wiekowa
-      </div>
       <div id="dash-age-dist"></div>
     </div>
-    <div>
-      <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+    <div class="dash-card">
+      <div class="dash-card-hdr">
         <i class="ti ti-building-bank" style="color:var(--green)"></i>Podatek DT-1
-        <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="showPage('kalkulator')">
+        <button class="btn btn-gray" style="font-size:11px;padding:4px 10px;margin-left:auto" onclick="showPage('kalkulator')">
           <i class="ti ti-calculator"></i>Kalkulator
         </button>
       </div>
@@ -1295,7 +1297,30 @@ window.addEventListener('DOMContentLoaded', () => {
 <!-- ==================== IMPORT/EKSPORT ==================== -->
 <div class="page" id="page-impexp">
   <div class="pg-title"><i class="ti ti-arrows-exchange"></i>Import / Eksport danych</div>
-  <div class="pg-sub">Wczytaj dane z Excela lub eksportuj bazę pojazdów i deklaracje do różnych formatów</div>
+  <div class="pg-sub">Wczytaj dane z Excela / ZSIA lub eksportuj bazę pojazdów i deklaracje do różnych formatów</div>
+
+  <!-- ZSIA Integration banner -->
+  <div style="background:linear-gradient(135deg,rgba(24,95,165,.08),rgba(59,109,17,.06));border:1px solid var(--blue);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:1.5rem;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <div style="width:40px;height:40px;background:var(--blue);border-radius:var(--radius);display:flex;align-items:center;justify-content:center"><i class="ti ti-database-import" style="color:#fff;font-size:20px"></i></div>
+      <div>
+        <div style="font-size:13px;font-weight:700">Integracja z ZSIA (mToilet ERP)</div>
+        <div style="font-size:11px;color:var(--text2)">Automatyczna synchronizacja pojazdów i kierowców z SQL Server</div>
+      </div>
+    </div>
+    <div style="flex:1;min-width:200px">
+      <div style="font-size:11px;color:var(--text2);line-height:1.7">
+        <b>Metoda 1 — Plik JSON:</b> Uruchom <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">tools\zsia-sync.ps1</code> na komputerze z dostępem do SRVDRI → przeciągnij wygenerowany plik poniżej<br>
+        <b>Metoda 2 — Auto (API):</b> <code style="background:var(--bg3);padding:1px 5px;border-radius:3px">.\zsia-sync.ps1 -Mode push -ApiKey "tord_live_..."</code> — bezpośrednie wysłanie do chmury
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-shrink:0">
+      <button class="btn btn-gray" style="font-size:11px" onclick="ZsiaImporter.downloadScript()"><i class="ti ti-download"></i>Pobierz skrypt .ps1</button>
+      <button class="btn btn-blue" style="font-size:11px" onclick="document.getElementById('zsia-json-file').click()"><i class="ti ti-file-import"></i>Import pliku ZSIA</button>
+      <input type="file" id="zsia-json-file" accept=".json" style="display:none" onchange="ZsiaImporter.handleFile(this)">
+    </div>
+  </div>
+
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
 
     <!-- IMPORT -->
@@ -2524,6 +2549,7 @@ window.addEventListener('DOMContentLoaded', () => {
   <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
   <script src="modules/aztec-scanner.js"></script>
   <script src="modules/vehicle-detail.js"></script>
+  <script src="modules/zsia-importer.js"></script>
   <script src="modules/import-export.js"></script>
   <script src="modules/dashboard-nav.js"></script>
   <script src="modules/rate-reader.js"></script>

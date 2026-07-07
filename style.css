@@ -346,6 +346,41 @@ th.sort-th:hover{color:var(--blue)}
   #user-name,#user-role-lbl{display:none}
 }
 
+/* ===== TOPBAR — i18n selector fix ===== */
+/* Przyciski flag nigdy nie zawijają się do nowej linii */
+#i18n-selector{flex-wrap:nowrap!important;flex-shrink:0}
+/* Przy umiarkowanej szerokości chowamy oddzielną "pigułkę" firmy (duplikat selecta) */
+@media(max-width:900px){#company-badge{display:none!important}}
+/* Przy wąskim oknie chowamy cały selektor firmy */
+@media(max-width:780px){.topbar .company-sel-wrap{display:none!important}}
+/* Na telefonach chowamy i18n — zostawia za mało miejsca */
+@media(max-width:640px){#i18n-selector{display:none!important}}
+
+/* ===== DASHBOARD CARDS ===== */
+.dash-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:1.25rem}
+.dash-card-hdr{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.dash-card-hdr .ti{font-size:15px;flex-shrink:0}
+/* 2- i 3-kolumnowe gridy pulpitu */
+.dash-2col{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
+.dash-3col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1.25rem}
+/* Karty powiadomień — zawsze widoczne */
+.dash-notif-card{border-radius:var(--radius-lg);padding:12px 14px;min-height:54px}
+.dash-notif-red{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.3)}
+.dash-notif-amber{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.3)}
+.dash-notif-blue{background:rgba(37,99,235,.06);border:1px solid rgba(37,99,235,.3)}
+/* Dashboard 2col → 1col na tabletach */
+@media(max-width:900px){
+  .dash-2col{grid-template-columns:1fr}
+  .dash-3col{grid-template-columns:1fr 1fr}
+}
+/* Dashboard 1col na telefonach */
+@media(max-width:640px){
+  .dash-2col,.dash-3col{grid-template-columns:1fr}
+  .dash-card{padding:14px 16px}
+}
+/* Dash-2col kontenery nie mają marginesu-bottom — mają go karty wewnątrz */
+.dash-2col>.dash-card,.dash-3col>.dash-notif-card{margin-bottom:0}
+
 /* ===== FLEET KPI STRIP ===== */
 .fleet-kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1rem}
 .fkpi-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;display:flex;flex-direction:column;gap:2px;transition:border-color .15s}

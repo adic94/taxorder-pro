@@ -1284,6 +1284,7 @@ function renderDash() {
   _renderServiceDash();
   _renderFinesDash();
   _renderDriversDash();
+  _renderFleetCardsDash();
   _renderFleetKpi();
   _renderAgeDist();
 }
@@ -1314,15 +1315,25 @@ function _renderServiceDash() {
 
 function _renderFinesDash() {
   const el = document.getElementById('dash-fines');
-  if (!el || !window.FinesModule) return;
+  if (!el) return;
+  if (!window.FinesModule) {
+    el.innerHTML = `<div style="font-size:11px;color:var(--text3)"><i class="ti ti-ticket"></i> Mandaty — moduł niedostępny</div>`;
+    return;
+  }
   const alerts = window.FinesModule.getUnpaidAlertsSync();
   const badge = document.getElementById('fines-nav-badge');
   if (badge) { badge.textContent = alerts.length || ''; badge.style.display = alerts.length ? '' : 'none'; }
   if (!alerts.length) {
-    el.style.display = 'none';
+    el.innerHTML = `<div style="display:flex;align-items:center;gap:7px">
+      <i class="ti ti-circle-check" style="color:var(--green);font-size:16px;flex-shrink:0"></i>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--green)">Mandaty</div>
+        <div style="font-size:11px;color:var(--text3)">Brak nieopłaconych</div>
+      </div>
+      <button onclick="FinesModule.open()" style="margin-left:auto;font-size:10px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer;color:var(--text2)">Lista</button>
+    </div>`;
     return;
   }
-  el.style.display = '';
   const days = d => d ? Math.round((new Date(d)-new Date())/86400000) : null;
   el.innerHTML = `
     <div style="font-size:12px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px;color:var(--red)">
@@ -1345,7 +1356,11 @@ function _renderFinesDash() {
 
 function _renderDriversDash() {
   const el = document.getElementById('dash-drivers');
-  if (!el || !window.TaxOrderDrivers) return;
+  if (!el) return;
+  if (!window.TaxOrderDrivers) {
+    el.innerHTML = `<div style="font-size:11px;color:var(--text3)"><i class="ti ti-id-badge"></i> Kierowcy — moduł niedostępny</div>`;
+    return;
+  }
   const drivers = window.TaxOrderDrivers.getAll();
   const now = new Date();
   const DAYS90 = 90 * 86400000;
@@ -1354,8 +1369,17 @@ function _renderDriversDash() {
     .map(d => ({ d, ms: new Date(d.license_expiry) - now }))
     .filter(({ ms }) => ms < DAYS90)
     .sort((a, b) => a.ms - b.ms);
-  if (!expiring.length) { el.style.display = 'none'; return; }
-  el.style.display = '';
+  if (!expiring.length) {
+    el.innerHTML = `<div style="display:flex;align-items:center;gap:7px">
+      <i class="ti ti-circle-check" style="color:var(--green);font-size:16px;flex-shrink:0"></i>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--green)">Prawa jazdy</div>
+        <div style="font-size:11px;color:var(--text3)">Brak wygasających (90 dni)</div>
+      </div>
+      <button onclick="TaxOrderDrivers.open()" style="margin-left:auto;font-size:10px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer;color:var(--text2)">Lista</button>
+    </div>`;
+    return;
+  }
   el.innerHTML = `
     <div style="font-size:12px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px;color:var(--amber)">
       <i class="ti ti-id-badge"></i>Prawo jazdy — wygasa wkrótce (${expiring.length})
@@ -1370,6 +1394,65 @@ function _renderDriversDash() {
           <div style="font-size:11px;color:var(--text2)">${d.license_no ? 'Nr: '+d.license_no : 'Brak numeru prawa jazdy'}</div>
         </div>
         <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${days<0?'var(--red)':days<=14?'var(--red)':'var(--amber)'}">${days<0?Math.abs(days)+'d temu':'za '+days+'d'}</span>
+      </div>`;
+    }).join('')}`;
+}
+
+function _renderFleetCardsDash() {
+  const el = document.getElementById('dash-fleet-cards');
+  if (!el) return;
+  const cards = window.getFlotCards ? window.getFlotCards() : [];
+  if (!cards.length) {
+    // Załaduj asynchronicznie i odśwież dashboard po załadowaniu
+    if (typeof _loadKarty === 'function' && !window._kartasDashLoading) {
+      window._kartasDashLoading = true;
+      _loadKarty().then(() => { window._kartasDashLoading = false; _renderFleetCardsDash(); });
+    }
+    el.innerHTML = `<div style="display:flex;align-items:center;gap:7px">
+      <i class="ti ti-circle-check" style="color:var(--green);font-size:16px;flex-shrink:0"></i>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--green)">Karty flotowe</div>
+        <div style="font-size:11px;color:var(--text3)">Brak wygasających (30 dni)</div>
+      </div>
+      <button onclick="showPage('karty')" style="margin-left:auto;font-size:10px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer;color:var(--text2)">Lista</button>
+    </div>`;
+    return;
+  }
+  const now = new Date();
+  const DAYS30 = 30 * 86400000;
+  const expiring = cards
+    .filter(k => k.status !== 'NIEAKTYWNA' && k.expires)
+    .map(k => ({ k, ms: new Date(k.expires) - now }))
+    .filter(({ ms }) => ms < DAYS30)
+    .sort((a, b) => a.ms - b.ms);
+  if (!expiring.length) {
+    el.innerHTML = `<div style="display:flex;align-items:center;gap:7px">
+      <i class="ti ti-circle-check" style="color:var(--green);font-size:16px;flex-shrink:0"></i>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--green)">Karty flotowe</div>
+        <div style="font-size:11px;color:var(--text3)">Brak wygasających (30 dni)</div>
+      </div>
+      <button onclick="showPage('karty')" style="margin-left:auto;font-size:10px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer;color:var(--text2)">Lista</button>
+    </div>`;
+    return;
+  }
+  el.style.display = '';
+  const TYPE_ICON = { PALIWOWA:'ti-gas-station', 'OPŁATY':'ti-road', PARKING:'ti-parking', INNA:'ti-credit-card' };
+  el.innerHTML = `
+    <div style="font-size:12px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px;color:var(--blue)">
+      <i class="ti ti-credit-card"></i>Karty flotowe — wygasają wkrótce (${expiring.length})
+      <button onclick="showPage('karty')" style="margin-left:auto;font-size:10px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer;color:var(--text2)">Wszystkie</button>
+    </div>
+    ${expiring.slice(0, 5).map(({ k, ms }) => {
+      const days = Math.round(ms / 86400000);
+      const icon = TYPE_ICON[k.type] || 'ti-credit-card';
+      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border)">
+        <i class="ti ${icon}" style="color:var(--blue);font-size:13px;flex-shrink:0"></i>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;font-weight:700">${k.card_no} <span style="font-weight:400;color:var(--text2)">${k.type}</span></div>
+          <div style="font-size:11px;color:var(--text2)">${k.nr_rej ? 'Pojazd: '+k.nr_rej : k.provider || 'Brak pojazdu'}</div>
+        </div>
+        <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${days<0?'var(--red)':days<=7?'var(--red)':'var(--blue)'}">${days<0?'WYGASŁA '+Math.abs(days)+'d temu':'za '+days+'d'}</span>
       </div>`;
     }).join('')}`;
 }
@@ -6258,6 +6341,7 @@ window.addEventListener('load', async () => {
     }
     if (window.TaxOrderDrivers?.init) window.TaxOrderDrivers.init().then(() => { if (typeof _renderDriversDash === 'function') _renderDriversDash(); });
     window.FinesModule?.load?.().then(() => { if (typeof _renderFinesDash === 'function') _renderFinesDash(); });
+    _loadKarty().then(() => { if (typeof _renderFleetCardsDash === 'function') _renderFleetCardsDash(); });
     // Przypomnienie KOBIZE — co roku w marcu
     _checkKobizeReminder();
   }, 3000);

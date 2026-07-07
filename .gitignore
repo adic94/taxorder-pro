@@ -45,3 +45,11 @@ backups/
 
 # Duplicate project directory (git worktree artifact)
 taxorder-pro/
+
+# Screenshots i raporty QA — pliki binarne/tymczasowe, nie commitować
+audit-screenshots/
+tools/qa-tester/
+tools/api-explorer/ocr_dr_render.jpg
+
+# Wygenerowane dokumenty AI — mogą zawierać wrażliwe dane systemowe
+SYSTEM_BRIEF_FOR_AI.md
