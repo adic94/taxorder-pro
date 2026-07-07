@@ -9,6 +9,7 @@ class FieldValue(BaseModel):
     confidence: float = 0.0
     needs_review: bool = False
     personal_data: bool = False
+    source: str = ""  # "aztec" | "ocr" | "vision" | ""
 
 
 class OwnerFields(BaseModel):

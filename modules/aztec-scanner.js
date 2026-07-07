@@ -203,12 +203,19 @@ window.AztecScanner = {
   },
 
   // ── Parser danych DR ──────────────────────────────────────────────────────
-  // Format polskiego DR (po 2016): pipe-separated, VIN na poz. ~11
-  // [0]=nrRej [1]=PL [2]=nazwisko [3]=imię [4]=PESEL/NIP [5-10]=adres
-  // [11]=VIN [12]=marka [13]=model handlowy [14]=typ [15]=rok [16]=kategoria
-  // [17]=pojemność cm³ [18]=moc kW [19]=DMC kg [20]=masa własna kg
-  // [21]=paliwo [22]=miejsca [23]=data 1.rej [24]=data rej.PL [25]=ważny do
-  // [26]=DMC zespołu [27]=osie [28]=zawieszenie
+  // Obsługuje DWA formaty polskiego DR:
+  //
+  // NOWY FORMAT (BAS/BAV/BAY, rozporządzenie MiR 2017, Dz.U. poz. 2355):
+  //   [0]=seria [1]=nrDR [2]=organ [3]=nrRej [4]=marka [5]=typ [6]=wariant
+  //   [7]=wersja [8]=model [9]=VIN [10]=data1rej [11]=dataRejAkt [12]=kategoria
+  //   [13..16]=dane właściciela (RODO) [17]=f1_dmc [18]=f2_dmc_lad [19]=f3_dmc_zesp
+  //   [20]=g_masa_wl [21]=o1 [22]=o2 [23]=p1_poj [24]=p2_moc [25]=p3_paliwo
+  //   [26]=liczba_osi [27]=s1_miejsca [28]=s2_stoj [29]=nr_homologacji
+  //
+  // STARY FORMAT (sprzed 2017, właściciel PRZED VIN, VIN na poz. ~11):
+  //   [0]=nrRej [1]=PL [2]=nazwisko [3]=imię [4..10]=adres+PESEL [11]=VIN
+  //   [12]=marka [13]=model [14]=typ [15]=rok [16]=kategoria [17]=poj [18]=moc
+  //   [19]=DMC [20]=masa [21]=paliwo [22]=miejsca ...
   _parse(text) {
     const d = {};
     const parts = text.split('|').map(s => s.trim());
@@ -217,69 +224,67 @@ window.AztecScanner = {
     const DATE_RE = /^\d{2}\.\d{2}\.\d{4}$/;
     const NUM_RE  = /^\d+$/;
     const YEAR_RE = /^\d{4}$/;
-    const KAT_RE  = /^[A-Z]\d[A-Z]?$/;   // N3, N2G, O4, M1 …
+    const KAT_RE  = /^[A-Z]\d[A-Z]?$/;
 
     const vi = parts.findIndex(p => VIN_RE.test(p));
-    if (vi < 0) return d;   // brak VIN — nie parsujemy
+    if (vi < 0) return d;
 
-    d.vin   = parts[vi].toUpperCase();
-    d.nrRej = (parts[0] || '').replace(/\s/g, '').toUpperCase();
+    d.vin = parts[vi].toUpperCase();
 
-    // Dostęp do pól po VIN (z zabezpieczeniem przed undefined)
-    const a = off => (parts[vi + off] || '').trim();
+    const p = idx => (parts[idx] || '').trim();
+    const num = idx => NUM_RE.test(p(idx)) ? p(idx) : undefined;
 
-    d.marka    = a(1).toUpperCase() || undefined;
-    // +2 to model handlowy (pomijamy), +3 to typ
-    if (a(3) && !YEAR_RE.test(a(3)) && !KAT_RE.test(a(3)) && !NUM_RE.test(a(3))) {
-      d.typ = a(3);
-    } else if (a(2) && !YEAR_RE.test(a(2))) {
-      d.typ = a(2);
-    }
+    if (vi === 9) {
+      // ── NOWY FORMAT (BAS/BAV/BAY) ────────────────────────────────────────
+      d.nrRej    = p(3).replace(/\s/g, '').toUpperCase() || p(0).replace(/\s/g,'').toUpperCase();
+      d.marka    = p(4).toUpperCase() || undefined;
+      d.typ      = p(5) || undefined;
+      d.model    = p(8) || undefined;
+      if (DATE_RE.test(p(10))) d.dataRej = p(10);
+      if (KAT_RE.test(p(12))) d.kategoria = p(12);
+      // Technika (nowy format: właściciel zajmuje pola 13-16)
+      d.dmcKg     = num(17);   // F.1 DMC
+      d.masaWlKg  = num(20);   // G masa własna
+      d.pojSilnika = num(23);  // P.1 pojemność
+      d.mocKW      = num(24);  // P.2 moc kW
+      d.paliwo     = p(25) || undefined;   // P.3
+      d.dmcZespolu = num(19);  // F.3 DMC zespołu
+      if (/^[1-6]$/.test(p(26))) d.liczbaOsi = p(26);
+      if (NUM_RE.test(p(27)) && +p(27) < 200) d.miejscaSied = p(27);
+      if (NUM_RE.test(p(28)) && +p(28) < 200) d.miejscaStoj = p(28);
+      d.homologacja = p(29) || undefined;
+      d.seriaDR     = p(0) || undefined;
+      d.nrDR        = p(1) || undefined;
+    } else {
+      // ── STARY FORMAT (właściciel przed VIN) ──────────────────────────────
+      d.nrRej = p(0).replace(/\s/g, '').toUpperCase();
+      const a = off => p(vi + off);
 
-    // Rok produkcji
-    if (YEAR_RE.test(a(4)) && +a(4) >= 1970 && +a(4) <= 2100) d.rokProd = a(4);
-    else if (YEAR_RE.test(a(3)) && +a(3) >= 1970) d.rokProd = a(3);
-
-    // Kategoria
-    if (KAT_RE.test(a(5))) d.kategoria = a(5);
-
-    // Dane techniczne (liczby)
-    if (NUM_RE.test(a(6))) d.pojSilnika = a(6);     // pojemność cm³
-    if (NUM_RE.test(a(7))) d.mocKW = a(7);           // moc kW
-    if (NUM_RE.test(a(8))) d.dmcKg = a(8);           // DMC kg
-    if (NUM_RE.test(a(9))) d.masaWlKg = a(9);        // masa własna kg
-
-    // Paliwo — tekst nie-numeryczny
-    if (a(10) && !NUM_RE.test(a(10)) && !DATE_RE.test(a(10))) d.paliwo = a(10);
-
-    // Miejsca siedz.
-    if (NUM_RE.test(a(11)) && +a(11) < 200) d.miejscaSied = a(11);
-
-    // Data 1. rejestracji (pierwsza z dat)
-    for (let off = 12; off <= 15; off++) {
-      if (DATE_RE.test(a(off)) && !d.dataRej) { d.dataRej = a(off); break; }
-    }
-
-    // DMC zespołu
-    if (NUM_RE.test(a(15)) && +a(15) > 1000) d.dmcZespolu = a(15);
-    else if (NUM_RE.test(a(14)) && +a(14) > 1000) d.dmcZespolu = a(14);
-
-    // Liczba osi
-    if (/^[1-6]$/.test(a(16))) d.liczbaOsi = a(16);
-    else if (/^[1-6]$/.test(a(17))) d.liczbaOsi = a(17);
-
-    // Zawieszenie
-    const zawRaw = (a(17) || a(18)).toLowerCase();
-    if (zawRaw.includes('pneum'))       d.zawieszenie = 'pneumatyczne';
-    else if (zawRaw.includes('równ') || zawRaw.includes('rowno')) d.zawieszenie = 'równoważne';
-    else if (zawRaw.length > 2)         d.zawieszenie = 'inne';
-
-    // Właściciel (dane pomocnicze — nie mapujemy do pojazdu, tylko do podglądu)
-    if (vi >= 3) {
-      d._ownerName = [parts[2], parts[3]].filter(Boolean).join(' ').trim();
-    }
-    if (vi >= 5 && parts[vi - 3]) {
-      d._ownerCity = [parts[vi - 3], parts[vi - 2]].filter(Boolean).join(' ').trim();
+      d.marka = a(1).toUpperCase() || undefined;
+      if (a(3) && !YEAR_RE.test(a(3)) && !KAT_RE.test(a(3)) && !NUM_RE.test(a(3))) {
+        d.typ = a(3);
+      } else if (a(2) && !YEAR_RE.test(a(2))) {
+        d.typ = a(2);
+      }
+      if (YEAR_RE.test(a(4)) && +a(4) >= 1970) d.rokProd = a(4);
+      else if (YEAR_RE.test(a(3)) && +a(3) >= 1970) d.rokProd = a(3);
+      if (KAT_RE.test(a(5))) d.kategoria = a(5);
+      if (NUM_RE.test(a(6))) d.pojSilnika = a(6);
+      if (NUM_RE.test(a(7))) d.mocKW = a(7);
+      if (NUM_RE.test(a(8))) d.dmcKg = a(8);
+      if (NUM_RE.test(a(9))) d.masaWlKg = a(9);
+      if (a(10) && !NUM_RE.test(a(10)) && !DATE_RE.test(a(10))) d.paliwo = a(10);
+      if (NUM_RE.test(a(11)) && +a(11) < 200) d.miejscaSied = a(11);
+      for (let off = 12; off <= 15; off++) {
+        if (DATE_RE.test(a(off)) && !d.dataRej) { d.dataRej = a(off); break; }
+      }
+      if (NUM_RE.test(a(15)) && +a(15) > 1000) d.dmcZespolu = a(15);
+      else if (NUM_RE.test(a(14)) && +a(14) > 1000) d.dmcZespolu = a(14);
+      if (/^[1-6]$/.test(a(16))) d.liczbaOsi = a(16);
+      // Właściciel przed VIN
+      if (vi >= 3) {
+        d._ownerName = [parts[2], parts[3]].filter(Boolean).join(' ').trim();
+      }
     }
 
     // Usuń puste wartości

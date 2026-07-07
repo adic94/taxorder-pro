@@ -127,12 +127,13 @@ def _detect_mime(data: bytes) -> Optional[str]:
     return None
 
 
-def _build_field(value, conf: float, needs_review: bool = False, personal: bool = False) -> FieldValue:
+def _build_field(value, conf: float, needs_review: bool = False, personal: bool = False, src: str = "") -> FieldValue:
     return FieldValue(
         value=value,
         confidence=conf,
         needs_review=needs_review,
         personal_data=personal,
+        source=src,
     )
 
 
@@ -209,40 +210,47 @@ async def _process_upload(data: bytes) -> ExtractionResponse:
                 if not val:
                     continue
                 is_personal = key in PERSONAL_FIELDS
-                fv = _build_field(val, 1.0, personal=is_personal)
+                fv = _build_field(val, 1.0, personal=is_personal, src="aztec")
                 if is_personal:
                     owner_fields[key] = fv
                 else:
                     fields_raw[key] = fv
             break  # pierwsza strona z Aztec wystarczy
 
-    # ── Etap 2: OCR fallback ───────────────────────────────────────────────
-    if source == "none":
-        best_conf = -1.0
-        best_parsed: dict[str, tuple] = {}
-        for pil_img in images:
-            try:
-                text, avg_conf, tess_data = run_ocr(pil_img)
-                parsed = parse_fields(text, tess_data)
-                filled = sum(1 for v, _ in parsed.values() if v)
-                score = avg_conf + filled * 0.01
-                if score > best_conf:
-                    best_conf = score
-                    best_parsed = parsed
-            except Exception as e:
-                warnings.append(f"Błąd OCR strony: {e}")
+    # ── Etap 2: OCR — zawsze, uzupełnia pola których Aztec nie dostarczył ──
+    # (Aztec może mieć puste pola np. f1_dmc w ciągnikach siodłowych)
+    best_conf = -1.0
+    best_parsed: dict[str, tuple] = {}
+    for pil_img in images:
+        try:
+            text, avg_conf, tess_data = run_ocr(pil_img)
+            parsed = parse_fields(text, tess_data)
+            filled = sum(1 for v, _ in parsed.values() if v)
+            score = avg_conf + filled * 0.01
+            if score > best_conf:
+                best_conf = score
+                best_parsed = parsed
+        except Exception as e:
+            warnings.append(f"Błąd OCR strony: {e}")
 
-        if best_parsed:
-            source = "ocr"
-            for key, (val, conf) in best_parsed.items():
-                if val is None:
-                    continue
-                is_personal = key in PERSONAL_FIELDS
-                fv = _build_field(val, conf, personal=is_personal)
+    if best_parsed:
+        ocr_added = False
+        for key, (val, conf) in best_parsed.items():
+            if val is None:
+                continue
+            is_personal = key in PERSONAL_FIELDS
+            # Dodaj z OCR tylko jeśli Aztec nie dostarczył tego pola
+            if key not in fields_raw and key not in owner_fields:
+                fv = _build_field(val, conf, personal=is_personal, src="ocr")
                 if is_personal:
                     owner_fields[key] = fv
                 else:
                     fields_raw[key] = fv
+                ocr_added = True
+        if source == "none" and ocr_added:
+            source = "ocr"
+        elif source == "aztec" and ocr_added:
+            source = "aztec+ocr"
 
     # ── Etap 3: Claude Vision (opcjonalny) ────────────────────────────────
     anthropic_key = os.getenv("ANTHROPIC_API_KEY")
@@ -285,10 +293,10 @@ async def _process_upload(data: bytes) -> ExtractionResponse:
             jm = _re.search(r'\{.*\}', vision_raw, _re.DOTALL)
             if jm:
                 vision_data = json.loads(jm.group(0))
-                source = "vision"
+                source = "vision" if source == "none" else source
                 for key, val in vision_data.items():
                     if val is not None and key not in fields_raw:
-                        fields_raw[key] = _build_field(str(val), 0.7)
+                        fields_raw[key] = _build_field(str(val), 0.7, src="vision")
         except Exception as e:
             warnings.append(f"Claude Vision pominięty: {e}")
 

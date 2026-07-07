@@ -279,6 +279,21 @@ window.TaxOrderVehicleDetail = {
 
       <!-- TAB: DOWÓD REJESTRACYJNY -->
       <div id="vd-tab-dr-content" class="vd-tab-content">
+        <!-- Przełącznik widok DR / formularz -->
+        <div style="display:flex;gap:4px;margin-bottom:12px">
+          <button id="vd-drview-btn-form" onclick="TaxOrderVehicleDetail._toggleDrView(false)"
+            style="flex:1;padding:5px 10px;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:11px;font-weight:600;background:var(--bg);color:var(--text);box-shadow:0 0 0 1.5px var(--border)">
+            <i class="ti ti-forms"></i> Formularz
+          </button>
+          <button id="vd-drview-btn-view" onclick="TaxOrderVehicleDetail._toggleDrView(true)"
+            style="flex:1;padding:5px 10px;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:11px;font-weight:600;background:transparent;color:var(--text2)">
+            <i class="ti ti-id-badge-2"></i> Podgląd DR
+          </button>
+        </div>
+        <!-- Wizualny podgląd DR (ukryty domyślnie) -->
+        <div id="vd-dr-view" style="display:none">${this._renderDrView(v)}</div>
+        <!-- Sekcje formularza -->
+        <div id="vd-dr-form-sections">
         <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Identyfikacja dokumentu</div>
         <div class="vdfg" style="margin-bottom:18px">
           ${field('dataRej','B — Data 1. rej. w Polsce', v.dataRejestracji,'date')}
@@ -350,6 +365,7 @@ window.TaxOrderVehicleDetail = {
             </div>
           </div>
         </div>
+        </div><!-- /vd-dr-form-sections -->
       </div>
 
       <!-- TAB: POLISY / UBEZPIECZENIA -->
@@ -1413,6 +1429,117 @@ window.TaxOrderVehicleDetail = {
     const gps = document.getElementById('vd-gps-body');
     if (gps) gps.innerHTML = this._renderGpsTab(v);
     this.refreshServiceTab(vehId);
+  },
+
+  _toggleDrView(showView) {
+    const view   = document.getElementById('vd-dr-view');
+    const form   = document.getElementById('vd-dr-form-sections');
+    const btnF   = document.getElementById('vd-drview-btn-form');
+    const btnV   = document.getElementById('vd-drview-btn-view');
+    if (!view || !form) return;
+    view.style.display  = showView ? '' : 'none';
+    form.style.display  = showView ? 'none' : '';
+    if (btnF) {
+      btnF.style.background  = showView ? 'transparent' : 'var(--bg)';
+      btnF.style.color       = showView ? 'var(--text2)' : 'var(--text)';
+      btnF.style.boxShadow   = showView ? 'none' : '0 0 0 1.5px var(--border)';
+    }
+    if (btnV) {
+      btnV.style.background = showView ? 'var(--bg)' : 'transparent';
+      btnV.style.color      = showView ? 'var(--text)' : 'var(--text2)';
+      btnV.style.boxShadow  = showView ? '0 0 0 1.5px var(--border)' : 'none';
+    }
+  },
+
+  _renderDrView(v) {
+    const f = (val, unit = '') => {
+      if (val == null || val === '' || val === 0) return '<span style="color:var(--text3)">—</span>';
+      return `<strong>${val}</strong>${unit ? ' <span style="color:var(--text3);font-size:10px">' + unit + '</span>' : ''}`;
+    };
+    const row = (code, label, val, unit = '') => `
+      <tr>
+        <td style="font-size:9px;font-weight:700;color:var(--text3);white-space:nowrap;padding:2px 6px 2px 0;vertical-align:top;min-width:30px">${code}</td>
+        <td style="font-size:9.5px;color:var(--text2);padding:2px 8px 2px 0;white-space:nowrap;vertical-align:top">${label}</td>
+        <td style="font-size:11px;color:var(--text);padding:2px 0;vertical-align:top">${f(val, unit)}</td>
+      </tr>`;
+
+    return `
+      <div style="
+        background:linear-gradient(135deg,#f8f6f2 0%,#efe9de 100%);
+        border:2px solid #c8b89a;
+        border-radius:8px;
+        padding:14px 16px;
+        font-family:'Courier New',monospace;
+        position:relative;
+        overflow:hidden;
+        box-shadow:0 2px 8px rgba(0,0,0,.12)
+      ">
+        <!-- Nagłówek -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;border-bottom:1px solid #c8b89a;padding-bottom:8px">
+          <div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:.12em;color:#5a4a35;text-transform:uppercase">Rzeczpospolita Polska</div>
+            <div style="font-size:13px;font-weight:700;letter-spacing:.06em;color:#2a1f0f;margin-top:1px">DOWÓD REJESTRACYJNY</div>
+            <div style="font-size:8px;color:#7a6a55;margin-top:2px;font-style:italic">Registration certificate / Carte grise</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:8px;color:#7a6a55;margin-bottom:2px">A — Nr rejestracyjny</div>
+            <div style="
+              background:#1a3a6e;color:#fff;
+              font-size:15px;font-weight:700;letter-spacing:.08em;
+              padding:4px 12px;border-radius:4px;
+              border:2px solid #0d2050
+            ">${v.nrRej || '—'}</div>
+            <div style="font-size:8px;color:#7a6a55;margin-top:4px">🇵🇱 POL</div>
+          </div>
+        </div>
+
+        <!-- Dane pojazdu -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px">
+          <table style="border-collapse:collapse">
+            ${row('B', 'Data 1. rej.', v.dataRejestracji)}
+            ${row('D.1', 'Marka', v.marka)}
+            ${row('D.2', 'Typ', v.wariant)}
+            ${row('D.3', 'Model', v.model)}
+            ${row('E', 'VIN / nr identyf.', v.vin)}
+            ${row('J', 'Kategoria', v.katPojazdu)}
+            ${row('K', 'Nr homologacji', v.homologacja)}
+          </table>
+          <table style="border-collapse:collapse">
+            ${row('F.1', 'DMC', v.dmcMax, 'kg')}
+            ${row('F.2', 'DMC ładunku', v.ladownosc, 'kg')}
+            ${row('F.3', 'DMC zesp.', v.dmcZespolu, 'kg')}
+            ${row('G', 'Masa własna', v.masaWlasna, 'kg')}
+            ${row('O.1', 'Przycz. z ham.', v.masaPrzyczepyZHam, 'kg')}
+            ${row('O.2', 'Przycz. bez ham.', v.masaPrzyczepyBezHam, 'kg')}
+            ${row('P.1', 'Pojemność', v.pojSilnika, 'cm³')}
+            ${row('P.2', 'Moc', v.mocKW, 'kW')}
+            ${row('P.3', 'Paliwo', v.paliwo)}
+            ${row('S.1', 'Miejsca siedz.', v.miejscaSied)}
+          </table>
+        </div>
+
+        <!-- Stopka -->
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #c8b89a;display:flex;justify-content:space-between;font-size:9px;color:#7a6a55">
+          <span>H — Ważny do: ${v.docWaznyDo ? `<strong style="color:#2a1f0f">${v.docWaznyDo}</strong>` : '<em>bez daty ważności</em>'}</span>
+          <span>I — Wydany: ${v.docDataWydania ? `<strong style="color:#2a1f0f">${v.docDataWydania}</strong>` : '<span style="color:var(--text3)">—</span>'}</span>
+        </div>
+
+        <!-- Watermark -->
+        <div style="
+          position:absolute;top:50%;left:50%;
+          transform:translate(-50%,-50%) rotate(-30deg);
+          font-size:48px;font-weight:900;
+          color:rgba(200,184,154,.18);
+          pointer-events:none;white-space:nowrap;
+          font-family:serif
+        ">DR</div>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button class="btn btn-amber" style="flex:1;justify-content:center"
+          onclick="AztecScanner.open(${v.id})">
+          <i class="ti ti-qrcode"></i> Skanuj AZTEC
+        </button>
+      </div>`;
   },
 
   _renderDt1Box(v) {
