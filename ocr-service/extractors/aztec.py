@@ -99,7 +99,7 @@ def extract_aztec(pil_img: Image.Image) -> Optional[dict]:
 
     decoder = AztecDecoder.try_get()
     if decoder is None:
-        logger.warning("AztecDecoder niedostępny (brak libucl1) — etap Aztec pomijany")
+        logger.warning("AztecDecoder niedostępny — etap Aztec pomijany")
         return None
 
     bgr = pil_to_cv2(pil_img)

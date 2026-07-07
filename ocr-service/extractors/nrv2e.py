@@ -124,11 +124,12 @@ def decode_dr_payload(raw: bytes) -> str:
     """
     Dekoduje surowe bajty payloadu Aztec DR (po base64-decode).
 
-    Format wejściowy:
+    Format wejściowy (seria BAS/BAV/BAY, post-2017):
         raw[0:4]  — LE uint32: rozmiar wyjścia po dekompresji
         raw[4:]   — dane NRV2E
 
     Zwraca: string pól rozdzielonych '|' (UTF-16LE).
+    Rzuca: ValueError gdy format nieprawidłowy lub libucl niedostępna.
     """
     if len(raw) < 4:
         raise ValueError(f"Payload zbyt krótki: {len(raw)} B (minimum 4)")
@@ -150,3 +151,41 @@ def decode_dr_payload(raw: bytes) -> str:
         raise ValueError(f"Błąd dekodowania UTF-16LE: {e}") from e
 
     return text
+
+
+# ── Fallback dla starszych DR (GZIP) ──────────────────────────────────────────
+
+_GZIP_MAGIC = b"\x1f\x8b"
+_ZLIB_MAGIC = b"\x78"  # zlib: 0x78 0x9C (default), 0x78 0xDA (best), 0x78 0x01 (no compress)
+
+
+def is_gzip(data: bytes) -> bool:
+    return len(data) >= 2 and data[:2] == _GZIP_MAGIC
+
+
+def is_zlib(data: bytes) -> bool:
+    return len(data) >= 2 and data[:1] == _ZLIB_MAGIC and data[1] in (0x9C, 0xDA, 0x01, 0x5E)
+
+
+def try_gzip_decompress(data: bytes) -> Optional[bytes]:
+    """
+    Próbuje zdekompresować dane GZIP lub zlib (z nagłówkiem i CRC).
+    Zwraca zdekompresowane bajty lub None jeśli dekompresja niemożliwa.
+    Obsługuje starsze DR (przed serią BAS/BAV/BAY, ewentualnie pre-2017).
+
+    UWAGA: raw DEFLATE (bez nagłówka) celowo NIE jest próbowane — mode -MAX_WBITS
+    akceptuje dowolne dane binarne i produkuje śmieciowe wyjście dla strumieni NRV2E.
+    Tylko GZIP (magic 1F 8B) i zlib (magic 78 xx) mają walidację CRC i są bezpieczne.
+    """
+    import zlib
+    # Próba 1: GZIP lub zlib — autodetekt nagłówka (wbits=15+32 = obsługa obu)
+    try:
+        return zlib.decompress(data, zlib.MAX_WBITS | 32)
+    except zlib.error:
+        pass
+    # Próba 2: czysty zlib (wbits=15)
+    try:
+        return zlib.decompress(data, zlib.MAX_WBITS)
+    except zlib.error:
+        pass
+    return None

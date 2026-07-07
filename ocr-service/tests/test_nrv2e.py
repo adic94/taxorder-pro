@@ -243,9 +243,97 @@ class TestAztecDecoderInterface:
         assert "numer_dowodu" not in fields   # puste — pominięte
         assert fields["marka"] == "MAN"
 
-    def test_try_get_zwraca_none_gdy_brak(self, monkeypatch):
+    def test_try_get_bez_libucl_zwraca_legacy_gzip(self, monkeypatch):
+        """Bez libucl1 try_get() zwraca LegacyGzipDecoder (nie None)."""
         from extractors import aztec_decoder, nrv2e
         monkeypatch.setattr(nrv2e, "is_available", lambda: False)
         monkeypatch.setattr(nrv2e, "_lib_loaded", False)
         result = aztec_decoder.AztecDecoder.try_get()
+        assert result is not None
+        assert isinstance(result, aztec_decoder.LegacyGzipDecoder)
+
+    def test_get_bez_libucl_zwraca_legacy_gzip(self, monkeypatch):
+        """Bez libucl1 get() zwraca LegacyGzipDecoder zamiast rzucać RuntimeError."""
+        from extractors import aztec_decoder, nrv2e
+        monkeypatch.setattr(nrv2e, "is_available", lambda: False)
+        monkeypatch.setattr(nrv2e, "_lib_loaded", False)
+        result = aztec_decoder.AztecDecoder.get()
+        assert isinstance(result, aztec_decoder.LegacyGzipDecoder)
+
+
+# ── Testy GZIP detection i LegacyGzipDecoder ─────────────────────────────────
+
+class TestGzipFallback:
+    def test_is_gzip_wykrywa_magic(self):
+        from extractors.nrv2e import is_gzip
+        assert is_gzip(b"\x1f\x8b\x08\x00" + b"\x00" * 10)
+        assert not is_gzip(b"\xdb\x58\x00" + b"\x00" * 10)
+        assert not is_gzip(b"\x78\x9c" + b"\x00" * 10)
+
+    def test_is_zlib_wykrywa_magic(self):
+        from extractors.nrv2e import is_zlib
+        assert is_zlib(b"\x78\x9c" + b"\x00" * 10)  # zlib default
+        assert is_zlib(b"\x78\xda" + b"\x00" * 10)  # zlib best
+        assert not is_zlib(b"\x1f\x8b" + b"\x00" * 10)
+
+    def test_detect_format_nrv2e(self):
+        from extractors.aztec_decoder import AztecDecoder
+        buf = _decode_b64(PAYLOAD_WPR0365T_B64)
+        assert AztecDecoder._detect_format(buf) == "nrv2e"
+
+    def test_detect_format_gzip(self):
+        from extractors.aztec_decoder import AztecDecoder
+        gzip_header = b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03"
+        assert AztecDecoder._detect_format(gzip_header) == "gzip"
+
+    def test_try_gzip_decompress_poprawne_dane(self):
+        """Zlib skompresowane dane można zdekompresować."""
+        import zlib
+        from extractors.nrv2e import try_gzip_decompress
+        original = b"seria|dowod|organ|WPR0001A|TOYOTA|" * 3
+        compressed = zlib.compress(original)
+        result = try_gzip_decompress(compressed)
+        assert result == original
+
+    def test_try_gzip_decompress_gzip_format(self):
+        """Dane skompresowane GZIP (z nagłówkiem 1F 8B) można zdekompresować."""
+        import gzip
+        import io
+        from extractors.nrv2e import try_gzip_decompress
+        original = b"BAS|3574703|PRUSZKOW|WPR0365T|MAN|" + b"x|" * 25
+        buf = io.BytesIO()
+        with gzip.GzipFile(fileobj=buf, mode="wb") as f:
+            f.write(original)
+        result = try_gzip_decompress(buf.getvalue())
+        assert result == original
+
+    def test_try_gzip_decompress_niepoprawne_dane(self):
+        """Dane NRV2E nie są GZIP — try_gzip_decompress zwraca None."""
+        from extractors.nrv2e import try_gzip_decompress
+        nrv2e_data = _decode_b64(PAYLOAD_WPR0365T_B64)[4:]  # sam strumień NRV2E
+        result = try_gzip_decompress(nrv2e_data)
         assert result is None
+
+    def test_legacy_gzip_decoder_utf8_pipe(self):
+        """LegacyGzipDecoder dekoduje dane GZIP+UTF8+pipe."""
+        import gzip
+        import io
+        from extractors.aztec_decoder import LegacyGzipDecoder
+        payload_text = "BAS|3574703|PRUSZKOW|WPR0365T|TOYOTA||SEDAN|||ABCDEF12345678901|01.01.2015|15.03.2020|B1|||||15000|0|0|12500|0|0|1600|85|ON|2|5|0|e1*2001/116*0128*01"
+        buf = io.BytesIO()
+        with gzip.GzipFile(fileobj=buf, mode="wb") as f:
+            f.write(payload_text.encode("utf-8"))
+        decoder = LegacyGzipDecoder()
+        fields = decoder.decode(buf.getvalue())  # dane binarne GZIP bezpośrednio
+        assert fields.get("seria_dowodu") == "BAS"
+        assert fields.get("numer_rejestracyjny") == "WPR0365T"
+        assert fields.get("marka") == "TOYOTA"
+        assert fields.get("vin") == "ABCDEF12345678901"
+
+    def test_legacy_gzip_decoder_nie_gzip_rzuca(self):
+        """LegacyGzipDecoder rzuca ValueError dla danych NRV2E (nie GZIP)."""
+        from extractors.aztec_decoder import LegacyGzipDecoder
+        nrv2e_raw = _decode_b64(PAYLOAD_WPR0365T_B64)
+        decoder = LegacyGzipDecoder()
+        with pytest.raises(ValueError, match="GZIP"):
+            decoder.decode(nrv2e_raw)

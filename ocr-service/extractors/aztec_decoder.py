@@ -3,16 +3,17 @@ AztecDecoder — adapter izolujący dekodowanie payloadu kodu Aztec DR.
 
 Zasada:
     Reszta systemu używa wyłącznie tej abstrakcji (AztecDecoder).
-    Konkretna implementacja (LibUCLDecoder) korzysta z libucl1 (GPL-2)
-    przez ctypes — dzięki izolacji komponent można wymienić bez zmian
-    w kodzie klienckim.
+    Konkretna implementacja korzysta z libucl1 (GPL-2) przez ctypes;
+    dzięki izolacji komponent można wymienić bez zmian w kodzie klienckim.
 
-Hierarchia:
+Hierarchia implementacji:
     AztecDecoder (ABC)
-      └─ LibUCLDecoder   — produkcja (libucl1 przez ctypes)
+      ├─ LibUCLDecoder      — NRV2E przez ctypes libucl1 (seria BAS/BAV/BAY, post-2017)
+      ├─ LegacyGzipDecoder  — GZIP/DEFLATE fallback (starsze DR, pre-2017)
+      └─ AutoDetectDecoder  — autodetekuje format, deleguje do powyższych
 
 Użycie:
-    decoder = AztecDecoder.get()          # zwraca najlepszą dostępną impl.
+    decoder = AztecDecoder.get()          # zwraca AutoDetectDecoder lub LegacyGzipDecoder
     fields  = decoder.decode(raw_bytes)   # słownik {nazwa: wartość}
 """
 from __future__ import annotations
@@ -23,6 +24,8 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+_GZIP_MAGIC = b"\x1f\x8b"
 
 # Kolejność pól wg rozporządzenia MiR z 11 grudnia 2017 r.
 # (Dz.U. poz. 2355, załącznik do wzoru DR serii BAS/BAV/BAY)
@@ -93,16 +96,18 @@ class AztecDecoder(ABC):
     @staticmethod
     def _try_base64(raw: bytes) -> bytes:
         """
-        Próbuje zdekodować raw jako base64 (DR przechowuje payload b64 w Aztec).
+        Próbuje zdekodować raw jako base64.
+        Akceptuje format NRV2E (4B rozmiaru + dane) i GZIP (magic 1F 8B).
         Jeśli base64 zawiedzie — zakłada że raw to już surowe bajty payloadu.
         """
         try:
             text = raw.decode("ascii").strip()
-            # Dodaj padding jeśli potrzebny
             padding = (4 - len(text) % 4) % 4
             decoded = base64.b64decode(text + "=" * padding)
-            # Sanity-check: pierwszy LE uint32 musi być rozsądnym rozmiarem
             if len(decoded) >= 4:
+                # Akceptuj: GZIP lub rozsądny rozmiar NRV2E
+                if decoded[:2] == _GZIP_MAGIC:
+                    return decoded
                 import struct
                 sz = struct.unpack_from("<I", decoded, 0)[0]
                 if 100 < sz < 65536:
@@ -110,6 +115,16 @@ class AztecDecoder(ABC):
         except Exception:
             pass
         return raw
+
+    @staticmethod
+    def _detect_format(payload: bytes) -> str:
+        """
+        Wykrywa format zdekodowanego payloadu.
+        Zwraca: 'gzip' gdy magic 1F 8B, inaczej 'nrv2e' (domyślny format modern DR).
+        """
+        if len(payload) >= 2 and payload[:2] == _GZIP_MAGIC:
+            return "gzip"
+        return "nrv2e"
 
     @staticmethod
     def _map_fields(parts: list[str]) -> dict[str, str]:
@@ -127,22 +142,26 @@ class AztecDecoder(ABC):
 
     @staticmethod
     def get() -> "AztecDecoder":
-        """Zwraca najlepszą dostępną implementację."""
+        """
+        Zwraca najlepszą dostępną implementację:
+          - libucl1 dostępna → AutoDetectDecoder (NRV2E + GZIP fallback)
+          - libucl1 niedostępna → LegacyGzipDecoder (tylko GZIP, dla starych DR)
+        """
         from extractors import nrv2e
         if nrv2e.is_available():
-            return LibUCLDecoder()
+            return AutoDetectDecoder()
         logger.warning(
-            "libucl1 niedostępna — AztecDecoder.get() nie może zwrócić implementacji. "
-            "Zainstaluj: apt install libucl1"
+            "libucl1 niedostępna — AztecDecoder ograniczony do trybu GZIP. "
+            "Nowoczesne DR (BAS/BAV/BAY) wymagają: apt install libucl1"
         )
-        raise RuntimeError(
-            "Brak implementacji AztecDecoder: libucl1 niezainstalowana. "
-            "Sprawdź Dockerfile (powinien zawierać libucl1)."
-        )
+        return LegacyGzipDecoder()
 
     @staticmethod
     def try_get() -> Optional["AztecDecoder"]:
-        """Zwraca None zamiast rzucać wyjątek gdy brak implementacji."""
+        """
+        Jak get(), ale zwraca None zamiast rzucać wyjątek przy krytycznym błędzie.
+        Uwaga: bez libucl1 zwraca LegacyGzipDecoder (GZIP-only), nie None.
+        """
         try:
             return AztecDecoder.get()
         except RuntimeError:
@@ -152,13 +171,108 @@ class AztecDecoder(ABC):
 class LibUCLDecoder(AztecDecoder):
     """
     Implementacja przez ctypes + libucl (GPL-2, Markus Oberhumer).
+    Obsługuje format NRV2E (seria BAS/BAV/BAY, post-2017).
     Patrz: extractors/nrv2e.py i ocr-service/NOTICE.md.
     """
 
     def decode(self, raw: bytes) -> dict[str, str]:
         from extractors import nrv2e
-
         payload = self._try_base64(raw)
         text = nrv2e.decode_dr_payload(payload)
-        parts = text.split("|")
-        return self._map_fields(parts)
+        return self._map_fields(text.split("|"))
+
+
+class LegacyGzipDecoder(AztecDecoder):
+    """
+    Fallback dla starszych DR (przed serią BAS/BAV/BAY, ewentualnie pre-2017).
+    Próbuje dekompresji GZIP/DEFLATE/zlib, następnie parsowania jako:
+      1. Opcjonalnie NRBF (gdy zainstalowana biblioteka 'nrbf' z PyPI)
+      2. UTF-8 lub UTF-16LE tekst z separatorem '|'
+    """
+
+    def decode(self, raw: bytes) -> dict[str, str]:
+        from extractors import nrv2e as nrv2e_mod
+        payload = self._try_base64(raw)
+        decompressed = nrv2e_mod.try_gzip_decompress(payload)
+        if decompressed is None:
+            raise ValueError(
+                "Payload nie jest GZIP/DEFLATE — brak dekompresorów dla tego formatu. "
+                "(Brak libucl1: modern DR wymagają apt install libucl1)"
+            )
+        logger.debug("GZIP fallback: zdekompresowano %d B → %d B", len(payload), len(decompressed))
+
+        # Próba 1: opcjonalne NRBF (starszy format .NET serialization)
+        nrbf_parts = self._try_nrbf(decompressed)
+        if nrbf_parts is not None:
+            logger.debug("GZIP+NRBF: odczytano %d pól", len(nrbf_parts))
+            return self._map_fields(nrbf_parts)
+
+        # Próba 2: pipe-separated UTF-8 / UTF-16LE / latin-1
+        for encoding in ("utf-8", "utf-16-le", "latin-1"):
+            try:
+                text = decompressed.decode(encoding)
+                parts = text.split("|")
+                if len(parts) >= 5 and any(p.strip() for p in parts):
+                    logger.debug("GZIP+%s: odczytano %d pól", encoding, len(parts))
+                    return self._map_fields(parts)
+            except (UnicodeDecodeError, ValueError):
+                continue
+
+        raise ValueError(
+            "Nie udało się zdekodować zdekompresowanych danych GZIP jako "
+            "pól DR (próbowano NRBF, UTF-8, UTF-16LE, latin-1)"
+        )
+
+    @staticmethod
+    def _try_nrbf(data: bytes) -> Optional[list[str]]:
+        """
+        Próbuje sparsować NRBF — używa opcjonalnej biblioteki 'nrbf' z PyPI.
+        Zwraca listę pól lub None gdy brak biblioteki lub błąd parsowania.
+        """
+        try:
+            import io
+            import nrbf  # opcjonalne: pip install nrbf
+            stream = nrbf.read_stream(io.BytesIO(data))
+            root = getattr(stream, "root", None)
+            if root is None:
+                return None
+            items: list[str] = []
+            if hasattr(root, "array_objects"):
+                items = [str(getattr(obj, "value", obj)) for obj in root.array_objects]
+            elif hasattr(root, "member_values"):
+                items = [str(v) for v in root.member_values.values()]
+            return items if len(items) >= 5 else None
+        except Exception:
+            return None
+
+
+class AutoDetectDecoder(AztecDecoder):
+    """
+    Autodetekuje format payloadu i deleguje do właściwej implementacji:
+      - GZIP magic (1F 8B) → LegacyGzipDecoder
+      - Inny → LibUCLDecoder (NRV2E), z GZIP fallback przy niepowodzeniu
+
+    Wymagana libucl1 (apt install libucl1).
+    """
+
+    def __init__(self) -> None:
+        self._nrv2e = LibUCLDecoder()
+        self._gzip = LegacyGzipDecoder()
+
+    def decode(self, raw: bytes) -> dict[str, str]:
+        payload = self._try_base64(raw)
+
+        if self._detect_format(payload) == "gzip":
+            logger.debug("AutoDetect: wykryto GZIP — delegowanie do LegacyGzipDecoder")
+            return self._gzip.decode(raw)
+
+        # Domyślna ścieżka NRV2E (modern DR)
+        try:
+            return self._nrv2e.decode(raw)
+        except (ValueError, RuntimeError) as nrv2e_err:
+            # Defensywny fallback — próba GZIP gdy NRV2E zawiedzie nieoczekiwanie
+            logger.debug("NRV2E nie powiodło się (%s), próbuję GZIP fallback", nrv2e_err)
+            try:
+                return self._gzip.decode(raw)
+            except (ValueError, RuntimeError):
+                raise nrv2e_err  # podnieś oryginalny błąd NRV2E

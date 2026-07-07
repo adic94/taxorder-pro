@@ -8,3 +8,4 @@ python-multipart>=0.0.9
 pdf2image>=1.17.0
 zxing-cpp>=2.2.0
 anthropic>=0.28.0
+# opcjonalnie: nrbf>=0.1.0  # parsowanie NRBF w GZIP-fallback dla starszych DR
