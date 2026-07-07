@@ -1,35 +1,58 @@
 """
-TaxOrder OCR Service — pytesseract backend dla polskich Dowodów Rejestracyjnych
+TaxOrder OCR Service — ekstrakcja danych z polskich Dowodów Rejestracyjnych
 
-Dlaczego pytesseract zamiast PaddleOCR:
-- PaddleOCR wymaga ~800MB RAM → Railway free tier (512MB) → OOM Killed
-- pytesseract: ~150MB RAM, sprawdzona technologia, server-side preprocessing
+Kaskada przetwarzania:
+  Etap 0 — normalizacja wejścia (EXIF, PDF→obrazy, limit rozmiaru)
+  Etap 1 — kod Aztec przez zxing-cpp (confidence 1.0)
+  Etap 2 — OCR Tesseract + parser euro-pól (gdy Aztec nieczytelny)
+  Etap 3 — Claude Vision (opcjonalny, gdy ANTHROPIC_API_KEY ustawiony)
 
-Kluczowa funkcja: image_to_data() zwraca bounding boxy każdego słowa
-→ filtrujemy po y_rel > 0.28 → czytamy F.1/F.2/F.3/G TYLKO z żółtej tabeli
-→ sekcja homologacji (beżowa = TOP, y_rel 0-0.25) jest pomijana
+Limity bezpieczeństwa:
+  - max 15 MB wejście
+  - walidacja po magic bytes (nie Content-Type)
+  - plik przetwarzany wyłącznie w pamięci (RODO — bez trwałej kopii)
+  - timeout 60 s przez asyncio
 """
+from __future__ import annotations
 
-import os
-import re
-import io
+import asyncio
 import base64
+import io
 import logging
+import os
+import time
 from typing import Optional
 
 import cv2
 import numpy as np
+from fastapi import FastAPI, File, Header, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 import pytesseract
-from pytesseract import Output
-from fastapi import FastAPI, Header, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+
+from extractors.schema import ExtractionResponse, FieldValue, OwnerFields
+from extractors.preprocessing import load_images_from_bytes
+from extractors.aztec import extract_aztec, PERSONAL_FIELDS
+from extractors.ocr_fallback import run_ocr, parse_fields
+from extractors.validators import (
+    validate_vin, validate_nrrej, validate_date,
+    validate_mass, validate_capacity, validate_power, validate_seats,
+    check_mass_consistency,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="TaxOrder OCR Service", version="2.0.0")
+MAX_SIZE_BYTES = 15 * 1024 * 1024  # 15 MB
+PROCESSING_TIMEOUT = 60  # sekund
+
+ALLOWED_MAGIC = {
+    b'\xff\xd8\xff': "image/jpeg",
+    b'\x89PNG':       "image/png",
+    b'%PDF':          "application/pdf",
+}
+
+app = FastAPI(title="TaxOrder OCR Service", version="3.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,267 +61,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Żółta tabela rejestracyjna DR: y_rel 0.28 – 0.78 (portret)
-YELLOW_Y_MIN = 0.28
-YELLOW_Y_MAX = 0.78
+# ── Stary endpoint (kompatybilność wsteczna) ─────────────────────────────────
 
+class _OcrRequest:
+    pass
 
-class OcrRequest(BaseModel):
+from pydantic import BaseModel as _BM
+class OcrRequest(_BM):
     imageBase64: str
     mimeType: str = "image/jpeg"
 
-
-# ── Preprocessing ─────────────────────────────────────────────────────────────
-
-def _preprocess(img: Image.Image) -> np.ndarray:
-    """Grayscale + adaptive threshold — eliminuje kolorowe tła DR (żółte/beżowe)."""
-    arr = np.array(img.convert("RGB"))
-    gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
-    enhanced = cv2.adaptiveThreshold(
-        gray, 255,
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY, 31, 11,
-    )
-    return enhanced
-
-
-# ── Ekstrakcja linii z bounding boxami ────────────────────────────────────────
-
-def _run_tesseract(arr: np.ndarray, img_h: int, img_w: int) -> list[dict]:
-    """Zwraca linie tekstu z pozycją y_rel i x_rel w obrazie."""
-    data = pytesseract.image_to_data(
-        arr, lang="pol+eng",
-        config="--psm 11 --oem 3",
-        output_type=Output.DICT,
-    )
-    groups: dict = {}
-    n = len(data["text"])
-    for i in range(n):
-        word = data["text"][i].strip()
-        conf = int(data["conf"][i])
-        if not word or conf < 10:
-            continue
-        x = data["left"][i]
-        y = data["top"][i]
-        w = data["width"][i]
-        h = data["height"][i]
-        key = (data["block_num"][i], data["par_num"][i], data["line_num"][i])
-        if key not in groups:
-            groups[key] = {"words": [], "xs": [], "ys": []}
-        groups[key]["words"].append(word)
-        groups[key]["xs"].append(x + w / 2)
-        groups[key]["ys"].append(y + h / 2)
-
-    lines = []
-    for grp in groups.values():
-        text = " ".join(grp["words"]).strip()
-        if not text:
-            continue
-        xc = sum(grp["xs"]) / len(grp["xs"])
-        yc = sum(grp["ys"]) / len(grp["ys"])
-        lines.append({
-            "text": text,
-            "x": xc, "y": yc,
-            "x_rel": xc / img_w if img_w > 0 else 0.5,
-            "y_rel": yc / img_h if img_h > 0 else 0.5,
-        })
-    lines.sort(key=lambda l: l["y"])
-    return lines
-
-
-# ── Parser pól DR ─────────────────────────────────────────────────────────────
-
-def _parse_fields(lines: list[dict], is_landscape: bool = False) -> dict:
-    full_text = "\n".join(l["text"] for l in lines)
-
-    if is_landscape:
-        # Landscape: sekcje różnią się po X (beżowa = PRAWA strona, x_rel > 0.60)
-        table_lines = [l for l in lines if 0.10 < l["x_rel"] < 0.63]
-    else:
-        # Portret: sekcje różnią się po Y (beżowa = GÓRA, y_rel < 0.28)
-        table_lines = [l for l in lines if YELLOW_Y_MIN < l["y_rel"] < YELLOW_Y_MAX]
-
-    table_text = "\n".join(l["text"] for l in table_lines)
-
-    def find(pat: str, flags=re.IGNORECASE):
-        m = re.search(pat, table_text, flags)
-        return m if m else re.search(pat, full_text, flags)
-
-    def find_all(pat: str) -> list[int]:
-        """Zbierz WSZYSTKICH kandydatów — najpierw z żółtej tabeli."""
-        hits = [int(m.group(1)) for m in re.finditer(pat, table_text, re.IGNORECASE)]
-        if not hits:
-            hits = [int(m.group(1)) for m in re.finditer(pat, full_text, re.IGNORECASE)]
-        return hits
-
-    d: dict = {}
-
-    # ── Numer rejestracyjny (pole A) ──────────────────────────────────────
-    for m in re.finditer(r"\b([A-Z]{2,3})\s*([A-Z0-9]{3,5})\b", full_text):
-        cand = m.group(1) + m.group(2)
-        if 5 <= len(cand) <= 8 and not re.fullmatch(r"[A-Z]{17}", cand):
-            pfx = cand[:2] if len(cand) <= 7 else cand[:3]
-            suf = cand[len(pfx):]
-            # Normalizacja O↔0 w sufixie
-            suf = re.sub(r"(\d)O", r"\g<1>0", suf)
-            suf = re.sub(r"O(\d)", r"0\1", suf)
-            # Usuń zdublowane zera powstałe po normalizacji (00 → 0)
-            suf = re.sub(r"00", "0", suf)
-            if re.fullmatch(r"[A-Z0-9]{2,6}", suf):
-                d["nrRej"] = pfx + suf
-                break
-
-    # ── VIN (pole E) — 17 znaków ─────────────────────────────────────────
-    m = re.search(r"\b([A-HJ-NPR-Z0-9]{17})\b", full_text.upper())
-    if m:
-        d["vin"] = m.group(1)
-
-    # ── Marka (pole D.1) ─────────────────────────────────────────────────
-    m = re.search(r"D\.?\s*1\s*[:\|]?\s*([A-Z][A-Z0-9\-\s]{1,20}?)(?:\s+D\.?\s*2|\n|$)",
-                  full_text, re.IGNORECASE)
-    if m:
-        d["marka"] = m.group(1).strip()
-
-    # ── Typ / model (pole D.2) ───────────────────────────────────────────
-    m = re.search(r"D\.?\s*2\s*[:\|]?\s*([A-Z0-9][^\n]{1,30}?)(?:\n|$)",
-                  full_text, re.IGNORECASE)
-    if m:
-        d["typ"] = m.group(1).strip()
-
-    # ── Data rejestracji (pole B) — DD.MM.YYYY ────────────────────────────
-    for dt_match in re.finditer(r"\b(\d{2}[.\-/]\d{2}[.\-/]\d{4})\b", full_text):
-        norm = dt_match.group(1).replace("-", ".").replace("/", ".")
-        parts = norm.split(".")
-        if len(parts) == 3:
-            dd, mm, yyyy = parts
-            if 1970 <= int(yyyy) <= 2026 and 1 <= int(mm) <= 12 and 1 <= int(dd) <= 31:
-                d["dataRej"] = norm
-                break
-
-    # ── F.1 — DMC pojazdu (WIELE kandydatów → wybierz max z tabeli) ───────
-    # Max bo: zarejestrowany DMC (żółta tabela) ≥ DMC homologacji (beżowa)
-    f1 = [v for v in find_all(r"F[\s.:\-]?[1lI!i]\s*[:\|\-]?\s*(\d{3,6})") if 500 <= v <= 200000]
-    if f1:
-        d["dmcKg"] = str(max(f1))
-
-    # ── F.2 — DMC z ładunkiem ────────────────────────────────────────────
-    f2 = [v for v in find_all(r"F[\s.:\-]?2\s*[:\|\-]?\s*(\d{3,6})") if 500 <= v <= 200000]
-    if f2:
-        d["dmcKg2"] = str(max(f2))
-
-    # ── F.3 — DMC zespołu pojazdów ───────────────────────────────────────
-    f3 = [v for v in find_all(r"F[\s.:\-]?3\s*[:\|\-]?\s*(\d{3,6})") if 500 <= v <= 200000]
-    if f3:
-        d["dmcZespolu"] = str(max(f3))
-
-    # F.3 >= F.1 (jeśli odwrócone — zamień)
-    if d.get("dmcKg") and d.get("dmcZespolu") and int(d["dmcKg"]) > int(d["dmcZespolu"]):
-        d["dmcKg"], d["dmcZespolu"] = d["dmcZespolu"], d["dmcKg"]
-
-    # ── G — masa własna ──────────────────────────────────────────────────
-    m = find(r"\bG\s*[:\|]?\s*(\d{4,6})\s*(?:kg|Kg|KG)?")
-    if m:
-        v = int(m.group(1))
-        if 100 <= v <= 100000:
-            d["masaWlKg"] = str(v)
-    if d.get("masaWlKg") and d.get("dmcKg") and int(d["masaWlKg"]) >= int(d["dmcKg"]):
-        del d["masaWlKg"]
-
-    # ── Liczba osi (pole L) ──────────────────────────────────────────────
-    m = find(r"\bL\s*[:\|]?\s*([1-5])\b")
-    if m:
-        d["liczbaOsi"] = m.group(1)
-
-    # ── O.1 — Dop. masa przyczepy z hamulcem ─────────────────────────────
-    o1_hits = [int(m.group(1)) for m in re.finditer(
-        r"O[\s.:\-]?1\s*[:\|\-]?\s*(\d{3,6})", table_text + "\n" + full_text, re.IGNORECASE)]
-    o1_hits = [v for v in o1_hits if 100 <= v <= 200000]
-    if o1_hits:
-        d["dmcPrzyczHam"] = str(max(o1_hits))
-
-    # ── O.2 — Dop. masa przyczepy bez hamulca ────────────────────────────
-    o2_hits = [int(m.group(1)) for m in re.finditer(
-        r"O[\s.:\-]?2\s*[:\|\-]?\s*(\d{2,5})", table_text + "\n" + full_text, re.IGNORECASE)]
-    o2_hits = [v for v in o2_hits if 50 <= v <= 50000]
-    if o2_hits:
-        d["dmcPrzyczNieham"] = str(o2_hits[0])
-
-    # ── K — Numer świadectwa homologacji ─────────────────────────────────
-    mk = re.search(r"\bK\s*[:\|]?\s*([A-Za-z0-9][A-Za-z0-9\*\-\/\.]{4,30})", full_text)
-    if mk and re.search(r"\d", mk.group(1)):
-        d["nrHomolog"] = mk.group(1).strip()
-
-    # ── Kategoria (pole J) ───────────────────────────────────────────────
-    m = find(r"\bJ\s*[:\|]?\s*([NMO][1-3]?[a-z]?)\b")
-    if m:
-        d["kategoria"] = m.group(1).upper()
-
-    # ── Pojemność cm³ (pole P.1) ──────────────────────────────────────────
-    m = re.search(r"P\.?\s*1\s*[:\|]?\s*(\d{3,5})", full_text, re.IGNORECASE)
-    if m:
-        v = int(m.group(1))
-        if 50 <= v <= 50000:
-            d["pojSilnika"] = str(v)
-
-    # ── Moc kW (pole P.2) ─────────────────────────────────────────────────
-    m = re.search(r"P\.?\s*2\s*[:\|]?\s*(\d{2,4})", full_text, re.IGNORECASE)
-    if m:
-        d["mocKW"] = m.group(1)
-
-    # ── Paliwo (pole P.3): D=diesel B=benzyna G=LPG ──────────────────────
-    m = re.search(r"P\.?\s*3\s*[:\|]?\s*([DBG])\b", full_text, re.IGNORECASE)
-    if m:
-        d["paliwo"] = {"D": "ON", "B": "PB", "G": "LPG"}.get(m.group(1).upper(), m.group(1).upper())
-
-    # ── Miejsca siedzące (pole S.1) ───────────────────────────────────────
-    m = re.search(r"S\.?\s*1\s*[:\|]?\s*(\d{1,3})", full_text, re.IGNORECASE)
-    if m:
-        d["miejscaSied"] = m.group(1)
-
-    # ── Rok produkcji ─────────────────────────────────────────────────────
-    rok_hits = re.findall(r"\b(19[5-9]\d|20[0-2]\d)\b", full_text)
-    if rok_hits:
-        d["rokProd"] = rok_hits[-1]
-
-    return d
-
-
-# ── Przetwarzanie obrazu (multi-rotation) ─────────────────────────────────────
-
-def _process_image(img_bytes: bytes) -> dict:
-    img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-
-    best_lines: list[dict] = []
-    best_count = 0
-    best_is_landscape = False
-
-    for angle in (0, 90, 270):
-        rot = img.rotate(angle, expand=True) if angle else img
-        is_land = rot.width > rot.height * 1.2
-        proc = _preprocess(rot)
-        h, w = proc.shape[0], proc.shape[1]
-        lines = _run_tesseract(proc, h, w)
-        if len(lines) > best_count:
-            best_count = len(lines)
-            best_lines = lines
-            best_is_landscape = is_land
-
-    return _parse_fields(best_lines, is_landscape=best_is_landscape)
-
-
-# ── Endpointy ────────────────────────────────────────────────────────────────
-
-@app.get("/")
-def health():
-    try:
-        ver = str(pytesseract.get_tesseract_version())
-    except Exception:
-        ver = "unknown"
-    return {"status": "ok", "service": "taxorder-ocr", "engine": f"tesseract-{ver}"}
-
-
 @app.post("/ocr")
-async def run_ocr(
+async def run_ocr_legacy(
     req: OcrRequest,
     x_api_key: Optional[str] = Header(default=None),
 ):
@@ -307,8 +81,289 @@ async def run_ocr(
         raise HTTPException(status_code=401, detail="Unauthorized")
     try:
         img_bytes = base64.b64decode(req.imageBase64)
-        fields = _process_image(img_bytes)
+        from extractors.preprocessing import load_images_from_bytes as _lib
+        images = _lib(img_bytes)
+        if not images:
+            return {"ok": False, "error": "Brak obrazów", "fields": {}}
+        fields = _legacy_parse(images[0])
         return {"ok": True, "fields": fields, "model": "tesseract-server"}
     except Exception as e:
-        logger.exception("OCR error")
+        logger.exception("OCR legacy error")
         return {"ok": False, "error": str(e), "fields": {}}
+
+
+def _legacy_parse(pil_img: Image.Image) -> dict:
+    """Uproszczony parser na potrzeby kompatybilności /ocr."""
+    text, conf, data = run_ocr(pil_img)
+    parsed = parse_fields(text, data)
+    out = {}
+    LEGACY_MAP = {
+        "numer_rejestracyjny": "nrRej",
+        "vin": "vin",
+        "marka": "marka",
+        "typ": "typ",
+        "model": "model",
+        "data_pierwszej_rej": "dataRej",
+        "f1_dmc": "dmcKg",
+        "g_masa_wlasna": "masaWlKg",
+        "p1_pojemnosc": "pojSilnika",
+        "p2_moc_kw": "mocKW",
+        "p3_paliwo": "paliwo",
+        "s1_miejsca_siedz": "miejscaSied",
+    }
+    for new_key, old_key in LEGACY_MAP.items():
+        val, _ = parsed.get(new_key, (None, 0))
+        if val:
+            out[old_key] = val
+    return out
+
+
+# ── Nowy endpoint ─────────────────────────────────────────────────────────────
+
+def _detect_mime(data: bytes) -> Optional[str]:
+    for magic, mime in ALLOWED_MAGIC.items():
+        if data[:len(magic)] == magic:
+            return mime
+    return None
+
+
+def _build_field(value, conf: float, needs_review: bool = False, personal: bool = False) -> FieldValue:
+    return FieldValue(
+        value=value,
+        confidence=conf,
+        needs_review=needs_review,
+        personal_data=personal,
+    )
+
+
+def _apply_validators(fields: dict, warnings: list[str]) -> dict:
+    """Waliduje pola in-place, dodaje needs_review i warnings."""
+
+    def _check(key: str, validator, *args):
+        fv = fields.get(key)
+        if fv and fv.value:
+            ok, msg = validator(fv.value, *args)
+            if not ok:
+                fv.needs_review = True
+                warnings.append(f"{key}: {msg}")
+
+    _check("vin", validate_vin)
+    _check("numer_rejestracyjny", validate_nrrej)
+    _check("data_pierwszej_rej", validate_date)
+    _check("data_rej_aktualnej", validate_date)
+
+    for mass_key in ("f1_dmc", "f2_dmc_ladunek", "f3_dmc_zespol", "g_masa_wlasna",
+                     "o1_przyczepa_ham", "o2_przyczepa_nieham"):
+        _check(mass_key, validate_mass, mass_key)
+
+    _check("p1_pojemnosc", validate_capacity)
+    _check("p2_moc_kw", validate_power)
+    _check("s1_miejsca_siedz", validate_seats)
+
+    # Spójność F.1 ≥ G
+    f1 = fields.get("f1_dmc")
+    g = fields.get("g_masa_wlasna")
+    f1_val = int(f1.value) if f1 and f1.value else None
+    g_val  = int(g.value)  if g  and g.value  else None
+    warn = check_mass_consistency(f1_val, g_val)
+    if warn:
+        warnings.append(warn)
+
+    return fields
+
+
+async def _process_upload(data: bytes) -> ExtractionResponse:
+    t0 = time.monotonic()
+    warnings: list[str] = []
+
+    mime = _detect_mime(data)
+    if not mime:
+        return ExtractionResponse(
+            status="error",
+            source="none",
+            warnings=["Nieobsługiwany format pliku (oczekiwano JPG, PNG lub PDF)"],
+            processing_ms=int((time.monotonic() - t0) * 1000),
+        )
+
+    try:
+        images = load_images_from_bytes(data)
+    except Exception as e:
+        return ExtractionResponse(
+            status="error",
+            source="none",
+            warnings=[f"Błąd wczytywania pliku: {e}"],
+            processing_ms=int((time.monotonic() - t0) * 1000),
+        )
+
+    pages_processed = len(images)
+    fields_raw: dict[str, FieldValue] = {}
+    owner_fields: dict[str, FieldValue] = {}
+    source = "none"
+
+    # ── Etap 1: Aztec ─────────────────────────────────────────────────────
+    for pil_img in images:
+        aztec_data = extract_aztec(pil_img)
+        if aztec_data:
+            source = "aztec"
+            for key, val in aztec_data.items():
+                if not val:
+                    continue
+                is_personal = key in PERSONAL_FIELDS
+                fv = _build_field(val, 1.0, personal=is_personal)
+                if is_personal:
+                    owner_fields[key] = fv
+                else:
+                    fields_raw[key] = fv
+            break  # pierwsza strona z Aztec wystarczy
+
+    # ── Etap 2: OCR fallback ───────────────────────────────────────────────
+    if source == "none":
+        best_conf = -1.0
+        best_parsed: dict[str, tuple] = {}
+        for pil_img in images:
+            try:
+                text, avg_conf, tess_data = run_ocr(pil_img)
+                parsed = parse_fields(text, tess_data)
+                filled = sum(1 for v, _ in parsed.values() if v)
+                score = avg_conf + filled * 0.01
+                if score > best_conf:
+                    best_conf = score
+                    best_parsed = parsed
+            except Exception as e:
+                warnings.append(f"Błąd OCR strony: {e}")
+
+        if best_parsed:
+            source = "ocr"
+            for key, (val, conf) in best_parsed.items():
+                if val is None:
+                    continue
+                is_personal = key in PERSONAL_FIELDS
+                fv = _build_field(val, conf, personal=is_personal)
+                if is_personal:
+                    owner_fields[key] = fv
+                else:
+                    fields_raw[key] = fv
+
+    # ── Etap 3: Claude Vision (opcjonalny) ────────────────────────────────
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+    filled_count = sum(1 for fv in fields_raw.values() if fv.value)
+    if anthropic_key and filled_count < 5 and images:
+        try:
+            import anthropic
+            buf = io.BytesIO()
+            images[0].save(buf, format="JPEG", quality=85)
+            img_b64 = base64.b64encode(buf.getvalue()).decode()
+            client = anthropic.Anthropic(api_key=anthropic_key)
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=1024,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {"type": "base64", "media_type": "image/jpeg", "data": img_b64},
+                        },
+                        {
+                            "type": "text",
+                            "text": (
+                                "To jest skan polskiego dowodu rejestracyjnego. "
+                                "Zwróć TYLKO obiekt JSON z polami euro-dowodu: "
+                                "numer_rejestracyjny, vin, marka, typ, model, "
+                                "data_pierwszej_rej (DD.MM.YYYY), f1_dmc, g_masa_wlasna, "
+                                "p1_pojemnosc, p2_moc_kw, p3_paliwo, s1_miejsca_siedz. "
+                                "Pola nieznalezione ustaw na null. Bez komentarzy."
+                            ),
+                        },
+                    ],
+                }],
+            )
+            import json
+            vision_raw = msg.content[0].text.strip()
+            # Wyodrębnij JSON nawet jeśli model opakował go w markdown
+            import re as _re
+            jm = _re.search(r'\{.*\}', vision_raw, _re.DOTALL)
+            if jm:
+                vision_data = json.loads(jm.group(0))
+                source = "vision"
+                for key, val in vision_data.items():
+                    if val is not None and key not in fields_raw:
+                        fields_raw[key] = _build_field(str(val), 0.7)
+        except Exception as e:
+            warnings.append(f"Claude Vision pominięty: {e}")
+
+    # ── Walidacja ─────────────────────────────────────────────────────────
+    _apply_validators(fields_raw, warnings)
+
+    owner = OwnerFields(
+        present=bool(owner_fields),
+        personal_data=True,
+        fields=owner_fields,
+    )
+
+    return ExtractionResponse(
+        status="ok",
+        source=source,
+        pages_processed=pages_processed,
+        fields=fields_raw,
+        owner=owner,
+        warnings=warnings,
+        processing_ms=int((time.monotonic() - t0) * 1000),
+    )
+
+
+@app.post("/extract/dowod-rejestracyjny", response_model=ExtractionResponse)
+async def extract_dr(
+    file: UploadFile = File(...),
+    x_api_key: Optional[str] = Header(default=None),
+):
+    # Uwierzytelnienie
+    api_secret = os.getenv("API_SECRET")
+    if api_secret and x_api_key != api_secret:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    # Limit rozmiaru
+    data = await file.read()
+    if len(data) > MAX_SIZE_BYTES:
+        raise HTTPException(status_code=413, detail="Plik zbyt duży (max 15 MB)")
+
+    # Przetwarzanie z timeoutem
+    try:
+        response = await asyncio.wait_for(
+            _process_upload(data),
+            timeout=PROCESSING_TIMEOUT,
+        )
+    except asyncio.TimeoutError:
+        return ExtractionResponse(
+            status="timeout",
+            source="none",
+            warnings=["Przekroczono limit czasu przetwarzania (60 s)"],
+        )
+    except Exception as e:
+        logger.exception("Błąd ekstrakcji DR")
+        return ExtractionResponse(
+            status="error",
+            source="none",
+            warnings=[f"Wewnętrzny błąd serwisu: {e}"],
+        )
+    finally:
+        # Dane są tylko w pamięci — jawne zwolnienie referencji (RODO)
+        del data
+
+    return response
+
+
+# ── Health check ──────────────────────────────────────────────────────────────
+
+@app.get("/")
+def health():
+    try:
+        ver = str(pytesseract.get_tesseract_version())
+    except Exception:
+        ver = "unknown"
+    return {
+        "status": "ok",
+        "service": "taxorder-ocr",
+        "version": "3.0.0",
+        "engine": f"tesseract-{ver}",
+    }
