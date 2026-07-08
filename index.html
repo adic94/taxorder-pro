@@ -1440,6 +1440,14 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
     </div>
     <div id="imp-preview-body"></div>
   </div>
+
+  <!-- Integracje zewnętrzne -->
+  <div style="margin-top:2rem">
+    <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <i class="ti ti-plug-connected" style="color:var(--blue)"></i>Integracje zewnętrzne
+    </div>
+    <div id="tekom-section"></div>
+  </div>
 </div>
 
 
@@ -2617,6 +2625,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/cfm-contracts.js"></script>
   <script src="modules/cfm-invoices.js"></script>
   <script src="modules/api-keys.js"></script>
+  <script src="modules/tekom-sync.js"></script>
   <script src="modules/alert-dashboard.js"></script>
   <script src="modules/notification-settings.js"></script>
   <script src="modules/policy-ocr.js"></script>

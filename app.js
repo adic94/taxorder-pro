@@ -153,7 +153,7 @@ function showPage(id) {
   if(id==='ocr') renderOcrHistory();
   if(id==='faktury') renderFakHistory();
   if(id==='pdfexport') updatePdfSummary();
-  if(id==='impexp') { document.getElementById('exp-sel-cnt').textContent=selected.size; const _allCnt=document.getElementById('exp-all-cnt'); if(_allCnt) _allCnt.textContent=vehs.length; }
+  if(id==='impexp') { document.getElementById('exp-sel-cnt').textContent=selected.size; const _allCnt=document.getElementById('exp-all-cnt'); if(_allCnt) _allCnt.textContent=vehs.length; window.TekomSync?.renderSection('tekom-section'); }
   if(id==='karty') renderKarty();
   if(id==='szkody') window.TaxOrderDamages?.load();
   if(id==='opony-magazyn') window.TaxOrderTires?.load();

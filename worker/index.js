@@ -1483,6 +1483,168 @@ async function handleDashboardStats(env, company) {
   });
 }
 
+// ─── TEKOM / MyCar API INTEGRATION ───────────────────────────────────────────
+const TEKOM_API = 'https://api-mcdesktop.tekom.pl/api';
+
+async function tekomAuth(cfg) {
+  const r = await fetch(`${TEKOM_API}/AuthenticateUser`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      Login: cfg.login,
+      Password: cfg.password,
+      ServerName: cfg.serverName || '',
+      DatabaseName: cfg.dbName || '',
+      ComputerName: 'TaxOrderPro',
+      Platform: 'Web',
+      ApplicationAndVersion: 'TaxOrderPro/1.0',
+    }),
+  });
+  if (!r.ok) throw new Error(`Tekom auth HTTP ${r.status}`);
+  const d = await r.json();
+  const token = d.Token || d.token || d.result?.Token || d.Result?.Token;
+  if (!token) throw new Error(`Tekom: brak tokenu — odpowiedź: ${JSON.stringify(d).slice(0,200)}`);
+  return token;
+}
+
+async function tekomGetVehicles(token) {
+  const r = await fetch(`${TEKOM_API}/GetVehicleList`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    body: JSON.stringify({ Token: token }),
+  });
+  if (!r.ok) throw new Error(`Tekom GetVehicleList HTTP ${r.status}`);
+  const d = await r.json();
+  // Próba różnych struktur odpowiedzi
+  return d.Vehicles || d.vehicles || d.Result?.Vehicles || d.result?.Vehicles || d.VehicleList || d.vehicleList || [];
+}
+
+async function handleTekomIntegration(req, env, user, url, path) {
+  if (!['admin','kierownik'].includes(user.role)) return err('Brak uprawnień', 403);
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Podaj ?company=', 400);
+  const cfgKey = `tekom_cfg_${company}`;
+
+  // GET /api/tekom — odczyt konfiguracji (bez hasła)
+  if (req.method === 'GET' && path === '/api/tekom') {
+    const raw = await env.PREFS?.get(cfgKey);
+    if (!raw) return json({ configured: false });
+    const cfg = JSON.parse(raw);
+    return json({ configured: true, login: cfg.login, serverName: cfg.serverName||'', dbName: cfg.dbName||'', lastSync: cfg.lastSync||null, lastSyncVehicles: cfg.lastSyncVehicles||0 });
+  }
+
+  // POST /api/tekom/config — zapis konfiguracji
+  if (req.method === 'POST' && path === '/api/tekom/config') {
+    const body = await req.json().catch(() => ({}));
+    if (!body.login || !body.password) return err('Podaj login i password');
+    const cfg = { login: body.login, password: body.password, serverName: body.serverName||'', dbName: body.dbName||'' };
+    await env.PREFS?.put(cfgKey, JSON.stringify(cfg));
+    return json({ ok: true, msg: 'Konfiguracja zapisana' });
+  }
+
+  // POST /api/tekom/test — test połączenia
+  if (req.method === 'POST' && path === '/api/tekom/test') {
+    const raw = await env.PREFS?.get(cfgKey);
+    if (!raw) return err('Brak konfiguracji — najpierw skonfiguruj integrację', 400);
+    try {
+      const cfg = JSON.parse(raw);
+      const token = await tekomAuth(cfg);
+      const vehs = await tekomGetVehicles(token);
+      return json({ ok: true, msg: `Połączenie OK — znaleziono ${vehs.length} pojazdów w Tekom`, vehicleCount: vehs.length, sampleVehicles: vehs.slice(0,3) });
+    } catch(e) {
+      return json({ ok: false, msg: e.message });
+    }
+  }
+
+  // POST /api/tekom/sync — synchronizacja km z Tekom
+  if (req.method === 'POST' && path === '/api/tekom/sync') {
+    const raw = await env.PREFS?.get(cfgKey);
+    if (!raw) return err('Brak konfiguracji Tekom', 400);
+    try {
+      const cfg = JSON.parse(raw);
+      const token = await tekomAuth(cfg);
+      const tekomVehs = await tekomGetVehicles(token);
+
+      // Pobierz pojazdy TaxOrder dla tej firmy
+      const dbVehs = await env.DB.prepare('SELECT id, nr_rej, data FROM vehicles WHERE company_id = ?').bind(company).all();
+      const vehMap = {};
+      for (const v of (dbVehs.results || [])) {
+        // Indeksuj po różnych formach nr rej (bez spacji, bez kresek, uppercase)
+        const key = (v.nr_rej||'').toUpperCase().replace(/[\s\-]/g,'');
+        vehMap[key] = v;
+      }
+
+      let updated = 0, unmatched = 0;
+      const updates = [];
+
+      for (const tv of tekomVehs) {
+        // Próba różnych nazw pola rejestracji w odpowiedzi Tekom
+        const rawReg = tv.Registration || tv.registration || tv.PlateNo || tv.plateNo || tv.Vehicle || tv.vehicle || '';
+        const normReg = rawReg.toUpperCase().replace(/[\s\-]/g,'');
+        const dbVeh = vehMap[normReg];
+        if (!dbVeh) { unmatched++; continue; }
+
+        let data = {};
+        try { data = typeof dbVeh.data === 'string' ? JSON.parse(dbVeh.data) : (dbVeh.data || {}); } catch {}
+
+        // Aktualizuj km jeśli Tekom ma wyższy przebieg
+        const tekomKm = tv.Odometer || tv.odometer || tv.OdometerValue || tv.CurrentMileage || tv.mileage || null;
+        let changed = false;
+        if (tekomKm && Number(tekomKm) > 0) {
+          const curKm = Number(data.stanKilometrow) || 0;
+          if (Number(tekomKm) > curKm) {
+            data.stanKilometrow = Number(tekomKm);
+            changed = true;
+          }
+        }
+
+        // Dodaj wpis GPS jeśli dostępna lokalizacja
+        const lat = tv.Latitude || tv.latitude || tv.lat || null;
+        const lon = tv.Longitude || tv.longitude || tv.lon || null;
+        if (lat && lon) {
+          if (!Array.isArray(data.gpsHistory)) data.gpsHistory = [];
+          const today = new Date().toISOString().slice(0,10);
+          const alreadyToday = data.gpsHistory.some(g => g.date === today && g.source === 'tekom_sync');
+          if (!alreadyToday) {
+            data.gpsHistory.push({
+              date: today, time: new Date().toTimeString().slice(0,5),
+              lat: Number(lat), lon: Number(lon),
+              km: tekomKm ? Number(tekomKm) : undefined,
+              driver: tv.Driver || tv.DriverName || tv.driver || '',
+              location: tv.Location || tv.location || tv.Address || '',
+              source: 'tekom_sync',
+            });
+            if (data.gpsHistory.length > 500) data.gpsHistory = data.gpsHistory.slice(-500);
+            changed = true;
+          }
+        }
+
+        if (changed) {
+          updates.push({ id: dbVeh.id, data: JSON.stringify(data) });
+          updated++;
+        }
+      }
+
+      // Batch update
+      for (const u of updates) {
+        await env.DB.prepare("UPDATE vehicles SET data=?, updated_at=datetime('now') WHERE id=?").bind(u.data, u.id).run();
+      }
+
+      // Zapisz timestamp sync
+      const cfg2 = JSON.parse(raw);
+      cfg2.lastSync = new Date().toISOString();
+      cfg2.lastSyncVehicles = updated;
+      await env.PREFS?.put(cfgKey, JSON.stringify(cfg2));
+
+      return json({ ok: true, synced: updated, unmatched, total: tekomVehs.length, msg: `Zsynchronizowano ${updated} pojazdów (${unmatched} bez dopasowania)` });
+    } catch(e) {
+      return json({ ok: false, msg: e.message, synced: 0 });
+    }
+  }
+
+  return err('Nieznana operacja Tekom', 404);
+}
+
 async function handleExport(env, company) {
   const vehiclesRes = await env.DB.prepare('SELECT * FROM vehicles WHERE company_id = ? ORDER BY nr_rej').bind(company).all();
   const vehicles = (vehiclesRes.results || []).map(v => parseJsonCols(v, ['data']));
@@ -3088,6 +3250,9 @@ async function handleRequest(request, env, url, path) {
   if (path === '/api/ai/chat')          return handleAI(request, env);
   if (path === '/api/ai/ocr' && request.method === 'POST') return handleAIOCR(request, env);
   if (path === '/api/aztec'  && request.method === 'POST') return handleAztec(request);
+
+  // Tekom / MyCar API integration
+  if (path.startsWith('/api/tekom')) { if (!user) return err('Nieautoryzowany', 401); return handleTekomIntegration(request, env, user, url, path); }
 
   // Polisy import z R2
   if (path.startsWith('/api/polisy-import')) { if (!user) return err('Nieautoryzowany', 401); return handlePolisyImport(request, env, user, url, path); }
