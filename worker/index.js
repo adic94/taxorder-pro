@@ -1642,6 +1642,27 @@ async function handleTekomIntegration(req, env, user, url, path) {
     }
   }
 
+  // GET /api/tekom/etoll — sprawdź salda e-Toll z Tekom
+  if (req.method === 'GET' && path === '/api/tekom/etoll') {
+    const raw = await env.PREFS?.get(cfgKey);
+    if (!raw) return err('Brak konfiguracji Tekom', 400);
+    try {
+      const cfg = JSON.parse(raw);
+      const token = await tekomAuth(cfg);
+      const r = await fetch(`${TEKOM_API}/GetETollBalance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ Token: token }),
+      });
+      if (!r.ok) return json({ ok: false, msg: `GetETollBalance HTTP ${r.status}` });
+      const d = await r.json();
+      const devices = d.ETollDevices || d.etollDevices || d.Devices || d.devices || d.Result || d.result || d || [];
+      return json({ ok: true, devices: Array.isArray(devices) ? devices : [devices], rawResponse: d });
+    } catch(e) {
+      return json({ ok: false, msg: e.message });
+    }
+  }
+
   return err('Nieznana operacja Tekom', 404);
 }
 

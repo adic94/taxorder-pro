@@ -101,6 +101,21 @@ window.TekomSync = (function () {
         <div id="tekom-result" style="margin-top:14px"></div>
 
         <!-- Jak to działa -->
+        ${cfg?.configured ? `
+          <!-- E-toll widget -->
+          <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <i class="ti ti-road" style="color:var(--blue)"></i>
+              <span style="font-weight:500;font-size:13px">Salda e-Toll</span>
+              <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="TekomSync.refreshEtoll()">
+                <i class="ti ti-refresh"></i>Sprawdź
+              </button>
+            </div>
+            <div id="tekom-etoll-result" style="font-size:12px;color:var(--text3)">
+              Kliknij "Sprawdź" aby pobrać aktualne salda e-Toll z Tekom
+            </div>
+          </div>` : ''}
+
         <details style="margin-top:16px;font-size:12px;color:var(--text2)">
           <summary style="cursor:pointer;font-weight:500;color:var(--text1)">Jak działa synchronizacja?</summary>
           <div style="margin-top:8px;line-height:1.7">
@@ -111,7 +126,7 @@ window.TekomSync = (function () {
               <li>Aktualizuje stan km tylko jeśli nowy odczyt jest wyższy</li>
               <li>Zapisuje ostatnią pozycję GPS do historii pojazdu</li>
             </ul>
-            <p style="margin-top:8px;color:var(--text3)">Dane logowania są przechowywane bezpiecznie w Cloudflare KV (szyfrowane). Hasło nie jest nigdy zwracane przez API.</p>
+            <p style="margin-top:8px;color:var(--text3)">Dane logowania są przechowywane bezpiecznie w Cloudflare KV. Hasło nie jest nigdy zwracane przez API.</p>
             <p style="margin-top:6px">Tekom MyCar musi być skonfigurowany w Twojej firmie. Użyj tych samych danych co do aplikacji desktopowej MyCar.</p>
           </div>
         </details>
@@ -213,5 +228,45 @@ window.TekomSync = (function () {
     }
   }
 
-  return { renderSection, saveConfig, testConnection, runSync };
+  async function refreshEtoll() {
+    const res = document.getElementById('tekom-etoll-result');
+    if (res) res.innerHTML = '<span style="color:var(--text3)"><i class="ti ti-loader ti-spin"></i> Pobieranie sald e-Toll...</span>';
+
+    try {
+      const r = await fetch(_url('/api/tekom/etoll'), { headers: _hdrs() });
+      const d = await r.json();
+      if (!res) return;
+      if (!d.ok) {
+        res.innerHTML = `<span style="color:var(--red)">Błąd: ${d.msg}</span>`;
+        return;
+      }
+      const devs = d.devices || [];
+      if (!devs.length) {
+        res.innerHTML = '<span style="color:var(--text3)">Brak urządzeń e-Toll w systemie Tekom lub odpowiedź pusta.</span>';
+        return;
+      }
+      res.innerHTML = devs.map(dev => {
+        const plate = dev.Registration || dev.registration || dev.PlateNo || dev.plateNo || dev.VehicleRegistration || '—';
+        const balance = dev.Balance || dev.balance || dev.Amount || dev.amount || dev.CurrentBalance || null;
+        const deviceId = dev.DeviceId || dev.deviceId || dev.Id || dev.id || dev.EtollId || '';
+        const status = dev.Status || dev.status || '';
+        const low = balance !== null && Number(balance) < 50;
+        return `
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:0.5px solid var(--border)">
+            <i class="ti ti-road" style="color:${low ? 'var(--red)' : 'var(--green)'}"></i>
+            <span style="font-weight:500;font-family:var(--mono);min-width:80px">${plate}</span>
+            ${deviceId ? `<span style="font-size:10px;color:var(--text3)">${deviceId}</span>` : ''}
+            <span style="margin-left:auto;font-weight:700;color:${low ? 'var(--red)' : 'var(--text1)'}">
+              ${balance !== null ? Number(balance).toFixed(2) + ' zł' : '—'}
+              ${low ? ' ⚠ Niskie saldo!' : ''}
+            </span>
+            ${status ? `<span style="font-size:10px;color:var(--text3)">${status}</span>` : ''}
+          </div>`;
+      }).join('');
+    } catch(e) {
+      if (res) res.innerHTML = `<span style="color:var(--red)">Błąd: ${e.message}</span>`;
+    }
+  }
+
+  return { renderSection, saveConfig, testConnection, runSync, refreshEtoll };
 })();
