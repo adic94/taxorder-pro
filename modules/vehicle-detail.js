@@ -225,6 +225,9 @@ window.TaxOrderVehicleDetail = {
           <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" onclick="TaxOrderVehicleDetail.printCard()">
             <i class="ti ti-printer"></i>Drukuj kartę
           </button>
+          <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" title="Kopiuj link do pojazdu" onclick="TaxOrderVehicleDetail._copyLink('${v.nrRej}')">
+            <i class="ti ti-link"></i>Link
+          </button>
           <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" onclick="TaxOrderDamages.openModal(null, '${v.nrRej}')">
             <i class="ti ti-alert-triangle"></i>Zgłoś szkodę
           </button>
@@ -391,6 +394,12 @@ window.TaxOrderVehicleDetail = {
           ${field('ocStart','Początek OC', v.ocStart,'date')}
           ${field('ocEnd','Koniec OC', v.ocEnd,'date')}
           ${field('ocPremium','Składka OC (zł)', v.ocPremium,'number')}
+        </div>
+        <div style="margin-bottom:18px">
+          <button class="btn btn-gray" style="font-size:11px" onclick="window.open('https://www.ufg.pl/inf_o_ubezpieczeniu/','_blank')" title="Sprawdź ubezpieczenie OC w UFG">
+            <i class="ti ti-external-link" style="color:#059669"></i>Weryfikuj OC w UFG
+          </button>
+          <span style="font-size:10px;color:var(--text3);margin-left:8px">Otwiera portal UFG — wpisz nr rej: <strong style="font-family:var(--mono)">${v.nrRej||''}</strong></span>
         </div>
         <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
           <i class="ti ti-shield-half"></i> AC / Casco — Ubezpieczenie dobrowolne
@@ -1881,6 +1890,15 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
       btn.style.color = 'var(--text)';
       btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
     }
+  },
+
+  _copyLink(nrRej) {
+    const url = window.location.origin + window.location.pathname + '?veh=' + encodeURIComponent(nrRej);
+    navigator.clipboard?.writeText(url).then(() => {
+      window.toast?.('✓ Link skopiowany do schowka: ' + url);
+    }).catch(() => {
+      prompt('Skopiuj link pojazdu:', url);
+    });
   },
 
   _onArchiveToggle(cb) {

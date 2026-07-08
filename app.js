@@ -168,6 +168,7 @@ function showPage(id) {
   if(id==='firmy') { if(typeof renderCompanyOverview==='function') renderCompanyOverview(); }
   if(id==='paliwo') renderPaliwoPage();
   if(id==='raporty') FleetReports?.initPdfSelectors?.();
+  if(id==='alert-dashboard') window.TaxOrderAlertDashboard?.load();
   if(id==='powiadomienia') window.TaxOrderNotifSettings?.load();
   if(id==='polisy-ocr') window.TaxOrderPolicyOcr?.load();
   if(id==='dr-import') window.TaxOrderDrImport?.load();
@@ -4729,6 +4730,19 @@ async function doLogin(){
       window.TaxOrderNotifications.startAutoCheck?.();
     }
   }, 3000);
+
+  // Deep link: ?veh=WGM87205 otwiera kartę pojazdu
+  setTimeout(() => {
+    const params = new URLSearchParams(window.location.search);
+    const deepVeh = params.get('veh');
+    if (deepVeh) {
+      const v = vehs.find(x => (x.nr_rej||x.nrRej||'').toUpperCase() === deepVeh.toUpperCase());
+      if (v) {
+        showPage('pojazdy');
+        setTimeout(() => TaxOrderVehicleDetail?.open?.(v.id), 300);
+      }
+    }
+  }, 1000);
 }
 
 function showLoginErr(msg){

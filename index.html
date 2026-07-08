@@ -173,6 +173,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <button class="tnb" id="tnb-faktury" onclick="showPage('faktury')"><i class="ti ti-file-invoice"></i><span data-i18n="nav.faktury">Faktury</span></button>
 
   <div class="sidebar-label">Powiadomienia</div>
+  <button class="tnb" id="tnb-alert-dashboard" onclick="showPage('alert-dashboard')"><i class="ti ti-alert-triangle" style="color:#dc2626"></i><span>Alerty &amp; Terminy</span></button>
   <button class="tnb" id="tnb-powiadomienia" onclick="showPage('powiadomienia')"><i class="ti ti-bell-cog"></i><span data-i18n="nav.powiadomienia">Powiadomienia</span></button>
   <button class="tnb" id="tnb-polisy-ocr" onclick="showPage('polisy-ocr')"><i class="ti ti-scan"></i><span>Import polis OCR</span></button>
   <button class="tnb" id="tnb-dr-import" onclick="showPage('dr-import')"><i class="ti ti-id-badge"></i><span>Import DR (Aztec)</span></button>
@@ -1611,6 +1612,9 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   </div>
 </div>
 
+<!-- ==================== DASHBOARD ALERTÓW ==================== -->
+<div class="page" id="page-alert-dashboard"></div>
+
 <!-- ==================== CENTRUM POWIADOMIEŃ ==================== -->
 <div class="page" id="page-powiadomienia"></div>
 
@@ -2585,6 +2589,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/cfm-contracts.js"></script>
   <script src="modules/cfm-invoices.js"></script>
   <script src="modules/api-keys.js"></script>
+  <script src="modules/alert-dashboard.js"></script>
   <script src="modules/notification-settings.js"></script>
   <script src="modules/policy-ocr.js"></script>
   <script src="modules/dr-import.js"></script>
