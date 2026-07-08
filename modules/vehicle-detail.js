@@ -10,10 +10,13 @@ window.TaxOrderVehicleDetail = {
     this._render(v);
     document.getElementById('vd-modal').style.display = 'flex';
     setTimeout(() => this._initTabScroll(), 0);
+    const nrRej = v.nrRej || v.nr_rej || '';
+    if (nrRej) history.replaceState(null, '', '?veh=' + encodeURIComponent(nrRej));
   },
 
   close() {
     document.getElementById('vd-modal').style.display = 'none';
+    history.replaceState(null, '', window.location.pathname);
   },
 
   async deleteVehicle() {
