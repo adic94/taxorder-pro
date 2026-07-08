@@ -171,6 +171,7 @@ function showPage(id) {
   if(id==='powiadomienia') window.TaxOrderNotifSettings?.load();
   if(id==='polisy-ocr') window.TaxOrderPolicyOcr?.load();
   if(id==='dr-import') window.TaxOrderDrImport?.load();
+  if(id==='mapa') window.FleetMap?.render();
   updateCounters();
 }
 
@@ -4878,11 +4879,11 @@ const DEFAULT_USERS = [{id:1,name:'Administrator',email:'adamus1000@gmail.com',p
 const ROLE_LABELS = {admin:'Administrator',kierownik:'Kierownik',ksiegowy:'Księgowy',mechanik:'Mechanik',dyspozytor:'Dyspozytor',kierowca:'Kierowca'};
 const ROLE_COLORS = {admin:'pill-red',kierownik:'pill-blue',ksiegowy:'pill-green',mechanik:'pill-amber',dyspozytor:'pill-blue',kierowca:'pill-gray'};
 const ROLE_TABS = {
-  admin:      ['dash','pojazdy','kierowcy','kalendarz','paliwo','kalkulator','formularze','stawki','pd','walidacja','raporty','ocr','faktury','pdfexport','impexp','karty','szkody','opony-magazyn','zlecenia','protokoly','cfm-klienci','cfm-kontrakty','cfm-faktury','uzytkownicy','api-klucze','cepik','podatnik','firmy','ai','powiadomienia','mandaty','alert-dashboard','polisy-ocr','dr-import'],
-  kierownik:  ['dash','pojazdy','kierowcy','kalendarz','paliwo','kalkulator','formularze','stawki','raporty','pdfexport','ocr','faktury','karty','szkody','opony-magazyn','zlecenia','protokoly','cfm-klienci','cfm-kontrakty','cfm-faktury','ai','powiadomienia','mandaty','alert-dashboard','polisy-ocr','dr-import'],
+  admin:      ['dash','pojazdy','kierowcy','kalendarz','paliwo','kalkulator','formularze','stawki','pd','walidacja','raporty','ocr','faktury','pdfexport','impexp','karty','szkody','opony-magazyn','zlecenia','protokoly','cfm-klienci','cfm-kontrakty','cfm-faktury','uzytkownicy','api-klucze','cepik','podatnik','firmy','ai','powiadomienia','mandaty','alert-dashboard','polisy-ocr','dr-import','mapa'],
+  kierownik:  ['dash','pojazdy','kierowcy','kalendarz','paliwo','kalkulator','formularze','stawki','raporty','pdfexport','ocr','faktury','karty','szkody','opony-magazyn','zlecenia','protokoly','cfm-klienci','cfm-kontrakty','cfm-faktury','ai','powiadomienia','mandaty','alert-dashboard','polisy-ocr','dr-import','mapa'],
   ksiegowy:   ['dash','paliwo','kalkulator','formularze','stawki','pd','raporty','pdfexport','impexp','podatnik','ai','powiadomienia','mandaty'],
   mechanik:   ['dash','pojazdy','paliwo','ocr','faktury','szkody','opony-magazyn','zlecenia','protokoly','powiadomienia'],
-  dyspozytor: ['dash','pojazdy','kierowcy','kalendarz','paliwo','raporty','karty','ocr','faktury','szkody','opony-magazyn','zlecenia','protokoly','powiadomienia','mandaty','alert-dashboard'],
+  dyspozytor: ['dash','pojazdy','kierowcy','kalendarz','paliwo','raporty','karty','ocr','faktury','szkody','opony-magazyn','zlecenia','protokoly','powiadomienia','mandaty','alert-dashboard','mapa'],
   kierowca:   ['dash','pojazdy','paliwo','kalendarz','powiadomienia'],
 };
 let users = JSON.parse(localStorage.getItem('dt1_users')||JSON.stringify(DEFAULT_USERS));

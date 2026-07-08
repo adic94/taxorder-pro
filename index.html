@@ -143,6 +143,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <button class="tnb" id="tnb-kierowcy" onclick="TaxOrderDrivers.open()"><i class="ti ti-id-badge"></i><span data-i18n="nav.kierowcy">Kierowcy</span></button>
   <button class="tnb" id="tnb-kalendarz" onclick="FleetCalendar.open()"><i class="ti ti-calendar"></i><span data-i18n="nav.kalendarz">Kalendarz</span></button>
   <button class="tnb" id="tnb-protokoly" onclick="showPage('protokoly')"><i class="ti ti-file-signature"></i><span data-i18n="nav.protokoly">Protokoły</span></button>
+  <button class="tnb" id="tnb-mapa" onclick="showPage('mapa')"><i class="ti ti-map-2"></i><span>Mapa GPS</span></button>
 
   <div class="sidebar-label">Eksploatacja</div>
   <button class="tnb" id="tnb-zlecenia" onclick="showPage('zlecenia')"><i class="ti ti-clipboard-list"></i><span data-i18n="nav.zlecenia">Serwis / Zlecenia</span></button>
@@ -1677,6 +1678,25 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 <!-- ==================== IMPORT DR (AZTEC) ==================== -->
 <div class="page" id="page-dr-import"></div>
 
+<!-- ==================== MAPA GPS FLOTY ==================== -->
+<div class="page" id="page-mapa">
+  <div class="pg-title"><i class="ti ti-map-2"></i>Mapa GPS floty</div>
+  <div class="pg-sub">Ostatnia znana pozycja każdego pojazdu z historii GPS</div>
+  <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+    <input id="mapa-filter" class="fi" style="max-width:220px;font-size:12px" placeholder="Filtruj pojazd…" oninput="FleetMap.filter(this.value)">
+    <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
+      <input type="checkbox" id="mapa-only-gps" onchange="FleetMap.render()"> Tylko z GPS
+    </label>
+    <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="FleetMap.render()"><i class="ti ti-refresh"></i>Odśwież</button>
+  </div>
+  <div style="display:grid;grid-template-columns:260px 1fr;gap:12px;height:calc(100vh - 200px)">
+    <div id="mapa-sidebar" style="overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg2)"></div>
+    <div id="mapa-container" style="border-radius:var(--radius);overflow:hidden;position:relative;min-height:400px">
+      <div id="fleet-map" style="width:100%;height:100%"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ==================== UŻYTKOWNICY ==================== -->
 <div class="page" id="page-uzytkownicy">
   <div class="pg-title"><i class="ti ti-users"></i>Zarządzanie użytkownikami</div>
@@ -2643,6 +2663,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/cfm-invoices.js"></script>
   <script src="modules/api-keys.js"></script>
   <script src="modules/cloud-backup.js"></script>
+  <script src="modules/fleet-map.js"></script>
   <script src="modules/tekom-sync.js"></script>
   <script src="modules/alert-dashboard.js"></script>
   <script src="modules/notification-settings.js"></script>
