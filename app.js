@@ -1324,7 +1324,7 @@ function renderDash() {
 
   alertsEl.innerHTML = !alerts.length
     ? '<tr><td colspan="7" style="color:var(--text3);text-align:center;padding:12px">Brak alertów — wszystkie terminy aktualne</td></tr>'
-    : alerts.map(({v}) => `<tr>
+    : alerts.map(({v}) => `<tr style="cursor:pointer" onclick="TaxOrderVehicleDetail.open(${v.id})" title="Otwórz kartę pojazdu">
     <td><strong style="font-family:var(--mono)">${v.nrRej}</strong></td>
     <td style="font-size:12px">${v.marka} ${v.model}</td>
     <td>${_datePill(v.ocEnd)}</td>
@@ -1334,7 +1334,7 @@ function renderDash() {
       ${v.hasUdt&&v.udtNextDate?_datePill(v.udtNextDate):'<span style="color:var(--text3)">—</span>'}
       ${v.hasTacho&&v.tachoNextCalib?'<span style="margin-left:4px">'+_datePill(v.tachoNextCalib)+'</span>':''}
     </td>
-    <td style="text-align:center">
+    <td style="text-align:center" onclick="event.stopPropagation()">
       <button class="btn btn-gray" style="font-size:11px;padding:3px 8px" onclick="TaxOrderVehicleDetail.open(${v.id})" title="Karta pojazdu">
         <i class="ti ti-id-badge"></i>
       </button>
@@ -1347,6 +1347,69 @@ function renderDash() {
   _renderFleetCardsDash();
   _renderFleetKpi();
   _renderAgeDist();
+  _renderActivityFeed();
+}
+
+function _renderActivityFeed() {
+  const el = document.getElementById('dash-activity');
+  if (!el) return;
+
+  const now = new Date();
+  const events = [];
+
+  (window.vehs || []).forEach(v => {
+    const nrRej = v.nrRej || v.nr_rej || '';
+    const id = v.id;
+    // Serwisy
+    (v.serviceHistory || []).forEach(s => {
+      if (!s.date) return;
+      events.push({ date: s.date, icon: 'ti-tools', color: '#2563eb',
+        text: `Serwis: ${(window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label || s.type || 'Serwis')}${s.description ? ' — ' + s.description : ''}`,
+        sub: s.cost ? `${Number(s.cost).toFixed(0)} zł` : '',
+        nrRej, id });
+    });
+    // Szkody
+    (v.damageHistory || []).forEach(d => {
+      if (!d.date) return;
+      events.push({ date: d.date, icon: 'ti-alert-triangle', color: '#dc2626',
+        text: `Szkoda: ${d.type || d.description || 'niezdefiniowana'}`,
+        sub: d.cost ? `${Number(d.cost).toFixed(0)} zł` : '',
+        nrRej, id });
+    });
+    // Tankowania (ostatnie 1 na pojazd)
+    const lastFuel = [...(v.fuelHistory || [])].sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1)[0];
+    if (lastFuel?.date) {
+      events.push({ date: lastFuel.date, icon: 'ti-gas-station', color: '#d97706',
+        text: `Tankowanie: ${lastFuel.liters ? Number(lastFuel.liters).toFixed(1)+' l' : ''}`,
+        sub: lastFuel.totalGross ? `${Number(lastFuel.totalGross).toFixed(0)} zł` : '',
+        nrRej, id });
+    }
+  });
+
+  events.sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
+  const recent = events.slice(0, 12);
+
+  if (!recent.length) {
+    el.innerHTML = `<div style="color:var(--text3);font-size:12px;padding:16px 0">Brak ostatnich zdarzeń.</div>`;
+    return;
+  }
+
+  el.innerHTML = recent.map(e => {
+    const d = new Date(e.date + (e.date.includes('T') ? '' : 'T00:00:00'));
+    const diff = Math.round((now - d) / 86400000);
+    const timeLabel = diff === 0 ? 'dzisiaj' : diff === 1 ? 'wczoraj' : `${diff} dni temu`;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border);cursor:pointer" onclick="TaxOrderVehicleDetail.open(${e.id})">
+      <i class="ti ${e.icon}" style="color:${e.color};font-size:14px;flex-shrink:0"></i>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px;font-weight:700;font-family:var(--mono)">${e.nrRej}</span>
+          <span style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.text}</span>
+        </div>
+        ${e.sub ? `<div style="font-size:10px;color:var(--text3)">${e.sub}</div>` : ''}
+      </div>
+      <span style="font-size:10px;color:var(--text3);flex-shrink:0">${timeLabel}</span>
+    </div>`;
+  }).join('');
 }
 
 function _renderServiceDash() {

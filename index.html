@@ -255,6 +255,15 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
     </div>
   </div>
 
+  <!-- Ostatnia aktywność floty -->
+  <div class="dash-card" style="margin-bottom:1rem">
+    <div class="dash-card-hdr">
+      <i class="ti ti-activity" style="color:var(--text2)"></i>Ostatnia aktywność floty
+      <span style="font-size:10px;color:var(--text3);margin-left:6px">(serwisy, szkody, tankowania)</span>
+    </div>
+    <div id="dash-activity" style="max-height:260px;overflow-y:auto"></div>
+  </div>
+
   <!-- Struktura floty + DT-1 -->
   <div class="dash-2col">
     <div class="dash-card">
