@@ -73,11 +73,11 @@ window.TaxOrderNotifSettings = (function () {
         <h2 style="margin:0;font-size:20px">Centrum powiadomień</h2>
       </div>
       <div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap" id="ns-tabs">
-        ${['alerty','kanaly','szablony','historia'].map(t => `
+        ${['alerty','kanaly','podglad','szablony','historia'].map(t => `
           <button id="ns-tab-${t}" onclick="TaxOrderNotifSettings._tab('${t}')"
             class="btn ${_activeTab===t?'btn-blue':'btn-gray'}" style="font-size:12px">
-            <i class="ti ${t==='alerty'?'ti-bell':t==='kanaly'?'ti-send':t==='szablony'?'ti-template':'ti-history'}"></i>
-            ${t==='alerty'?'Moje alerty':t==='kanaly'?'Kanały & Cicha godzina':t==='szablony'?'Szablony konserwacji':'Historia alertów'}
+            <i class="ti ${t==='alerty'?'ti-bell':t==='kanaly'?'ti-send':t==='podglad'?'ti-eye':t==='szablony'?'ti-template':'ti-history'}"></i>
+            ${t==='alerty'?'Moje alerty':t==='kanaly'?'Kanały & Cicha godzina':t==='podglad'?'Podgląd alertów':t==='szablony'?'Szablony konserwacji':'Historia alertów'}
           </button>`).join('')}
       </div>
       <div id="ns-content"><div class="loading-spinner" style="padding:40px;text-align:center"><i class="ti ti-loader ti-spin" style="font-size:32px"></i></div></div>
@@ -101,8 +101,111 @@ window.TaxOrderNotifSettings = (function () {
     if (!el) return;
     if (name === 'alerty')   { _renderAlerty(el); return; }
     if (name === 'kanaly')   { _renderKanaly(el); return; }
+    if (name === 'podglad')  { await _renderPodglad(el); return; }
     if (name === 'szablony') { await _loadTemplates(); _renderSzablony(el); return; }
     if (name === 'historia') { await _loadLog(); _renderHistoria(el); return; }
+  }
+
+  async function _renderPodglad(el) {
+    el.innerHTML = `<div style="text-align:center;padding:32px"><i class="ti ti-loader ti-spin" style="font-size:28px"></i><div style="margin-top:8px;font-size:12px;color:var(--text3)">Pobieranie podglądu alertów…</div></div>`;
+    try {
+      const r = await fetch(`${API()}/api/notif-trigger?dry_run=1`, { method: 'POST', headers: hdrs() });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { el.innerHTML = `<div style="padding:20px;color:var(--red)">Błąd: ${d.error || r.status}</div>`; return; }
+      _renderPodgladData(el, d);
+    } catch (e) {
+      el.innerHTML = `<div style="padding:20px;color:var(--red)">Błąd połączenia: ${e.message}</div>`;
+    }
+  }
+
+  function _renderPodgladData(el, d) {
+    const jobs = d.preview || [];
+    const resend = d.resend_configured;
+
+    const pushJobs  = jobs.filter(j => j.type === 'push'  && !j.quiet);
+    const emailJobs = jobs.filter(j => j.type === 'email' && !j.quiet);
+    const smsJobs   = jobs.filter(j => j.type === 'sms'   && !j.quiet);
+
+    // Zbierz unikalne alerty ze wszystkich push-jobów (mają all_alerts)
+    const seen = new Set();
+    const flatAlerts = [];
+    for (const job of jobs) {
+      for (const a of (job.all_alerts || (job.top_alert ? [job.top_alert] : []))) {
+        const key = `${a.nrRej}|${a.typeId}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        flatAlerts.push(a);
+      }
+    }
+    flatAlerts.sort((a,b) => (a.days??9999)-(b.days??9999));
+
+    const expired = flatAlerts.filter(a => (a.days??0) < 0).length;
+    const urgent  = flatAlerts.filter(a => (a.days??0) >= 0 && (a.days??0) <= 7).length;
+
+    const rows = flatAlerts.length ? flatAlerts.map(a => {
+      const bg = (a.days??0) < 0 ? '#fee2e2' : (a.days??0) <= 7 ? '#fef3c7' : '#f0fdf4';
+      const fg = (a.days??0) < 0 ? '#991b1b' : (a.days??0) <= 7 ? '#92400e' : '#166534';
+      const badge = (a.days??0) < 0 ? `Wygasło ${Math.abs(a.days??0)}d temu` : `za ${a.days??'?'} dni`;
+      return `<tr>
+        <td style="font-family:var(--mono);font-weight:700">${a.nrRej||a.subject||'—'}</td>
+        <td style="font-size:12px">${a.subject||a.typeId}</td>
+        <td><span style="font-size:11px;background:${bg};color:${fg};padding:2px 8px;border-radius:99px">${badge}</span></td>
+        <td style="font-size:11px;color:var(--text3)">${a.typeId}</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text3)">
+      <i class="ti ti-circle-check" style="font-size:32px;display:block;margin-bottom:8px;color:var(--green)"></i>
+      Brak alertów do wysłania w bieżącej konfiguracji
+    </td></tr>`;
+
+    el.innerHTML = `
+      <div style="background:${resend?'#f0fdf4':'#fef3c7'};border:1px solid ${resend?'#86efac':'#fcd34d'};border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:12px;color:${resend?'#166534':'#92400e'}">
+        <i class="ti ${resend?'ti-mail-check':'ti-mail-off'}"></i>
+        Resend: <strong>${resend ? 'skonfigurowany ✓' : 'BRAK RESEND_API_KEY'}</strong>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:16px">
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center">
+          <div style="font-size:22px;font-weight:700">${flatAlerts.length}</div>
+          <div style="font-size:11px;color:var(--text2)">unikalnych alertów</div>
+        </div>
+        ${expired?`<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:var(--radius);padding:10px;text-align:center">
+          <div style="font-size:22px;font-weight:700;color:#991b1b">${expired}</div>
+          <div style="font-size:11px;color:#991b1b">wygasłe</div>
+        </div>`:''}
+        ${urgent?`<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:var(--radius);padding:10px;text-align:center">
+          <div style="font-size:22px;font-weight:700;color:#92400e">${urgent}</div>
+          <div style="font-size:11px;color:#92400e">pilne ≤7 dni</div>
+        </div>`:''}
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center">
+          <div style="font-size:14px;font-weight:700"><i class="ti ti-device-mobile" style="font-size:16px"></i> ${pushJobs.length}</div>
+          <div style="font-size:11px;color:var(--text2)">push jobs</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center">
+          <div style="font-size:14px;font-weight:700"><i class="ti ti-mail" style="font-size:16px"></i> ${emailJobs.length}</div>
+          <div style="font-size:11px;color:var(--text2)">email jobs</div>
+        </div>
+        ${smsJobs.length?`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center">
+          <div style="font-size:14px;font-weight:700"><i class="ti ti-message" style="font-size:16px"></i> ${smsJobs.length}</div>
+          <div style="font-size:11px;color:var(--text2)">SMS jobs</div>
+        </div>`:''}
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button class="btn btn-gray" style="font-size:11px" onclick="TaxOrderNotifSettings._tab('podglad')">
+          <i class="ti ti-refresh"></i>Odśwież
+        </button>
+        <button class="btn btn-blue" style="font-size:11px" onclick="TaxOrderNotifSettings._triggerQueue()">
+          <i class="ti ti-send"></i>Wyślij teraz do kolejki
+        </button>
+        <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="showPage('alert-dashboard')">
+          <i class="ti ti-external-link"></i>Dashboard alertów
+        </button>
+      </div>
+      <div style="font-size:12px;font-weight:600;margin-bottom:8px">Unikalne alerty które wejdą do kolejki:</div>
+      <div class="tbl-wrap" style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Pojazd / Podmiot</th><th>Opis</th><th>Termin</th><th>Typ alertu</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
   }
 
   // ── Zakładka: Alerty ────────────────────────────────────────────────────────
@@ -669,7 +772,8 @@ window.TaxOrderNotifSettings = (function () {
   }
 
   return { load, _tab, _toggleEnabled, _toggleChannel, _removeDay, _addDay, _saveKm, _saveQuiet,
-           _enablePush, _disablePush, _testPush, _testEmail, _addCustomType, _deleteCustomType,
+           _enablePush, _disablePush, _testPush, _testEmail, _triggerQueue, _addCustomType, _deleteCustomType,
            _logAction, _logSnooze, _refreshLog, _newTemplate, _editTemplate, _deleteTemplate,
-           _applyTemplate, _doApply, _addTplItem, _refreshTplItems, _saveTpl };
+           _applyTemplate, _doApply, _addTplItem, _refreshTplItems, _saveTpl,
+           _renderPodglad, _renderPodgladData };
 })();

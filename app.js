@@ -884,40 +884,77 @@ function _syncViewModeButtons() {
   if (active) { active.className = active.className.replace('btn-gray','btn-blue'); }
 }
 
-function _renderFleetKpiStrip() {
+async function _renderFleetKpiStrip() {
   const el = document.getElementById('fleet-kpi-strip');
-  if (!el || !vehs) return;
+  if (!el) return;
+
+  // Szybki render z danych lokalnych (natychmiastowy)
   const now = new Date();
-  const expired_oc = vehs.filter(v => v.ocEnd && new Date(v.ocEnd) < now).length;
-  const exp_oc_30  = vehs.filter(v => {
-    if (!v.ocEnd) return false;
-    const d = Math.round((new Date(v.ocEnd) - now) / 86400000);
-    return d >= 0 && d <= 30;
-  }).length;
-  const insp30 = vehs.filter(v => {
-    if (!v.nextInspection) return false;
-    const d = Math.round((new Date(v.nextInspection) - now) / 86400000);
-    return d >= 0 && d <= 30;
-  }).length;
-  const noDriver = vehs.filter(v => !v.kierowca).length;
-  const alertOC = expired_oc + exp_oc_30;
+  const noDriver = (vehs || []).filter(v => !v.kierowca).length;
+  el.innerHTML = `<div class="fkpi-card"><div class="fkpi-val" style="font-size:13px;color:var(--text3)">…</div><div class="fkpi-lab">ładowanie KPI</div></div>`;
+
+  // Pobranie KPI z serwera (1 zapytanie zamiast iteracji po wszystkich pojazdach)
+  try {
+    const API  = window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
+    const tok  = localStorage.getItem('cf_token');
+    const comp = window.currentCompanyId || 'mtoilet';
+    const r    = await fetch(`${API}/api/dashboard/stats?company=${comp}`, { headers: tok ? { Authorization: 'Bearer ' + tok } : {} });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const s = await r.json();
+    window._dashStats = s;
+    _renderKpiFromStats(s, noDriver);
+  } catch (e) {
+    // Fallback do obliczeń lokalnych
+    const alertOC  = (vehs || []).filter(v => { if (!v.ocEnd) return false; const d = Math.round((new Date(v.ocEnd)-now)/86400000); return d <= 30; }).length;
+    const insp30   = (vehs || []).filter(v => { if (!v.nextInspection) return false; const d = Math.round((new Date(v.nextInspection)-now)/86400000); return d >= 0 && d <= 30; }).length;
+    _renderKpiCards({ oc: alertOC, insp: insp30, noDriver, total: (vehs||[]).length, fines: 0 });
+  }
+}
+
+function _renderKpiFromStats(s, noDriver) {
+  const ocAlert  = s.oc_expired + s.oc_7 + s.oc_30;
+  const inspAlert = s.przeglad_expired + s.przeglad_30;
+  _renderKpiCards({ oc: ocAlert, oc_expired: s.oc_expired, oc_7: s.oc_7,
+    insp: inspAlert, insp_expired: s.przeglad_expired,
+    fines: s.fines_unpaid, fines_urgent: s.fines_deadline_7,
+    noDriver, total: s.vehicles_total, drivers_exp: s.drivers_license_expiring });
+}
+
+function _kpiGoto(filter) {
+  showPage('alert-dashboard');
+  if (filter) setTimeout(() => window.TaxOrderAlertDashboard?._setFilter(filter), 300);
+}
+
+function _renderKpiCards({ oc=0, oc_expired=0, oc_7=0, insp=0, insp_expired=0, fines=0, fines_urgent=0, noDriver=0, total=0, drivers_exp=0 } = {}) {
+  const el = document.getElementById('fleet-kpi-strip');
+  if (!el) return;
   el.innerHTML = `
-    <div class="fkpi-card">
-      <div class="fkpi-val">${vehs.length}</div>
+    <div class="fkpi-card" onclick="showPage('pojazdy')" style="cursor:pointer" title="Przejdź do listy pojazdów">
+      <div class="fkpi-val">${total}</div>
       <div class="fkpi-lab">pojazdy w bazie</div>
     </div>
-    <div class="fkpi-card ${alertOC > 0 ? 'fkpi-red' : ''}">
-      <div class="fkpi-val">${alertOC}</div>
-      <div class="fkpi-lab">OC — wygasłe lub ≤ 30 dni</div>
+    <div class="fkpi-card ${oc_expired > 0 ? 'fkpi-red' : oc_7 > 0 ? 'fkpi-red' : oc > 0 ? 'fkpi-amber' : ''}" onclick="_kpiGoto('oc')" style="cursor:pointer" title="Pokaż alerty OC">
+      <div class="fkpi-val">${oc}</div>
+      <div class="fkpi-lab">OC — wygasłe lub ≤ 30 dni${oc_expired > 0 ? ` <span style="font-size:10px">(${oc_expired} wygasłe)</span>` : ''}</div>
     </div>
-    <div class="fkpi-card ${insp30 > 0 ? 'fkpi-amber' : ''}">
-      <div class="fkpi-val">${insp30}</div>
-      <div class="fkpi-lab">przeglądy w 30 dni</div>
+    <div class="fkpi-card ${insp_expired > 0 ? 'fkpi-red' : insp > 0 ? 'fkpi-amber' : ''}" onclick="_kpiGoto('przeglad')" style="cursor:pointer" title="Pokaż alerty przeglądów">
+      <div class="fkpi-val">${insp}</div>
+      <div class="fkpi-lab">przeglądy — wygasłe lub ≤ 30 dni</div>
     </div>
-    <div class="fkpi-card">
-      <div class="fkpi-val" style="${noDriver > 0 ? 'color:var(--text2)' : ''}">${noDriver}</div>
+    ${fines > 0 ? `
+    <div class="fkpi-card ${fines_urgent > 0 ? 'fkpi-red' : 'fkpi-amber'}" onclick="showPage('mandaty')" style="cursor:pointer" title="Przejdź do mandatów">
+      <div class="fkpi-val">${fines}</div>
+      <div class="fkpi-lab">mandaty nieopłacone${fines_urgent > 0 ? ` <span style="font-size:10px">(${fines_urgent} pilne)</span>` : ''}</div>
+    </div>` : ''}
+    <div class="fkpi-card ${noDriver > 0 ? 'fkpi-amber' : ''}" title="Pojazdy bez przypisanego kierowcy">
+      <div class="fkpi-val">${noDriver}</div>
       <div class="fkpi-lab">bez przypisanego kierowcy</div>
-    </div>`;
+    </div>
+    ${drivers_exp > 0 ? `
+    <div class="fkpi-card fkpi-amber" onclick="showPage('kierowcy')" style="cursor:pointer" title="Kierowcy z wygasającym prawem jazdy">
+      <div class="fkpi-val">${drivers_exp}</div>
+      <div class="fkpi-lab">prawa jazdy ≤ 30 dni</div>
+    </div>` : ''}`;
 }
 
 function _renderCards(list) {

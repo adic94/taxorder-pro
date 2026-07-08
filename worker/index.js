@@ -1420,6 +1420,69 @@ function parseJsonCols(row, jsonCols) {
   return out;
 }
 
+async function handleDashboardStats(env, company) {
+  const today = new Date(); today.setUTCHours(0,0,0,0);
+  const in7   = new Date(today); in7.setUTCDate(today.getUTCDate() + 7);
+  const in30  = new Date(today); in30.setUTCDate(today.getUTCDate() + 30);
+  const in60  = new Date(today); in60.setUTCDate(today.getUTCDate() + 60);
+  const fmt   = d => d.toISOString().slice(0,10);
+
+  const [vehRes, fineRes, drvRes] = await Promise.all([
+    env.DB.prepare('SELECT data FROM vehicles WHERE company_id=? AND (json_extract(data,\'$.isArchived\') IS NULL OR json_extract(data,\'$.isArchived\')!=1)').bind(company).all(),
+    env.DB.prepare('SELECT deadline FROM fines WHERE company_id=? AND paid=0').bind(company).all().catch(() => ({ results: [] })),
+    env.DB.prepare('SELECT license_expiry FROM drivers WHERE company_id=?').bind(company).all().catch(() => ({ results: [] })),
+  ]);
+
+  const todayStr = fmt(today);
+  const in7Str   = fmt(in7);
+  const in30Str  = fmt(in30);
+  const in60Str  = fmt(in60);
+
+  let oc_expired=0, oc_7=0, oc_30=0, ac_expired=0, ac_30=0;
+  let przeglad_expired=0, przeglad_30=0, udt_30=0, tacho_30=0;
+  let vehicles_total=0;
+
+  for (const row of (vehRes.results || [])) {
+    vehicles_total++;
+    let d = {};
+    try { d = typeof row.data === 'string' ? JSON.parse(row.data) : (row.data || {}); } catch {}
+
+    const check = (field, expCb, d7Cb, d30Cb) => {
+      const v = d[field]; if (!v) return;
+      if (v < todayStr) expCb();
+      else if (v <= in7Str && d7Cb) d7Cb();
+      else if (v <= in30Str) d30Cb();
+    };
+    check('ocEnd', () => oc_expired++, () => oc_7++, () => oc_30++);
+    check('acEnd', () => ac_expired++, null, () => ac_30++);
+    check('nextInspection', () => przeglad_expired++, null, () => przeglad_30++);
+    check('udtNextDate', () => {}, null, () => udt_30++);
+    check('tachoNextCalib', () => {}, null, () => tacho_30++);
+  }
+
+  let fines_unpaid = 0, fines_deadline_7 = 0;
+  for (const f of (fineRes.results || [])) {
+    fines_unpaid++;
+    if (f.deadline && f.deadline <= in7Str) fines_deadline_7++;
+  }
+
+  let drivers_license_expiring = 0;
+  for (const dr of (drvRes.results || [])) {
+    if (dr.license_expiry && dr.license_expiry >= todayStr && dr.license_expiry <= in30Str) drivers_license_expiring++;
+  }
+
+  return json({
+    vehicles_total,
+    oc_expired, oc_7, oc_30,
+    ac_expired, ac_30,
+    przeglad_expired, przeglad_30,
+    udt_30, tacho_30,
+    fines_unpaid, fines_deadline_7,
+    drivers_license_expiring,
+    computed_at: new Date().toISOString(),
+  });
+}
+
 async function handleExport(env, company) {
   const vehiclesRes = await env.DB.prepare('SELECT * FROM vehicles WHERE company_id = ? ORDER BY nr_rej').bind(company).all();
   const vehicles = (vehiclesRes.results || []).map(v => parseJsonCols(v, ['data']));
@@ -2920,6 +2983,13 @@ async function handleRequest(request, env, url, path) {
     if (reqCompany && reqCompany !== user.company_id) {
       return err('Brak dostępu do tej firmy', 403);
     }
+  }
+
+  if (path === '/api/dashboard/stats' && request.method === 'GET') {
+    if (!user) return err('Nieautoryzowany', 401);
+    const company = url.searchParams.get('company');
+    if (!company) return err('Podaj parametr ?company=');
+    return handleDashboardStats(env, company);
   }
 
   if (path === '/api/export' && request.method === 'GET') {
