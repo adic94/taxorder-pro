@@ -3071,7 +3071,7 @@ async function queueNotificationJobs(env) {
       for (const usr of (userRows.results || [])) {
         const prefs = userPrefs[usr.id] || {};
         if (isInQuietHours(prefs, nowHour)) continue;
-        const myAlerts = filterAlertsForUser(vehicleAlerts, prefs);
+        const myAlerts = filterAlertsForUser(allAlerts, prefs);
         if (!myAlerts.length) continue;
         const { title, first } = buildPushPayload([...myAlerts]);
         jobBatch.push({ body: {
@@ -3103,7 +3103,7 @@ async function queueNotificationJobs(env) {
       for (const usr of (smsUserRows.results || [])) {
         const prefs = userPrefs[usr.id] || {};
         if (isInQuietHours(prefs, nowHour)) continue;
-        const myAlerts = filterAlertsForUser(vehicleAlerts, prefs);
+        const myAlerts = filterAlertsForUser(allAlerts, prefs);
         if (!myAlerts.length) continue;
         const { title, first } = buildPushPayload([...myAlerts]);
         jobBatch.push({ body: {
@@ -3121,7 +3121,7 @@ async function queueNotificationJobs(env) {
       }
     }
 
-    console.log(`[Notif queue] ${company_id}: ${vehicleAlerts.length} alertów, ${subs.length} sub`);
+    console.log(`[Notif queue] ${company_id}: ${allAlerts.length} alertów, ${subs.length} sub`);
   }
 
   // Wyślij do kolejki partiami po 100 (limit CF)
