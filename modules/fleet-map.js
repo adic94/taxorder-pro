@@ -115,7 +115,7 @@ window.FleetMap = (function () {
               <tr><td style="color:#888;padding:1px 6px 1px 0">Czas</td><td>${dateStr}</td></tr>
             </table>
             <div style="margin-top:8px">
-              <a href="#" onclick="openVehicleDetail('${v.id}');return false"
+              <a href="#" onclick="showPage('pojazdy');setTimeout(()=>TaxOrderVehicleDetail.open(${v.id}),200);return false"
                 style="font-size:11px;color:#2563eb;font-weight:600;text-decoration:none">
                 Otwórz kartę pojazdu →
               </a>

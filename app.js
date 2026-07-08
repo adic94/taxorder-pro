@@ -964,11 +964,22 @@ function _kpiGoto(filter) {
 function _renderKpiCards({ oc=0, oc_expired=0, oc_7=0, insp=0, insp_expired=0, fines=0, fines_urgent=0, noDriver=0, total=0, drivers_exp=0 } = {}) {
   const el = document.getElementById('fleet-kpi-strip');
   if (!el) return;
+  const now = Date.now();
+  const gpsRecent = (vehs||[]).filter(v => {
+    const h = Array.isArray(v.gpsHistory) ? v.gpsHistory : [];
+    const last = h.filter(x=>x.lat&&x.lon).sort((a,b)=>new Date(b.ts)-new Date(a.ts))[0];
+    return last && (now - new Date(last.ts).getTime()) < 24*3600000;
+  }).length;
   el.innerHTML = `
     <div class="fkpi-card" onclick="showPage('pojazdy')" style="cursor:pointer" title="Przejdź do listy pojazdów">
       <div class="fkpi-val">${total}</div>
       <div class="fkpi-lab">pojazdy w bazie</div>
     </div>
+    ${gpsRecent > 0 ? `
+    <div class="fkpi-card" onclick="showPage('mapa')" style="cursor:pointer" title="Pojazdy z aktywnym sygnałem GPS (< 24h) — kliknij aby otworzyć mapę">
+      <div class="fkpi-val" style="color:var(--green)">${gpsRecent}</div>
+      <div class="fkpi-lab"><i class="ti ti-map-pin" style="font-size:10px"></i> GPS aktywny (24h)</div>
+    </div>` : ''}
     <div class="fkpi-card ${oc_expired > 0 ? 'fkpi-red' : oc_7 > 0 ? 'fkpi-red' : oc > 0 ? 'fkpi-amber' : ''}" onclick="_kpiGoto('oc')" style="cursor:pointer" title="Pokaż alerty OC">
       <div class="fkpi-val">${oc}</div>
       <div class="fkpi-lab">OC — wygasłe lub ≤ 30 dni${oc_expired > 0 ? ` <span style="font-size:10px">(${oc_expired} wygasłe)</span>` : ''}</div>
@@ -1014,7 +1025,7 @@ function _renderCards(list) {
       <div class="fc-brand">${v.marka} ${v.model}</div>
       <div class="fc-meta">${v.rok||'—'} · ${v.typ||'—'}${v.euro?' · '+v.euro:''}</div>
       <div class="fc-row"><span class="fc-icon">👤</span><span style="${!v.kierowca?'color:var(--text3);font-style:italic':''}">${v.kierowca||'brak kierowcy'}</span></div>
-      ${v.stanKilometrow != null ? `<div class="fc-row"><span class="fc-icon">🛣</span><span style="font-family:var(--mono)">${v.stanKilometrow.toLocaleString('pl-PL')} km</span></div>` : ''}
+      ${v.stanKilometrow != null ? `<div class="fc-row"><span class="fc-icon">🛣</span><span style="font-family:var(--mono)">${v.stanKilometrow.toLocaleString('pl-PL')} km</span>${_gpsIndicator(v)}</div>` : ''}
       <div class="fc-dates">
         <span>OC ${_datePill(v.ocEnd)}</span>
         <span>AC ${_datePill(v.acEnd)}</span>
@@ -1341,7 +1352,7 @@ function renderPaliwoPage() {
               </td>
               <td style="text-align:right;color:var(--text3);font-size:12px">${a.intervals}</td>
               <td>
-                <button class="tbtn" onclick="showPage('pojazdy');setTimeout(()=>{openVehicleDetail(${a.v.id});setTimeout(()=>TaxOrderVehicleDetail?._tab('koszty'),400)},200)" title="Otwórz kartę pojazdu">
+                <button class="tbtn" onclick="showPage('pojazdy');setTimeout(()=>{TaxOrderVehicleDetail.open(${a.v.id});setTimeout(()=>TaxOrderVehicleDetail?._tab('koszty'),400)},200)" title="Otwórz kartę pojazdu">
                   <i class="ti ti-external-link"></i>
                 </button>
               </td>

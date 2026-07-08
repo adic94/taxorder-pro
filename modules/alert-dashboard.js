@@ -34,7 +34,8 @@ window.TaxOrderAlertDashboard = (function () {
         const d = new Date(ds + (ds.includes('T') ? '' : 'T00:00:00'));
         if (isNaN(d)) continue;
         const days = Math.round((d - now) / 86400000);
-        out.push({ nrRej: v.nr_rej || v.nrRej, marka: v.marka || '', model: v.model || '', id: v.id, ...cat, date: ds, days, _type: 'date' });
+        // ...cat spread ma własne pole `id` (np. 'oc') — vehId przechowuje id pojazdu
+        out.push({ nrRej: v.nr_rej || v.nrRej, marka: v.marka || '', model: v.model || '', vehId: v.id, ...cat, date: ds, days, _type: 'date' });
       }
 
       // Alerty km-based (maintenanceItems)
@@ -46,8 +47,8 @@ window.TaxOrderAlertDashboard = (function () {
           if (!isNaN(d)) {
             const days = Math.round((d - now) / 86400000);
             if (days <= 60) {
-              out.push({ nrRej: v.nr_rej || v.nrRej, marka: v.marka || '', model: v.model || '', id: v.id,
-                id_cat: 'serwis', label: item.label || 'Serwis', icon: 'ti-tool', color: '#7c3aed',
+              out.push({ nrRej: v.nr_rej || v.nrRej, marka: v.marka || '', model: v.model || '', vehId: v.id,
+                id: 'serwis', label: item.label || 'Serwis', icon: 'ti-tool', color: '#7c3aed',
                 date: item.nextDate, days, tab: 'koszty', _type: 'date' });
             }
           }
@@ -56,10 +57,10 @@ window.TaxOrderAlertDashboard = (function () {
         if (item.nextKm != null && curKm != null) {
           const kmLeft = Number(item.nextKm) - curKm;
           if (kmLeft <= 5000) {
-            out.push({ nrRej: v.nr_rej || v.nrRej, marka: v.marka || '', model: v.model || '', id: v.id,
-              id_cat: 'serwis-km', label: item.label || 'Serwis', icon: 'ti-tool', color: '#7c3aed',
+            out.push({ nrRej: v.nr_rej || v.nrRej, marka: v.marka || '', model: v.model || '', vehId: v.id,
+              id: 'serwis-km', label: item.label || 'Serwis', icon: 'ti-tool', color: '#7c3aed',
               _kmLeft: kmLeft, _nextKm: item.nextKm, _curKm: curKm,
-              date: null, days: kmLeft <= 0 ? -99999 : 99999, tab: 'koszty', _type: 'km' });
+              date: null, days: kmLeft <= 0 ? -1 : kmLeft <= 500 ? 3 : kmLeft <= 1500 ? 15 : 45, tab: 'koszty', _type: 'km' });
           }
         }
       }
@@ -187,7 +188,7 @@ window.TaxOrderAlertDashboard = (function () {
         const bg = kmLeft <= 0 ? '#fee2e2' : kmLeft <= 500 ? '#fef3c7' : '#fffbeb';
         const fg = kmLeft <= 0 ? '#991b1b' : kmLeft <= 500 ? '#92400e' : '#b45309';
         const badge = kmLeft <= 0 ? `Przekroczono o ${Math.abs(kmLeft).toLocaleString('pl-PL')} km` : `${kmLeft.toLocaleString('pl-PL')} km`;
-        return `<tr style="cursor:pointer" onclick="TaxOrderAlertDashboard._open(${a.id},'${a.tab}')">
+        return `<tr style="cursor:pointer" onclick="TaxOrderAlertDashboard._open(${a.vehId},'${a.tab}')">
           <td><strong style="font-family:var(--mono)">${a.nrRej}</strong></td>
           <td style="font-size:12px;color:var(--text2)">${a.marka} ${a.model}</td>
           <td>
@@ -202,7 +203,7 @@ window.TaxOrderAlertDashboard = (function () {
             </span>
           </td>
           <td onclick="event.stopPropagation()">
-            <button class="tbtn" onclick="TaxOrderAlertDashboard._open(${a.id},'${a.tab}')" title="Otwórz kartę pojazdu">
+            <button class="tbtn" onclick="TaxOrderAlertDashboard._open(${a.vehId},'${a.tab}')" title="Otwórz kartę pojazdu">
               <i class="ti ti-external-link"></i>
             </button>
           </td>
@@ -211,7 +212,7 @@ window.TaxOrderAlertDashboard = (function () {
 
       const s = _status(a.days);
       const dateDisp = (() => { try { return new Date(a.date + (a.date.includes('T')?'':'T00:00:00')).toLocaleDateString('pl-PL'); } catch { return a.date; } })();
-      return `<tr style="cursor:pointer" onclick="TaxOrderAlertDashboard._open(${a.id},'${a.tab}')">
+      return `<tr style="cursor:pointer" onclick="TaxOrderAlertDashboard._open(${a.vehId},'${a.tab}')">
         <td><strong style="font-family:var(--mono)">${a.nrRej}</strong></td>
         <td style="font-size:12px;color:var(--text2)">${a.marka} ${a.model}</td>
         <td>
@@ -226,7 +227,7 @@ window.TaxOrderAlertDashboard = (function () {
           </span>
         </td>
         <td onclick="event.stopPropagation()">
-          <button class="tbtn" onclick="TaxOrderAlertDashboard._open(${a.id},'${a.tab}')" title="Otwórz kartę pojazdu">
+          <button class="tbtn" onclick="TaxOrderAlertDashboard._open(${a.vehId},'${a.tab}')" title="Otwórz kartę pojazdu">
             <i class="ti ti-external-link"></i>
           </button>
         </td>
@@ -264,9 +265,9 @@ window.TaxOrderAlertDashboard = (function () {
   function _open(vehId, tab) {
     showPage?.('pojazdy');
     setTimeout(() => {
-      if (typeof openVehicleDetail === 'function') {
-        openVehicleDetail(vehId);
-        if (tab && tab !== 'basic') setTimeout(() => TaxOrderVehicleDetail?._tab(tab), 400);
+      if (window.TaxOrderVehicleDetail) {
+        TaxOrderVehicleDetail.open(vehId);
+        if (tab && tab !== 'basic') setTimeout(() => TaxOrderVehicleDetail._tab?.(tab), 400);
       }
     }, 200);
   }
