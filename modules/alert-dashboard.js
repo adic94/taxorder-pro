@@ -25,6 +25,8 @@ window.TaxOrderAlertDashboard = (function () {
     const out = [];
     for (const v of vehs) {
       if (v.is_active === false) continue;
+
+      // Alerty datowe (OC, AC, przegląd…)
       for (const cat of CATS) {
         if (cat.cond && !cat.cond(v)) continue;
         const ds = v[cat.field];
@@ -32,10 +34,41 @@ window.TaxOrderAlertDashboard = (function () {
         const d = new Date(ds + (ds.includes('T') ? '' : 'T00:00:00'));
         if (isNaN(d)) continue;
         const days = Math.round((d - now) / 86400000);
-        out.push({ nrRej: v.nr_rej || v.nrRej, marka: v.marka || '', model: v.model || '', id: v.id, ...cat, date: ds, days });
+        out.push({ nrRej: v.nr_rej || v.nrRej, marka: v.marka || '', model: v.model || '', id: v.id, ...cat, date: ds, days, _type: 'date' });
+      }
+
+      // Alerty km-based (maintenanceItems)
+      const curKm = v.stanKilometrow != null ? Number(v.stanKilometrow) : null;
+      for (const item of (v.maintenanceItems || [])) {
+        // Alert datowy z maintenanceItems
+        if (item.nextDate) {
+          const d = new Date(item.nextDate + 'T00:00:00');
+          if (!isNaN(d)) {
+            const days = Math.round((d - now) / 86400000);
+            if (days <= 60) {
+              out.push({ nrRej: v.nr_rej || v.nrRej, marka: v.marka || '', model: v.model || '', id: v.id,
+                id_cat: 'serwis', label: item.label || 'Serwis', icon: 'ti-tool', color: '#7c3aed',
+                date: item.nextDate, days, tab: 'koszty', _type: 'date' });
+            }
+          }
+        }
+        // Alert km-based
+        if (item.nextKm != null && curKm != null) {
+          const kmLeft = Number(item.nextKm) - curKm;
+          if (kmLeft <= 5000) {
+            out.push({ nrRej: v.nr_rej || v.nrRej, marka: v.marka || '', model: v.model || '', id: v.id,
+              id_cat: 'serwis-km', label: item.label || 'Serwis', icon: 'ti-tool', color: '#7c3aed',
+              _kmLeft: kmLeft, _nextKm: item.nextKm, _curKm: curKm,
+              date: null, days: kmLeft <= 0 ? -99999 : 99999, tab: 'koszty', _type: 'km' });
+          }
+        }
       }
     }
-    return out.sort((a, b) => a.days - b.days);
+    return out.sort((a, b) => {
+      // km-expired najpierw, potem date alerty wg days
+      const _prio = x => x._type === 'km' ? (x._kmLeft <= 0 ? -200000 : x._kmLeft) : x.days;
+      return _prio(a) - _prio(b);
+    });
   }
 
   function _status(days) {
@@ -148,6 +181,34 @@ window.TaxOrderAlertDashboard = (function () {
     </td></tr>`;
 
     return alerts.map(a => {
+      // Alerty km-based — specjalna prezentacja
+      if (a._type === 'km') {
+        const kmLeft = a._kmLeft;
+        const bg = kmLeft <= 0 ? '#fee2e2' : kmLeft <= 500 ? '#fef3c7' : '#fffbeb';
+        const fg = kmLeft <= 0 ? '#991b1b' : kmLeft <= 500 ? '#92400e' : '#b45309';
+        const badge = kmLeft <= 0 ? `Przekroczono o ${Math.abs(kmLeft).toLocaleString('pl-PL')} km` : `${kmLeft.toLocaleString('pl-PL')} km`;
+        return `<tr style="cursor:pointer" onclick="TaxOrderAlertDashboard._open(${a.id},'${a.tab}')">
+          <td><strong style="font-family:var(--mono)">${a.nrRej}</strong></td>
+          <td style="font-size:12px;color:var(--text2)">${a.marka} ${a.model}</td>
+          <td>
+            <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:99px;padding:3px 10px">
+              <i class="ti ${a.icon}" style="color:${a.color}"></i>${a.label}
+            </span>
+          </td>
+          <td style="font-size:11px;color:var(--text3)">@ ${Number(a._nextKm).toLocaleString('pl-PL')} km (teraz: ${Number(a._curKm).toLocaleString('pl-PL')} km)</td>
+          <td>
+            <span style="font-size:12px;font-weight:700;background:${bg};color:${fg};padding:3px 10px;border-radius:99px;display:inline-block">
+              ${badge}
+            </span>
+          </td>
+          <td onclick="event.stopPropagation()">
+            <button class="tbtn" onclick="TaxOrderAlertDashboard._open(${a.id},'${a.tab}')" title="Otwórz kartę pojazdu">
+              <i class="ti ti-external-link"></i>
+            </button>
+          </td>
+        </tr>`;
+      }
+
       const s = _status(a.days);
       const dateDisp = (() => { try { return new Date(a.date + (a.date.includes('T')?'':'T00:00:00')).toLocaleDateString('pl-PL'); } catch { return a.date; } })();
       return `<tr style="cursor:pointer" onclick="TaxOrderAlertDashboard._open(${a.id},'${a.tab}')">

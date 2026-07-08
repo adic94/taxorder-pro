@@ -203,5 +203,30 @@ window.FleetMap = (function () {
     render();
   }
 
-  return { render, focusVehicle, filter };
+  // ── Auto-odświeżanie co 3 minuty gdy strona mapa jest aktywna ───────────
+  let _autoRefreshTimer = null;
+
+  function _stopAutoRefresh() {
+    if (_autoRefreshTimer) { clearInterval(_autoRefreshTimer); _autoRefreshTimer = null; }
+  }
+
+  function _startAutoRefresh() {
+    _stopAutoRefresh();
+    _autoRefreshTimer = setInterval(async () => {
+      const mapPage = document.getElementById('page-mapa');
+      if (!mapPage || !mapPage.classList.contains('active')) { _stopAutoRefresh(); return; }
+      if (typeof window.TaxOrderFleetCloud?.loadVehicles === 'function') {
+        await window.TaxOrderFleetCloud.loadVehicles();
+      }
+      render();
+    }, 3 * 60 * 1000);
+  }
+
+  document.addEventListener('visibilitychange', () => { if (document.hidden) _stopAutoRefresh(); });
+
+  return {
+    render() { render(); if (!_autoRefreshTimer) _startAutoRefresh(); },
+    focusVehicle,
+    filter,
+  };
 })();

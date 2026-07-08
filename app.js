@@ -292,6 +292,16 @@ function _datePill(dateStr) {
   return `<span style="font-size:11px;color:var(--text2)">${label}</span>`;
 }
 
+function _gpsIndicator(v) {
+  const hist = Array.isArray(v.gpsHistory) ? v.gpsHistory : [];
+  const last = hist.filter(h => h.lat && h.lon).sort((a, b) => new Date(b.ts) - new Date(a.ts))[0];
+  if (!last) return '';
+  const ageH = (Date.now() - new Date(last.ts).getTime()) / 3600000;
+  const color = ageH < 24 ? '#16a34a' : ageH < 168 ? '#d97706' : '#dc2626';
+  const label = ageH < 1 ? Math.round(ageH * 60) + ' min' : ageH < 24 ? Math.round(ageH) + 'h' : Math.round(ageH / 24) + 'd';
+  return `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${color};margin-left:5px;vertical-align:middle;flex-shrink:0" title="GPS: ${label} temu · ${last.location||last.lat?.toFixed(4)+','+last.lon?.toFixed(4)}"></span>`;
+}
+
 function _renderVehPager(fullList) {
   const el = document.getElementById('veh-pager');
   if (!el) return;
@@ -417,7 +427,7 @@ function renderVeh() {
         ${v.hasTacho?(v.tachoNextCalib?_datePill(v.tachoNextCalib):'<span style="color:var(--amber);font-size:10px">brak daty</span>'):'<span style="color:var(--text3)">—</span>'}
       </td>
       <td data-col="kierowca" style="font-size:12px;white-space:nowrap">${v.kierowca?esc(v.kierowca):'<span style="color:var(--text3)">—</span>'}</td>
-      <td data-col="km" style="font-size:12px;text-align:right;font-family:var(--mono)">${v.stanKilometrow!=null?v.stanKilometrow.toLocaleString('pl-PL'):'<span style="color:var(--text3)">—</span>'}</td>
+      <td data-col="km" style="font-size:12px;text-align:right;font-family:var(--mono);white-space:nowrap">${v.stanKilometrow!=null?v.stanKilometrow.toLocaleString('pl-PL'):'<span style="color:var(--text3)">—</span>'}${_gpsIndicator(v)}</td>
       <td data-col="dt1ok" style="text-align:center">${_dt1CompletenessCell(v)}</td>
       <td data-col="gmina" onclick="event.stopPropagation()" style="font-size:11px">
         <select class="isel" style="width:100px;font-size:11px" onchange="setV(${v.id},'gmina',this.value);renderFormularze&&renderFormularze()">
