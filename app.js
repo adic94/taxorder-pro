@@ -149,7 +149,7 @@ function showPage(id) {
   if(id==='pd') updatePD();
   if(id==='dash') renderDash();
   if(id==='walidacja') { runValidation(); }
-  if(id==='raporty') { renderRaporty(); window.FleetReports?.renderPage(); window.FleetReports?.renderServicePlan(); window.FleetReports?.renderKobize(); window.FleetReports?.renderTco(); window.FleetReports?.renderInsuranceReport(); }
+  if(id==='raporty') { renderRaporty(); window.FleetReports?.renderPage(); window.FleetReports?.renderServicePlan(); window.FleetReports?.renderKobize(); window.FleetReports?.renderTco(); window.FleetReports?.renderInsuranceReport(); FleetReports?.initPdfSelectors?.(); }
   if(id==='ocr') renderOcrHistory();
   if(id==='faktury') renderFakHistory();
   if(id==='pdfexport') updatePdfSummary();
@@ -167,7 +167,6 @@ function showPage(id) {
   if(id==='cepik') initCepikPage();
   if(id==='firmy') { if(typeof renderCompanyOverview==='function') renderCompanyOverview(); }
   if(id==='paliwo') renderPaliwoPage();
-  if(id==='raporty') FleetReports?.initPdfSelectors?.();
   if(id==='alert-dashboard') window.TaxOrderAlertDashboard?.load();
   if(id==='powiadomienia') window.TaxOrderNotifSettings?.load();
   if(id==='polisy-ocr') window.TaxOrderPolicyOcr?.load();
@@ -968,7 +967,7 @@ function _renderKpiCards({ oc=0, oc_expired=0, oc_7=0, insp=0, insp_expired=0, f
       <div class="fkpi-lab">przeglądy — wygasłe lub ≤ 30 dni</div>
     </div>
     ${fines > 0 ? `
-    <div class="fkpi-card ${fines_urgent > 0 ? 'fkpi-red' : 'fkpi-amber'}" onclick="showPage('mandaty')" style="cursor:pointer" title="Przejdź do mandatów">
+    <div class="fkpi-card ${fines_urgent > 0 ? 'fkpi-red' : 'fkpi-amber'}" onclick="FinesModule.open()" style="cursor:pointer" title="Przejdź do mandatów">
       <div class="fkpi-val">${fines}</div>
       <div class="fkpi-lab">mandaty nieopłacone${fines_urgent > 0 ? ` <span style="font-size:10px">(${fines_urgent} pilne)</span>` : ''}</div>
     </div>` : ''}
@@ -1108,6 +1107,54 @@ function renderFuelDash() {
       </div>`}).join('')}`;
 }
 
+function exportPaliwoCSV() {
+  const mSel = document.getElementById('paliwo-month-sel');
+  const vSel = document.getElementById('paliwo-veh-sel');
+  const fSel = document.getElementById('paliwo-fuel-sel');
+  const selMonth = mSel?.value || new Date().toISOString().slice(0, 7);
+  const selVeh   = vSel?.value || '';
+  const selFuel  = fSel?.value || '';
+
+  const rows = [];
+  vehs.forEach(v => {
+    if (!Array.isArray(v.fuelHistory)) return;
+    if (selVeh && String(v.id) !== selVeh) return;
+    v.fuelHistory.forEach(h => {
+      if (!(h.date || '').startsWith(selMonth)) return;
+      if (selFuel && h.product !== selFuel) return;
+      rows.push({ v, h });
+    });
+  });
+  rows.sort((a, b) => (b.h.date || '').localeCompare(a.h.date || ''));
+
+  if (!rows.length) { toast?.('Brak danych do eksportu'); return; }
+
+  const hdrs = ['Data', 'Nr rej.', 'Marka', 'Model', 'Rodzaj paliwa', 'Ilość (l)', 'Cena/l (zł)', 'Kwota brutto (zł)', 'Stacja', 'Nr karty', 'CO2 (kg)', 'Stan licznika (km)'];
+  const data = rows.map(({ v, h }) => [
+    h.date || '',
+    v.nrRej || '',
+    v.marka || '',
+    v.model || '',
+    h.product || '',
+    h.liters != null ? String(h.liters) : '',
+    h.pricePerLiter != null ? String(h.pricePerLiter) : '',
+    h.totalGross != null ? String(h.totalGross) : '',
+    h.station || '',
+    h.cardNumber || '',
+    h.co2kg != null ? String(h.co2kg) : '',
+    h.km != null ? String(h.km) : '',
+  ]);
+
+  const csv = '﻿' + [hdrs, ...data].map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'tankowania_' + selMonth + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast?.('✓ Wyeksportowano ' + rows.length + ' tankowań do CSV');
+}
+
 // ==================== PALIWO PAGE ====================
 function renderPaliwoPage() {
   const now = new Date();
@@ -1202,9 +1249,10 @@ function renderPaliwoPage() {
   if (top10El) {
     const byVeh = {};
     rows.forEach(({ v, h }) => {
-      if (!byVeh[v.id]) byVeh[v.id] = { v, cost: 0, liters: 0, km: 0, count: 0 };
+      if (!byVeh[v.id]) byVeh[v.id] = { v, cost: 0, liters: 0, fuelRows: [], count: 0 };
       byVeh[v.id].cost   += h.totalGross || 0;
       byVeh[v.id].liters += h.liters || 0;
+      byVeh[v.id].fuelRows.push(h);
       byVeh[v.id].count++;
     });
     const sorted = Object.values(byVeh).sort((a, b) => b.cost - a.cost).slice(0, 10);
@@ -1212,7 +1260,14 @@ function renderPaliwoPage() {
       top10El.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:1rem">Brak danych</td></tr>`;
     } else {
       top10El.innerHTML = sorted.map((x, i) => {
-        const avg = (x.liters > 0 && x.v.przebieg > 0) ? ((x.liters / x.v.przebieg) * 100).toFixed(1) + ' l/100km' : '—';
+        // l/100km z kolejnych tankowań z km w wybranym okresie
+        const withKm = x.fuelRows.filter(h => h.km != null && h.km > 0 && h.liters > 0).sort((a, b) => a.km - b.km);
+        let _effL = 0, _effKm = 0, _effN = 0;
+        for (let j = 1; j < withKm.length; j++) {
+          const kd = withKm[j].km - withKm[j-1].km;
+          if (kd > 10 && kd < 5000) { _effL += withKm[j].liters; _effKm += kd; _effN++; }
+        }
+        const avg = (_effN >= 1 && _effKm > 0) ? (_effL / _effKm * 100).toFixed(1) + ' l/100km' : '—';
         return `<tr>
           <td style="color:var(--text3);font-size:13px">${i + 1}</td>
           <td style="font-weight:600;font-family:var(--mono)">${esc(x.v.nrRej)}</td>
@@ -1222,6 +1277,66 @@ function renderPaliwoPage() {
           <td style="text-align:right;color:var(--text3)">${avg}</td>
         </tr>`;
       }).join('');
+    }
+  }
+
+  // --- Anomalie spalania (pojazdy > 15% ponad normę) ---
+  const anomalyEl = document.getElementById('paliwo-anomaly');
+  if (anomalyEl) {
+    const anomalies = [];
+    vehs.forEach(v => {
+      const norm = v.normaSpalania ? parseFloat(v.normaSpalania) : null;
+      if (!norm || !Array.isArray(v.fuelHistory) || !v.fuelHistory.length) return;
+      const withKm = [...v.fuelHistory].filter(h => h.km != null && h.km > 0 && h.liters > 0).sort((a, b) => a.km - b.km);
+      let _effL = 0, _effKm = 0, _effN = 0;
+      for (let i = 1; i < withKm.length; i++) {
+        const kd = withKm[i].km - withKm[i-1].km;
+        if (kd > 10 && kd < 5000) { _effL += withKm[i].liters; _effKm += kd; _effN++; }
+      }
+      if (_effN < 2 || _effKm <= 0) return;
+      const avgEff = _effL / _effKm * 100;
+      if (avgEff > norm * 1.15) {
+        const pct = ((avgEff / norm - 1) * 100).toFixed(0);
+        anomalies.push({ v, norm, avgEff: avgEff.toFixed(1), pct: +pct, intervals: _effN });
+      }
+    });
+    anomalies.sort((a, b) => b.pct - a.pct);
+
+    if (!anomalies.length) {
+      anomalyEl.innerHTML = '';
+    } else {
+      anomalyEl.innerHTML = `
+        <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          <i class="ti ti-alert-triangle" style="color:var(--red)"></i>Anomalie spalania — przekroczenie normy o >15%
+          <span style="font-size:12px;font-weight:400;color:var(--text3);margin-left:4px">${anomalies.length} pojazd${anomalies.length===1?'':'ów'} (wszystkie okresy)</span>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr>
+            <th>Nr rej.</th><th>Pojazd</th>
+            <th style="text-align:right">Norma (l/100km)</th>
+            <th style="text-align:right">Faktyczne (l/100km)</th>
+            <th style="text-align:right">Przekroczenie</th>
+            <th style="text-align:right">Odcinki km</th>
+            <th></th>
+          </tr></thead>
+          <tbody>
+            ${anomalies.map(a => `<tr>
+              <td style="font-weight:600;font-family:var(--mono)">${esc(a.v.nrRej)}</td>
+              <td style="font-size:12px;color:var(--text2)">${esc(a.v.marka)} ${esc(a.v.model)}</td>
+              <td style="text-align:right;font-family:var(--mono)">${a.norm.toFixed(1)}</td>
+              <td style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--red)">${a.avgEff}</td>
+              <td style="text-align:right">
+                <span style="font-size:12px;font-weight:700;background:#fee2e2;color:#991b1b;padding:3px 10px;border-radius:99px">+${a.pct}%</span>
+              </td>
+              <td style="text-align:right;color:var(--text3);font-size:12px">${a.intervals}</td>
+              <td>
+                <button class="tbtn" onclick="showPage('pojazdy');setTimeout(()=>{openVehicleDetail(${a.v.id});setTimeout(()=>TaxOrderVehicleDetail?._tab('koszty'),400)},200)" title="Otwórz kartę pojazdu">
+                  <i class="ti ti-external-link"></i>
+                </button>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>`;
     }
   }
 

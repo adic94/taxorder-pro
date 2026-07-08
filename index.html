@@ -332,6 +332,9 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
       <button class="btn btn-gray" style="font-size:11px" onclick="FuelImport.open()">
         <i class="ti ti-file-import"></i>Import tankowań
       </button>
+      <button class="btn btn-gray" style="font-size:11px" onclick="exportPaliwoCSV()" title="Eksportuj widoczne tankowania do CSV">
+        <i class="ti ti-file-download"></i>Eksport CSV
+      </button>
       <button class="btn btn-gray" style="font-size:11px" onclick="FuelImport.exportKobize(new Date().getFullYear()-1)" title="Eksportuj raport emisji CO2 wg KOBIZE">
         <i class="ti ti-leaf"></i>Raport CO₂ KOBIZE
       </button>
@@ -377,6 +380,9 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
       <tbody id="paliwo-top10"></tbody>
     </table></div>
   </div>
+
+  <!-- Anomalie spalania -->
+  <div id="paliwo-anomaly" style="margin-top:1.5rem"></div>
 </div>
 
 <!-- ==================== POJAZDY ==================== -->
@@ -1427,6 +1433,17 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
         <div class="card-title"><i class="ti ti-file-invoice"></i>Eksport deklaracji DT-1 (Excel/PD)</div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Plik w formacie Przyjaznych Deklaracji gotowy do wgrania na przyjazne-deklaracje.pl.</div>
         <button class="btn btn-blue" style="width:100%;justify-content:center" onclick="exportPD()"><i class="ti ti-upload"></i>Eksport dla Przyjaznych Deklaracji</button>
+      </div>
+
+      <div class="card" style="margin-top:1rem">
+        <div class="card-title"><i class="ti ti-cloud-download" style="color:var(--blue)"></i>Kopia zapasowa z chmury</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Pobiera wszystkie dane firmy z bazy Cloudflare D1 jako plik JSON — pojazdy, szkody, opony, zlecenia, protokoły, faktury CFM, mandaty, karty flotowe.</div>
+        <div style="display:flex;gap:8px;flex-direction:column">
+          <button class="btn btn-blue" style="width:100%;justify-content:center" onclick="CloudBackup.download()"><i class="ti ti-cloud-download"></i>Pobierz backup z chmury (JSON)</button>
+          <button class="btn btn-gray" style="width:100%;justify-content:center" onclick="document.getElementById('cloud-restore-file').click()"><i class="ti ti-cloud-upload"></i>Przywróć z backupu (JSON)</button>
+          <input type="file" id="cloud-restore-file" accept=".json" style="display:none" onchange="CloudBackup.restore(this)">
+        </div>
+        <div id="cloud-backup-result" style="margin-top:10px"></div>
       </div>
     </div>
 
@@ -2625,6 +2642,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/cfm-contracts.js"></script>
   <script src="modules/cfm-invoices.js"></script>
   <script src="modules/api-keys.js"></script>
+  <script src="modules/cloud-backup.js"></script>
   <script src="modules/tekom-sync.js"></script>
   <script src="modules/alert-dashboard.js"></script>
   <script src="modules/notification-settings.js"></script>

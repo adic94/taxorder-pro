@@ -874,6 +874,32 @@ window.TaxOrderVehicleDetail = {
         </div>
       </div>
 
+      <!-- TCO (Total Cost of Ownership) YTD -->
+      ${(() => {
+        const yr = String(new Date().getFullYear());
+        const svcCostY = (v.serviceHistory||[]).filter(h=>(h.date||'').startsWith(yr)).reduce((s,h)=>s+(+h.cost||0),0);
+        const insCostY = (+(v.ocPremium)||0) + (+(v.acPremium)||0) + (+(v.assistPremium)||0);
+        const tcoTotal = totalCostY + svcCostY + insCostY;
+        if (!tcoTotal) return '';
+        const pctFuel = tcoTotal > 0 ? totalCostY / tcoTotal * 100 : 0;
+        const pctSvc  = tcoTotal > 0 ? svcCostY  / tcoTotal * 100 : 0;
+        const pctIns  = tcoTotal > 0 ? insCostY  / tcoTotal * 100 : 0;
+        return `<div style="background:var(--bg3);border-radius:var(--radius);padding:14px;margin-bottom:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">TCO ${yr} — całkowity koszt posiadania</div>
+          <div style="display:flex;gap:4px;height:8px;border-radius:4px;overflow:hidden;margin-bottom:10px">
+            ${pctFuel>0?`<div style="width:${pctFuel.toFixed(1)}%;background:var(--amber)" title="Paliwo ${totalCostY.toFixed(0)} zł"></div>`:''}
+            ${pctSvc>0 ?`<div style="width:${pctSvc.toFixed(1)}%;background:var(--blue)"  title="Serwis ${svcCostY.toFixed(0)} zł"></div>`:''}
+            ${pctIns>0 ?`<div style="width:${pctIns.toFixed(1)}%;background:var(--green)" title="Ubezpieczenia ${insCostY.toFixed(0)} zł"></div>`:''}
+          </div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px">
+            ${totalCostY>0?`<span><i class="ti ti-droplet" style="color:var(--amber)"></i> Paliwo <b>${totalCostY.toFixed(0)} zł</b></span>`:''}
+            ${svcCostY>0 ?`<span><i class="ti ti-tools"   style="color:var(--blue)"></i>  Serwis <b>${svcCostY.toFixed(0)} zł</b></span>`:''}
+            ${insCostY>0 ?`<span><i class="ti ti-shield"  style="color:var(--green)"></i>  Ubezp. <b>${insCostY.toFixed(0)} zł</b></span>`:''}
+            <span style="margin-left:auto;font-weight:700;font-size:13px">${tcoTotal.toFixed(0)} zł</span>
+          </div>
+        </div>`;
+      })()}
+
       <!-- Akcje -->
       <div style="display:flex;gap:8px;margin-bottom:14px">
         <button class="btn btn-green" style="font-size:12px" onclick="FuelImport.addManual(${v.id})">
