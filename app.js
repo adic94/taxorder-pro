@@ -149,7 +149,7 @@ function showPage(id) {
   if(id==='pd') updatePD();
   if(id==='dash') renderDash();
   if(id==='walidacja') { runValidation(); }
-  if(id==='raporty') { renderRaporty(); window.FleetReports?.renderPage(); window.FleetReports?.renderServicePlan(); window.FleetReports?.renderKobize(); window.FleetReports?.renderTco(); window.FleetReports?.renderInsuranceReport(); FleetReports?.initPdfSelectors?.(); }
+  if(id==='raporty') { renderRaporty(); window.FleetReports?.renderPage(); window.FleetReports?.renderServicePlan(); window.FleetReports?.renderMaintenanceKm(); window.FleetReports?.renderKobize(); window.FleetReports?.renderTco(); window.FleetReports?.renderInsuranceReport(); FleetReports?.initPdfSelectors?.(); }
   if(id==='ocr') renderOcrHistory();
   if(id==='faktury') renderFakHistory();
   if(id==='pdfexport') updatePdfSummary();
@@ -194,7 +194,7 @@ function filterVeh() {
   const fAlert = document.getElementById('f-alert')?.value||'';
   return vehs.filter(v => {
     if (window._driverFilter && v.kierowca !== window._driverFilter) return false;
-    if (q && !v.nrRej.toLowerCase().includes(q) && !v.marka.toLowerCase().includes(q) && !v.model.toLowerCase().includes(q) && !(v.vin||'').toLowerCase().includes(q)) return false;
+    if (q && !v.nrRej.toLowerCase().includes(q) && !v.marka.toLowerCase().includes(q) && !v.model.toLowerCase().includes(q) && !(v.vin||'').toLowerCase().includes(q) && !(v.kierowca||'').toLowerCase().includes(q)) return false;
     if (fTyp && v.typ !== fTyp) return false;
     if (fStat && v.status !== fStat) return false;
     if (fWl && v.wlasciciel !== fWl) return false;
@@ -1776,6 +1776,7 @@ function _renderFleetKpi() {
     { icon:'ti-clipboard-check',label:t('kpi.dt1.incomplete'), val:dt1Incomplete,           unit:t('common.vehicles'), color:dt1Incomplete>0?'var(--amber)':'var(--green)', click:"showPage('pojazdy')" },
     { icon:'ti-id',             label:t('kpi.vin.errors'),     val:vinErrors,               unit:vinErrors>0?'do weryfikacji':'', color:vinErrors>0?'var(--red)':'var(--green)', click:'' },
     { icon:'ti-steering-wheel', label:'Kierowcy',               val:(window.TaxOrderDrivers?.getAll()||[]).length, unit:'w kartotece', color:'var(--blue)', click:"TaxOrderDrivers.open()" },
+    (() => { const gN=now.getTime(),g24=24*3600000; const gC=allVehs.filter(v=>{const h=Array.isArray(v.gpsHistory)?v.gpsHistory:[];const l=h.filter(x=>x.lat&&x.lon).sort((a,b)=>new Date(b.ts)-new Date(a.ts))[0];return l&&(gN-new Date(l.ts).getTime())<g24;}).length; return { icon:'ti-map-pin', label:'GPS aktywny (24h)', val:gC, unit:'z '+(allVehs.length)+' pojazdów', color:gC>0?'var(--green)':'var(--text3)', click:"showPage('mapa')" }; })(),
   ];
 
   el.innerHTML = `

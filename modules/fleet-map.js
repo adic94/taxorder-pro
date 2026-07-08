@@ -84,7 +84,7 @@ window.FleetMap = (function () {
       // Filtr tekstowy
       const needle = _filterText.toLowerCase();
       if (needle) {
-        const haystack = [v.nr_rej, v.make, v.model, v.driver, last?.driver, last?.location].filter(Boolean).join(' ').toLowerCase();
+        const haystack = [v.nrRej, v.nr_rej, v.marka, v.model, v.kierowca, last?.driver, last?.location].filter(Boolean).join(' ').toLowerCase();
         if (!haystack.includes(needle)) return;
       }
 
@@ -105,13 +105,13 @@ window.FleetMap = (function () {
 
         const popupHtml = `
           <div style="min-width:180px;font-family:var(--font-sans,sans-serif)">
-            <div style="font-weight:700;font-size:13px;margin-bottom:4px">${v.nr_rej || '—'}</div>
-            <div style="font-size:11px;color:#555;margin-bottom:6px">${[v.make, v.model].filter(Boolean).join(' ') || 'Pojazd'}</div>
+            <div style="font-weight:700;font-size:13px;margin-bottom:4px">${v.nrRej || v.nr_rej || '—'}</div>
+            <div style="font-size:11px;color:#555;margin-bottom:6px">${[v.marka, v.model].filter(Boolean).join(' ') || 'Pojazd'}</div>
             <table style="font-size:11px;border-collapse:collapse;width:100%">
               <tr><td style="color:#888;padding:1px 6px 1px 0">Stan km</td><td style="font-weight:600">${kmStr}</td></tr>
               ${speedStr ? `<tr><td style="color:#888;padding:1px 6px 1px 0">Prędkość</td><td>${speedStr}</td></tr>` : ''}
               ${locStr ? `<tr><td style="color:#888;padding:1px 6px 1px 0">Miejsce</td><td>${locStr}</td></tr>` : ''}
-              ${last.driver ? `<tr><td style="color:#888;padding:1px 6px 1px 0">Kierowca</td><td>${last.driver}</td></tr>` : ''}
+              ${(last.driver || v.kierowca) ? `<tr><td style="color:#888;padding:1px 6px 1px 0">Kierowca</td><td>${last.driver || v.kierowca}</td></tr>` : ''}
               <tr><td style="color:#888;padding:1px 6px 1px 0">Czas</td><td>${dateStr}</td></tr>
             </table>
             <div style="margin-top:8px">
@@ -150,8 +150,8 @@ window.FleetMap = (function () {
               onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
               <div style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></div>
               <div style="min-width:0;flex:1">
-                <div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.nr_rej || '—'}</div>
-                <div style="font-size:10px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${[v.make, v.model].filter(Boolean).join(' ') || 'Pojazd'}</div>
+                <div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.nrRej || v.nr_rej || '—'}</div>
+                <div style="font-size:10px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${[v.marka, v.model].filter(Boolean).join(' ') || 'Pojazd'}</div>
               </div>
               <div style="font-size:10px;color:var(--text3);text-align:right;flex-shrink:0">
                 ${age ? `<div>${age}</div>` : '<div style="color:#9ca3af">brak GPS</div>'}

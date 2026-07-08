@@ -754,6 +754,72 @@ window.FleetReports = (function () {
       </div>`;
   }
 
+  // ── Serwisy km-based (maintenanceItems) ──────────────────────────────────
+  function _buildMaintenanceKm() {
+    const rows = [];
+    for (const v of (window.vehs || [])) {
+      const curKm = v.stanKilometrow != null ? Number(v.stanKilometrow) : null;
+      for (const item of (v.maintenanceItems || [])) {
+        const kmLeft = item.nextKm != null && curKm != null ? Number(item.nextKm) - curKm : null;
+        rows.push({ v, item, curKm, kmLeft });
+      }
+    }
+    return rows.sort((a, b) => {
+      const pa = a.kmLeft == null ? Infinity : a.kmLeft;
+      const pb = b.kmLeft == null ? Infinity : b.kmLeft;
+      return pa - pb;
+    });
+  }
+
+  function renderMaintenanceKm(containerId) {
+    const el = document.getElementById(containerId || 'fr-maintenance-km');
+    if (!el) return;
+    const rows = _buildMaintenanceKm();
+    if (!rows.length) {
+      el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3)">Brak pozycji serwisowych wg licznika. Dodaj je w Karcie pojazdu → Koszty → Harmonogram serwisów.</div>`;
+      return;
+    }
+    const _badge = kmLeft => {
+      if (kmLeft == null) return `<span style="color:var(--text3)">—</span>`;
+      if (kmLeft <= 0)    return `<span style="background:#fee2e2;color:#991b1b;font-weight:700;padding:2px 8px;border-radius:99px">Przekroczono o ${Math.abs(kmLeft).toLocaleString('pl-PL')} km</span>`;
+      if (kmLeft <= 500)  return `<span style="background:#fee2e2;color:#dc2626;font-weight:700;padding:2px 8px;border-radius:99px">${kmLeft.toLocaleString('pl-PL')} km</span>`;
+      if (kmLeft <= 2000) return `<span style="background:#fef3c7;color:#92400e;font-weight:700;padding:2px 8px;border-radius:99px">${kmLeft.toLocaleString('pl-PL')} km</span>`;
+      return `<span style="color:var(--text2)">${kmLeft.toLocaleString('pl-PL')} km</span>`;
+    };
+    el.innerHTML = `
+      <div class="tbl-wrap"><table style="width:100%;font-size:12px">
+        <thead><tr>
+          <th>Nr rej</th><th>Pojazd</th><th>Serwis</th>
+          <th style="text-align:right">Teraz [km]</th><th style="text-align:right">Cel [km]</th><th>Pozostało</th>
+          <th>Następna data</th><th></th>
+        </tr></thead>
+        <tbody>${rows.map(({ v, item, curKm, kmLeft }) => `<tr>
+          <td style="font-family:var(--mono);font-weight:700">${v.nrRej || '—'}</td>
+          <td style="color:var(--text2)">${v.marka || ''} ${v.model || ''}</td>
+          <td>${item.label || 'Serwis'}</td>
+          <td style="text-align:right;font-family:var(--mono)">${curKm != null ? curKm.toLocaleString('pl-PL') : '—'}</td>
+          <td style="text-align:right;font-family:var(--mono)">${item.nextKm != null ? Number(item.nextKm).toLocaleString('pl-PL') : '—'}</td>
+          <td>${_badge(kmLeft)}</td>
+          <td style="color:var(--text2);font-size:11px">${item.nextDate || '—'}</td>
+          <td><button class="tbtn" onclick="showPage('pojazdy');setTimeout(()=>{TaxOrderVehicleDetail.open(${v.id});setTimeout(()=>TaxOrderVehicleDetail?._tab('koszty'),400)},200)" title="Otwórz kartę pojazdu"><i class="ti ti-external-link"></i></button></td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+  }
+
+  function exportMaintenanceKmExcel() {
+    if (typeof XLSX === 'undefined') { window.toast?.('Brak biblioteki XLSX'); return; }
+    const rows = _buildMaintenanceKm();
+    const headers = ['Nr rej', 'Marka', 'Model', 'Serwis', 'Stan km', 'Cel km', 'Pozostało km', 'Następna data'];
+    const data = [headers, ...rows.map(({ v, item, curKm, kmLeft }) => [
+      v.nrRej || '', v.marka || '', v.model || '', item.label || 'Serwis',
+      curKm ?? '', item.nextKm ?? '', kmLeft ?? '', item.nextDate || '',
+    ])];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(data), 'Serwisy km');
+    XLSX.writeFile(wb, `serwisy_km_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    window.toast?.('✓ Wyeksportowano serwisy km');
+  }
+
   function exportServicePlanExcel() {
     if (typeof XLSX === 'undefined') { toast(t('rep.toast.xlsx.na')); return; }
     const upcoming = window.ServiceModule?.getUpcomingServices(180) || [];
@@ -1397,5 +1463,5 @@ tr:hover td{background:#f9fafb}
     toast(t('rep.toast.pdf.ok').replace('{0}', monthLabel));
   }
 
-  return { renderPage, exportExcel, exportCsv, renderServicePlan, exportServicePlanExcel, exportServicePlanHtml, saveBudgetInputs, renderKobize, exportKobizeCsv, exportKobizeExcel, renderTco, exportTcoExcel, renderInsuranceReport, exportInsuranceExcel, exportExecutiveSummary, emailExecutiveSummary, generateMonthlyPdf, initPdfSelectors };
+  return { renderPage, exportExcel, exportCsv, renderServicePlan, exportServicePlanExcel, exportServicePlanHtml, renderMaintenanceKm, exportMaintenanceKmExcel, saveBudgetInputs, renderKobize, exportKobizeCsv, exportKobizeExcel, renderTco, exportTcoExcel, renderInsuranceReport, exportInsuranceExcel, exportExecutiveSummary, emailExecutiveSummary, generateMonthlyPdf, initPdfSelectors };
 })();
