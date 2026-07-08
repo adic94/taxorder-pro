@@ -571,7 +571,8 @@ function exportFleetCSV() {
     'Kat.pojazdu','Paliwo','Ładowność (kg)','Masa własna (kg)','Norma (l/100km)',
     'Właściciel','Osie','Zawieszenie','Ownership','Mies. podatku'
   ];
-  const rows = vehs.map(v => [
+  const list = filterVeh();
+  const rows = list.map(v => [
     v.nrRej||'', v.marka||'', v.model||'', v.rok||'', v.typ||'',
     (v.dmc||v.dmcMax||''), v.status||'', v.vin||'',
     v.kierowca||'', v.stanKilometrow||'', v.kartaOrlen||'',
@@ -595,7 +596,7 @@ function exportFleetCSV() {
   a.download = `flota_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
-  toast(`✅ Wyeksportowano ${vehs.length} pojazdów do CSV`);
+  toast(`✅ Wyeksportowano ${list.length} pojazdów do CSV`);
 }
 
 // ==================== WALIDACJA VIN (ISO 3779) ====================

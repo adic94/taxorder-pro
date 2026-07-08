@@ -58,6 +58,9 @@ window.TaxOrderAlertDashboard = (function () {
         <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="TaxOrderAlertDashboard.load()">
           <i class="ti ti-refresh"></i>Odśwież
         </button>
+        <button class="btn btn-gray" style="font-size:11px" onclick="TaxOrderAlertDashboard.exportCSV()">
+          <i class="ti ti-file-download"></i>Eksport CSV
+        </button>
       </div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:20px">
         Wszystkie terminy posortowane wg pilności — kliknij wiersz aby otworzyć kartę pojazdu.
@@ -181,6 +184,22 @@ window.TaxOrderAlertDashboard = (function () {
     _render();
   }
 
+  function exportCSV() {
+    const data = _filtered.length ? _filtered : _alerts;
+    const headers = ['Nr rej', 'Marka', 'Model', 'Typ dokumentu', 'Data wygaśnięcia', 'Pozostało dni'];
+    const rows = data.map(a => {
+      const dateDisp = (() => { try { return new Date(a.date + (a.date.includes('T')?'':'T00:00:00')).toLocaleDateString('pl-PL'); } catch { return a.date; } })();
+      return [a.nrRej, a.marka, a.model, a.label, dateDisp, a.days];
+    });
+    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c??'').replace(/"/g,'""')}"`).join(';')).join('\r\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `alerty_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    window.toast?.(`✅ Wyeksportowano ${data.length} alertów`);
+  }
+
   function _open(vehId, tab) {
     showPage?.('pojazdy');
     setTimeout(() => {
@@ -191,5 +210,5 @@ window.TaxOrderAlertDashboard = (function () {
     }, 200);
   }
 
-  return { load, _setFilter, _open };
+  return { load, _setFilter, _open, exportCSV };
 })();
