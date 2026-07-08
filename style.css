@@ -108,6 +108,10 @@ tr:last-child td{border-bottom:none}
 tr:hover td{background:var(--bg3)}
 tr.row-sel td{background:var(--blue-light)!important}
 tr.row-sel:hover td{background:#d5e8f8!important}
+tr.row-alert-red td{background:#fff5f5}
+tr.row-alert-red:hover td{background:#fee2e2}
+tr.row-alert-amber td{background:#fffbf0}
+tr.row-alert-amber:hover td{background:#fef3c7}
 th input[type=checkbox],td input[type=checkbox]{cursor:pointer;width:15px;height:15px}
 th.sort-th{cursor:pointer;user-select:none}
 th.sort-th:hover{color:var(--blue)}

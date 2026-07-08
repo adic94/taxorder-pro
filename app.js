@@ -364,7 +364,11 @@ function renderVeh() {
     const isSel = selected.has(v.id);
     const isNew = (parseInt(v.rok)||0)>=2024;
     const needsDmcZ = isTrailer(v) && !v.dmcZespolu;
-    return `<tr class="${isSel?'row-sel':''}" onclick="toggleRow(${v.id})" ondblclick="event.stopPropagation();TaxOrderVehicleDetail.open(${v.id})" title="Dwuklik = karta pojazdu">
+    const _nowMs = Date.now();
+    const _vDays = ds => { if (!ds) return 9999; const d = new Date(ds+'T00:00:00'); return isNaN(d)?9999:Math.round((d-_nowMs)/86400000); };
+    const _minDays = Math.min(_vDays(v.ocEnd), _vDays(v.acEnd), _vDays(v.nextInspection));
+    const _rowAlert = _minDays < 0 ? 'row-alert-red' : _minDays <= 7 ? 'row-alert-red' : _minDays <= 30 ? 'row-alert-amber' : '';
+    return `<tr class="${isSel?'row-sel':''} ${_rowAlert}" onclick="toggleRow(${v.id})" ondblclick="event.stopPropagation();TaxOrderVehicleDetail.open(${v.id})" title="Dwuklik = karta pojazdu${_rowAlert ? ' | ⚠ Alert terminów' : ''}">
       <td onclick="event.stopPropagation()"><input type="checkbox" ${isSel?'checked':''} onchange="toggleRow(${v.id})"></td>
       <td><strong style="font-family:var(--mono)">${esc(v.nrRej)}</strong></td>
       <td><div style="font-weight:500">${esc(v.marka)} ${esc(v.model)}</div><div style="font-size:11px">${esc(v.euro||'—')} · ${_vinCell(v)}</div></td>
@@ -434,7 +438,8 @@ function renderVeh() {
       <td data-col="ladownosc" style="font-size:11px;text-align:right;font-family:var(--mono)">${(()=>{const _d=v.dmcKg2||v.dmc||v.dmcMax,_m=v.masaWlasna??v.masaWlKg;const l=v.ladownosc!=null&&v.ladownosc!==''?Number(v.ladownosc):(_d&&_m!=null&&(Number(_d)>Number(_m))?Number(_d)-Number(_m):null);return l!=null?l.toLocaleString('pl-PL')+' kg':'—';})()}</td>
       <td data-col="dataRej" style="font-size:11px;white-space:nowrap">${v.dataRejestracji||v.dataRej||'—'}</td>
       <td data-col="katDR" style="font-size:11px;text-align:center">${(v.katPojazdu||v.kategoria)?`<span class="pill pill-gray">${v.katPojazdu||v.kategoria}</span>`:'—'}</td>
-      <td style="text-align:center" onclick="event.stopPropagation()">
+      <td style="text-align:center;white-space:nowrap" onclick="event.stopPropagation()">
+        ${v.uwagi ? `<span style="color:var(--amber);font-size:13px;margin-right:4px;cursor:help" title="${esc(v.uwagi.slice(0,200))}"><i class="ti ti-note"></i></span>` : ''}
         <button class="btn btn-gray" style="font-size:11px;padding:3px 8px" onclick="TaxOrderVehicleDetail.open(${v.id})" title="Karta pojazdu">
           <i class="ti ti-id-badge"></i>
         </button>
