@@ -169,6 +169,7 @@ function showPage(id) {
   if(id==='paliwo') renderPaliwoPage();
   if(id==='raporty') FleetReports?.initPdfSelectors?.();
   if(id==='powiadomienia') window.TaxOrderNotifSettings?.load();
+  if(id==='polisy-ocr') window.TaxOrderPolicyOcr?.load();
   updateCounters();
 }
 

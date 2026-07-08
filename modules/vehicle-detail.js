@@ -709,6 +709,30 @@ window.TaxOrderVehicleDetail = {
           </div>
         </div>
         ${isArchived ? `<div class="wbox" style="margin-top:14px"><i class="ti ti-archive"></i>Ten pojazd jest nieaktywny — nie pojawia się w deklaracjach DT-1.</div>` : ''}
+
+        <!-- Zmiana numeru rejestracyjnego -->
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <i class="ti ti-license-plate" style="font-size:16px;color:var(--blue)"></i>
+            <strong style="font-size:13px">Zmiana numeru rejestracyjnego</strong>
+          </div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:10px">
+            Zmiana zaktualizuje numer we wszystkich powiązanych rekordach (dokumenty, szkody, opony, zlecenia, protokoły, umowy CFM). Stary numer zostanie zarchiwizowany w historii.
+          </div>
+          <button class="btn btn-gray" style="font-size:12px" onclick="TaxOrderVehicleDetail._openChangeNrRej(${v.id},'${v.nrRej}')">
+            <i class="ti ti-arrows-exchange"></i>Zmień numer rejestracyjny
+          </button>
+          ${v.rejestracjaHistory?.length ? `
+          <div style="margin-top:12px">
+            <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">Historia numerów rejestracyjnych:</div>
+            ${v.rejestracjaHistory.map(h => `
+              <div style="font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 10px;margin-bottom:4px">
+                <strong>${h.old}</strong> → <strong>${h.new}</strong>
+                <span style="color:var(--text2);margin-left:8px">${h.date || ''}</span>
+                ${h.reason ? `<span style="color:var(--text2);margin-left:6px">· ${h.reason}</span>` : ''}
+              </div>`).join('')}
+          </div>` : ''}
+        </div>
       </div>
 
       <!-- TAB: UWAGI -->
@@ -1862,6 +1886,80 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
   _onArchiveToggle(cb) {
     const reason = document.getElementById('vd-archivedReason');
     if (reason) reason.closest('.vdf').style.opacity = cb.checked ? '1' : '0.4';
+  },
+
+  _openChangeNrRej(vehId, oldNrRej) {
+    const reasons = [
+      ['', '— wybierz powód —'],
+      ['tablice_wtorne', 'Tablice wtórne (nowe tablice, ten sam numer)'],
+      ['zmiana_numeru', 'Zmiana numeru rejestracyjnego'],
+      ['rejestracja_zagraniczna', 'Import / rejestracja zagraniczna'],
+      ['inne', 'Inne'],
+    ];
+    const html = `<div id="change-nrrej-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:6000;display:flex;align-items:center;justify-content:center"
+      onclick="if(event.target===this)this.remove()">
+      <div style="background:var(--bg);border-radius:var(--radius-lg);width:420px;max-width:95vw;padding:24px;box-shadow:0 8px 40px rgba(0,0,0,.25)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+          <i class="ti ti-arrows-exchange" style="font-size:20px;color:var(--blue)"></i>
+          <strong style="font-size:16px">Zmiana numeru rejestracyjnego</strong>
+          <button onclick="document.getElementById('change-nrrej-modal').remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+        </div>
+        <div class="f" style="margin-bottom:12px">
+          <label style="font-size:12px;color:var(--text2)">Obecny numer</label>
+          <input class="fi" value="${oldNrRej}" readonly style="opacity:.6">
+        </div>
+        <div class="f" style="margin-bottom:12px">
+          <label style="font-size:12px;color:var(--text2)">Nowy numer rejestracyjny</label>
+          <input id="new-nrrej-input" class="fi" placeholder="np. WGM12345" style="text-transform:uppercase">
+        </div>
+        <div class="f" style="margin-bottom:20px">
+          <label style="font-size:12px;color:var(--text2)">Powód zmiany</label>
+          <select id="change-nrrej-reason" class="fi">
+            ${reasons.map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}
+          </select>
+        </div>
+        <div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:var(--radius);padding:10px;font-size:11px;color:#92400e;margin-bottom:16px">
+          <i class="ti ti-alert-triangle"></i> Operacja zaktualizuje numer we wszystkich powiązanych rekordach i jest nieodwracalna.
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn-gray" onclick="document.getElementById('change-nrrej-modal').remove()">Anuluj</button>
+          <button class="btn btn-blue" onclick="TaxOrderVehicleDetail._doChangeNrRej(${vehId},'${oldNrRej}')">
+            <i class="ti ti-arrows-exchange"></i>Zmień
+          </button>
+        </div>
+      </div>
+    </div>`;
+    document.getElementById('change-nrrej-modal')?.remove();
+    document.body.insertAdjacentHTML('beforeend', html);
+    document.getElementById('new-nrrej-input')?.focus();
+  },
+
+  async _doChangeNrRej(vehId, oldNrRej) {
+    const newNrRej = (document.getElementById('new-nrrej-input')?.value || '').trim().toUpperCase();
+    const reason = document.getElementById('change-nrrej-reason')?.value || '';
+    if (!newNrRej) { window.toast?.('Podaj nowy numer rejestracyjny'); return; }
+    if (!reason) { window.toast?.('Wybierz powód zmiany'); return; }
+    const btn = document.querySelector('#change-nrrej-modal .btn-blue');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader ti-spin"></i>Zmieniam...'; }
+
+    const API = window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
+    const token = localStorage.getItem('cf_token');
+    const company = window.currentCompanyId || 'mtoilet';
+    const r = await fetch(`${API}/api/vehicles/change-nrrej?company=${company}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ old_nr_rej: oldNrRej, new_nr_rej: newNrRej, reason, company_id: company }),
+    });
+    const d = await r.json().catch(() => ({}));
+    document.getElementById('change-nrrej-modal')?.remove();
+    if (r.ok) {
+      window.toast?.(`✓ Numer rejestracyjny zmieniony: ${oldNrRej} → ${newNrRej}`);
+      // Przeładuj listę pojazdów i zamknij kartę
+      if (typeof window.loadVehicles === 'function') await window.loadVehicles();
+      document.getElementById('vehicle-detail-panel')?.remove();
+    } else {
+      window.toast?.('Błąd: ' + (d.error || r.status));
+    }
   },
 
   async _syncCepik(vehId) {

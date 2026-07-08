@@ -224,6 +224,40 @@ async function handleVehicles(req, env, user, url, path) {
     return json({ ok: true });
   }
 
+  // POST /api/vehicles/change-nrrej — zmiana numeru rejestracyjnego z archiwizacją
+  if (req.method === 'POST' && segs[2] === 'change-nrrej') {
+    if (!user || (user.role !== 'admin' && user.role !== 'kierownik')) return err('Brak uprawnień', 403);
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const { old_nr_rej, new_nr_rej, reason } = body;
+    const company = url.searchParams.get('company') || body.company_id;
+    if (!old_nr_rej || !new_nr_rej || !company) return err('Wymagane: old_nr_rej, new_nr_rej, company');
+    if (old_nr_rej.trim().toUpperCase() === new_nr_rej.trim().toUpperCase()) return err('Nowy numer musi być inny od obecnego');
+
+    const existing = await env.DB.prepare('SELECT * FROM vehicles WHERE company_id=? AND nr_rej=?').bind(company, old_nr_rej).first();
+    if (!existing) return err('Pojazd nie istnieje');
+    const conflict = await env.DB.prepare('SELECT nr_rej FROM vehicles WHERE company_id=? AND nr_rej=?').bind(company, new_nr_rej.toUpperCase()).first();
+    if (conflict) return err('Pojazd z tym numerem już istnieje w firmie');
+
+    let data = {};
+    try { data = typeof existing.data === 'string' ? JSON.parse(existing.data) : (existing.data || {}); } catch {}
+    if (!data.rejestracjaHistory) data.rejestracjaHistory = [];
+    data.rejestracjaHistory.unshift({ old: old_nr_rej, new: new_nr_rej.toUpperCase(), date: new Date().toISOString().slice(0,10), reason: reason || 'zmiana' });
+
+    await env.DB.prepare("UPDATE vehicles SET nr_rej=?, data=?, updated_at=datetime('now') WHERE company_id=? AND nr_rej=?")
+      .bind(new_nr_rej.toUpperCase(), JSON.stringify(data), company, old_nr_rej).run();
+
+    await env.DB.batch([
+      env.DB.prepare('UPDATE documents SET nr_rej=? WHERE company_id=? AND nr_rej=?').bind(new_nr_rej.toUpperCase(), company, old_nr_rej),
+      env.DB.prepare('UPDATE damage_reports SET nr_rej=? WHERE company_id=? AND nr_rej=?').bind(new_nr_rej.toUpperCase(), company, old_nr_rej),
+      env.DB.prepare('UPDATE tires SET nr_rej=? WHERE company_id=? AND nr_rej=?').bind(new_nr_rej.toUpperCase(), company, old_nr_rej),
+      env.DB.prepare('UPDATE service_orders SET nr_rej=? WHERE company_id=? AND nr_rej=?').bind(new_nr_rej.toUpperCase(), company, old_nr_rej),
+      env.DB.prepare('UPDATE handover_protocols SET nr_rej=? WHERE company_id=? AND nr_rej=?').bind(new_nr_rej.toUpperCase(), company, old_nr_rej),
+      env.DB.prepare('UPDATE cfm_contracts SET nr_rej=? WHERE company_id=? AND nr_rej=?').bind(new_nr_rej.toUpperCase(), company, old_nr_rej),
+    ]);
+
+    return json({ ok: true, old_nr_rej, new_nr_rej: new_nr_rej.toUpperCase() });
+  }
+
   return err('Metoda niedozwolona', 405);
 }
 
@@ -2054,6 +2088,142 @@ Zwroc WYLACZNIE JSON bez markdown:
   return err('Błąd AI Vision: ' + lastErr, 502);
 }
 
+// ─── POLISY IMPORT (R2) ──────────────────────────────────────────────────────
+
+async function handlePolisyImport(req, env, user, url, path) {
+  if (user.role !== 'admin' && user.role !== 'kierownik') return err('Brak uprawnień', 403);
+  const company = url.searchParams.get('company');
+  if (!company) return err('Wymagane: company');
+  const prefix = `polisy-import/${company}/`;
+
+  // GET — lista plików w folderze R2
+  if (req.method === 'GET') {
+    const listed = await env.DOCS.list({ prefix, limit: 200 });
+    const files = (listed.objects || []).map(o => ({
+      key: o.key,
+      name: decodeURIComponent(o.customMetadata?.originalName || o.key.replace(prefix, '')),
+      size: o.size,
+      uploaded: o.uploaded,
+    }));
+    return json({ ok: true, files });
+  }
+
+  // POST — upload pliku do R2
+  if (req.method === 'POST') {
+    let formData;
+    try { formData = await req.formData(); } catch { return err('Wymagane multipart/form-data'); }
+    const file = formData.get('file');
+    if (!file || !file.name) return err('Brak pliku');
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (!['pdf','jpg','jpeg','png','webp'].includes(ext)) return err('Dozwolone formaty: PDF, JPG, PNG, WEBP');
+    const fileId = crypto.randomUUID();
+    const r2Key = `${prefix}${fileId}.${ext}`;
+    await env.DOCS.put(r2Key, file.stream(), {
+      httpMetadata: { contentType: file.type || 'application/octet-stream' },
+      customMetadata: { originalName: file.name, uploadedBy: String(user.id || '') },
+    });
+    return json({ ok: true, key: r2Key, name: file.name });
+  }
+
+  // DELETE — usuń plik (key w query string)
+  if (req.method === 'DELETE') {
+    const r2Key = url.searchParams.get('key');
+    if (!r2Key || !r2Key.startsWith(prefix)) return err('Nieprawidłowy klucz');
+    await env.DOCS.delete(r2Key);
+    return json({ ok: true });
+  }
+
+  return err('Metoda niedozwolona', 405);
+}
+
+async function handlePolisySave(req, env, user, url) {
+  if (user.role !== 'admin' && user.role !== 'kierownik') return err('Brak uprawnień', 403);
+  const company = url.searchParams.get('company');
+  if (!company) return err('Wymagane: company');
+  let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+  const { nr_rej, polisa, r2Key } = body;
+  if (!nr_rej || !polisa?.typ) return err('Wymagane: nr_rej, polisa.typ');
+
+  const vehRow = await env.DB.prepare('SELECT * FROM vehicles WHERE company_id=? AND nr_rej=?').bind(company, nr_rej).first();
+  if (!vehRow) return err('Pojazd nie istnieje');
+
+  let data = {};
+  try { data = typeof vehRow.data === 'string' ? JSON.parse(vehRow.data) : (vehRow.data || {}); } catch {}
+  if (!data.policyHistory) data.policyHistory = [];
+  const archiveDate = new Date().toISOString().slice(0, 10);
+  const typ = (polisa.typ || '').toUpperCase();
+
+  if (typ === 'OC') {
+    if (data.ocPolicyNo || data.ocEnd) {
+      data.policyHistory.unshift({ typ:'OC', nr_polisy:data.ocPolicyNo, firma:data.ocInsurer, data_od:data.ocStart, data_do:data.ocEnd, skladka:data.ocPremium, archived_at:archiveDate });
+    }
+    if (polisa.nr_polisy != null) data.ocPolicyNo = polisa.nr_polisy;
+    if (polisa.firma    != null) data.ocInsurer   = polisa.firma;
+    if (polisa.data_od  != null) data.ocStart     = polisa.data_od;
+    if (polisa.data_do  != null) data.ocEnd       = polisa.data_do;
+    if (polisa.skladka  != null) data.ocPremium   = polisa.skladka;
+  } else if (typ === 'AC') {
+    if (data.acPolicyNo || data.acEnd) {
+      data.policyHistory.unshift({ typ:'AC', nr_polisy:data.acPolicyNo, firma:data.acInsurer, data_od:data.acStart, data_do:data.acEnd, skladka:data.acPremium, archived_at:archiveDate });
+    }
+    if (polisa.nr_polisy != null) data.acPolicyNo = polisa.nr_polisy;
+    if (polisa.firma    != null) data.acInsurer   = polisa.firma;
+    if (polisa.data_od  != null) data.acStart     = polisa.data_od;
+    if (polisa.data_do  != null) data.acEnd       = polisa.data_do;
+    if (polisa.skladka  != null) data.acPremium   = polisa.skladka;
+  } else if (typ === 'NNW' || typ === 'ASSISTANCE') {
+    if (data.assPolicyNo || data.assEnd) {
+      data.policyHistory.unshift({ typ:typ, nr_polisy:data.assPolicyNo, firma:data.assInsurer, data_do:data.assEnd, archived_at:archiveDate });
+    }
+    if (polisa.nr_polisy != null) data.assPolicyNo = polisa.nr_polisy;
+    if (polisa.firma    != null) data.assInsurer   = polisa.firma;
+    if (polisa.data_do  != null) data.assEnd       = polisa.data_do;
+  }
+
+  await env.DB.prepare("UPDATE vehicles SET data=?, updated_at=datetime('now') WHERE company_id=? AND nr_rej=?")
+    .bind(JSON.stringify(data), company, nr_rej).run();
+
+  if (r2Key && r2Key.startsWith(`polisy-import/${company}/`)) {
+    await env.DOCS.delete(r2Key).catch(() => {});
+  }
+
+  return json({ ok: true });
+}
+
+async function handlePolisyParse(req, env) {
+  let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+  const { ocrText } = body;
+  if (!ocrText?.trim()) return err('Brak tekstu OCR');
+  if (!env.GROQ_API_KEY) return err('Brak GROQ_API_KEY', 503);
+
+  const prompt = `Przeanalizuj poniższy tekst OCR polisy ubezpieczeniowej pojazdu i wyodrębnij dane. Odpowiedz WYŁĄCZNIE poprawnym JSON, bez żadnego dodatkowego tekstu.
+
+Schemat:
+{"typ":"OC","nr_polisy":"...","firma":"...","nr_rej":"...","data_od":"RRRR-MM-DD","data_do":"RRRR-MM-DD","skladka":1234.56,"pewnosc":"wysoka"}
+
+Typy polis: OC, AC, NNW, Assistance. Daty w formacie ISO RRRR-MM-DD. Null gdy brak danych.
+
+Tekst OCR:
+${ocrText.slice(0, 4000)}`;
+
+  const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.GROQ_API_KEY}` },
+    body: JSON.stringify({
+      model: 'llama3-8b-8192',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 500,
+      temperature: 0.1,
+      response_format: { type: 'json_object' },
+    }),
+  });
+  if (!r.ok) return err('Błąd AI: ' + r.status, 502);
+  const d = await r.json();
+  let parsed = {};
+  try { parsed = JSON.parse(d.choices?.[0]?.message?.content || '{}'); } catch {}
+  return json({ ok: true, parsed });
+}
+
 // ─── CEPIK PROXY ─────────────────────────────────────────────────────────────
 // Browser cannot call api.cepik.gov.pl directly (CORS + IP whitelist).
 // These endpoints forward requests server-side from the Worker.
@@ -2751,6 +2921,11 @@ async function handleRequest(request, env, url, path) {
   if (path === '/api/ai/chat')          return handleAI(request, env);
   if (path === '/api/ai/ocr' && request.method === 'POST') return handleAIOCR(request, env);
   if (path === '/api/aztec'  && request.method === 'POST') return handleAztec(request);
+
+  // Polisy import z R2
+  if (path.startsWith('/api/polisy-import')) { if (!user) return err('Nieautoryzowany', 401); return handlePolisyImport(request, env, user, url, path); }
+  if (path === '/api/polisy-save' && request.method === 'POST')  { if (!user) return err('Nieautoryzowany', 401); return handlePolisySave(request, env, user, url); }
+  if (path === '/api/polisy-parse' && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handlePolisyParse(request, env); }
 
   // CEPiK proxy — public (token passed in X-Cepik-Token / Authorization header)
   if (path === '/api/cepik/token'   && request.method === 'POST') return handleCepikToken(request);

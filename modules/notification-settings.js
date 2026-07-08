@@ -232,9 +232,14 @@ window.TaxOrderNotifSettings = (function () {
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
             <i class="ti ti-mail" style="font-size:18px;color:#d97706"></i>
             <strong>Email</strong>
-            <span style="font-size:10px;background:var(--amber,#fef3c7);color:#92400e;padding:2px 6px;border-radius:99px">Faza 2</span>
+            <span style="font-size:10px;background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:99px"><i class="ti ti-check"></i> Aktywny</span>
           </div>
-          <div style="font-size:12px;color:var(--text2)">Dostępne w Fazie 2 po konfiguracji RESEND_API_KEY.</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:10px">
+            Powiadomienia email przez Resend. Włącz EMAIL dla wybranych alertów w zakładce <strong>Moje alerty</strong>.
+          </div>
+          <button class="btn btn-gray" style="font-size:11px" onclick="TaxOrderNotifSettings._testEmail()">
+            <i class="ti ti-mail-forward"></i>Wyślij testowy email
+          </button>
         </div>
         <!-- SMS -->
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
@@ -440,6 +445,16 @@ window.TaxOrderNotifSettings = (function () {
       body: JSON.stringify({ company_id: company(), title: 'TaxOrder Pro — test push', message: 'Powiadomienia push działają poprawnie ✓', url: '/?page=powiadomienia', urgent: false }),
     });
     window.toast?.(t(r.ok ? 'ns.toast.test.ok' : 'ns.toast.push.err'));
+  }
+
+  async function _testEmail() {
+    const r = await fetch(`${API()}/api/notif-trigger?dry_run=1`, { method: 'POST', headers: hdrs() });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { window.toast?.('Błąd: ' + (d.error || r.status)); return; }
+    if (!d.resend_configured) { window.toast?.('Resend nie jest skonfigurowany — brak RESEND_API_KEY'); return; }
+    const r2 = await fetch(`${API()}/api/notif-trigger`, { method: 'POST', headers: hdrs() });
+    const d2 = await r2.json().catch(() => ({}));
+    window.toast?.(r2.ok ? '✓ Email wysłany — sprawdź skrzynkę pocztową' : 'Błąd: ' + (d2.error || r2.status));
   }
 
   async function _triggerQueue() {
@@ -654,7 +669,7 @@ window.TaxOrderNotifSettings = (function () {
   }
 
   return { load, _tab, _toggleEnabled, _toggleChannel, _removeDay, _addDay, _saveKm, _saveQuiet,
-           _enablePush, _disablePush, _testPush, _addCustomType, _deleteCustomType,
+           _enablePush, _disablePush, _testPush, _testEmail, _addCustomType, _deleteCustomType,
            _logAction, _logSnooze, _refreshLog, _newTemplate, _editTemplate, _deleteTemplate,
            _applyTemplate, _doApply, _addTplItem, _refreshTplItems, _saveTpl };
 })();
