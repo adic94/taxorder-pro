@@ -199,10 +199,21 @@ function filterVeh() {
     if (fStat && v.status !== fStat) return false;
     if (fWl && v.wlasciciel !== fWl) return false;
     if (fAlert) {
-      const _isExpired = vv => [vv.ocEnd, vv.acEnd, vv.nextInspection].some(d => d && new Date(d) < new Date());
-      if (fAlert === 'alert'   && !_hasExpiryAlert(v)) return false;
-      if (fAlert === 'expired' && !_isExpired(v))      return false;
-      if (fAlert === 'ok'      && _hasExpiryAlert(v))  return false;
+      const now = new Date(); now.setHours(0,0,0,0);
+      const _days = ds => { if (!ds) return null; const d = new Date(ds + (ds.includes('T')?'':'T00:00:00')); return isNaN(d) ? null : Math.round((d - now) / 86400000); };
+      const _isExpired = vv => [vv.ocEnd, vv.acEnd, vv.nextInspection].some(d => d && new Date(d) < now);
+      if (fAlert === 'alert'       && !_hasExpiryAlert(v))                               return false;
+      if (fAlert === 'expired'     && !_isExpired(v))                                    return false;
+      if (fAlert === 'ok'          && _hasExpiryAlert(v))                                return false;
+      if (fAlert === 'oc_expired'  && !(_days(v.ocEnd) !== null && _days(v.ocEnd) < 0))  return false;
+      if (fAlert === 'oc_7'        && !(_days(v.ocEnd) !== null && _days(v.ocEnd) >= 0 && _days(v.ocEnd) <= 7))   return false;
+      if (fAlert === 'oc_30'       && !(_days(v.ocEnd) !== null && _days(v.ocEnd) >= 0 && _days(v.ocEnd) <= 30))  return false;
+      if (fAlert === 'ac_expired'  && !(_days(v.acEnd) !== null && _days(v.acEnd) < 0))  return false;
+      if (fAlert === 'ac_30'       && !(_days(v.acEnd) !== null && _days(v.acEnd) >= 0 && _days(v.acEnd) <= 30))  return false;
+      if (fAlert === 'insp_expired'&& !(_days(v.nextInspection) !== null && _days(v.nextInspection) < 0)) return false;
+      if (fAlert === 'insp_30'     && !(_days(v.nextInspection) !== null && _days(v.nextInspection) >= 0 && _days(v.nextInspection) <= 30)) return false;
+      if (fAlert === 'no_driver'   && v.kierowca)                                        return false;
+      if (fAlert === 'no_oc'       && v.ocEnd)                                           return false;
     }
     // Per-column filters
     for (const [col, val] of Object.entries(_colFilters)) {
@@ -246,6 +257,14 @@ function clearColFilters() {
   _colFilters = {};
   document.querySelectorAll('#veh-filter-row .col-fi').forEach(el => el.value = '');
   renderVeh();
+}
+
+function quickFilterVeh(alertType) {
+  showPage('pojazdy');
+  setTimeout(() => {
+    const sel = document.getElementById('f-alert');
+    if (sel) { sel.value = alertType; renderVeh(); }
+  }, 150);
 }
 
 function toggleFilterRow() {
@@ -921,8 +940,9 @@ function _renderKpiFromStats(s, noDriver) {
 }
 
 function _kpiGoto(filter) {
-  showPage('alert-dashboard');
-  if (filter) setTimeout(() => window.TaxOrderAlertDashboard?._setFilter(filter), 300);
+  const alertMap = { oc: 'oc_30', przeglad: 'insp_30' };
+  if (alertMap[filter]) { quickFilterVeh(alertMap[filter]); }
+  else { showPage('alert-dashboard'); if (filter) setTimeout(() => window.TaxOrderAlertDashboard?._setFilter(filter), 300); }
 }
 
 function _renderKpiCards({ oc=0, oc_expired=0, oc_7=0, insp=0, insp_expired=0, fines=0, fines_urgent=0, noDriver=0, total=0, drivers_exp=0 } = {}) {

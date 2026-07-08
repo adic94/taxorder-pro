@@ -405,10 +405,29 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
       <option>mToilet</option><option>GCON</option><option>KJR Supply</option>
     </select>
     <select id="f-alert" onchange="renderVeh()" title="Filtruj wg stanu alertów terminowych">
-      <option value="" data-i18n="filter.all.alerts">Wszystkie</option>
-      <option value="alert" data-i18n="filter.alerts.yes">Z alertami (60 dni)</option>
-      <option value="expired" data-i18n="filter.alerts.expired">Wygasłe OC/AC/przegląd</option>
-      <option value="ok" data-i18n="filter.alerts.no">Bez alertów</option>
+      <option value="">Wszystkie</option>
+      <optgroup label="── Ogólne ──">
+        <option value="alert">Z alertami (60 dni)</option>
+        <option value="expired">Wygasłe OC/AC/przegląd</option>
+        <option value="ok">Bez alertów</option>
+      </optgroup>
+      <optgroup label="── OC ──">
+        <option value="oc_expired">OC — wygasłe</option>
+        <option value="oc_7">OC — ≤ 7 dni</option>
+        <option value="oc_30">OC — ≤ 30 dni</option>
+      </optgroup>
+      <optgroup label="── AC/Casco ──">
+        <option value="ac_expired">AC — wygasłe</option>
+        <option value="ac_30">AC — ≤ 30 dni</option>
+      </optgroup>
+      <optgroup label="── Przegląd SKP ──">
+        <option value="insp_expired">Przegląd — wygasły</option>
+        <option value="insp_30">Przegląd — ≤ 30 dni</option>
+      </optgroup>
+      <optgroup label="── Inne ──">
+        <option value="no_driver">Bez kierowcy</option>
+        <option value="no_oc">Brak OC</option>
+      </optgroup>
     </select>
     <button class="btn btn-blue" onclick="selAll()"><i class="ti ti-checkbox"></i><span data-i18n="btn.sel.all">Zaznacz wszystkie</span></button>
     <button class="btn btn-gray" onclick="deselAll()"><i class="ti ti-square"></i><span data-i18n="btn.sel.none">Odznacz</span></button>
