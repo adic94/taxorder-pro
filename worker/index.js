@@ -2224,6 +2224,103 @@ ${ocrText.slice(0, 4000)}`;
   return json({ ok: true, parsed });
 }
 
+// ─── DR IMPORT (R2 folder) ────────────────────────────────────────────────────
+
+async function handleDrImport(req, env, user, url) {
+  if (user.role !== 'admin' && user.role !== 'kierownik') return err('Brak uprawnień', 403);
+  const company = url.searchParams.get('company');
+  if (!company) return err('Wymagane: company');
+  const prefix = `dr-import/${company}/`;
+
+  if (req.method === 'GET') {
+    const listed = await env.DOCS.list({ prefix, limit: 200 });
+    const files = (listed.objects || []).map(o => ({
+      key: o.key,
+      name: decodeURIComponent(o.customMetadata?.originalName || o.key.replace(prefix, '')),
+      size: o.size,
+      uploaded: o.uploaded,
+    }));
+    return json({ ok: true, files });
+  }
+
+  if (req.method === 'POST') {
+    let formData; try { formData = await req.formData(); } catch { return err('Wymagane multipart/form-data'); }
+    const file = formData.get('file');
+    if (!file || !file.name) return err('Brak pliku');
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (!['jpg','jpeg','png','webp','pdf'].includes(ext)) return err('Dozwolone: JPG, PNG, WEBP, PDF');
+    const r2Key = `${prefix}${crypto.randomUUID()}.${ext}`;
+    await env.DOCS.put(r2Key, file.stream(), {
+      httpMetadata: { contentType: file.type || 'application/octet-stream' },
+      customMetadata: { originalName: file.name, uploadedBy: String(user.id || '') },
+    });
+    return json({ ok: true, key: r2Key, name: file.name });
+  }
+
+  if (req.method === 'DELETE') {
+    const r2Key = url.searchParams.get('key');
+    if (!r2Key || !r2Key.startsWith(prefix)) return err('Nieprawidłowy klucz');
+    await env.DOCS.delete(r2Key);
+    return json({ ok: true });
+  }
+
+  return err('Metoda niedozwolona', 405);
+}
+
+async function handleDrSave(req, env, user, url) {
+  if (user.role !== 'admin' && user.role !== 'kierownik') return err('Brak uprawnień', 403);
+  const company = url.searchParams.get('company');
+  if (!company) return err('Wymagane: company');
+  let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+  const { nr_rej, fields, r2Key, unarchive, createIfMissing } = body;
+  if (!nr_rej || !fields) return err('Wymagane: nr_rej, fields');
+
+  const nrRej = nr_rej.trim().toUpperCase().replace(/\s/g, '');
+  const vehRow = await env.DB.prepare('SELECT * FROM vehicles WHERE company_id=? AND nr_rej=?').bind(company, nrRej).first();
+
+  let data = {};
+  let axles = 2;
+  let dmc_zespolu = 0;
+  if (vehRow) {
+    try { data = typeof vehRow.data === 'string' ? JSON.parse(vehRow.data) : (vehRow.data || {}); } catch {}
+    axles = vehRow.axles_count || 2;
+    dmc_zespolu = vehRow.dmc_zespolu || 0;
+  }
+
+  if (fields.marka)        data.marka        = fields.marka;
+  if (fields.typ)          data.model         = fields.typ;
+  if (fields.vin)          data.vin           = fields.vin;
+  if (fields.paliwo)       data.paliwo        = fields.paliwo;
+  if (fields.dataRej)      data.dataRej       = fields.dataRej;
+  if (fields.kategoria)    data.katPojazdu    = fields.kategoria;
+  if (fields.przeznaczenie) data.przeznaczenie = fields.przeznaczenie;
+  if (fields.dmcKg)        { data.dmc = parseInt(fields.dmcKg); data.dmcMax = parseInt(fields.dmcKg); }
+  if (fields.dmcKg2)       data.dmcKg2        = parseInt(fields.dmcKg2);
+  if (fields.dmcZespolu)   { data.dmcZespolu = parseInt(fields.dmcZespolu); dmc_zespolu = parseInt(fields.dmcZespolu); }
+  if (fields.masaWlKg)     data.masaWlasna    = parseInt(fields.masaWlKg);
+  if (fields.liczbaOsi)    { data.osie = parseInt(fields.liczbaOsi); axles = parseInt(fields.liczbaOsi); }
+  if (fields.pojSilnika)   data.pojSilnika    = parseInt(fields.pojSilnika);
+  if (fields.mocKW)        data.mocKW         = parseInt(fields.mocKW);
+  if (fields.miejscaSied)  data.miejscaSied   = parseInt(fields.miejscaSied);
+
+  if (unarchive) { data.is_active = null; data.archivedAt = null; data.archivedReason = null; }
+
+  if (vehRow) {
+    await env.DB.prepare(
+      "UPDATE vehicles SET data=?, axles_count=?, dmc_zespolu=?, updated_at=datetime('now') WHERE company_id=? AND nr_rej=?"
+    ).bind(JSON.stringify(data), axles, dmc_zespolu, company, nrRej).run();
+  } else if (createIfMissing) {
+    await env.DB.prepare(
+      "INSERT INTO vehicles(company_id,nr_rej,axles_count,suspension_type,dmc_zespolu,miesiace_podatku,data,updated_at) VALUES(?,?,?,?,?,?,?,datetime('now'))"
+    ).bind(company, nrRej, axles, 'pneumatyczne', dmc_zespolu, 12, JSON.stringify(data)).run();
+  } else {
+    return err('Pojazd nie istnieje — użyj createIfMissing:true aby dodać nowy');
+  }
+
+  if (r2Key && r2Key.startsWith(`dr-import/${company}/`)) await env.DOCS.delete(r2Key).catch(() => {});
+  return json({ ok: true, created: !vehRow, nr_rej: nrRej });
+}
+
 // ─── CEPIK PROXY ─────────────────────────────────────────────────────────────
 // Browser cannot call api.cepik.gov.pl directly (CORS + IP whitelist).
 // These endpoints forward requests server-side from the Worker.
@@ -2926,6 +3023,10 @@ async function handleRequest(request, env, url, path) {
   if (path.startsWith('/api/polisy-import')) { if (!user) return err('Nieautoryzowany', 401); return handlePolisyImport(request, env, user, url, path); }
   if (path === '/api/polisy-save' && request.method === 'POST')  { if (!user) return err('Nieautoryzowany', 401); return handlePolisySave(request, env, user, url); }
   if (path === '/api/polisy-parse' && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handlePolisyParse(request, env); }
+
+  // DR import z R2 (Aztec + AI OCR fallback)
+  if (path.startsWith('/api/dr-import')) { if (!user) return err('Nieautoryzowany', 401); return handleDrImport(request, env, user, url); }
+  if (path === '/api/dr-save' && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleDrSave(request, env, user, url); }
 
   // CEPiK proxy — public (token passed in X-Cepik-Token / Authorization header)
   if (path === '/api/cepik/token'   && request.method === 'POST') return handleCepikToken(request);

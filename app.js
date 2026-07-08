@@ -170,6 +170,7 @@ function showPage(id) {
   if(id==='raporty') FleetReports?.initPdfSelectors?.();
   if(id==='powiadomienia') window.TaxOrderNotifSettings?.load();
   if(id==='polisy-ocr') window.TaxOrderPolicyOcr?.load();
+  if(id==='dr-import') window.TaxOrderDrImport?.load();
   updateCounters();
 }
 

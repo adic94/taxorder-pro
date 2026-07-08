@@ -175,6 +175,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <div class="sidebar-label">Powiadomienia</div>
   <button class="tnb" id="tnb-powiadomienia" onclick="showPage('powiadomienia')"><i class="ti ti-bell-cog"></i><span data-i18n="nav.powiadomienia">Powiadomienia</span></button>
   <button class="tnb" id="tnb-polisy-ocr" onclick="showPage('polisy-ocr')"><i class="ti ti-scan"></i><span>Import polis OCR</span></button>
+  <button class="tnb" id="tnb-dr-import" onclick="showPage('dr-import')"><i class="ti ti-id-badge"></i><span>Import DR (Aztec)</span></button>
 
   <div class="sidebar-label">Administracja</div>
   <button class="tnb" id="tnb-firmy" onclick="showPage('firmy')"><i class="ti ti-building-community"></i><span data-i18n="nav.firmy">Firmy</span></button>
@@ -1616,6 +1617,9 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 <!-- ==================== IMPORT POLIS OCR ==================== -->
 <div class="page" id="page-polisy-ocr"></div>
 
+<!-- ==================== IMPORT DR (AZTEC) ==================== -->
+<div class="page" id="page-dr-import"></div>
+
 <!-- ==================== UŻYTKOWNICY ==================== -->
 <div class="page" id="page-uzytkownicy">
   <div class="pg-title"><i class="ti ti-users"></i>Zarządzanie użytkownikami</div>
@@ -2583,6 +2587,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/api-keys.js"></script>
   <script src="modules/notification-settings.js"></script>
   <script src="modules/policy-ocr.js"></script>
+  <script src="modules/dr-import.js"></script>
   <script src="modules/diagnostics.js"></script>
   <script src="modules/tekom-import.js"></script>
   <script src="modules/dt1-generator.js"></script>
