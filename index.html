@@ -669,11 +669,14 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
     <button class="btn btn-gray no-print" onclick="window.print()">
       <i class="ti ti-printer"></i>Drukuj podgląd HTML</button>
     <button class="btn btn-gray" onclick="showPage('kalkulator')"><i class="ti ti-arrow-left"></i>Powrót do kalkulatora</button>
-    <button class="btn btn-amber" onclick="DT1XML.exportXML()" title="Eksportuj deklarację DT-1 do pliku XML (ePUAP / e-Deklaracje)">
-      <i class="ti ti-file-type-xml"></i>Eksport XML (e-Deklaracje)
+    <button class="btn btn-amber" onclick="DT1XML.exportXML()" title="Pobierz plik XML DT-1 do lokalnego pliku">
+      <i class="ti ti-file-type-xml"></i>Pobierz XML DT-1
     </button>
     <button class="btn btn-gray" onclick="DT1XML.exportAttachmentXML()" title="Eksportuj załącznik DT-1/A do XML">
       <i class="ti ti-file-type-xml"></i>DT-1/A XML
+    </button>
+    <button class="btn btn-green" onclick="openEpuapModal()" title="Instrukcja wysyłki DT-1 przez ePUAP z Profilem Zaufanym">
+      <i class="ti ti-send"></i>Wyślij ePUAP / PZ
     </button>
     <button class="btn btn-gray" onclick="GminyRates.openModal()" title="Zarządzaj stawkami podatku DT-1 dla różnych gmin">
       <i class="ti ti-map-pin"></i><span data-i18n="btn.gminy">Stawki gmin</span>
@@ -3204,6 +3207,86 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
       <button class="btn btn-blue" onclick="TaxOrderVehicleDetail.saveVdTabsCfg()"><i class="ti ti-check"></i>Zapisz</button>
       <button class="btn btn-gray" onclick="TaxOrderVehicleDetail.resetVdTabsCfg()"><i class="ti ti-refresh"></i>Domyślne</button>
       <button class="btn btn-gray" style="margin-left:auto" onclick="TaxOrderVehicleDetail.closeVdTabsCfg()">Anuluj</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: WYSLIJ DT-1 PRZEZ ePUAP -->
+<div id="modal-epuap" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9400;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)closeEpuapModal()">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);width:620px;max-width:98vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.3);overflow:hidden">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+      <i class="ti ti-send" style="color:var(--green);font-size:18px"></i>
+      <span style="font-size:15px;font-weight:600;flex:1">Wyślij DT-1 przez ePUAP / Profil Zaufany</span>
+      <button onclick="closeEpuapModal()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);padding:0 4px;line-height:1">&times;</button>
+    </div>
+    <div style="overflow-y:auto;padding:20px;flex:1">
+
+      <!-- Krok 1 -->
+      <div style="display:flex;gap:14px;margin-bottom:18px">
+        <div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">1</div>
+        <div style="flex:1">
+          <div style="font-weight:600;margin-bottom:6px">Pobierz plik XML DT-1</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Wygeneruj i pobierz deklarację DT-1 jako plik XML zgodny ze schematem MF (2019). Plik zostanie zapisany w folderze Pobrane.</div>
+          <button class="btn btn-amber" onclick="DT1XML.exportXML();document.getElementById('epuap-step1-done').style.display='flex'" style="font-size:12px">
+            <i class="ti ti-file-type-xml"></i>Pobierz XML DT-1
+          </button>
+          <div id="epuap-step1-done" style="display:none;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:var(--green)">
+            <i class="ti ti-circle-check"></i><span>Plik pobrany — przejdź do kroku 2</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Krok 2 -->
+      <div style="display:flex;gap:14px;margin-bottom:18px">
+        <div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">2</div>
+        <div style="flex:1">
+          <div style="font-weight:600;margin-bottom:6px">Otwórz formularz DT-1 na ePUAP</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Kliknij odpowiedni link poniżej. Zostaniesz przekierowany do portalu rządowego — zaloguj się Profilem Zaufanym.</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <a href="https://epuap.gov.pl/wps/myportal/strefa-klienta/katalog-spraw/podatki-oplaty-cla/podatki/dt-1-realizacja-obowiazku-podatkowego-w-podatku-od-srodkow-transportowych" target="_blank" rel="noopener" class="btn btn-blue" style="font-size:12px;text-decoration:none">
+              <i class="ti ti-external-link"></i>ePUAP — DT-1
+            </a>
+            <a href="https://www.biznes.gov.pl/pl/portal/ou74" target="_blank" rel="noopener" class="btn btn-blue" style="font-size:12px;text-decoration:none">
+              <i class="ti ti-external-link"></i>biznes.gov.pl
+            </a>
+            <a href="https://moja.warszawa19115.pl/web/guest/tax-form-transport" target="_blank" rel="noopener" class="btn btn-gray" style="font-size:12px;text-decoration:none">
+              <i class="ti ti-external-link"></i>Warszawa (moja.warszawa19115.pl)
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Krok 3 -->
+      <div style="display:flex;gap:14px;margin-bottom:18px">
+        <div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">3</div>
+        <div style="flex:1">
+          <div style="font-weight:600;margin-bottom:6px">Wgraj plik XML i wyślij</div>
+          <div style="font-size:12px;color:var(--text2)">Na stronie ePUAP lub biznes.gov.pl znajdź opcję <strong>„Załącz plik XML"</strong> lub <strong>„Załaduj wypełniony formularz"</strong>. Wybierz pobrany plik DT-1_NIP_ROK.xml z folderu Pobrane. Sprawdź dane i zatwierdź podpisem zaufanym.</div>
+        </div>
+      </div>
+
+      <!-- Krok 4 -->
+      <div style="display:flex;gap:14px;margin-bottom:20px">
+        <div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">4</div>
+        <div style="flex:1">
+          <div style="font-weight:600;margin-bottom:6px">Odbierz Urzędowe Poświadczenie Odbioru (UPO)</div>
+          <div style="font-size:12px;color:var(--text2)">Po wysłaniu ePUAP wygeneruje UPO — zapisz je lub wydrukuj. To Twój dowód złożenia deklaracji.</div>
+        </div>
+      </div>
+
+      <!-- Uwagi -->
+      <div style="background:var(--bg3);border-radius:var(--radius);padding:12px 14px;font-size:11px;color:var(--text2);border-left:3px solid var(--amber)">
+        <strong style="color:var(--text1)">Ważne:</strong>
+        <ul style="margin:6px 0 0;padding-left:18px;line-height:1.7">
+          <li>Deklaracja roczna DT-1 — termin składania do <strong>15 lutego</strong> roku podatkowego</li>
+          <li>Podatek płatny w 2 ratach: <strong>I rata do 15 lutego</strong>, <strong>II rata do 15 września</strong></li>
+          <li>Każda zmiana stanu floty (nabycie, zbycie, wyrejestrowanie) wymaga korekty DT-1 w ciągu <strong>14 dni</strong></li>
+          <li>Plik XML zawiera DT-1 + DT-1/A (załącznik ze szczegółami pojazdów) w jednym pliku</li>
+        </ul>
+      </div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-gray" onclick="closeEpuapModal()"><i class="ti ti-x"></i>Zamknij</button>
     </div>
   </div>
 </div>

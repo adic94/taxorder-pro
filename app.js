@@ -1553,6 +1553,14 @@ function closeDashCustomize() {
   document.getElementById('modal-dash-customize').style.display = 'none';
 }
 
+function openEpuapModal() {
+  document.getElementById('epuap-step1-done').style.display = 'none';
+  document.getElementById('modal-epuap').style.display = 'flex';
+}
+function closeEpuapModal() {
+  document.getElementById('modal-epuap').style.display = 'none';
+}
+
 function saveDashCustomize() {
   const list = document.getElementById('dash-customize-list');
   const items = [...list.querySelectorAll('[data-wid]')];
