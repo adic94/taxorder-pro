@@ -159,8 +159,8 @@ window.Dt1Declarations = (function () {
               <i class="ti ti-file-certificate" style="color:var(--blue);font-size:20px"></i>
             </div>
             <div style="flex:1;min-width:0">
-              <div style="font-weight:600;font-size:13px">DT-1 ${d.rok} — ${d.gmina||'gmina'}</div>
-              <div style="font-size:11px;color:var(--text3)">${dt} ${tm} · ${d.created_by||'—'} · ${d.vehicle_count} pojazdów</div>
+              <div style="font-weight:600;font-size:13px">DT-1 ${d.rok} — ${esc(d.gmina||'gmina')}</div>
+              <div style="font-size:11px;color:var(--text3)">${dt} ${tm} · ${esc(d.created_by||'—')} · ${d.vehicle_count} pojazdów</div>
             </div>
             <div style="text-align:right;flex-shrink:0">
               <div style="font-weight:700;color:var(--blue);font-size:15px">${Number(d.total_tax||0).toLocaleString('pl-PL',{minimumFractionDigits:2})} zł</div>
