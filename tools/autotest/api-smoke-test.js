@@ -158,11 +158,13 @@ async function main() {
     const H = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
     section('Kluczowe endpointy (zalogowany)');
 
+    let userRole = 'viewer';
     await t('GET /api/auth/me → 200 + dane użytkownika', async () => {
       const r = await req('GET', '/api/auth/me', { headers: H });
       assert(r.status === 200, `Status: ${r.status}`);
       const d = await r.json();
       assert(d.email || d.user?.email, 'Brak e-maila w odpowiedzi');
+      userRole = d.role || d.user?.role || 'viewer';
     });
 
     await t(`GET /api/vehicles?company=${CO} → 200 + tablica`, async () => {
@@ -202,6 +204,75 @@ async function main() {
       });
       assert(r.status === 400, `Oczekiwano 400 (walidacja HTTPS), otrzymano ${r.status}`);
     });
+
+    // ── 5. Klucze API (tylko admin) ───────────────────────────────────────────
+    if (userRole === 'admin') {
+      section('Klucze API (admin)');
+
+      let apiKeyId = null;
+      let apiKeyToken = null;
+
+      await t('GET /api/api-keys → 200 + tablica (admin)', async () => {
+        const r = await req('GET', '/api/api-keys', { headers: H });
+        assert(r.status === 200, `Status: ${r.status}`);
+        const d = await r.json();
+        assert(Array.isArray(d), 'Odpowiedź nie jest tablicą');
+      });
+
+      await t('POST /api/api-keys → tworzy klucz + zwraca tord_live_ token', async () => {
+        const r = await req('POST', '/api/api-keys', {
+          headers: H,
+          body: JSON.stringify({ name: 'smoke-test-key', company_id: CO, scope: 'read' }),
+        });
+        assert(r.status === 200, `Status: ${r.status}`);
+        const d = await r.json();
+        assert(d.ok, `Brak pola ok: ${JSON.stringify(d)}`);
+        assert(typeof d.key === 'string' && d.key.startsWith('tord_live_'), `Nieprawidłowy token: ${d.key}`);
+        apiKeyId    = d.id;
+        apiKeyToken = d.key;
+      });
+
+      if (apiKeyToken) {
+        const AH = { 'Authorization': `Bearer ${apiKeyToken}` };
+
+        await t('GET /api/export z kluczem API → 200 (autentykacja kluczem)', async () => {
+          const r = await req('GET', `/api/export?company=${CO}`, { headers: AH });
+          assert(r.status === 200, `Status: ${r.status}`);
+          const d = await r.json();
+          assert(d.exportedAt, 'Brak exportedAt w odpowiedzi');
+        });
+
+        await t('GET /api/export z kluczem API → 403 przy innej firmie (granica firmy)', async () => {
+          const r = await req('GET', '/api/export?company=__obca_firma__', { headers: AH });
+          assert(r.status === 403, `Oczekiwano 403, otrzymano ${r.status}`);
+        });
+
+        await t('POST /api/import z kluczem read-only → 403 (brak uprawnień zapisu)', async () => {
+          const r = await req('POST', `/api/import?company=${CO}`, {
+            headers: { ...AH, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ vehicles: [] }),
+          });
+          assert(r.status === 403, `Oczekiwano 403, otrzymano ${r.status}`);
+        });
+      }
+
+      if (apiKeyId) {
+        await t('DELETE /api/api-keys/:id → usuwa klucz testowy', async () => {
+          const r = await req('DELETE', `/api/api-keys/${apiKeyId}`, { headers: H });
+          assert(r.status === 200, `Status: ${r.status}`);
+          const d = await r.json();
+          assert(d.ok, 'Odpowiedź nie zawiera ok:true');
+        });
+      }
+
+    } else {
+      skipped('Klucze API', `konto "${userRole}" nie ma uprawnień admin`);
+
+      await t('GET /api/api-keys bez uprawnień admin → 403', async () => {
+        const r = await req('GET', '/api/api-keys', { headers: H });
+        assert(r.status === 403, `Oczekiwano 403, otrzymano ${r.status}`);
+      });
+    }
 
     if (FULL) {
       section('CRUD (tryb --full)');
