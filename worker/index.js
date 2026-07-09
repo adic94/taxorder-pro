@@ -3644,7 +3644,11 @@ async function handleRequest(request, env, url, path) {
     if (!user) return err('Nieautoryzowany', 401);
     const company = url.searchParams.get('company');
     if (!company) return err('Podaj parametr ?company=');
-    if (!user._apiKey && !['admin', 'kierownik'].includes(user.role)) return err('Brak uprawnień do eksportu danych', 403);
+    if (user._apiKey) {
+      if (user.company_id !== company) return err('Klucz API nie ma dostępu do danych tej firmy', 403);
+    } else if (!['admin', 'kierownik'].includes(user.role)) {
+      return err('Brak uprawnień do eksportu danych', 403);
+    }
     return handleExport(env, company);
   }
   if (path === '/api/import' && request.method === 'POST') {
@@ -3652,6 +3656,7 @@ async function handleRequest(request, env, url, path) {
     const company = url.searchParams.get('company');
     if (!company) return err('Podaj parametr ?company=');
     if (user._apiKey) {
+      if (user.company_id !== company) return err('Klucz API nie ma dostępu do danych tej firmy', 403);
       if (user.api_key_scope !== 'read_write') return err('Klucz API ma tylko uprawnienia do odczytu', 403);
     } else if (!['admin', 'kierownik'].includes(user.role)) {
       return err('Brak uprawnień do importu danych', 403);

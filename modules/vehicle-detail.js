@@ -190,7 +190,7 @@ window.TaxOrderVehicleDetail = {
       uwagi: g('uwagi'),
       // === PODATEK DT-1 ===
       gmina:           g('gmina') || 'Warszawa',
-      miesiacePodatku: gi('miesiacePodatku') || 12,
+      miesiacePodatku: gi('miesiacePodatku') ?? 12,
     });
 
     // Walidacja pól technicznych
@@ -246,7 +246,7 @@ window.TaxOrderVehicleDetail = {
     const field = (id, label, val, type='text', hint='') => `
       <div class="vdf">
         <label class="vdl">${label}${hint ? `<span class="vdh">${hint}</span>` : ''}</label>
-        <input id="vd-${id}" type="${type}" class="fi" value="${val ?? ''}" autocomplete="off">
+        <input id="vd-${id}" type="${type}" class="fi" value="${esc(val) ?? ''}" autocomplete="off">
       </div>`;
 
     const sel = (id, label, options, val) => `

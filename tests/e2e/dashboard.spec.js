@@ -34,16 +34,16 @@ test.describe('Modularny kokpit', () => {
 
   test('odznaczenie widgetu i zapisanie ukrywa sekcję', async ({ page }) => {
     await page.click('button:has-text("Dostosuj kokpit")');
-    // Odznacz "Aktywność floty" (5. checkbox)
-    const checkboxes = page.locator('#dash-customize-list input[type="checkbox"]');
-    const activityChk = checkboxes.nth(4);
+    // Odznacz "Aktywność floty" przez ID checkboxa (niezależnie od kolejności w liście)
+    const activityChk = page.locator('#dw-chk-activity');
+    await expect(activityChk).toBeVisible({ timeout: 3000 });
     if (await activityChk.isChecked()) {
       await activityChk.uncheck();
     }
     await page.click('#modal-dash-customize button:has-text("Zapisz")');
     await waitForIdle(page);
-    // Widget aktywności powinien być ukryty
-    const activityWidget = page.locator('[data-wid="activity"]');
+    // Widget aktywności w layoucie powinien być ukryty (szukamy tylko w #dash-layout)
+    const activityWidget = page.locator('#dash-layout [data-wid="activity"]');
     await expect(activityWidget).toBeHidden();
     // Przywróć domyślny
     await page.click('button:has-text("Dostosuj kokpit")');

@@ -55,15 +55,21 @@ test.describe('Karta pojazdu', () => {
     await page.click('button[title="Dostosuj zakładki"]');
     // Znajdź checkbox dla GPS
     const gpsChk = page.locator('#vdtc-gps');
+    await expect(gpsChk).toBeVisible({ timeout: 3000 });
     if (await gpsChk.isChecked()) await gpsChk.uncheck();
     await page.click('#modal-vd-tabs-cfg button:has-text("Zapisz")');
-    await waitForIdle(page, 1500);
-    // Karta zostanie ponownie otwarta — GPS nie powinno być w pasku
+    // Poczekaj na zamknięcie modalu konfiguracji
+    await expect(page.locator('#modal-vd-tabs-cfg')).toBeHidden({ timeout: 5000 });
+    // Zamknij kartę pojazdu i otwórz ponownie — pewne świeże renderowanie z nowym configiem
+    await page.click('#vd-modal [onclick*="TaxOrderVehicleDetail.close"]');
+    await expect(page.locator('#vd-modal')).toBeHidden({ timeout: 3000 });
+    await openFirstVehicle(page);
+    // GPS nie powinno być widoczne w pasku zakładek
     await expect(page.locator('#vd-tab-gps')).toBeHidden();
     // Przywróć domyślne
     await page.click('button[title="Dostosuj zakładki"]');
     await page.click('#modal-vd-tabs-cfg button:has-text("Domyślne")');
-    await waitForIdle(page, 1500);
+    await expect(page.locator('#modal-vd-tabs-cfg')).toBeHidden({ timeout: 5000 });
   });
 
   test('przełączenie na zakładkę "Polisy" wyświetla jej treść', async ({ page }) => {
@@ -98,12 +104,12 @@ test.describe('In-browser test suite', () => {
 
   test('strona testów ładuje się i wszystkie testy przechodzą', async ({ page }) => {
     await page.goto('/tests/browser/index.html');
-    // Poczekaj na wyniki
+    // Poczekaj na wyniki (karty wyników)
     await page.waitForSelector('#test-results .dash-card', { timeout: 15_000 });
-    // Sprawdź czy nie ma FAILi
-    const failCount = await page.locator('#test-results').getByText('FAIL').count();
     const passText = await page.locator('#test-results').textContent();
     console.log('Test suite wynik:', passText?.substring(0, 200));
-    expect(failCount).toBe(0);
+    // Runner wyświetla "✓ Wszystkie testy zdane" gdy 0 FAILi
+    // (etykieta "FAIL" zawsze istnieje w UI jako nagłówek statystyki)
+    await expect(page.locator('#test-results').getByText('Wszystkie testy zdane')).toBeVisible({ timeout: 5_000 });
   });
 });

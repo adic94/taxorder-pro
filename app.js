@@ -142,7 +142,7 @@ function showPage(id) {
   if(typeof saveCompanyState === 'function') saveCompanyState();
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tnb').forEach(b => b.classList.remove('active'));
-  document.getElementById('page-'+id).classList.add('active');
+  document.getElementById('page-'+id)?.classList.add('active');
   const tnb = document.getElementById('tnb-'+id);
   if(tnb) tnb.classList.add('active');
   // Zamknij sidebar po wyborze strony na mobile
@@ -259,12 +259,13 @@ function filterVeh() {
 
 function applyColFilter(col, val) {
   _colFilters[col] = val;
+  try { localStorage.setItem(_COL_FILTERS_LS, JSON.stringify(_colFilters)); } catch {}
   renderVeh();
 }
 
 function clearColFilters() {
   _colFilters = {};
-  document.querySelectorAll('#veh-filter-row .col-fi').forEach(el => el.value = '');
+  try { localStorage.removeItem(_COL_FILTERS_LS); } catch {}
   renderVeh();
 }
 
@@ -277,13 +278,14 @@ function quickFilterVeh(alertType) {
 }
 
 function toggleFilterRow() {
-  const row = document.getElementById('veh-filter-row');
+  _filterRowVisible = !_filterRowVisible;
   const btn = document.getElementById('veh-filter-btn');
-  if (!row) return;
-  const visible = row.style.display !== 'none';
-  row.style.display = visible ? 'none' : '';
-  if (btn) btn.className = btn.className.replace(visible ? 'btn-blue' : 'btn-gray', visible ? 'btn-gray' : 'btn-blue');
-  if (visible) { clearColFilters(); }
+  if (btn) btn.className = btn.className.replace(_filterRowVisible ? 'btn-gray' : 'btn-blue', _filterRowVisible ? 'btn-blue' : 'btn-gray');
+  if (!_filterRowVisible) {
+    clearColFilters(); // resetuje filtry i wywołuje renderVeh() → _renderFleetThead()
+  } else {
+    _renderFleetThead(); // tylko pokaż wiersz filtrów z przywróconymi wartościami
+  }
 }
 
 function sortBy(key) {
@@ -374,89 +376,27 @@ function renderVeh() {
   if (tblWrap) tblWrap.style.display = '';
   if (cardsEl) cardsEl.style.display = 'none';
   _renderVehPager(list);
+  _renderFleetThead();
 
   const tbody = document.getElementById('veh-tbody');
   if(!tbody) return;
-  const isTrailer = v => (v.typ||'').toLowerCase().includes('przy')||(v.typ||'').toLowerCase().includes('nacz');
+  const isTrailerV = v => (v.typ||'').toLowerCase().includes('przy')||(v.typ||'').toLowerCase().includes('nacz');
+  const colOrder = _getColOrder();
   tbody.innerHTML = pageList.map(v => {
     const t = calcTax(v);
     const isSel = selected.has(v.id);
     const isNew = (parseInt(v.rok)||0)>=2024;
-    const needsDmcZ = isTrailer(v) && !v.dmcZespolu;
+    const needsDmcZ = isTrailerV(v) && !v.dmcZespolu;
+    const ctx = { t, isNew, needsDmcZ, isTrailerV: isTrailerV(v) };
     const _nowMs = Date.now();
     const _vDays = ds => { if (!ds) return 9999; const d = new Date(ds+'T00:00:00'); return isNaN(d)?9999:Math.round((d-_nowMs)/86400000); };
     const _minDays = Math.min(_vDays(v.ocEnd), _vDays(v.acEnd), _vDays(v.nextInspection));
     const _rowAlert = _minDays < 0 ? 'row-alert-red' : _minDays <= 7 ? 'row-alert-red' : _minDays <= 30 ? 'row-alert-amber' : '';
     return `<tr class="${isSel?'row-sel':''} ${_rowAlert}" onclick="toggleRow(${v.id})" ondblclick="event.stopPropagation();TaxOrderVehicleDetail.open(${v.id})" title="Dwuklik = karta pojazdu${_rowAlert ? ' | ⚠ Alert terminów' : ''}">
-      <td onclick="event.stopPropagation()"><input type="checkbox" ${isSel?'checked':''} onchange="toggleRow(${v.id})"></td>
-      <td><strong style="font-family:var(--mono)">${esc(v.nrRej)}</strong></td>
-      <td><div style="font-weight:500">${esc(v.marka)} ${esc(v.model)}</div><div style="font-size:11px">${esc(v.euro||'—')} · ${_vinCell(v)}</div></td>
-      <td data-col="rok">${v.rok||'—'}${isNew?'<span class="pill pill-new" style="margin-left:6px;font-size:9px">§2</span>':''}</td>
-      <td data-col="typ"><span class="pill pill-gray">${esc(v.typ)}</span></td>
-      <td data-col="dmc" style="font-family:var(--mono);font-size:12px">${(v.dmc||v.dmcMax||0).toLocaleString('pl-PL')}</td>
-      <td data-col="osie" onclick="event.stopPropagation()">
-        <select class="isel" onchange="setV(${v.id},'osie',parseInt(this.value))">
-          ${[1,2,3,4,5].map(n=>`<option ${v.osie===n?'selected':''}>${n}</option>`).join('')}
-        </select>
-      </td>
-      <td data-col="zawieszenie" onclick="event.stopPropagation()">
-        <select class="isel" style="width:120px" onchange="setV(${v.id},'zawieszenie',this.value)">
-          <option ${v.zawieszenie==='pneumatyczne'?'selected':''}>pneumatyczne</option>
-          <option ${v.zawieszenie==='równoważne'?'selected':''}>równoważne</option>
-          <option ${v.zawieszenie==='inne'?'selected':''}>inne</option>
-        </select>
-      </td>
-      <td data-col="dmczesp" onclick="event.stopPropagation()">
-        ${isTrailer(v)?`<input class="inum" style="width:70px" type="number" step="0.001" min="0" max="100" value="${(v.dmcZespolu/1000).toFixed(1)}" onchange="setV(${v.id},'dmcZespolu',parseFloat(this.value)*1000||0)" title="DMC zesp. w tonach">${needsDmcZ?'<span style="color:var(--amber);font-size:11px"> ⚠</span>':''}`:
-        '<span style="color:var(--text3)">—</span>'}
-      </td>
-      <td data-col="mies" onclick="event.stopPropagation()" title="Miesiące obowiązku podatkowego (1–12). Dla nabycia w trakcie roku: 13 minus numer miesiąca nabycia. Dla zbycia: numer miesiąca zbycia.">
-        <div style="display:flex;align-items:center;gap:3px">
-          <input class="inum" type="number" min="1" max="12" value="${v.miesiacePodatku||12}" onchange="setV(${v.id},'miesiacePodatku',parseInt(this.value)||12)" style="width:36px;text-align:center">
-          <button style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--text3);padding:0 2px" title="Oblicz z daty" onclick="event.stopPropagation();_pickMiesiace(${v.id})">📅</button>
-        </div>
-      </td>
-      <td data-col="status"><span class="pill ${STAT_LABELS[v.status]||'pill-gray'}">${v.status}</span></td>
-      <td data-col="oc">${_datePill(v.ocEnd)}</td>
-      <td data-col="ac">${_datePill(v.acEnd)}</td>
-      <td data-col="przeglad">${_datePill(v.nextInspection)}</td>
-      <td data-col="ocInsurer" style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(v.ocInsurer||'')}${v.ocPolicyNo?' · '+esc(v.ocPolicyNo):''}">
-        ${v.ocInsurer?`<div style="font-weight:500">${esc(v.ocInsurer)}</div>`:'<span style="color:var(--text3)">—</span>'}
-        ${v.ocPolicyNo?`<div style="color:var(--text3);font-size:10px;font-family:var(--mono)">${esc(v.ocPolicyNo)}</div>`:''}
-      </td>
-      <td data-col="acInsurer" style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(v.acInsurer||'')}${v.acPolicyNo?' · '+esc(v.acPolicyNo):''}">
-        ${v.acInsurer?`<div style="font-weight:500">${esc(v.acInsurer)}</div>`:'<span style="color:var(--text3)">—</span>'}
-        ${v.acPolicyNo?`<div style="color:var(--text3);font-size:10px;font-family:var(--mono)">${esc(v.acPolicyNo)}</div>`:''}
-      </td>
-      <td data-col="udt" style="font-size:11px">
-        ${v.hasUdt?(v.udtNextDate?_datePill(v.udtNextDate):'<span style="color:var(--amber);font-size:10px">brak daty</span>'):'<span style="color:var(--text3)">—</span>'}
-        ${v.hasUdt&&v.udtDeviceType?`<div style="font-size:10px;color:var(--text3)">${esc(v.udtDeviceType)}</div>`:''}
-      </td>
-      <td data-col="tacho" style="font-size:11px">
-        ${v.hasTacho?(v.tachoNextCalib?_datePill(v.tachoNextCalib):'<span style="color:var(--amber);font-size:10px">brak daty</span>'):'<span style="color:var(--text3)">—</span>'}
-      </td>
-      <td data-col="kierowca" style="font-size:12px;white-space:nowrap">${v.kierowca?esc(v.kierowca):'<span style="color:var(--text3)">—</span>'}</td>
-      <td data-col="km" style="font-size:12px;text-align:right;font-family:var(--mono);white-space:nowrap">${v.stanKilometrow!=null?v.stanKilometrow.toLocaleString('pl-PL'):'<span style="color:var(--text3)">—</span>'}${_gpsIndicator(v)}</td>
-      <td data-col="dt1ok" style="text-align:center">${_dt1CompletenessCell(v)}</td>
-      <td data-col="gmina" onclick="event.stopPropagation()" style="font-size:11px">
-        <select class="isel" style="width:100px;font-size:11px" onchange="setV(${v.id},'gmina',this.value);renderFormularze&&renderFormularze()">
-          ${(window.GminyRates?GminyRates.listGminy():['Warszawa']).map(g=>`<option ${(v.gmina||'Warszawa')===g?'selected':''}>${g}</option>`).join('')}
-        </select>
-      </td>
-      <td data-col="kategoria">${t.cat?`<span class="pill ${CAT_COLORS[t.cat]||'pill-gray'}">${t.cat}</span>${needsDmcZ?'<span style="font-size:10px;color:var(--amber)"> brak DMC zesp.</span>':''}`:
-        '<span style="color:var(--text3);font-size:11px">—</span>'}</td>
-      <td data-col="podatek" style="text-align:right">${t.amount>0?`<strong style="color:var(--green);font-family:var(--mono)">${fmt2(t.amount)} zł</strong>`:'<span style="color:var(--text3)">—</span>'}</td>
-      <td data-col="vin" style="font-size:10px;font-family:var(--mono);color:var(--text2)">${v.vin||'—'}</td>
-      <td data-col="paliwo" style="font-size:11px">${v.paliwo||'—'}</td>
-      <td data-col="poj" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.pojSilnika!=null?v.pojSilnika.toLocaleString('pl-PL')+' cm³':'—'}</td>
-      <td data-col="mocKw" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.mocKW!=null?v.mocKW+' kW':'—'}</td>
-      <td data-col="masaWl" style="font-size:11px;text-align:right;font-family:var(--mono)">${(v.masaWlasna??v.masaWlKg)!=null?(v.masaWlasna??v.masaWlKg).toLocaleString('pl-PL')+' kg':'—'}</td>
-      <td data-col="msc" style="font-size:11px;text-align:center">${v.miejscaSied!=null?v.miejscaSied:'—'}</td>
-      <td data-col="euro" style="font-size:11px">${v.euro||'—'}</td>
-      <td data-col="dmcF2" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.dmcKg2!=null&&v.dmcKg2!==''?Number(v.dmcKg2).toLocaleString('pl-PL')+' kg':'—'}</td>
-      <td data-col="ladownosc" style="font-size:11px;text-align:right;font-family:var(--mono)">${(()=>{const _d=v.dmcKg2||v.dmc||v.dmcMax,_m=v.masaWlasna??v.masaWlKg;const l=v.ladownosc!=null&&v.ladownosc!==''?Number(v.ladownosc):(_d&&_m!=null&&(Number(_d)>Number(_m))?Number(_d)-Number(_m):null);return l!=null?l.toLocaleString('pl-PL')+' kg':'—';})()}</td>
-      <td data-col="dataRej" style="font-size:11px;white-space:nowrap">${v.dataRejestracji||v.dataRej||'—'}</td>
-      <td data-col="katDR" style="font-size:11px;text-align:center">${(v.katPojazdu||v.kategoria)?`<span class="pill pill-gray">${v.katPojazdu||v.kategoria}</span>`:'—'}</td>
+      <td class="col-sticky" style="left:0" onclick="event.stopPropagation()"><input type="checkbox" ${isSel?'checked':''} onchange="toggleRow(${v.id})"></td>
+      <td class="col-sticky" style="left:36px"><strong style="font-family:var(--mono)">${esc(v.nrRej)}</strong></td>
+      <td class="col-sticky" style="left:136px"><div style="font-weight:500">${esc(v.marka)} ${esc(v.model)}</div><div style="font-size:11px">${esc(v.euro||'—')} · ${_vinCell(v)}</div></td>
+      ${colOrder.map(id => _FLEET_COL_TD[id]?.(v, ctx) || '').join('')}
       <td style="text-align:center;white-space:nowrap" onclick="event.stopPropagation()">
         ${v.uwagi ? `<span style="color:var(--amber);font-size:13px;margin-right:4px;cursor:help" title="${esc(v.uwagi.slice(0,200))}"><i class="ti ti-note"></i></span>` : ''}
         <button class="btn btn-gray" style="font-size:11px;padding:3px 8px" onclick="TaxOrderVehicleDetail.open(${v.id})" title="Karta pojazdu">
@@ -814,19 +754,204 @@ async function generujDt1PerFirma() {
   if (ok) toast(`✅ Wygenerowano ${ok} deklaracji DT-1 (po jednej na firmę)`);
 }
 
-// ==================== COLUMN VISIBILITY ====================
+// ==================== COLUMN VISIBILITY & ORDER ====================
+const _COL_ORDER_LS   = 'taxColOrder';
+const _COL_PRESETS_LS = 'taxColPresets';
+const _COL_FILTERS_LS = 'taxColFilters';
+
+const _COL_ORDER_DEFAULT = [
+  'rok','typ','dmc','osie','zawieszenie','dmczesp','mies',
+  'status','oc','ac','przeglad','ocInsurer','acInsurer',
+  'udt','tacho','kierowca','km','dt1ok','gmina',
+  'kategoria','podatek','vin','paliwo','poj','mocKw',
+  'masaWl','msc','euro','dmcF2','ladownosc','dataRej','katDR',
+];
+
 const _COL_FLEET = {rok:1,typ:1,dmc:0,osie:0,zawieszenie:0,dmczesp:0,mies:0,status:1,oc:1,ac:1,przeglad:1,kategoria:0,podatek:0,ocInsurer:1,acInsurer:0,udt:1,tacho:1,kierowca:1,km:1,dt1ok:0,gmina:0,
   vin:0,paliwo:0,poj:0,mocKw:0,masaWl:0,msc:0,euro:0,dmcF2:0,ladownosc:0,dataRej:0,katDR:0};
 const _COL_DT1   = {rok:1,typ:1,dmc:1,osie:1,zawieszenie:1,dmczesp:1,mies:1,status:1,oc:0,ac:0,przeglad:0,kategoria:1,podatek:1,ocInsurer:0,acInsurer:0,udt:0,tacho:0,kierowca:1,km:0,dt1ok:1,gmina:1,
   vin:0,paliwo:0,poj:0,mocKw:0,masaWl:1,msc:0,euro:0,dmcF2:1,ladownosc:1,dataRej:1,katDR:1};
 const _COL_DEFAULTS = {..._COL_FLEET};
-let _colVis = null;
+
+let _colVis   = null;
+let _colOrder = null;
 let _viewMode = localStorage.getItem('fleetViewMode') || 'fleet';
 let _colFilters = {};
+let _filterRowVisible = false;
 
+// ── Nagłówki kolumn ──────────────────────────────────────────────────
+const _FLEET_COL_TH = {
+  rok:        `<th data-col="rok" class="sort-th" onclick="sortBy('rok')" data-i18n="col.year">Rok</th>`,
+  typ:        `<th data-col="typ" class="sort-th" onclick="sortBy('typ')" data-i18n="col.type">Typ</th>`,
+  dmc:        `<th data-col="dmc" class="sort-th" onclick="sortBy('dmc')" data-i18n="col.dmc">DMC (kg)</th>`,
+  osie:       `<th data-col="osie" data-i18n="col.axles">Osie</th>`,
+  zawieszenie:`<th data-col="zawieszenie" data-i18n="col.suspension">Zawieszenie</th>`,
+  dmczesp:    `<th data-col="dmczesp" data-i18n="col.dmc.team">DMC zesp. (t)</th>`,
+  mies:       `<th data-col="mies" data-i18n="col.months">Mies.</th>`,
+  status:     `<th data-col="status" data-i18n="col.status">Status</th>`,
+  oc:         `<th data-col="oc" data-i18n="col.oc" title="Ubezpieczenie OC — data ważności">OC</th>`,
+  ac:         `<th data-col="ac" data-i18n="col.ac" title="Ubezpieczenie AC — data ważności">AC</th>`,
+  przeglad:   `<th data-col="przeglad" data-i18n="col.inspection" title="Następny przegląd techniczny">Przegląd</th>`,
+  ocInsurer:  `<th data-col="ocInsurer" data-i18n="col.oc.insurer" title="Ubezpieczyciel OC / nr polisy">Ubezpieczyciel OC</th>`,
+  acInsurer:  `<th data-col="acInsurer" data-i18n="col.ac.insurer" title="Ubezpieczyciel AC / nr polisy">Ubezpieczyciel AC</th>`,
+  udt:        `<th data-col="udt" data-i18n="col.udt" title="Termin badania UDT">UDT</th>`,
+  tacho:      `<th data-col="tacho" data-i18n="col.tacho" title="Termin legalizacji tachografu">Tachograf</th>`,
+  kierowca:   `<th data-col="kierowca" class="sort-th" onclick="sortBy('kierowca')" data-i18n="col.driver" title="Przypisany kierowca">Kierowca</th>`,
+  km:         `<th data-col="km" class="sort-th" onclick="sortBy('stanKilometrow')" style="text-align:right" data-i18n="col.km" title="Stan licznika km">km</th>`,
+  dt1ok:      `<th data-col="dt1ok" style="text-align:center" data-i18n="col.dt1ok" title="Kompletność danych DT-1">DT-1 ✓</th>`,
+  gmina:      `<th data-col="gmina" data-i18n="col.gmina" title="Gmina — stawki DT-1">Gmina</th>`,
+  kategoria:  `<th data-col="kategoria" data-i18n="col.category">Kategoria</th>`,
+  podatek:    `<th data-col="podatek" class="sort-th" onclick="sortBy('podatek')" style="text-align:right" data-i18n="col.tax">Podatek</th>`,
+  vin:        `<th data-col="vin" class="sort-th" onclick="sortBy('vin')" title="Numer VIN">VIN</th>`,
+  paliwo:     `<th data-col="paliwo" title="Rodzaj paliwa (P.3 DR)">Paliwo</th>`,
+  poj:        `<th data-col="poj" class="sort-th" onclick="sortBy('pojSilnika')" style="text-align:right" title="Pojemność silnika (P.1 DR)">Poj. (cm³)</th>`,
+  mocKw:      `<th data-col="mocKw" class="sort-th" onclick="sortBy('mocKW')" style="text-align:right" title="Moc silnika (P.2 DR)">Moc (kW)</th>`,
+  masaWl:     `<th data-col="masaWl" class="sort-th" onclick="sortBy('masaWlasna')" style="text-align:right" title="Masa własna pojazdu (G DR)">Masa wł. (kg)</th>`,
+  msc:        `<th data-col="msc" style="text-align:center" title="Miejsca siedzące (S.1 DR)">Msc.</th>`,
+  euro:       `<th data-col="euro" title="Norma emisji EURO">EURO</th>`,
+  dmcF2:      `<th data-col="dmcF2" class="sort-th" onclick="sortBy('dmcKg2')" style="text-align:right" title="F.2 — DMC z ładunkiem (kg DR)">F.2 DMC (kg)</th>`,
+  ladownosc:  `<th data-col="ladownosc" class="sort-th" onclick="sortBy('ladownosc')" style="text-align:right" title="Ładowność = F.2 − G">Ładowność (kg)</th>`,
+  dataRej:    `<th data-col="dataRej" class="sort-th" onclick="sortBy('dataRejestracji')" title="B — Data 1. rejestracji w RP">Data 1. rej.</th>`,
+  katDR:      `<th data-col="katDR" title="J — Kategoria pojazdu z DR (N1/N2/N3/O/M)">Kat. DR</th>`,
+};
+
+// ── Komórki filtrów ──────────────────────────────────────────────────
+const _FLEET_COL_FI = {
+  rok:        `<th data-col="rok"><input class="col-fi" type="text" placeholder="⌕ Rok" oninput="applyColFilter('rok',this.value)"></th>`,
+  typ:        `<th data-col="typ"><input class="col-fi" type="text" placeholder="⌕ Typ" oninput="applyColFilter('typ',this.value)"></th>`,
+  dmc:        `<th data-col="dmc"><input class="col-fi" type="text" placeholder="⌕ DMC" oninput="applyColFilter('dmc',this.value)"></th>`,
+  osie:       `<th data-col="osie"></th>`,
+  zawieszenie:`<th data-col="zawieszenie"></th>`,
+  dmczesp:    `<th data-col="dmczesp"></th>`,
+  mies:       `<th data-col="mies"></th>`,
+  status:     `<th data-col="status"><input class="col-fi" type="text" placeholder="⌕ Status" oninput="applyColFilter('status',this.value)"></th>`,
+  oc:         `<th data-col="oc"><input class="col-fi" type="date" oninput="applyColFilter('oc',this.value)"></th>`,
+  ac:         `<th data-col="ac"><input class="col-fi" type="date" oninput="applyColFilter('ac',this.value)"></th>`,
+  przeglad:   `<th data-col="przeglad"><input class="col-fi" type="date" oninput="applyColFilter('przeglad',this.value)"></th>`,
+  ocInsurer:  `<th data-col="ocInsurer"><input class="col-fi" type="text" placeholder="⌕ OC" oninput="applyColFilter('ocInsurer',this.value)"></th>`,
+  acInsurer:  `<th data-col="acInsurer"><input class="col-fi" type="text" placeholder="⌕ AC" oninput="applyColFilter('acInsurer',this.value)"></th>`,
+  udt:        `<th data-col="udt"></th>`,
+  tacho:      `<th data-col="tacho"></th>`,
+  kierowca:   `<th data-col="kierowca"><input class="col-fi" type="text" placeholder="⌕ Kierowca" oninput="applyColFilter('kierowca',this.value)"></th>`,
+  km:         `<th data-col="km"></th>`,
+  dt1ok:      `<th data-col="dt1ok"></th>`,
+  gmina:      `<th data-col="gmina"></th>`,
+  kategoria:  `<th data-col="kategoria"></th>`,
+  podatek:    `<th data-col="podatek"></th>`,
+  vin:        `<th data-col="vin"><input class="col-fi" type="text" placeholder="⌕ VIN" oninput="applyColFilter('vin',this.value)"></th>`,
+  paliwo:     `<th data-col="paliwo"><input class="col-fi" type="text" placeholder="⌕" oninput="applyColFilter('paliwo',this.value)"></th>`,
+  poj:        `<th data-col="poj"></th>`,
+  mocKw:      `<th data-col="mocKw"></th>`,
+  masaWl:     `<th data-col="masaWl"></th>`,
+  msc:        `<th data-col="msc"></th>`,
+  euro:       `<th data-col="euro"><input class="col-fi" type="text" placeholder="⌕" oninput="applyColFilter('euro',this.value)"></th>`,
+  dmcF2:      `<th data-col="dmcF2"><input class="col-fi" type="text" placeholder="⌕ kg" oninput="applyColFilter('dmcF2',this.value)"></th>`,
+  ladownosc:  `<th data-col="ladownosc"><input class="col-fi" type="text" placeholder="⌕ kg" oninput="applyColFilter('ladownosc',this.value)"></th>`,
+  dataRej:    `<th data-col="dataRej"><input class="col-fi" type="text" placeholder="⌕ DD.MM.RRRR" oninput="applyColFilter('dataRej',this.value)"></th>`,
+  katDR:      `<th data-col="katDR"><input class="col-fi" type="text" placeholder="⌕ N1/N3…" oninput="applyColFilter('katDR',this.value)"></th>`,
+};
+
+// ── Renderery komórek danych ─────────────────────────────────────────
+// ctx = { t, isNew, needsDmcZ, isTrailerV }
+const _FLEET_COL_TD = {
+  rok:        (v,c)=>`<td data-col="rok">${v.rok||'—'}${c.isNew?'<span class="pill pill-new" style="margin-left:6px;font-size:9px">§2</span>':''}</td>`,
+  typ:        (v)  =>`<td data-col="typ"><span class="pill pill-gray">${esc(v.typ)}</span></td>`,
+  dmc:        (v)  =>`<td data-col="dmc" style="font-family:var(--mono);font-size:12px">${(v.dmc||v.dmcMax||0).toLocaleString('pl-PL')}</td>`,
+  osie:       (v)  =>`<td data-col="osie" onclick="event.stopPropagation()"><select class="isel" onchange="setV(${v.id},'osie',parseInt(this.value))">${[1,2,3,4,5].map(n=>`<option ${v.osie===n?'selected':''}>${n}</option>`).join('')}</select></td>`,
+  zawieszenie:(v)  =>`<td data-col="zawieszenie" onclick="event.stopPropagation()"><select class="isel" style="width:120px" onchange="setV(${v.id},'zawieszenie',this.value)"><option ${v.zawieszenie==='pneumatyczne'?'selected':''}>pneumatyczne</option><option ${v.zawieszenie==='równoważne'?'selected':''}>równoważne</option><option ${v.zawieszenie==='inne'?'selected':''}>inne</option></select></td>`,
+  dmczesp:    (v,c)=>`<td data-col="dmczesp" onclick="event.stopPropagation()">${c.isTrailerV?`<input class="inum" style="width:70px" type="number" step="0.001" min="0" max="100" value="${((v.dmcZespolu||0)/1000).toFixed(1)}" onchange="setV(${v.id},'dmcZespolu',parseFloat(this.value)*1000||0)" title="DMC zesp. w tonach">${c.needsDmcZ?'<span style="color:var(--amber);font-size:11px"> ⚠</span>':''}` : '<span style="color:var(--text3)">—</span>'}</td>`,
+  mies:       (v)  =>`<td data-col="mies" onclick="event.stopPropagation()" title="Miesiące obowiązku podatkowego (1–12). Dla nabycia: 13 minus miesiąc. Dla zbycia: numer miesiąca."><div style="display:flex;align-items:center;gap:3px"><input class="inum" type="number" min="1" max="12" value="${v.miesiacePodatku||12}" onchange="setV(${v.id},'miesiacePodatku',parseInt(this.value)||12)" style="width:36px;text-align:center"><button style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--text3);padding:0 2px" title="Oblicz z daty" onclick="event.stopPropagation();_pickMiesiace(${v.id})">📅</button></div></td>`,
+  status:     (v)  =>`<td data-col="status"><span class="pill ${STAT_LABELS[v.status]||'pill-gray'}">${v.status}</span></td>`,
+  oc:         (v)  =>`<td data-col="oc">${_datePill(v.ocEnd)}</td>`,
+  ac:         (v)  =>`<td data-col="ac">${_datePill(v.acEnd)}</td>`,
+  przeglad:   (v)  =>`<td data-col="przeglad">${_datePill(v.nextInspection)}</td>`,
+  ocInsurer:  (v)  =>`<td data-col="ocInsurer" style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(v.ocInsurer||'')}${v.ocPolicyNo?' · '+esc(v.ocPolicyNo):''}">${v.ocInsurer?`<div style="font-weight:500">${esc(v.ocInsurer)}</div>`:'<span style="color:var(--text3)">—</span>'}${v.ocPolicyNo?`<div style="color:var(--text3);font-size:10px;font-family:var(--mono)">${esc(v.ocPolicyNo)}</div>`:''}</td>`,
+  acInsurer:  (v)  =>`<td data-col="acInsurer" style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(v.acInsurer||'')}${v.acPolicyNo?' · '+esc(v.acPolicyNo):''}">${v.acInsurer?`<div style="font-weight:500">${esc(v.acInsurer)}</div>`:'<span style="color:var(--text3)">—</span>'}${v.acPolicyNo?`<div style="color:var(--text3);font-size:10px;font-family:var(--mono)">${esc(v.acPolicyNo)}</div>`:''}</td>`,
+  udt:        (v)  =>`<td data-col="udt" style="font-size:11px">${v.hasUdt?(v.udtNextDate?_datePill(v.udtNextDate):'<span style="color:var(--amber);font-size:10px">brak daty</span>'):'<span style="color:var(--text3)">—</span>'}${v.hasUdt&&v.udtDeviceType?`<div style="font-size:10px;color:var(--text3)">${esc(v.udtDeviceType)}</div>`:''}</td>`,
+  tacho:      (v)  =>`<td data-col="tacho" style="font-size:11px">${v.hasTacho?(v.tachoNextCalib?_datePill(v.tachoNextCalib):'<span style="color:var(--amber);font-size:10px">brak daty</span>'):'<span style="color:var(--text3)">—</span>'}</td>`,
+  kierowca:   (v)  =>`<td data-col="kierowca" style="font-size:12px;white-space:nowrap">${v.kierowca?esc(v.kierowca):'<span style="color:var(--text3)">—</span>'}</td>`,
+  km:         (v)  =>`<td data-col="km" style="font-size:12px;text-align:right;font-family:var(--mono);white-space:nowrap">${v.stanKilometrow!=null?v.stanKilometrow.toLocaleString('pl-PL'):'<span style="color:var(--text3)">—</span>'}${_gpsIndicator(v)}</td>`,
+  dt1ok:      (v)  =>`<td data-col="dt1ok" style="text-align:center">${_dt1CompletenessCell(v)}</td>`,
+  gmina:      (v)  =>`<td data-col="gmina" onclick="event.stopPropagation()" style="font-size:11px"><select class="isel" style="width:100px;font-size:11px" onchange="setV(${v.id},'gmina',this.value);renderFormularze&&renderFormularze()">${(window.GminyRates?GminyRates.listGminy():['Warszawa']).map(g=>`<option ${(v.gmina||'Warszawa')===g?'selected':''}>${g}</option>`).join('')}</select></td>`,
+  kategoria:  (v,c)=>`<td data-col="kategoria">${c.t.cat?`<span class="pill ${CAT_COLORS[c.t.cat]||'pill-gray'}">${c.t.cat}</span>${c.needsDmcZ?'<span style="font-size:10px;color:var(--amber)"> brak DMC zesp.</span>':''}` : '<span style="color:var(--text3);font-size:11px">—</span>'}</td>`,
+  podatek:    (v,c)=>`<td data-col="podatek" style="text-align:right">${c.t.amount>0?`<strong style="color:var(--green);font-family:var(--mono)">${fmt2(c.t.amount)} zł</strong>`:'<span style="color:var(--text3)">—</span>'}</td>`,
+  vin:        (v)  =>`<td data-col="vin" style="font-size:10px;font-family:var(--mono);color:var(--text2)">${v.vin||'—'}</td>`,
+  paliwo:     (v)  =>`<td data-col="paliwo" style="font-size:11px">${v.paliwo||'—'}</td>`,
+  poj:        (v)  =>`<td data-col="poj" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.pojSilnika!=null?v.pojSilnika.toLocaleString('pl-PL')+' cm³':'—'}</td>`,
+  mocKw:      (v)  =>`<td data-col="mocKw" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.mocKW!=null?v.mocKW+' kW':'—'}</td>`,
+  masaWl:     (v)  =>`<td data-col="masaWl" style="font-size:11px;text-align:right;font-family:var(--mono)">${(v.masaWlasna??v.masaWlKg)!=null?(v.masaWlasna??v.masaWlKg).toLocaleString('pl-PL')+' kg':'—'}</td>`,
+  msc:        (v)  =>`<td data-col="msc" style="font-size:11px;text-align:center">${v.miejscaSied!=null?v.miejscaSied:'—'}</td>`,
+  euro:       (v)  =>`<td data-col="euro" style="font-size:11px">${v.euro||'—'}</td>`,
+  dmcF2:      (v)  =>`<td data-col="dmcF2" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.dmcKg2!=null&&v.dmcKg2!==''?Number(v.dmcKg2).toLocaleString('pl-PL')+' kg':'—'}</td>`,
+  ladownosc:  (v)  =>{const _d=v.dmcKg2||v.dmc||v.dmcMax,_m=v.masaWlasna??v.masaWlKg;const l=v.ladownosc!=null&&v.ladownosc!==''?Number(v.ladownosc):(_d&&_m!=null&&Number(_d)>Number(_m)?Number(_d)-Number(_m):null);return `<td data-col="ladownosc" style="font-size:11px;text-align:right;font-family:var(--mono)">${l!=null?l.toLocaleString('pl-PL')+' kg':'—'}</td>`;},
+  dataRej:    (v)  =>`<td data-col="dataRej" style="font-size:11px;white-space:nowrap">${v.dataRejestracji||v.dataRej||'—'}</td>`,
+  katDR:      (v)  =>`<td data-col="katDR" style="font-size:11px;text-align:center">${(v.katPojazdu||v.kategoria)?`<span class="pill pill-gray">${v.katPojazdu||v.kategoria}</span>`:'—'}</td>`,
+};
+
+const _COL_LABELS = {
+  rok:'Rok',typ:'Typ',dmc:'DMC',osie:'Osie',zawieszenie:'Zawieszenie',
+  dmczesp:'DMC zesp.',mies:'Mies.',status:'Status',
+  oc:'OC (data)',ac:'AC (data)',przeglad:'Przegląd',
+  kategoria:'Kategoria',podatek:'Podatek',
+  ocInsurer:'Ubezpieczyciel OC',acInsurer:'Ubezpieczyciel AC',
+  udt:'Badanie UDT',tacho:'Legalizacja tacho',
+  kierowca:'Kierowca',km:'Stan km',dt1ok:'Kompletność DT-1',gmina:'Gmina DT-1',
+  vin:'VIN',paliwo:'Paliwo (P.3)',poj:'Pojemność (cm³)',mocKw:'Moc (kW)',
+  masaWl:'Masa własna (kg)',msc:'Miejsca siedz.',euro:'Norma EURO',
+  dmcF2:'F.2 DMC z ładunkiem (kg)',ladownosc:'Ładowność (kg)',dataRej:'Data 1. rejestracji',katDR:'Kat. pojazdu DR (J)',
+};
+
+// ── Inicjalizacja ────────────────────────────────────────────────────
 function _initColVis() {
   try { _colVis = JSON.parse(localStorage.getItem('taxColVis')) || null; } catch(e) {}
   if (!_colVis) _colVis = {..._COL_DEFAULTS};
+  _initColOrder();
+  try { _colFilters = JSON.parse(localStorage.getItem(_COL_FILTERS_LS)) || {}; } catch {}
+  if (Object.values(_colFilters).some(v => v)) _filterRowVisible = true;
+}
+
+function _initColOrder() {
+  try { _colOrder = JSON.parse(localStorage.getItem(_COL_ORDER_LS)) || null; } catch(e) {}
+  if (!Array.isArray(_colOrder) || _colOrder.length !== _COL_ORDER_DEFAULT.length) {
+    _colOrder = [..._COL_ORDER_DEFAULT];
+  }
+}
+
+function _getColOrder() {
+  if (!_colOrder) _initColOrder();
+  return _colOrder;
+}
+
+// ── Dynamiczny thead ─────────────────────────────────────────────────
+function _renderFleetThead() {
+  const thead = document.getElementById('veh-thead');
+  if (!thead) return;
+  const order = _getColOrder();
+  const S = 'position:sticky;z-index:2;background:var(--bg3)';
+  thead.innerHTML = `<tr>
+    <th class="col-sticky-th" style="width:36px;left:0"><input type="checkbox" id="chk-all" onchange="toggleAll(this)"></th>
+    <th class="sort-th col-sticky-th" style="min-width:100px;left:36px" onclick="sortBy('nrRej')" data-i18n="col.plate">Nr rej.</th>
+    <th class="sort-th col-sticky-th" style="left:136px" onclick="sortBy('marka')" data-i18n="col.brand">Marka / Model</th>
+    ${order.map(id => _FLEET_COL_TH[id]||'').join('')}
+    <th style="text-align:center" title="Karta pojazdu">📎</th>
+  </tr>
+  <tr id="veh-filter-row" style="${_filterRowVisible?'':'display:none'}">
+    <th class="col-sticky-th" style="left:0"></th>
+    <th class="col-sticky-th" style="left:36px"><input class="col-fi" type="text" placeholder="⌕ Nr rej." oninput="applyColFilter('nrRej',this.value)"></th>
+    <th class="col-sticky-th" style="left:136px"><input class="col-fi" type="text" placeholder="⌕ Marka/model" oninput="applyColFilter('marka',this.value)"></th>
+    ${order.map(id => _FLEET_COL_FI[id]||`<th data-col="${id}"></th>`).join('')}
+    <th></th>
+  </tr>`;
+  // Przywróć wartości aktywnych filtrów w inputach
+  for (const [col, val] of Object.entries(_colFilters)) {
+    if (!val) continue;
+    thead.querySelectorAll(`.col-fi[oninput*="'${col}'"]`).forEach(el => { el.value = val; });
+  }
+  // i18n dla dynamicznych nagłówków
+  if (window.t) thead.querySelectorAll('[data-i18n]').forEach(el => {
+    const v = window.t(el.getAttribute('data-i18n'));
+    if (v !== el.getAttribute('data-i18n')) el.textContent = v;
+  });
 }
 
 function _applyColVis() {
@@ -842,52 +967,85 @@ function toggleCol(col) {
   if (!_colVis) _initColVis();
   _colVis[col] = _colVis[col] ? 0 : 1;
   localStorage.setItem('taxColVis', JSON.stringify(_colVis));
-  _applyColVis();
+  renderVeh();
   _renderColPanel();
 }
 
 function resetColVis() {
   _colVis = {..._COL_DEFAULTS};
+  _colOrder = [..._COL_ORDER_DEFAULT];
   localStorage.setItem('taxColVis', JSON.stringify(_colVis));
-  _applyColVis();
+  try { localStorage.setItem(_COL_ORDER_LS, JSON.stringify(_colOrder)); } catch {}
+  renderVeh();
   _renderColPanel();
 }
 
+// ── Panel widoczności i kolejności ───────────────────────────────────
 function _renderColPanel() {
   const panel = document.getElementById('col-vis-panel');
   if (!panel) return;
-  const LABELS = {
-    rok:'Rok',typ:'Typ',dmc:'DMC',osie:'Osie',zawieszenie:'Zawieszenie',
-    dmczesp:'DMC zesp.',mies:'Mies.',status:'Status',
-    oc:'OC (data)',ac:'AC (data)',przeglad:'Przegląd',
-    kategoria:'Kategoria',podatek:'Podatek',
-    ocInsurer:'Ubezpieczyciel OC',acInsurer:'Ubezpieczyciel AC',
-    udt:'Badanie UDT',tacho:'Legalizacja tacho',
-    kierowca:'Kierowca',km:'Stan km',dt1ok:'Kompletność DT-1',gmina:'Gmina DT-1',
-    vin:'VIN',paliwo:'Paliwo (P.3)',poj:'Pojemność (cm³)',mocKw:'Moc (kW)',
-    masaWl:'Masa własna (kg)',msc:'Miejsca siedz.',euro:'Norma EURO',
-    dmcF2:'F.2 DMC z ładunkiem (kg)',ladownosc:'Ładowność (kg)',dataRej:'Data 1. rejestracji',katDR:'Kat. pojazdu DR (J)',
-  };
-  const GROUPS = [
-    {label:'Podstawowe',cols:['rok','typ','dmc','status','kierowca','km']},
-    {label:'Podatek DT-1',cols:['dt1ok','gmina','osie','zawieszenie','dmczesp','mies','kategoria','podatek']},
-    {label:'Ubezpieczenia',cols:['oc','ac','przeglad','ocInsurer','acInsurer']},
-    {label:'Badania techniczne',cols:['udt','tacho']},
-    {label:'Dane DR (dowód rejestracyjny)',cols:['vin','paliwo','poj','mocKw','masaWl','msc','euro','dmcF2','ladownosc','dataRej','katDR']},
-  ];
-  panel.innerHTML = GROUPS.map(g => `
-    <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin:10px 0 4px;letter-spacing:.5px">${g.label}</div>
-    ${g.cols.map(k => `
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:3px 0;font-size:12px;white-space:nowrap">
-        <input type="checkbox" ${_colVis[k]?'checked':''} onchange="toggleCol('${k}')">
-        ${LABELS[k]}
-      </label>`).join('')}
-  `).join('') + `
-    <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:8px">
-      <button class="btn btn-gray" style="font-size:11px;padding:4px 10px;width:100%" onclick="resetColVis()">
-        <i class="ti ti-refresh"></i>Resetuj domyślne
-      </button>
+  if (!_colVis) _initColVis();
+  const order = _getColOrder();
+  const presets = _getColPresets();
+
+  const listHtml = order.map(id => `
+    <div data-flcol="${id}" draggable="true" style="display:flex;align-items:center;gap:6px;padding:3px 0;cursor:grab">
+      <i class="ti ti-grip-vertical" style="color:var(--text3);font-size:14px;flex-shrink:0;pointer-events:none"></i>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;white-space:nowrap;flex:1">
+        <input type="checkbox" ${_colVis[id]?'checked':''} onchange="toggleCol('${id}')">
+        ${_COL_LABELS[id]||id}
+      </label>
+    </div>`).join('');
+
+  const presetsHtml = presets.length ? `
+    <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin:10px 0 4px;letter-spacing:.5px">Moje presety</div>
+    ${presets.map((p,i) => `
+      <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
+        <button class="btn btn-gray" style="flex:1;font-size:11px;padding:3px 8px;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="applyColPreset(${i})" title="Zastosuj: ${esc(p.name)}">${esc(p.name)}</button>
+        <button class="btn btn-red" style="font-size:10px;padding:2px 6px;flex-shrink:0" onclick="deleteColPreset(${i})" title="Usuń preset"><i class="ti ti-x"></i></button>
+      </div>`).join('')}` : '';
+
+  panel.innerHTML = `
+    <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:4px;letter-spacing:.5px">Kolumny — przeciągnij = zmień kolejność</div>
+    <div id="col-order-list" style="max-height:320px;overflow-y:auto;margin-bottom:4px">${listHtml}</div>
+    ${presetsHtml}
+    <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;display:flex;flex-direction:column;gap:5px">
+      <div style="display:flex;gap:4px">
+        <input id="col-preset-name" type="text" placeholder="Nazwa presetu…" style="flex:1;font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text)">
+        <button class="btn btn-blue" style="font-size:11px;padding:4px 8px;white-space:nowrap" onclick="saveColPreset()"><i class="ti ti-device-floppy"></i>Zapisz</button>
+      </div>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-gray" style="font-size:11px;padding:3px 8px;flex:1" onclick="switchFleetView('fleet')"><i class="ti ti-layout-list"></i>Flota</button>
+        <button class="btn btn-gray" style="font-size:11px;padding:3px 8px;flex:1" onclick="switchFleetView('dt1')"><i class="ti ti-file-invoice"></i>DT-1</button>
+      </div>
+      <button class="btn btn-gray" style="font-size:11px;padding:3px 10px;width:100%" onclick="resetColVis()"><i class="ti ti-refresh"></i>Resetuj domyślne</button>
     </div>`;
+
+  _initColOrderDnd(panel.querySelector('#col-order-list'));
+}
+
+function _initColOrderDnd(list) {
+  if (!list) return;
+  let dragging = null;
+  list.addEventListener('dragstart', e => {
+    dragging = e.target.closest('[data-flcol]');
+    if (dragging) dragging.style.opacity = '0.4';
+  });
+  list.addEventListener('dragend', () => {
+    if (dragging) { dragging.style.opacity = ''; dragging = null; }
+    _colOrder = [...list.querySelectorAll('[data-flcol]')].map(el => el.dataset.flcol);
+    try { localStorage.setItem(_COL_ORDER_LS, JSON.stringify(_colOrder)); } catch {}
+    renderVeh();
+  });
+  list.addEventListener('dragover', e => {
+    e.preventDefault();
+    const over = e.target.closest('[data-flcol]');
+    if (over && dragging && over !== dragging) {
+      const rect = over.getBoundingClientRect();
+      if (e.clientY < rect.top + rect.height / 2) over.before(dragging);
+      else over.after(dragging);
+    }
+  });
 }
 
 function toggleColPanel() {
@@ -906,6 +1064,46 @@ function toggleColPanel() {
       document.removeEventListener('click', _closePanel);
     });
   }, 0);
+}
+
+// ── Presety ──────────────────────────────────────────────────────────
+function _getColPresets() {
+  try { return JSON.parse(localStorage.getItem(_COL_PRESETS_LS)) || []; } catch { return []; }
+}
+
+function saveColPreset() {
+  const nameEl = document.getElementById('col-preset-name');
+  const name = nameEl?.value.trim();
+  if (!name) { toast('⚠ Wpisz nazwę presetu'); return; }
+  if (!_colVis) _initColVis();
+  const presets = _getColPresets();
+  presets.push({ name, vis: {..._colVis}, order: [..._getColOrder()] });
+  try { localStorage.setItem(_COL_PRESETS_LS, JSON.stringify(presets)); } catch {}
+  if (nameEl) nameEl.value = '';
+  toast(`✓ Preset „${name}" zapisany`);
+  _renderColPanel();
+}
+
+function applyColPreset(i) {
+  const p = _getColPresets()[i];
+  if (!p) return;
+  _colVis = {..._COL_DEFAULTS, ...p.vis};
+  _colOrder = Array.isArray(p.order) && p.order.length === _COL_ORDER_DEFAULT.length ? [...p.order] : [..._COL_ORDER_DEFAULT];
+  try {
+    localStorage.setItem('taxColVis', JSON.stringify(_colVis));
+    localStorage.setItem(_COL_ORDER_LS, JSON.stringify(_colOrder));
+  } catch {}
+  renderVeh();
+  _renderColPanel();
+  toast(`✓ Zastosowano preset „${p.name}"`);
+}
+
+function deleteColPreset(i) {
+  const presets = _getColPresets();
+  const name = presets[i]?.name || '';
+  presets.splice(i, 1);
+  try { localStorage.setItem(_COL_PRESETS_LS, JSON.stringify(presets)); } catch {}
+  _renderColPanel();
 }
 
 // ==================== FLEET VIEW MODES ====================
@@ -4528,7 +4726,7 @@ function showManualForm(d,rawText,conf){
   const field=(id,label,placeholder,val,hint)=>`
     <div class="f">
       <label>${label}${hint?`<span style="font-size:10px;font-weight:400;color:var(--text3);margin-left:6px">${hint}</span>`:''}</label>
-      <input id="ocrf-${id}" class="fi" placeholder="${placeholder}" value="${val||''}"
+      <input id="ocrf-${id}" class="fi" placeholder="${placeholder}" value="${esc(val)||''}"
         style="${val&&val!=='null'&&val!=='undefined'?'border-color:var(--green);background:#f0fff0':''}"
         oninput="document.getElementById('ocrf-${id}').style.borderColor='var(--border)';document.getElementById('ocrf-${id}').style.background='var(--bg2)'">
     </div>`;

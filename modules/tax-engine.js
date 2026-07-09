@@ -88,6 +88,7 @@ const TaxEngine = {
     const osie = parseInt(v.osie) || 2;
     const isNew = (parseInt(v.rok) || 0) >= 2024;
 
+    if (typ.includes("specjaln") || (v.przeznaczenie || "").toLowerCase().includes("specjaln")) return null;
     if (typ.includes("autobus")) return isNew ? S.autobus_new : (parseInt(v.miejsca) || 0) < 30 ? S.autobus_lt30 : S.autobus_ge30;
 
     if (typ.includes("naczepa") || typ.includes("przyczepa")) {
@@ -199,7 +200,7 @@ const TaxEngine = {
     if (!cat) return { cat: null, amount: 0, rate: 0 };
 
     const rate = this.getRate(v) || 0;
-    const months = Math.min(Math.max(parseInt(v.miesiacePodatku) || 12, 1), 12);
+    const months = Math.min(Math.max(parseInt(v.miesiacePodatku ?? 12) || 1, 1), 12);
 
     return {
       cat,

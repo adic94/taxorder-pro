@@ -67,10 +67,8 @@ test.describe('XSS — dane wejściowe użytkownika', () => {
         return div.innerHTML; // to jest poprawnie escaped przez przeglądarkę
       }, payload);
 
-      // Sprawdź że escaped nie zawiera wykonywalnego kodu
-      expect(escaped).not.toContain('<script>');
-      expect(escaped).not.toContain('onerror=');
-      expect(escaped).not.toContain('onload=');
+      // textContent + innerHTML escapes < do &lt; — żaden tag HTML nie może być wykonany
+      expect(escaped).not.toMatch(/<\w/); // brak niezescapowanego <tagname
     }
   });
 
@@ -92,7 +90,7 @@ test.describe('XSS — dane wejściowe użytkownika', () => {
     expect(results.lt).toContain('&lt;');
     expect(results.gt).toContain('&gt;');
     expect(results.quot).toContain('&quot;');
-    expect(results.combined).not.toContain('onerror');
+    expect(results.combined).not.toMatch(/<\w/); // żaden niezescapowany tag HTML
   });
 
 });

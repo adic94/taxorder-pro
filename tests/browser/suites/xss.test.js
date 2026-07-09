@@ -26,8 +26,8 @@
       const payload = '<img src=x onerror="alert(1)">';
       const result = e(payload);
       expect(result).not.toContain('<img');
-      expect(result).not.toContain('onerror');
       expect(result).toContain('&lt;img');
+      // onerror tekst pozostaje jako nieszkodliwy tekst — tag jest złamany przez escape'owanie <
     });
 
     it('null → pusty string (brak wyjątku)', () => {

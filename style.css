@@ -101,6 +101,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 
 /* TABLE */
 .tbl-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+#fleet-tbl-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse}
 th{text-align:left;font-size:11px;font-weight:600;color:var(--text2);padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg3);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
 td{padding:10px 16px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle}
@@ -112,6 +113,16 @@ tr.row-alert-red td{background:#fff5f5}
 tr.row-alert-red:hover td{background:#fee2e2}
 tr.row-alert-amber td{background:#fffbf0}
 tr.row-alert-amber:hover td{background:#fef3c7}
+/* Sticky columns — nr rej. + marka zawsze widoczne */
+.col-sticky,.col-sticky-th{position:sticky;z-index:1;background:var(--bg2)}
+.col-sticky-th{background:var(--bg3);z-index:3}
+tr:hover .col-sticky{background:var(--bg3)}
+tr.row-sel .col-sticky{background:var(--blue-light)!important}
+tr.row-sel:hover .col-sticky{background:#d5e8f8!important}
+tr.row-alert-red .col-sticky{background:#fff5f5}
+tr.row-alert-red:hover .col-sticky{background:#fee2e2}
+tr.row-alert-amber .col-sticky{background:#fffbf0}
+tr.row-alert-amber:hover .col-sticky{background:#fef3c7}
 th input[type=checkbox],td input[type=checkbox]{cursor:pointer;width:15px;height:15px}
 th.sort-th{cursor:pointer;user-select:none}
 th.sort-th:hover{color:var(--blue)}
