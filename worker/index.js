@@ -3525,7 +3525,9 @@ async function checkInspectionDeadlines(env) {
         if (sent) continue;
 
         const subs = await env.DB.prepare(
-          `SELECT ps.endpoint, ps.p256dh, ps.auth_key FROM push_subscriptions ps WHERE ps.company_id = ?`
+          `SELECT ps.endpoint, ps.p256dh, ps.auth_key
+           FROM push_subscriptions ps JOIN users u ON ps.user_id = u.id
+           WHERE ps.company_id = ? AND u.active = 1`
         ).bind(vRow.company_id).all().catch(() => ({ results: [] }));
 
         if (!subs.results?.length) continue;
