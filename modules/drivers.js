@@ -116,10 +116,13 @@ window.TaxOrderDrivers = (function () {
     }
 
     el.innerHTML = _drivers.map(d => {
-      const expColor = d.license_expiry
-        ? (new Date(d.license_expiry) < new Date() ? 'var(--red)'
-          : (new Date(d.license_expiry) - new Date() < 90 * 86400000 ? 'var(--amber)' : 'var(--green)'))
-        : 'var(--text3)';
+      const expColor = (() => {
+        if (!d.license_expiry) return 'var(--text3)';
+        const exp = new Date(d.license_expiry.includes('T') ? d.license_expiry : d.license_expiry + 'T00:00:00');
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        if (exp < today) return 'var(--red)';
+        return (exp - today < 90 * 86400000) ? 'var(--amber)' : 'var(--green)';
+      })();
       const st = _getStatsCached(d.name);
       const assignedVeh = (window.vehs || []).find(v => v.kierowca === d.name);
       return `<tr style="border-bottom:0.5px solid var(--border)">

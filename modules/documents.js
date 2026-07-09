@@ -24,7 +24,7 @@ window.DocumentsModule = (function () {
 
   function _mkid() { return String(Date.now()) + String(Math.random()).slice(2,8); }
   function _fmtDate(d) { if (!d) return '—'; const [y,m,dd]=d.split('-'); return `${dd}.${m}.${y}`; }
-  function _days(d) { return d ? Math.round((new Date(d)-new Date())/86400000) : null; }
+  function _days(ds) { if (!ds) return null; const d = new Date(ds.includes('T') ? ds : ds + 'T00:00:00'); if (isNaN(d)) return null; const t = new Date(); t.setHours(0,0,0,0); return Math.round((d-t)/86400000); }
 
   // ── Render dla vehicle-detail tab ─────────────────────────────────────────
   function renderForVehicle(v) {
