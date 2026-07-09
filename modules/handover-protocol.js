@@ -98,7 +98,7 @@ window.TaxOrderHandoverProtocol = (function () {
     el.innerHTML = equipment.map((eq, i) => `
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:3px 0">
         <input type="checkbox" ${eq.obecne ? 'checked' : ''} onchange="TaxOrderHandoverProtocol._toggleEquip(${i})">
-        <span style="flex:1">${eq.nazwa}</span>
+        <span style="flex:1">${esc(eq.nazwa)}</span>
         <button onclick="TaxOrderHandoverProtocol._removeEquip(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px">×</button>
       </label>`).join('');
   }
@@ -253,27 +253,28 @@ window.TaxOrderHandoverProtocol = (function () {
     const p = list.find(x => x.id === id);
     if (!p) return;
     const w = window.open('', '_blank');
-    const equip = (p.wyposazenie || []).map(e => `<li>${e.obecne ? '☑' : '☐'} ${e.nazwa}</li>`).join('');
-    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Protokół ${p.nr_rej}</title>
+    const equip = (p.wyposazenie || []).map(e => `<li>${e.obecne ? '☑' : '☐'} ${esc(e.nazwa)}</li>`).join('');
+    const safeSig = s => s && s.startsWith('data:image/') ? s : null;
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Protokół ${esc(p.nr_rej)}</title>
       <style>body{font-family:sans-serif;padding:30px;max-width:700px;margin:0 auto}
       h1{font-size:18px}table{width:100%;border-collapse:collapse;margin:14px 0}
       td{padding:6px 4px;border-bottom:1px solid #ddd;font-size:13px}
       .sig{display:flex;gap:30px;margin-top:30px}.sig img{width:200px;border:1px solid #ccc}</style></head>
       <body>
-      <h1>Protokół ${p.typ === 'WYDANIE' ? 'wydania' : 'zdania'} pojazdu ${p.nr_rej}</h1>
+      <h1>Protokół ${p.typ === 'WYDANIE' ? 'wydania' : 'zdania'} pojazdu ${esc(p.nr_rej)}</h1>
       <table>
         <tr><td>Data</td><td>${p.data ? new Date(p.data).toLocaleDateString('pl-PL') : '—'}</td></tr>
-        <tr><td>Osoba wydająca</td><td>${p.osoba_wydajaca || '—'}</td></tr>
-        <tr><td>Osoba odbierająca</td><td>${p.osoba_odbierajaca || '—'}</td></tr>
+        <tr><td>Osoba wydająca</td><td>${esc(p.osoba_wydajaca || '—')}</td></tr>
+        <tr><td>Osoba odbierająca</td><td>${esc(p.osoba_odbierajaca || '—')}</td></tr>
         <tr><td>Stan licznika</td><td>${p.stan_licznika != null ? p.stan_licznika + ' km' : '—'}</td></tr>
-        <tr><td>Stan paliwa</td><td>${p.stan_paliwa || '—'}</td></tr>
-        <tr><td>Uszkodzenia</td><td>${p.uszkodzenia_opis || 'brak'}</td></tr>
-        <tr><td>Uwagi</td><td>${p.uwagi || '—'}</td></tr>
+        <tr><td>Stan paliwa</td><td>${esc(p.stan_paliwa || '—')}</td></tr>
+        <tr><td>Uszkodzenia</td><td>${esc(p.uszkodzenia_opis || 'brak')}</td></tr>
+        <tr><td>Uwagi</td><td>${esc(p.uwagi || '—')}</td></tr>
       </table>
       <strong>Wyposażenie:</strong><ul>${equip}</ul>
       <div class="sig">
-        <div>Podpis wydającego<br>${p.podpis_wydajacy ? `<img src="${p.podpis_wydajacy}">` : '— brak —'}</div>
-        <div>Podpis odbierającego<br>${p.podpis_odbierajacy ? `<img src="${p.podpis_odbierajacy}">` : '— brak —'}</div>
+        <div>Podpis wydającego<br>${safeSig(p.podpis_wydajacy) ? `<img src="${p.podpis_wydajacy}">` : '— brak —'}</div>
+        <div>Podpis odbierającego<br>${safeSig(p.podpis_odbierajacy) ? `<img src="${p.podpis_odbierajacy}">` : '— brak —'}</div>
       </div>
       <script>window.print()</script>
       </body></html>`);

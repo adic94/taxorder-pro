@@ -137,8 +137,8 @@ window.FleetCalendar = (function () {
         const cellBg = isToday ? 'rgba(59,130,246,.04)' : '';
         if (!rForDay.length) {
           return `<td style="padding:2px 3px;border-left:0.5px solid var(--border);min-width:80px;background:${cellBg};cursor:pointer"
-            onclick="FleetCalendar.startNew('${v.nrRej}','${ds}')"
-            title="${t('cal.click.reserve').replace('{0}',v.nrRej).replace('{1}',ds)}">&nbsp;</td>`;
+            data-nr="${esc(v.nrRej)}" data-ds="${esc(ds)}" onclick="FleetCalendar.startNew(this.dataset.nr,this.dataset.ds)"
+            title="${t('cal.click.reserve').replace('{0}',esc(v.nrRej)).replace('{1}',ds)}">&nbsp;</td>`;
         }
         const r = rForDay[0];
         const sc = STATUS_COLORS[r.status] || STATUS_COLORS.pending;
@@ -309,7 +309,7 @@ window.FleetCalendar = (function () {
           </div>
           <div class="vdf">
             <label class="vdl">${t('cal.field.driver.edit')}</label>
-            <input id="_res-user" type="text" class="fi" list="drivers-datalist" value="${r.user_name}">
+            <input id="_res-user" type="text" class="fi" list="drivers-datalist" value="${esc(r.user_name||'')}">
           </div>
           <div class="vdf">
             <label class="vdl">${t('common.from')}</label>
@@ -321,7 +321,7 @@ window.FleetCalendar = (function () {
           </div>
           <div class="vdf" style="grid-column:1/-1">
             <label class="vdl">${t('cal.field.notes')}</label>
-            <input id="_res-notes" type="text" class="fi" value="${r.notes||''}">
+            <input id="_res-notes" type="text" class="fi" value="${esc(r.notes||'')}">
           </div>
           ${_isAdmin() ? `
           <div class="vdf" style="grid-column:1/-1">
