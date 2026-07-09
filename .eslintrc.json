@@ -1,0 +1,40 @@
+{
+  "env": {
+    "browser": true,
+    "es2021": true,
+    "node": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module"
+  },
+  "globals": {
+    "esc": "readonly",
+    "toast": "readonly",
+    "vehs": "readonly",
+    "selected": "readonly",
+    "COMPANIES": "readonly",
+    "TaxEngine": "readonly",
+    "TaxOrderTests": "readonly"
+  },
+  "rules": {
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "no-undef": "warn",
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "prefer-const": "warn",
+    "no-var": "error",
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error",
+    "no-script-url": "error",
+    "no-prototype-builtins": "warn",
+    "prefer-template": "warn"
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    "tools/api-explorer/",
+    "tools/api-explorer/node_modules/",
+    "*.min.js"
+  ]
+}

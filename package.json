@@ -14,9 +14,15 @@
     "test:veh":      "playwright test tests/e2e/vehicle-card.spec.js",
     "test:api":      "node tests/api/api-test.js",
     "test:report":   "playwright show-report tests/results/html",
-    "pw:install":    "playwright install chromium"
+    "pw:install":    "playwright install chromium",
+    "xss-audit":     "node tools/autotest/xss-audit.js",
+    "lint:worker":   "eslint worker/index.js",
+    "lint:modules":  "eslint modules/*.js",
+    "lint":          "eslint worker/index.js modules/*.js app.js",
+    "changelog":     "node tools/generate-changelog.js"
   },
   "devDependencies": {
+    "eslint": "^8.57.0",
     "http-server": "^14.1.1",
     "playwright": "^1.61.1",
     "wrangler": "^4.0.0"

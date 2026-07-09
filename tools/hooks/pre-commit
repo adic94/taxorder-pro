@@ -1,0 +1,36 @@
+#!/bin/sh
+# TaxOrder Pro — pre-commit hook: automatyczny XSS audit
+# Instalacja: git config core.hooksPath tools/hooks
+# (uruchamiane automatycznie przed każdym git commit)
+
+# Szukaj node.js (portable lub systemowy)
+NODE=""
+for candidate in \
+  "C:/Users/acichocki/node/node-v24.16.0-win-x64/node.exe" \
+  "C:/Users/acichocki/node-portable/node-v22.15.0-win-x64/node.exe" \
+  "/usr/bin/node" \
+  "node"; do
+  if [ -f "$candidate" ] || command -v "$candidate" >/dev/null 2>&1; then
+    NODE="$candidate"
+    break
+  fi
+done
+
+if [ -z "$NODE" ]; then
+  echo "⚠️  pre-commit: Node.js nie znaleziony — pomijam XSS audit"
+  exit 0
+fi
+
+echo "🔍 Sprawdzam XSS przed commitem..."
+"$NODE" tools/autotest/xss-audit.js
+
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "❌ COMMIT ZABLOKOWANY — znaleziono potencjalne podatności XSS"
+  echo "   Napraw wszystkie esc() i spróbuj ponownie."
+  echo "   Aby pominąć (tylko awaryjnie): git commit --no-verify"
+  exit 1
+fi
+
+echo "✅ XSS audit OK"
+exit 0

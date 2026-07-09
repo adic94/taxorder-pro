@@ -71,6 +71,30 @@
     it('pojazd poniżej 3.5t → null (brak opodatkowania)', () => {
       expect(E.getCat({ typ: 'samochód ciężarowy', dmc: 2000 })).toBeNull();
     });
+
+    it('pojazd specjalny (pole typ) → null (zwolnienie z DT-1)', () => {
+      expect(E.getCat({ typ: 'samochód specjalny', dmc: 12000 })).toBeNull();
+    });
+
+    it('pojazd specjalny (pole przeznaczenie) → null (zwolnienie z DT-1)', () => {
+      expect(E.getCat({ typ: 'samochód ciężarowy', przeznaczenie: 'specjalny', dmc: 12000 })).toBeNull();
+    });
+
+    it('pojazd specjalny (mieszana wielkość liter) → null', () => {
+      expect(E.getCat({ typ: 'Samochód Specjalny', dmc: 18000 })).toBeNull();
+    });
+
+    it('brak dmc i dmcMax (undefined) → null (brak danych DMC)', () => {
+      expect(E.getCat({ typ: 'samochód ciężarowy' })).toBeNull();
+    });
+
+    it('dmcMax jako fallback gdy brak pola dmc → poprawna kategoria D3', () => {
+      expect(E.getCat({ typ: 'samochód ciężarowy', dmcMax: 10000 })).toBe('D3');
+    });
+
+    it('dmcMax jako fallback na progu 3.5t → D1', () => {
+      expect(E.getCat({ typ: 'samochód ciężarowy', dmcMax: 4000 })).toBe('D1');
+    });
   });
 
   describe('TaxEngine — stawki i rok produkcji', () => {
@@ -94,6 +118,11 @@
 
     it('stawka null dla pojazdu poniżej 3.5t', () => {
       const rate = E.getRate({ typ: 'samochód ciężarowy', dmc: 3000, rok: 2020 });
+      expect(rate).toBeNull();
+    });
+
+    it('stawka null dla pojazdu specjalnego', () => {
+      const rate = E.getRate({ typ: 'samochód specjalny', dmc: 18000, rok: 2020 });
       expect(rate).toBeNull();
     });
   });
@@ -120,6 +149,12 @@
       expect(r.amount).toBe(0);
     });
 
+    it('calcTax pojazd specjalny → {cat:null, amount:0}', () => {
+      const r = E.calcTax({ typ: 'samochód specjalny', dmc: 18000, rok: 2020, miesiacePodatku: 12 });
+      expect(r.cat).toBeNull();
+      expect(r.amount).toBe(0);
+    });
+
     it('calcTax 6 miesięcy → połowa stawki rocznej', () => {
       const r12 = E.calcTax({ typ: 'samochód ciężarowy', dmc: 10000, osie: 2, rok: 2020, miesiacePodatku: 12 });
       const r6  = E.calcTax({ typ: 'samochód ciężarowy', dmc: 10000, osie: 2, rok: 2020, miesiacePodatku: 6 });
@@ -137,6 +172,13 @@
       const r = E.calcTax({ typ: 'samochód ciężarowy', dmc: 10000, osie: 2, rok: 2020, miesiacePodatku: 7 });
       const decimals = (r.amount.toString().split('.')[1] || '').length;
       expect(decimals).toBeLessThan(3);
+    });
+
+    it('calcTax z dmcMax zamiast dmc → poprawna kwota (fallback DMC)', () => {
+      const rDmc    = E.calcTax({ typ: 'samochód ciężarowy', dmc: 10000, osie: 2, rok: 2020, miesiacePodatku: 12 });
+      const rDmcMax = E.calcTax({ typ: 'samochód ciężarowy', dmcMax: 10000, osie: 2, rok: 2020, miesiacePodatku: 12 });
+      expect(rDmcMax.cat).toBe(rDmc.cat);
+      expect(rDmcMax.amount).toBe(rDmc.amount);
     });
   });
 })();
