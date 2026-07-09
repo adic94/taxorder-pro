@@ -1732,10 +1732,12 @@ const EXPORT_TABLES = [
   { key: 'cfmClients',   table: 'cfm_clients',          jsonCols: [] },
   { key: 'cfmContracts', table: 'cfm_contracts',        jsonCols: [] },
   { key: 'cfmInvoices',  table: 'cfm_invoices',         jsonCols: ['pozycje'] },
-  { key: 'fines',        table: 'fines',                jsonCols: [],  skipImport: false },
-  { key: 'drivers',      table: 'drivers',              jsonCols: [],  skipImport: true  },
-  { key: 'fleetCards',   table: 'fleet_cards',          jsonCols: [],  skipImport: false },
-  { key: 'reservations', table: 'reservations',         jsonCols: [],  skipImport: false },
+  { key: 'fines',           table: 'fines',            jsonCols: [],                skipImport: false },
+  { key: 'drivers',         table: 'drivers',          jsonCols: [],                skipImport: true  },
+  { key: 'fleetCards',      table: 'fleet_cards',      jsonCols: [],                skipImport: false },
+  { key: 'reservations',    table: 'reservations',     jsonCols: [],                skipImport: false },
+  { key: 'dt1Declarations', table: 'dt1_declarations', jsonCols: ['vehicles_json'], skipImport: false },
+  { key: 'webhooks',        table: 'webhooks',         jsonCols: ['events'],        skipImport: true  },
 ];
 
 function parseJsonCols(row, jsonCols) {
