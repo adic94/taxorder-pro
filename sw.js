@@ -3,16 +3,16 @@
  * Cache-first dla assetów, network-first dla danych
  * Obsługuje: install, activate, fetch, push, notificationclick
  */
-const CACHE_NAME = 'taxorder-v14';
+const CACHE_NAME = 'taxorder-v15';
 const STATIC_ASSETS = [
   '/',
-  '/index.html',
-  '/style.css',
   '/app.js',
+  '/config/cf-config.js',
+  '/fontkit.umd.min.js',
+  '/index.html',
   '/manifest.json',
   '/pdf-lib.min.js',
-  '/fontkit.umd.min.js',
-  '/config/cf-config.js',
+  '/style.css',
   '/modules/ai-chat.js',
   '/modules/alert-dashboard.js',
   '/modules/api-keys.js',
@@ -48,6 +48,7 @@ const STATIC_ASSETS = [
   '/modules/handover-protocol.js',
   '/modules/i18n.js',
   '/modules/import-export.js',
+  '/modules/inspection-calendar.js',
   '/modules/notification-settings.js',
   '/modules/notifications.js',
   '/modules/policy-ocr.js',
