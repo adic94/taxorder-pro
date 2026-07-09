@@ -38,7 +38,7 @@ if (-not $SkipAudit) {
         Write-Host $syntax
         ERR "Błąd składniowy w plikach JS — błąd w worker/index.js = crash całego API!"
     }
-    OK "Syntax OK (63 pliki)"
+    OK "Syntax OK"
 
     Step "XSS Audit (tools/autotest/xss-audit.js)..."
     $audit = & "$NODE_PATH\node.exe" tools/autotest/xss-audit.js 2>&1
