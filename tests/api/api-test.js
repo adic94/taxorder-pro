@@ -131,6 +131,10 @@ async function runAll() {
       const d = await r.json();
       assert(d.exportedAt, 'Brak exportedAt w odpowiedzi');
       assert(Array.isArray(d.vehicles), 'Brak pola vehicles');
+      assert(Array.isArray(d.dt1Declarations), 'Brak pola dt1Declarations (eksport deklaracji DT-1)');
+      assert(Array.isArray(d.webhooks), 'Brak pola webhooks (eksport webhooków)');
+      assert(Array.isArray(d.fines), 'Brak pola fines');
+      assert(Array.isArray(d.reservations), 'Brak pola reservations');
     });
 
     // --- Klucze API (roundtrip) ---
