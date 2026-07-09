@@ -30,17 +30,44 @@ try {
     ERR "Node.js nie znaleziony w $NODE_PATH"
 }
 
-# ── 2. XSS Audit ──────────────────────────────────────────────────────────
+# ── 2. Syntax check ────────────────────────────────────────────────────────
 if (-not $SkipAudit) {
+    Step "Syntax check JS (node --check)..."
+    $syntax = & "$NODE_PATH\node.exe" tools/autotest/syntax-check.js 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host $syntax
+        ERR "Błąd składniowy w plikach JS — błąd w worker/index.js = crash całego API!"
+    }
+    OK "Syntax OK (63 pliki)"
+
     Step "XSS Audit (tools/autotest/xss-audit.js)..."
     $audit = & "$NODE_PATH\node.exe" tools/autotest/xss-audit.js 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host $audit
-        ERR "XSS audit nie przeszedł — popraw błędy przed deplojem. Użyj -SkipAudit aby pominąć (niezalecane)."
+        ERR "XSS audit nie przeszedł. Użyj -SkipAudit aby pominąć (niezalecane)."
     }
     OK "XSS audit czysty"
+
+    Step "i18n completeness check..."
+    $i18n = & "$NODE_PATH\node.exe" tools/autotest/i18n-check.js 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host $i18n
+        ERR "Brakujące tłumaczenia i18n — dodaj klucze we wszystkich 7 językach."
+    }
+    OK "i18n kompletne"
+
+    Step "Service Worker cache check..."
+    $swCheck = & "$NODE_PATH\node.exe" tools/autotest/sw-cache-bump.js --check 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host $swCheck
+        Write-Host "  ⚠️  Uruchamiam auto-fix sw.js..." -ForegroundColor Yellow
+        & "$NODE_PATH\node.exe" tools/autotest/sw-cache-bump.js 2>&1 | Out-Null
+        OK "sw.js zaktualizowany — CACHE_NAME bumped"
+    } else {
+        OK "sw.js zgodne z index.html"
+    }
 } else {
-    Write-Host "  ⚠️  XSS audit pominięty (-SkipAudit)" -ForegroundColor Yellow
+    Write-Host "  ⚠️  Wszystkie audyty pominięte (-SkipAudit)" -ForegroundColor Yellow
 }
 
 # ── 3. Migracja DB (opcjonalna) ────────────────────────────────────────────
