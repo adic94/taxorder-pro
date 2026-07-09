@@ -66,7 +66,7 @@ window.TaxOrderCfmInvoices = (function () {
   function openGenerateModal() {
     const companySel = document.getElementById('cfmg-client-company');
     const extSel = document.getElementById('cfmg-client-external');
-    if (companySel) companySel.innerHTML = Object.values(window.COMPANIES || {}).filter(co => co.id !== _company()).map(co => `<option value="${co.id}">${co.shortName}</option>`).join('');
+    if (companySel) companySel.innerHTML = Object.values(window.COMPANIES || {}).filter(co => co.id !== _company()).map(co => `<option value="${esc(co.id)}">${esc(co.shortName)}</option>`).join('');
     if (extSel) extSel.innerHTML = (window.TaxOrderCfmClients?.getAll() || []).map(cl => `<option value="${esc(cl.id)}">${esc(cl.nazwa)}</option>`).join('');
     document.getElementById('cfmg-client-type').value = 'COMPANY';
     _toggleGenClientType();

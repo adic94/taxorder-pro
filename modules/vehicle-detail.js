@@ -1443,7 +1443,7 @@ window.TaxOrderVehicleDetail = {
 
   _openMaintModal(vId, item) {
     const types = window._ns_alertTypes || [];
-    const typeOpts = types.map(a => `<option value="${a.id}" ${item?.typeId===a.id?'selected':''}>${a.name}</option>`).join('');
+    const typeOpts = types.map(a => `<option value="${esc(a.id)}" ${item?.typeId===a.id?'selected':''}>${esc(a.name)}</option>`).join('');
     const fmtDate = d => d ? new Date(d).toISOString().slice(0,10) : '';
     const html = `<div id="maint-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:5002;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)this.remove()">
       <div style="background:var(--bg);border-radius:var(--radius-lg);width:420px;max-width:95vw;padding:24px;box-shadow:0 8px 40px rgba(0,0,0,.25)">

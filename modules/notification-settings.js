@@ -262,7 +262,7 @@ window.TaxOrderNotifSettings = (function () {
       <label style="display:flex;align-items:center;gap:6px;min-width:200px;cursor:pointer">
         <input type="checkbox" ${enabled?'checked':''} onchange="TaxOrderNotifSettings._toggleEnabled('${at.id}',this.checked)" style="width:15px;height:15px;cursor:pointer">
         <i class="ti ${at.icon}" style="color:${CATEGORIES[at.category]?.color||'var(--text2)'}"></i>
-        <span style="font-size:13px;font-weight:600">${at.name}</span>
+        <span style="font-size:13px;font-weight:600">${esc(at.name)}</span>
         ${at.company_id ? `<span style="font-size:10px;background:var(--bg3);padding:1px 6px;border-radius:99px;color:var(--text2)">własny</span>` : ''}
       </label>
       <!-- Progi dni -->
@@ -649,7 +649,7 @@ window.TaxOrderNotifSettings = (function () {
 
     window._tplItem = items.map(i => ({ ...i }));
 
-    const typeOpts = _alertTypes.map(a => `<option value="${a.id}">${CATEGORIES[a.category]?.label||a.category} — ${a.name}</option>`).join('');
+    const typeOpts = _alertTypes.map(a => `<option value="${esc(a.id)}">${esc(CATEGORIES[a.category]?.label||a.category)} — ${esc(a.name)}</option>`).join('');
 
     const html = `<div id="tpl-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:5000;display:flex;align-items:center;justify-content:center"
       onclick="if(event.target===this)this.remove()">

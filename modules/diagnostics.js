@@ -384,7 +384,7 @@ window.TaxOrderDiagnostics = (function () {
         <div class="dg-row"><span class="lbl">Moduły JS</span><span>${modsOk < mods.length ? `<span class="warn">${mods.length - modsOk} nie załadowanych</span>` : `<span class="ok">✅ ${modsOk}/${mods.length}</span>`}</span></div>
         <div class="dg-row"><span class="lbl">ROLE_TABS</span><span>${rt.ok ? '<span class="ok">✅ OK</span>' : `<span class="err">❌ Brak: ${rt.missing.join(', ')}</span>`}</span></div>
         <div class="dg-row"><span class="lbl">Dane (localStorage)</span><span>${ls.issues.length ? `<span class="warn">⚠ ${ls.issues[0]}</span>` : `<span class="ok">✅ ${ls.count} poj.</span>`}</span></div>
-        <div class="dg-row"><span class="lbl">Użytkownik</span><span>${user.ok ? `<span class="ok">✅ ${user.name} (${user.role})</span>` : '<span class="err">❌ Niezalogowany</span>'}</span></div>
+        <div class="dg-row"><span class="lbl">Użytkownik</span><span>${user.ok ? `<span class="ok">✅ ${esc(user.name)} (${esc(user.role)})</span>` : '<span class="err">❌ Niezalogowany</span>'}</span></div>
         <div class="dg-row"><span class="lbl">API</span><span>${apiT ? (apiOk === apiT ? `<span class="ok">✅ ${apiOk}/${apiT} OK</span>` : `<span class="warn">${apiOk}/${apiT} OK</span>`) : '<span style="color:var(--text3)">Nie testowano — kliknij 🌐</span>'}</span></div>
         <div class="dg-row"><span class="lbl">Błędy JS</span><span>${_errors.length === 0 ? '<span class="ok">✅ Brak</span>' : `<span class="${_errors.length < 5 ? 'warn' : 'err'}">${_errors.length} błędów</span>`}</span></div>
       </div>

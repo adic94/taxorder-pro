@@ -70,11 +70,11 @@ window.TaxOrderCfmContracts = (function () {
     if (companySel) {
       companySel.innerHTML = Object.values(window.COMPANIES || {})
         .filter(co => co.id !== _company())
-        .map(co => `<option value="${co.id}">${co.shortName}</option>`).join('');
+        .map(co => `<option value="${esc(co.id)}">${esc(co.shortName)}</option>`).join('');
     }
     if (extSel) {
       extSel.innerHTML = (window.TaxOrderCfmClients?.getAll() || [])
-        .map(cl => `<option value="${cl.id}">${cl.nazwa}</option>`).join('');
+        .map(cl => `<option value="${esc(cl.id)}">${esc(cl.nazwa)}</option>`).join('');
     }
     const isExternal = c?.client_type === 'EXTERNAL';
     document.getElementById('cfmum-client-type').value = isExternal ? 'EXTERNAL' : 'COMPANY';

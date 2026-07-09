@@ -48,11 +48,11 @@ window.TaxOrderDashNav = {
           </div>
           <div>
             <div style="font-size:18px;font-weight:700">${company?.shortName || 'TaxOrder Pro'}</div>
-            <div style="font-size:12px;color:var(--text2)">${company?.name || 'System DT-1'}</div>
+            <div style="font-size:12px;color:var(--text2)">${esc(company?.name || 'System DT-1')}</div>
           </div>
           <select onchange="switchCompany(this.value)" style="margin-left:auto;padding:6px 10px;border-radius:var(--radius);border:1px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">
             ${Object.entries(typeof COMPANIES !== 'undefined' ? COMPANIES : {}).map(([k,v]) => 
-              `<option value="${k}" ${k===c?'selected':''}>${v.shortName}</option>`
+              `<option value="${esc(k)}" ${k===c?'selected':''}>${esc(v.shortName)}</option>`
             ).join('')}
           </select>
         </div>

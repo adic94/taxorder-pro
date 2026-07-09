@@ -53,7 +53,7 @@ window.TaxOrderApiKeys = (function () {
     document.getElementById('apikm-name').value = '';
     document.getElementById('apikm-scope').value = 'read';
     const sel = document.getElementById('apikm-company');
-    if (sel) sel.innerHTML = Object.values(window.COMPANIES || {}).map(c => `<option value="${c.id}">${c.shortName}</option>`).join('');
+    if (sel) sel.innerHTML = Object.values(window.COMPANIES || {}).map(c => `<option value="${esc(c.id)}">${esc(c.shortName)}</option>`).join('');
     document.getElementById('apikm-result').classList.add('hidden');
     document.getElementById('apikm-form').classList.remove('hidden');
     document.getElementById('apikm-save-btn').classList.remove('hidden');

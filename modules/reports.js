@@ -1084,7 +1084,7 @@ window.FleetReports = (function () {
                 r.avgL100 > 12 ? 'color:var(--amber)' : 'color:var(--green)';
               return `<tr>
                 <td style="font-weight:700;font-size:13px;padding:4px 8px">${medal}</td>
-                <td style="padding:4px 8px;font-weight:600">${r.name}</td>
+                <td style="padding:4px 8px;font-weight:600">${esc(r.name)}</td>
                 <td style="text-align:right;padding:4px 8px;font-family:var(--mono)">${r.fuelCost ? fmt(r.fuelCost) : '—'}</td>
                 <td style="text-align:right;padding:4px 8px;font-family:var(--mono)">${r.fuelL ? r.fuelL.toFixed(1) : '—'}</td>
                 <td style="text-align:right;padding:4px 8px;font-family:var(--mono);${l100Color}">${r.avgL100 != null ? r.avgL100.toFixed(1) : '—'}</td>
