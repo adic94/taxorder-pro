@@ -237,11 +237,11 @@ window.TaxOrderAlertDashboard = (function () {
         const fg = kmLeft <= 0 ? '#991b1b' : kmLeft <= 500 ? '#92400e' : '#b45309';
         const badge = kmLeft <= 0 ? `Przekroczono o ${Math.abs(kmLeft).toLocaleString('pl-PL')} km` : `${kmLeft.toLocaleString('pl-PL')} km`;
         return `<tr style="cursor:pointer" onclick="TaxOrderAlertDashboard._open(${a.vehId},'${a.tab}')">
-          <td><strong style="font-family:var(--mono)">${a.nrRej}</strong></td>
-          <td style="font-size:12px;color:var(--text2)">${a.marka} ${a.model}</td>
+          <td><strong style="font-family:var(--mono)">${esc(a.nrRej)}</strong></td>
+          <td style="font-size:12px;color:var(--text2)">${esc(a.marka)} ${esc(a.model)}</td>
           <td>
             <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:99px;padding:3px 10px">
-              <i class="ti ${a.icon}" style="color:${a.color}"></i>${a.label}
+              <i class="ti ${a.icon}" style="color:${a.color}"></i>${esc(a.label)}
             </span>
           </td>
           <td style="font-size:11px;color:var(--text3)">@ ${Number(a._nextKm).toLocaleString('pl-PL')} km (teraz: ${Number(a._curKm).toLocaleString('pl-PL')} km)</td>
@@ -264,11 +264,11 @@ window.TaxOrderAlertDashboard = (function () {
         const bg = daysAgo <= 7 ? '#fee2e2' : '#fef3c7';
         const fg = daysAgo <= 7 ? '#991b1b' : '#92400e';
         return `<tr style="cursor:pointer" onclick="TaxOrderAlertDashboard._open(${a.vehId},'${a.tab}')">
-          <td><strong style="font-family:var(--mono)">${a.nrRej}</strong></td>
-          <td style="font-size:12px;color:var(--text2)">${a.marka} ${a.model}</td>
+          <td><strong style="font-family:var(--mono)">${esc(a.nrRej)}</strong></td>
+          <td style="font-size:12px;color:var(--text2)">${esc(a.marka)} ${esc(a.model)}</td>
           <td><span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:99px;padding:3px 10px">
-            <i class="ti ${a.icon}" style="color:${a.color}"></i>${a.label}</span></td>
-          <td style="font-size:11px;color:var(--text2)">${a._detail || ''}</td>
+            <i class="ti ${a.icon}" style="color:${a.color}"></i>${esc(a.label)}</span></td>
+          <td style="font-size:11px;color:var(--text2)">${esc(a._detail || '')}</td>
           <td><span style="font-size:12px;font-weight:700;background:${bg};color:${fg};padding:3px 10px;border-radius:99px;display:inline-block">${daysAgo === 0 ? 'Dziś' : daysAgo + 'd temu'}</span></td>
           <td onclick="event.stopPropagation()"><button class="tbtn" onclick="TaxOrderAlertDashboard._open(${a.vehId},'${a.tab}')"><i class="ti ti-external-link"></i></button></td>
         </tr>`;
@@ -277,11 +277,11 @@ window.TaxOrderAlertDashboard = (function () {
       const s = _status(a.days);
       const dateDisp = (() => { try { return new Date(a.date + (a.date.includes('T')?'':'T00:00:00')).toLocaleDateString('pl-PL'); } catch { return a.date; } })();
       return `<tr style="cursor:pointer" onclick="TaxOrderAlertDashboard._open(${a.vehId},'${a.tab}')">
-        <td><strong style="font-family:var(--mono)">${a.nrRej}</strong></td>
-        <td style="font-size:12px;color:var(--text2)">${a.marka} ${a.model}</td>
+        <td><strong style="font-family:var(--mono)">${esc(a.nrRej)}</strong></td>
+        <td style="font-size:12px;color:var(--text2)">${esc(a.marka)} ${esc(a.model)}</td>
         <td>
           <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:99px;padding:3px 10px">
-            <i class="ti ${a.icon}" style="color:${a.color}"></i>${a.label}
+            <i class="ti ${a.icon}" style="color:${a.color}"></i>${esc(a.label)}
           </span>
         </td>
         <td style="font-size:12px;font-family:var(--mono)">${dateDisp}</td>
