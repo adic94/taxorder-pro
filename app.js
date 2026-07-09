@@ -1053,17 +1053,31 @@ function toggleColPanel() {
   if (!panel) return;
   if (!_colVis) _initColVis();
   const isOpen = panel.style.display === 'block';
-  if (isOpen) { panel.style.display = 'none'; return; }
+  if (isOpen) { _closeColPanel(); return; }
   _renderColPanel();
   panel.style.display = 'block';
   setTimeout(() => {
-    document.addEventListener('click', function _closePanel(e) {
-      const btn = document.getElementById('col-vis-btn');
-      if (panel.contains(e.target) || (btn && btn.contains(e.target))) return;
-      panel.style.display = 'none';
-      document.removeEventListener('click', _closePanel);
-    });
+    document.addEventListener('click', _colPanelOutsideClick);
+    document.addEventListener('keydown', _colPanelEscape);
   }, 0);
+}
+
+function _closeColPanel() {
+  const panel = document.getElementById('col-vis-panel');
+  if (panel) panel.style.display = 'none';
+  document.removeEventListener('click', _colPanelOutsideClick);
+  document.removeEventListener('keydown', _colPanelEscape);
+}
+
+function _colPanelOutsideClick(e) {
+  const panel = document.getElementById('col-vis-panel');
+  const btn   = document.getElementById('col-vis-btn');
+  if (panel && (panel.contains(e.target) || (btn && btn.contains(e.target)))) return;
+  _closeColPanel();
+}
+
+function _colPanelEscape(e) {
+  if (e.key === 'Escape') _closeColPanel();
 }
 
 // ── Presety ──────────────────────────────────────────────────────────
