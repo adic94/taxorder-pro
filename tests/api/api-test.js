@@ -133,11 +133,66 @@ async function runAll() {
       assert(Array.isArray(d.vehicles), 'Brak pola vehicles');
     });
 
-    await test('POST /api/import z kluczem read-only → 403', async () => {
-      // To zadziała tylko jeśli istnieje klucz read-only w systemie
-      // Bez klucza — pominięty
-      console.log('    (wymaga klucza API read-only — pomiń)');
-    });
+    // --- Klucze API (roundtrip) ---
+    console.log('\n[ Klucze API ]');
+
+    // Sprawdź rolę — testy admin-only mogą być pominięte
+    let userRole = 'viewer';
+    try {
+      const meR = await fetch(`${base}/api/auth/me`, { headers: authHeaders });
+      if (meR.ok) { const me = await meR.json(); userRole = me.role || 'viewer'; }
+    } catch {}
+
+    if (userRole === 'admin') {
+      let tempKeyId = null, tempKeyToken = null;
+
+      await test('POST /api/api-keys → tworzy klucz read (admin)', async () => {
+        const r = await fetch(`${base}/api/api-keys`, {
+          method: 'POST', headers: authHeaders,
+          body: JSON.stringify({ name: 'api-test-smoke', company_id: CONFIG.company, scope: 'read' }),
+        });
+        assert(r.status === 200, `Status: ${r.status}`);
+        const d = await r.json();
+        assert(d.ok && d.key?.startsWith('tord_live_'), `Nieprawidłowa odpowiedź: ${JSON.stringify(d)}`);
+        tempKeyId = d.id; tempKeyToken = d.key;
+      });
+
+      if (tempKeyToken) {
+        const AH = { 'Authorization': `Bearer ${tempKeyToken}` };
+
+        await test('GET /api/export z kluczem API → 200 (własna firma)', async () => {
+          const r = await fetch(`${base}/api/export?company=${CONFIG.company}`, { headers: AH });
+          assert(r.status === 200, `Status: ${r.status}`);
+          const d = await r.json();
+          assert(d.exportedAt, 'Brak exportedAt');
+        });
+
+        await test('GET /api/export z kluczem API → 403 (obca firma)', async () => {
+          const r = await fetch(`${base}/api/export?company=__obca__`, { headers: AH });
+          assert(r.status === 403, `Oczekiwano 403, otrzymano ${r.status}`);
+        });
+
+        await test('POST /api/import z kluczem read-only → 403', async () => {
+          const r = await fetch(`${base}/api/import?company=${CONFIG.company}`, {
+            method: 'POST', headers: { ...AH, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ vehicles: [] }),
+          });
+          assert(r.status === 403, `Oczekiwano 403, otrzymano ${r.status}`);
+        });
+      }
+
+      if (tempKeyId) {
+        await test('DELETE /api/api-keys/:id → 200 (sprząta klucz testowy)', async () => {
+          const r = await fetch(`${base}/api/api-keys/${tempKeyId}`, { method: 'DELETE', headers: authHeaders });
+          assert(r.status === 200, `Status: ${r.status}`);
+        });
+      }
+    } else {
+      await test('GET /api/api-keys bez uprawnień admin → 403', async () => {
+        const r = await fetch(`${base}/api/api-keys`, { headers: authHeaders });
+        assert(r.status === 403, `Oczekiwano 403, otrzymano ${r.status}`);
+      });
+    }
   }
 
   // --- Nagłówki bezpieczeństwa (front-end nie ma ich, ale worker powinien) ---
