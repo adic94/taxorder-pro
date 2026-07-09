@@ -320,7 +320,7 @@ window.FinesModule = (function () {
 
     const html = !vFines.length
       ? `<div style="display:flex;justify-content:flex-end;margin-bottom:12px">
-           <button class="btn btn-blue" style="font-size:12px" onclick="FinesModule.add('${nrRej}')"><i class="ti ti-plus"></i>Dodaj mandat</button>
+           <button class="btn btn-blue" style="font-size:12px" data-nr="${esc(nrRej)}" onclick="FinesModule.add(this.dataset.nr)"><i class="ti ti-plus"></i>Dodaj mandat</button>
          </div>
          <div style="text-align:center;padding:24px;color:var(--text3)">Brak mandatów dla tego pojazdu.</div>`
       : (() => {
@@ -331,7 +331,7 @@ window.FinesModule = (function () {
               <div class="stat-chip ${unpaid.length ? 'stat-chip-amber' : ''}"><span>${vFines.length}</span> mandatów</div>
               <div class="stat-chip"><span>${total.toFixed(0)} zł</span> łącznie</div>
               ${unpaid.length ? `<div class="stat-chip stat-chip-amber"><span>${unpaid.length}</span> nieopłaconych</div>` : ''}
-              <button class="btn btn-blue" style="font-size:12px;margin-left:auto" onclick="FinesModule.add('${nrRej}')"><i class="ti ti-plus"></i>Dodaj</button>
+              <button class="btn btn-blue" style="font-size:12px;margin-left:auto" data-nr="${esc(nrRej)}" onclick="FinesModule.add(this.dataset.nr)"><i class="ti ti-plus"></i>Dodaj</button>
             </div>
             <div class="tbl-wrap"><table style="width:100%;font-size:11px">
               <thead><tr><th>Data</th><th>Typ</th><th>Opis</th><th>Kwota</th><th>Termin</th><th>Status</th><th></th></tr></thead>
