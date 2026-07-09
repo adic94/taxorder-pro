@@ -45,10 +45,10 @@ window.TaxOrderServiceOrders = (function () {
     const pillCls = { ZGLOSZONE: 'pill-amber', AUTORYZOWANE: 'pill-blue', ODRZUCONE: 'pill-red', ZREALIZOWANE: 'pill-green' };
     const pillLbl = { ZGLOSZONE: 'Zgłoszone', AUTORYZOWANE: 'Autoryzowane', ODRZUCONE: 'Odrzucone', ZREALIZOWANE: 'Zrealizowane' };
     tbody.innerHTML = filtered.map(o => `<tr>
-      <td><strong style="font-family:var(--mono)">${o.nr_rej || '—'}</strong></td>
+      <td><strong style="font-family:var(--mono)">${esc(o.nr_rej || '—')}</strong></td>
       <td style="font-size:12px">${_typeLabel(o.typ)}</td>
-      <td style="font-size:12px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.opis || '—'}</td>
-      <td><span class="pill ${pillCls[o.status] || 'pill-gray'}">${pillLbl[o.status] || o.status}</span></td>
+      <td style="font-size:12px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.opis || '—')}</td>
+      <td><span class="pill ${pillCls[o.status] || 'pill-gray'}">${pillLbl[o.status] || esc(o.status)}</span></td>
       <td style="font-family:var(--mono)">${o.koszt_szacowany != null ? Number(o.koszt_szacowany).toLocaleString('pl-PL') + ' zł' : '—'}</td>
       <td style="font-size:11px;color:var(--text2)">${new Date(o.created_at).toLocaleDateString('pl-PL')}</td>
       <td>

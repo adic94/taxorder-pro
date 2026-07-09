@@ -105,13 +105,13 @@ window.FleetMap = (function () {
 
         const popupHtml = `
           <div style="min-width:180px;font-family:var(--font-sans,sans-serif)">
-            <div style="font-weight:700;font-size:13px;margin-bottom:4px">${v.nrRej || v.nr_rej || '—'}</div>
-            <div style="font-size:11px;color:#555;margin-bottom:6px">${[v.marka, v.model].filter(Boolean).join(' ') || 'Pojazd'}</div>
+            <div style="font-weight:700;font-size:13px;margin-bottom:4px">${esc(v.nrRej || v.nr_rej || '—')}</div>
+            <div style="font-size:11px;color:#555;margin-bottom:6px">${esc([v.marka, v.model].filter(Boolean).join(' ') || 'Pojazd')}</div>
             <table style="font-size:11px;border-collapse:collapse;width:100%">
               <tr><td style="color:#888;padding:1px 6px 1px 0">Stan km</td><td style="font-weight:600">${kmStr}</td></tr>
               ${speedStr ? `<tr><td style="color:#888;padding:1px 6px 1px 0">Prędkość</td><td>${speedStr}</td></tr>` : ''}
-              ${locStr ? `<tr><td style="color:#888;padding:1px 6px 1px 0">Miejsce</td><td>${locStr}</td></tr>` : ''}
-              ${(last.driver || v.kierowca) ? `<tr><td style="color:#888;padding:1px 6px 1px 0">Kierowca</td><td>${last.driver || v.kierowca}</td></tr>` : ''}
+              ${locStr ? `<tr><td style="color:#888;padding:1px 6px 1px 0">Miejsce</td><td>${esc(locStr)}</td></tr>` : ''}
+              ${(last.driver || v.kierowca) ? `<tr><td style="color:#888;padding:1px 6px 1px 0">Kierowca</td><td>${esc(last.driver || v.kierowca)}</td></tr>` : ''}
               <tr><td style="color:#888;padding:1px 6px 1px 0">Czas</td><td>${dateStr}</td></tr>
             </table>
             <div style="margin-top:8px">
@@ -150,12 +150,12 @@ window.FleetMap = (function () {
               onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
               <div style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></div>
               <div style="min-width:0;flex:1">
-                <div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.nrRej || v.nr_rej || '—'}</div>
-                <div style="font-size:10px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${[v.marka, v.model].filter(Boolean).join(' ') || 'Pojazd'}</div>
+                <div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.nrRej || v.nr_rej || '—')}</div>
+                <div style="font-size:10px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc([v.marka, v.model].filter(Boolean).join(' ') || 'Pojazd')}</div>
               </div>
               <div style="font-size:10px;color:var(--text3);text-align:right;flex-shrink:0">
                 ${age ? `<div>${age}</div>` : '<div style="color:#9ca3af">brak GPS</div>'}
-                ${last?.location ? `<div style="max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${last.location}">${last.location}</div>` : ''}
+                ${last?.location ? `<div style="max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(last.location)}">${esc(last.location)}</div>` : ''}
               </div>
             </div>`;
         }).join('');
