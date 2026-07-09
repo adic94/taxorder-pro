@@ -70,7 +70,17 @@ if (-not $SkipAudit) {
     Write-Host "  ⚠️  Wszystkie audyty pominięte (-SkipAudit)" -ForegroundColor Yellow
 }
 
-# ── 3. Migracja DB (opcjonalna) ────────────────────────────────────────────
+# ── 3. Migration check ─────────────────────────────────────────────────────
+Step "Migration check (D1 vs schema_v*.sql)..."
+$migCheck = & "$NODE_PATH\node.exe" tools/autotest/migration-check.js 2>&1
+if ($LASTEXITCODE -eq 0) {
+    OK "D1 w sync z migracjami repo"
+} else {
+    Write-Host ($migCheck | Select-String '(❌|✅|brak|BRAK|deploy)' | ForEach-Object { "  " + $_.Line })
+    Write-Host "  ⚠️  Są niezaaplikowane migracje — pamiętaj o: .\deploy.ps1 -Schema vN" -ForegroundColor Yellow
+}
+
+# ── 4. Migracja DB (opcjonalna) ────────────────────────────────────────────
 if ($Schema) {
     $schemaFile = "worker/schema_$Schema.sql"
     Step "Migracja DB: $schemaFile..."
@@ -99,20 +109,26 @@ $versionId = ($deploy | Select-String 'Current Version ID:\s*(\S+)').Matches | F
 OK "Worker wdrożony: $workerUrl"
 if ($versionId) { Write-Host "  🔖 Version ID: $versionId" -ForegroundColor Gray }
 
-# ── 5. Weryfikacja produkcji ───────────────────────────────────────────────
-Step "Weryfikacja produkcji..."
-try {
-    $resp = Invoke-WebRequest -Uri "$workerUrl/api/auth/me" -Method GET -TimeoutSec 10 -ErrorAction SilentlyContinue
-    if ($resp.StatusCode -eq 401) {
-        OK "Worker odpowiada (401 Unauthorized — poprawnie, brak tokenu)"
-    } elseif ($resp.StatusCode -lt 500) {
-        OK "Worker odpowiada (HTTP $($resp.StatusCode))"
-    } else {
-        Write-Host "  ⚠️  Worker odpowiedział HTTP $($resp.StatusCode)" -ForegroundColor Yellow
-    }
-} catch {
-    Write-Host "  ⚠️  Nie udało się zweryfikować: $($_.Exception.Message)" -ForegroundColor Yellow
+# ── 5. API Smoke Test (weryfikacja produkcji) ──────────────────────────────
+Step "API Smoke Test (produkcja)..."
+$smokeEnv = @{}
+if ($env:TEST_EMAIL)   { $smokeEnv['TEST_EMAIL']   = $env:TEST_EMAIL }
+if ($env:TEST_PASS)    { $smokeEnv['TEST_PASS']    = $env:TEST_PASS }
+if ($env:TEST_COMPANY) { $smokeEnv['TEST_COMPANY'] = $env:TEST_COMPANY }
+if ($workerUrl)        { $smokeEnv['PROD_WORKER_URL'] = $workerUrl }
+
+$smokeArgs = if ($env:TEST_EMAIL -and $env:TEST_PASS) { '--auth' } else { '' }
+$smoke = if ($smokeArgs) {
+    & "$NODE_PATH\node.exe" tools/autotest/api-smoke-test.js $smokeArgs 2>&1
+} else {
+    & "$NODE_PATH\node.exe" tools/autotest/api-smoke-test.js 2>&1
 }
+Write-Host ($smoke | Select-String '(✅|❌|⏭|Wynik|PASS|FAIL)' | ForEach-Object { "  " + $_.Line })
+if ($LASTEXITCODE -ne 0) {
+    Write-Host $smoke
+    ERR "Smoke test nie przeszedł — produkcja nie działa poprawnie po deploymen!"
+}
+OK "Smoke test PASSED"
 
 # ── Podsumowanie ───────────────────────────────────────────────────────────
 $elapsed = [math]::Round(((Get-Date) - $START).TotalSeconds, 1)
