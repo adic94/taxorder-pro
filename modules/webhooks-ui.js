@@ -40,15 +40,15 @@ window.WebhooksUI = (function () {
       ${_hooks.map(h => {
         let events = [];
         try { events = JSON.parse(h.events||'[]'); } catch {}
-        const evLabels = events.map(e => API_EVENTS.find(x=>x.value===e)?.label || e).join(', ');
+        const evLabels = esc(events.map(e => API_EVENTS.find(x=>x.value===e)?.label || e).join(', '));
         const status = h.last_status ? (h.last_status < 300 ? '#16a34a' : '#dc2626') : '#9ca3af';
         const lastFired = h.last_fired_at ? new Date(h.last_fired_at).toLocaleString('pl-PL') : 'Nigdy';
         return `
         <div style="border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;background:var(--bg);display:flex;align-items:flex-start;gap:14px">
           <div style="width:10px;height:10px;border-radius:50%;background:${h.active?'#16a34a':'#9ca3af'};flex-shrink:0;margin-top:4px"></div>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:600;font-size:13px;margin-bottom:2px">${h.name}</div>
-            <div style="font-size:11px;color:var(--text2);font-family:var(--mono);word-break:break-all;margin-bottom:6px">${h.url}</div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:2px">${esc(h.name)}</div>
+            <div style="font-size:11px;color:var(--text2);font-family:var(--mono);word-break:break-all;margin-bottom:6px">${esc(h.url)}</div>
             <div style="font-size:11px;color:var(--text3)">Zdarzenia: ${evLabels}</div>
             <div style="font-size:11px;color:var(--text3);margin-top:2px">
               Ostatnie wywołanie: ${lastFired}
@@ -56,11 +56,11 @@ window.WebhooksUI = (function () {
             </div>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0">
-            <button class="btn btn-gray" style="padding:5px 10px;font-size:11px" title="Test" onclick="WebhooksUI.test('${h.id}')"><i class="ti ti-send"></i></button>
-            <button class="btn btn-gray" style="padding:5px 10px;font-size:11px" title="${h.active?'Dezaktywuj':'Aktywuj'}" onclick="WebhooksUI.toggle('${h.id}',${h.active?0:1})">
+            <button class="btn btn-gray" style="padding:5px 10px;font-size:11px" title="Test" data-id="${esc(h.id)}" onclick="WebhooksUI.test(this.dataset.id)"><i class="ti ti-send"></i></button>
+            <button class="btn btn-gray" style="padding:5px 10px;font-size:11px" title="${h.active?'Dezaktywuj':'Aktywuj'}" data-id="${esc(h.id)}" data-active="${h.active?'1':'0'}" onclick="WebhooksUI.toggle(this.dataset.id,this.dataset.active!=='1')">
               <i class="ti ti-${h.active?'pause':'play'}"></i>
             </button>
-            <button class="btn btn-gray" style="padding:5px 10px;font-size:11px;color:var(--red)" title="Usuń" onclick="WebhooksUI.del('${h.id}')"><i class="ti ti-trash"></i></button>
+            <button class="btn btn-gray" style="padding:5px 10px;font-size:11px;color:var(--red)" title="Usuń" data-id="${esc(h.id)}" onclick="WebhooksUI.del(this.dataset.id)"><i class="ti ti-trash"></i></button>
           </div>
         </div>`;
       }).join('')}
