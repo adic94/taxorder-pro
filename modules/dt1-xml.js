@@ -1,11 +1,16 @@
 /**
- * TaxOrder Pro — Eksport DT-1 / DT-1A do XML (ePUAP / e-Deklaracje)
+ * TaxOrder Pro — Eksport DT-1 / DT-1A do XML
  *
  * Struktura zgodna z oficjalnym schematem MF DT-1(6):
- *   https://crd.gov.pl/wzor/2019/02/28/7206/
- * Mapowanie pól P_20–P_82 zweryfikowane na podstawie styl.xsl RTM Lite i papierowego formularza MF.
+ *   http://crd.gov.pl/wzor/2019/02/28/7206/
  *
- * Sekcja D formularza DT-1 — mapowanie kategorii → pól XML:
+ * Źródło weryfikacji:
+ *   - schemat.xsd z Hogart RTM Lite (Structure/Podmiot1/P_B*)
+ *   - styl.xsl z Hogart RTM Lite (kolejność pól sekcji D)
+ *   - Rzeczywisty plik DT-1 wygenerowany + podpisany przez
+ *     moja.warszawa19115.pl (potwierdzenie kolejności P_B*)
+ *
+ * Mapowanie kategorii D formularza → pola XML:
  *   D.1  (ciężarowe 3.5–5.5t)        P_20 P_21 P_22  P_23
  *   D.2  (ciężarowe 5.5–9t)           P_24 P_25 P_26  P_27
  *   D.3  (ciężarowe 9–12t)            P_28 P_29 P_30  P_31
@@ -23,11 +28,37 @@
  *   D.15 (przyczepy/naczepy ≥12t, 3+) P_76 P_77 P_78  P_79
  *   Suma ogółem P_80, rata I P_81, rata II P_82
  *
- * Format kolumn (P_X0..P_X3 dla każdej kategorii):
- *   P_N0 = liczba pojazdów (wyłączny właściciel)
- *   P_N1 = liczba pojazdów (współwłaściciel wpisany jako 1. w DR)
- *   P_N2 = liczba pojazdów (współwłaściciel NIE wpisany jako 1.)
+ * Format liczników per kategoria (P_X0..P_X3):
+ *   P_N0 = liczba pojazdów wyłączny właściciel
+ *   P_N1 = liczba pojazdów współwłaściciel wpisany jako 1. w DR
+ *   P_N2 = liczba pojazdów współwłaściciel NIE wpisany jako 1.
  *   P_N3 = kwota podatku
+ *
+ * Kolejność pól P_B w DT-1/A (zweryfikowana na rzeczywistym pliku XML):
+ *   P_B1  własność słownie ("właściciel" / "współwłaściciel-1" / "współwłaściciel-2")
+ *   P_B2  typ pojazdu słownie ("samochód ciężarowy" itp.)
+ *   P_B3  data pierwszej rejestracji (YYYY-MM-DD)
+ *   P_B4  numer rejestracyjny
+ *   P_B5  numer VIN
+ *   P_B6  marka i model (format "Marka/Model")
+ *   P_B7  rok produkcji
+ *   P_B8  data nabycia (YYYY-MM-DD)
+ *   P_B9  data wycofania z ruchu (YYYY-MM-DD lub puste)
+ *   P_B10 data dopuszczenia do ruchu (YYYY-MM-DD lub puste)
+ *   P_B11 data wyrejestrowania (YYYY-MM-DD lub puste)
+ *   P_B12 puste
+ *   P_B13 puste
+ *   P_B14 DMC w tonach (polska notacja z przecinkiem, np. "9,5")
+ *   P_B15 DMC zestawu w tonach (dla naczep/ciągników, lub puste)
+ *   P_B16 liczba osi
+ *   P_B17 zawieszenie słownie ("pneumatyczne" / "mechaniczne" / "inne")
+ *   P_B18 puste
+ *   P_B19 puste
+ *   P_B20 liczba miesięcy podatkowych
+ *   P_B20_1 norma ekologiczna (np. "Euro (UE/EKG ONZ) Euro 6/VI" lub puste)
+ *   P_B20_gazowa..P_B20_7 paliwa alternatywne (puste jeśli nie dotyczy)
+ *   P_B21 kwota podatku
+ *   P_B22 puste
  */
 window.DT1XML = (function () {
 
@@ -37,22 +68,27 @@ window.DT1XML = (function () {
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
   }
-  function _fmt2(n)     { return n != null ? Number(n).toFixed(2) : '0.00'; }
-  function _fmtT(kg)    { return kg ? (Number(kg) / 1000).toFixed(3) : '0.000'; }  // kg → tony (format DT-1)
-  function _fmtDate(d)  { if (!d) return ''; try { return new Date(d).toISOString().slice(0, 10); } catch { return d; } }
-  function _int(v)      { return String(Math.round(Number(v) || 0)); }
+  function _fmt2(n)    { return n != null ? Number(n).toFixed(2) : '0.00'; }
+  function _fmtDate(d) { if (!d) return ''; try { return new Date(d).toISOString().slice(0, 10); } catch { return ''; } }
 
-  // Cel złożenia: klucz z selecta → numer w deklaracji
+  // kg → tony, polska notacja z przecinkiem (np. 9500 → "9,5")
+  function _fmtT(kg) {
+    if (!kg) return '';
+    const t = Number(kg) / 1000;
+    return t.toString().replace('.', ',');
+  }
+
+  // Przyczyny złożenia deklaracji (poz.18 formularza)
   const CEL_MAP = {
-    'DEKLARACJA SKLADANA DO 15 LUTEGO':     '1',
-    'POWSTANIE OBOWIAZKU W TRAKCIE ROKU':   '2',
-    'WYGASNIECIE OBOWIAZKU W TRAKCIE ROKU': '3',
+    'DEKLARACJA SKLADANA DO 15 LUTEGO':       '1',
+    'POWSTANIE OBOWIAZKU W TRAKCIE ROKU':     '2',
+    'WYGASNIECIE OBOWIAZKU W TRAKCIE ROKU':   '3',
     'ZMIANA MIEJSCA ZAMIESZKANIA LUB SIEDZIBY': '4',
-    'KOREKTA DEKLARACJI':                   '5',
-    'PRZEDLUZENIE WYCOFANIA':               '6',
+    'KOREKTA DEKLARACJI':                     '5',
+    'PRZEDLUZENIE WYCOFANIA':                 '6',
   };
 
-  // Kategoria DT-1 → [P_count1, P_count2, P_count3, P_amount]
+  // Kategoria DT-1 → [P_count_wlasciciel, P_count_wspolwl1, P_count_wspolwl2, P_kwota]
   const CAT_POS = {
     D1:  [20, 21, 22, 23],
     D2:  [24, 25, 26, 27],
@@ -71,36 +107,26 @@ window.DT1XML = (function () {
     D15: [76, 77, 78, 79],
   };
 
-  // Typ pojazdu → kod w DT-1A (P_B2)
-  const VEH_TYPE_CODE = {
-    'samochód ciężarowy':  '1',
-    'ciągnik siodłowy':    '2',
-    'ciągnik balastowy':   '3',
-    'przyczepa':           '4',
-    'naczepa':             '5',
-    'autobus':             '6',
-  };
-
-  // Zawieszenie → kod w DT-1A (P_B9): 1=pneumatyczne, 2=równoważne, 3=inne
-  const SUSP_CODE = {
-    'pneumatyczne': '1',
-    'mechaniczne':  '3',
-    'inne':         '3',
-  };
+  const POUCZENIE = 'W przypadku niewpłacenia w obowiązującym terminie kwoty podatku (raty podatku) od środków transportowych z poz. 81 i 82 lub wpłacenia jej w niepełnej wysokości, niniejsza deklaracja stanowi podstawę do wystawienia tytułu wykonawczego, zgodnie z przepisami ustawy z dnia 17 czerwca 1966 r. o postępowaniu egzekucyjnym w administracji (Dz. U. z 2018 r. poz. 1314, z późn. zm.). Za podanie nieprawdy lub zatajenie prawdy i przez to narażenie podatku na uszczuplenie grozi odpowiedzialność przewidziana w Kodeksie karnym skarbowym.';
 
   function _getFormData() {
     const g = id => (document.getElementById(id) || {}).value || '';
     return {
-      yr:       g('taxYearDT1') || g('taxYear') || String(new Date().getFullYear()),
-      nip:      g('tp-nip').replace(/[-\s]/g, ''),
-      name:     g('tp-name'),
-      street:   g('tp-street'),
-      houseNo:  g('tp-house-no') || '',
-      city:     g('tp-city'),
-      postcode: g('tp-postcode'),
-      kodUrzedu:g('tp-kod-urzedu') || '1435',
-      cel:      CEL_MAP[g('tp-cel')] || '1',
-      rodzaj:   g('tp-rodzaj') || 'niefizyczny',
+      yr:           g('taxYearDT1') || g('taxYear') || String(new Date().getFullYear()),
+      nip:          g('tp-nip').replace(/[-\s]/g, ''),
+      name:         g('tp-name'),
+      street:       g('tp-street'),
+      houseNo:      g('tp-house-no') || '',
+      city:         g('tp-city'),
+      postcode:     g('tp-postcode'),
+      gmina:        g('tp-gmina') || '',
+      urzadNazwa:   g('tp-urzad-nazwa') || g('tp-gmina') || '',
+      kodUrzedu:    g('tp-kod-urzedu') || '',
+      cel:          CEL_MAP[g('tp-cel')] || '1',
+      rodzaj:       g('tp-rodzaj') || 'niefizyczny',
+      pesel:        g('tp-pesel') || '',
+      nazwisko:     g('tp-nazwisko') || '',
+      imie:         g('tp-imie') || '',
     };
   }
 
@@ -120,21 +146,117 @@ window.DT1XML = (function () {
     }).filter(x => x.cat);
   }
 
-  // ── Eksport DT-1 (główna deklaracja) ─────────────────────────────────────────
+  function _nsDecl() {
+    return [
+      'xmlns:wnio="http://crd.gov.pl/wzor/2019/02/28/7206/"',
+      'xmlns:adr="http://crd.gov.pl/xml/schematy/adres/2009/11/09/"',
+      'xmlns:inst="http://crd.gov.pl/xml/schematy/instytucja/2009/11/16/"',
+      'xmlns:meta="http://crd.gov.pl/xml/schematy/meta/2009/11/16/"',
+      'xmlns:oso="http://crd.gov.pl/xml/schematy/osoba/2009/11/16/"',
+      'xmlns:str="http://crd.gov.pl/xml/schematy/struktura/2009/11/16/"',
+      'xmlns:ds="http://www.w3.org/2000/09/xmldsig#"',
+      'xmlns:xs="http://www.w3.org/2001/XMLSchema"',
+      'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
+      'xsi:schemaLocation="http://crd.gov.pl/wzor/2019/02/28/7206/ http://crd.gov.pl/wzor/2019/02/28/7206/schemat.xsd"',
+    ].join('\n                 ');
+  }
+
+  function _buildOpisDokumentu(form, today) {
+    return [
+      `  <wnio:OpisDokumentu>`,
+      `    <str:CID>@epuap.gov.pl</str:CID>`,
+      `    <meta:Data typDaty="stworzony">`,
+      `      <meta:Czas>${today}</meta:Czas>`,
+      `    </meta:Data>`,
+      `    <meta:Identyfikator typIdentyfikatora="idFormularza">`,
+      `      <meta:Wartosc>TaxOrderPro/DT-1_6</meta:Wartosc>`,
+      `    </meta:Identyfikator>`,
+      `    <meta:RodzajDokumentu>`,
+      `      <meta:Kategoria>tekst</meta:Kategoria>`,
+      `    </meta:RodzajDokumentu>`,
+      `    <meta:Jezyk kodJezyka="pol"/>`,
+      `    <meta:OpisDokumentu>DEKLARACJA NA PODATEK OD ŚRODKÓW TRANSPORTOWYCH</meta:OpisDokumentu>`,
+      `  </wnio:OpisDokumentu>`,
+    ].join('\n');
+  }
+
+  function _buildDaneDokumentu(form) {
+    const isFiz = form.rodzaj === 'fizyczny';
+    return [
+      `  <wnio:DaneDokumentu>`,
+      `    <str:Adresaci>`,
+      `      <meta:Podmiot>`,
+      `        <inst:Instytucja>`,
+      `          <inst:NazwaInstytucji>${_esc(form.urzadNazwa.toUpperCase())}</inst:NazwaInstytucji>`,
+      `        </inst:Instytucja>`,
+      `      </meta:Podmiot>`,
+      `    </str:Adresaci>`,
+      `    <str:Nadawcy>`,
+      `      <meta:Podmiot>`,
+      `        <oso:Osoba>`,
+      `          <oso:IdOsoby>`,
+      `            <oso:PESEL>${_esc(isFiz ? form.pesel : '')}</oso:PESEL>`,
+      `            <oso:NIP>${_esc(form.nip)}</oso:NIP>`,
+      `          </oso:IdOsoby>`,
+      `          <oso:Imie>${_esc(isFiz ? form.imie : '')}</oso:Imie>`,
+      `          <oso:Nazwisko>${_esc(isFiz ? form.nazwisko : '')}</oso:Nazwisko>`,
+      `          <adr:Adres>`,
+      `            <adr:KodPocztowy>${_esc(form.postcode)}</adr:KodPocztowy>`,
+      `            <adr:Miejscowosc>${_esc(form.city)}</adr:Miejscowosc>`,
+      `            <adr:Ulica>${_esc(form.street)}</adr:Ulica>`,
+      `            <adr:Budynek>${_esc(form.houseNo)}</adr:Budynek>`,
+      `          </adr:Adres>`,
+      `        </oso:Osoba>`,
+      `      </meta:Podmiot>`,
+      `    </str:Nadawcy>`,
+      `  </wnio:DaneDokumentu>`,
+    ].join('\n');
+  }
+
+  function _buildPodmiot1(form) {
+    const isFiz = form.rodzaj === 'fizyczny';
+    const r = isFiz ? '1' : '2';
+    return [
+      `    <wnio:Podmiot1 rodzaj="${r}" rola="podatnik">`,
+      `      <wnio:OsobaNiefizyczna>`,
+      `        <wnio:NIP>${isFiz ? '' : _esc(form.nip)}</wnio:NIP>`,
+      `        <wnio:NazwaPelna>${isFiz ? '' : _esc(form.name)}</wnio:NazwaPelna>`,
+      `      </wnio:OsobaNiefizyczna>`,
+      `      <wnio:OsobaFizyczna>`,
+      `        <wnio:NIP>${isFiz ? _esc(form.nip) : ''}</wnio:NIP>`,
+      `        <oso:PESEL>${_esc(form.pesel)}</oso:PESEL>`,
+      `        <oso:Nazwisko>${_esc(isFiz ? form.nazwisko : '')}</oso:Nazwisko>`,
+      `        <oso:Imie>${_esc(isFiz ? form.imie : '')}</oso:Imie>`,
+      `        <wnio:DataUrodzenia/>`,
+      `      </wnio:OsobaFizyczna>`,
+      `      <wnio:AdresZamieszkaniaSiedziby rodzajAdresu="RAD">`,
+      `        <adr:KodPocztowy>${_esc(form.postcode)}</adr:KodPocztowy>`,
+      `        <adr:Miejscowosc>${_esc(form.city)}</adr:Miejscowosc>`,
+      `        <adr:Ulica>${_esc(form.street)}</adr:Ulica>`,
+      `        <adr:Budynek>${_esc(form.houseNo)}</adr:Budynek>`,
+      `        <adr:Lokal/>`,
+      `        <adr:Kraj>PL</adr:Kraj>`,
+      `        <adr:Gmina>${_esc(form.gmina)}</adr:Gmina>`,
+      `        <adr:Uwagi/>`,
+      `      </wnio:AdresZamieszkaniaSiedziby>`,
+      `    </wnio:Podmiot1>`,
+    ].join('\n');
+  }
+
+  // ── DT-1 (główna deklaracja) ──────────────────────────────────────────────────
   function exportXML() {
-    const form   = _getFormData();
+    const form    = _getFormData();
     const taxable = _taxableVehs();
 
     if (!taxable.length) { toast('⚠ Brak pojazdów opodatkowanych do eksportu'); return; }
 
-    // Agregacja po kategorii
     const cats = {};
     for (const { v, cat, amount } of taxable) {
-      if (!cats[cat]) cats[cat] = { count1: 0, count2: 0, count3: 0, amount: 0 };
+      if (!cats[cat]) cats[cat] = { n0: 0, n1: 0, n2: 0, amount: 0 };
       const own = (v.ownership_type || 'właściciel');
-      if      (own === 'współwłaściciel-1') cats[cat].count2++;
-      else if (own === 'współwłaściciel-2') cats[cat].count3++;
-      else                                  cats[cat].count1++;
+      if      (own === 'współwłaściciel-1') cats[cat].n1++;
+      else if (own === 'współwłaściciel-2') cats[cat].n2++;
+      else                                                        cats[cat].n0++;
       cats[cat].amount += amount;
     }
 
@@ -142,146 +264,136 @@ window.DT1XML = (function () {
     const r1    = Math.round(total / 2);
     const r2    = Math.round(total) - r1;
     const today = new Date().toISOString().slice(0, 10);
-    const isFiz = form.rodzaj === 'fizyczny';
 
     const x = [];
-    x.push(`<?xml version="1.0" encoding="UTF-8"?>`);
-    x.push(`<Deklaracja xmlns="http://crd.gov.pl/wzor/2023/12/13/13654/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">`);
+    x.push(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`);
+    x.push(`<?xml-stylesheet type="text/xsl" href="http://crd.gov.pl/wzor/2019/02/28/7206/styl.xsl"?>`);
+    x.push(`<wnio:Dokument ${_nsDecl()}>`);
 
-    // Nagłówek
-    x.push(`  <Naglowek>`);
-    x.push(`    <KodFormularza kodSystemowy="DT-1 (6)" kodPodatku="DT" rodzajZobowiazania="Z" wersjaSchemy="1-0E">DT-1</KodFormularza>`);
-    x.push(`    <WariantFormularza>6</WariantFormularza>`);
-    x.push(`    <CelZlozenia poz="P_6">${form.cel}</CelZlozenia>`);
-    x.push(`    <Rok>${_esc(form.yr)}</Rok>`);
-    x.push(`    <NazwaSystemu>TaxOrder Pro</NazwaSystemu>`);
-    x.push(`    <DataWytworzeniaJPK>${today}</DataWytworzeniaJPK>`);
-    x.push(`  </Naglowek>`);
+    x.push(_buildOpisDokumentu(form, today));
+    x.push(_buildDaneDokumentu(form));
 
-    // Podmiot 1 — podatnik
-    x.push(`  <Podmiot1 rodzaj="${isFiz ? '1' : '2'}">`);
-    if (isFiz) {
-      x.push(`    <OsobaFizyczna>`);
-      x.push(`      <NIP>${_esc(form.nip)}</NIP>`);
-      if (form.name) x.push(`      <PelnaNazwa>${_esc(form.name)}</PelnaNazwa>`);
-      x.push(`    </OsobaFizyczna>`);
-      x.push(`    <AdresZamieszkania rodzajAdresu="RAD">`);
-    } else {
-      x.push(`    <OsobaNiefizyczna>`);
-      x.push(`      <NIP>${_esc(form.nip)}</NIP>`);
-      if (form.name) x.push(`      <PelnaNazwa>${_esc(form.name)}</PelnaNazwa>`);
-      x.push(`    </OsobaNiefizyczna>`);
-      x.push(`    <AdresSiedziby rodzajAdresu="RAD">`);
-    }
-    x.push(`      <KodKraju>PL</KodKraju>`);
-    if (form.street)   x.push(`      <Ulica>${_esc(form.street)}</Ulica>`);
-    if (form.houseNo)  x.push(`      <NrDomu>${_esc(form.houseNo)}</NrDomu>`);
-    if (form.city)     x.push(`      <Miejscowosc>${_esc(form.city)}</Miejscowosc>`);
-    if (form.postcode) x.push(`      <KodPocztowy>${_esc(form.postcode)}</KodPocztowy>`);
-    x.push(`    </${isFiz ? 'AdresZamieszkania' : 'AdresSiedziby'}>`);
-    x.push(`  </Podmiot1>`);
+    x.push(`  <wnio:TrescDokumentu format="text/xml; charset=&quot;utf-8&quot;" kodowanie="XML">`);
+    x.push(`    <wnio:Wartosc>`);
 
-    // Pozycje szczegółowe
-    x.push(`  <PozycjeSzczegolowe>`);
-    x.push(`    <P_4>${_esc(form.yr)}</P_4>`);
-    if (form.kodUrzedu) x.push(`    <P_7>${_esc(form.kodUrzedu)}</P_7>`);
+    x.push(`      <wnio:Naglowek>`);
+    x.push(`        <wnio:KodFormularza>DT-1</wnio:KodFormularza>`);
+    x.push(`        <wnio:WariantFormularza>6</wnio:WariantFormularza>`);
+    x.push(`        <wnio:Rok>${_esc(form.yr)}</wnio:Rok>`);
+    x.push(`        <wnio:WersjaSchemy>1-0</wnio:WersjaSchemy>`);
+    x.push(`      </wnio:Naglowek>`);
 
-    // Kategorie D.1–D.15
+    x.push(`      <wnio:MiejsceSkladaniaDeklaracji>${_esc(form.urzadNazwa || form.gmina)}</wnio:MiejsceSkladaniaDeklaracji>`);
+    x.push(_buildPodmiot1(form));
+    x.push(`      <wnio:PrzyczynyZlozeniaDeklaracji>${form.cel}</wnio:PrzyczynyZlozeniaDeklaracji>`);
+    x.push(`      <wnio:PoprzednieMiejsceSkladania/>`);
+    x.push(`      <wnio:DataZmiany/>`);
+
+    // Kategorie D.1–D.15 — wszystkie P_20..P_82 muszą być obecne (wartość 0 gdy puste)
+    const allP = {};
     for (const [cat, data] of Object.entries(cats)) {
       const pos = CAT_POS[cat];
       if (!pos) continue;
-      const [p0, p1, p2, p3] = pos;
-      x.push(`    <P_${p0}>${data.count1}</P_${p0}>`);
-      if (data.count2 > 0) x.push(`    <P_${p1}>${data.count2}</P_${p1}>`);
-      if (data.count3 > 0) x.push(`    <P_${p2}>${data.count3}</P_${p2}>`);
-      x.push(`    <P_${p3}>${_fmt2(data.amount)}</P_${p3}>`);
+      allP[pos[0]] = data.n0;
+      allP[pos[1]] = data.n1;
+      allP[pos[2]] = data.n2;
+      allP[pos[3]] = _fmt2(data.amount);
     }
+    for (let i = 20; i <= 79; i++) {
+      x.push(`      <wnio:P_${i}>${allP[i] != null ? allP[i] : '0'}</wnio:P_${i}>`);
+    }
+    x.push(`      <wnio:P_80>${_fmt2(total)}</wnio:P_80>`);
+    x.push(`      <wnio:P_81>${r1}</wnio:P_81>`);
+    x.push(`      <wnio:P_82>${r2}</wnio:P_82>`);
 
-    // Suma i raty
-    x.push(`    <P_80>${_fmt2(total)}</P_80>`);
-    x.push(`    <P_81>${r1}</P_81>`);
-    x.push(`    <P_82>${r2}</P_82>`);
-    x.push(`  </PozycjeSzczegolowe>`);
-    x.push(`  <Pouczenia>1</Pouczenia>`);
-    x.push(`</Deklaracja>`);
+    x.push(`      <wnio:Pouczenie>${_esc(POUCZENIE)}</wnio:Pouczenie>`);
+
+    // DT-1/A wewnątrz deklaracji (per schemat)
+    x.push(`      <wnio:Zalacznik_DT-1A>`);
+    for (const { v, cat, amount, months } of taxable) {
+      x.push(_buildPB(v, cat, amount, months));
+    }
+    x.push(`      </wnio:Zalacznik_DT-1A>`);
+
+    x.push(`    </wnio:Wartosc>`);
+    x.push(`  </wnio:TrescDokumentu>`);
+    x.push(`</wnio:Dokument>`);
 
     _download(x.join('\n'), `DT-1_${form.nip}_${form.yr}.xml`);
     toast(`✓ DT-1 XML: ${taxable.length} pojazd(ów), podatek ${_fmt2(total)} zł`);
   }
 
-  // ── Eksport DT-1/A (załącznik — szczegółowe dane pojazdu) ────────────────────
+  // ── Budowanie rekordu P_B (jeden pojazd w DT-1/A) ────────────────────────────
+  function _buildPB(v, cat, amount, months) {
+    const own = (v.ownership_type || 'właściciel');
+    const typ = (v.typ || '').toLowerCase();
+    const dmc = v.dmc ?? v.dmcMax ?? 0;
+    const isNacz = typ.includes('naczepa') || typ.includes('przyczepa');
+    const isCiag = typ.includes('ciągnik') || typ.includes('ciagnik');
+
+    const markaModel = [v.marka, v.model].filter(Boolean).join('/') || '';
+
+    const lines = [];
+    lines.push(`        <wnio:P_B>`);
+    lines.push(`          <wnio:P_B1>${_esc(own)}</wnio:P_B1>`);
+    lines.push(`          <wnio:P_B2>${_esc(v.typ || '')}</wnio:P_B2>`);
+    lines.push(`          <wnio:P_B3>${_esc(_fmtDate(v.dataRejestracji || v.dataRej || ''))}</wnio:P_B3>`);
+    lines.push(`          <wnio:P_B4>${_esc(v.nrRej || v.nr_rej || '')}</wnio:P_B4>`);
+    lines.push(`          <wnio:P_B5>${_esc(v.vin || '')}</wnio:P_B5>`);
+    lines.push(`          <wnio:P_B6>${_esc(markaModel)}</wnio:P_B6>`);
+    lines.push(`          <wnio:P_B7>${v.rok || ''}</wnio:P_B7>`);
+    lines.push(`          <wnio:P_B8>${_esc(_fmtDate(v.dataNabycia || v.purchaseDate || ''))}</wnio:P_B8>`);
+    lines.push(`          <wnio:P_B9>${_esc(_fmtDate(v.dataWycofania || ''))}</wnio:P_B9>`);
+    lines.push(`          <wnio:P_B10>${_esc(_fmtDate(v.dataDopuszczenia || ''))}</wnio:P_B10>`);
+    lines.push(`          <wnio:P_B11>${_esc(_fmtDate(v.dataWyrejestrowania || v.saleDate || ''))}</wnio:P_B11>`);
+    lines.push(`          <wnio:P_B12/>`);
+    lines.push(`          <wnio:P_B13/>`);
+    lines.push(`          <wnio:P_B14>${_fmtT(dmc)}</wnio:P_B14>`);
+    lines.push(`          <wnio:P_B15>${(isNacz || isCiag) && v.dmcZespolu > 0 ? _fmtT(v.dmcZespolu) : ''}</wnio:P_B15>`);
+    lines.push(`          <wnio:P_B16>${parseInt(v.osie) || 2}</wnio:P_B16>`);
+    lines.push(`          <wnio:P_B17>${_esc(v.zawieszenie || '')}</wnio:P_B17>`);
+    lines.push(`          <wnio:P_B18/>`);
+    lines.push(`          <wnio:P_B19/>`);
+    lines.push(`          <wnio:P_B20>${months}</wnio:P_B20>`);
+    lines.push(`          <wnio:P_B20_1>${_esc(v.normaNorma || v.normaEuro || '')}</wnio:P_B20_1>`);
+    lines.push(`          <wnio:P_B20_gazowa/>`);
+    lines.push(`          <wnio:P_B20_elektryczny/>`);
+    lines.push(`          <wnio:P_B20_hybrydowy/>`);
+    lines.push(`          <wnio:P_B20_gaz_ziemny/>`);
+    lines.push(`          <wnio:P_B20_wodor/>`);
+    lines.push(`          <wnio:P_B20_7/>`);
+    lines.push(`          <wnio:P_B21>${_fmt2(amount)}</wnio:P_B21>`);
+    lines.push(`          <wnio:P_B22/>`);
+    lines.push(`        </wnio:P_B>`);
+    return lines.join('\n');
+  }
+
+  // Eksport samego DT-1/A jako osobny plik (do podglądu/debugowania)
   function exportAttachmentXML() {
     const form    = _getFormData();
     const taxable = _taxableVehs();
-
     if (!taxable.length) { toast('⚠ Brak pojazdów'); return; }
 
     const today = new Date().toISOString().slice(0, 10);
     const x = [];
-    x.push(`<?xml version="1.0" encoding="UTF-8"?>`);
-    x.push(`<Deklaracja xmlns="http://crd.gov.pl/wzor/2023/12/13/13655/">`);
-    x.push(`  <Naglowek>`);
-    x.push(`    <KodFormularza kodSystemowy="DT-1/A (6)">DT-1/A</KodFormularza>`);
-    x.push(`    <WariantFormularza>6</WariantFormularza>`);
-    x.push(`    <Rok>${_esc(form.yr)}</Rok>`);
-    x.push(`    <NazwaSystemu>TaxOrder Pro</NazwaSystemu>`);
-    x.push(`    <DataWytworzeniaJPK>${today}</DataWytworzeniaJPK>`);
-    x.push(`  </Naglowek>`);
-    x.push(`  <PozycjeSzczegolowe>`);
-
-    for (const { v, cat, rate, amount, months } of taxable) {
-      const r1 = Math.round(amount / 2);
-      const r2  = Math.round(amount) - r1;
-
-      // Własność: 1=wyłączny właściciel, 2=współwłaściciel-1, 3=współwłaściciel-2
-      const ownMap = { 'współwłaściciel-1': '2', 'współwłaściciel-2': '3' };
-      const own = ownMap[v.ownership_type || ''] || '1';
-
-      const dmc    = v.dmc ?? v.dmcMax ?? 0;
-      const dmcZ   = v.dmcZespolu ?? 0;
-      const isNacz = (v.typ || '').toLowerCase().includes('naczepa') || (v.typ || '').toLowerCase().includes('przyczepa');
-      const isCiag = (v.typ || '').toLowerCase().includes('ciągnik') || (v.typ || '').toLowerCase().includes('ciagnik');
-      const isAutobus = (v.typ || '').toLowerCase().includes('autobus');
-
-      const typCode  = VEH_TYPE_CODE[(v.typ || '').toLowerCase()] || '1';
-      const suspCode = SUSP_CODE[(v.zawieszenie || '').toLowerCase()] || '3';
-
-      x.push(`    <P_B>`);
-      x.push(`      <P_B1>${own}</P_B1>`);                                          // własność
-      x.push(`      <P_B2>${typCode}</P_B2>`);                                      // rodzaj środka
-      x.push(`      <P_B3>${_esc(v.nrRej || '')}</P_B3>`);                         // nr rej
-      x.push(`      <P_B4>${_esc(v.vin || '')}</P_B4>`);                            // VIN
-      x.push(`      <P_B5>${_esc((v.marka || '') + ' ' + (v.model || ''))}</P_B5>`); // marka + model
-      x.push(`      <P_B6>${v.rok || ''}</P_B6>`);                                  // rok produkcji
-      x.push(`      <P_B7>${_fmtT(dmc)}</P_B7>`);                                  // DMC (tony)
-      // P_B8: DMC zespołu — dla naczep/przyczep, dla ciągników — DMC zestawu
-      x.push(`      <P_B8>${(isNacz || isCiag) && dmcZ > 0 ? _fmtT(dmcZ) : ''}</P_B8>`);
-      x.push(`      <P_B9>${parseInt(v.osie) || 2}</P_B9>`);                        // liczba osi
-      x.push(`      <P_B10>${suspCode}</P_B10>`);                                   // zawieszenie
-      x.push(`      <P_B11>${isAutobus ? (parseInt(v.miejscaSied) || '') : ''}</P_B11>`); // miejsca (tylko autobusy)
-      x.push(`      <P_B12>${_esc(_fmtDate(v.dataNabycia || v.purchaseDate || ''))}</P_B12>`);    // data nabycia
-      x.push(`      <P_B13>${_esc(_fmtDate(v.dataWycofania || ''))}</P_B13>`);                    // data wycofania
-      x.push(`      <P_B14>${_esc(_fmtDate(v.dataDopuszczenia || ''))}</P_B14>`);                 // data dopuszczenia
-      x.push(`      <P_B15>${_esc(_fmtDate(v.dataWyrejestrowania || v.saleDate || ''))}</P_B15>`); // data wyrejestrowania
-      x.push(`      <P_B16>${months}</P_B16>`);                                     // liczba miesięcy
-      x.push(`      <P_B17>${_fmt2(rate)}</P_B17>`);                                // stawka roczna
-      x.push(`      <P_B18>${_fmt2(amount)}</P_B18>`);                              // kwota podatku
-      x.push(`      <P_B19>${r1}</P_B19>`);                                         // rata I
-      x.push(`      <P_B20>${r2}</P_B20>`);                                         // rata II
-      x.push(`      <P_B20_1></P_B20_1>`);                                          // paliwo gazowe (nie dot.)
-      x.push(`      <P_B20_gazowa></P_B20_gazowa>`);
-      x.push(`      <P_B20_elektryczny></P_B20_elektryczny>`);
-      x.push(`      <P_B20_hybrydowy></P_B20_hybrydowy>`);
-      x.push(`      <P_B20_gaz_ziemny></P_B20_gaz_ziemny>`);
-      x.push(`      <P_B20_wodor></P_B20_wodor>`);
-      x.push(`      <P_B20_7></P_B20_7>`);
-      x.push(`      <P_B21>${_esc(cat || '')}</P_B21>`);                            // kategoria DT-1
-      x.push(`      <P_B22></P_B22>`);
-      x.push(`    </P_B>`);
+    x.push(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`);
+    x.push(`<wnio:Dokument ${_nsDecl()}>`);
+    x.push(`  <wnio:TrescDokumentu format="text/xml; charset=&quot;utf-8&quot;" kodowanie="XML">`);
+    x.push(`    <wnio:Wartosc>`);
+    x.push(`      <wnio:Naglowek>`);
+    x.push(`        <wnio:KodFormularza>DT-1/A</wnio:KodFormularza>`);
+    x.push(`        <wnio:WariantFormularza>6</wnio:WariantFormularza>`);
+    x.push(`        <wnio:Rok>${_esc(form.yr)}</wnio:Rok>`);
+    x.push(`        <wnio:WersjaSchemy>1-0</wnio:WersjaSchemy>`);
+    x.push(`      </wnio:Naglowek>`);
+    x.push(`      <wnio:Zalacznik_DT-1A>`);
+    for (const { v, cat, amount, months } of taxable) {
+      x.push(_buildPB(v, cat, amount, months));
     }
-
-    x.push(`  </PozycjeSzczegolowe>`);
-    x.push(`</Deklaracja>`);
+    x.push(`      </wnio:Zalacznik_DT-1A>`);
+    x.push(`    </wnio:Wartosc>`);
+    x.push(`  </wnio:TrescDokumentu>`);
+    x.push(`</wnio:Dokument>`);
 
     _download(x.join('\n'), `DT-1A_${form.nip}_${form.yr}.xml`);
     toast(`✓ DT-1/A XML: ${taxable.length} pojazd(ów)`);
