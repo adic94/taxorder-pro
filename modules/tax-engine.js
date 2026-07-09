@@ -179,7 +179,7 @@ const TaxEngine = {
       return null;
     }
 
-    if (typ.includes("ci�gnik") || typ.includes("ciagnik")) {
+    if (typ.includes("ciągnik") || typ.includes("ciagnik")) {
       if (refZ >= 12) return osie <= 2 ? "D11" : "D12";
       if (refZ >= 3.5) return "D4";
       return null;

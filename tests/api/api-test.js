@@ -108,8 +108,8 @@ async function runAll() {
       assert(Array.isArray(d.vehicles ?? d), 'Odpowiedź nie jest tablicą');
     });
 
-    await test('POST /api/vehicles z pustym body → 400', async () => {
-      const r = await fetch(`${base}/api/vehicles?company=${CONFIG.company}`, {
+    await test('POST /api/vehicles/bulk z pustym body → 400', async () => {
+      const r = await fetch(`${base}/api/vehicles/bulk?company=${CONFIG.company}`, {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({}),

@@ -17,10 +17,10 @@ test.describe('Karta pojazdu', () => {
   });
 
   async function openFirstVehicle(page) {
-    // Kliknij pierwszy wiersz pojazdu w tabeli
+    // Wiersz: pojedynczy klik = zaznaczenie (toggleRow), podwójny klik = karta pojazdu
     const firstRow = page.locator('#fleet-tbody tr, #veh-tbody tr').first();
     await expect(firstRow).toBeVisible({ timeout: 10_000 });
-    await firstRow.click();
+    await firstRow.dblclick();
     await expect(page.locator('#vd-modal')).toBeVisible({ timeout: 8_000 });
   }
 
