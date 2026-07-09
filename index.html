@@ -196,6 +196,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 
   <div class="sidebar-label">Powiadomienia</div>
   <button class="tnb" id="tnb-alert-dashboard" onclick="showPage('alert-dashboard')"><i class="ti ti-alert-triangle" style="color:#dc2626"></i><span>Alerty &amp; Terminy</span></button>
+  <button class="tnb" id="tnb-terminarz" onclick="showPage('terminarz')"><i class="ti ti-calendar-check"></i><span data-i18n="nav.terminarz">Terminarz</span></button>
   <button class="tnb" id="tnb-powiadomienia" onclick="showPage('powiadomienia')"><i class="ti ti-bell-cog"></i><span data-i18n="nav.powiadomienia">Powiadomienia</span></button>
   <button class="tnb" id="tnb-webhooks" onclick="showPage('webhooks')"><i class="ti ti-webhook"></i><span>Webhooki</span></button>
   <button class="tnb" id="tnb-errors-admin" onclick="showPage('errors-admin')"><i class="ti ti-bug"></i><span>Błędy JS</span></button>
@@ -1707,6 +1708,75 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 <!-- ==================== IMPORT DR (AZTEC) ==================== -->
 <div class="page" id="page-dr-import"></div>
 
+<!-- ==================== TERMINARZ PRZEGLĄDÓW I UBEZPIECZEŃ ==================== -->
+<div class="page" id="page-terminarz">
+  <div class="pg-title"><i class="ti ti-calendar-check"></i>Terminarz przeglądów i ubezpieczeń</div>
+  <div class="pg-sub">Nadchodzące i przeterminowane terminy OC, AC, przeglądów technicznych, UDT i tachografów</div>
+  <!-- Statystyki -->
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+    <div class="stat-card" style="min-width:110px;text-align:center">
+      <div id="insp-stat-expired" style="font-size:28px;font-weight:700;color:var(--red)">—</div>
+      <div style="font-size:11px;color:var(--text3)">Przeterminowane</div>
+    </div>
+    <div class="stat-card" style="min-width:110px;text-align:center">
+      <div id="insp-stat-7" style="font-size:28px;font-weight:700;color:#f59e0b">—</div>
+      <div style="font-size:11px;color:var(--text3)">≤ 7 dni</div>
+    </div>
+    <div class="stat-card" style="min-width:110px;text-align:center">
+      <div id="insp-stat-30" style="font-size:28px;font-weight:700;color:#f59e0b">—</div>
+      <div style="font-size:11px;color:var(--text3)">≤ 30 dni</div>
+    </div>
+    <div class="stat-card" style="min-width:110px;text-align:center">
+      <div id="insp-stat-ok" style="font-size:28px;font-weight:700;color:var(--green)">—</div>
+      <div style="font-size:11px;color:var(--text3)">OK (w horyzoncie)</div>
+    </div>
+  </div>
+  <!-- Toolbar filtrów -->
+  <div class="toolbar" style="margin-bottom:12px;flex-wrap:wrap">
+    <label style="font-size:12px;display:flex;align-items:center;gap:6px">
+      Horyzont:
+      <select class="fi" style="width:120px;font-size:12px" onchange="TaxOrderInspectionCalendar.setHorizon(this.value)">
+        <option value="30">30 dni</option>
+        <option value="60">60 dni</option>
+        <option value="90" selected>90 dni</option>
+        <option value="180">180 dni</option>
+        <option value="365">365 dni</option>
+        <option value="99999">Wszystkie</option>
+      </select>
+    </label>
+    <label style="font-size:12px;display:flex;align-items:center;gap:6px">
+      Typ:
+      <select class="fi" style="width:160px;font-size:12px" onchange="TaxOrderInspectionCalendar.setFilter(this.value)">
+        <option value="">Wszystkie</option>
+        <option value="oc">OC</option>
+        <option value="ac">AC/Casco</option>
+        <option value="insp">Przegląd tech.</option>
+        <option value="udt">UDT</option>
+        <option value="tacho">Tachograf</option>
+      </select>
+    </label>
+    <button class="btn btn-gray" style="margin-left:auto" onclick="TaxOrderInspectionCalendar.exportIcs()">
+      <i class="ti ti-calendar-down"></i>Eksportuj ICS
+    </button>
+  </div>
+  <!-- Tabela terminów -->
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Nr rej.</th>
+          <th>Pojazd</th>
+          <th>Typ terminu</th>
+          <th>Data</th>
+          <th>Pozostało</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="insp-cal-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
 <!-- ==================== MAPA GPS FLOTY ==================== -->
 <div class="page" id="page-mapa">
   <div class="pg-title"><i class="ti ti-map-2"></i>Mapa GPS floty</div>
@@ -2738,6 +2808,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/vehicle-import.js"></script>
   <script src="modules/backup.js"></script>
   <script src="modules/dt1-declarations.js"></script>
+  <script src="modules/inspection-calendar.js"></script>
   <script src="modules/webhooks-ui.js"></script>
   <script src="modules/error-tracker.js"></script>
   <script src="modules/etoll-import.js"></script>

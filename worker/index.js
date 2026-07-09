@@ -3465,6 +3465,85 @@ async function handleUserPermissions(req, env, user, url, path) {
 }
 
 // ─── ERROR TRACKING ──────────────────────────────────────────────────────────
+// Wysyła push do adminów firmy przy krytycznym błędzie JS
+async function pushErrorAlert(env, companyId, msg, errorType) {
+  if (!env.VAPID_PRIVATE_KEY || !env.VAPID_PUBLIC_KEY) return;
+  const subs = await env.DB.prepare(
+    `SELECT ps.endpoint, ps.p256dh, ps.auth_key
+     FROM push_subscriptions ps
+     JOIN users u ON ps.user_id = u.id
+     WHERE ps.company_id = ? AND u.role = 'admin' AND u.active = 1`
+  ).bind(companyId).all().catch(() => ({ results: [] }));
+  if (!subs.results?.length) return;
+  const payload = {
+    title: '⚠ Błąd JS w TaxOrder Pro',
+    body: msg.substring(0, 120),
+    tag: 'js-error',
+    url: '/index.html#errors-admin',
+    urgent: true,
+  };
+  await Promise.allSettled(
+    subs.results.map(s => sendPushMsg({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth_key } }, payload, env))
+  );
+}
+
+// Nocna kontrola terminów — wysyła push 30 i 7 dni przed terminem
+async function checkInspectionDeadlines(env) {
+  if (!env.VAPID_PRIVATE_KEY || !env.VAPID_PUBLIC_KEY) return;
+
+  const DEADLINE_FIELDS = [
+    { field: 'ocEnd',          label: 'OC' },
+    { field: 'acEnd',          label: 'AC/Casco' },
+    { field: 'nextInspection', label: 'Przegląd tech.' },
+    { field: 'udtNextDate',    label: 'UDT' },
+    { field: 'tachoNextCalib', label: 'Tachograf' },
+  ];
+  const WARN_DAYS = [30, 7];
+
+  const vehicles = await env.DB.prepare('SELECT nr_rej, company_id, data FROM vehicles').all().catch(() => ({ results: [] }));
+  const now = Date.now();
+
+  for (const vRow of (vehicles.results || [])) {
+    let data = {};
+    try { data = typeof vRow.data === 'string' ? JSON.parse(vRow.data) : (vRow.data || {}); } catch { continue; }
+    if (data.is_active === false) continue;
+
+    for (const { field, label } of DEADLINE_FIELDS) {
+      const ds = data[field];
+      if (!ds) continue;
+      const d = new Date(ds.includes('T') ? ds : ds + 'T00:00:00');
+      if (isNaN(d)) continue;
+      const days = Math.round((d - now) / 86400000);
+
+      for (const warnDays of WARN_DAYS) {
+        if (days !== warnDays) continue;  // tylko w dokładny dzień ostrzeżenia
+
+        const dedupKey = `insp:${vRow.company_id}:${vRow.nr_rej}:${field}:${warnDays}d`.replace(/[^a-zA-Z0-9:_-]/g, '_');
+        const sent = await env.PREFS.get(dedupKey).catch(() => null);
+        if (sent) continue;
+
+        const subs = await env.DB.prepare(
+          `SELECT ps.endpoint, ps.p256dh, ps.auth_key FROM push_subscriptions ps WHERE ps.company_id = ?`
+        ).bind(vRow.company_id).all().catch(() => ({ results: [] }));
+
+        if (!subs.results?.length) continue;
+
+        const payload = {
+          title: `📅 Termin za ${warnDays} dni — ${label}`,
+          body: `${vRow.nr_rej}${data.marka ? ' ' + data.marka : ''}${data.model ? ' ' + data.model : ''} · ${new Date(d).toLocaleDateString('pl-PL')}`,
+          tag: `insp-${vRow.nr_rej}-${field}`,
+          url: '/index.html#terminarz',
+        };
+
+        await Promise.allSettled(
+          subs.results.map(s => sendPushMsg({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth_key } }, payload, env))
+        );
+        await env.PREFS.put(dedupKey, '1', { expirationTtl: 86400 }).catch(() => {});
+      }
+    }
+  }
+}
+
 async function handleErrors(request, env, user, url, path) {
   // POST /api/errors — public (no auth), rate-limited by CF
   if (request.method === 'POST' && path === '/api/errors') {
@@ -3487,6 +3566,16 @@ async function handleErrors(request, env, user, url, path) {
       String(body.company_id || '').substring(0, 100) || null,
       String(body.app_version || '').substring(0, 30),
     ).run();
+    // Wyślij push do adminów firmy jeśli błąd krytyczny i nie był alerted w ostatniej godzinie
+    const companyId = String(body.company_id || '').substring(0, 100) || null;
+    if (companyId && env.PREFS && env.VAPID_PRIVATE_KEY) {
+      const dedupKey = ('errpush:' + companyId + ':' + msg.substring(0, 80)).replace(/[^a-zA-Z0-9:_-]/g, '_');
+      const alreadySent = await env.PREFS.get(dedupKey).catch(() => null);
+      if (!alreadySent) {
+        await env.PREFS.put(dedupKey, '1', { expirationTtl: 3600 }).catch(() => {});
+        pushErrorAlert(env, companyId, msg, body.error_type || 'uncaught').catch(() => {});
+      }
+    }
     return json({ ok: true, id });
   }
 
@@ -4352,6 +4441,7 @@ export default {
       cleanSessions(env),
       queueNotificationJobs(env),
       runNightlyAnalysis(env),
+      checkInspectionDeadlines(env),
     ]));
   },
 

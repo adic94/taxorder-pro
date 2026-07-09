@@ -3,7 +3,7 @@
  * Cache-first dla assetów, network-first dla danych
  * Obsługuje: install, activate, fetch, push, notificationclick
  */
-const CACHE_NAME = 'taxorder-v13';
+const CACHE_NAME = 'taxorder-v14';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

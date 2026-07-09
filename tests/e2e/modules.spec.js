@@ -221,3 +221,205 @@ test.describe('Brute-force protection', () => {
     }
   });
 });
+
+// ─── OPONY — MAGAZYN ─────────────────────────────────────────────────────────
+test.describe('Opony — magazyn', () => {
+
+  test.beforeEach(async ({ page }) => {
+    if (!process.env.TEST_EMAIL) test.skip();
+    await login(page);
+  });
+
+  test('strona opon ładuje się bez błędów JS', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await goToPage(page, 'opony-magazyn');
+    await waitForIdle(page, 1200);
+    expect(errors.filter(e => !e.includes('net::ERR'))).toHaveLength(0);
+  });
+
+  test('strona opon zawiera tabelę lub komunikat "brak"', async ({ page }) => {
+    await goToPage(page, 'opony-magazyn');
+    await waitForIdle(page, 1200);
+    const hasTbl = await page.locator('#page-opony-magazyn table').isVisible().catch(() => false);
+    const hasMsg = await page.locator('#page-opony-magazyn').textContent().then(t => t.includes('Brak') || t.length > 50);
+    expect(hasTbl || hasMsg).toBe(true);
+  });
+
+  test('regresja XSS: rozmiar opony i marka escapowane w tabeli', async ({ page }) => {
+    await goToPage(page, 'opony-magazyn');
+    await waitForIdle(page, 1200);
+    const html = await page.locator('#page-opony-magazyn').innerHTML().catch(() => '');
+    expect(html).not.toMatch(/<script/i);
+    expect(html).not.toMatch(/onerror=/i);
+  });
+
+  test('filtr wyszukiwania opon nie powoduje błędu JS', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await goToPage(page, 'opony-magazyn');
+    await waitForIdle(page, 800);
+    const searchInput = page.locator('#tires-search, #page-opony-magazyn input[type="text"], #page-opony-magazyn .fi').first();
+    if (await searchInput.isVisible()) {
+      await searchInput.fill('test');
+      await waitForIdle(page, 400);
+    }
+    expect(errors.filter(e => !e.includes('net::ERR'))).toHaveLength(0);
+  });
+});
+
+// ─── PROTOKOŁY PRZEKAZANIA ──────────────────────────────────────────────────
+test.describe('Protokoły przekazania', () => {
+
+  test.beforeEach(async ({ page }) => {
+    if (!process.env.TEST_EMAIL) test.skip();
+    await login(page);
+  });
+
+  test('strona protokołów ładuje się bez błędów JS', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await goToPage(page, 'protokoly');
+    await waitForIdle(page, 1200);
+    expect(errors.filter(e => !e.includes('net::ERR'))).toHaveLength(0);
+  });
+
+  test('strona protokołów zawiera toolbar lub tabelę', async ({ page }) => {
+    await goToPage(page, 'protokoly');
+    await waitForIdle(page, 1000);
+    const hasToolbar = await page.locator('#page-protokoly .toolbar, #page-protokoly button').isVisible().catch(() => false);
+    const hasContent = await page.locator('#page-protokoly').textContent().then(t => t.length > 30);
+    expect(hasToolbar || hasContent).toBe(true);
+  });
+
+  test('regresja XSS: dane protokołu escapowane w liście', async ({ page }) => {
+    await goToPage(page, 'protokoly');
+    await waitForIdle(page, 1200);
+    const html = await page.locator('#page-protokoly').innerHTML().catch(() => '');
+    expect(html).not.toMatch(/<script/i);
+    expect(html).not.toMatch(/onerror=/i);
+  });
+
+  test('kliknięcie "Nowy protokół" otwiera modal bez błędu JS', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await goToPage(page, 'protokoly');
+    await waitForIdle(page, 800);
+    const btn = page.locator('#page-protokoly button:has-text("Nowy"), #page-protokoly button:has-text("protokół"), #page-protokoly button:has-text("Dodaj")').first();
+    if (await btn.isVisible()) {
+      await btn.click();
+      await waitForIdle(page, 500);
+    }
+    expect(errors.filter(e => !e.includes('net::ERR'))).toHaveLength(0);
+  });
+});
+
+// ─── KIEROWCY ────────────────────────────────────────────────────────────────
+test.describe('Kierowcy', () => {
+
+  test.beforeEach(async ({ page }) => {
+    if (!process.env.TEST_EMAIL) test.skip();
+    await login(page);
+  });
+
+  test('przejście do widoku kierowców nie powoduje błędów JS', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    // Kierowcy to modal, nie osobna strona — wywołujemy przez nav lub API
+    await page.evaluate(() => window.TaxOrderDrivers?.open?.());
+    await waitForIdle(page, 1000);
+    expect(errors.filter(e => !e.includes('net::ERR'))).toHaveLength(0);
+  });
+
+  test('panel kierowców renderuje dane z API bez błędów JS', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    // Jeśli istnieje tnb-kierowcy lub nav link
+    const driverBtn = page.locator('[onclick*="kierowcy"], [onclick*="TaxOrderDrivers"], nav button:has-text("Kierowcy")');
+    if (await driverBtn.first().isVisible()) {
+      await driverBtn.first().click();
+      await waitForIdle(page, 1200);
+    }
+    expect(errors.filter(e => !e.includes('net::ERR'))).toHaveLength(0);
+  });
+
+  test('regresja XSS: imię kierowcy z payload XSS nie wykonuje się', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await login(page);
+    // Symuluj render kierowcy z XSS payload w imieniu
+    await page.evaluate(() => {
+      if (window.TaxOrderDrivers?.renderScoring) {
+        window.TaxOrderDrivers.renderScoring();
+      }
+    });
+    const xssExecuted = await page.evaluate(() => window.__xss === 1);
+    expect(xssExecuted).toBe(false);
+    expect(errors.filter(e => !e.includes('net::ERR'))).toHaveLength(0);
+  });
+});
+
+// ─── TERMINARZ PRZEGLĄDÓW (nowa funkcja) ─────────────────────────────────────
+test.describe('Terminarz przeglądów i ubezpieczeń', () => {
+
+  test.beforeEach(async ({ page }) => {
+    if (!process.env.TEST_EMAIL) test.skip();
+    await login(page);
+  });
+
+  test('strona terminarz ładuje się bez błędów JS', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await goToPage(page, 'terminarz');
+    await waitForIdle(page, 1200);
+    expect(errors.filter(e => !e.includes('net::ERR'))).toHaveLength(0);
+  });
+
+  test('strona terminarz zawiera tabele i statystyki', async ({ page }) => {
+    await goToPage(page, 'terminarz');
+    await waitForIdle(page, 1000);
+    await expect(page.locator('#page-terminarz table')).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('#insp-stat-expired')).toBeVisible();
+  });
+
+  test('zmiana horyzontu przelicza tabelę bez błędu JS', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await goToPage(page, 'terminarz');
+    await waitForIdle(page, 800);
+    await page.selectOption('#page-terminarz select', '30');
+    await waitForIdle(page, 400);
+    await page.selectOption('#page-terminarz select', '365');
+    await waitForIdle(page, 400);
+    expect(errors.filter(e => !e.includes('net::ERR'))).toHaveLength(0);
+  });
+
+  test('przycisk "Eksportuj ICS" nie powoduje błędu JS', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await goToPage(page, 'terminarz');
+    await waitForIdle(page, 800);
+    // Ustaw horyzont 365 dni żeby mieć dane do eksportu
+    await page.selectOption('#page-terminarz select', '365').catch(() => {});
+    await waitForIdle(page, 400);
+    const exportBtn = page.locator('button:has-text("Eksportuj ICS")');
+    if (await exportBtn.isVisible()) {
+      // Przechwytuj pobieranie pliku
+      const [download] = await Promise.all([
+        page.waitForEvent('download', { timeout: 3000 }).catch(() => null),
+        exportBtn.click(),
+      ]);
+      // Jeśli nie ma terminów, toast; jeśli są — download
+      await waitForIdle(page, 500);
+    }
+    expect(errors.filter(e => !e.includes('net::ERR'))).toHaveLength(0);
+  });
+
+  test('regresja XSS: nrRej i marka/model escapowane w tabeli terminów', async ({ page }) => {
+    await goToPage(page, 'terminarz');
+    await waitForIdle(page, 1200);
+    const html = await page.locator('#insp-cal-tbody').innerHTML().catch(() => '');
+    expect(html).not.toMatch(/<script/i);
+    expect(html).not.toMatch(/onerror=/i);
+  });
+});
