@@ -2074,7 +2074,8 @@ async function handleImport(req, env, company) {
     if (!Array.isArray(rows) || !rows.length) continue;
     let n = 0;
     for (const row of rows) {
-      const cols = Object.keys(row).filter(c => c !== 'id' && c !== 'company_id');
+      // Whitelist: tylko prawidłowe nazwy kolumn SQL (alfanumeryczne + podkreślnik)
+      const cols = Object.keys(row).filter(c => c !== 'id' && c !== 'company_id' && /^[a-z_][a-z0-9_]*$/i.test(c));
       const vals = cols.map(c => {
         const v = row[c];
         return jsonCols.includes(c) && v !== null && typeof v !== 'string' ? JSON.stringify(v) : v;

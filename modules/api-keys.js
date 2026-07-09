@@ -36,14 +36,14 @@ window.TaxOrderApiKeys = (function () {
     }
     tbody.innerHTML = list.map(k => `<tr style="${k.active ? '' : 'opacity:.5'}">
       <td><strong>${esc(k.name)}</strong></td>
-      <td style="font-size:12px">${_companyName(k.company_id)}</td>
+      <td style="font-size:12px">${esc(_companyName(k.company_id))}</td>
       <td style="font-size:12px">${k.scope === 'read_write' ? 'Odczyt i zapis' : 'Tylko odczyt'}</td>
       <td style="font-size:12px">${k.active ? '<span style="color:var(--green,#3B6D11)">Aktywny</span>' : '<span style="color:var(--text3)">Wyłączony</span>'}</td>
       <td style="font-size:12px">${_fmtDate(k.last_used_at)}</td>
       <td>
         <div style="display:flex;gap:4px">
-          <button class="tbtn" onclick="TaxOrderApiKeys.toggleActive('${k.id}', ${k.active ? 'false' : 'true'})" title="${k.active ? 'Wyłącz' : 'Włącz'}"><i class="ti ti-${k.active ? 'lock' : 'lock-open'}"></i></button>
-          <button class="tbtn" onclick="TaxOrderApiKeys.remove('${k.id}')" style="color:var(--red)" title="Usuń"><i class="ti ti-trash"></i></button>
+          <button class="tbtn" data-id="${esc(k.id)}" data-active="${k.active ? '1' : '0'}" onclick="TaxOrderApiKeys.toggleActive(this.dataset.id, this.dataset.active !== '1')" title="${k.active ? 'Wyłącz' : 'Włącz'}"><i class="ti ti-${k.active ? 'lock' : 'lock-open'}"></i></button>
+          <button class="tbtn" data-id="${esc(k.id)}" onclick="TaxOrderApiKeys.remove(this.dataset.id)" style="color:var(--red)" title="Usuń"><i class="ti ti-trash"></i></button>
         </div>
       </td>
     </tr>`).join('');
