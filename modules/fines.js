@@ -342,7 +342,7 @@ window.FinesModule = (function () {
                   return `<tr>
                     <td style="font-family:var(--mono);white-space:nowrap">${_fmtDate(f.date)}</td>
                     <td><span style="color:${t.color}"><i class="ti ${t.icon}"></i> ${t.label}</span></td>
-                    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.description || '—'}</td>
+                    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.description || '—')}</td>
                     <td style="font-family:var(--mono);font-weight:700">${f.amount ? f.amount.toFixed(2) + ' zł' : '—'}</td>
                     <td style="font-family:var(--mono);white-space:nowrap">${_fmtDate(f.deadline)}</td>
                     <td>${f.paid
