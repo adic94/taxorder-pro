@@ -110,23 +110,24 @@ window.DT1XML = (function () {
   const POUCZENIE = 'W przypadku niewpłacenia w obowiązującym terminie kwoty podatku (raty podatku) od środków transportowych z poz. 81 i 82 lub wpłacenia jej w niepełnej wysokości, niniejsza deklaracja stanowi podstawę do wystawienia tytułu wykonawczego, zgodnie z przepisami ustawy z dnia 17 czerwca 1966 r. o postępowaniu egzekucyjnym w administracji (Dz. U. z 2018 r. poz. 1314, z późn. zm.). Za podanie nieprawdy lub zatajenie prawdy i przez to narażenie podatku na uszczuplenie grozi odpowiedzialność przewidziana w Kodeksie karnym skarbowym.';
 
   function _getFormData() {
-    const g = id => (document.getElementById(id) || {}).value || '';
+    // g() czyta pole po ID; g2() próbuje dwóch ID (formularze DT-1 vs strona Podatnik mają różne ID)
+    const g  = id => (document.getElementById(id) || {}).value || '';
+    const g2 = (a, b) => g(a) || g(b);
     return {
-      yr:           g('taxYearDT1') || g('taxYear') || String(new Date().getFullYear()),
-      nip:          g('tp-nip').replace(/[-\s]/g, ''),
-      name:         g('tp-name'),
-      street:       g('tp-street'),
-      houseNo:      g('tp-house-no') || '',
-      city:         g('tp-city'),
-      postcode:     g('tp-postcode'),
-      gmina:        g('tp-gmina') || '',
-      urzadNazwa:   g('tp-urzad-nazwa') || g('tp-gmina') || '',
-      kodUrzedu:    g('tp-kod-urzedu') || '',
-      cel:          CEL_MAP[g('tp-cel')] || '1',
-      rodzaj:       g('tp-rodzaj') || 'niefizyczny',
-      pesel:        g('tp-pesel') || '',
-      nazwisko:     g('tp-nazwisko') || '',
-      imie:         g('tp-imie') || '',
+      yr:         g('taxYearDT1') || g('taxYear') || String(new Date().getFullYear()),
+      nip:        g('tp-nip').replace(/[-\s]/g, ''),
+      name:       g2('tp-name', 'tp-nazwa'),
+      street:     g2('tp-street', 'tp-ulica'),
+      houseNo:    g2('tp-house-no', 'tp-dom'),
+      city:       g2('tp-city', 'tp-miasto'),
+      postcode:   g2('tp-postcode', 'tp-kod'),
+      gmina:      g('tp-gmina') || '',
+      urzadNazwa: g2('tp-organ', 'tp-gmina'),   // "organ podatkowy" ze strony Podatnik
+      cel:        CEL_MAP[g2('tp-cel', 'tp-celPodatnik')] || '1',
+      rodzaj:     g('tp-rodzaj') || 'niefizyczny',
+      pesel:      g('tp-pesel') || '',
+      nazwisko:   g('tp-nazwisko') || '',
+      imie:       g('tp-imie') || '',
     };
   }
 
