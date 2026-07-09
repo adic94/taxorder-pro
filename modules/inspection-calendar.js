@@ -67,7 +67,6 @@ window.TaxOrderInspectionCalendar = (function () {
     set('insp-stat-7',       rows.filter(r => r.days >= 0 && r.days <= 7).length);
     set('insp-stat-30',      rows.filter(r => r.days > 7  && r.days <= 30).length);
     set('insp-stat-ok',      rows.filter(r => r.days > 30).length);
-    set('insp-stat-total',   rows.length);
   }
 
   function load() { render(); }
