@@ -11,7 +11,9 @@ window.TaxOrderInspectionCalendar = (function () {
   function _days(ds) {
     if (!ds) return null;
     const d = new Date(ds.includes('T') ? ds : ds + 'T00:00:00');
-    return isNaN(d) ? null : Math.round((d - Date.now()) / 86400000);
+    if (isNaN(d)) return null;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    return Math.round((d - today) / 86400000);
   }
 
   function _fmtDate(ds) {
