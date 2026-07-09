@@ -2260,8 +2260,8 @@ function _renderDriversDash() {
       return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border)">
         <i class="ti ti-id-badge" style="color:var(--amber);font-size:13px;flex-shrink:0"></i>
         <div style="flex:1;min-width:0">
-          <div style="font-size:11px;font-weight:700">${d.name}</div>
-          <div style="font-size:11px;color:var(--text2)">${d.license_no ? 'Nr: '+d.license_no : 'Brak numeru prawa jazdy'}</div>
+          <div style="font-size:11px;font-weight:700">${esc(d.name)}</div>
+          <div style="font-size:11px;color:var(--text2)">${d.license_no ? 'Nr: '+esc(d.license_no) : 'Brak numeru prawa jazdy'}</div>
         </div>
         <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${days<0?'var(--red)':days<=14?'var(--red)':'var(--amber)'}">${days<0?Math.abs(days)+'d temu':'za '+days+'d'}</span>
       </div>`;
@@ -3541,11 +3541,11 @@ function runValidation() {
       <div style="flex:1">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
           <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;background:${c.text};color:#fff">${c.label}</span>
-          <span style="font-size:10px;color:${c.text};font-family:var(--mono)">${issue.code}</span>
-          ${issue.veh?`<span style="font-family:var(--mono);font-size:11px;font-weight:600;color:${c.text}">${issue.veh}</span>`:''}
+          <span style="font-size:10px;color:${c.text};font-family:var(--mono)">${esc(issue.code)}</span>
+          ${issue.veh?`<span style="font-family:var(--mono);font-size:11px;font-weight:600;color:${c.text}">${esc(issue.veh)}</span>`:''}
         </div>
-        <div style="font-weight:600;font-size:13px;color:${c.text};margin-bottom:3px">${issue.title}</div>
-        <div style="font-size:12px;color:${c.text};opacity:.85;line-height:1.5">${issue.desc}</div>
+        <div style="font-weight:600;font-size:13px;color:${c.text};margin-bottom:3px">${esc(issue.title)}</div>
+        <div style="font-size:12px;color:${c.text};opacity:.85;line-height:1.5">${esc(issue.desc)}</div>
       </div>
       ${issue.link?`<button class="btn btn-gray" style="flex-shrink:0;font-size:11px" onclick="showPage('${issue.link}')"><i class="ti ti-arrow-right"></i>Przejdź</button>`:''}
     </div>`;
@@ -5985,7 +5985,7 @@ function renderKarty() {
     <td>
       <div style="display:flex;align-items:center;gap:6px">
         <span id="pin-${k.id}" style="font-family:var(--mono);letter-spacing:2px">••••</span>
-        <button class="tbtn" style="padding:3px 8px;font-size:10px" onclick="togglePin('${k.id}','${(k.pin||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">Pokaż</button>
+        <button class="tbtn" style="padding:3px 8px;font-size:10px" data-id="${esc(k.id)}" data-pin="${esc(k.pin||'')}" onclick="togglePin(this.dataset.id,this.dataset.pin)">Pokaż</button>
       </div>
     </td>
     <td><strong style="font-family:var(--mono)">${esc(k.nr_rej||'—')}</strong></td>
@@ -5993,7 +5993,7 @@ function renderKarty() {
     <td>${esc(k.provider||'—')}</td>
     <td style="font-family:var(--mono)">${k.limit_pln ? Number(k.limit_pln).toLocaleString('pl-PL')+' zł' : '—'}</td>
     <td style="font-size:12px">${k.expires||'—'}</td>
-    <td><span class="pill ${STATUS_COLORS[k.status]||'pill-gray'}">${k.status}</span></td>
+    <td><span class="pill ${STATUS_COLORS[k.status]||'pill-gray'}">${esc(k.status)}</span></td>
     <td>
       <div style="display:flex;gap:4px">
         <button class="tbtn" onclick="openKartaModal('${k.id}')"><i class="ti ti-edit"></i></button>
@@ -6185,8 +6185,8 @@ function openDocModal(nrRej){
   if(!docs.length){
     document.getElementById('doc-modal-body').innerHTML=`<div style="text-align:center;padding:3rem;color:var(--text3)">
       <i class="ti ti-file-off" style="font-size:48px;display:block;margin-bottom:12px"></i>
-      <div style="margin-bottom:14px">Brak dokumentów dla ${nrRej}</div>
-      <button class="btn btn-blue" onclick="triggerDocUpload('${nrRej}')"><i class="ti ti-upload"></i>Wgraj dowód rejestracyjny</button>
+      <div style="margin-bottom:14px">Brak dokumentów dla ${esc(nrRej)}</div>
+      <button class="btn btn-blue" data-nr="${esc(nrRej)}" onclick="triggerDocUpload(this.dataset.nr)"><i class="ti ti-upload"></i>Wgraj dowód rejestracyjny</button>
     </div>`;
   }else{
     document.getElementById('doc-modal-body').innerHTML=`
@@ -6196,21 +6196,21 @@ function openDocModal(nrRej){
             `<img src="${d.data}" style="width:100%;max-height:280px;object-fit:contain;background:#f0f0f0;display:block">`:
             `<div style="background:#f5f5f4;height:200px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px">
               <i class="ti ti-file-type-pdf" style="font-size:48px;color:var(--red)"></i>
-              <div style="font-size:12px;color:var(--text2)">${d.name}</div>
+              <div style="font-size:12px;color:var(--text2)">${esc(d.name)}</div>
               <a href="${d.data}" target="_blank" class="btn btn-gray" style="font-size:11px"><i class="ti ti-external-link"></i>Otwórz PDF</a>
             </div>`}
           <div style="padding:10px 12px">
-            <div style="font-weight:500;font-size:12px;margin-bottom:2px">${d.name}</div>
-            <div style="font-size:11px;color:var(--text3)">${d.uploadedAt}</div>
+            <div style="font-weight:500;font-size:12px;margin-bottom:2px">${esc(d.name)}</div>
+            <div style="font-size:11px;color:var(--text3)">${esc(d.uploadedAt||'')}</div>
             <div style="display:flex;gap:6px;margin-top:8px">
-              <a href="${d.data}" download="${d.name}" class="btn btn-gray" style="font-size:11px;flex:1;justify-content:center"><i class="ti ti-download"></i>Pobierz</a>
-              <button class="btn btn-gray" style="font-size:11px;color:var(--blue)" onclick="runOcrOnDoc('${d.id}','${nrRej}')"><i class="ti ti-scan"></i>OCR</button>
-              <button class="btn btn-gray" style="font-size:11px;color:var(--red)" onclick="deleteDoc('${nrRej}','${d.id}')"><i class="ti ti-trash"></i></button>
+              <a href="${d.data}" download="${esc(d.name)}" class="btn btn-gray" style="font-size:11px;flex:1;justify-content:center"><i class="ti ti-download"></i>Pobierz</a>
+              <button class="btn btn-gray" style="font-size:11px;color:var(--blue)" data-id="${esc(d.id)}" data-nr="${esc(nrRej)}" onclick="runOcrOnDoc(this.dataset.id,this.dataset.nr)"><i class="ti ti-scan"></i>OCR</button>
+              <button class="btn btn-gray" style="font-size:11px;color:var(--red)" data-nr="${esc(nrRej)}" data-id="${esc(d.id)}" onclick="deleteDoc(this.dataset.nr,this.dataset.id)"><i class="ti ti-trash"></i></button>
             </div>
           </div>
         </div>`).join('')}
       </div>
-      <button class="btn btn-blue" onclick="triggerDocUpload('${nrRej}')"><i class="ti ti-upload"></i>Dodaj kolejny dokument</button>`;
+      <button class="btn btn-blue" data-nr="${esc(nrRej)}" onclick="triggerDocUpload(this.dataset.nr)"><i class="ti ti-upload"></i>Dodaj kolejny dokument</button>`;
   }
   document.getElementById('doc-modal').classList.remove('hidden');
 }
