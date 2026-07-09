@@ -187,14 +187,14 @@ window.TaxOrderDrImport = (function () {
       return `<div id="dri-row-${_sid(f.key)}" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:8px">
         <i class="ti ${isImg ? 'ti-photo' : 'ti-file-type-pdf'}" style="font-size:24px;color:var(--blue);flex-shrink:0"></i>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</div>
+          <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</div>
           <div style="font-size:11px;color:var(--text2)">${_fmtSize(f.size)} · ${f.uploaded ? new Date(f.uploaded).toLocaleString('pl-PL') : ''}</div>
         </div>
         <div id="dri-status-${_sid(f.key)}" style="display:flex;gap:6px;flex-shrink:0">
-          <button class="btn btn-blue" style="font-size:11px" onclick="TaxOrderDrImport._process('${f.key}','${f.name}')">
+          <button class="btn btn-blue" style="font-size:11px" data-key="${esc(f.key)}" data-name="${esc(f.name)}" onclick="TaxOrderDrImport._process(this.dataset.key,this.dataset.name)">
             <i class="ti ti-scan"></i>Aztec/OCR
           </button>
-          <button class="btn btn-gray" style="font-size:11px;color:var(--red)" onclick="TaxOrderDrImport._del('${f.key}','${f.name}')">
+          <button class="btn btn-gray" style="font-size:11px;color:var(--red)" data-key="${esc(f.key)}" data-name="${esc(f.name)}" onclick="TaxOrderDrImport._del(this.dataset.key,this.dataset.name)">
             <i class="ti ti-trash"></i>
           </button>
         </div>
@@ -235,16 +235,16 @@ window.TaxOrderDrImport = (function () {
           const veh = _findVeh(result.fields.nrRej);
           if (veh) {
             await _saveDr(veh.nr_rej, result.fields, f.key, false, false);
-            if (statusEl) statusEl.innerHTML = `<span style="color:var(--green);font-size:11px"><i class="ti ti-check"></i> ${veh.nr_rej} zaktualizowany (${result.method})</span>`;
+            if (statusEl) statusEl.innerHTML = `<span style="color:var(--green);font-size:11px"><i class="ti ti-check"></i> ${esc(veh.nr_rej)} zaktualizowany (${result.method})</span>`;
             processed++;
           } else {
-            if (statusEl) statusEl.innerHTML = `<span style="color:var(--amber);font-size:11px"><i class="ti ti-alert-triangle"></i> ${result.fields.nrRej || '?'} — nie znaleziono pojazdu</span>
-              <button class="btn btn-gray" style="font-size:10px" onclick="TaxOrderDrImport._process('${f.key}','${f.name}')"><i class="ti ti-hand"></i>Ręcznie</button>`;
+            if (statusEl) statusEl.innerHTML = `<span style="color:var(--amber);font-size:11px"><i class="ti ti-alert-triangle"></i> ${esc(result.fields.nrRej || '?')} — nie znaleziono pojazdu</span>
+              <button class="btn btn-gray" style="font-size:10px" data-key="${esc(f.key)}" data-name="${esc(f.name)}" onclick="TaxOrderDrImport._process(this.dataset.key,this.dataset.name)"><i class="ti ti-hand"></i>Ręcznie</button>`;
             failed++;
           }
         } else {
           if (statusEl) statusEl.innerHTML = `<span style="color:var(--red);font-size:11px"><i class="ti ti-x"></i> Nie udało się odczytać</span>
-            <button class="btn btn-gray" style="font-size:10px" onclick="TaxOrderDrImport._process('${f.key}','${f.name}')"><i class="ti ti-hand"></i>Ręcznie</button>`;
+            <button class="btn btn-gray" style="font-size:10px" data-key="${esc(f.key)}" data-name="${esc(f.name)}" onclick="TaxOrderDrImport._process(this.dataset.key,this.dataset.name)"><i class="ti ti-hand"></i>Ręcznie</button>`;
           failed++;
         }
       } catch {
@@ -265,14 +265,14 @@ window.TaxOrderDrImport = (function () {
     const result = await _extractFile(r2Key, fileName);
 
     if (!result) {
-      if (statusEl) statusEl.innerHTML = `<button class="btn btn-blue" style="font-size:11px" onclick="TaxOrderDrImport._process('${r2Key}','${fileName}')"><i class="ti ti-scan"></i>Aztec/OCR</button>
-        <button class="btn btn-gray" style="font-size:11px;color:var(--red)" onclick="TaxOrderDrImport._del('${r2Key}','${fileName}')"><i class="ti ti-trash"></i></button>`;
+      if (statusEl) statusEl.innerHTML = `<button class="btn btn-blue" style="font-size:11px" data-key="${esc(r2Key)}" data-name="${esc(fileName)}" onclick="TaxOrderDrImport._process(this.dataset.key,this.dataset.name)"><i class="ti ti-scan"></i>Aztec/OCR</button>
+        <button class="btn btn-gray" style="font-size:11px;color:var(--red)" data-key="${esc(r2Key)}" data-name="${esc(fileName)}" onclick="TaxOrderDrImport._del(this.dataset.key,this.dataset.name)"><i class="ti ti-trash"></i></button>`;
       window.toast?.('Nie udało się odczytać danych z pliku — sprawdź jakość skanu');
       return;
     }
 
-    if (statusEl) statusEl.innerHTML = `<button class="btn btn-blue" style="font-size:11px" onclick="TaxOrderDrImport._process('${r2Key}','${fileName}')"><i class="ti ti-scan"></i>Aztec/OCR</button>
-      <button class="btn btn-gray" style="font-size:11px;color:var(--red)" onclick="TaxOrderDrImport._del('${r2Key}','${fileName}')"><i class="ti ti-trash"></i></button>`;
+    if (statusEl) statusEl.innerHTML = `<button class="btn btn-blue" style="font-size:11px" data-key="${esc(r2Key)}" data-name="${esc(fileName)}" onclick="TaxOrderDrImport._process(this.dataset.key,this.dataset.name)"><i class="ti ti-scan"></i>Aztec/OCR</button>
+      <button class="btn btn-gray" style="font-size:11px;color:var(--red)" data-key="${esc(r2Key)}" data-name="${esc(fileName)}" onclick="TaxOrderDrImport._del(this.dataset.key,this.dataset.name)"><i class="ti ti-trash"></i></button>`;
 
     _showModal(r2Key, fileName, result.fields, result.method);
   }
@@ -322,11 +322,11 @@ window.TaxOrderDrImport = (function () {
       ? `<span style="font-size:11px;background:#fef3c7;color:#92400e;padding:3px 10px;border-radius:99px;margin-left:6px"><i class="ti ti-plus"></i> Nowy pojazd</span>`
       : `<span style="font-size:11px;background:#d1fae5;color:#065f46;padding:3px 10px;border-radius:99px;margin-left:6px"><i class="ti ti-check"></i> Znaleziony w bazie</span>`;
 
-    const vehInfo = veh ? `${veh.marka || ''} ${veh.model || ''}`.trim() : '';
+    const vehInfo = veh ? `${esc(veh.marka || '')} ${esc(veh.model || '')}`.trim() : '';
 
     const fi = (id, label, val, type = 'text') =>
       `<div><label style="font-size:11px;color:var(--text2)">${label}</label>
-       <input id="dri-f-${id}" type="${type}" class="fi" value="${val || ''}"></div>`;
+       <input id="dri-f-${id}" type="${type}" class="fi" value="${esc(val || '')}"></div>`;
 
     const html = `<div id="dri-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:7000;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:16px"
       onclick="if(event.target===this)this.remove()">
@@ -336,7 +336,7 @@ window.TaxOrderDrImport = (function () {
           <strong style="font-size:16px">Potwierdź dane DR</strong>
           <button onclick="document.getElementById('dri-modal').remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px">×</button>
         </div>
-        <div style="font-size:11px;color:var(--text2);margin-bottom:12px">${fileName}</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:12px">${esc(fileName)}</div>
 
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:16px">
           ${badge}
@@ -353,7 +353,7 @@ window.TaxOrderDrImport = (function () {
         </div>` : ''}
 
         ${isNew ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--radius);padding:10px;font-size:12px;color:#1d4ed8;margin-bottom:14px">
-          <i class="ti ti-info-circle"></i> Pojazd <strong>${nrRej}</strong> nie istnieje w bazie.
+          <i class="ti ti-info-circle"></i> Pojazd <strong>${esc(nrRej)}</strong> nie istnieje w bazie.
           <label style="display:flex;align-items:center;gap:6px;margin-top:6px;cursor:pointer">
             <input type="checkbox" id="dri-create" checked>
             <span>Dodaj jako nowy pojazd</span>
@@ -377,7 +377,7 @@ window.TaxOrderDrImport = (function () {
 
         <div style="display:flex;gap:8px;justify-content:flex-end">
           <button class="btn btn-gray" onclick="document.getElementById('dri-modal').remove()">Anuluj</button>
-          <button class="btn btn-blue" id="dri-save-btn" onclick="TaxOrderDrImport._save('${r2Key}',${isArchived},${isNew})">
+          <button class="btn btn-blue" id="dri-save-btn" data-key="${esc(r2Key)}" data-archived="${isArchived?'1':'0'}" data-new="${isNew?'1':'0'}" onclick="TaxOrderDrImport._save(this.dataset.key,this.dataset.archived==='1',this.dataset.new==='1')">
             <i class="ti ti-check"></i>${isNew ? 'Dodaj pojazd' : isArchived ? 'Reaktywuj i zaktualizuj' : 'Zaktualizuj dane pojazdu'}
           </button>
         </div>
