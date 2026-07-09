@@ -52,13 +52,13 @@ window.DocumentsModule = (function () {
             const expiryColor = dl===null?'var(--text3)':dl<0?'var(--red)':dl<=14?'var(--red)':dl<=30?'var(--amber)':'var(--green)';
             return `<tr>
               <td><span style="color:${t.color}"><i class="ti ${t.icon}"></i> ${t.label}</span></td>
-              <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">${d.name||'—'}</td>
+              <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">${esc(d.name||'—')}</td>
               <td style="font-family:var(--mono);white-space:nowrap">${_fmtDate(d.issued)}</td>
               <td style="font-family:var(--mono);white-space:nowrap;color:${expiryColor};font-weight:${dl!==null&&dl<=30?'700':'400'}">
                 ${d.expiry ? _fmtDate(d.expiry)+(dl!==null?` (${dl<0?Math.abs(dl)+' dni temu':'za '+dl+' dni'})`:'') : '—'}
               </td>
               <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis">
-                ${d.url ? `<a href="${d.url}" target="_blank" style="color:var(--blue);font-size:10px"><i class="ti ti-external-link"></i> Otwórz</a>` : '—'}
+                ${d.url && (d.url.startsWith('https://') || d.url.startsWith('http://')) ? `<a href="${esc(d.url)}" target="_blank" rel="noopener" style="color:var(--blue);font-size:10px"><i class="ti ti-external-link"></i> Otwórz</a>` : d.url ? esc(d.url) : '—'}
               </td>
               <td style="white-space:nowrap">
                 <button class="btn btn-gray" style="font-size:10px;padding:2px 6px" onclick="DocumentsModule.edit('${v.id}','${d.id}')">✏</button>

@@ -374,7 +374,7 @@ window.TaxOrderDrivers = (function () {
               <span style="font-size:15px;font-weight:800;color:${scoreColor}">${r.score}</span>
             </div>
             <div style="flex:1;min-width:120px">
-              <div style="font-weight:700;font-size:14px;margin-bottom:2px">${r.name}</div>
+              <div style="font-weight:700;font-size:14px;margin-bottom:2px">${esc(r.name)}</div>
               <div style="font-size:11px;color:var(--text2)">${r.drvVehs} pojazd${r.drvVehs===1?'':'y'} przypisanych</div>
             </div>
             <div style="display:flex;gap:12px;flex-wrap:wrap">

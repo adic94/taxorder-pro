@@ -45,13 +45,13 @@ window.TaxOrderTires = (function () {
       return;
     }
     tbody.innerHTML = filtered.map(t => `<tr>
-      <td><span class="pill ${STATUS_PILL[t.status] || 'pill-gray'}">${STATUS_LBL[t.status] || t.status}</span></td>
-      <td style="font-family:var(--mono)">${t.rozmiar || '—'}</td>
-      <td>${t.marka || '—'}</td>
-      <td style="font-family:var(--mono);font-size:11px">${t.dot || '—'}</td>
+      <td><span class="pill ${STATUS_PILL[t.status] || 'pill-gray'}">${STATUS_LBL[t.status] || esc(t.status)}</span></td>
+      <td style="font-family:var(--mono)">${esc(t.rozmiar || '—')}</td>
+      <td>${esc(t.marka || '—')}</td>
+      <td style="font-family:var(--mono);font-size:11px">${esc(t.dot || '—')}</td>
       <td>${t.bieznik_mm != null ? t.bieznik_mm + ' mm' : '—'}</td>
-      <td>${t.sezon || '—'}</td>
-      <td style="font-size:12px">${t.status === 'ZAMONTOWANA' ? `<strong style="font-family:var(--mono)">${t.nr_rej}</strong> (${POZYCJE[t.pozycja] || t.pozycja})` : (t.lokalizacja_magazyn || '—')}</td>
+      <td>${esc(t.sezon || '—')}</td>
+      <td style="font-size:12px">${t.status === 'ZAMONTOWANA' ? `<strong style="font-family:var(--mono)">${esc(t.nr_rej)}</strong> (${esc(POZYCJE[t.pozycja] || t.pozycja)})` : esc(t.lokalizacja_magazyn || '—')}</td>
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap">
           ${t.status === 'MAGAZYN' ? `<button class="tbtn" onclick="TaxOrderTires.openMountModal('${t.id}')" title="Zamontuj"><i class="ti ti-tool"></i></button>` : ''}
@@ -164,8 +164,8 @@ window.TaxOrderTires = (function () {
     if (!t) return;
     const rows = (t.historia || []).slice().reverse().map(h =>
       `<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
-        <strong>${h.akcja}</strong> — ${new Date(h.data).toLocaleString('pl-PL')}
-        ${h.nrRej ? `<br><span style="color:var(--text2)">${h.nrRej}${h.pozycja ? ' / ' + (POZYCJE[h.pozycja] || h.pozycja) : ''}</span>` : ''}
+        <strong>${esc(h.akcja)}</strong> — ${new Date(h.data).toLocaleString('pl-PL')}
+        ${h.nrRej ? `<br><span style="color:var(--text2)">${esc(h.nrRej)}${h.pozycja ? ' / ' + esc(POZYCJE[h.pozycja] || h.pozycja) : ''}</span>` : ''}
       </div>`
     ).join('') || '<div style="color:var(--text3);font-size:12px">Brak historii</div>';
     document.getElementById('opona-history-body').innerHTML = rows;

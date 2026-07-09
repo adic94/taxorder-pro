@@ -443,7 +443,7 @@ window.ServiceModule = (function () {
             return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg3);border-radius:var(--radius);border-left:3px solid ${t.color}">
               <i class="ti ${t.icon}" style="color:${t.color};font-size:16px;flex-shrink:0"></i>
               <div style="flex:1">
-                <div style="font-size:12px;font-weight:600">${t.label}${s.description ? ' — ' + s.description : ''}</div>
+                <div style="font-size:12px;font-weight:600">${t.label}${s.description ? ' — ' + esc(s.description) : ''}</div>
                 <div style="font-size:11px;color:var(--text2)">
                   ${s.nextServiceKm ? 'km ' + s.nextServiceKm.toLocaleString('pl-PL') + ' · ' : ''}
                   ${s.nextServiceDate ? _fmtDate(s.nextServiceDate) : ''}
