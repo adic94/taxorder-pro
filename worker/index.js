@@ -3748,9 +3748,9 @@ async function handleRequest(request, env, url, path) {
     await queueNotificationJobs(env);
     return json({ ok: true, msg: 'Kolejkowanie zakończone — sprawdź zakładkę Historia za chwilę' });
   }
-  if (path === '/api/ai/chat')          return handleAI(request, env);
-  if (path === '/api/ai/ocr' && request.method === 'POST') return handleAIOCR(request, env);
-  if (path === '/api/aztec'  && request.method === 'POST') return handleAztec(request);
+  if (path === '/api/ai/chat')          { if (!user) return err('Nieautoryzowany', 401); return handleAI(request, env); }
+  if (path === '/api/ai/ocr' && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleAIOCR(request, env); }
+  if (path === '/api/aztec'  && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleAztec(request); }
 
   // Tekom / MyCar API integration
   if (path.startsWith('/api/tekom')) { if (!user) return err('Nieautoryzowany', 401); return handleTekomIntegration(request, env, user, url, path); }
