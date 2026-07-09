@@ -85,6 +85,15 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
     <button onclick="resetPasswordFlow()" type="button" class="btn btn-gray" style="width:100%;justify-content:center;padding:12px;font-size:14px;margin-top:10px">
       <i class="ti ti-key"></i>Reset hasla
     </button>
+    <div style="position:relative;text-align:center;margin:14px 0 10px">
+      <div style="position:absolute;top:50%;left:0;right:0;height:1px;background:var(--border)"></div>
+      <span style="position:relative;background:var(--bg2);padding:0 10px;font-size:11px;color:var(--text3)">lub</span>
+    </div>
+    <button onclick="loginWithPZ()" type="button" id="pz-login-btn" class="btn" style="width:100%;justify-content:center;padding:12px;font-size:14px;border:1.5px solid #003566;color:#003566;background:transparent;gap:10px">
+      <svg width="18" height="18" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="6" fill="#003566"/><path d="M20 8C14.477 8 10 12.477 10 18c0 4.418 2.865 8.166 6.857 9.48L20 32l3.143-4.52C27.135 26.166 30 22.418 30 18c0-5.523-4.477-10-10-10z" fill="#fff"/><circle cx="20" cy="18" r="4" fill="#003566"/></svg>
+      Zaloguj Profilem Zaufanym
+    </button>
+    <div id="pz-login-info" style="display:none;font-size:11px;color:var(--text2);text-align:center;margin-top:8px;line-height:1.5"></div>
 
     <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:14px;line-height:1.6">
       Domyślnie: admin@mtoilet.pl / admin123<br>Zarządzanie użytkownikami → zakładka Użytkownicy
@@ -3253,6 +3262,40 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
               <i class="ti ti-external-link"></i>Warszawa (moja.warszawa19115.pl)
             </a>
           </div>
+        </div>
+      </div>
+
+      <!-- Krok 2.5: Warszawa — bookmarklet -->
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:18px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <i class="ti ti-map-pin" style="color:var(--red);font-size:16px"></i>
+          <span style="font-weight:600;font-size:13px">Urząd m.st. Warszawy — auto-uzupełnienie formularza</span>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px">
+          Jeśli składasz DT-1 do m.st. Warszawy przez <strong>moja.warszawa19115.pl</strong>, użyj poniższego narzędzia zamiast ePUAP. Bookmarklet auto-uzupełni formularz danymi podatnika i wyświetli podgląd pojazdów.
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <button class="btn btn-blue" onclick="generateWarsawBookmarklet()" style="font-size:12px">
+            <i class="ti ti-bookmark"></i>Wygeneruj bookmarklet Warszawa
+          </button>
+          <button class="btn btn-gray" onclick="copyWarsawData()" style="font-size:12px">
+            <i class="ti ti-clipboard"></i>Kopiuj dane do schowka
+          </button>
+        </div>
+        <div id="warsaw-bookmarklet-result" style="display:none;margin-top:12px">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:6px">
+            <strong>1.</strong> Przeciągnij poniższy link do paska zakładek przeglądarki:<br>
+            <strong>2.</strong> Otwórz <a href="https://moja.warszawa19115.pl/web/guest/tax-form-transport" target="_blank" rel="noopener" style="color:var(--blue)">moja.warszawa19115.pl</a> i zaloguj się PZ.<br>
+            <strong>3.</strong> Kliknij zakładkę „TaxOrder→Warszawa" — formularz zostanie uzupełniony.
+          </div>
+          <a id="warsaw-bookmarklet-link" href="#" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:var(--blue);color:#fff;border-radius:var(--radius);text-decoration:none;font-size:13px;font-weight:600;cursor:move">
+            <i class="ti ti-bookmark-filled"></i><span id="warsaw-bookmarklet-label">TaxOrder → Warszawa</span>
+          </a>
+          <div style="font-size:11px;color:var(--text3);margin-top:6px">Kliknij prawym przyciskiem → Dodaj do zakładek, lub przeciągnij na pasek zakładek</div>
+        </div>
+        <div id="warsaw-data-panel" style="display:none;margin-top:12px;font-size:12px">
+          <div style="font-weight:600;margin-bottom:6px;color:var(--text1)">Dane skopiowane do schowka. Wklej na stronie Warszawy lub użyj jako odniesienie:</div>
+          <pre id="warsaw-data-text" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px;overflow-x:auto;font-size:11px;max-height:200px;overflow-y:auto;white-space:pre-wrap"></pre>
         </div>
       </div>
 

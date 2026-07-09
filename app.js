@@ -1555,10 +1555,225 @@ function closeDashCustomize() {
 
 function openEpuapModal() {
   document.getElementById('epuap-step1-done').style.display = 'none';
+  document.getElementById('warsaw-bookmarklet-result').style.display = 'none';
+  document.getElementById('warsaw-data-panel').style.display = 'none';
   document.getElementById('modal-epuap').style.display = 'flex';
 }
 function closeEpuapModal() {
   document.getElementById('modal-epuap').style.display = 'none';
+}
+
+// ─── PROFIL ZAUFANY — Frontend ─────────────────────────────────────────────────
+function loginWithPZ() {
+  const btn  = document.getElementById('pz-login-btn');
+  const info = document.getElementById('pz-login-info');
+  if (btn)  { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader"></i> Przekierowanie do login.gov.pl…'; }
+  if (info) { info.style.display = 'block'; info.textContent = 'Trwa przekierowanie do Profilu Zaufanego…'; }
+  const API     = window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
+  const company = window.currentCompanyId || 'mtoilet';
+  const appUrl  = window.location.origin + window.location.pathname;
+  window.location.href = `${API}/api/auth/pz/start?company=${encodeURIComponent(company)}&app_url=${encodeURIComponent(appUrl)}`;
+}
+
+async function _handlePzHashCallback() {
+  const hash = window.location.hash.replace(/^#/, '');
+  if (!hash.includes('pz_token=') && !hash.includes('pz_error=')) return false;
+
+  const params   = new URLSearchParams(hash);
+  const pzError  = params.get('pz_error');
+  const pzEmail  = params.get('pz_email');
+  const pzToken  = params.get('pz_token');
+  const company  = params.get('company');
+
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+
+  if (pzError) {
+    const msgs = {
+      no_account:    `Brak konta TaxOrder dla: ${esc(pzEmail || '?')}. Skontaktuj się z administratorem.`,
+      invalid_state: 'Sesja wygasła. Spróbuj zalogować się ponownie.',
+    };
+    showLoginErr(msgs[pzError] || `Błąd PZ: ${esc(pzError)}`);
+    return true;
+  }
+  if (!pzToken) return false;
+
+  localStorage.setItem('cf_token', pzToken);
+  if (company) window.currentCompanyId = company;
+
+  try {
+    const API  = window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
+    const hdrs = { Authorization: 'Bearer ' + pzToken };
+    const resp = await fetch(`${API}/api/auth/me`, { headers: hdrs });
+    if (!resp.ok) throw new Error('Brak sesji (HTTP ' + resp.status + ')');
+    const u = await resp.json();
+
+    // Pobierz claims PZ do pre-fillowania DT-1
+    const pzR = await fetch(`${API}/api/auth/pz/userinfo`, { headers: hdrs }).catch(() => null);
+    if (pzR?.ok) {
+      const pzD = await pzR.json().catch(() => null);
+      if (pzD?.pz) window._pzClaims = pzD.pz;
+    }
+
+    currentUser = { id: u.id, email: u.email, name: u.name || u.email, role: u.role || 'kierowca', active: true, _loginViaPZ: true };
+    window.currentUserId = u.id || null;
+
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    const initials = (currentUser.name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    document.getElementById('user-avatar').textContent = initials;
+    document.getElementById('user-name').textContent   = currentUser.name;
+    document.getElementById('user-role-lbl').textContent = ROLE_LABELS[currentUser.role] || currentUser.role;
+    applyRoleAccess(currentUser.role);
+    sessionStorage.setItem('dt1_user_email', currentUser.email);
+
+    // Badge PZ w topbar
+    const uname = document.getElementById('user-name');
+    if (uname) {
+      const badge = document.createElement('span');
+      badge.title    = 'Zalogowano Profilem Zaufanym';
+      badge.style.cssText = 'font-size:9px;background:#003566;color:#fff;border-radius:3px;padding:1px 5px;margin-left:6px;vertical-align:middle;flex-shrink:0';
+      badge.textContent = 'PZ';
+      uname.after(badge);
+    }
+
+    if (typeof loadCompanyState === 'function') { loadCompanyState(window.currentCompanyId); updateCompanyUI(); }
+    if (window.TaxOrderFleetCloud?.loadVehicles) {
+      await window.TaxOrderFleetCloud.loadVehicles().catch(e => console.warn('[PZ] loadVehicles:', e.message));
+      window.TaxOrderFleetCloud?.subscribeRealTime?.(window.currentCompanyId);
+    }
+    if (typeof refreshAll === 'function') refreshAll();
+    renderDash();
+    renderVeh();
+    updateCounters();
+  } catch (e) {
+    localStorage.removeItem('cf_token');
+    showLoginErr('Błąd logowania PZ: ' + e.message);
+  }
+  return true;
+}
+
+async function applyPzClaimsToForm() {
+  let claims = window._pzClaims;
+  if (!claims) {
+    const tok = localStorage.getItem('cf_token');
+    if (!tok) { alert('Zaloguj się Profilem Zaufanym, aby skorzystać z tej funkcji.'); return; }
+    const API = window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
+    const r = await fetch(`${API}/api/auth/pz/userinfo`, { headers: { Authorization: 'Bearer ' + tok } }).catch(() => null);
+    if (!r?.ok) { alert('Brak danych Profilu Zaufanego. Zaloguj się Profilem Zaufanym.'); return; }
+    const d = await r.json().catch(() => null);
+    claims = d?.pz;
+    window._pzClaims = claims;
+  }
+  if (!claims) { alert('Brak danych Profilu Zaufanego w sesji.'); return; }
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+  if (claims.nip)   { set('tp-nip', claims.nip.replace(/\D/g, '')); set('dt1-nip', claims.nip.replace(/\D/g, '')); }
+  const full = [claims.given_name, claims.family_name].filter(Boolean).join(' ');
+  if (full) { set('tp-nazwa', full); set('tp-name', full); }
+  if (claims.email) { set('tp-email', claims.email); }
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--green);color:var(--green);border-radius:var(--radius);padding:10px 16px;font-size:13px;z-index:9999;box-shadow:0 2px 12px rgba(0,0,0,.2)';
+  t.innerHTML = '<i class="ti ti-circle-check"></i> Dane z Profilu Zaufanego zostały wczytane';
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// ─── WARSZAWA — bookmarklet + kopia danych ─────────────────────────────────────
+function _collectDt1DataForWarsaw() {
+  const g  = id => (document.getElementById(id)?.value || '').trim();
+  const g2 = (a, b) => g(a) || g(b);
+  const rok = parseInt(g('dt1-rok') || g('rok-dt1') || String(new Date().getFullYear()), 10);
+  return {
+    nip:     g('tp-nip').replace(/\D/g, ''),
+    nazwa:   g2('tp-nazwa', 'tp-name'),
+    ulica:   g2('tp-ulica', 'tp-street'),
+    nr:      g2('tp-dom',   'tp-house-no'),
+    lokal:   g('tp-lokal') || '',
+    kod:     g2('tp-kod',   'tp-postcode'),
+    miasto:  g2('tp-miasto','tp-city'),
+    rok,
+    cel:     g2('tp-cel',   'tp-celPodatnik') || '1',
+    pojazdy: (window.vehs || []).filter(v => ((v.dmc ?? v.dmcMax ?? 0) >= 3500)).map(v => ({
+      nr_rej:          (v.nr_rej || v.nrRej || '').toUpperCase(),
+      vin:             v.vin || '',
+      marka:           v.marka || '',
+      model:           v.model || '',
+      rok:             v.rok   || '',
+      typ:             v.typ   || '',
+      dmc:             v.dmc   ?? v.dmcMax ?? 0,
+      osie:            v.osie  || v.axles_count || 2,
+      zawieszenie:     v.zawieszenie || v.suspension_type || 'pneumatyczne',
+      dataNabycia:     v.dataNabycia    || v.purchaseDate || '',
+      dataRejestracji: v.dataRejestracji || '',
+    })),
+  };
+}
+
+function generateWarsawBookmarklet() {
+  const D = _collectDt1DataForWarsaw();
+  if (!D.nip && !D.nazwa) { alert('Uzupełnij dane podatnika w zakładce Podatnik.'); return; }
+
+  // Silnik bookmarkletu (minifikowany inline) — wypełnia pola React przez nativeInputValueSetter
+  const script = `(function(D){
+var ns=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;
+function fill(el,v){if(!el||v==null||v==='')return;ns.call(el,String(v));['input','change'].forEach(function(e){el.dispatchEvent(new Event(e,{bubbles:true}));});}
+function q(sel){return document.querySelector(sel);}
+function byLbl(txt){var all=document.querySelectorAll('label');for(var i=0;i<all.length;i++){var t=all[i].textContent.trim();if(t===txt||t===txt+' *'){var f=all[i].getAttribute('for');return f?document.getElementById(f):null;}}return null;}
+fill(q('input[name="nip"],input[id*="nip"i]')||byLbl('NIP'),D.nip);
+fill(q('input[name="nazwaFirmy"],input[name="nazwa"],input[id*="nazwa"i]')||byLbl('Nazwa'),D.nazwa);
+fill(q('input[name="ulica"],input[id*="ulica"i]')||byLbl('Ulica'),D.ulica);
+fill(q('input[name="nrDomu"],input[id*="nrDomu"i]')||byLbl('Nr domu'),D.nr);
+fill(q('input[name="nrLokalu"],input[id*="nrLokalu"i]')||byLbl('Nr lokalu'),D.lokal);
+fill(q('input[name="kodPocztowy"],input[id*="kodPoczt"i]')||byLbl('Kod pocztowy'),D.kod);
+fill(q('input[name="miejscowosc"],input[name="miasto"],input[id*="miasto"i]')||byLbl('Miejscowość'),D.miasto);
+var sel=q('select[name="rokPodatkowy"],select[id*="rok"i]');
+if(sel){sel.value=D.rok;sel.dispatchEvent(new Event('change',{bubbles:true}));}
+var rows=D.pojazdy.map(function(p,i){return '<tr style="background:'+(i%2?'#f8f9fa':'#fff')+'"><td>'+p.nr_rej+'</td><td>'+p.marka+' '+p.model+'</td><td>'+Number(p.dmc/1000).toFixed(1).replace('.',',')+' t</td><td>'+p.osie+'</td><td>'+p.zawieszenie+'</td><td>'+(p.dataNabycia||'—')+'</td></tr>';}).join('');
+var pan=document.createElement('div');
+pan.style='position:fixed;top:16px;right:16px;z-index:999999;background:#fff;border:2px solid #003566;border-radius:8px;padding:14px;width:480px;max-height:80vh;overflow-y:auto;font-family:sans-serif;font-size:12px;box-shadow:0 4px 24px rgba(0,0,0,.35)';
+pan.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><b style="color:#003566;font-size:14px">TaxOrder Pro → Warszawa '+D.rok+'</b><button onclick="this.closest(\'div[style]\').remove()" style="border:none;background:none;cursor:pointer;font-size:20px;color:#666">×</button></div><p style="color:#555;margin:0 0 8px"><b>'+D.nip+'</b> '+D.nazwa+'<br><small>'+[D.ulica,D.nr].filter(Boolean).join(' ')+', '+D.kod+' '+D.miasto+'</small></p>'+(rows?'<p style="margin:8px 0 4px;font-weight:600;color:#003566">Pojazdy DT-1 (dodaj ręcznie w formularzu Warszawy):</p><table style="width:100%;border-collapse:collapse;font-size:11px"><thead style="background:#003566;color:#fff"><tr><th>Nr rej.</th><th>Marka</th><th>DMC</th><th>Osie</th><th>Zawieszenie</th><th>Nabycie</th></tr></thead><tbody>'+rows+'</tbody></table>':'<p style="color:#888">Brak pojazdów DT-1 (DMC ≥ 3,5 t)</p>')+'<p style="margin:10px 0 0;color:#888;font-size:10px">Wygenerowano przez TaxOrder Pro. Pola podatnika zostały uzupełnione automatycznie.</p>';
+document.body.appendChild(pan);
+})`.replace(/\s{2,}/g,' ');
+
+  const bm = 'javascript:' + script + '(' + JSON.stringify(D) + ')';
+  const resultEl = document.getElementById('warsaw-bookmarklet-result');
+  const linkEl   = document.getElementById('warsaw-bookmarklet-link');
+  const labelEl  = document.getElementById('warsaw-bookmarklet-label');
+  if (resultEl) resultEl.style.display = 'block';
+  if (linkEl)   linkEl.href = bm;
+  if (labelEl)  labelEl.textContent = `TaxOrder → Warszawa ${D.rok}`;
+}
+
+function copyWarsawData() {
+  const D = _collectDt1DataForWarsaw();
+  const lines = [
+    `=== DT-1 ${D.rok} — dane dla moja.warszawa19115.pl ===`,
+    '',
+    'PODATNIK:',
+    `NIP:         ${D.nip}`,
+    `Nazwa:       ${D.nazwa}`,
+    `Adres:       ${[D.ulica, D.nr, D.lokal].filter(Boolean).join(' ')}, ${D.kod} ${D.miasto}`,
+    `Cel:         ${D.cel === '1' ? 'złożenie deklaracji' : 'korekta'}`,
+    '',
+    `POJAZDY DT-1 (${D.pojazdy.length}):`,
+    ...D.pojazdy.map((p, i) =>
+      `${i+1}. ${p.nr_rej} | ${p.marka} ${p.model} | rok: ${p.rok} | DMC: ${(p.dmc/1000).toFixed(1).replace('.',',')} t | ${p.osie} osie | ${p.zawieszenie} | nabycie: ${p.dataNabycia||'—'} | VIN: ${p.vin||'—'}`
+    ),
+  ];
+  const text = lines.join('\n');
+  const show = () => {
+    const panel = document.getElementById('warsaw-data-panel');
+    const pre   = document.getElementById('warsaw-data-text');
+    if (panel) panel.style.display = 'block';
+    if (pre)   pre.textContent = text;
+  };
+  navigator.clipboard.writeText(text).then(() => {
+    show();
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--green);color:var(--green);border-radius:var(--radius);padding:10px 16px;font-size:13px;z-index:9999;box-shadow:0 2px 12px rgba(0,0,0,.2)';
+    t.innerHTML = '<i class="ti ti-clipboard-check"></i> Dane skopiowane do schowka';
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2500);
+  }).catch(show);
 }
 
 function saveDashCustomize() {
@@ -6792,6 +7007,12 @@ window.addEventListener('load', async () => {
   if(window.TaxOrderCompanies){
   await window.TaxOrderCompanies.syncToApp();
 }
+  // Obsługa callback z Profilu Zaufanego (hash: #pz_token=... lub #pz_error=...)
+  if (window.location.hash.includes('pz_token=') || window.location.hash.includes('pz_error=')) {
+    const handled = await _handlePzHashCallback();
+    if (handled) return; // PZ wziął kontrolę nad inicjalizacją
+  }
+
   // Sprawdź zapamiętaną sesję użytkownika
   const savedEmail = sessionStorage.getItem('dt1_user_email');
   if(savedEmail){

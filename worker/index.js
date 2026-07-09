@@ -173,6 +173,189 @@ async function handleLogout(req, env) {
   return json({ ok: true });
 }
 
+// ─── PROFIL ZAUFANY — OAuth 2.0 / OIDC (login.gov.pl) ───────────────────────
+// Wymagane sekrety (wrangler secret put):
+//   PZ_CLIENT_ID     — nadaje Ministerstwo Cyfryzacji przy rejestracji aplikacji
+//   PZ_CLIENT_SECRET — j.w.
+// Opcjonalne zmienne (wrangler.toml [vars]):
+//   PZ_BASE_URL      — domyślnie https://login.gov.pl (test: https://int.login.gov.pl)
+//   PZ_REALM         — domyślnie UZYTKOWNIK
+//   PZ_REDIRECT_URI  — domyślnie https://taxorder-pro-api.adamus1000.workers.dev/api/auth/pz/callback
+//   PZ_APP_URL       — domyślnie https://taxorder-pro.pages.dev
+
+async function _pzVerifier() {
+  const arr = crypto.getRandomValues(new Uint8Array(32));
+  return btoa(String.fromCharCode(...arr)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+async function _pzChallenge(verifier) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+async function handlePzStart(request, env, url) {
+  if (!env.PZ_CLIENT_ID) {
+    return err(
+      'Profil Zaufany nie jest skonfigurowany. ' +
+      'Uruchom: wrangler secret put PZ_CLIENT_ID i wrangler secret put PZ_CLIENT_SECRET', 503
+    );
+  }
+  const base        = env.PZ_BASE_URL      || 'https://login.gov.pl';
+  const realm       = env.PZ_REALM         || 'UZYTKOWNIK';
+  const redirectUri = env.PZ_REDIRECT_URI  || 'https://taxorder-pro-api.adamus1000.workers.dev/api/auth/pz/callback';
+  const appUrl      = env.PZ_APP_URL       || url.searchParams.get('app_url') || 'https://taxorder-pro.pages.dev';
+  const company     = url.searchParams.get('company') || '';
+
+  const verifier  = await _pzVerifier();
+  const challenge = await _pzChallenge(verifier);
+  const state     = crypto.randomUUID();
+
+  if (env.PREFS) {
+    await env.PREFS.put(
+      `pz_state:${state}`,
+      JSON.stringify({ verifier, company, appUrl }),
+      { expirationTtl: 600 }
+    );
+  }
+
+  const params = new URLSearchParams({
+    client_id:             env.PZ_CLIENT_ID,
+    response_type:         'code',
+    scope:                 'openid profile',
+    redirect_uri:          redirectUri,
+    state,
+    code_challenge:        challenge,
+    code_challenge_method: 'S256',
+    nonce:                 crypto.randomUUID(),
+  });
+
+  return Response.redirect(
+    `${base}/auth/realms/${realm}/protocol/openid-connect/auth?${params}`, 302
+  );
+}
+
+async function handlePzCallback(request, env, url) {
+  const code      = url.searchParams.get('code');
+  const state     = url.searchParams.get('state');
+  const errParam  = url.searchParams.get('error');
+  const base      = env.PZ_BASE_URL     || 'https://login.gov.pl';
+  const realm     = env.PZ_REALM        || 'UZYTKOWNIK';
+  const redirectUri = env.PZ_REDIRECT_URI || 'https://taxorder-pro-api.adamus1000.workers.dev/api/auth/pz/callback';
+  let appUrl  = env.PZ_APP_URL || 'https://taxorder-pro.pages.dev';
+  let company = '';
+
+  const redir = (hash) => Response.redirect(`${appUrl}#${hash}`, 302);
+
+  if (errParam) {
+    const desc = url.searchParams.get('error_description') || errParam;
+    return redir(`pz_error=${encodeURIComponent(desc)}`);
+  }
+  if (!code || !state) return redir('pz_error=missing_params');
+
+  // Walidacja state CSRF + odczyt verifier z KV
+  let verifier = '';
+  if (env.PREFS) {
+    const stored = await env.PREFS.get(`pz_state:${state}`).catch(() => null);
+    if (!stored) return redir('pz_error=invalid_state');
+    const parsed = JSON.parse(stored);
+    verifier = parsed.verifier || '';
+    company  = parsed.company  || '';
+    if (parsed.appUrl) appUrl = parsed.appUrl;
+    await env.PREFS.delete(`pz_state:${state}`).catch(() => {});
+  }
+
+  // Wymiana authorization_code → access_token (z PKCE)
+  const tokenRes = await fetch(
+    `${base}/auth/realms/${realm}/protocol/openid-connect/token`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type:    'authorization_code',
+        client_id:     env.PZ_CLIENT_ID || '',
+        client_secret: env.PZ_CLIENT_SECRET || '',
+        code,
+        redirect_uri:  redirectUri,
+        code_verifier: verifier,
+      }),
+    }
+  );
+  if (!tokenRes.ok) {
+    const msg = await tokenRes.text().catch(() => String(tokenRes.status));
+    return redir(`pz_error=${encodeURIComponent('token_error:' + msg.substring(0, 80))}`);
+  }
+  const tokens = await tokenRes.json();
+
+  // Pobierz claims użytkownika (imię, email, PESEL, NIP)
+  const uiRes = await fetch(
+    `${base}/auth/realms/${realm}/protocol/openid-connect/userinfo`,
+    { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+  );
+  if (!uiRes.ok) return redir('pz_error=userinfo_error');
+  const pz = await uiRes.json();
+
+  // Znajdź konto TaxOrder po pz_sub (stabilny identyfikator OIDC) lub emailu
+  let dbUser = null;
+  if (pz.sub) {
+    dbUser = await env.DB.prepare(
+      'SELECT * FROM users WHERE pz_sub = ? AND active = 1'
+    ).bind(pz.sub).first().catch(() => null);
+  }
+  if (!dbUser && pz.email) {
+    dbUser = await env.DB.prepare(
+      'SELECT * FROM users WHERE email = ? AND active = 1'
+    ).bind(pz.email.toLowerCase()).first().catch(() => null);
+    // Lazy link: powiąż sub z istniejącym kontem przy pierwszym logowaniu PZ
+    if (dbUser && pz.sub) {
+      await env.DB.prepare('UPDATE users SET pz_sub = ? WHERE id = ?')
+        .bind(pz.sub, dbUser.id).run().catch(() => {});
+    }
+  }
+
+  if (!dbUser) {
+    return redir(`pz_error=no_account&pz_email=${encodeURIComponent(pz.email || '')}`);
+  }
+
+  // Utwórz sesję TaxOrder Pro
+  const sessionToken = crypto.randomUUID() + genSalt();
+  const expiresAt    = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  await env.DB.prepare(
+    'INSERT INTO sessions(token, user_id, expires_at) VALUES(?, ?, ?)'
+  ).bind(sessionToken, dbUser.id, expiresAt).run();
+
+  // Zapisz claims PZ w KV — do pre-fillowania formularzy DT-1 (imię, PESEL, NIP)
+  if (env.PREFS) {
+    const claims = {
+      sub:         pz.sub || '',
+      given_name:  pz.given_name  || (pz.name || '').split(' ')[0] || '',
+      family_name: pz.family_name || (pz.name || '').split(' ').slice(1).join(' ') || '',
+      email:       pz.email       || '',
+      pesel:       pz.PESEL       || pz.pesel       || pz['urn:gov:pl:pesel'] || '',
+      nip:         pz.NIP         || pz.nip         || pz['urn:gov:pl:nip']   || '',
+    };
+    await env.PREFS.put(`pz_claims:${sessionToken}`, JSON.stringify(claims), {
+      expirationTtl: 30 * 24 * 60 * 60,
+    }).catch(() => {});
+  }
+
+  // Przekieruj do aplikacji — token w hash fragment (nie trafia na serwer)
+  const hashParts = [`pz_token=${encodeURIComponent(sessionToken)}`];
+  if (company) hashParts.push(`company=${encodeURIComponent(company)}`);
+  return Response.redirect(`${appUrl}#${hashParts.join('&')}`, 302);
+}
+
+async function handlePzUserinfo(request, env) {
+  const user = await getUser(request, env);
+  if (!user) return err('Nieautoryzowany', 401);
+
+  const auth = (request.headers.get('Authorization') || '').replace('Bearer ', '').trim();
+  let pzClaims = null;
+  if (env.PREFS && auth && !auth.startsWith('tord_')) {
+    const raw = await env.PREFS.get(`pz_claims:${auth}`).catch(() => null);
+    if (raw) pzClaims = JSON.parse(raw);
+  }
+  return json({ user: safeUser(user), pz: pzClaims });
+}
+
 // ─── VEHICLES ─────────────────────────────────────────────────────────────────
 async function handleVehicles(req, env, user, url, path) {
   const segs = path.split('/').filter(Boolean); // ['api','vehicles',...]
@@ -3409,6 +3592,9 @@ async function handleRequest(request, env, url, path) {
   // Public endpoints (no auth required)
   if (path === '/api/auth/login'            && request.method === 'POST') return handleLogin(request, env);
   if (path === '/api/auth/logout'           && request.method === 'POST') return handleLogout(request, env);
+  if (path === '/api/auth/pz/start'         && request.method === 'GET')  return handlePzStart(request, env, url);
+  if (path === '/api/auth/pz/callback'      && request.method === 'GET')  return handlePzCallback(request, env, url);
+  if (path === '/api/auth/pz/userinfo'      && request.method === 'GET')  return handlePzUserinfo(request, env);
   if (path === '/api/push/vapid-public-key' && request.method === 'GET')  return handleVapidPublicKey(request, env);
   if (path === '/api/push/subscribe'        && request.method === 'POST') return handlePushSubscribe(request, env);
   if (path === '/api/push/subscribe'        && request.method === 'DELETE') return handlePushUnsubscribe(request, env);
