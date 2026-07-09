@@ -3,7 +3,7 @@
  * Cache-first dla assetów, network-first dla danych
  * Obsługuje: install, activate, fetch, push, notificationclick
  */
-const CACHE_NAME = 'taxorder-v6';
+const CACHE_NAME = 'taxorder-v11';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -37,6 +37,30 @@ const STATIC_ASSETS = [
   '/modules/zsia-importer.js',
   '/modules/import-export.js',
   '/modules/csv-import.js',
+  '/modules/dt1-declarations.js',
+  '/modules/webhooks-ui.js',
+  '/modules/error-tracker.js',
+  '/modules/etoll-import.js',
+  '/modules/alert-dashboard.js',
+  '/modules/gminy-rates.js',
+  '/modules/vehicle-import.js',
+  '/modules/fleet-map.js',
+  '/modules/tekom-sync.js',
+  '/modules/policy-ocr.js',
+  '/modules/dr-import.js',
+  '/modules/ai-chat.js',
+  '/modules/aztec-scanner.js',
+  '/modules/cloud-backup.js',
+  '/modules/companies-auto-render.js',
+  '/modules/companies-readonly.js',
+  '/modules/company-access.js',
+  '/modules/company-create.js',
+  '/modules/dashboard-nav.js',
+  '/modules/diagnostics.js',
+  '/modules/rate-reader.js',
+  '/modules/storage.js',
+  '/modules/tax-engine.js',
+  '/modules/tekom-import.js',
 ];
 
 self.addEventListener('install', e => {

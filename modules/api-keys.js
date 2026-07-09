@@ -35,7 +35,7 @@ window.TaxOrderApiKeys = (function () {
       return;
     }
     tbody.innerHTML = list.map(k => `<tr style="${k.active ? '' : 'opacity:.5'}">
-      <td><strong>${k.name}</strong></td>
+      <td><strong>${esc(k.name)}</strong></td>
       <td style="font-size:12px">${_companyName(k.company_id)}</td>
       <td style="font-size:12px">${k.scope === 'read_write' ? 'Odczyt i zapis' : 'Tylko odczyt'}</td>
       <td style="font-size:12px">${k.active ? '<span style="color:var(--green,#3B6D11)">Aktywny</span>' : '<span style="color:var(--text3)">Wyłączony</span>'}</td>

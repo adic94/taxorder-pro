@@ -1,0 +1,59 @@
+name: E2E & API tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Zainstaluj zależności
+        run: npm ci
+
+      - name: Zainstaluj Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Uruchom serwer lokalny
+        run: npx http-server . -p 3000 -c-1 --silent &
+
+      - name: Poczekaj aż serwer odpowie
+        run: |
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:3000/ > /dev/null && break
+            sleep 1
+          done
+
+      - name: Testy E2E (login + in-browser suite + kokpit + karta pojazdu)
+        run: npm run test:e2e
+        env:
+          TEST_URL: http://localhost:3000
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASS:  ${{ secrets.TEST_PASS }}
+          TEST_COMPANY: ${{ secrets.TEST_COMPANY }}
+
+      - name: Testy API (tylko gdy podano TEST_URL produkcyjny)
+        if: ${{ vars.PROD_WORKER_URL != '' }}
+        run: npm run test:api
+        env:
+          TEST_URL:     ${{ vars.PROD_WORKER_URL }}
+          TEST_EMAIL:   ${{ secrets.TEST_EMAIL }}
+          TEST_PASS:    ${{ secrets.TEST_PASS }}
+          TEST_COMPANY: ${{ secrets.TEST_COMPANY }}
+
+      - name: Upload raportu Playwright
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_number }}
+          path: tests/results/html/
+          retention-days: 14

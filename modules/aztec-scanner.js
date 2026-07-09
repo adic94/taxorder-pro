@@ -96,7 +96,7 @@ window.AztecScanner = {
     const classes = { photo: 'ibox', loading: 'ibox', ok: 'gbox', warn: 'wbox' };
     const spin = type === 'loading' ? ' style="animation:spin 1s linear infinite"' : '';
     box.className = classes[type] || 'ibox';
-    box.innerHTML = `<i class="ti ${icons[type] || 'ti-info-circle'}"${spin}></i><span>${msg}</span>`;
+    box.innerHTML = `<i class="ti ${icons[type] || 'ti-info-circle'}"${spin}></i><span>${(window.esc||String)(msg)}</span>`;
   },
 
   // ── Obsługa pliku ─────────────────────────────────────────────────────────

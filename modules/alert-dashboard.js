@@ -65,6 +65,54 @@ window.TaxOrderAlertDashboard = (function () {
         }
       }
     }
+    // Anomalie w tankowaniach (ostatnie 90 dni)
+    const cutoff90 = new Date(now); cutoff90.setDate(cutoff90.getDate() - 90);
+    for (const v of vehs) {
+      if (v.is_active === false) continue;
+      const hist = (v.fuelHistory || []).filter(h => h.date && new Date(h.date) >= cutoff90)
+        .sort((a, b) => a.date.localeCompare(b.date));
+      if (hist.length < 2) continue;
+
+      const avgLiters = hist.reduce((s, h) => s + (h.liters || 0), 0) / hist.length;
+      const tankCap = v.tankCapacity || (avgLiters * 2); // szacunkowa pojemność baku
+
+      for (let i = 0; i < hist.length; i++) {
+        const h = hist[i];
+        const liters = h.liters || 0;
+
+        // Anomalia: >140% średniej jednorazowe tankowanie (poza normą)
+        if (liters > avgLiters * 1.4 && liters > 80) {
+          const anomalyDate = h.date;
+          const daysAgo = Math.round((now - new Date(anomalyDate)) / 86400000);
+          if (daysAgo <= 30) {
+            out.push({
+              nrRej: v.nr_rej || v.nrRej, marka: v.marka || '', model: v.model || '', vehId: v.id,
+              id: 'fuel-anomaly', label: 'Anomalia: duże tankowanie',
+              icon: 'ti-gas-station', color: '#dc2626',
+              date: anomalyDate, days: -daysAgo,
+              tab: 'koszty', _type: 'fuel_anomaly',
+              _detail: `${liters.toFixed(1)}L (śr. ${avgLiters.toFixed(1)}L) — ${h.station || h.location || ''}`,
+            });
+          }
+        }
+
+        // Anomalia: dwa tankowania tego samego dnia
+        if (i > 0 && hist[i - 1].date === h.date) {
+          const daysAgo = Math.round((now - new Date(h.date)) / 86400000);
+          if (daysAgo <= 30) {
+            out.push({
+              nrRej: v.nr_rej || v.nrRej, marka: v.marka || '', model: v.model || '', vehId: v.id,
+              id: 'fuel-double', label: 'Anomalia: dwa tankowania dziennie',
+              icon: 'ti-gas-station', color: '#f59e0b',
+              date: h.date, days: -daysAgo,
+              tab: 'koszty', _type: 'fuel_anomaly',
+              _detail: `${h.date}: ${hist[i-1].liters||0}L + ${liters}L`,
+            });
+          }
+        }
+      }
+    }
+
     return out.sort((a, b) => {
       // km-expired najpierw, potem date alerty wg days
       const _prio = x => x._type === 'km' ? (x._kmLeft <= 0 ? -200000 : x._kmLeft) : x.days;
@@ -207,6 +255,22 @@ window.TaxOrderAlertDashboard = (function () {
               <i class="ti ti-external-link"></i>
             </button>
           </td>
+        </tr>`;
+      }
+
+      // Anomalie paliwowe — specjalna prezentacja
+      if (a._type === 'fuel_anomaly') {
+        const daysAgo = Math.abs(a.days);
+        const bg = daysAgo <= 7 ? '#fee2e2' : '#fef3c7';
+        const fg = daysAgo <= 7 ? '#991b1b' : '#92400e';
+        return `<tr style="cursor:pointer" onclick="TaxOrderAlertDashboard._open(${a.vehId},'${a.tab}')">
+          <td><strong style="font-family:var(--mono)">${a.nrRej}</strong></td>
+          <td style="font-size:12px;color:var(--text2)">${a.marka} ${a.model}</td>
+          <td><span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:99px;padding:3px 10px">
+            <i class="ti ${a.icon}" style="color:${a.color}"></i>${a.label}</span></td>
+          <td style="font-size:11px;color:var(--text2)">${a._detail || ''}</td>
+          <td><span style="font-size:12px;font-weight:700;background:${bg};color:${fg};padding:3px 10px;border-radius:99px;display:inline-block">${daysAgo === 0 ? 'Dziś' : daysAgo + 'd temu'}</span></td>
+          <td onclick="event.stopPropagation()"><button class="tbtn" onclick="TaxOrderAlertDashboard._open(${a.vehId},'${a.tab}')"><i class="ti ti-external-link"></i></button></td>
         </tr>`;
       }
 

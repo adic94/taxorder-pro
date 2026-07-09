@@ -51,5 +51,10 @@ audit-screenshots/
 tools/qa-tester/
 tools/api-explorer/ocr_dr_render.jpg
 
+# Playwright — raporty, nagrania, screenshoty testów
+tests/results/
+test-results/
+playwright-report/
+
 # Wygenerowane dokumenty AI — mogą zawierać wrażliwe dane systemowe
 SYSTEM_BRIEF_FOR_AI.md

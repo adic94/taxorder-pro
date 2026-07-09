@@ -33,7 +33,7 @@ window.TaxOrderFleetCloud = {
       model:          row.model          || raw.model  || "",
       rok:            row.production_year|| raw.rok    || null,
       typ:            row.vehicle_type   || raw.typ    || "",
-      dmc:            row.dmc_kg         || raw.dmc    || 0,
+      dmc:            row.dmc_kg         ?? raw.dmc    ?? 0,
       euro:           row.euro_standard  || raw.euro   || "",
       status:         row.ownership_status || raw.status || "",
       wlasciciel:     row.owner_name     || raw.wlasciciel || "",

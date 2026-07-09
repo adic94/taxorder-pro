@@ -23,6 +23,7 @@ function getRate(v) {
 }
 
 function _getRate_legacy(v) {
+  if (v.dmc == null && v.dmcMax == null) return null;
   const dT=(v.dmc??v.dmcMax??0)/1000, dzT=(v.dmcZespolu||0)/1000, refZ=dzT>0?dzT:dT;
   const typ=(v.typ||'').toLowerCase(), osie=parseInt(v.osie||v.liczbaOsi)||2, rok=parseInt(v.rok)||0, isNew=rok>=2024;
   if(typ.includes('autobus')) return isNew?1320:(parseInt(v.miejsca)||0)<30?1488:1872;
@@ -51,6 +52,7 @@ function _getRate_legacy(v) {
 }  // end _getRate_legacy
 
 function getCat(v) {
+  if (v.dmc == null && v.dmcMax == null) return null;
   const dT=(v.dmc??v.dmcMax??0)/1000, dzT=(v.dmcZespolu||0)/1000, refZ=dzT>0?dzT:dT;
   const typ=(v.typ||'').toLowerCase(), osie=parseInt(v.osie||v.liczbaOsi)||2;
   // Pojazdy specjalne są zwolnione z podatku DT-1
@@ -73,10 +75,12 @@ function getCat(v) {
 }
 
 function calcTax(v) {
+  if (window.TaxEngine) return window.TaxEngine.calcTax(v);
+  // fallback gdy tax-engine.js nie załadowany
   const cat = getCat(v); if(!cat) return {cat:null,amount:0,rate:0};
   const rate = getRate(v)||0;
-  const m = parseInt(v.miesiacePodatku)||12;
-  return {cat, amount: Math.round((rate*m)/12*100)/100, rate, isNew: (parseInt(v.rok)||0)>=2024};
+  const m = Math.min(Math.max(parseInt(v.miesiacePodatku)||12, 1), 12);
+  return {cat, amount: Math.round((rate*m)/12*100)/100, rate, months:m, isNew: (parseInt(v.rok)||0)>=2024};
 }
 
 const CAT_COLORS = {D1:'pill-blue',D2:'pill-green',D3:'pill-amber',D4:'pill-amber',D5:'pill-green',D6:'pill-blue',D7:'pill-blue',D8:'pill-red',D9:'pill-red',D10:'pill-red',D11:'pill-red',D12:'pill-red',D13:'pill-amber',D14:'pill-amber',D15:'pill-amber'};
@@ -170,8 +174,13 @@ function showPage(id) {
   if(id==='alert-dashboard') window.TaxOrderAlertDashboard?.load();
   if(id==='powiadomienia') window.TaxOrderNotifSettings?.load();
   if(id==='polisy-ocr') window.TaxOrderPolicyOcr?.load();
+  if(id==='stawki') window.GminyRates?.renderComparison('gmina-comparison-result');
   if(id==='dr-import') window.TaxOrderDrImport?.load();
+  if(id==='dt1-historia') window.Dt1Declarations?.load();
+  if(id==='webhooks') window.WebhooksUI?.load();
+  if(id==='errors-admin') renderErrorsAdmin();
   if(id==='mapa') window.FleetMap?.render();
+  if(id==='kalendarz') window.FleetCalendar?.open();
   updateCounters();
 }
 
@@ -568,7 +577,7 @@ async function checkD1Status() {
     const localCount = vehs.length;
     if (log) log.innerHTML = `📊 D1: ${typeof count === 'number' ? count + ' pojazdów' : 'odpowiedź OK'} | Lokalnie: ${localCount} pojazdów | ${typeof count === 'number' && count < localCount ? '⚠ D1 ma mniej rekordów — zalecana synchronizacja' : '✅ Baza wygląda OK'}`;
   } catch (e) {
-    if (log) log.innerHTML = `❌ Błąd: ${e.message}`;
+    if (log) log.innerHTML = `❌ Błąd: ${esc(e.message)}`;
   }
 }
 
@@ -584,7 +593,7 @@ function exportFleetCSV() {
     'UDT - Urządzenie','UDT - Nr urządzenia','UDT - Nr decyzji','UDT - Ostatnie','UDT - Następne','UDT - Wynik',
     'Tacho - Nr','Tacho - Ostatnia legalizacja','Tacho - Następna legalizacja',
     'Kat.pojazdu','Paliwo','Ładowność (kg)','Masa własna (kg)','Norma (l/100km)',
-    'Właściciel','Osie','Zawieszenie','Ownership','Mies. podatku'
+    'Właściciel','Osie','Zawieszenie','Ownership','Mies. podatku','Kod wewnętrzny'
   ];
   const list = filterVeh();
   const rows = list.map(v => [
@@ -599,7 +608,7 @@ function exportFleetCSV() {
     v.tachoNo||'', v.tachoLastCalib||'', v.tachoNextCalib||'',
     (v.katPojazdu||v.kategoria)||'', v.paliwo||'', v.ladownosc||'', (v.masaWlasna??v.masaWlKg)||'', v.normaSpalania||'',
     v.wlasciciel||'', v.osie||'', v.zawieszenie||'',
-    v.ownership_type||'', v.miesiacePodatku||12
+    v.ownership_type||'', v.miesiacePodatku||12, v.assetCode||''
   ]);
   const csv = [HEADERS, ...rows]
     .map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';'))
@@ -1062,6 +1071,55 @@ function updateCounters() {
 function refreshAll() { renderVeh(); renderKalkulator(); updateCounters(); renderDash(); window.TaxOrderNotifications?.updateBadge?.(); }
 function updateAll() { updateCounters(); renderKalkulator(); }
 
+// ── REGON / NIP lookup (White List API MF) ────────────────────────────────
+async function lookupNip() {
+  const nipEl  = document.getElementById('tp-nip');
+  const btnEl  = document.getElementById('btn-nip-lookup');
+  const infoEl = document.getElementById('nip-lookup-info');
+  const nip = (nipEl?.value || '').replace(/\s/g, '');
+  if (!/^\d{10}$/.test(nip)) { if (infoEl) infoEl.textContent = 'NIP musi mieć 10 cyfr.'; return; }
+
+  if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<i class="ti ti-loader-2"></i>Szukam…'; }
+  if (infoEl) infoEl.textContent = '';
+
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const r = await fetch(`https://wl-api.mf.gov.pl/api/check/nip/${nip}?date=${today}`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    const s = data?.result?.subject;
+    if (!s) throw new Error('Brak danych dla tego NIP');
+
+    const setV = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+
+    setV('tp-nip',    s.nip || nip);
+    setV('tp-regon',  s.regon || '');
+    if (s.name) setV('tp-nazwa', s.name.toUpperCase());
+
+    // Parsuj adres: "ul. Toruńska 31, 03-226 Warszawa"
+    const addr = s.residenceAddress || s.workingAddress || '';
+    if (addr) {
+      const mKod = addr.match(/(\d{2}-\d{3})\s+(.+)/);
+      if (mKod) {
+        setV('tp-kod',   mKod[1]);
+        setV('tp-miasto', (mKod[2]||'').toUpperCase().split(',')[0].trim());
+      }
+      const mUl = addr.match(/^(?:ul\.|al\.|os\.|pl\.)?\s*([^,\d]+?)\s+(\d+[a-zA-Z\/\d]*)/i);
+      if (mUl) {
+        setV('tp-ulica', mUl[1].toUpperCase().replace(/^ul\./i,'').trim());
+        setV('tp-dom',   mUl[2].trim());
+      }
+    }
+
+    if (infoEl) infoEl.innerHTML = `<span style="color:var(--green)">✓ Znaleziono: ${esc(s.name || '—')} · Status VAT: ${esc(s.statusVat || '—')}</span>`;
+    updateAll();
+  } catch (e) {
+    if (infoEl) infoEl.innerHTML = `<span style="color:var(--red)">Błąd: ${esc(e.message)}. Sprawdź NIP lub wypełnij dane ręcznie.</span>`;
+  } finally {
+    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = '<i class="ti ti-search"></i>Szukaj'; }
+  }
+}
+
 // ==================== FUEL DASH ====================
 function renderFuelDash() {
   const el = document.getElementById('dash-fuel');
@@ -1426,8 +1484,118 @@ function renderPaliwoPage() {
   }
 }
 
+// ==================== MODULARNY KOKPIT ====================
+const DASH_WIDGETS = [
+  { id: 'kpi',          label: 'Wskaźniki KPI floty',          icon: 'ti-chart-bar' },
+  { id: 'notifs',       label: 'Mandaty / Kierowcy / Karty',   icon: 'ti-bell' },
+  { id: 'alerts',       label: 'Alerty terminów',              icon: 'ti-bell-ringing' },
+  { id: 'service_fuel', label: 'Serwis + Paliwo',              icon: 'ti-tools' },
+  { id: 'activity',     label: 'Aktywność floty',              icon: 'ti-activity' },
+  { id: 'structure',    label: 'Struktura floty + DT-1',       icon: 'ti-chart-pie' },
+];
+
+const _DASH_LS_KEY = 'taxorder-dash-config';
+
+function _getDashConfig() {
+  try {
+    const raw = localStorage.getItem(_DASH_LS_KEY);
+    if (!raw) return _dashDefaultConfig();
+    const cfg = JSON.parse(raw);
+    // Dodaj nowe widgety (których brakuje w zapisanej konfiguracji) na koniec listy
+    const known = new Set(cfg.order || []);
+    DASH_WIDGETS.forEach(w => { if (!known.has(w.id)) cfg.order.push(w.id); });
+    cfg.hidden = cfg.hidden || [];
+    return cfg;
+  } catch { return _dashDefaultConfig(); }
+}
+
+function _dashDefaultConfig() {
+  return { order: DASH_WIDGETS.map(w => w.id), hidden: [] };
+}
+
+function _applyDashConfig() {
+  const cfg = _getDashConfig();
+  const layout = document.getElementById('dash-layout');
+  if (!layout) return;
+  cfg.order.forEach((id, idx) => {
+    const el = layout.querySelector(`[data-wid="${id}"]`);
+    if (!el) return;
+    el.style.order = idx;
+    el.style.display = cfg.hidden.includes(id) ? 'none' : '';
+  });
+}
+
+function openDashCustomize() {
+  const cfg = _getDashConfig();
+  const oldList = document.getElementById('dash-customize-list');
+  if (!oldList) return;
+  // Klonuj węzeł bez dzieci — usuwa poprzednie listenery drag
+  const list = oldList.cloneNode(false);
+  oldList.parentNode.replaceChild(list, oldList);
+  list.innerHTML = cfg.order.map(id => {
+    const w = DASH_WIDGETS.find(x => x.id === id);
+    if (!w) return '';
+    const hidden = cfg.hidden.includes(id);
+    return `<li class="dash-widget-row" data-wid="${id}" draggable="true"
+      style="display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--border);cursor:grab;user-select:none">
+      <i class="ti ti-grip-vertical" style="color:var(--text3);font-size:17px;flex-shrink:0;pointer-events:none"></i>
+      <input type="checkbox" id="dw-chk-${id}" ${hidden ? '' : 'checked'} style="width:15px;height:15px;cursor:pointer;flex-shrink:0">
+      <label for="dw-chk-${id}" style="flex:1;cursor:pointer;display:flex;align-items:center;gap:7px;font-size:13px;pointer-events:none">
+        <i class="ti ${w.icon}" style="color:var(--text2);font-size:15px"></i>${w.label}
+      </label>
+    </li>`;
+  }).join('');
+  _initDashDnd(list);
+  document.getElementById('modal-dash-customize').style.display = 'flex';
+}
+
+function closeDashCustomize() {
+  document.getElementById('modal-dash-customize').style.display = 'none';
+}
+
+function saveDashCustomize() {
+  const list = document.getElementById('dash-customize-list');
+  const items = [...list.querySelectorAll('[data-wid]')];
+  const cfg = {
+    order: items.map(el => el.dataset.wid),
+    hidden: items.filter(el => !el.querySelector('input[type=checkbox]').checked).map(el => el.dataset.wid),
+  };
+  try { localStorage.setItem(_DASH_LS_KEY, JSON.stringify(cfg)); } catch (e) { console.warn('[Dash] Nie można zapisać konfiguracji:', e); }
+  _applyDashConfig();
+  closeDashCustomize();
+  toast('✓ Układ kokpitu zapisany');
+}
+
+function resetDashCustomize() {
+  localStorage.removeItem(_DASH_LS_KEY);
+  _applyDashConfig();
+  closeDashCustomize();
+  toast('Przywrócono domyślny układ kokpitu');
+}
+
+function _initDashDnd(list) {
+  let dragging = null;
+  list.addEventListener('dragstart', e => {
+    dragging = e.target.closest('[data-wid]');
+    if (dragging) { dragging.style.opacity = '0.45'; dragging.style.cursor = 'grabbing'; }
+  });
+  list.addEventListener('dragend', () => {
+    if (dragging) { dragging.style.opacity = ''; dragging.style.cursor = 'grab'; dragging = null; }
+  });
+  list.addEventListener('dragover', e => {
+    e.preventDefault();
+    const over = e.target.closest('[data-wid]');
+    if (over && dragging && over !== dragging) {
+      const rect = over.getBoundingClientRect();
+      if (e.clientY < rect.top + rect.height / 2) over.before(dragging);
+      else over.after(dragging);
+    }
+  });
+}
+
 // ==================== DASH ====================
 function renderDash() {
+  _applyDashConfig();
   const brands = {};
   vehs.forEach(v=>{ if(!brands[v.marka])brands[v.marka]=0; brands[v.marka]++; });
   const el = document.getElementById('dash-brands');
@@ -1441,48 +1609,49 @@ function renderDash() {
 
   // Alerty — pojazdy z terminami w ciągu 60 dni lub przeterminowanymi
   const alertsEl = document.getElementById('dash-alerts');
-  if(!alertsEl) return;
-  const now = new Date();
-  const DAYS60 = 60 * 86400000;
-  const _alertDates = v => {
-    const d = [
-      {label:'OC', date:v.ocEnd},
-      {label:'AC', date:v.acEnd},
-      {label:'Przegląd', date:v.nextInspection},
-    ];
-    if (v.hasUdt && v.udtNextDate) d.push({label:'UDT', date:v.udtNextDate});
-    if (v.hasTacho && v.tachoNextCalib) d.push({label:'Tacho', date:v.tachoNextCalib});
-    if (v.tireNextChange) d.push({label:'Opony', date:v.tireNextChange});
-    (v.serviceHistory||[]).forEach(s => { if (s.nextServiceDate) d.push({label:'Serwis', date:s.nextServiceDate}); });
-    return d;
-  };
-  const alerts = vehs
-    .filter(v => _alertDates(v).some(({date}) => date && (new Date(date) - now) < DAYS60))
-    .map(v => {
-      const dates = _alertDates(v).filter(x=>x.date).map(x=>new Date(x.date));
-      const minDate = dates.reduce((a,b)=>a<b?a:b, new Date(9999,0));
-      return {v, minDate};
-    })
-    .sort((a,b) => a.minDate - b.minDate);
+  if (alertsEl) {
+    const now = new Date();
+    const DAYS60 = 60 * 86400000;
+    const _alertDates = v => {
+      const d = [
+        {label:'OC', date:v.ocEnd},
+        {label:'AC', date:v.acEnd},
+        {label:'Przegląd', date:v.nextInspection},
+      ];
+      if (v.hasUdt && v.udtNextDate) d.push({label:'UDT', date:v.udtNextDate});
+      if (v.hasTacho && v.tachoNextCalib) d.push({label:'Tacho', date:v.tachoNextCalib});
+      if (v.tireNextChange) d.push({label:'Opony', date:v.tireNextChange});
+      (v.serviceHistory||[]).forEach(s => { if (s.nextServiceDate) d.push({label:'Serwis', date:s.nextServiceDate}); });
+      return d;
+    };
+    const alerts = vehs
+      .filter(v => _alertDates(v).some(({date}) => date && (new Date(date) - now) < DAYS60))
+      .map(v => {
+        const dates = _alertDates(v).filter(x=>x.date).map(x=>new Date(x.date));
+        const minDate = dates.reduce((a,b)=>a<b?a:b, new Date(9999,0));
+        return {v, minDate};
+      })
+      .sort((a,b) => a.minDate - b.minDate);
 
-  alertsEl.innerHTML = !alerts.length
-    ? '<tr><td colspan="7" style="color:var(--text3);text-align:center;padding:12px">Brak alertów — wszystkie terminy aktualne</td></tr>'
-    : alerts.map(({v}) => `<tr style="cursor:pointer" onclick="TaxOrderVehicleDetail.open(${v.id})" title="Otwórz kartę pojazdu">
-    <td><strong style="font-family:var(--mono)">${v.nrRej}</strong></td>
-    <td style="font-size:12px">${v.marka} ${v.model}</td>
-    <td>${_datePill(v.ocEnd)}</td>
-    <td>${_datePill(v.acEnd)}</td>
-    <td>${_datePill(v.nextInspection)}</td>
-    <td style="font-size:11px">
-      ${v.hasUdt&&v.udtNextDate?_datePill(v.udtNextDate):'<span style="color:var(--text3)">—</span>'}
-      ${v.hasTacho&&v.tachoNextCalib?'<span style="margin-left:4px">'+_datePill(v.tachoNextCalib)+'</span>':''}
-    </td>
-    <td style="text-align:center" onclick="event.stopPropagation()">
-      <button class="btn btn-gray" style="font-size:11px;padding:3px 8px" onclick="TaxOrderVehicleDetail.open(${v.id})" title="Karta pojazdu">
-        <i class="ti ti-id-badge"></i>
-      </button>
-    </td>
-  </tr>`).join('');
+    alertsEl.innerHTML = !alerts.length
+      ? '<tr><td colspan="7" style="color:var(--text3);text-align:center;padding:12px">Brak alertów — wszystkie terminy aktualne</td></tr>'
+      : alerts.map(({v}) => `<tr style="cursor:pointer" onclick="TaxOrderVehicleDetail.open(${v.id})" title="Otwórz kartę pojazdu">
+      <td><strong style="font-family:var(--mono)">${v.nrRej}</strong></td>
+      <td style="font-size:12px">${v.marka} ${v.model}</td>
+      <td>${_datePill(v.ocEnd)}</td>
+      <td>${_datePill(v.acEnd)}</td>
+      <td>${_datePill(v.nextInspection)}</td>
+      <td style="font-size:11px">
+        ${v.hasUdt&&v.udtNextDate?_datePill(v.udtNextDate):'<span style="color:var(--text3)">—</span>'}
+        ${v.hasTacho&&v.tachoNextCalib?'<span style="margin-left:4px">'+_datePill(v.tachoNextCalib)+'</span>':''}
+      </td>
+      <td style="text-align:center" onclick="event.stopPropagation()">
+        <button class="btn btn-gray" style="font-size:11px;padding:3px 8px" onclick="TaxOrderVehicleDetail.open(${v.id})" title="Karta pojazdu">
+          <i class="ti ti-id-badge"></i>
+        </button>
+      </td>
+    </tr>`).join('');
+  }
   renderFuelDash();
   _renderServiceDash();
   _renderFinesDash();
@@ -2722,6 +2891,24 @@ async function generujDt1Multi() {
   toast(`⏳ Generuję DT-1 dla ${allTaxable.length} pojazdów...`);
   try {
     await DT1Generator.generate(taxpayerData, allTaxable, { rok: parseInt(yr) });
+
+    // Zapisz do archiwum deklaracji
+    if (window.Dt1Declarations?.saveDeclaration) {
+      const totalTax = allTaxable.reduce((s, v) => {
+        const t = typeof calcTax === 'function' ? calcTax(v) : {};
+        return s + (t.amount || v.amount || 0);
+      }, 0);
+      await window.Dt1Declarations.saveDeclaration({
+        rok:           parseInt(yr),
+        total_tax:     Math.round(totalTax * 100) / 100,
+        vehicle_count: allTaxable.length,
+        gmina:         document.getElementById('vd-gmina')?.value || taxpayerData.gmina || 'brak',
+        vehicles:      allTaxable.map(v => {
+          const t = typeof calcTax === 'function' ? calcTax(v) : {};
+          return { nrRej: v.nrRej, marka: v.marka, model: v.model, cat: t.cat||v.cat, miesiacePodatku: v.miesiacePodatku||12, amount: t.amount||v.amount||0 };
+        }),
+      });
+    }
   } catch(e) {
     toast('❌ ' + e.message);
     console.error('[DT1Multi]', e);
@@ -2761,7 +2948,7 @@ function toast(msg) {
       .trim();
   }
   const el = document.getElementById('toast');
-  el.innerHTML = `<i class="ti ti-check"></i> ${msg}`;
+  el.innerHTML = `<i class="ti ti-check"></i> ${esc(msg)}`;
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 3000);
 }
@@ -3640,7 +3827,7 @@ Tekst OCR:\n${combinedText.slice(0,6000)}`;
     btn.innerHTML='<i class="ti ti-scan"></i> Uruchom OCR + Wypełnij formularz';
     // Pokaż formularz ręczny z komunikatem błędu
     document.getElementById('ocr-result').classList.remove('hidden');
-    document.getElementById('ocr-result').innerHTML=`<div class="wbox" style="margin-bottom:12px"><i class="ti ti-alert-triangle"></i><div><strong>OCR nie mógł przetworzyć pliku:</strong> ${e.message}<br><span style="font-size:11px">Formularz ręczny jest dostępny poniżej — wpisz dane z dokumentu.</span></div></div>`;
+    document.getElementById('ocr-result').innerHTML=`<div class="wbox" style="margin-bottom:12px"><i class="ti ti-alert-triangle"></i><div><strong>OCR nie mógł przetworzyć pliku:</strong> ${esc(e.message)}<br><span style="font-size:11px">Formularz ręczny jest dostępny poniżej — wpisz dane z dokumentu.</span></div></div>`;
     showManualForm({});
   }
   document.getElementById('ocr-btn').disabled=false;
@@ -4229,12 +4416,13 @@ function submitManualForm(){
     const res=document.getElementById('ocr-result');
     const div=document.createElement('div');
     div.className='wbox'; div.style.marginTop='12px';
-    div.innerHTML=`<i class="ti ti-alert-triangle"></i><div><strong>Pojazd ${nrRej} nie znaleziony w bazie.</strong> DMC: ${d.dmcKg} kg — podlega podatkowi DT-1.<br>
-      <button class="btn btn-green" style="margin-top:8px" onclick="addNewFromOCR(${JSON.stringify(d).replace(/"/g,'&quot;')})"><i class="ti ti-plus"></i>Dodaj jako nowy pojazd</button></div>`;
+    div.innerHTML=`<i class="ti ti-alert-triangle"></i><div><strong>Pojazd ${esc(nrRej)} nie znaleziony w bazie.</strong> DMC: ${esc(String(d.dmcKg||''))} kg — podlega podatkowi DT-1.<br>
+      <button class="btn btn-green" style="margin-top:8px" id="_ocr-add-btn"><i class="ti ti-plus"></i>Dodaj jako nowy pojazd</button></div>`;
+    div.querySelector('#_ocr-add-btn').onclick = () => addNewFromOCR(d);
     res.appendChild(div);
     div.scrollIntoView({behavior:'smooth'});
   }else{
-    toast('⚠ Pojazd '+nrRej+' nie znaleziony w bazie');
+    toast('⚠ Pojazd '+esc(nrRej)+' nie znaleziony w bazie');
   }
 }
 
@@ -4274,8 +4462,8 @@ function openUpdateModal(vehId,d){
 
   document.getElementById('ocr-modal-body').innerHTML=`
     <div style="background:var(--blue-light);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--blue-dark)">
-      <strong>${v.nrRej} · ${v.marka} ${v.model}</strong><br>
-      <span style="font-size:11px">Źródło: ${d.typDokumentu||'formularz'} · Pewność: ${d.pewnosc||'?'} · ${changedCount} ${changedCount===1?'zmiana':'zmiany'} do zastosowania</span>
+      <strong>${esc(v.nrRej)} · ${esc(v.marka||'')} ${esc(v.model||'')}</strong><br>
+      <span style="font-size:11px">Źródło: ${esc(d.typDokumentu||'formularz')} · Pewność: ${esc(String(d.pewnosc||'?'))} · ${changedCount} ${changedCount===1?'zmiana':'zmiany'} do zastosowania</span>
     </div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:14px">
       <div style="display:grid;grid-template-columns:36px 160px 1fr 1fr;background:var(--bg3);border-bottom:1px solid var(--border)">
@@ -4287,9 +4475,9 @@ function openUpdateModal(vehId,d){
       ${changes.map((c,i)=>`
       <div style="display:grid;grid-template-columns:36px 160px 1fr 1fr;border-bottom:0.5px solid var(--border);align-items:center;${c.changed?'background:var(--blue-light)':''}">
         <div style="padding:8px;text-align:center"><input type="checkbox" id="ch2-${i}" ${c.changed?'checked':''} style="cursor:pointer"></div>
-        <div style="padding:8px 12px;font-size:12px;font-weight:500">${c.label}</div>
-        <div style="padding:8px 12px;font-size:12px;font-family:var(--mono);color:var(--text2)">${c.oldVal}</div>
-        <div style="padding:8px 12px;font-size:12px;font-family:var(--mono);font-weight:600;color:${c.changed?'var(--blue)':'var(--text)'}">${c.newVal}
+        <div style="padding:8px 12px;font-size:12px;font-weight:500">${esc(c.label)}</div>
+        <div style="padding:8px 12px;font-size:12px;font-family:var(--mono);color:var(--text2)">${esc(String(c.oldVal??''))}</div>
+        <div style="padding:8px 12px;font-size:12px;font-family:var(--mono);font-weight:600;color:${c.changed?'var(--blue)':'var(--text)'}">${esc(String(c.newVal??''))}
           ${c.changed?'<span class="diff-badge">ZMIANA</span>':''}</div>
       </div>`).join('')}
     </div>
@@ -4326,6 +4514,8 @@ function applyOcrChanges(vehId,changes){
 function addNewFromOCR(d){
   const dmc=parseFloat((d.dmcKg||'').toString().replace(',','.'))||0;
   if(dmc<=3500){toast('⚠ DMC ≤ 3500 kg — pojazd nie podlega DT-1');return;}
+  const rokParsed=parseInt(d.rokProd)||0;
+  if(rokParsed && (rokParsed<1900||rokParsed>2050)){toast('⚠ Rok produkcji poza zakresem 1900–2050 — sprawdź dane');return;}
   const masaWl=parseInt(d.masaWlKg)||0;
   const dmcF2=parseFloat((d.dmcKg2||'').toString().replace(',','.'))||0;
   const ladownosc=(dmcF2||dmc)&&masaWl&&(dmcF2||dmc)>masaWl?String((dmcF2||dmc)-masaWl):'';
@@ -4901,8 +5091,8 @@ const DEFAULT_USERS = [{id:1,name:'Administrator',email:'adamus1000@gmail.com',p
 const ROLE_LABELS = {admin:'Administrator',kierownik:'Kierownik',ksiegowy:'Księgowy',mechanik:'Mechanik',dyspozytor:'Dyspozytor',kierowca:'Kierowca'};
 const ROLE_COLORS = {admin:'pill-red',kierownik:'pill-blue',ksiegowy:'pill-green',mechanik:'pill-amber',dyspozytor:'pill-blue',kierowca:'pill-gray'};
 const ROLE_TABS = {
-  admin:      ['dash','pojazdy','kierowcy','kalendarz','paliwo','kalkulator','formularze','stawki','pd','walidacja','raporty','ocr','faktury','pdfexport','impexp','karty','szkody','opony-magazyn','zlecenia','protokoly','cfm-klienci','cfm-kontrakty','cfm-faktury','uzytkownicy','api-klucze','cepik','podatnik','firmy','ai','powiadomienia','mandaty','alert-dashboard','polisy-ocr','dr-import','mapa'],
-  kierownik:  ['dash','pojazdy','kierowcy','kalendarz','paliwo','kalkulator','formularze','stawki','raporty','pdfexport','ocr','faktury','karty','szkody','opony-magazyn','zlecenia','protokoly','cfm-klienci','cfm-kontrakty','cfm-faktury','ai','powiadomienia','mandaty','alert-dashboard','polisy-ocr','dr-import','mapa'],
+  admin:      ['dash','pojazdy','kierowcy','kalendarz','paliwo','kalkulator','formularze','stawki','pd','walidacja','raporty','ocr','faktury','pdfexport','impexp','karty','szkody','opony-magazyn','zlecenia','protokoly','cfm-klienci','cfm-kontrakty','cfm-faktury','uzytkownicy','api-klucze','cepik','podatnik','firmy','ai','powiadomienia','mandaty','alert-dashboard','polisy-ocr','dr-import','mapa','dt1-historia','webhooks','errors-admin'],
+  kierownik:  ['dash','pojazdy','kierowcy','kalendarz','paliwo','kalkulator','formularze','stawki','raporty','pdfexport','ocr','faktury','karty','szkody','opony-magazyn','zlecenia','protokoly','cfm-klienci','cfm-kontrakty','cfm-faktury','ai','powiadomienia','mandaty','alert-dashboard','polisy-ocr','dr-import','mapa','dt1-historia','webhooks'],
   ksiegowy:   ['dash','paliwo','kalkulator','formularze','stawki','pd','raporty','pdfexport','impexp','podatnik','ai','powiadomienia','mandaty'],
   mechanik:   ['dash','pojazdy','paliwo','ocr','faktury','szkody','opony-magazyn','zlecenia','protokoly','powiadomienia'],
   dyspozytor: ['dash','pojazdy','kierowcy','kalendarz','paliwo','raporty','karty','ocr','faktury','szkody','opony-magazyn','zlecenia','protokoly','powiadomienia','mandaty','alert-dashboard','mapa'],
@@ -4973,7 +5163,11 @@ async function doLogin(){
   }
 
   if(window.TaxOrderFleetCloud && typeof window.TaxOrderFleetCloud.loadVehicles === 'function'){
-    await window.TaxOrderFleetCloud.loadVehicles();
+    try {
+      await window.TaxOrderFleetCloud.loadVehicles();
+    } catch(e) {
+      console.warn('[FleetCloud] Błąd ładowania pojazdów po logowaniu — używam lokalnej floty:', e.message);
+    }
 
     if(typeof refreshAll==='function') refreshAll();
 
@@ -5011,7 +5205,7 @@ async function doLogin(){
 
 function showLoginErr(msg){
   const el=document.getElementById('login-err');
-  if(el){el.style.display='flex';el.innerHTML=`<i class="ti ti-alert-circle"></i>${msg}`;}
+  if(el){el.style.display='flex';el.innerHTML=`<i class="ti ti-alert-circle"></i>${esc(String(msg||''))}`;}
 }
   
 async function resetPasswordFlow(){
@@ -5059,7 +5253,7 @@ async function submitNewPassword() {
   const errEl = document.getElementById('pwd-reset-err');
   const btn = document.getElementById('pwd-reset-submit');
   const showErr = (msg) => {
-    if (errEl) { errEl.style.display = 'flex'; errEl.innerHTML = '<i class="ti ti-alert-circle"></i>' + msg; }
+    if (errEl) { errEl.style.display = 'flex'; errEl.innerHTML = '<i class="ti ti-alert-circle"></i>' + esc(msg); }
   };
   if (!newPassword || newPassword.length < 6) { showErr('Hasło musi mieć minimum 6 znaków.'); return; }
   if (newPassword !== confirm) { showErr('Hasła nie są takie same.'); return; }
@@ -5875,7 +6069,7 @@ function cepikLog(msg, type='info') {
   if(!el) return;
   const color = {info:'var(--text2)',ok:'var(--green)',warn:'var(--amber)',err:'var(--red)'}[type]||'var(--text2)';
   const time = new Date().toLocaleTimeString('pl-PL');
-  el.innerHTML = `<span style="color:${color}">[${time}] ${msg}</span>\n` + el.innerHTML;
+  el.innerHTML = `<span style="color:${color}">[${time}] ${esc(msg)}</span>\n` + el.innerHTML;
 }
 function updateCepikStatus(status) {
   const pill = document.getElementById('cepik-status-pill');
@@ -6290,7 +6484,7 @@ async function cepikBatchCheck(mode) {
     await cepikFetch(testV.nrRej, getWoj(testV.nrRej));
     cepikLog('✅ Pre-flight OK — połączenie z CEPiK działa','ok');
   } catch(e) {
-    if(res) res.innerHTML=`<div class="ebox"><i class="ti ti-alert-circle"></i><div><strong>Błąd CEPiK — batch przerwany.</strong><br><span style="font-size:12px">${e.message}<br>Sprawdź konfigurację tokenu lub odśwież połączenie powyżej.</span></div></div>`;
+    if(res) res.innerHTML=`<div class="ebox"><i class="ti ti-alert-circle"></i><div><strong>Błąd CEPiK — batch przerwany.</strong><br><span style="font-size:12px">${esc(e.message)}<br>Sprawdź konfigurację tokenu lub odśwież połączenie powyżej.</span></div></div>`;
     cepikLog('❌ Pre-flight nieudany: '+e.message,'err');
     return;
   }
@@ -6685,3 +6879,84 @@ window.addEventListener('load', async () => {
     checkCepikAuto();
   }, 2000); // Start po 2 sek — żeby UI był już gotowy
 });
+
+// ─── PANEL ADMINA: BŁĘDY JS ──────────────────────────────────────────────────
+function _errApi(path) {
+  return `${window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev'}${path}`;
+}
+function _errHeaders() {
+  const t = localStorage.getItem('cf_token');
+  return t ? { Authorization: 'Bearer ' + t } : {};
+}
+async function _errFetch(path, opts = {}) {
+  const r = await fetch(_errApi(path), { headers: _errHeaders(), ...opts });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+const _ERR_TYPE_COLORS = { uncaught: '#dc2626', promise: '#ea580c', manual: '#6b7280' };
+
+async function renderErrorsAdmin() {
+  const wrap = document.getElementById('errors-admin-body');
+  if (!wrap) return;
+  wrap.innerHTML = '<p>Ładowanie…</p>';
+  try {
+    const data = await _errFetch('/api/errors?limit=200');
+    if (!data?.rows?.length) {
+      wrap.innerHTML = '<p style="color:var(--muted)">Brak zarejestrowanych błędów.</p>';
+      const cnt = document.getElementById('errors-admin-count');
+      if (cnt) cnt.textContent = '0';
+      return;
+    }
+    const cnt = document.getElementById('errors-admin-count');
+    if (cnt) cnt.textContent = data.total ?? data.rows.length;
+
+    wrap.innerHTML = `
+      <table class="data-table" style="font-size:.82rem">
+        <thead><tr>
+          <th>Czas</th><th>Typ</th><th>Błąd</th><th>URL</th><th>Firma</th><th>Analiza</th><th></th>
+        </tr></thead>
+        <tbody>
+          ${data.rows.map(r => {
+            const col = _ERR_TYPE_COLORS[r.error_type] || '#6b7280';
+            return `<tr>
+              <td style="white-space:nowrap">${esc(r.created_at?.substring(0,16)??'')}</td>
+              <td><span style="display:inline-block;padding:1px 7px;border-radius:999px;font-size:.75rem;font-weight:600;background:${col}22;color:${col}">${esc(r.error_type)}</span></td>
+              <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.error_msg)}">${esc(r.error_msg)}</td>
+              <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.url??'')}"><small>${esc((r.url||'').replace(/^https?:\/\/[^/]+/,''))}</small></td>
+              <td><small>${esc(r.company_id??'–')}</small></td>
+              <td>${r.github_issue_url && (r.github_issue_url||'').startsWith('https://') ? `<a href="${esc(r.github_issue_url)}" target="_blank" rel="noopener" style="font-size:.8rem">Issue ↗</a>` : r.analyzed ? '<span style="color:var(--muted);font-size:.8rem">✓ OK</span>' : ''}</td>
+              <td><button class="btn-sm btn-ghost" onclick="deleteErrorLog('${esc(r.id)}')" title="Usuń">🗑</button></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  } catch (e) {
+    wrap.innerHTML = `<p style="color:#dc2626">Błąd: ${esc(e.message)}</p>`;
+  }
+}
+
+async function deleteErrorLog(id) {
+  if (!confirm('Usunąć ten wpis?')) return;
+  try {
+    await _errFetch(`/api/errors/${id}`, { method: 'DELETE' });
+    toast('✓ Wpis usunięty');
+    renderErrorsAdmin();
+  } catch (e) {
+    toast('⚠ ' + e.message, true);
+  }
+}
+
+async function clearAllErrorLogs() {
+  if (!confirm('Usunąć WSZYSTKIE zarejestrowane błędy?')) return;
+  try {
+    const data = await _errFetch('/api/errors?limit=500');
+    for (const r of (data?.rows || [])) {
+      await _errFetch(`/api/errors/${r.id}`, { method: 'DELETE' });
+    }
+    toast('✓ Wyczyszczono logi błędów');
+    renderErrorsAdmin();
+  } catch (e) {
+    toast('⚠ ' + e.message, true);
+  }
+}

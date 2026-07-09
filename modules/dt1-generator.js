@@ -1,5 +1,67 @@
 ﻿function _pl2ascii(s){if(!s)return s;return String(s).replace(/\u0104/g,'A').replace(/\u0105/g,'a').replace(/\u0106/g,'C').replace(/\u0107/g,'c').replace(/\u0118/g,'E').replace(/\u0119/g,'e').replace(/\u0141/g,'L').replace(/\u0142/g,'l').replace(/\u0143/g,'N').replace(/\u0144/g,'n').replace(/\u00d3/g,'O').replace(/\u00f3/g,'o').replace(/\u015a/g,'S').replace(/\u015b/g,'s').replace(/\u0179/g,'Z').replace(/\u017a/g,'z').replace(/\u017b/g,'Z').replace(/\u017c/g,'z').replace(/\u2013/g,'-').replace(/\u201e/g,'').replace(/\u201c/g,'').replace(/\u201d/g,'');}
 
+/**
+ * Oblicza liczb\u0119 miesi\u0119cy podlegaj\u0105cych opodatkowaniu DT-1 dla danego pojazdu i roku.
+ * Uwzgl\u0119dnia: dat\u0119 nabycia, dat\u0119 zbycia/wyrejestrowania oraz czasowe wycofanie z ruchu.
+ *
+ * Zasady (art. 9 ustawy o podatkach i op\u0142atach lokalnych):
+ * - Nabycie w ci\u0105gu roku: obowi\u0105zek od 1. dnia miesi\u0105ca NAST\u0118PNEGO po miesi\u0105cu nabycia.
+ * - Zbycie w ci\u0105gu roku: obowi\u0105zek wygasa z ko\u0144cem miesi\u0105ca zbycia.
+ * - Wycofanie czasowe: miesi\u0105ce w okresie wycofania s\u0105 zwolnione.
+ */
+window.calcMiesiacePodatku = function calcMiesiacePodatku(v, rok) {
+  rok = parseInt(rok) || new Date().getFullYear();
+
+  // Miesi\u0105c startu obowi\u0105zku (0=sty \u2026 11=gru)
+  let startM = 0;
+  const acqStr = v.purchaseDate || v.dataNabycia || v.dataRejestracji;
+  if (acqStr) {
+    const acq = new Date(acqStr);
+    if (!isNaN(acq)) {
+      if (acq.getFullYear() > rok) return 0;
+      if (acq.getFullYear() === rok) startM = acq.getMonth() + 1; // nast\u0119pny miesi\u0105c
+    }
+  }
+
+  // Miesi\u0105c ko\u0144ca obowi\u0105zku
+  let endM = 11;
+  const dispStr = v.saleDate || v.dataZbycia || v.dataWyrejestrowania;
+  if (dispStr) {
+    const disp = new Date(dispStr);
+    if (!isNaN(disp)) {
+      if (disp.getFullYear() < rok) return 0;
+      if (disp.getFullYear() === rok) endM = disp.getMonth();
+    }
+  }
+
+  if (startM > endM) return 0;
+
+  // Zakres wycofania z ruchu (je\u015bli podano)
+  let wM = -1, rM = -1;
+  if (v.dataWycofania) {
+    const wDate = new Date(v.dataWycofania);
+    if (!isNaN(wDate)) {
+      if (wDate.getFullYear() <= rok) {
+        wM = wDate.getFullYear() < rok ? 0 : wDate.getMonth();
+        const rDate = v.dataDopuszczenia ? new Date(v.dataDopuszczenia) : null;
+        if (rDate && !isNaN(rDate)) {
+          rM = rDate.getFullYear() > rok ? 11 : (rDate.getFullYear() === rok ? rDate.getMonth() : -1);
+        } else {
+          rM = 11; // brak daty przywr\u00f3cenia \u2192 zwolniony do ko\u0144ca roku
+        }
+      }
+    }
+  }
+
+  let count = 0;
+  for (let m = startM; m <= endM; m++) {
+    // Miesi\u0105c zwolniony je\u015bli mie\u015bci si\u0119 w zakresie wycofania
+    if (wM >= 0 && rM >= wM && m >= wM && m <= rM) continue;
+    count++;
+  }
+  return count;
+};
+
 // ==================== DT-1 GENERATOR ====================
 // Własny generator PDF formularza DT-1 i DT-1/A od zera przez pdf-lib
 // Niezależny od formularza MF — pełna kontrola nad pozycjami i polami
@@ -562,9 +624,9 @@ window.DT1Generator = {
       this.field(page, '7. Rok produkcji', v.rok||'', M, vy, sw, 14);
       this.field(page, '8. Data nabycia', v.purchaseDate||v.dataRejestracji||'', M+sw, vy, sw, 14);
       this.field(page, '9. Data zbycia', v.saleDate||'', M+2*sw, vy, sw, 14);
-      this.field(page, '10. Data czasowego wycofania z ruchu', '', M+3*sw, vy, sw, 14);
-      this.field(page, '11. Data ponownego dopuszczenia', '', M+4*sw, vy, sw, 14);
-      this.field(page, '12. Data wyrejestrowania', '', M+5*sw, vy, sw, 14);
+      this.field(page, '10. Data czasowego wycofania z ruchu', v.dataWycofania||'', M+3*sw, vy, sw, 14);
+      this.field(page, '11. Data ponownego dopuszczenia', v.dataDopuszczenia||'', M+4*sw, vy, sw, 14);
+      this.field(page, '12. Data wyrejestrowania', v.dataWyrejestrowania||'', M+5*sw, vy, sw, 14);
       vy += 16;
 
       // 13-16: DMC, masa własna ciągnika, DMC zespołu, liczba osi

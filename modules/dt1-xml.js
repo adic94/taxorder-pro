@@ -207,6 +207,9 @@ window.DT1XML = (function () {
       xmlParts.push(`    <P_${i*10+7}>${_fmt2(rate)}</P_${i*10+7}>`);
       xmlParts.push(`    <P_${i*10+8}>${_fmt2(amount)}</P_${i*10+8}>`);
       xmlParts.push(`    <P_${i*10+9}>${_esc(v.dataNabycia||v.purchaseDate||'')}</P_${i*10+9}>`);
+      xmlParts.push(`    <P_${i*10+10}>${_esc(v.dataWycofania||'')}</P_${i*10+10}>`);
+      xmlParts.push(`    <P_${i*10+11}>${_esc(v.dataDopuszczenia||'')}</P_${i*10+11}>`);
+      xmlParts.push(`    <P_${i*10+12}>${_esc(v.dataWyrejestrowania||v.saleDate||'')}</P_${i*10+12}>`);
       i++;
     }
 

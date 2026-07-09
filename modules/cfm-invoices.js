@@ -46,12 +46,12 @@ window.TaxOrderCfmInvoices = (function () {
     const pillCls = { WYSTAWIONA: 'pill-blue', OPLACONA: 'pill-green', ANULOWANA: 'pill-gray' };
     const pillLbl = { WYSTAWIONA: 'Wystawiona', OPLACONA: 'Opłacona', ANULOWANA: 'Anulowana' };
     tbody.innerHTML = list.map(inv => `<tr>
-      <td><strong style="font-family:var(--mono)">${inv.nr_faktury}</strong></td>
-      <td style="font-size:12px">${_clientName(inv)}</td>
-      <td style="font-size:12px">${inv.okres}</td>
+      <td><strong style="font-family:var(--mono)">${esc(inv.nr_faktury)}</strong></td>
+      <td style="font-size:12px">${esc(_clientName(inv))}</td>
+      <td style="font-size:12px">${esc(inv.okres)}</td>
       <td style="font-family:var(--mono)">${Number(inv.suma_brutto || 0).toLocaleString('pl-PL')} zł</td>
-      <td><span class="pill ${pillCls[inv.status] || 'pill-gray'}">${pillLbl[inv.status] || inv.status}</span></td>
-      <td style="font-size:11px">${inv.termin_platnosci || '—'}</td>
+      <td><span class="pill ${pillCls[inv.status] || 'pill-gray'}">${pillLbl[inv.status] || esc(inv.status)}</span></td>
+      <td style="font-size:11px">${esc(inv.termin_platnosci || '—')}</td>
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap">
           <button class="tbtn" onclick="TaxOrderCfmInvoices.downloadPdf('${inv.id}')" title="PDF"><i class="ti ti-file-type-pdf"></i></button>

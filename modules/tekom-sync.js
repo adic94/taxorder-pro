@@ -155,10 +155,10 @@ window.TekomSync = (function () {
         window.toast?.('✓ Konfiguracja Tekom zapisana');
         renderSection('tekom-section');
       } else {
-        if (res) res.innerHTML = `<div style="color:var(--red);padding:8px">${d.error || 'Błąd zapisu'}</div>`;
+        if (res) res.innerHTML = `<div style="color:var(--red);padding:8px">${(window.esc||String)(d.error || 'Błąd zapisu')}</div>`;
       }
     } catch(e) {
-      if (res) res.innerHTML = `<div style="color:var(--red);padding:8px">Błąd sieci: ${e.message}</div>`;
+      if (res) res.innerHTML = `<div style="color:var(--red);padding:8px">Błąd sieci: ${(window.esc||String)(e.message)}</div>`;
     }
   }
 
@@ -191,7 +191,7 @@ window.TekomSync = (function () {
         }
       }
     } catch(e) {
-      if (res) res.innerHTML = `<div style="color:var(--red)">Błąd: ${e.message}</div>`;
+      if (res) res.innerHTML = `<div style="color:var(--red)">Błąd: ${(window.esc||String)(e.message)}</div>`;
     }
   }
 
@@ -224,7 +224,7 @@ window.TekomSync = (function () {
         renderSection('tekom-section');
       }
     } catch(e) {
-      if (res) res.innerHTML = `<div style="color:var(--red)">Błąd: ${e.message}</div>`;
+      if (res) res.innerHTML = `<div style="color:var(--red)">Błąd: ${(window.esc||String)(e.message)}</div>`;
     }
   }
 
@@ -237,7 +237,7 @@ window.TekomSync = (function () {
       const d = await r.json();
       if (!res) return;
       if (!d.ok) {
-        res.innerHTML = `<span style="color:var(--red)">Błąd: ${d.msg}</span>`;
+        res.innerHTML = `<span style="color:var(--red)">Błąd: ${(window.esc||String)(d.msg)}</span>`;
         return;
       }
       const devs = d.devices || [];
@@ -264,7 +264,7 @@ window.TekomSync = (function () {
           </div>`;
       }).join('');
     } catch(e) {
-      if (res) res.innerHTML = `<span style="color:var(--red)">Błąd: ${e.message}</span>`;
+      if (res) res.innerHTML = `<span style="color:var(--red)">Błąd: ${(window.esc||String)(e.message)}</span>`;
     }
   }
 

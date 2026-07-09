@@ -38,11 +38,11 @@ window.TaxOrderCfmClients = (function () {
       return;
     }
     tbody.innerHTML = filtered.map(c => `<tr>
-      <td><strong>${c.nazwa}</strong></td>
-      <td style="font-family:var(--mono);font-size:12px">${c.nip || '—'}</td>
-      <td style="font-size:12px">${c.miasto || '—'}</td>
-      <td style="font-size:12px">${c.osoba_kontaktowa || '—'}</td>
-      <td style="font-size:12px">${c.email || c.telefon || '—'}</td>
+      <td><strong>${esc(c.nazwa)}</strong></td>
+      <td style="font-family:var(--mono);font-size:12px">${esc(c.nip || '—')}</td>
+      <td style="font-size:12px">${esc(c.miasto || '—')}</td>
+      <td style="font-size:12px">${esc(c.osoba_kontaktowa || '—')}</td>
+      <td style="font-size:12px">${esc(c.email || c.telefon || '—')}</td>
       <td>
         <div style="display:flex;gap:4px">
           <button class="tbtn" onclick="TaxOrderCfmClients.openModal('${c.id}')"><i class="ti ti-edit"></i></button>

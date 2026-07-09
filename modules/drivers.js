@@ -95,6 +95,9 @@ window.TaxOrderDrivers = (function () {
     if (el) el.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)"><i class="ti ti-loader-2" style="font-size:22px"></i></td></tr>`;
     await Promise.all([load(), _loadFinesCache()]);
     _renderList();
+    const sy = document.getElementById('scorecard-year');
+    if (sy) sy.textContent = new Date().getFullYear();
+    renderScorecard('driver-scorecard');
   }
 
   function close() {
@@ -135,7 +138,7 @@ window.TaxOrderDrivers = (function () {
         </td>
         <td style="padding:8px 10px;text-align:center;white-space:nowrap">
           <button class="btn btn-gray" style="font-size:11px;padding:3px 8px" onclick="TaxOrderDrivers.edit('${d.id}')"><i class="ti ti-edit"></i></button>
-          <button class="btn btn-gray" style="font-size:11px;padding:3px 8px;margin-left:4px" onclick="TaxOrderDrivers.remove('${d.id}','${d.name.replace(/'/g,"\\'")}')"><i class="ti ti-trash"></i></button>
+          <button class="btn btn-gray" style="font-size:11px;padding:3px 8px;margin-left:4px" data-id="${d.id}" data-name="${esc(d.name)}" onclick="TaxOrderDrivers.remove(this.dataset.id,this.dataset.name)"><i class="ti ti-trash"></i></button>
         </td>
       </tr>`;
     }).join('');
@@ -289,9 +292,121 @@ window.TaxOrderDrivers = (function () {
     return added;
   }
 
+  // ── Scorecard kierowcy — statystyki zagregowane ──────────────────────────
+
+  function renderScorecard(containerId) {
+    const el = document.getElementById(containerId || 'driver-scorecard');
+    if (!el) return;
+    const vehs = window.vehs || [];
+    const yr = String(new Date().getFullYear());
+    const fmt = n => n.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+    // Collect all unique driver names (from both _drivers and vehicle assignments)
+    const names = new Set(_drivers.map(d => d.name));
+    vehs.forEach(v => { if (v.kierowca) names.add(v.kierowca); });
+
+    if (!names.size) {
+      el.innerHTML = `<div style="padding:24px;color:var(--text3);text-align:center;font-size:13px">Brak kierowców w systemie.</div>`;
+      return;
+    }
+
+    const allFines = window.TaxOrderFines?.getAllSync?.() || [];
+    const rows = [];
+
+    names.forEach(name => {
+      const drvVehs = vehs.filter(v => v.kierowca === name);
+      let fuelCost = 0, fuelLiters = 0, fuelFills = 0;
+      let svcCost = 0, damages = 0, fineCount = 0, fineAmt = 0;
+
+      drvVehs.forEach(v => {
+        (v.fuelHistory || []).filter(h => (h.date||'').startsWith(yr)).forEach(h => {
+          fuelCost   += (+h.totalGross || +h.totalCost || 0);
+          fuelLiters += (+h.liters || 0);
+          fuelFills++;
+        });
+        (v.serviceHistory || []).filter(h => (h.date||'').startsWith(yr)).forEach(h => {
+          svcCost += (+h.cost || 0);
+        });
+        damages += (v.damages || []).filter(d => (d.date||'').startsWith(yr)).length;
+      });
+
+      // Also look up fuel assigned to driver by name (not by vehicle ownership)
+      vehs.forEach(v => {
+        (v.fuelHistory || []).filter(h => (h.date||'').startsWith(yr) && h.driverName === name && v.kierowca !== name).forEach(h => {
+          fuelCost   += (+h.totalGross || +h.totalCost || 0);
+          fuelLiters += (+h.liters || 0);
+          fuelFills++;
+        });
+      });
+
+      allFines.filter(f => (f.driver||'').toLowerCase() === name.toLowerCase() && (f.date||'').startsWith(yr)).forEach(f => {
+        fineCount++;
+        fineAmt += (+f.amount || 0);
+      });
+
+      const avgConsumption = fuelLiters > 0 && drvVehs.length > 0
+        ? (fuelLiters / drvVehs.reduce((s, v) => {
+            const pts = (v.fuelHistory||[]).filter(h=>(h.date||'').startsWith(yr)&&h.km>0).sort((a,b)=>a.km-b.km);
+            return s + (pts.length >= 2 ? pts[pts.length-1].km - pts[0].km : 0);
+          }, 0) * 100).toFixed(1)
+        : null;
+
+      const score = Math.max(0, 100
+        - (fineCount * 15)
+        - (damages * 10)
+        - (fuelFills === 0 ? 0 : 0));
+
+      rows.push({ name, drvVehs: drvVehs.length, fuelCost, fuelLiters: fuelLiters.toFixed(0), fuelFills, svcCost, damages, fineCount, fineAmt, avgConsumption, score });
+    });
+
+    rows.sort((a, b) => b.score - a.score);
+
+    const maxFuel = Math.max(...rows.map(r => r.fuelCost), 1);
+
+    el.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:10px">
+        ${rows.map((r, i) => {
+          const scoreColor = r.score >= 80 ? '#16a34a' : r.score >= 60 ? '#d97706' : '#dc2626';
+          const scoreBg    = r.score >= 80 ? '#f0fdf4' : r.score >= 60 ? '#fffbeb' : '#fef2f2';
+          return `
+          <div style="border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;background:var(--bg);display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+            <div style="width:52px;height:52px;border-radius:50%;background:${scoreBg};border:2px solid ${scoreColor};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <span style="font-size:15px;font-weight:800;color:${scoreColor}">${r.score}</span>
+            </div>
+            <div style="flex:1;min-width:120px">
+              <div style="font-weight:700;font-size:14px;margin-bottom:2px">${r.name}</div>
+              <div style="font-size:11px;color:var(--text2)">${r.drvVehs} pojazd${r.drvVehs===1?'':'y'} przypisanych</div>
+            </div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+              <div style="text-align:center;min-width:80px">
+                <div style="font-size:16px;font-weight:700;color:var(--blue)">${fmt(r.fuelCost)} zł</div>
+                <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Paliwo ${new Date().getFullYear()}</div>
+              </div>
+              <div style="text-align:center;min-width:80px">
+                <div style="font-size:16px;font-weight:700;color:var(--text)">${fmt(r.svcCost)} zł</div>
+                <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Serwis</div>
+              </div>
+              ${r.avgConsumption ? `<div style="text-align:center;min-width:70px">
+                <div style="font-size:16px;font-weight:700;color:var(--text)">${r.avgConsumption} l</div>
+                <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Śr. zuż./100km</div>
+              </div>` : ''}
+              ${r.fineCount > 0 ? `<div style="text-align:center;min-width:70px">
+                <div style="font-size:16px;font-weight:700;color:var(--red)">${r.fineCount}×</div>
+                <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Mandaty ${fmt(r.fineAmt)} zł</div>
+              </div>` : ''}
+              ${r.damages > 0 ? `<div style="text-align:center;min-width:60px">
+                <div style="font-size:16px;font-weight:700;color:var(--amber)">${r.damages}</div>
+                <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Szkody</div>
+              </div>` : ''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+  }
+
   async function init() {
     await load();
   }
 
-  return { getAll, load, open, close, edit, newDriver, saveDriver, remove, importFromVehicles, importBulk, init, getStats };
+  return { getAll, load, open, close, edit, newDriver, saveDriver, remove, importFromVehicles, importBulk, init, getStats, renderScorecard };
 })();

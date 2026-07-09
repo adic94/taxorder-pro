@@ -11,6 +11,23 @@
  */
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
+// Dozwolone originy frontendu — uzupełnij jeśli masz własną domenę
+const ALLOWED_ORIGINS = [
+  'https://taxorder-pro.pages.dev',
+  'https://www.taxorder-pro.pl',
+];
+
+function corsHeaders(origin) {
+  const ok = ALLOWED_ORIGINS.includes(origin) || /^https?:\/\/localhost(:\d+)?$/.test(origin);
+  return {
+    'Access-Control-Allow-Origin': ok ? origin : ALLOWED_ORIGINS[0],
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Vary': 'Origin',
+  };
+}
+
+// Używane wewnętrznie przez json() — nadpisywane przez corsHeaders() w głównym handlerze
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -26,7 +43,9 @@ function json(data, status = 200) {
 function err(msg, status = 400) { return json({ error: msg }, status); }
 
 // ─── CRYPTO ──────────────────────────────────────────────────────────────────
-// Stała sól używana przed wprowadzeniem soli per-użytkownik — TYLKO do weryfikacji starych hashy (nie używać do nowych).
+// DEPRECATED: Stała sól używana przed schemą v5 (przed 2026-01-01).
+// Używana wyłącznie do weryfikacji starych hashy przy logowaniu — leniwa migracja usuwa ją po 1. logowaniu.
+// TODO: usunąć LEGACY_SALT i blok `if (!user.salt)` gdy wszyscy użytkownicy zmigrują (docelowo 2027-01-01).
 const LEGACY_SALT = 'taxorder-cf-2025';
 
 function genSalt() {
@@ -1393,6 +1412,130 @@ async function handleApiKeys(req, env, user, url, path) {
   }
 
   return err('Metoda niedozwolona', 405);
+}
+
+// ─── HISTORIA DEKLARACJI DT-1 ────────────────────────────────────────────────
+async function handleDt1Declarations(req, env, user, url, path) {
+  const segs = path.split('/').filter(Boolean); // ['api','dt1-declarations',id?]
+  const company = url.searchParams.get('company') || user.company_id;
+  const declId  = segs[2] || null;
+
+  if (req.method === 'GET') {
+    const rows = await env.DB.prepare(
+      'SELECT id,company_id,rok,total_tax,vehicle_count,gmina,created_by,created_at,notes FROM dt1_declarations WHERE company_id=? ORDER BY rok DESC,created_at DESC'
+    ).bind(company).all();
+    return json(rows.results || []);
+  }
+
+  if (req.method === 'POST') {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const id = crypto.randomUUID();
+    await env.DB.prepare(
+      'INSERT INTO dt1_declarations(id,company_id,rok,total_tax,vehicle_count,gmina,created_by,notes,vehicles_json) VALUES(?,?,?,?,?,?,?,?,?)'
+    ).bind(id, company, body.rok||new Date().getFullYear(), body.total_tax||0, body.vehicle_count||0,
+      body.gmina||null, user.email||user.id, body.notes||null,
+      body.vehicles ? JSON.stringify(body.vehicles) : null).run();
+    return json({ ok:true, id });
+  }
+
+  if (req.method === 'DELETE' && declId) {
+    await env.DB.prepare('DELETE FROM dt1_declarations WHERE id=? AND company_id=?').bind(declId, company).run();
+    return json({ ok:true });
+  }
+
+  // GET /api/dt1-declarations/:id/vehicles — zwraca snapshot pojazdów
+  if (req.method === 'GET' && declId) {
+    const row = await env.DB.prepare('SELECT * FROM dt1_declarations WHERE id=? AND company_id=?').bind(declId, company).first();
+    if (!row) return err('Nie znaleziono', 404);
+    let vehicles = [];
+    try { vehicles = JSON.parse(row.vehicles_json || '[]'); } catch {}
+    return json({ ...row, vehicles });
+  }
+
+  return err('Metoda niedozwolona', 405);
+}
+
+// ─── WEBHOOKI WYCHODZĄCE ──────────────────────────────────────────────────────
+async function handleWebhooks(req, env, user, url, path) {
+  const segs  = path.split('/').filter(Boolean);
+  const company = url.searchParams.get('company') || user.company_id;
+  const hookId  = segs[2] || null;
+
+  if (req.method === 'GET' && !hookId) {
+    const rows = await env.DB.prepare(
+      'SELECT id,company_id,name,url,events,active,last_fired_at,last_status FROM webhooks WHERE company_id=? ORDER BY created_at DESC'
+    ).bind(company).all();
+    return json(rows.results || []);
+  }
+
+  if (req.method === 'POST' && !hookId) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!body.name) return err('Brak nazwy webhooka', 400);
+    if (!body.url || !/^https:\/\//.test(body.url)) return err('URL musi zaczynać się od https://', 400);
+    const id = crypto.randomUUID();
+    await env.DB.prepare(
+      'INSERT INTO webhooks(id,company_id,name,url,events,secret,active) VALUES(?,?,?,?,?,?,1)'
+    ).bind(id, company, body.name, body.url,
+      JSON.stringify(Array.isArray(body.events) ? body.events : ['alert']),
+      body.secret||null).run();
+    return json({ ok:true, id });
+  }
+
+  if (req.method === 'PUT' && hookId) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (body.url !== undefined && !/^https:\/\//.test(body.url)) return err('URL musi zaczynać się od https://', 400);
+    const sets=[]; const vals=[];
+    if (body.name   !== undefined) { sets.push('name=?');   vals.push(body.name); }
+    if (body.url    !== undefined) { sets.push('url=?');    vals.push(body.url); }
+    if (body.events !== undefined) { sets.push('events=?'); vals.push(JSON.stringify(body.events)); }
+    if (body.active !== undefined) { sets.push('active=?'); vals.push(body.active?1:0); }
+    if (!sets.length) return err('Brak pól');
+    vals.push(hookId, company);
+    await env.DB.prepare(`UPDATE webhooks SET ${sets.join(',')} WHERE id=? AND company_id=?`).bind(...vals).run();
+    return json({ ok:true });
+  }
+
+  if (req.method === 'DELETE' && hookId) {
+    await env.DB.prepare('DELETE FROM webhooks WHERE id=? AND company_id=?').bind(hookId, company).run();
+    return json({ ok:true });
+  }
+
+  // POST /api/webhooks/:id/test — testowe wywołanie
+  if (req.method === 'POST' && segs[3] === 'test') {
+    const testHookId = hookId;
+    const hook = await env.DB.prepare('SELECT * FROM webhooks WHERE id=? AND company_id=?').bind(testHookId, company).first();
+    if (!hook) return err('Nie znaleziono webhooka', 404);
+    try {
+      const resp = await fetch(hook.url, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'X-TaxOrder-Event':'test', ...(hook.secret?{'X-TaxOrder-Signature':hook.secret}:{}) },
+        body: JSON.stringify({ event:'test', timestamp: new Date().toISOString(), message:'Test z TaxOrder Pro' }),
+      });
+      await env.DB.prepare('UPDATE webhooks SET last_fired_at=datetime(\'now\'),last_status=? WHERE id=?').bind(resp.status, testHookId).run();
+      return json({ ok:true, status: resp.status });
+    } catch(e) {
+      return json({ ok:false, error: e.message });
+    }
+  }
+
+  return err('Metoda niedozwolona', 405);
+}
+
+// Pomocnik: wyślij zdarzenie do wszystkich aktywnych webhooków firmy
+async function fireWebhooks(env, company_id, event, payload) {
+  try {
+    const hooks = await env.DB.prepare('SELECT * FROM webhooks WHERE company_id=? AND active=1').bind(company_id).all();
+    for (const h of (hooks.results||[])) {
+      let events = [];
+      try { events = JSON.parse(h.events||'[]'); } catch {}
+      if (!events.includes(event) && !events.includes('*')) continue;
+      fetch(h.url, {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-TaxOrder-Event':event,...(h.secret?{'X-TaxOrder-Signature':h.secret}:{})},
+        body: JSON.stringify({ event, timestamp:new Date().toISOString(), company_id, ...payload }),
+      }).then(r => env.DB.prepare('UPDATE webhooks SET last_fired_at=datetime(\'now\'),last_status=? WHERE id=?').bind(r.status,h.id).run()).catch(()=>{});
+    }
+  } catch {}
 }
 
 // ─── EKSPORT / IMPORT — wszystkie dane firmy w jednym JSON ───────────────────
@@ -3129,6 +3272,138 @@ async function handleUserPermissions(req, env, user, url, path) {
   return err('Metoda niedozwolona', 405);
 }
 
+// ─── ERROR TRACKING ──────────────────────────────────────────────────────────
+async function handleErrors(request, env, user, url, path) {
+  // POST /api/errors — public (no auth), rate-limited by CF
+  if (request.method === 'POST' && path === '/api/errors') {
+    let body;
+    try { body = await request.json(); } catch { return err('Nieprawidłowy JSON'); }
+    const msg = String(body.error_msg || '').trim().substring(0, 500);
+    if (!msg) return err('Brak error_msg');
+    const id = crypto.randomUUID();
+    await env.DB.prepare(
+      `INSERT INTO error_logs (id, url, error_msg, error_stack, error_type, user_agent, user_id, company_id, app_version)
+       VALUES (?,?,?,?,?,?,?,?,?)`
+    ).bind(
+      id,
+      String(body.url || '').substring(0, 200),
+      msg,
+      String(body.error_stack || '').substring(0, 2000),
+      ['uncaught', 'promise', 'manual'].includes(body.error_type) ? body.error_type : 'uncaught',
+      String(body.user_agent || '').substring(0, 200),
+      user?.id ?? null,
+      String(body.company_id || '').substring(0, 100) || null,
+      String(body.app_version || '').substring(0, 30),
+    ).run();
+    return json({ ok: true, id });
+  }
+
+  // GET /api/errors — admin only
+  if (request.method === 'GET' && path === '/api/errors') {
+    if (!user || user.role !== 'admin') return err('Brak uprawnień', 403);
+    const limit  = Math.min(parseInt(url.searchParams.get('limit') || '100'), 500);
+    const offset = parseInt(url.searchParams.get('offset') || '0');
+    const rows = await env.DB.prepare(
+      `SELECT id, created_at, url, error_msg, error_type, company_id, user_id, app_version, analyzed, github_issue_url
+       FROM error_logs ORDER BY created_at DESC LIMIT ? OFFSET ?`
+    ).bind(limit, offset).all();
+    const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM error_logs').first('n');
+    return json({ rows: rows.results, total });
+  }
+
+  // DELETE /api/errors/:id
+  if (request.method === 'DELETE' && path.startsWith('/api/errors/')) {
+    if (!user || user.role !== 'admin') return err('Brak uprawnień', 403);
+    const id = path.split('/').pop();
+    await env.DB.prepare('DELETE FROM error_logs WHERE id=?').bind(id).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda niedozwolona', 405);
+}
+
+// ─── NIGHTLY ANALYSIS (Claude API + GitHub Issues) ────────────────────────────
+async function runNightlyAnalysis(env) {
+  if (!env.CLAUDE_API_KEY) return;   // sekret nie ustawiony — pomiń cicho
+
+  // Pobierz niezanalizowane błędy z ostatnich 24h
+  const rows = await env.DB.prepare(
+    `SELECT error_msg, error_type, error_stack, url, COUNT(*) AS cnt
+     FROM error_logs
+     WHERE analyzed = 0 AND created_at >= datetime('now', '-1 day')
+     GROUP BY error_msg, error_type
+     ORDER BY cnt DESC
+     LIMIT 20`
+  ).all();
+
+  if (!rows.results?.length) return;
+
+  const summary = rows.results.map((r, i) =>
+    `${i + 1}. [${r.error_type}] x${r.cnt}: ${r.error_msg}\n   URL: ${r.url || '?'}\n   Stack: ${(r.error_stack || '').substring(0, 200)}`
+  ).join('\n\n');
+
+  let analysis = '';
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method:  'POST',
+      headers: {
+        'x-api-key':         env.CLAUDE_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type':      'application/json',
+      },
+      body: JSON.stringify({
+        model:      'claude-haiku-4-5-20251022',
+        max_tokens: 800,
+        messages:   [{
+          role:    'user',
+          content: `Jesteś asystentem analizy błędów dla polskiej aplikacji flotowej TaxOrder Pro (SPA + Cloudflare Worker + D1 SQLite).\n\nBłędy JS z ostatnich 24 godzin:\n\n${summary}\n\nDla każdego błędu zasugeruj krótko: (1) prawdopodobna przyczyna, (2) sugerowana naprawa. Odpowiedz po polsku, zwięźle.`,
+        }],
+      }),
+    });
+    if (!resp.ok) throw new Error(`Claude HTTP ${resp.status}`);
+    const data = await resp.json();
+    analysis = data.content?.[0]?.text || 'Brak odpowiedzi Claude';
+  } catch (e) {
+    console.error('[Nightly] Claude API error — aborting analysis mark:', e?.message);
+    return;
+  }
+
+  // Utwórz GitHub Issue jeśli GITHUB_TOKEN i GITHUB_REPO są ustawione
+  if (env.GITHUB_TOKEN && env.GITHUB_REPO) {
+    try {
+      const issueResp = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/issues`, {
+        method:  'POST',
+        headers: {
+          Authorization:  `Bearer ${env.GITHUB_TOKEN}`,
+          Accept:         'application/vnd.github+json',
+          'User-Agent':   'TaxOrderPro-Worker/1.0',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title:  `[Auto] Błędy JS — ${new Date().toISOString().substring(0, 10)} (${rows.results.length} typów, ${rows.results.reduce((s, r) => s + r.cnt, 0)} wystąpień)`,
+          body:   `## Analiza błędów frontendowych\n\nPeriod: ostatnie 24h\nUnikalnych typów: ${rows.results.length}\n\n### Błędy\n\`\`\`\n${summary}\n\`\`\`\n\n### Analiza Claude\n${analysis}`,
+          labels: ['bug', 'auto-detected'],
+        }),
+      });
+      const issue = await issueResp.json();
+      if (issue.html_url) {
+        // Oznacz błędy jako zanalizowane i dodaj URL issue
+        await env.DB.prepare(
+          `UPDATE error_logs SET analyzed=1, analysis=?, github_issue_url=?
+           WHERE analyzed=0 AND created_at >= datetime('now', '-1 day')`
+        ).bind(analysis.substring(0, 2000), issue.html_url).run();
+        return;
+      }
+    } catch { /* Nie udało się stworzyć issue — pomiń, ale oznacz jako zanalizowane */ }
+  }
+
+  // Oznacz jako zanalizowane nawet bez issue
+  await env.DB.prepare(
+    `UPDATE error_logs SET analyzed=1, analysis=?
+     WHERE analyzed=0 AND created_at >= datetime('now', '-1 day')`
+  ).bind(analysis.substring(0, 2000)).run();
+}
+
 // ─── MAIN FETCH ───────────────────────────────────────────────────────────────
 async function handleRequest(request, env, url, path) {
   // Public endpoints (no auth required)
@@ -3137,6 +3412,8 @@ async function handleRequest(request, env, url, path) {
   if (path === '/api/push/vapid-public-key' && request.method === 'GET')  return handleVapidPublicKey(request, env);
   if (path === '/api/push/subscribe'        && request.method === 'POST') return handlePushSubscribe(request, env);
   if (path === '/api/push/subscribe'        && request.method === 'DELETE') return handlePushUnsubscribe(request, env);
+  // POST /api/errors jest publiczny (bez tokenu) — błędy mogą pojawiać się przed logowaniem
+  if (path === '/api/errors' && request.method === 'POST') return handleErrors(request, env, null, url, path);
 
   // Protected endpoints
   const user = await getUser(request, env);
@@ -3193,11 +3470,14 @@ async function handleRequest(request, env, url, path) {
     }
     return handleImport(request, env, company);
   }
-  if (path.startsWith('/api/drivers'))      { if (!user) return err('Nieautoryzowany', 401); return handleDrivers(request, env, user, url, path); }
-  if (path.startsWith('/api/fines'))        { if (!user) return err('Nieautoryzowany', 401); return handleFines(request, env, user, url, path); }
+  if (path.startsWith('/api/drivers'))          { if (!user) return err('Nieautoryzowany', 401); return handleDrivers(request, env, user, url, path); }
+  if (path.startsWith('/api/fines'))            { if (!user) return err('Nieautoryzowany', 401); return handleFines(request, env, user, url, path); }
+  if (path.startsWith('/api/dt1-declarations')) { if (!user) return err('Nieautoryzowany', 401); return handleDt1Declarations(request, env, user, url, path); }
+  if (path.startsWith('/api/webhooks'))         { if (!user) return err('Nieautoryzowany', 401); if (!['admin','kierownik'].includes(user.role)) return err('Brak uprawnień',403); return handleWebhooks(request, env, user, url, path); }
   if (path.startsWith('/api/fleet-cards'))  { if (!user) return err('Nieautoryzowany', 401); return handleFleetCards(request, env, user, url, path); }
   if (path.startsWith('/api/reservations')) { if (!user) return err('Nieautoryzowany', 401); return handleReservations(request, env, user, url, path); }
   if (path.startsWith('/api/api-keys'))     { if (!user) return err('Nieautoryzowany', 401); return handleApiKeys(request, env, user, url, path); }
+  if (path.startsWith('/api/errors'))       { if (!user) return err('Nieautoryzowany', 401); return handleErrors(request, env, user, url, path); }
 
   if (path === '/api/webhook/gps' || path === '/api/webhook/tekom') {
     if (request.method !== 'POST') return err('Tylko POST', 405);
@@ -3846,7 +4126,7 @@ async function _sendNotificationsSync(env) {
 export default {
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: CORS });
+      return new Response(null, { status: 204, headers: corsHeaders(request.headers.get('Origin') || '') });
     }
 
     const url  = new URL(request.url);
@@ -3860,9 +4140,9 @@ export default {
       resp = json({ error: 'Błąd serwera: ' + (e?.message || 'unknown') }, 500);
     }
 
-    // Gwarancja CORS na każdej odpowiedzi
+    // Gwarancja CORS na każdej odpowiedzi — zastępuje * z json() dynamicznym originem
     const headers = new Headers(resp.headers);
-    Object.entries(CORS).forEach(([k, v]) => headers.set(k, v));
+    Object.entries(corsHeaders(request.headers.get('Origin') || '')).forEach(([k, v]) => headers.set(k, v));
     return new Response(resp.body, { status: resp.status, headers });
   },
 
@@ -3871,6 +4151,7 @@ export default {
     ctx.waitUntil(Promise.all([
       cleanSessions(env),
       queueNotificationJobs(env),
+      runNightlyAnalysis(env),
     ]));
   },
 

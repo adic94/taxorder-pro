@@ -4,7 +4,9 @@
 window.VehicleImport = (function () {
 
   // Mapowanie możliwych nazw kolumn Excel → pola obiektu pojazdu
+  // Obsługuje zarówno własny format TaxOrder Pro jak i format RTM Lite (Hogart)
   const COL_MAP = {
+    // === FORMAT TAXORDER PRO ===
     'nrrej':        'nrRej',
     'nr rej':       'nrRej',
     'numer rejestracyjny': 'nrRej',
@@ -51,6 +53,76 @@ window.VehicleImport = (function () {
     'przeglad':     'nextInspection',
     'notatki':      'notes',
     'uwagi':        'notes',
+    'kod wewnętrzny': 'assetCode',
+    'kod pojazdu':  'assetCode',
+    'assetcode':    'assetCode',
+    'data nabycia': 'purchaseDate',
+    'data zakupu':  'purchaseDate',
+    'data zbycia':  'saleDate',
+    'data sprzedaży':'saleDate',
+    'data wycofania': 'dataWycofania',
+    'wycofanie z ruchu': 'dataWycofania',
+    'data dopuszczenia': 'dataDopuszczenia',
+    'przywrócenie do ruchu': 'dataDopuszczenia',
+    'data wyrejestrowania': 'dataWyrejestrowania',
+    'miesiące podatkowe': 'miesiacePodatku',
+    'miesiacepodatku': 'miesiacePodatku',
+    'data pierwszej rejestracji': 'dataRejestracji',
+    'pierwsza rejestracja': 'dataRejestracji',
+    // === FORMAT RTM LITE (Hogart) — nazwy kolumn z Vehicles.xml ===
+    'assetcode':     'assetCode',        // kolumna 0 - kod wewnętrzny
+    'vinno':         'vin',              // kolumna 1
+    'vehicletype':   '_rtmVehicleType', // kolumna 2 - typ numeryczny (1-6)
+    'firstregdate':  'dataRejestracji', // kolumna 3
+    'regno':         'nrRej',           // kolumna 4
+    'brandmodel':    '_rtmBrandModel',  // kolumna 5 - "Marka Model" razem
+    'yearofproduction':'rok',           // kolumna 6
+    'dmc':           '_dmcT',           // kolumna 7 - DMC w tonach w RTM
+    'dmczp':         '_dmcZespoluT',    // kolumna 8 - DMC zespołu w t
+    'dmctrack':      'dmcNaOs',         // kolumna 9 - DMC na oś
+    'axlesno':       'osie',            // kolumna 10
+    'suspension':    '_rtmSuspension',  // kolumna 11 - 1=pneum, 2=równoważne, 3=inne
+    'suspensiondescr':'zawieszeniOpis', // kolumna 12
+    'seatsno':       'miejscaSied',     // kolumna 13
+    'environment':   '_rtmEnvironment',// kolumna 14 - EURO standard (0-6)
+    'municipalityid':'_rtmMunicipality',// kolumna 15 - ID gminy (pomijamy)
+    'withdrawaldate':'dataWycofania',   // kolumna 16
+    'restoringdate': 'dataDopuszczenia',// kolumna 17
+    'purchasedate':  'purchaseDate',    // kolumna 18
+    'disposaldate':  'saleDate',        // kolumna 19
+    'ownershiptype': '_rtmOwnership',  // kolumna 20 - 1=własność, 2=współ., 3=dzierżawa
+    'appsubjectid':  '_ignore',         // kolumna 21 - ID firmy (pomijamy)
+    'processstate':  '_ignore',         // kolumna 22 - typ zdarzenia (Events.xml)
+  };
+
+  // Typy pojazdu RTM → opis słowny
+  const RTM_VEHICLE_TYPE = {
+    1: 'Samochód ciężarowy',
+    2: 'Ciągnik siodłowy',
+    3: 'Ciągnik balastowy',
+    4: 'Przyczepa',
+    5: 'Naczepa',
+    6: 'Autobus',
+  };
+
+  // Zawieszenie RTM
+  const RTM_SUSPENSION = {
+    1: 'pneumatyczne',
+    2: 'równoważne z pneumatycznym',
+    3: 'inny system zawieszenia',
+  };
+
+  // Własność RTM
+  const RTM_OWNERSHIP = {
+    1: 'own',
+    2: 'own', // współwłaściciel → własność
+    3: 'rental', // dzierżawa
+  };
+
+  // EURO RTM (0=brak, 1-6=norma)
+  const RTM_EURO = {
+    0: '', 1: 'EURO 1', 2: 'EURO 2', 3: 'EURO 3',
+    4: 'EURO 4', 5: 'EURO 5', 6: 'EURO 6',
   };
 
   let _pendingRows = [];
@@ -68,8 +140,12 @@ window.VehicleImport = (function () {
           <span style="font-size:17px;font-weight:700">${t('vi.title')}</span>
           <button onclick="document.getElementById('vimport-modal').remove()" style="margin-left:auto;background:none;border:none;font-size:22px;cursor:pointer;color:var(--text3);line-height:1">×</button>
         </div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:18px">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">
           Wgraj plik .xlsx lub .csv z danymi pojazdów. Kolumny są rozpoznawane automatycznie.
+        </div>
+        <div style="background:var(--bg2);border-radius:var(--radius);padding:10px 12px;margin-bottom:14px;font-size:11px;color:var(--text2);display:flex;gap:8px;align-items:flex-start">
+          <i class="ti ti-info-circle" style="color:var(--blue);flex-shrink:0;margin-top:1px"></i>
+          <span>Obsługuje format własny TaxOrder Pro <b>oraz format eksportu Hogart RTM Lite</b> (kolumny: AssetCode, VinNo, VehicleType, FirstRegDate, RegNo, BrandModel, Dmc, AxlesNo, Suspension, Environment, WithdrawalDate, RestoringDate, PurchaseDate, DisposalDate, OwnershipType). Typ pojazdu, zawieszenie i norma EURO są konwertowane automatycznie.</span>
         </div>
 
         <!-- Pobierz szablon -->
@@ -101,10 +177,21 @@ window.VehicleImport = (function () {
 
   function downloadTemplate() {
     if (typeof XLSX === 'undefined') { if (typeof toast === 'function') toast('⚠ XLSX niedostępne'); return; }
-    const headers = ['nrRej','marka','model','rok','typ','dmc','dmcZespolu','vin','euro','status','wlasciciel','gmina','osie','zawieszenie','paliwo','miejsca','kierowca'];
-    const example = ['WA1234B','Mercedes','Actros',2022,'Ciężarowy',18000,0,'WDBJF65J12B123456','EURO 6','Własny','Firma XYZ','Warszawa',3,'pneumatyczne','ON',0,''];
+    const headers = [
+      'nrRej','marka','model','rok','typ','dmc','dmcZespolu','vin','euro',
+      'status','wlasciciel','gmina','osie','zawieszenie','paliwo','miejsca','kierowca',
+      'assetCode','data nabycia','data zbycia','data wycofania','data dopuszczenia','data wyrejestrowania',
+    ];
+    const example = [
+      'WA1234B','Mercedes','Actros',2022,'Ciężarowy',18000,0,'WDBJF65J12B123456','EURO 6',
+      'Własny','Firma XYZ','Warszawa',3,'pneumatyczne','ON',0,'',
+      'ST000001','2020-01-15','','','','',
+    ];
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, example]), 'Pojazdy');
+    const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+    // Szerokości kolumn
+    ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 2, 14) }));
+    XLSX.utils.book_append_sheet(wb, ws, 'Pojazdy');
     XLSX.writeFile(wb, 'szablon_import_pojazdow.xlsx');
     if (typeof toast === 'function') toast('✓ Szablon pobrany');
   }
@@ -139,16 +226,48 @@ window.VehicleImport = (function () {
         fuelHistory: [], serviceHistory: [], gpsHistory: [], inspectionHistory: [],
       };
       Object.entries(row).forEach(([col, val]) => {
-        const key = COL_MAP[col.toLowerCase().trim()];
+        const colNorm = col.toLowerCase().trim().replace(/\s+/g, '');
+        const key = COL_MAP[col.toLowerCase().trim()] || COL_MAP[colNorm];
         if (!key) { if (col.trim()) unmapped.add(col.trim()); return; }
+        if (key === '_ignore') return;
+        const strVal = String(val).trim();
+        if (!strVal) return;
+
         if (key === '_dmcT') {
-          mapped['dmc'] = Math.round(parseFloat(val) * 1000) || 0;
-        } else if (['rok','dmc','dmcZespolu','osie','miesiacePodatku','miejsca'].includes(key)) {
-          mapped[key] = parseInt(val) || 0;
+          mapped['dmc'] = Math.round(parseFloat(strVal) * 1000) || 0;
+        } else if (key === '_dmcZespoluT') {
+          mapped['dmcZespolu'] = Math.round(parseFloat(strVal) * 1000) || 0;
+        } else if (key === '_rtmVehicleType') {
+          const n = parseInt(strVal);
+          mapped['typ'] = RTM_VEHICLE_TYPE[n] || strVal;
+        } else if (key === '_rtmSuspension') {
+          const n = parseInt(strVal);
+          mapped['zawieszenie'] = RTM_SUSPENSION[n] || strVal;
+        } else if (key === '_rtmOwnership') {
+          const n = parseInt(strVal);
+          mapped['ownership_type'] = RTM_OWNERSHIP[n] || 'own';
+        } else if (key === '_rtmEnvironment') {
+          const n = parseInt(strVal);
+          mapped['euro'] = RTM_EURO[n] || strVal;
+        } else if (key === '_rtmBrandModel') {
+          // "Marka Model" → split on first space
+          const parts = strVal.split(/\s+/);
+          if (!mapped['marka']) mapped['marka'] = parts[0] || '';
+          if (!mapped['model'] && parts.length > 1) mapped['model'] = parts.slice(1).join(' ');
+        } else if (['rok','dmc','dmcZespolu','osie','miesiacePodatku','miejsca','miejscaSied'].includes(key)) {
+          mapped[key] = parseInt(strVal) || 0;
         } else {
-          mapped[key] = String(val).trim();
+          mapped[key] = strVal;
         }
       });
+
+      // Jeśli brak marka/model a jest _rtmBrandModel - już obsłużone wyżej
+      // Auto-uzupełnij miesiacePodatku z dat jeśli calcMiesiacePodatku dostępny
+      if (typeof window.calcMiesiacePodatku === 'function' && mapped.miesiacePodatku === 12) {
+        const auto = window.calcMiesiacePodatku(mapped, new Date().getFullYear());
+        if (auto > 0 && auto < 12) mapped.miesiacePodatku = auto;
+      }
+
       return mapped;
     }).filter(v => v.nrRej);
     _unmappedCols = [...unmapped];

@@ -1,6 +1,26 @@
 // ==================== VEHICLE DETAIL MODAL ====================
 // Karta pojazdu z pełnymi danymi DR, leasingiem, archiwizacją, kartami flotowymi
 
+// Wszystkie zakładki karty pojazdu — kolejność domyślna
+const VD_TABS = [
+  { id: 'dr',           label: '📋 DR',           i18n: 'vd.tab.dr' },
+  { id: 'insurance',    label: '🛡 Polisy',        i18n: 'vd.tab.insurance' },
+  { id: 'badania',      label: '🔧 Badania',       i18n: 'vd.tab.badania' },
+  { id: 'serwis',       label: '🔩 Serwis',        i18n: 'vd.tab.serwis' },
+  { id: 'opony',        label: '⭕ Opony',          i18n: 'vd.tab.opony' },
+  { id: 'eksploatacja', label: '⚙ Eksploatacja',  i18n: 'vd.tab.eksploatacja' },
+  { id: 'koszty',       label: '⛽ Koszty',         i18n: 'vd.tab.koszty' },
+  { id: 'ownership',    label: '🏢 Własność',      i18n: 'vd.tab.ownership' },
+  { id: 'purchase',     label: '💰 Zakup/Zbycie',  i18n: 'vd.tab.purchase' },
+  { id: 'archive',      label: '📦 Archiwum',      i18n: 'vd.tab.archive' },
+  { id: 'notes',        label: '📝 Uwagi',          i18n: 'vd.tab.notes' },
+  { id: 'dokumenty',    label: '📄 Dokumenty',     i18n: 'vd.tab.dokumenty' },
+  { id: 'mandaty',      label: '🚨 Mandaty',       i18n: 'vd.tab.mandaty' },
+  { id: 'gps',          label: '🗺 GPS',            i18n: 'vd.tab.gps' },
+  { id: 'karty',        label: '💳 Karty',          i18n: 'vd.tab.karty' },
+  { id: 'konserwacja',  label: '🔨 Konserwacja',   i18n: 'vd.tab.konserwacja' },
+];
+
 window.TaxOrderVehicleDetail = {
 
   open(vehId) {
@@ -8,6 +28,10 @@ window.TaxOrderVehicleDetail = {
     if (!v) return;
     this._currentVehId = vehId;
     this._render(v);
+    // Aktywuj pierwszą widoczną zakładkę (uwzględnia konfigurację użytkownika)
+    const cfg = this._getVdTabsCfg();
+    const firstVisible = cfg.order.find(id => !cfg.hidden.includes(id)) || cfg.order[0];
+    this._tab(firstVisible);
     document.getElementById('vd-modal').style.display = 'flex';
     setTimeout(() => this._initTabScroll(), 0);
     const nrRej = v.nrRej || v.nr_rej || '';
@@ -55,6 +79,12 @@ window.TaxOrderVehicleDetail = {
     const gf = id => { const val = g(id); return val ? parseFloat(val) : null; };
 
     Object.assign(v, {
+      // === IDENTYFIKACJA POJAZDU ===
+      marka:                g('marka'),
+      model:                g('model'),
+      rok:                  gi('rok'),
+      vin:                  g('vin'),
+      typ:                  g('typ'),
       // === DOWÓD REJESTRACYJNY ===
       dataRejestracji:      g('dataRej'),          // B
       docDataWydania:       g('docDataWydania'),   // I
@@ -65,6 +95,7 @@ window.TaxOrderVehicleDetail = {
       wersja:               g('wersja'),            // D.3 wersja handlowa
       przeznaczenie:        g('przeznaczenie'),
       dmcMax:               gi('dmcMax'),           // F.1
+      dmc:                  gi('dmcMax'),           // sync dmc = dmcMax (form field)
       dmcZespolu:           gi('dmcZespolu2'),      // F.2 DMC zestawu
       masaWlasna:           gi('masaWlasna'),       // G
       ladownosc:            gi('ladownosc'),        // ładowność
@@ -113,6 +144,7 @@ window.TaxOrderVehicleDetail = {
       tachoLastCalib: g('tachoLastCalib'),
       tachoNextCalib: g('tachoNextCalib'),
       // === EKSPLOATACJA ===
+      assetCode:      g('assetCode'),
       kierowca:       g('kierowca'),
       stanKilometrow: gi('stanKilometrow'),
       kartaOrlen:     g('kartaOrlen'),
@@ -160,6 +192,20 @@ window.TaxOrderVehicleDetail = {
       gmina:           g('gmina') || 'Warszawa',
       miesiacePodatku: gi('miesiacePodatku') || 12,
     });
+
+    // Walidacja pól technicznych
+    const _typ = (v.typ||'').toLowerCase();
+    const _isPrzyczepa = _typ.includes('przy') || _typ.includes('nacz');
+    if (!_isPrzyczepa && v.dmcMax && (v.dmcMax < 100 || v.dmcMax > 200000)) {
+      if (!confirm(`DMC (F.1) wynosi ${v.dmcMax} kg — czy to prawidłowa wartość?`)) return;
+    }
+    if (v.rok && (v.rok < 1900 || v.rok > new Date().getFullYear() + 1)) {
+      toast(`⚠ Rok produkcji ${v.rok} wydaje się nieprawidłowy — oczekiwany zakres 1900–${new Date().getFullYear() + 1}`);
+      return;
+    }
+    if (!_isPrzyczepa && !v.kierowca && v.is_active !== false) {
+      toast('⚠ Brak przypisanego kierowcy — zaktualizuj w zakładce Eksploatacja');
+    }
 
     // Archiwizacja
     const shouldArchive = gb('archiveVeh');
@@ -228,60 +274,61 @@ window.TaxOrderVehicleDetail = {
           <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" onclick="TaxOrderVehicleDetail.printCard()">
             <i class="ti ti-printer"></i>Drukuj kartę
           </button>
-          <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" title="Kopiuj link do pojazdu" onclick="TaxOrderVehicleDetail._copyLink('${v.nrRej}')">
+          <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" onclick="TaxOrderVehicleDetail.printQr(${v.id})" title="Drukuj kartę QR pojazdu">
+            <i class="ti ti-qrcode"></i>QR
+          </button>
+          <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" title="Kopiuj link do pojazdu" data-nrrej="${esc(v.nrRej)}" onclick="TaxOrderVehicleDetail._copyLink(this.dataset.nrrej)">
             <i class="ti ti-link"></i>Link
           </button>
-          <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" onclick="TaxOrderDamages.openModal(null, '${v.nrRej}')">
+          <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" data-nrrej="${esc(v.nrRej)}" onclick="TaxOrderDamages.openModal(null, this.dataset.nrrej)">
             <i class="ti ti-alert-triangle"></i>Zgłoś szkodę
           </button>
-          <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" onclick="TaxOrderServiceOrders.openModal(null, '${v.nrRej}')">
+          <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" data-nrrej="${esc(v.nrRej)}" onclick="TaxOrderServiceOrders.openModal(null, this.dataset.nrrej)">
             <i class="ti ti-clipboard-list"></i>Zlecenie serwisowe
           </button>
-          <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" onclick="TaxOrderHandoverProtocol.openModal(null, '${v.nrRej}')">
+          <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" data-nrrej="${esc(v.nrRej)}" onclick="TaxOrderHandoverProtocol.openModal(null, this.dataset.nrrej)">
             <i class="ti ti-file-signature"></i>Protokół
           </button>
         </div>
       </div>
 
       <!-- TABS — scrollowane z przyciskami nawigacji -->
-      <div style="position:relative;margin-bottom:20px">
-        <button id="vd-tabs-prev" onclick="TaxOrderVehicleDetail._scrollTabs(-1)"
-          style="position:absolute;left:0;top:0;bottom:0;z-index:2;border:none;background:linear-gradient(to right,var(--bg3) 55%,transparent);padding:0 14px 0 4px;cursor:pointer;display:none;align-items:center;border-radius:var(--radius) 0 0 var(--radius)">
-          <i class="ti ti-chevron-left" style="font-size:14px;color:var(--text2)"></i>
-        </button>
-        <div id="vd-tabs" style="display:flex;gap:2px;background:var(--bg3);border-radius:var(--radius);padding:3px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none">
-        ${[
-          ['dr',        '📋 DR'],
-          ['insurance', '🛡 Polisy'],
-          ['badania',   '🔧 Badania'],
-          ['serwis',    '🔩 Serwis'],
-          ['opony',     '⭕ Opony'],
-          ['eksploatacja','⚙ Eksploatacja'],
-          ['koszty',    '⛽ Koszty'],
-          ['ownership', '🏢 Własność'],
-          ['purchase',  '💰 Zakup/Zbycie'],
-          ['archive',   '📦 Archiwum'],
-          ['notes',     '📝 Uwagi'],
-          ['dokumenty', '📄 Dokumenty'],
-          ['mandaty',   '🚨 Mandaty'],
-          ['gps',       '🗺 GPS'],
-          ['karty',     '💳 Karty'],
-          ['konserwacja','🔨 Konserwacja'],
-        ].map(([tabKey, fallback], i) => {
-          const label = window.t ? (window.t('vd.tab.' + tabKey) !== 'vd.tab.' + tabKey ? window.t('vd.tab.' + tabKey) : fallback) : fallback;
-          return `
-          <button onclick="TaxOrderVehicleDetail._tab('${tabKey}')" id="vd-tab-${tabKey}"
-            style="flex-shrink:0;padding:6px 10px;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:11px;font-weight:500;white-space:nowrap;
-            background:${i===0?'var(--bg)':'transparent'};color:${i===0?'var(--text)':'var(--text2)'}">
-            ${label}
-          </button>`;
-        }).join('')}
+      <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
+        <div style="position:relative;flex:1;min-width:0">
+          <button id="vd-tabs-prev" onclick="TaxOrderVehicleDetail._scrollTabs(-1)"
+            style="position:absolute;left:0;top:0;bottom:0;z-index:2;border:none;background:linear-gradient(to right,var(--bg3) 55%,transparent);padding:0 14px 0 4px;cursor:pointer;display:none;align-items:center;border-radius:var(--radius) 0 0 var(--radius)">
+            <i class="ti ti-chevron-left" style="font-size:14px;color:var(--text2)"></i>
+          </button>
+          <div id="vd-tabs" style="display:flex;gap:2px;background:var(--bg3);border-radius:var(--radius);padding:3px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none">
+          ${(() => {
+            const cfg = this._getVdTabsCfg();
+            const firstVisible = cfg.order.find(id => !cfg.hidden.includes(id));
+            return cfg.order.map((id, i) => {
+              const tabDef = VD_TABS.find(x => x.id === id);
+              if (!tabDef) return '';
+              const label = window.t ? (window.t(tabDef.i18n) !== tabDef.i18n ? window.t(tabDef.i18n) : tabDef.label) : tabDef.label;
+              const isFirst = id === firstVisible;
+              const hidden = cfg.hidden.includes(id);
+              return `<button onclick="TaxOrderVehicleDetail._tab('${id}')" id="vd-tab-${id}"
+                style="flex-shrink:0;padding:6px 10px;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:11px;font-weight:500;white-space:nowrap;order:${i};
+                display:${hidden ? 'none' : 'inline-flex'};align-items:center;
+                background:${isFirst ? 'var(--bg)' : 'transparent'};color:${isFirst ? 'var(--text)' : 'var(--text2)'}">
+                ${label}
+              </button>`;
+            }).join('');
+          })()}
+          </div>
+          <button id="vd-tabs-next" onclick="TaxOrderVehicleDetail._scrollTabs(1)"
+            style="position:absolute;right:0;top:0;bottom:0;z-index:2;border:none;background:linear-gradient(to left,var(--bg3) 55%,transparent);padding:0 4px 0 14px;cursor:pointer;display:none;align-items:center;border-radius:0 var(--radius) var(--radius) 0">
+            <i class="ti ti-chevron-right" style="font-size:14px;color:var(--text2)"></i>
+          </button>
         </div>
-        <button id="vd-tabs-next" onclick="TaxOrderVehicleDetail._scrollTabs(1)"
-          style="position:absolute;right:0;top:0;bottom:0;z-index:2;border:none;background:linear-gradient(to left,var(--bg3) 55%,transparent);padding:0 4px 0 14px;cursor:pointer;display:none;align-items:center;border-radius:0 var(--radius) var(--radius) 0">
-          <i class="ti ti-chevron-right" style="font-size:14px;color:var(--text2)"></i>
+        <button onclick="TaxOrderVehicleDetail.openVdTabsCfg()" title="Dostosuj zakładki"
+          style="flex-shrink:0;background:var(--bg3);border:none;border-radius:var(--radius);width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text3)">
+          <i class="ti ti-settings" style="font-size:14px"></i>
         </button>
       </div>
+      <div style="margin-bottom:16px"></div>
 
       <!-- TAB: DOWÓD REJESTRACYJNY -->
       <div id="vd-tab-dr-content" class="vd-tab-content">
@@ -311,6 +358,14 @@ window.TaxOrderVehicleDetail = {
           <span>Przeciągnij PDF dowodu rejestracyjnego lub <u style="color:var(--blue);cursor:pointer">kliknij aby wybrać</u></span>
           <input type="file" id="vd-dr-file-${v.id}" accept="image/*,application/pdf,.pdf" style="display:none"
             onchange="AztecScanner._vehId=${v.id};AztecScanner._ensureModal();AztecScanner._handleFile(this.files[0]).then(()=>{if(AztecScanner._parsed)document.getElementById('aztec-modal').style.display='flex';TaxOrderVehicleDetail._refreshDrView(${v.id})})">
+        </div>
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Identyfikacja pojazdu</div>
+        <div class="vdfg" style="margin-bottom:18px">
+          ${field('marka','D.1 — Marka', v.marka)}
+          ${field('model','Model', v.model)}
+          ${field('rok','Rok produkcji', v.rok,'number')}
+          ${field('vin','E — VIN / nr identyfikacyjny', v.vin)}
+          ${field('typ','Typ pojazdu', v.typ)}
         </div>
         <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Identyfikacja dokumentu</div>
         <div class="vdfg" style="margin-bottom:18px">
@@ -376,10 +431,20 @@ window.TaxOrderVehicleDetail = {
               </select>
             </div>
             <div class="vdf">
-              <label class="vdl">Miesiące podatkowe</label>
-              <input type="number" id="vd-miesiacePodatku" class="fi" min="1" max="12"
-                value="${v.miesiacePodatku||12}"
-                onchange="document.getElementById('vd-dt1-box').innerHTML=TaxOrderVehicleDetail._renderDt1BoxFromForm(${v.id})">
+              <label class="vdl">Miesiące podatkowe
+                <span style="font-weight:400;font-size:10px;color:var(--text3)">(z dat: nabycia, zbycia, wycofania)</span>
+              </label>
+              <div style="display:flex;gap:6px;align-items:center">
+                <input type="number" id="vd-miesiacePodatku" class="fi" min="1" max="12"
+                  value="${v.miesiacePodatku||12}" style="flex:1"
+                  onchange="document.getElementById('vd-dt1-box').innerHTML=TaxOrderVehicleDetail._renderDt1BoxFromForm(${v.id})">
+                <button type="button" class="btn btn-gray" style="padding:4px 8px;font-size:11px;white-space:nowrap"
+                  title="Oblicz automatycznie z dat nabycia, zbycia i wycofania z ruchu"
+                  onclick="TaxOrderVehicleDetail._autoCalcMiesiace(${v.id})">
+                  <i class="ti ti-calculator"></i>Auto
+                </button>
+              </div>
+              <div id="vd-miesiace-hint" style="font-size:10px;color:var(--text3);margin-top:2px"></div>
             </div>
           </div>
         </div>
@@ -620,6 +685,7 @@ window.TaxOrderVehicleDetail = {
         </div>
         <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Dane eksploatacyjne</div>
         <div class="vdfg">
+          ${field('assetCode','Kod wewnętrzny pojazdu', v.assetCode, 'text', '(AssetCode — np. ST000001, zgodny z formatem RTM)')}
           ${field('normaSpalania','Norma spalania (l/100km)', v.normaSpalania,'number')}
         </div>
       </div>
@@ -731,7 +797,7 @@ window.TaxOrderVehicleDetail = {
           <div style="font-size:12px;color:var(--text2);margin-bottom:10px">
             Zmiana zaktualizuje numer we wszystkich powiązanych rekordach (dokumenty, szkody, opony, zlecenia, protokoły, umowy CFM). Stary numer zostanie zarchiwizowany w historii.
           </div>
-          <button class="btn btn-gray" style="font-size:12px" onclick="TaxOrderVehicleDetail._openChangeNrRej(${v.id},'${v.nrRej}')">
+          <button class="btn btn-gray" style="font-size:12px" data-nrrej="${esc(v.nrRej)}" onclick="TaxOrderVehicleDetail._openChangeNrRej(${v.id}, this.dataset.nrrej)">
             <i class="ti ti-arrows-exchange"></i>Zmień numer rejestracyjny
           </button>
           ${v.rejestracjaHistory?.length ? `
@@ -739,9 +805,9 @@ window.TaxOrderVehicleDetail = {
             <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">Historia numerów rejestracyjnych:</div>
             ${v.rejestracjaHistory.map(h => `
               <div style="font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 10px;margin-bottom:4px">
-                <strong>${h.old}</strong> → <strong>${h.new}</strong>
-                <span style="color:var(--text2);margin-left:8px">${h.date || ''}</span>
-                ${h.reason ? `<span style="color:var(--text2);margin-left:6px">· ${h.reason}</span>` : ''}
+                <strong>${esc(h.old)}</strong> → <strong>${esc(h.new)}</strong>
+                <span style="color:var(--text2);margin-left:8px">${esc(h.date || '')}</span>
+                ${h.reason ? `<span style="color:var(--text2);margin-left:6px">· ${esc(h.reason)}</span>` : ''}
               </div>`).join('')}
           </div>` : ''}
         </div>
@@ -751,7 +817,7 @@ window.TaxOrderVehicleDetail = {
       <div id="vd-tab-notes-content" class="vd-tab-content" style="display:none">
         <div>
           <label class="vdl">Uwagi do pojazdu</label>
-          <textarea id="vd-uwagi" class="fi" style="height:140px;resize:vertical">${v.uwagi || ''}</textarea>
+          <textarea id="vd-uwagi" class="fi" style="height:140px;resize:vertical">${esc(v.uwagi || '')}</textarea>
         </div>
       </div>
 
@@ -1403,7 +1469,7 @@ window.TaxOrderVehicleDetail = {
     if (!types.length) {
       fetch(`${window.CF_WORKER_URL||'https://taxorder-pro-api.adamus1000.workers.dev'}/api/alert-types?company=${window.currentCompanyId||'mtoilet'}`,
         { headers: { Authorization: 'Bearer ' + (localStorage.getItem('cf_token')||'') } })
-        .then(r=>r.json()).then(list=>{ window._ns_alertTypes=list; document.getElementById('mi-type').innerHTML=list.map(a=>`<option value="${a.id}" ${item?.typeId===a.id?'selected':''}>${a.name}</option>`).join(''); }).catch(()=>{});
+        .then(r=>r.json()).then(list=>{ window._ns_alertTypes=list; document.getElementById('mi-type').innerHTML=list.map(a=>`<option value="${esc(String(a.id))}" ${item?.typeId===a.id?'selected':''}>${esc(a.name)}</option>`).join(''); }).catch(()=>{});
     }
     document.body.insertAdjacentHTML('beforeend', html);
   },
@@ -1456,10 +1522,10 @@ window.TaxOrderVehicleDetail = {
             <span class="pill pill-blue" style="font-size:10px">${c.type||'—'}</span>
             <span class="pill ${STATUS_CLS[c.status]||'pill-gray'}" style="font-size:10px">${c.status||'—'}</span>
           </div>
-          ${c.provider?`<div style="font-size:11px;color:var(--text2);margin-top:2px"><i class="ti ti-building" style="font-size:10px"></i> ${c.provider}</div>`:''}
-          ${c.notes?`<div style="font-size:11px;color:var(--text3)">${c.notes}</div>`:''}
+          ${c.provider?`<div style="font-size:11px;color:var(--text2);margin-top:2px"><i class="ti ti-building" style="font-size:10px"></i> ${esc(c.provider)}</div>`:''}
+          ${c.notes?`<div style="font-size:11px;color:var(--text3)">${esc(c.notes)}</div>`:''}
         </div>
-        <button onclick="TaxOrderVehicleDetail._removeCard('${v.nrRej}','${c.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px" title="Usuń kartę">&times;</button>
+        <button data-nrrej="${esc(v.nrRej)}" data-cardid="${c.id}" onclick="TaxOrderVehicleDetail._removeCard(this.dataset.nrrej, this.dataset.cardid)" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px" title="Usuń kartę">&times;</button>
       </div>`).join('');
   },
 
@@ -1811,12 +1877,13 @@ window.TaxOrderVehicleDetail = {
     if (!v) { toast(t('vd.toast.open.card')); return; }
     const fd = d => d ? new Date(d).toLocaleDateString('pl-PL') : '—';
     const fz = n => n != null ? (+n).toFixed(2).replace('.',',') + ' zł' : '—';
-    const row = (lbl, val) => `<tr><td style="padding:5px 10px;color:#6b7280;font-size:11px;width:200px">${lbl}</td><td style="padding:5px 10px;font-weight:600;font-size:12px">${val||'—'}</td></tr>`;
+    const row  = (lbl, val) => `<tr><td style="padding:5px 10px;color:#6b7280;font-size:11px;width:200px">${lbl}</td><td style="padding:5px 10px;font-weight:600;font-size:12px">${val != null && val !== '' ? esc(String(val)) : '—'}</td></tr>`;
+    const rowH = (lbl, val) => `<tr><td style="padding:5px 10px;color:#6b7280;font-size:11px;width:200px">${lbl}</td><td style="padding:5px 10px;font-weight:600;font-size:12px">${val||'—'}</td></tr>`;
     const svcRows = [...(v.serviceHistory||[])].slice(0,8).map(s=>`
       <tr style="border-bottom:1px solid #e5e7eb">
-        <td style="padding:5px 10px;font-family:monospace;font-size:11px">${s.date||'—'}</td>
-        <td style="padding:5px 10px;font-size:11px">${window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label||s.type||'—'}</td>
-        <td style="padding:5px 10px;font-size:11px;color:#6b7280">${s.description||'—'}</td>
+        <td style="padding:5px 10px;font-family:monospace;font-size:11px">${esc(s.date||'—')}</td>
+        <td style="padding:5px 10px;font-size:11px">${esc(window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label||s.type||'—')}</td>
+        <td style="padding:5px 10px;font-size:11px;color:#6b7280">${esc(s.description||'—')}</td>
         <td style="padding:5px 10px;text-align:right;font-family:monospace;font-size:11px">${s.km?s.km.toLocaleString('pl-PL')+' km':'—'}</td>
         <td style="padding:5px 10px;text-align:right;font-family:monospace;font-size:11px">${s.cost?s.cost.toFixed(2)+' zł':'—'}</td>
       </tr>`).join('');
@@ -1827,7 +1894,7 @@ window.TaxOrderVehicleDetail = {
 <table>
   ${row('Kategoria podatku', tax.exempt ? 'Zwolniony (pojazd specjalny)' : tax.cat||'—')}
   ${!tax.exempt && tax.stawkaRoczna != null ? row('Stawka roczna', fz(tax.stawkaRoczna)) : ''}
-  ${!tax.exempt && tax.kwota != null ? row(`Kwota (${v.miesiacePodatku||12} mies.)`, `<span style="color:#1d4ed8;font-weight:700">${fz(tax.kwota)}</span>`) : ''}
+  ${!tax.exempt && tax.kwota != null ? rowH(`Kwota (${v.miesiacePodatku||12} mies.)`, `<span style="color:#1d4ed8;font-weight:700">${fz(tax.kwota)}</span>`) : ''}
   ${!tax.exempt && tax.gminaName ? row('Gmina stawek', tax.gminaName) : ''}
 </table>` : '';
     // TCO summary
@@ -1844,12 +1911,12 @@ window.TaxOrderVehicleDetail = {
   ${row('Paliwo', fz(fuelCost))}
   ${row('Serwis / naprawy', fz(svcCost))}
   ${row('Ubezpieczenia', fz(insCost))}
-  ${row('Łącznie', `<span style="color:#1d4ed8;font-weight:700">${fz(tcoTotal)}</span>`)}
+  ${rowH('Łącznie', `<span style="color:#1d4ed8;font-weight:700">${fz(tcoTotal)}</span>`)}
   ${kmDriven ? row('Koszt/km', fz(tcoTotal/kmDriven).replace(' zł','')+' zł/km') : ''}
 </table>` : '';
     const html = `<!DOCTYPE html>
 <html lang="pl"><head><meta charset="UTF-8">
-<title>Karta pojazdu — ${v.nrRej}</title>
+<title>Karta pojazdu — ${esc(v.nrRej)}</title>
 <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,sans-serif;font-size:12px;color:#1f2937;padding:20px;max-width:800px;margin:0 auto}
 h1{font-size:22px;font-weight:800;font-family:monospace;color:#1d4ed8;margin-bottom:2px}
 h2{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin:14px 0 4px;border-bottom:1px solid #e5e7eb;padding-bottom:3px}
@@ -1861,7 +1928,7 @@ table{width:100%;border-collapse:collapse}th{background:#f9fafb;font-size:10px;f
 <div style="color:#6b7280;font-size:13px;margin-bottom:4px">${esc(v.marka)} ${esc(v.model)} · ${v.rok||'—'} · ${esc(v.typ||'—')}</div>
 <div style="font-size:10px;color:#9ca3af;margin-bottom:14px">Wygenerowano: ${new Date().toLocaleDateString('pl-PL')} | TaxOrder Pro</div>
 <h2>Identyfikacja</h2>
-<table>${row('VIN',`<span style="font-family:monospace">${v.vin||'—'}</span>`)}
+<table>${rowH('VIN',`<span style="font-family:monospace">${esc(v.vin||'—')}</span>`)}
 ${row('DMC',(v.dmc||v.dmcMax||0).toLocaleString('pl-PL')+' kg')}${row('EURO',v.euro)}
 ${row('Status własności',v.status)}${row('Właściciel',v.wlasciciel)}
 ${row('Kierowca',v.kierowca)}${row('Stan licznika',v.stanKilometrow!=null?v.stanKilometrow.toLocaleString('pl-PL')+' km':null)}</table>
@@ -1884,6 +1951,153 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
     if (!win) { toast(t('vd.toast.popups')); return; }
     win.document.write(html); win.document.close();
   },
+
+  async printQr(vehId) {
+    const v = (window.vehs||[]).find(x => x.id === vehId);
+    if (!v) { toast('Otwórz kartę pojazdu'); return; }
+    if (typeof QRCode === 'undefined') { toast('Ładowanie biblioteki QR...'); return; }
+
+    const qrData = [
+      'NR:' + (v.nrRej||''),
+      'VIN:' + (v.vin||''),
+      v.marka||'', v.model||'',
+      'ROK:' + (v.rok||''),
+      'KIEROWCA:' + (v.kierowca||''),
+    ].filter(Boolean).join('\n');
+
+    const canvas = document.createElement('canvas');
+    await QRCode.toCanvas(canvas, qrData, { width: 280, margin: 2, color: { dark: '#1e3a5f', light: '#ffffff' } });
+    const qrImg = canvas.toDataURL('image/png');
+
+    const fd = d => d ? new Date(d).toLocaleDateString('pl-PL') : '—';
+    const tax = window.calcTax ? window.calcTax(v) : null;
+
+    const html = `<!DOCTYPE html><html lang="pl"><head><meta charset="UTF-8">
+<title>QR — ${v.nrRej||''}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:#f8fafc;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.card{background:#fff;border-radius:16px;box-shadow:0 4px 32px rgba(0,0,0,.12);padding:28px 32px;width:360px;display:flex;flex-direction:column;align-items:center;gap:16px;border:2px solid #e2e8f0}
+.badge{background:#1e3a5f;color:#fff;font-family:monospace;font-size:28px;font-weight:800;letter-spacing:.04em;padding:8px 20px;border-radius:8px;text-align:center;word-break:break-all}
+.model{color:#475569;font-size:14px;font-weight:600;text-align:center}
+.qr{border-radius:10px;border:4px solid #e2e8f0}
+table{width:100%;border-collapse:collapse;font-size:11px}
+td{padding:4px 8px;border-bottom:1px solid #f1f5f9}
+td:first-child{color:#64748b;width:120px}
+td:last-child{font-weight:600;color:#1e293b}
+.footer{font-size:9px;color:#94a3b8;text-align:center;margin-top:4px}
+.tax-pill{background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:4px 12px;border-radius:99px}
+@media print{body{padding:0;background:#fff}.card{box-shadow:none;border:1px solid #e2e8f0}button{display:none}}
+</style></head>
+<body>
+<div class="card">
+  <button onclick="window.print()" style="align-self:flex-end;background:#1e3a5f;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:11px">🖨 Drukuj</button>
+  <div class="badge">${esc(v.nrRej||'—')}</div>
+  <div class="model">${esc(v.marka||'')} ${esc(v.model||'')} · ${esc(String(v.rok||'—'))}</div>
+  <img src="${qrImg}" class="qr" width="200" height="200" alt="QR">
+  <table>
+    ${v.vin ? `<tr><td>VIN</td><td style="font-family:monospace;font-size:10px">${esc(v.vin)}</td></tr>` : ''}
+    ${v.kierowca ? `<tr><td>Kierowca</td><td>${esc(v.kierowca)}</td></tr>` : ''}
+    ${v.ocEnd ? `<tr><td>OC ważne do</td><td>${fd(v.ocEnd)}</td></tr>` : ''}
+    ${v.nextInspection ? `<tr><td>Następny przegląd</td><td>${fd(v.nextInspection)}</td></tr>` : ''}
+    ${v.stanKilometrow != null ? `<tr><td>Stan km</td><td>${v.stanKilometrow.toLocaleString('pl-PL')} km</td></tr>` : ''}
+    ${tax && tax.cat && !tax.exempt ? `<tr><td>Podatek DT-1</td><td>${esc(tax.cat)}</td></tr>` : ''}
+  </table>
+  ${tax && tax.kwota > 0 && !tax.exempt ? `<div class="tax-pill">DT-1: ${(+tax.kwota).toFixed(2).replace('.',',')} zł</div>` : ''}
+  <div class="footer">TaxOrder Pro · ${new Date().toLocaleDateString('pl-PL')}</div>
+</div>
+</body></html>`;
+
+    const win = window.open('', '_blank', 'width=440,height=700');
+    if (!win) { toast('Zezwól na otwieranie okien popup'); return; }
+    win.document.write(html); win.document.close();
+  },
+
+  // ── Konfiguracja zakładek ──────────────────────────────────
+  _VD_TABS_LS: 'taxorder-vd-tabs',
+
+  _getVdTabsCfg() {
+    try {
+      const raw = localStorage.getItem(this._VD_TABS_LS);
+      if (!raw) return this._vdTabsDefault();
+      const cfg = JSON.parse(raw);
+      const known = new Set(cfg.order || []);
+      VD_TABS.forEach(t => { if (!known.has(t.id)) cfg.order.push(t.id); });
+      cfg.hidden = cfg.hidden || [];
+      return cfg;
+    } catch { return this._vdTabsDefault(); }
+  },
+
+  _vdTabsDefault() {
+    return { order: VD_TABS.map(t => t.id), hidden: [] };
+  },
+
+  openVdTabsCfg() {
+    const cfg = this._getVdTabsCfg();
+    const oldList = document.getElementById('vd-tabs-cfg-list');
+    if (!oldList) return;
+    // Klonuj węzeł bez dzieci — usuwa poprzednie listenery dragstart/dragend/dragover
+    const list = oldList.cloneNode(false);
+    oldList.parentNode.replaceChild(list, oldList);
+    list.innerHTML = cfg.order.map(id => {
+      const tabDef = VD_TABS.find(x => x.id === id);
+      if (!tabDef) return '';
+      const label = window.t ? (window.t(tabDef.i18n) !== tabDef.i18n ? window.t(tabDef.i18n) : tabDef.label) : tabDef.label;
+      const hidden = cfg.hidden.includes(id);
+      return `<li data-vdtab="${id}" draggable="true"
+        style="display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--border);cursor:grab;user-select:none">
+        <i class="ti ti-grip-vertical" style="color:var(--text3);font-size:17px;flex-shrink:0;pointer-events:none"></i>
+        <input type="checkbox" id="vdtc-${id}" ${hidden ? '' : 'checked'} style="width:15px;height:15px;cursor:pointer;flex-shrink:0">
+        <label for="vdtc-${id}" style="flex:1;cursor:pointer;font-size:13px;pointer-events:none">${label}</label>
+      </li>`;
+    }).join('');
+    this._initVdTabsDnd(list);
+    document.getElementById('modal-vd-tabs-cfg').style.display = 'flex';
+  },
+
+  closeVdTabsCfg() {
+    document.getElementById('modal-vd-tabs-cfg').style.display = 'none';
+  },
+
+  saveVdTabsCfg() {
+    const list = document.getElementById('vd-tabs-cfg-list');
+    const items = [...list.querySelectorAll('[data-vdtab]')];
+    const order = items.map(el => el.dataset.vdtab);
+    const hidden = items.filter(el => !el.querySelector('input').checked).map(el => el.dataset.vdtab);
+    if (hidden.length >= order.length) { toast('⚠ Przynajmniej jedna zakładka musi być widoczna'); return; }
+    try { localStorage.setItem(this._VD_TABS_LS, JSON.stringify({ order, hidden })); } catch {}
+    this.closeVdTabsCfg();
+    if (this._currentVehId) this.open(this._currentVehId);
+    toast('✓ Układ zakładek zapisany');
+  },
+
+  resetVdTabsCfg() {
+    localStorage.removeItem(this._VD_TABS_LS);
+    this.closeVdTabsCfg();
+    if (this._currentVehId) this.open(this._currentVehId);
+    toast('Przywrócono domyślny układ zakładek');
+  },
+
+  _initVdTabsDnd(list) {
+    let dragging = null;
+    list.addEventListener('dragstart', e => {
+      dragging = e.target.closest('[data-vdtab]');
+      if (dragging) { dragging.style.opacity = '0.45'; dragging.style.cursor = 'grabbing'; }
+    });
+    list.addEventListener('dragend', () => {
+      if (dragging) { dragging.style.opacity = ''; dragging.style.cursor = 'grab'; dragging = null; }
+    });
+    list.addEventListener('dragover', e => {
+      e.preventDefault();
+      const over = e.target.closest('[data-vdtab]');
+      if (over && dragging && over !== dragging) {
+        const rect = over.getBoundingClientRect();
+        if (e.clientY < rect.top + rect.height / 2) over.before(dragging);
+        else over.after(dragging);
+      }
+    });
+  },
+  // ───────────────────────────────────────────────────────────
 
   _scrollTabs(dir) {
     const tabs = document.getElementById('vd-tabs');
@@ -2085,6 +2299,54 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
     this.close();
     if (typeof showPage === 'function') showPage('faktury');
     toast(t('vd.toast.upload.hint'));
+  },
+
+  // ── Auto-obliczanie miesięcy podatkowych z dat pojazdu ───────────────────
+  _autoCalcMiesiace(vehId) {
+    if (typeof window.calcMiesiacePodatku !== 'function') return;
+    const v = (window.vehs || []).find(x => x.id === vehId);
+    if (!v) return;
+
+    // Zbierz aktualne wartości z formularza
+    const g  = id => document.getElementById('vd-' + id)?.value?.trim() || null;
+    const vProxy = {
+      ...v,
+      purchaseDate:       g('purchaseDate')       || v.purchaseDate,
+      dataNabycia:        g('purchaseDate')       || v.dataNabycia,
+      saleDate:           g('saleDate')           || v.saleDate,
+      dataZbycia:         g('saleDate')           || v.dataZbycia,
+      dataWycofania:      g('dataWycofania')      || v.dataWycofania,
+      dataDopuszczenia:   g('dataDopuszczenia')   || v.dataDopuszczenia,
+      dataWyrejestrowania:g('dataWyrejestrowania')|| v.dataWyrejestrowania,
+    };
+
+    const rok = new Date().getFullYear();
+    const m = window.calcMiesiacePodatku(vProxy, rok);
+
+    const inp = document.getElementById('vd-miesiacePodatku');
+    if (inp) {
+      inp.value = Math.max(1, m || 12);
+      inp.dispatchEvent(new Event('change'));
+    }
+
+    const hint = document.getElementById('vd-miesiace-hint');
+    if (hint) {
+      if (!vProxy.purchaseDate && !vProxy.dataNabycia) {
+        hint.textContent = `Brak daty nabycia — przyjęto pełny rok (${rok}).`;
+      } else {
+        const parts = [];
+        if (vProxy.purchaseDate || vProxy.dataNabycia) {
+          parts.push(`Nabycie: ${vProxy.purchaseDate || vProxy.dataNabycia}`);
+        }
+        if (vProxy.saleDate || vProxy.dataZbycia || vProxy.dataWyrejestrowania) {
+          parts.push(`Zbycie/wyrej.: ${vProxy.saleDate || vProxy.dataZbycia || vProxy.dataWyrejestrowania}`);
+        }
+        if (vProxy.dataWycofania) {
+          parts.push(`Wycofanie: ${vProxy.dataWycofania}${vProxy.dataDopuszczenia ? ' → ' + vProxy.dataDopuszczenia : ' (bez daty przywrócenia)'}`);
+        }
+        hint.textContent = `Auto: ${m} mies. (${rok}) · ${parts.join(' · ')}`;
+      }
+    }
   },
 
   // ── OC → AC/Ass sync helpers ─────────────────────────────────────────────

@@ -74,7 +74,15 @@ window.GminyRates = (function () {
   function _load() {
     try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch { return {}; }
   }
-  function _save(data) { try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch {} }
+  // Uwaga: nie wolno nazwać tej funkcji _save — niżej jest _save(name) eksportowane do UI
+  function _persist(data) {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.warn('[GminyRates] Nie można zapisać stawek do localStorage (quota?):', e.message);
+      if (typeof toast === 'function') toast('⚠ Nie udało się zapisać stawek — pamięć przeglądarki pełna');
+    }
+  }
 
   function listGminy() {
     return ['Warszawa', ...Object.keys(_load())];
@@ -91,14 +99,14 @@ window.GminyRates = (function () {
     if (!name || name === 'Warszawa') return;
     const data = _load();
     data[name] = rates;
-    _save(data);
+    _persist(data);
   }
 
   function deleteGmina(name) {
     if (!name || name === 'Warszawa') return;
     const data = _load();
     delete data[name];
-    _save(data);
+    _persist(data);
   }
 
   function copyFrom(targetName, sourceName) {
@@ -109,8 +117,9 @@ window.GminyRates = (function () {
   // ── Rate key lookup — mirrors every branch of app.js getRate() ───────────
 
   function getRateKey(v) {
-    const dT   = (v.dmc || 0) / 1000;
-    const dzT  = (v.dmcZespolu || 0) / 1000;
+    if (!v) return null;
+    const dT   = (parseFloat(v.dmc ?? v.dmcMax) || 0) / 1000;
+    const dzT  = (parseFloat(v.dmcZespolu) || 0) / 1000;
     const refZ = dzT > 0 ? dzT : dT;
     const typ  = (v.typ || '').toLowerCase();
     const osie = parseInt(v.osie) || 2;
@@ -323,10 +332,93 @@ window.GminyRates = (function () {
     if (typeof renderFormularze === 'function') renderFormularze();
   }
 
+  // ── Porównanie stawek gmin dla aktualnej floty ───────────────────────────
+
+  function calcFleetTaxForGmina(gminaName, vehs, rok) {
+    const rates = getGminaRates(gminaName);
+    let total = 0;
+    (vehs || []).forEach(v => {
+      const key = getRateKey(v);
+      if (!key) return;
+      const rate = rates[key];
+      if (rate == null) return;
+      const months = (typeof window.calcMiesiacePodatku === 'function')
+        ? window.calcMiesiacePodatku(v, rok)
+        : (v.miesiacePodatku != null ? +v.miesiacePodatku : 12);
+      total += rate * months / 12;
+    });
+    return Math.round(total * 100) / 100;
+  }
+
+  function renderComparison(containerId) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    const vehs = (window.vehs || []).filter(v => !v.archived);
+    const gminy = listGminy();
+    const rok = new Date().getFullYear();
+
+    if (gminy.length < 2) {
+      el.innerHTML = `<div style="padding:24px;color:var(--text3);text-align:center;font-size:13px">
+        <i class="ti ti-info-circle" style="font-size:24px;display:block;margin-bottom:8px"></i>
+        Dodaj co najmniej jedną gminę poza Warszawą, aby zobaczyć porównanie.
+        <br><button class="btn btn-blue" style="margin-top:12px" onclick="GminyRates.openModal()"><i class="ti ti-plus"></i>Dodaj gminę</button>
+      </div>`;
+      return;
+    }
+
+    const taxable = vehs.filter(v => getRateKey(v) !== null);
+    if (!taxable.length) {
+      el.innerHTML = `<div style="padding:24px;color:var(--text3);text-align:center;font-size:13px">Brak pojazdów podlegających podatkowi DT-1 w flocie.</div>`;
+      return;
+    }
+
+    const results = gminy.map(g => ({ name: g, total: calcFleetTaxForGmina(g, taxable, rok) }));
+    results.sort((a, b) => a.total - b.total);
+    const best = results[0].total;
+    const current = results.find(r => r.name === (vehs[0]?.gmina || 'Warszawa'))?.total || results[0].total;
+    const fmt = n => n.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+    el.innerHTML = `
+      <div style="margin-bottom:12px;font-size:13px;color:var(--text2)">
+        Szacunkowy podatek DT-1 za rok <strong>${rok}</strong> dla <strong>${taxable.length}</strong> opodatkowanych pojazdów wg stawek każdej gminy.
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="background:var(--bg2)">
+            <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3)">#</th>
+            <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3)">Gmina</th>
+            <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3)">Łączny podatek</th>
+            <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3)">vs najtańsza</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${results.map((r, i) => {
+            const isBest = r.total === best;
+            const diff = r.total - best;
+            const bg = isBest ? 'background:#f0fdf4' : i % 2 === 0 ? '' : 'background:var(--bg2)';
+            return `<tr style="${bg};border-bottom:1px solid var(--border)">
+              <td style="padding:8px 12px;color:var(--text3);font-size:11px">${i + 1}</td>
+              <td style="padding:8px 12px;font-weight:${isBest ? '700' : '400'};color:${isBest ? '#166534' : 'var(--text)'}">
+                ${isBest ? '<span style="font-size:10px;background:#bbf7d0;color:#166534;padding:2px 6px;border-radius:99px;margin-right:6px">✓ najtańsza</span>' : ''}
+                ${r.name}
+              </td>
+              <td style="padding:8px 12px;text-align:right;font-family:var(--mono);font-weight:700;color:${isBest ? '#166534' : 'var(--text)'}">
+                ${fmt(r.total)} zł
+              </td>
+              <td style="padding:8px 12px;text-align:right;font-size:12px;color:${diff > 0 ? '#dc2626' : '#16a34a'}">
+                ${diff > 0 ? '+' + fmt(diff) + ' zł' : '—'}
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  }
+
   return {
     SCHEMA, WARSZAWA_DEFAULTS,
     getRateKey, getGminaRate, getGminaRates,
     listGminy, saveGminaRates, deleteGmina, copyFrom,
+    calcFleetTaxForGmina, renderComparison,
     openModal, _add, _del, _save,
   };
 })();

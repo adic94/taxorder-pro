@@ -47,10 +47,10 @@ window.TaxOrderCfmContracts = (function () {
       return;
     }
     tbody.innerHTML = filtered.map(c => `<tr>
-      <td><strong style="font-family:var(--mono)">${c.nr_rej}</strong></td>
-      <td style="font-size:12px">${_clientName(c)}</td>
+      <td><strong style="font-family:var(--mono)">${esc(c.nr_rej)}</strong></td>
+      <td style="font-size:12px">${esc(_clientName(c))}</td>
       <td style="font-size:12px">${c.typ_umowy === 'LEASING' ? 'Leasing' : 'Najem'}</td>
-      <td style="font-size:11px">${c.data_od || '—'} → ${c.data_do || 'bezterminowo'}</td>
+      <td style="font-size:11px">${esc(c.data_od || '—')} → ${esc(c.data_do || 'bezterminowo')}</td>
       <td style="font-family:var(--mono)">${c.stawka_miesieczna != null ? Number(c.stawka_miesieczna).toLocaleString('pl-PL') + ' zł' : '—'}</td>
       <td style="text-align:center">${c.refakturowanie_kosztow ? '<i class="ti ti-check" style="color:var(--green)"></i>' : '—'}</td>
       <td><span class="pill ${c.status === 'AKTYWNY' ? 'pill-green' : 'pill-gray'}">${c.status === 'AKTYWNY' ? 'Aktywny' : 'Zakończony'}</span></td>

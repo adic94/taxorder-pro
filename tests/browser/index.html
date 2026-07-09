@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaxOrder Pro — Test Suite</title>
+<link rel="stylesheet" href="../../style.css">
+<style>
+  body { font-family: var(--font, system-ui, sans-serif); background: var(--bg, #f8fafc); color: var(--text, #1e293b); padding: 2rem; }
+  .test-header { display: flex; align-items: center; gap: 12px; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border, #e2e8f0); }
+  .test-header h1 { font-size: 20px; font-weight: 700; margin: 0; }
+  #test-results { max-width: 900px; }
+  #test-log { background: #1e293b; color: #94a3b8; font-family: monospace; font-size: 11px; padding: 12px 16px; border-radius: 8px; margin-top: 1.5rem; max-height: 200px; overflow-y: auto; }
+</style>
+<!-- Moduły aplikacji potrzebne do testów -->
+<script src="../../modules/tax-engine.js"></script>
+<!-- Globalna funkcja esc() (z index.html) -->
+<script>
+  window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  // Stub dla funkcji aplikacji nieużywanych w testach jednostkowych
+  window.toast = msg => console.log('[TOAST]', msg);
+  window.vehs  = [];
+  window.t     = key => key;
+  window.GminyRates = null;
+</script>
+<!-- Test framework -->
+<script src="runner.js"></script>
+<!-- Test suites -->
+<script src="suites/tax-engine.test.js"></script>
+<script src="suites/xss.test.js"></script>
+<script src="suites/etoll.test.js"></script>
+<script src="suites/config.test.js"></script>
+</head>
+<body>
+
+<div class="test-header">
+  <div style="width:40px;height:40px;background:#3b82f6;border-radius:8px;display:flex;align-items:center;justify-content:center">
+    <i class="ti ti-test-pipe" style="color:white;font-size:20px"></i>
+  </div>
+  <div>
+    <h1>TaxOrder Pro — Test Suite</h1>
+    <div style="font-size:12px;color:#64748b">Warstwa 1: testy jednostkowe logiki biznesowej</div>
+  </div>
+  <button onclick="rerun()" style="margin-left:auto;padding:6px 14px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px">
+    ▶ Uruchom ponownie
+  </button>
+</div>
+
+<div id="test-results">
+  <div style="color:#64748b;font-size:13px">Uruchamianie testów…</div>
+</div>
+<div id="test-log"></div>
+
+<script>
+  // Przechwytuj console.log/warn/error do #test-log
+  const logEl = document.getElementById('test-log');
+  const _log = (type, args) => {
+    const line = document.createElement('div');
+    line.style.color = type === 'error' ? '#f87171' : type === 'warn' ? '#fbbf24' : '#94a3b8';
+    line.textContent = `[${type.toUpperCase()}] ${[...args].join(' ')}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  };
+  ['log','warn','error'].forEach(t => {
+    const orig = console[t].bind(console);
+    console[t] = (...a) => { orig(...a); _log(t, a); };
+  });
+
+  async function rerun() {
+    document.getElementById('test-results').innerHTML = '<div style="color:#64748b;font-size:13px">Uruchamianie…</div>';
+    logEl.innerHTML = '';
+    await TaxOrderTests.run('test-results');
+  }
+
+  window.addEventListener('DOMContentLoaded', rerun);
+</script>
+</body>
+</html>

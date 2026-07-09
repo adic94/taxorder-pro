@@ -44,10 +44,10 @@ window.TaxOrderDamages = (function () {
     const pillCls = { ZGLOSZONA: 'pill-amber', W_TRAKCIE: 'pill-blue', ZAMKNIETA: 'pill-green' };
     const pillLbl = { ZGLOSZONA: 'Zgłoszona', W_TRAKCIE: 'W trakcie', ZAMKNIETA: 'Zamknięta' };
     tbody.innerHTML = filtered.map(d => `<tr>
-      <td><strong style="font-family:var(--mono)">${d.nr_rej || '—'}</strong></td>
+      <td><strong style="font-family:var(--mono)">${esc(d.nr_rej || '—')}</strong></td>
       <td style="font-size:12px">${d.data_zdarzenia ? new Date(d.data_zdarzenia).toLocaleDateString('pl-PL') : '—'}</td>
-      <td style="font-size:12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.opis || '—'}</td>
-      <td><span class="pill ${pillCls[d.status] || 'pill-gray'}">${pillLbl[d.status] || d.status}</span></td>
+      <td style="font-size:12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.opis || '—')}</td>
+      <td><span class="pill ${pillCls[d.status] || 'pill-gray'}">${pillLbl[d.status] || esc(d.status)}</span></td>
       <td style="font-family:var(--mono)">${d.koszt != null ? Number(d.koszt).toLocaleString('pl-PL') + ' zł' : '—'}</td>
       <td style="text-align:center">${(d.photos || []).length ? `<i class="ti ti-photo"></i> ${d.photos.length}` : '—'}</td>
       <td>

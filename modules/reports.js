@@ -177,6 +177,13 @@ window.FleetReports = (function () {
     const fmt  = n => (+n||0).toLocaleString('pl-PL', { minimumFractionDigits:0, maximumFractionDigits:0 });
     const fmt2 = n => (+n||0).toFixed(2).replace('.', ',');
 
+    // Mandaty per nr_rej dla danego roku
+    const allFines = window.TaxOrderFines?.getAllSync?.() || [];
+    const finesByNr = {};
+    allFines.filter(f => (f.date||'').startsWith(pfx)).forEach(f => {
+      finesByNr[f.nr_rej] = (finesByNr[f.nr_rej]||0) + (f.amount||0);
+    });
+
     const rows = (window.vehs||[]).map(v => {
       const fuel  = (v.fuelHistory||[]).filter(h=>(h.date||'').startsWith(pfx)).reduce((s,h)=>s+(h.totalGross||0),0);
       const svc   = (v.serviceHistory||[]).filter(h=>(h.date||'').startsWith(pfx)).reduce((s,h)=>s+(h.cost||0),0);
@@ -184,8 +191,9 @@ window.FleetReports = (function () {
       const leasing = (v.leasingRate && (v.leasingStart||'') <= pfx+'-12' && (v.leasingEnd||'') >= pfx+'-01')
         ? (+v.leasingRate * 12) : 0;
       const tax   = (typeof calcTax === 'function') ? (calcTax(v).amount||0) : 0;
-      const total = fuel + svc + ins + leasing + tax;
-      return { v, fuel, svc, ins, leasing, tax, total };
+      const fines = finesByNr[v.nrRej] || finesByNr[v.nr_rej] || 0;
+      const total = fuel + svc + ins + leasing + tax + fines;
+      return { v, fuel, svc, ins, leasing, tax, fines, total };
     }).filter(r => r.total > 0).sort((a,b) => b.total - a.total);
 
     if (!rows.length) { el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3)">Brak danych kosztowych za ${yr}.</div>`; return; }
@@ -195,6 +203,7 @@ window.FleetReports = (function () {
     const totIns     = rows.reduce((s,r)=>s+r.ins,0);
     const totLeasing = rows.reduce((s,r)=>s+r.leasing,0);
     const totTax     = rows.reduce((s,r)=>s+r.tax,0);
+    const totFines   = rows.reduce((s,r)=>s+r.fines,0);
     const totAll     = rows.reduce((s,r)=>s+r.total,0);
     const maxTotal   = Math.max(...rows.map(r=>r.total),1);
 
@@ -221,6 +230,7 @@ window.FleetReports = (function () {
             <th style="text-align:right;color:var(--green)">Ubezp.</th>
             <th style="text-align:right;color:var(--blue)">Leasing</th>
             <th style="text-align:right;color:var(--text2)">Podatek</th>
+            <th style="text-align:right;color:#dc2626">Mandaty</th>
             <th style="text-align:right;font-weight:700">TCO ŁĄCZNIE</th>
             <th style="min-width:100px">Struktura</th>
           </tr></thead>
@@ -235,6 +245,7 @@ window.FleetReports = (function () {
                 <td style="text-align:right;font-family:var(--mono);color:var(--green)">${r.ins?fmt(r.ins):'—'}</td>
                 <td style="text-align:right;font-family:var(--mono);color:var(--blue)">${r.leasing?fmt(r.leasing):'—'}</td>
                 <td style="text-align:right;font-family:var(--mono);color:var(--text2)">${r.tax?fmt(r.tax):'—'}</td>
+                <td style="text-align:right;font-family:var(--mono);color:#dc2626">${r.fines?fmt(r.fines):'—'}</td>
                 <td style="text-align:right;font-family:var(--mono);font-weight:700">${fmt(r.total)} zł</td>
                 <td>
                   <div style="height:10px;background:var(--bg2);border-radius:4px;overflow:hidden">
@@ -252,6 +263,7 @@ window.FleetReports = (function () {
               <td style="text-align:right;font-family:var(--mono);color:var(--green)">${fmt(totIns)}</td>
               <td style="text-align:right;font-family:var(--mono);color:var(--blue)">${fmt(totLeasing)}</td>
               <td style="text-align:right;font-family:var(--mono)">${fmt(totTax)}</td>
+              <td style="text-align:right;font-family:var(--mono);color:#dc2626">${fmt(totFines)}</td>
               <td style="text-align:right;font-family:var(--mono)">${fmt(totAll)} zł</td>
               <td></td>
             </tr>
@@ -270,10 +282,12 @@ window.FleetReports = (function () {
       const ins   = (v.ocPremium&&(v.ocStart||'').startsWith(pfx)?+v.ocPremium:0)+(v.acPremium&&(v.acStart||'').startsWith(pfx)?+v.acPremium:0);
       const leasing = (v.leasingRate&&(v.leasingStart||'')<=pfx+'-12'&&(v.leasingEnd||'')>=pfx+'-01')?(+v.leasingRate*12):0;
       const tax   = (typeof calcTax==='function')?(calcTax(v).amount||0):0;
-      const total = fuel+svc+ins+leasing+tax;
-      return [v.nrRej,v.marka,v.model,v.rok||'',+fuel.toFixed(2),+svc.toFixed(2),+ins.toFixed(2),+leasing.toFixed(2),+tax.toFixed(2),+total.toFixed(2)];
-    }).filter(r=>r[9]>0).sort((a,b)=>b[9]-a[9]);
-    const headers = ['Nr rej.','Marka','Model','Rok','Paliwo (zł)','Serwis (zł)','Ubezp. (zł)','Leasing (zł)','Podatek (zł)','TCO (zł)'];
+      const allFinesX = window.TaxOrderFines?.getAllSync?.() || [];
+      const finesX = allFinesX.filter(f=>(f.date||'').startsWith(pfx)&&(f.nr_rej===v.nrRej||f.nr_rej===v.nr_rej)).reduce((s,f)=>s+(f.amount||0),0);
+      const total = fuel+svc+ins+leasing+tax+finesX;
+      return [v.nrRej,v.marka,v.model,v.rok||'',+fuel.toFixed(2),+svc.toFixed(2),+ins.toFixed(2),+leasing.toFixed(2),+tax.toFixed(2),+finesX.toFixed(2),+total.toFixed(2)];
+    }).filter(r=>r[10]>0).sort((a,b)=>b[10]-a[10]);
+    const headers = ['Nr rej.','Marka','Model','Rok','Paliwo (zł)','Serwis (zł)','Ubezp. (zł)','Leasing (zł)','Podatek (zł)','Mandaty (zł)','TCO (zł)'];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers,...rows]), `TCO ${yr}`);
     XLSX.writeFile(wb, `tco_flota_${yr}.xlsx`);
@@ -1463,5 +1477,114 @@ tr:hover td{background:#f9fafb}
     toast(t('rep.toast.pdf.ok').replace('{0}', monthLabel));
   }
 
-  return { renderPage, exportExcel, exportCsv, renderServicePlan, exportServicePlanExcel, exportServicePlanHtml, renderMaintenanceKm, exportMaintenanceKmExcel, saveBudgetInputs, renderKobize, exportKobizeCsv, exportKobizeExcel, renderTco, exportTcoExcel, renderInsuranceReport, exportInsuranceExcel, exportExecutiveSummary, emailExecutiveSummary, generateMonthlyPdf, initPdfSelectors };
+  // ── Projekcja DT-1 na przyszły rok ───────────────────────────────────────
+
+  function renderDt1Projection(containerId) {
+    const el = document.getElementById(containerId || 'dt1-projection-result');
+    if (!el) return;
+
+    const vehs = (window.vehs || []).filter(v => !v.archived);
+    const nowYear = new Date().getFullYear();
+    const nextYear = nowYear + 1;
+
+    if (!window.calcTax || !vehs.length) {
+      el.innerHTML = `<div style="padding:16px;color:var(--text3);font-size:13px;text-align:center">Brak danych pojazdów lub kalkulatora podatku.</div>`;
+      return;
+    }
+
+    const fmt = n => n.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+    // Compute current year tax
+    const currentRows = [];
+    let currentTotal = 0;
+    vehs.forEach(v => {
+      const t = window.calcTax(v);
+      if (!t || t.exempt || !t.cat) return;
+      const months = (typeof window.calcMiesiacePodatku === 'function')
+        ? window.calcMiesiacePodatku(v, nowYear)
+        : (v.miesiacePodatku != null ? +v.miesiacePodatku : 12);
+      const amount = t.stawkaRoczna != null ? Math.round(t.stawkaRoczna * months / 12 * 100) / 100 : (t.kwota || 0);
+      currentRows.push({ v, cat: t.cat, months, amount });
+      currentTotal += amount;
+    });
+
+    // For next year: if vehicle rok < nextYear-1, mark as "old" (different rate bracket)
+    // Simply recompute with all months = 12 (full year, no disposal/withdrawal)
+    const nextRows = [];
+    let nextTotal = 0;
+    vehs.forEach(v => {
+      const vNext = { ...v, rok: v.rok, miesiacePodatku: 12, dataWycofania: '', dataDopuszczenia: '', dataZbycia: '', saleDate: '' };
+      const t = window.calcTax(vNext);
+      if (!t || t.exempt || !t.cat) return;
+      const amount = t.kwota || 0;
+      nextRows.push({ v, cat: t.cat, amount });
+      nextTotal += amount;
+    });
+
+    const diff = nextTotal - currentTotal;
+    const diffSign = diff > 0 ? '+' : '';
+
+    el.innerHTML = `
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+        <div class="fkpi-card" style="flex:1;min-width:160px;padding:14px 18px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">${nowYear} (bieżący)</div>
+          <div style="font-size:24px;font-weight:800;color:var(--blue)">${fmt(currentTotal)} zł</div>
+          <div style="font-size:11px;color:var(--text2)">${currentRows.length} pojazdów opodatkowanych</div>
+        </div>
+        <div class="fkpi-card" style="flex:1;min-width:160px;padding:14px 18px;${diff>0?'border-color:var(--red)':'border-color:var(--green)'}">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">${nextYear} (projekcja, pełny rok)</div>
+          <div style="font-size:24px;font-weight:800;color:${diff>0?'var(--red)':'var(--green)'}">${fmt(nextTotal)} zł</div>
+          <div style="font-size:11px;color:var(--text2)">${diffSign}${fmt(diff)} zł vs rok bieżący</div>
+        </div>
+        <div class="fkpi-card" style="flex:1;min-width:160px;padding:14px 18px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Zmiana</div>
+          <div style="font-size:24px;font-weight:800;color:${diff>0?'var(--red)':'var(--green)'}">
+            ${currentTotal>0 ? (diffSign + (diff/currentTotal*100).toFixed(1) + '%') : '—'}
+          </div>
+          <div style="font-size:11px;color:var(--text2)">rok do roku</div>
+        </div>
+      </div>
+
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">
+        <i class="ti ti-info-circle" style="margin-right:4px"></i>
+        Projekcja zakłada pełne 12 miesięcy bez wycofań/zbycia. Pojazdy wyprodukowane w ${nextYear - 1}–${nextYear} mogą zmienić kategorię wiekową.
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:var(--bg2)">
+          <th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3)">Nr rej.</th>
+          <th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3)">Pojazd</th>
+          <th style="padding:7px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3)">Kat.</th>
+          <th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3)">${nowYear}</th>
+          <th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3)">${nextYear}</th>
+          <th style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3)">Δ</th>
+        </tr></thead>
+        <tbody>
+          ${nextRows.map((r, i) => {
+            const cur = currentRows.find(c => c.v.id === r.v.id);
+            const curAmt = cur?.amount || 0;
+            const delta = r.amount - curAmt;
+            const ds = delta > 0 ? '+' : '';
+            return `<tr style="${i%2?'background:var(--bg2)':''}">
+              <td style="padding:6px 10px;font-family:var(--mono)">${r.v.nrRej||'—'}</td>
+              <td style="padding:6px 10px;font-size:11px;color:var(--text2)">${r.v.marka||''} ${r.v.model||''}</td>
+              <td style="padding:6px 10px"><span class="pill pill-blue" style="font-size:10px">${r.cat}</span></td>
+              <td style="padding:6px 10px;text-align:right;font-family:var(--mono)">${curAmt>0?fmt(curAmt)+' zł':'—'}</td>
+              <td style="padding:6px 10px;text-align:right;font-family:var(--mono);font-weight:700">${fmt(r.amount)} zł</td>
+              <td style="padding:6px 10px;text-align:right;font-size:11px;color:${delta>0?'#dc2626':delta<0?'#16a34a':'var(--text3)'}">${delta!==0?ds+fmt(delta)+' zł':'—'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+        <tfoot>
+          <tr style="border-top:2px solid var(--border);font-weight:700;background:var(--bg2)">
+            <td colspan="3" style="padding:7px 10px">Łącznie</td>
+            <td style="padding:7px 10px;text-align:right;font-family:var(--mono)">${fmt(currentTotal)} zł</td>
+            <td style="padding:7px 10px;text-align:right;font-family:var(--mono);color:${diff>0?'var(--red)':'var(--green)'}">${fmt(nextTotal)} zł</td>
+            <td style="padding:7px 10px;text-align:right;font-size:11px;color:${diff>0?'#dc2626':'#16a34a'}">${diff!==0?(diffSign+fmt(diff)+' zł'):'—'}</td>
+          </tr>
+        </tfoot>
+      </table>`;
+  }
+
+  return { renderPage, exportExcel, exportCsv, renderServicePlan, exportServicePlanExcel, exportServicePlanHtml, renderMaintenanceKm, exportMaintenanceKmExcel, saveBudgetInputs, renderKobize, exportKobizeCsv, exportKobizeExcel, renderTco, exportTcoExcel, renderInsuranceReport, exportInsuranceExcel, exportExecutiveSummary, emailExecutiveSummary, generateMonthlyPdf, initPdfSelectors, renderDt1Projection };
 })();

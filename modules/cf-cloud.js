@@ -106,6 +106,11 @@
         id:               index,
         dbId:             row.id,
         nrRej:            row.nr_rej           || data.nrRej        || '',
+        marka:            data.marka           || '',
+        model:            data.model           || '',
+        rok:              data.rok             ?? null,
+        typ:              data.typ             || '',
+        dmc:              data.dmc             ?? data.dmcMax        ?? 0,
         osie:             row.axles_count       ?? data.osie         ?? 2,
         zawieszenie:      row.suspension_type   || data.zawieszenie  || 'pneumatyczne',
         dmcZespolu:       row.dmc_zespolu       ?? data.dmcZespolu   ?? 0,
@@ -131,8 +136,15 @@
       };
     },
 
+    _loadLock: false,
+
     // Pobiera pojazdy aktywnej firmy z D1
     async loadVehicles(companySlug) {
+      if (this._loadLock) {
+        console.warn('[CF Cloud] loadVehicles: poprzednie ładowanie w toku — pominięto');
+        return { ok: false, skipped: true };
+      }
+      this._loadLock = true;
       const slug = companySlug || window.currentCompanyId || 'mtoilet';
       try {
         const rows   = await cfApi('/api/vehicles?company=' + encodeURIComponent(slug));
@@ -154,6 +166,8 @@
       } catch (e) {
         console.warn('[CF Cloud] loadVehicles:', e.message);
         return { ok: false, error: e };
+      } finally {
+        this._loadLock = false;
       }
     },
 

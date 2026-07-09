@@ -111,10 +111,10 @@ window.TaxOrderNotifSettings = (function () {
     try {
       const r = await fetch(`${API()}/api/notif-trigger?dry_run=1`, { method: 'POST', headers: hdrs() });
       const d = await r.json().catch(() => ({}));
-      if (!r.ok) { el.innerHTML = `<div style="padding:20px;color:var(--red)">Błąd: ${d.error || r.status}</div>`; return; }
+      if (!r.ok) { el.innerHTML = `<div style="padding:20px;color:var(--red)">Błąd: ${d.error ? (window.esc||String)(d.error) : r.status}</div>`; return; }
       _renderPodgladData(el, d);
     } catch (e) {
-      el.innerHTML = `<div style="padding:20px;color:var(--red)">Błąd połączenia: ${e.message}</div>`;
+      el.innerHTML = `<div style="padding:20px;color:var(--red)">Błąd połączenia: ${(window.esc||String)(e.message)}</div>`;
     }
   }
 

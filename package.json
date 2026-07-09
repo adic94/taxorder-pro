@@ -3,8 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "deploy": "wrangler deploy",
-    "dev": "wrangler dev"
+    "deploy":        "wrangler deploy",
+    "dev":           "wrangler dev",
+    "serve":         "http-server . -p 3000 -c-1 --silent",
+    "test":          "playwright test",
+    "test:e2e":      "playwright test tests/e2e/",
+    "test:e2e:ui":   "playwright test tests/e2e/ --ui",
+    "test:login":    "playwright test tests/e2e/login.spec.js",
+    "test:dash":     "playwright test tests/e2e/dashboard.spec.js",
+    "test:veh":      "playwright test tests/e2e/vehicle-card.spec.js",
+    "test:api":      "node tests/api/api-test.js",
+    "test:report":   "playwright show-report tests/results/html",
+    "pw:install":    "playwright install chromium"
   },
   "devDependencies": {
     "http-server": "^14.1.1",
