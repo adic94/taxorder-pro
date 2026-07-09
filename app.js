@@ -4505,7 +4505,7 @@ function applyOcrChanges(vehId,changes){
   if(res){
     const msg=document.createElement('div');
     msg.className='gbox';msg.style.marginBottom='12px';
-    msg.innerHTML=`<i class="ti ti-circle-check"></i><strong>✓ Zaktualizowano ${applied} pól dla ${v.nrRej}.</strong> Sprawdź wyniki w zakładce <button class="btn btn-gray" style="padding:3px 8px;font-size:11px;margin-left:4px" onclick="showPage('pojazdy')">Pojazdy</button>`;
+    msg.innerHTML=`<i class="ti ti-circle-check"></i><strong>✓ Zaktualizowano ${applied} pól dla ${esc(v.nrRej)}.</strong> Sprawdź wyniki w zakładce <button class="btn btn-gray" style="padding:3px 8px;font-size:11px;margin-left:4px" onclick="showPage('pojazdy')">Pojazdy</button>`;
     res.prepend(msg);
     res.scrollIntoView({behavior:'smooth'});
   }
@@ -4566,8 +4566,8 @@ function renderOcrHistory(){
   el.innerHTML=ocrHistory.slice(0,8).map(h=>`
     <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border);font-size:12px">
       <i class="ti ti-scan" style="color:var(--text3)"></i>
-      <div style="flex:1"><strong>${h.nrRej||'?'}</strong> <span style="color:var(--text2)">${h.marka||''}</span>
-        <div style="font-size:10px;color:var(--text3)">${h.ts} · ${h.pewnosc||''}</div></div>
+      <div style="flex:1"><strong>${esc(h.nrRej||'?')}</strong> <span style="color:var(--text2)">${esc(h.marka||'')}</span>
+        <div style="font-size:10px;color:var(--text3)">${esc(h.ts||'')} · ${esc(h.pewnosc||'')}</div></div>
       <span class="pill ${h.found?'pill-green':'pill-amber'}" style="font-size:10px">${h.found?'Znaleziony':'Nowy'}</span>
       ${h.applied!=null?`<span class="pill pill-blue" style="font-size:10px">${h.applied} zm.</span>`:''}
     </div>`).join('');

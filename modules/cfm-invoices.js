@@ -67,7 +67,7 @@ window.TaxOrderCfmInvoices = (function () {
     const companySel = document.getElementById('cfmg-client-company');
     const extSel = document.getElementById('cfmg-client-external');
     if (companySel) companySel.innerHTML = Object.values(window.COMPANIES || {}).filter(co => co.id !== _company()).map(co => `<option value="${co.id}">${co.shortName}</option>`).join('');
-    if (extSel) extSel.innerHTML = (window.TaxOrderCfmClients?.getAll() || []).map(cl => `<option value="${cl.id}">${cl.nazwa}</option>`).join('');
+    if (extSel) extSel.innerHTML = (window.TaxOrderCfmClients?.getAll() || []).map(cl => `<option value="${esc(cl.id)}">${esc(cl.nazwa)}</option>`).join('');
     document.getElementById('cfmg-client-type').value = 'COMPANY';
     _toggleGenClientType();
     document.getElementById('cfmg-okres').value = new Date().toISOString().slice(0, 7);
