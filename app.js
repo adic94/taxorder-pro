@@ -296,7 +296,8 @@ function sortBy(key) {
 
 function _datePill(dateStr) {
   if(!dateStr) return '<span style="color:var(--text3);font-size:11px">—</span>';
-  const d = new Date(dateStr), now = new Date();
+  const d = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00');
+  const now = new Date(); now.setHours(0, 0, 0, 0);
   const days = Math.round((d - now) / 86400000);
   const label = d.toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit',year:'2-digit'});
   if(days < 0)  return `<span class="pill pill-red" title="${days} dni temu">${label}</span>`;
@@ -389,7 +390,7 @@ function renderVeh() {
     const isNew = (parseInt(v.rok)||0)>=2024;
     const needsDmcZ = isTrailerV(v) && !v.dmcZespolu;
     const ctx = { t, isNew, needsDmcZ, isTrailerV: isTrailerV(v) };
-    const _nowMs = Date.now();
+    const _nowMs = (() => { const t = new Date(); t.setHours(0,0,0,0); return t.getTime(); })();
     const _vDays = ds => { if (!ds) return 9999; const d = new Date(ds+'T00:00:00'); return isNaN(d)?9999:Math.round((d-_nowMs)/86400000); };
     const _minDays = Math.min(_vDays(v.ocEnd), _vDays(v.acEnd), _vDays(v.nextInspection));
     const _rowAlert = _minDays < 0 ? 'row-alert-red' : _minDays <= 7 ? 'row-alert-red' : _minDays <= 30 ? 'row-alert-amber' : '';
@@ -1146,7 +1147,7 @@ async function _renderFleetKpiStrip() {
   if (!el) return;
 
   // Szybki render z danych lokalnych (natychmiastowy)
-  const now = new Date();
+  const now = new Date(); now.setHours(0, 0, 0, 0);
   const noDriver = (vehs || []).filter(v => !v.kierowca).length;
   el.innerHTML = `<div class="fkpi-card"><div class="fkpi-val" style="font-size:13px;color:var(--text3)">…</div><div class="fkpi-lab">ładowanie KPI</div></div>`;
 
@@ -1229,7 +1230,7 @@ function _renderKpiCards({ oc=0, oc_expired=0, oc_7=0, insp=0, insp_expired=0, f
 function _renderCards(list) {
   const el = document.getElementById('fleet-cards');
   if (!el) return;
-  const now = new Date();
+  const now = new Date(); now.setHours(0, 0, 0, 0);
   el.innerHTML = list.map(v => {
     const t = calcTax(v);
     const statusCls = STAT_LABELS[v.status] || 'pill-gray';
