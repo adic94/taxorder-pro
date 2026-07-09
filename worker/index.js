@@ -18,7 +18,9 @@ const ALLOWED_ORIGINS = [
 ];
 
 function corsHeaders(origin) {
-  const ok = ALLOWED_ORIGINS.includes(origin) || /^https?:\/\/localhost(:\d+)?$/.test(origin);
+  const ok = ALLOWED_ORIGINS.includes(origin)
+    || /^https?:\/\/localhost(:\d+)?$/.test(origin)
+    || /^https:\/\/[a-z0-9]+\.taxorder-pro\.pages\.dev$/.test(origin);
   return {
     'Access-Control-Allow-Origin': ok ? origin : ALLOWED_ORIGINS[0],
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
