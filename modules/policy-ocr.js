@@ -115,14 +115,14 @@ window.TaxOrderPolicyOcr = (function () {
       <div id="pocr-file-${_safeId(f.key)}" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:8px">
         <i class="ti ${f.name.endsWith('.pdf') ? 'ti-file-type-pdf' : 'ti-file-type-jpg'}" style="font-size:24px;color:var(--blue);flex-shrink:0"></i>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</div>
+          <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</div>
           <div style="font-size:11px;color:var(--text2)">${_formatSize(f.size)} · ${f.uploaded ? new Date(f.uploaded).toLocaleString('pl-PL') : ''}</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
-          <button class="btn btn-blue" style="font-size:11px" onclick="TaxOrderPolicyOcr._processFile('${f.key}','${f.name}')">
+          <button class="btn btn-blue" style="font-size:11px" data-key="${esc(f.key)}" data-name="${esc(f.name)}" onclick="TaxOrderPolicyOcr._processFile(this.dataset.key,this.dataset.name)">
             <i class="ti ti-scan"></i>Przetwórz OCR
           </button>
-          <button class="btn btn-gray" style="font-size:11px;color:var(--red)" onclick="TaxOrderPolicyOcr._confirmDelete('${f.key}','${f.name}')">
+          <button class="btn btn-gray" style="font-size:11px;color:var(--red)" data-key="${esc(f.key)}" data-name="${esc(f.name)}" onclick="TaxOrderPolicyOcr._confirmDelete(this.dataset.key,this.dataset.name)">
             <i class="ti ti-trash"></i>
           </button>
         </div>
