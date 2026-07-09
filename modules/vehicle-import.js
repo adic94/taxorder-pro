@@ -314,12 +314,12 @@ window.VehicleImport = (function () {
             ${rows.map(r => {
               const isUpd = existing.has(r.nrRej);
               return `<tr style="${isUpd ? 'background:rgba(245,175,25,.08)' : ''}">
-                <td style="padding:4px 8px;border-bottom:1px solid var(--border);font-weight:600">${r.nrRej} ${isUpd?`<span style="color:var(--amber);font-size:10px">[${t('vi.toast.upd')}]</span>`:''}</td>
-                <td style="padding:4px 8px;border-bottom:1px solid var(--border)">${r.marka||'—'}</td>
-                <td style="padding:4px 8px;border-bottom:1px solid var(--border)">${r.model||'—'}</td>
+                <td style="padding:4px 8px;border-bottom:1px solid var(--border);font-weight:600">${esc(r.nrRej)} ${isUpd?`<span style="color:var(--amber);font-size:10px">[${t('vi.toast.upd')}]</span>`:''}</td>
+                <td style="padding:4px 8px;border-bottom:1px solid var(--border)">${esc(r.marka||'—')}</td>
+                <td style="padding:4px 8px;border-bottom:1px solid var(--border)">${esc(r.model||'—')}</td>
                 <td style="padding:4px 8px;border-bottom:1px solid var(--border);text-align:right">${r.dmc ? (r.dmc/1000).toFixed(1)+'t' : '—'}</td>
-                <td style="padding:4px 8px;border-bottom:1px solid var(--border)">${r.typ||'—'}</td>
-                <td style="padding:4px 8px;border-bottom:1px solid var(--border)">${r.status||'—'}</td>
+                <td style="padding:4px 8px;border-bottom:1px solid var(--border)">${esc(r.typ||'—')}</td>
+                <td style="padding:4px 8px;border-bottom:1px solid var(--border)">${esc(r.status||'—')}</td>
               </tr>`;
             }).join('')}
           </tbody>
