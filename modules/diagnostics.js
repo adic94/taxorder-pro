@@ -61,6 +61,7 @@ window.TaxOrderDiagnostics = (function () {
     'TaxOrderServiceOrders', 'TaxOrderHandoverProtocol',
     'TaxOrderCfmClients', 'TaxOrderCfmContracts', 'TaxOrderCfmInvoices',
     'TaxOrderVehicleDetail', 'FleetReports', 'VehicleImport',
+    'TaxOrderInspectionCalendar',
   ];
 
   const API_SUITE = [
