@@ -2027,22 +2027,28 @@ async function handleImport(req, env, company) {
   const skipped = [];
 
   if (Array.isArray(body.vehicles) && body.vehicles.length) {
-    const stmt = env.DB.prepare(`
-      INSERT INTO vehicles(company_id,nr_rej,axles_count,suspension_type,
-        dmc_zespolu,miesiace_podatku,dt1_category,dt1_tax_amount,data,updated_at)
-      VALUES(?,?,?,?,?,?,?,?,?,datetime('now'))
-      ON CONFLICT(company_id,nr_rej) DO UPDATE SET
-        axles_count=excluded.axles_count, suspension_type=excluded.suspension_type,
-        dmc_zespolu=excluded.dmc_zespolu, miesiace_podatku=excluded.miesiace_podatku,
-        dt1_category=excluded.dt1_category, dt1_tax_amount=excluded.dt1_tax_amount,
-        data=excluded.data, updated_at=datetime('now')`);
-    await env.DB.batch(body.vehicles.map(v => stmt.bind(
-      company, v.nr_rej, v.axles_count ?? 2, v.suspension_type ?? 'pneumatyczne',
-      v.dmc_zespolu ?? 0, v.miesiace_podatku ?? 12,
-      v.dt1_category ?? null, v.dt1_tax_amount ?? null,
-      typeof v.data === 'string' ? v.data : JSON.stringify(v.data ?? {})
-    )));
-    counts.vehicles = body.vehicles.length;
+    const validVehicles = body.vehicles.filter(v => {
+      if (!v.nr_rej?.trim()) { skipped.push({ table: 'vehicles', id: null, reason: 'brak nr_rej' }); return false; }
+      return true;
+    });
+    if (validVehicles.length) {
+      const stmt = env.DB.prepare(`
+        INSERT INTO vehicles(company_id,nr_rej,axles_count,suspension_type,
+          dmc_zespolu,miesiace_podatku,dt1_category,dt1_tax_amount,data,updated_at)
+        VALUES(?,?,?,?,?,?,?,?,?,datetime('now'))
+        ON CONFLICT(company_id,nr_rej) DO UPDATE SET
+          axles_count=excluded.axles_count, suspension_type=excluded.suspension_type,
+          dmc_zespolu=excluded.dmc_zespolu, miesiace_podatku=excluded.miesiace_podatku,
+          dt1_category=excluded.dt1_category, dt1_tax_amount=excluded.dt1_tax_amount,
+          data=excluded.data, updated_at=datetime('now')`);
+      await env.DB.batch(validVehicles.map(v => stmt.bind(
+        company, v.nr_rej.trim(), v.axles_count ?? 2, v.suspension_type ?? 'pneumatyczne',
+        v.dmc_zespolu ?? 0, v.miesiace_podatku ?? 12,
+        v.dt1_category ?? null, v.dt1_tax_amount ?? null,
+        typeof v.data === 'string' ? v.data : JSON.stringify(v.data ?? {})
+      )));
+    }
+    counts.vehicles = validVehicles.length;
   }
 
   // Drivers — dedykowany upsert po (company_id, name) żeby respektować UNIQUE constraint
