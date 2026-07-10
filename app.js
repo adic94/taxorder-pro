@@ -2099,6 +2099,8 @@ function renderDash() {
   _renderFleetKpi();
   _renderAgeDist();
   _renderActivityFeed();
+  const _luEl = document.getElementById('dash-last-update');
+  if (_luEl) _luEl.textContent = 'Odświeżono ' + new Date().toLocaleTimeString('pl-PL', {hour:'2-digit', minute:'2-digit'});
 }
 
 function _renderActivityFeed() {
@@ -2388,16 +2390,15 @@ function _renderFleetKpi() {
   ];
 
   el.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">
       ${chips.map(c => `
-        <div style="background:var(--bg3);border-radius:var(--radius);padding:10px 12px;display:flex;align-items:center;gap:10px;${c.click?'cursor:pointer':''}${c.click?`;border:1px solid transparent`:''};"
-          ${c.click?`onclick="${c.click}" onmouseenter="this.style.borderColor='var(--blue)'" onmouseleave="this.style.borderColor='transparent'"`:''}
-        >
-          <i class="ti ${c.icon}" style="font-size:18px;color:${c.color};flex-shrink:0"></i>
+        <div style="background:var(--bg3);border-radius:var(--radius);padding:12px 14px;display:flex;align-items:center;gap:10px;border-left:3px solid ${c.color};transition:background .15s;${c.click?'cursor:pointer':''};"
+          ${c.click?`onclick="${c.click}" onmouseenter="this.style.background='var(--bg2)'" onmouseleave="this.style.background='var(--bg3)'"`:''}>
+          <i class="ti ${c.icon}" style="font-size:20px;color:${c.color};flex-shrink:0"></i>
           <div style="min-width:0">
             <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.label}</div>
-            <div style="font-size:17px;font-weight:700;font-family:var(--mono);color:${c.color};line-height:1.2">${c.val}</div>
-            ${c.unit?`<div style="font-size:10px;color:var(--text2)">${c.unit}</div>`:''}
+            <div style="font-size:18px;font-weight:700;font-family:var(--mono);color:${c.color};line-height:1.2">${c.val}</div>
+            ${c.unit?`<div style="font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.unit}</div>`:''}
           </div>
         </div>`).join('')}
     </div>`;

@@ -219,9 +219,27 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 <div class="page active" id="page-dash">
   <div class="pg-title">
     <i class="ti ti-layout-dashboard"></i><span>Pulpit</span>
-    <button class="btn btn-gray" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="openDashCustomize()">
-      <i class="ti ti-layout-columns"></i>Dostosuj kokpit
-    </button>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+      <span id="dash-last-update" style="font-size:10px;color:var(--text3)"></span>
+      <button class="btn btn-gray" style="font-size:11px;padding:4px 10px" onclick="renderDash()" title="Odśwież dane pulpitu">
+        <i class="ti ti-refresh"></i>Odśwież
+      </button>
+      <button class="btn btn-gray" style="font-size:11px;padding:4px 10px" onclick="openDashCustomize()">
+        <i class="ti ti-layout-columns"></i>Dostosuj kokpit
+      </button>
+    </div>
+  </div>
+
+  <!-- Szybkie akcje — zawsze widoczne, poza systemem widgetów -->
+  <div id="dash-quick-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius)">
+    <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-right:4px;white-space:nowrap">Szybkie akcje</span>
+    <button class="btn btn-blue" style="font-size:12px" onclick="FuelImport.open()"><i class="ti ti-gas-station"></i>Tankowanie</button>
+    <button class="btn btn-gray" style="font-size:12px" onclick="ServiceModule.addServiceGlobal()"><i class="ti ti-tools"></i>Serwis</button>
+    <button class="btn btn-gray" style="font-size:12px" onclick="FinesModule.open()"><i class="ti ti-ticket"></i>Mandat</button>
+    <button class="btn btn-gray" style="font-size:12px" onclick="showPage('formularze')"><i class="ti ti-file-text"></i>DT-1</button>
+    <button class="btn btn-gray" style="font-size:12px" onclick="showPage('raporty')"><i class="ti ti-chart-bar"></i>Raporty</button>
+    <button class="btn btn-gray" style="font-size:12px" onclick="showPage('mapa')"><i class="ti ti-map-2"></i>Mapa floty</button>
+    <button class="btn btn-gray" style="font-size:12px" onclick="showPage('dr-import')"><i class="ti ti-scan"></i>Skan DR</button>
   </div>
 
   <div id="dash-layout" style="display:flex;flex-direction:column">
