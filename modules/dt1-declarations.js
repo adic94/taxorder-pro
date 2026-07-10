@@ -166,10 +166,10 @@ window.Dt1Declarations = (function () {
               <div style="font-weight:700;color:var(--blue);font-size:15px">${Number(d.total_tax||0).toLocaleString('pl-PL',{minimumFractionDigits:2})} zł</div>
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0">
-              <button class="btn btn-gray" style="padding:5px 10px;font-size:11px" onclick="Dt1Declarations.showDetail('${d.id}')">
+              <button class="btn btn-gray" style="padding:5px 10px;font-size:11px" data-id="${esc(d.id)}" onclick="Dt1Declarations.showDetail(this.dataset.id)">
                 <i class="ti ti-eye"></i>
               </button>
-              <button class="btn btn-gray" style="padding:5px 10px;font-size:11px;color:var(--red)" onclick="Dt1Declarations.deleteDecl('${d.id}')">
+              <button class="btn btn-gray" style="padding:5px 10px;font-size:11px;color:var(--red)" data-id="${esc(d.id)}" onclick="Dt1Declarations.deleteDecl(this.dataset.id)">
                 <i class="ti ti-trash"></i>
               </button>
             </div>

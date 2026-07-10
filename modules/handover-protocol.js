@@ -51,9 +51,9 @@ window.TaxOrderHandoverProtocol = (function () {
       </td>
       <td>
         <div style="display:flex;gap:4px">
-          <button class="tbtn" onclick="TaxOrderHandoverProtocol.openModal('${p.id}')"><i class="ti ti-edit"></i></button>
-          <button class="tbtn" onclick="TaxOrderHandoverProtocol.print('${p.id}')" title="Drukuj"><i class="ti ti-printer"></i></button>
-          <button class="tbtn" onclick="TaxOrderHandoverProtocol.remove('${p.id}')" style="color:var(--red)"><i class="ti ti-trash"></i></button>
+          <button class="tbtn" data-id="${esc(p.id)}" onclick="TaxOrderHandoverProtocol.openModal(this.dataset.id)"><i class="ti ti-edit"></i></button>
+          <button class="tbtn" data-id="${esc(p.id)}" onclick="TaxOrderHandoverProtocol.print(this.dataset.id)" title="Drukuj"><i class="ti ti-printer"></i></button>
+          <button class="tbtn" data-id="${esc(p.id)}" onclick="TaxOrderHandoverProtocol.remove(this.dataset.id)" style="color:var(--red)"><i class="ti ti-trash"></i></button>
         </div>
       </td>
     </tr>`).join('');

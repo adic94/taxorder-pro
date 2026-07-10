@@ -146,8 +146,8 @@ window.FinesModule = (function () {
               <td style="font-family:var(--mono);white-space:nowrap">${_fmtDate(f.deadline)}</td>
               <td>${status}</td>
               <td style="white-space:nowrap">
-                ${!paid ? `<button class="btn btn-green" style="font-size:10px;padding:2px 8px" onclick="FinesModule.markPaid('${f.id}')">Zapłacono</button> ` : ''}
-                <button class="btn btn-gray" style="font-size:10px;padding:2px 8px" onclick="FinesModule.edit('${f.id}')">✏</button>
+                ${!paid ? `<button class="btn btn-green" style="font-size:10px;padding:2px 8px" data-id="${esc(f.id)}" onclick="FinesModule.markPaid(this.dataset.id)">Zapłacono</button> ` : ''}
+                <button class="btn btn-gray" style="font-size:10px;padding:2px 8px" data-id="${esc(f.id)}" onclick="FinesModule.edit(this.dataset.id)">✏</button>
               </td>
             </tr>`;
           }).join('')}
@@ -190,7 +190,7 @@ window.FinesModule = (function () {
           </div>
           <div class="vdf">
             <label class="vdl">Kierowca</label>
-            <input id="_fn-driver" type="text" class="fi" list="_fn-driver-list" value="${ex?.driver_name || ''}" placeholder="Wybierz lub wpisz">
+            <input id="_fn-driver" type="text" class="fi" list="_fn-driver-list" value="${esc(ex?.driver_name || '')}" placeholder="Wybierz lub wpisz">
             <datalist id="_fn-driver-list">${driverOpts}</datalist>
           </div>
           <div class="vdf">
@@ -211,15 +211,15 @@ window.FinesModule = (function () {
           </div>
           <div class="vdf" style="grid-column:1/-1">
             <label class="vdl">Opis / okoliczności</label>
-            <input id="_fn-desc" type="text" class="fi" placeholder="np. Przekroczenie prędkości 70km/h w strefie 50" value="${ex?.description || ''}">
+            <input id="_fn-desc" type="text" class="fi" placeholder="np. Przekroczenie prędkości 70km/h w strefie 50" value="${esc(ex?.description || '')}">
           </div>
           <div class="vdf">
             <label class="vdl">Nr mandatu / serii</label>
-            <input id="_fn-no" type="text" class="fi" value="${ex?.fine_no || ''}" placeholder="np. AX12345678">
+            <input id="_fn-no" type="text" class="fi" value="${esc(ex?.fine_no || '')}" placeholder="np. AX12345678">
           </div>
           <div class="vdf">
             <label class="vdl">Wystawił (organ)</label>
-            <input id="_fn-issuer" type="text" class="fi" value="${ex?.issuer || ''}" placeholder="np. Policja, ITD, Straż Miejska">
+            <input id="_fn-issuer" type="text" class="fi" value="${esc(ex?.issuer || '')}" placeholder="np. Policja, ITD, Straż Miejska">
           </div>
           <div class="vdf">
             <label class="vdl">Liczba punktów karnych</label>
@@ -227,13 +227,13 @@ window.FinesModule = (function () {
           </div>
           <div class="vdf">
             <label class="vdl">Uwagi</label>
-            <input id="_fn-notes" type="text" class="fi" value="${ex?.notes || ''}">
+            <input id="_fn-notes" type="text" class="fi" value="${esc(ex?.notes || '')}">
           </div>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
-          ${ex ? `<button class="btn btn-gray" style="color:var(--red);margin-right:auto" onclick="FinesModule.remove('${ex.id}',this)"><i class="ti ti-trash"></i>Usuń</button>` : ''}
+          ${ex ? `<button class="btn btn-gray" style="color:var(--red);margin-right:auto" data-id="${esc(ex.id)}" onclick="FinesModule.remove(this.dataset.id,this)"><i class="ti ti-trash"></i>Usuń</button>` : ''}
           <button class="btn btn-gray" onclick="this.closest('[style*=fixed]').remove()">Anuluj</button>
-          <button class="btn btn-blue" onclick="FinesModule.save('${ex?.id || ''}',this)"><i class="ti ti-check"></i>Zapisz</button>
+          <button class="btn btn-blue" data-id="${esc(ex?.id||'')}" onclick="FinesModule.save(this.dataset.id,this)"><i class="ti ti-check"></i>Zapisz</button>
         </div>
       </div>`;
     document.body.appendChild(ov);
@@ -349,8 +349,8 @@ window.FinesModule = (function () {
                       ? `<span style="color:var(--green);font-size:10px">✓ Zapłacono</span>`
                       : `<span style="color:${dl !== null && dl < 0 ? 'var(--red)' : 'var(--amber)'};font-size:10px">${dl !== null && dl < 0 ? 'Po terminie' : 'Do zapłaty'}</span>`}</td>
                     <td style="white-space:nowrap">
-                      ${!f.paid ? `<button class="btn btn-green" style="font-size:10px;padding:2px 6px" onclick="FinesModule.markPaid('${f.id}')">✓</button> ` : ''}
-                      <button class="btn btn-gray" style="font-size:10px;padding:2px 6px" onclick="FinesModule.edit('${f.id}')">✏</button>
+                      ${!f.paid ? `<button class="btn btn-green" style="font-size:10px;padding:2px 6px" data-id="${esc(f.id)}" onclick="FinesModule.markPaid(this.dataset.id)">✓</button> ` : ''}
+                      <button class="btn btn-gray" style="font-size:10px;padding:2px 6px" data-id="${esc(f.id)}" onclick="FinesModule.edit(this.dataset.id)">✏</button>
                     </td>
                   </tr>`;
                 }).join('')}

@@ -166,13 +166,13 @@ window.CSVImport = (function () {
       </div>
 
       ${!hasNrRej ? '<div class="wbox" style="margin-bottom:12px"><i class="ti ti-alert-triangle"></i>Nie wykryto kolumny z nr rejestracyjnym. Upewnij się, że nagłówek zawiera np. "Nr rej." lub "Rejestracja".</div>' : ''}
-      ${notMatchedSample.length ? `<div class="ibox" style="margin-bottom:12px"><i class="ti ti-info-circle"></i>Nie znaleziono w flocie: <strong>${notMatchedSample.join(', ')}${notMatchedSample.length === 3 ? '...' : ''}</strong></div>` : ''}
+      ${notMatchedSample.length ? `<div class="ibox" style="margin-bottom:12px"><i class="ti ti-info-circle"></i>Nie znaleziono w flocie: <strong>${notMatchedSample.map(s=>esc(s)).join(', ')}${notMatchedSample.length === 3 ? '...' : ''}</strong></div>` : ''}
 
       <div style="overflow-x:auto;margin-bottom:14px;max-height:220px;overflow-y:auto">
         <table style="font-size:11px;border-collapse:collapse;width:100%;min-width:500px">
           <thead><tr>
             ${_headers.map((h, i) => `<th style="background:var(--bg3);padding:5px 8px;border:1px solid var(--border);white-space:nowrap;text-align:left;position:sticky;top:0">
-              <div style="font-weight:600">${h}</div>
+              <div style="font-weight:600">${esc(h)}</div>
               <div style="color:${_mapping[i] ? 'var(--green)' : 'var(--text3)'};font-size:10px;font-weight:400;margin-top:1px">
                 ${_mapping[i] ? '→ ' + _mapping[i] : '—'}
               </div>
@@ -180,7 +180,7 @@ window.CSVImport = (function () {
           </tr></thead>
           <tbody>
             ${preview.map(row => `<tr>${row.map((c, i) =>
-              `<td style="padding:4px 8px;border:1px solid var(--border);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${_mapping[i] ? 'var(--text)' : 'var(--text3)'}">${c || '—'}</td>`
+              `<td style="padding:4px 8px;border:1px solid var(--border);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${_mapping[i] ? 'var(--text)' : 'var(--text3)'}">${esc(c || '—')}</td>`
             ).join('')}</tr>`).join('')}
           </tbody>
         </table>

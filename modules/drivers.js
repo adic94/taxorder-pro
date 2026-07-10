@@ -140,7 +140,7 @@ window.TaxOrderDrivers = (function () {
           ${st.finesCount > 0 ? `<span class="stat-chip stat-chip-amber" style="font-size:10px;padding:2px 6px;margin:1px">${st.finesCount} mandat${st.finesCount > 4 ? 'ów' : st.finesCount > 1 ? 'y' : ''}</span>` : ''}
         </td>
         <td style="padding:8px 10px;text-align:center;white-space:nowrap">
-          <button class="btn btn-gray" style="font-size:11px;padding:3px 8px" onclick="TaxOrderDrivers.edit('${d.id}')"><i class="ti ti-edit"></i></button>
+          <button class="btn btn-gray" style="font-size:11px;padding:3px 8px" data-id="${esc(d.id)}" onclick="TaxOrderDrivers.edit(this.dataset.id)"><i class="ti ti-edit"></i></button>
           <button class="btn btn-gray" style="font-size:11px;padding:3px 8px;margin-left:4px" data-id="${d.id}" data-name="${esc(d.name)}" onclick="TaxOrderDrivers.remove(this.dataset.id,this.dataset.name)"><i class="ti ti-trash"></i></button>
         </td>
       </tr>`;

@@ -754,8 +754,8 @@ window.FleetReports = (function () {
     }
     const headers = ['Nr rej.','Pojazd','Typ serwisu','Termin','Km','Dni'];
     const rows = upcoming.map(({v,s,days})=>[
-      v.nrRej, `${v.marka} ${v.model}`,
-      window.ServiceModule?.SERVICE_TYPES[s.type]?.label || s.type,
+      esc(v.nrRej), `${esc(v.marka)} ${esc(v.model)}`,
+      esc(window.ServiceModule?.SERVICE_TYPES[s.type]?.label || s.type),
       s.nextServiceDate||'', s.nextServiceKm||'', days,
     ]);
     el.innerHTML = `
@@ -1567,8 +1567,8 @@ tr:hover td{background:#f9fafb}
             const delta = r.amount - curAmt;
             const ds = delta > 0 ? '+' : '';
             return `<tr style="${i%2?'background:var(--bg2)':''}">
-              <td style="padding:6px 10px;font-family:var(--mono)">${r.v.nrRej||'—'}</td>
-              <td style="padding:6px 10px;font-size:11px;color:var(--text2)">${r.v.marka||''} ${r.v.model||''}</td>
+              <td style="padding:6px 10px;font-family:var(--mono)">${esc(r.v.nrRej||'—')}</td>
+              <td style="padding:6px 10px;font-size:11px;color:var(--text2)">${esc(r.v.marka||'')} ${esc(r.v.model||'')}</td>
               <td style="padding:6px 10px"><span class="pill pill-blue" style="font-size:10px">${r.cat}</span></td>
               <td style="padding:6px 10px;text-align:right;font-family:var(--mono)">${curAmt>0?fmt(curAmt)+' zł':'—'}</td>
               <td style="padding:6px 10px;text-align:right;font-family:var(--mono);font-weight:700">${fmt(r.amount)} zł</td>

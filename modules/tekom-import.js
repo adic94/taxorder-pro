@@ -28,6 +28,7 @@ WZ124HW;2025-06-01;07:45:00;12430;Adam Nowak;65;al. Jerozolimskie 120, Warszawa`
   let _fileContent = '';
   let _pendingLines = [];
   let _pendingSep = ';';
+  let _pendingHeaders = [];
 
   function open() {
     document.getElementById('tekom-modal').style.display = 'flex';
@@ -37,7 +38,7 @@ WZ124HW;2025-06-01;07:45:00;12430;Adam Nowak;65;al. Jerozolimskie 120, Warszawa`
     document.getElementById('tekom-modal').style.display = 'none';
     _reset();
   }
-  function _reset() { _parsed = []; _schema = null; _fileContent = ''; _pendingLines = []; _pendingSep = ';'; _renderStep(1); }
+  function _reset() { _parsed = []; _schema = null; _fileContent = ''; _pendingLines = []; _pendingSep = ';'; _pendingHeaders = []; _renderStep(1); }
 
   // ── Krok 1: Wczytaj plik ─────────────────────────────────────────────────
   function handleFile(input) {
@@ -113,8 +114,9 @@ WZ124HW;2025-06-01;07:45:00;12430;Adam Nowak;65;al. Jerozolimskie 120, Warszawa`
 
   function _showSchemaMapper(headers, sep, lines) {
     // Przechowaj w zmiennych modułu — nie przez onclick payload
-    _pendingLines = lines.slice(1);
-    _pendingSep   = sep;
+    _pendingLines   = lines.slice(1);
+    _pendingSep     = sep;
+    _pendingHeaders = headers;
     const el = document.getElementById('tekom-step1-body');
     if (!el) return;
     const fieldOpts = ['', ...Object.keys(FIELD_ALIASES)].map(f => `<option value="${f}">${f||'— pomiń —'}</option>`).join('');
@@ -128,23 +130,23 @@ WZ124HW;2025-06-01;07:45:00;12430;Adam Nowak;65;al. Jerozolimskie 120, Warszawa`
           ${headers.map((h, i) => {
             const ex = lines[1]?.split(sep)?.[i]?.trim() || '';
             return `<tr>
-              <td style="font-family:var(--mono)">${h}</td>
+              <td style="font-family:var(--mono)">${esc(h)}</td>
               <td><select id="_tk-map-${i}" class="fi" style="padding:4px 6px;font-size:11px">${fieldOpts}</select></td>
-              <td style="color:var(--text2);font-size:11px">${ex}</td>
+              <td style="color:var(--text2);font-size:11px">${esc(ex)}</td>
             </tr>`;
           }).join('')}
         </tbody>
       </table></div>
       <div style="display:flex;justify-content:flex-end;margin-top:12px">
-        <button class="btn btn-blue" onclick="TekomImport._applyManualSchema(${JSON.stringify(headers)})">
+        <button class="btn btn-blue" onclick="TekomImport._applyManualSchema()">
           <i class="ti ti-arrow-right"></i>Dalej
         </button>
       </div>`;
   }
 
-  function _applyManualSchema(headers) {
+  function _applyManualSchema() {
     _schema = {};
-    headers.forEach((h, i) => {
+    _pendingHeaders.forEach((h, i) => {
       const sel = document.getElementById(`_tk-map-${i}`);
       if (sel?.value) _schema[sel.value] = i;
     });

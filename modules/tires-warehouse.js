@@ -54,11 +54,11 @@ window.TaxOrderTires = (function () {
       <td style="font-size:12px">${t.status === 'ZAMONTOWANA' ? `<strong style="font-family:var(--mono)">${esc(t.nr_rej)}</strong> (${esc(POZYCJE[t.pozycja] || t.pozycja)})` : esc(t.lokalizacja_magazyn || '—')}</td>
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap">
-          ${t.status === 'MAGAZYN' ? `<button class="tbtn" onclick="TaxOrderTires.openMountModal('${t.id}')" title="Zamontuj"><i class="ti ti-tool"></i></button>` : ''}
-          ${t.status === 'ZAMONTOWANA' ? `<button class="tbtn" onclick="TaxOrderTires.unmount('${t.id}')" title="Zdemontuj"><i class="ti ti-arrow-back-up"></i></button>` : ''}
-          <button class="tbtn" onclick="TaxOrderTires.showHistory('${t.id}')" title="Historia"><i class="ti ti-history"></i></button>
-          <button class="tbtn" onclick="TaxOrderTires.openModal('${t.id}')"><i class="ti ti-edit"></i></button>
-          <button class="tbtn" onclick="TaxOrderTires.scrap('${t.id}')" style="color:var(--red)" title="Złomuj"><i class="ti ti-trash"></i></button>
+          ${t.status === 'MAGAZYN' ? `<button class="tbtn" data-id="${esc(t.id)}" onclick="TaxOrderTires.openMountModal(this.dataset.id)" title="Zamontuj"><i class="ti ti-tool"></i></button>` : ''}
+          ${t.status === 'ZAMONTOWANA' ? `<button class="tbtn" data-id="${esc(t.id)}" onclick="TaxOrderTires.unmount(this.dataset.id)" title="Zdemontuj"><i class="ti ti-arrow-back-up"></i></button>` : ''}
+          <button class="tbtn" data-id="${esc(t.id)}" onclick="TaxOrderTires.showHistory(this.dataset.id)" title="Historia"><i class="ti ti-history"></i></button>
+          <button class="tbtn" data-id="${esc(t.id)}" onclick="TaxOrderTires.openModal(this.dataset.id)"><i class="ti ti-edit"></i></button>
+          <button class="tbtn" data-id="${esc(t.id)}" onclick="TaxOrderTires.scrap(this.dataset.id)" style="color:var(--red)" title="Złomuj"><i class="ti ti-trash"></i></button>
         </div>
       </td>
     </tr>`).join('');

@@ -45,8 +45,8 @@ window.TaxOrderCfmClients = (function () {
       <td style="font-size:12px">${esc(c.email || c.telefon || '—')}</td>
       <td>
         <div style="display:flex;gap:4px">
-          <button class="tbtn" onclick="TaxOrderCfmClients.openModal('${c.id}')"><i class="ti ti-edit"></i></button>
-          <button class="tbtn" onclick="TaxOrderCfmClients.remove('${c.id}')" style="color:var(--red)"><i class="ti ti-trash"></i></button>
+          <button class="tbtn" data-id="${esc(c.id)}" onclick="TaxOrderCfmClients.openModal(this.dataset.id)"><i class="ti ti-edit"></i></button>
+          <button class="tbtn" data-id="${esc(c.id)}" onclick="TaxOrderCfmClients.remove(this.dataset.id)" style="color:var(--red)"><i class="ti ti-trash"></i></button>
         </div>
       </td>
     </tr>`).join('');

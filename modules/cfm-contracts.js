@@ -56,9 +56,9 @@ window.TaxOrderCfmContracts = (function () {
       <td><span class="pill ${c.status === 'AKTYWNY' ? 'pill-green' : 'pill-gray'}">${c.status === 'AKTYWNY' ? 'Aktywny' : 'Zakończony'}</span></td>
       <td>
         <div style="display:flex;gap:4px">
-          <button class="tbtn" onclick="TaxOrderCfmContracts.openModal('${c.id}')"><i class="ti ti-edit"></i></button>
-          ${c.status === 'AKTYWNY' ? `<button class="tbtn" onclick="TaxOrderCfmContracts.endContract('${c.id}')" title="Zakończ"><i class="ti ti-square-x"></i></button>` : ''}
-          <button class="tbtn" onclick="TaxOrderCfmContracts.remove('${c.id}')" style="color:var(--red)"><i class="ti ti-trash"></i></button>
+          <button class="tbtn" data-id="${esc(c.id)}" onclick="TaxOrderCfmContracts.openModal(this.dataset.id)"><i class="ti ti-edit"></i></button>
+          ${c.status === 'AKTYWNY' ? `<button class="tbtn" data-id="${esc(c.id)}" onclick="TaxOrderCfmContracts.endContract(this.dataset.id)" title="Zakończ"><i class="ti ti-square-x"></i></button>` : ''}
+          <button class="tbtn" data-id="${esc(c.id)}" onclick="TaxOrderCfmContracts.remove(this.dataset.id)" style="color:var(--red)"><i class="ti ti-trash"></i></button>
         </div>
       </td>
     </tr>`).join('');

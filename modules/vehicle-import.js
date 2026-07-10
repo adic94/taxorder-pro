@@ -295,7 +295,7 @@ window.VehicleImport = (function () {
       ${_unmappedCols.length ? `
       <div style="background:rgba(245,175,25,.12);border:1px solid var(--amber);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px;font-size:11px">
         <div style="font-weight:700;color:var(--amber);margin-bottom:4px">⚠ Nierozpoznane kolumny (zostaną pominięte):</div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px">${_unmappedCols.map(c=>`<span style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-family:monospace">${c}</span>`).join('')}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">${_unmappedCols.map(c=>`<span style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-family:monospace">${esc(c)}</span>`).join('')}</div>
         <div style="color:var(--text2);margin-top:4px">Upewnij się, że nagłówki kolumn są poprawne lub użyj szablonu.</div>
       </div>` : ''}
       <div style="max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:14px">

@@ -52,8 +52,8 @@ window.TaxOrderDamages = (function () {
       <td style="text-align:center">${(d.photos || []).length ? `<i class="ti ti-photo"></i> ${d.photos.length}` : '—'}</td>
       <td>
         <div style="display:flex;gap:4px">
-          <button class="tbtn" onclick="TaxOrderDamages.openModal('${d.id}')"><i class="ti ti-edit"></i></button>
-          <button class="tbtn" onclick="TaxOrderDamages.remove('${d.id}')" style="color:var(--red)"><i class="ti ti-trash"></i></button>
+          <button class="tbtn" data-id="${esc(d.id)}" onclick="TaxOrderDamages.openModal(this.dataset.id)"><i class="ti ti-edit"></i></button>
+          <button class="tbtn" data-id="${esc(d.id)}" onclick="TaxOrderDamages.remove(this.dataset.id)" style="color:var(--red)"><i class="ti ti-trash"></i></button>
         </div>
       </td>
     </tr>`).join('');
@@ -88,8 +88,8 @@ window.TaxOrderDamages = (function () {
     if (!grid) return;
     grid.innerHTML = photos.map(p => `
       <div style="position:relative;width:70px;height:70px">
-        <img src="${_cfApi()}/api/docs/file/${p.r2_key}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid var(--border)">
-        <button onclick="TaxOrderDamages.removePhoto('${p.id}')" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;line-height:1">×</button>
+        <img src="${_cfApi()}/api/docs/file/${esc(p.r2_key)}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid var(--border)">
+        <button data-id="${esc(p.id)}" onclick="TaxOrderDamages.removePhoto(this.dataset.id)" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;line-height:1">×</button>
       </div>`).join('');
   }
 

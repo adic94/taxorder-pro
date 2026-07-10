@@ -54,11 +54,11 @@ window.TaxOrderServiceOrders = (function () {
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap">
           ${o.status === 'ZGLOSZONE' ? `
-            <button class="tbtn" onclick="TaxOrderServiceOrders.authorize('${o.id}')" title="Autoryzuj" style="color:var(--green)"><i class="ti ti-check"></i></button>
-            <button class="tbtn" onclick="TaxOrderServiceOrders.reject('${o.id}')" title="Odrzuć" style="color:var(--red)"><i class="ti ti-x"></i></button>
+            <button class="tbtn" data-id="${esc(o.id)}" onclick="TaxOrderServiceOrders.authorize(this.dataset.id)" title="Autoryzuj" style="color:var(--green)"><i class="ti ti-check"></i></button>
+            <button class="tbtn" data-id="${esc(o.id)}" onclick="TaxOrderServiceOrders.reject(this.dataset.id)" title="Odrzuć" style="color:var(--red)"><i class="ti ti-x"></i></button>
           ` : ''}
-          ${o.status === 'AUTORYZOWANE' ? `<button class="tbtn" onclick="TaxOrderServiceOrders.openRealizeModal('${o.id}')" title="Zrealizuj"><i class="ti ti-tool"></i></button>` : ''}
-          <button class="tbtn" onclick="TaxOrderServiceOrders.remove('${o.id}')" style="color:var(--red)"><i class="ti ti-trash"></i></button>
+          ${o.status === 'AUTORYZOWANE' ? `<button class="tbtn" data-id="${esc(o.id)}" onclick="TaxOrderServiceOrders.openRealizeModal(this.dataset.id)" title="Zrealizuj"><i class="ti ti-tool"></i></button>` : ''}
+          <button class="tbtn" data-id="${esc(o.id)}" onclick="TaxOrderServiceOrders.remove(this.dataset.id)" style="color:var(--red)"><i class="ti ti-trash"></i></button>
         </div>
       </td>
     </tr>`).join('');

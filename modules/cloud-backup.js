@@ -16,7 +16,7 @@ window.CloudBackup = (function () {
       const r = await fetch(_api() + '/api/export?company=' + _co(), { headers: _hdrs() });
       if (!r.ok) {
         const d = await r.json().catch(() => ({}));
-        _set('<div style="color:var(--red)"><i class="ti ti-alert-triangle"></i> Błąd ' + r.status + ': ' + (d.error || r.statusText) + '</div>');
+        _set('<div style="color:var(--red)"><i class="ti ti-alert-triangle"></i> Błąd ' + r.status + ': ' + esc(d.error || r.statusText || '') + '</div>');
         return;
       }
       const data = await r.json();
@@ -30,7 +30,7 @@ window.CloudBackup = (function () {
       _set('<div style="color:var(--green)"><i class="ti ti-circle-check"></i> Pobrano backup: ' + vehCount + ' pojazdów + historia, szkody, opony, zlecenia…</div>');
       window.toast?.('✓ Backup pobrany (' + vehCount + ' pojazdów)');
     } catch (e) {
-      _set('<div style="color:var(--red)">Błąd sieci: ' + e.message + '</div>');
+      _set('<div style="color:var(--red)">Błąd sieci: ' + esc(e.message) + '</div>');
     }
   }
 
@@ -71,10 +71,10 @@ window.CloudBackup = (function () {
         _set('<div style="color:var(--green)"><i class="ti ti-circle-check"></i> Import zakończony &mdash; ' + counts + '</div>');
         window.toast?.('✓ Backup przywrócony &mdash; odśwież stronę aby zobaczyć zmiany');
       } else {
-        _set('<div style="color:var(--red)"><i class="ti ti-alert-triangle"></i> ' + (d.error || 'Błąd importu') + '</div>');
+        _set('<div style="color:var(--red)"><i class="ti ti-alert-triangle"></i> ' + esc(d.error || 'Błąd importu') + '</div>');
       }
     } catch (e) {
-      _set('<div style="color:var(--red)">Błąd sieci: ' + e.message + '</div>');
+      _set('<div style="color:var(--red)">Błąd sieci: ' + esc(e.message) + '</div>');
     }
   }
 

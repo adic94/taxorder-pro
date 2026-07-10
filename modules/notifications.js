@@ -359,9 +359,9 @@ window.TaxOrderNotifications = (function () {
           ? `<span style="color:var(--red);font-weight:700">${t('notif.days.ago').replace('{0}',Math.abs(a.days))}</span>`
           : `<span style="color:${color};font-weight:600">${t('notif.in.days').replace('{0}',a.days)}</span>`;
         return `<tr>
-          <td style="font-weight:600">${a.nrRej}</td>
-          <td>${a.marka} ${a.model}</td>
-          <td>${a.label}</td>
+          <td style="font-weight:600">${esc(a.nrRej)}</td>
+          <td>${esc(a.marka)} ${esc(a.model)}</td>
+          <td>${esc(a.label)}</td>
           <td>${dateStr}</td>
           <td>${daysStr}</td>
           <td><button class="btn btn-gray" style="font-size:10px;padding:3px 8px"

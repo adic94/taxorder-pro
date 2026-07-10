@@ -54,10 +54,10 @@ window.TaxOrderCfmInvoices = (function () {
       <td style="font-size:11px">${esc(inv.termin_platnosci || '—')}</td>
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap">
-          <button class="tbtn" onclick="TaxOrderCfmInvoices.downloadPdf('${inv.id}')" title="PDF"><i class="ti ti-file-type-pdf"></i></button>
-          <button class="tbtn" onclick="TaxOrderCfmInvoices.downloadXml('${inv.id}')" title="Eksport XML (KSeF)"><i class="ti ti-code"></i></button>
-          ${inv.status === 'WYSTAWIONA' ? `<button class="tbtn" onclick="TaxOrderCfmInvoices.markPaid('${inv.id}')" title="Oznacz jako opłaconą"><i class="ti ti-check"></i></button>` : ''}
-          <button class="tbtn" onclick="TaxOrderCfmInvoices.remove('${inv.id}')" style="color:var(--red)"><i class="ti ti-trash"></i></button>
+          <button class="tbtn" data-id="${esc(inv.id)}" onclick="TaxOrderCfmInvoices.downloadPdf(this.dataset.id)" title="PDF"><i class="ti ti-file-type-pdf"></i></button>
+          <button class="tbtn" data-id="${esc(inv.id)}" onclick="TaxOrderCfmInvoices.downloadXml(this.dataset.id)" title="Eksport XML (KSeF)"><i class="ti ti-code"></i></button>
+          ${inv.status === 'WYSTAWIONA' ? `<button class="tbtn" data-id="${esc(inv.id)}" onclick="TaxOrderCfmInvoices.markPaid(this.dataset.id)" title="Oznacz jako opłaconą"><i class="ti ti-check"></i></button>` : ''}
+          <button class="tbtn" data-id="${esc(inv.id)}" onclick="TaxOrderCfmInvoices.remove(this.dataset.id)" style="color:var(--red)"><i class="ti ti-trash"></i></button>
         </div>
       </td>
     </tr>`).join('');
