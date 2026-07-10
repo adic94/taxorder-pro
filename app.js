@@ -643,7 +643,7 @@ function _pickMiesiace(vehId) {
         <option value="zbycie">Zbycie / wygaśnięcie (obowiązek do tego miesiąca)</option>
       </select>
       <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px">Data zdarzenia:</label>
-      <input type="date" id="pm-data" style="width:100%;padding:7px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;margin-bottom:10px" value="${new Date().toISOString().slice(0,10)}">
+      <input type="date" id="pm-data" style="width:100%;padding:7px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;margin-bottom:10px" value="${(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date())}">
       <div id="pm-result" style="font-size:13px;font-weight:600;color:var(--green);margin-bottom:14px;min-height:20px"></div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-green" style="flex:1;justify-content:center" onclick="_applyMiesiace(${vehId})"><i class="ti ti-check"></i>Zastosuj</button>
