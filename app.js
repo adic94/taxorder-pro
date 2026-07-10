@@ -635,7 +635,7 @@ function _pickMiesiace(vehId) {
   pop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center';
   pop.innerHTML = `
     <div style="background:var(--bg);border-radius:var(--radius-lg);padding:24px;width:340px;box-shadow:0 8px 32px rgba(0,0,0,.35)">
-      <div style="font-size:15px;font-weight:700;margin-bottom:14px">📅 Oblicz miesiące — ${v.nrRej}</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:14px">📅 Oblicz miesiące — ${esc(v.nrRej)}</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Wybierz typ zdarzenia i datę — liczba miesięcy zostanie obliczona automatycznie.</div>
       <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px">Zdarzenie:</label>
       <select id="pm-typ" style="width:100%;padding:7px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;margin-bottom:10px">
@@ -1242,12 +1242,12 @@ function _renderCards(list) {
     const alertCls = minDays < 0 ? 'fc-alert-red' : minDays < 30 ? 'fc-alert-amber' : '';
     return `<div class="fleet-card ${alertCls}" onclick="TaxOrderVehicleDetail.open(${v.id})">
       <div class="fc-head">
-        <span class="fc-plate">${v.nrRej}</span>
-        <span class="pill ${statusCls}" style="font-size:10px">${v.status||'—'}</span>
+        <span class="fc-plate">${esc(v.nrRej)}</span>
+        <span class="pill ${statusCls}" style="font-size:10px">${esc(v.status||'—')}</span>
       </div>
-      <div class="fc-brand">${v.marka} ${v.model}</div>
-      <div class="fc-meta">${v.rok||'—'} · ${v.typ||'—'}${v.euro?' · '+v.euro:''}</div>
-      <div class="fc-row"><span class="fc-icon">👤</span><span style="${!v.kierowca?'color:var(--text3);font-style:italic':''}">${v.kierowca||'brak kierowcy'}</span></div>
+      <div class="fc-brand">${esc(v.marka)} ${esc(v.model)}</div>
+      <div class="fc-meta">${v.rok||'—'} · ${esc(v.typ||'—')}${v.euro?' · '+esc(v.euro):''}</div>
+      <div class="fc-row"><span class="fc-icon">👤</span><span style="${!v.kierowca?'color:var(--text3);font-style:italic':''}">${esc(v.kierowca||'brak kierowcy')}</span></div>
       ${v.stanKilometrow != null ? `<div class="fc-row"><span class="fc-icon">🛣</span><span style="font-family:var(--mono)">${v.stanKilometrow.toLocaleString('pl-PL')} km</span>${_gpsIndicator(v)}</div>` : ''}
       <div class="fc-dates">
         <span>OC ${_datePill(v.ocEnd)}</span>
@@ -1391,8 +1391,8 @@ function renderFuelDash() {
         .reduce((acc,h)=> acc + (h.co2kg!=null ? h.co2kg : (h.liters||0)*(window.FuelImport?.KOBIZE_FACTORS?.[h.product]||0)), 0) || 0;
       return `
       <div style="padding:12px;background:var(--bg3);border-radius:var(--radius);cursor:pointer" onclick="TaxOrderVehicleDetail.open(${s.v.id})">
-        <div style="font-size:11px;font-weight:700;font-family:var(--mono);margin-bottom:4px">${s.v.nrRej}</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${s.v.marka} ${s.v.model}</div>
+        <div style="font-size:11px;font-weight:700;font-family:var(--mono);margin-bottom:4px">${esc(s.v.nrRej)}</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${esc(s.v.marka)} ${esc(s.v.model)}</div>
         <div style="display:flex;justify-content:space-between;font-size:12px">
           <span style="font-family:var(--mono);font-weight:600">${s.cost.toFixed(2)} zł</span>
           <span style="color:var(--text3)">${s.liters.toFixed(1)} l</span>
@@ -1473,7 +1473,7 @@ function renderPaliwoPage() {
     const prev = vSel.value;
     const withFuel = vehs.filter(v => v.fuelHistory?.length);
     vSel.innerHTML = '<option value="">Wszystkie pojazdy</option>' +
-      withFuel.map(v => `<option value="${v.id}">${v.nrRej} — ${v.marka} ${v.model}</option>`).join('');
+      withFuel.map(v => `<option value="${v.id}">${esc(v.nrRej)} — ${esc(v.marka)} ${esc(v.model)}</option>`).join('');
     if (prev) vSel.value = prev;
   }
 
