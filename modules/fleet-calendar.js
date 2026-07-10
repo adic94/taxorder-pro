@@ -59,7 +59,7 @@ window.FleetCalendar = (function () {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-  function _isoDate(d) { return d.toISOString().slice(0,10); }
+  function _isoDate(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
   function _addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
 
   function _currentUser() {
