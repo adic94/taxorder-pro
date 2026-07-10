@@ -284,15 +284,15 @@ window.FuelImport = (function () {
               const veh = vehs.find(v => v.nrRej === r.nrRej);
               const bg = veh ? '' : 'background:rgba(255,200,0,.1)';
               return `<tr style="${bg}">
-                <td style="padding:3px 8px;font-family:var(--mono);font-size:10px">${r.date||'—'}</td>
-                <td style="padding:3px 8px;color:var(--text2)">${r.time||'—'}</td>
-                <td style="padding:3px 8px;font-weight:600;font-family:var(--mono)">${r.nrRej||'<span style="color:var(--amber)">?</span>'}</td>
-                <td style="padding:3px 8px">${r.product||'—'}</td>
+                <td style="padding:3px 8px;font-family:var(--mono);font-size:10px">${esc(r.date||'—')}</td>
+                <td style="padding:3px 8px;color:var(--text2)">${esc(r.time||'—')}</td>
+                <td style="padding:3px 8px;font-weight:600;font-family:var(--mono)">${r.nrRej ? esc(r.nrRej) : '<span style="color:var(--amber)">?</span>'}</td>
+                <td style="padding:3px 8px">${esc(r.product||'—')}</td>
                 <td style="padding:3px 8px;text-align:right">${r.liters!=null?r.liters.toFixed(1):'-'}</td>
                 <td style="padding:3px 8px;text-align:right">${r.pricePerL!=null?r.pricePerL.toFixed(3):'-'}</td>
                 <td style="padding:3px 8px;text-align:right;font-weight:500">${r.totalGross!=null?r.totalGross.toFixed(2):'-'}</td>
-                <td style="padding:3px 8px;color:var(--text2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.station||'—'}</td>
-                <td style="padding:3px 8px;font-family:var(--mono);font-size:10px">${r.cardNo||'—'}</td>
+                <td style="padding:3px 8px;color:var(--text2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.station||'—')}</td>
+                <td style="padding:3px 8px;font-family:var(--mono);font-size:10px">${esc(r.cardNo||'—')}</td>
               </tr>`;
             }).join('')}
           </tbody>
@@ -363,7 +363,7 @@ window.FuelImport = (function () {
     overlay.innerHTML = `
       <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:500px;max-width:98vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
         <div style="font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px">
-          <i class="ti ti-gas-station" style="color:var(--amber)"></i>Nowe tankowanie — ${v.nrRej}
+          <i class="ti ti-gas-station" style="color:var(--amber)"></i>Nowe tankowanie — ${esc(v.nrRej)}
         </div>
         <div class="vdfg" style="margin-bottom:14px">
           <div class="vdf">

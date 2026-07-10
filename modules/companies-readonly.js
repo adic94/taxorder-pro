@@ -32,17 +32,17 @@
     el.innerHTML = list.map(c => `
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <div style="width:12px;height:12px;border-radius:50%;background:${c.color || '#185FA5'}"></div>
-          <strong>${c.short_name || c.slug}</strong>
+          <div style="width:12px;height:12px;border-radius:50%;background:${/^#[0-9a-fA-F]{3,6}$/.test(c.color||'') ? c.color : '#185FA5'}"></div>
+          <strong>${esc(c.short_name || c.slug)}</strong>
         </div>
-        <div style="font-size:12px;color:var(--text2);min-height:34px">${c.name || ''}</div>
+        <div style="font-size:12px;color:var(--text2);min-height:34px">${esc(c.name || '')}</div>
         <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.6">
-          NIP: ${c.nip || '—'}<br>
-          REGON: ${c.regon || '—'}<br>
-          ${c.street || ''} ${c.building_no || ''}, ${c.postal_code || ''} ${c.city || ''}
+          NIP: ${esc(c.nip || '—')}<br>
+          REGON: ${esc(c.regon || '—')}<br>
+          ${esc(c.street || '')} ${esc(c.building_no || '')}, ${esc(c.postal_code || '')} ${esc(c.city || '')}
         </div>
         <div style="margin-top:12px;display:flex;gap:8px">
-          <button class="btn btn-red" type="button" onclick="window.TaxOrderCompaniesReadOnly.deleteCompany('${c.id}', '${c.short_name || c.slug || ''}')">
+          <button class="btn btn-red" type="button" data-id="${esc(c.id)}" data-name="${esc(c.short_name || c.slug || '')}" onclick="window.TaxOrderCompaniesReadOnly.deleteCompany(this.dataset.id, this.dataset.name)">
             Usuń
           </button>
         </div>

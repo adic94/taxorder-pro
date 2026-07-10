@@ -68,6 +68,11 @@ const FILES_TO_CHECK = [
   'modules/notifications.js',
   'modules/fuel-import.js',
   'modules/ai-chat.js',
+  'modules/companies-readonly.js',
+  'modules/company-access.js',
+  'modules/cepik-xml.js',
+  'modules/etoll-import.js',
+  'modules/diagnostics.js',
 ];
 
 const ROOT = path.resolve(__dirname, '../..');

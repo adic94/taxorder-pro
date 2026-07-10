@@ -115,8 +115,8 @@
             return `
               <tr>
                 <td style="padding:8px;border-bottom:1px solid #eee">
-                  <strong>${c.short_name || c.slug}</strong><br>
-                  <span style="font-size:11px;color:#666">${c.name || ''}</span>
+                  <strong>${esc(c.short_name || c.slug)}</strong><br>
+                  <span style="font-size:11px;color:#666">${esc(c.name || '')}</span>
                 </td>
                 <td style="text-align:center;padding:8px;border-bottom:1px solid #eee">
                   <input type="checkbox" class="ca-view" data-company="${c.id}" ${a.can_view ? 'checked' : ''}>

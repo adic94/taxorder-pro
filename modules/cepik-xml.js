@@ -320,16 +320,16 @@ window.CepikXML = (function () {
               const existing = (window.vehs||[]).find(v=>v.nrRej===p.nrRej||(p.vin&&v.vin===p.vin));
               const rowBg = existing ? '' : 'background:rgba(16,185,129,.05)';
               return `<tr style="${rowBg};border-bottom:0.5px solid var(--border)">
-                <td style="padding:4px 8px;font-family:var(--mono);font-weight:700">${p.nrRej}</td>
-                <td style="padding:4px 8px;font-family:var(--mono);font-size:10px;color:var(--text2)">${p.vin||'—'}</td>
-                <td style="padding:4px 8px">${p.marka}</td>
-                <td style="padding:4px 8px">${p.model}</td>
-                <td style="padding:4px 8px;font-family:var(--mono)">${p.rok||'—'}</td>
-                <td style="padding:4px 8px">${p.paliwo||'—'}</td>
+                <td style="padding:4px 8px;font-family:var(--mono);font-weight:700">${esc(p.nrRej)}</td>
+                <td style="padding:4px 8px;font-family:var(--mono);font-size:10px;color:var(--text2)">${esc(p.vin||'—')}</td>
+                <td style="padding:4px 8px">${esc(p.marka)}</td>
+                <td style="padding:4px 8px">${esc(p.model)}</td>
+                <td style="padding:4px 8px;font-family:var(--mono)">${esc(p.rok||'—')}</td>
+                <td style="padding:4px 8px">${esc(p.paliwo||'—')}</td>
                 <td style="padding:4px 8px;text-align:right;font-family:var(--mono)">${p.dmcMax!=null?p.dmcMax.toLocaleString('pl-PL'):'—'}</td>
                 <td style="padding:4px 8px"><span style="font-size:10px;color:${existing?'var(--blue)':'var(--green)'}">${existing?'✏ aktualizacja':'✨ nowy'}</span></td>
                 <td style="padding:4px 8px">
-                  <input type="checkbox" class="cepik-chk" data-nrrej="${p.nrRej}" checked>
+                  <input type="checkbox" class="cepik-chk" data-nrrej="${esc(p.nrRej)}" checked>
                 </td>
               </tr>`;
             }).join('')}

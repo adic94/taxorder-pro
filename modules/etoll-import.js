@@ -149,9 +149,9 @@ window.ETollImport = (function () {
           ${_preview.slice(0, 30).map((r, i) => {
             const known = knownNr.has(r.nrRej.toUpperCase().replace(/\s/g,''));
             return `<tr style="${i%2?'background:var(--bg2)':''}${!known?';opacity:.5':''}">
-              <td style="padding:5px 10px;font-family:var(--mono)">${r.nrRej}</td>
-              <td style="padding:5px 10px">${r.date}</td>
-              <td style="padding:5px 10px;font-size:11px;color:var(--text2)">${r.route||'—'}</td>
+              <td style="padding:5px 10px;font-family:var(--mono)">${esc(r.nrRej)}</td>
+              <td style="padding:5px 10px">${esc(r.date)}</td>
+              <td style="padding:5px 10px;font-size:11px;color:var(--text2)">${esc(r.route||'—')}</td>
               <td style="padding:5px 10px;text-align:right;font-weight:600">${fmt(r.amount)} zł</td>
             </tr>`;
           }).join('')}
