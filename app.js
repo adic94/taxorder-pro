@@ -2073,8 +2073,8 @@ function renderDash() {
     alertsEl.innerHTML = !alerts.length
       ? '<tr><td colspan="7" style="color:var(--text3);text-align:center;padding:12px">Brak alertów — wszystkie terminy aktualne</td></tr>'
       : alerts.map(({v}) => `<tr style="cursor:pointer" onclick="TaxOrderVehicleDetail.open(${v.id})" title="Otwórz kartę pojazdu">
-      <td><strong style="font-family:var(--mono)">${v.nrRej}</strong></td>
-      <td style="font-size:12px">${v.marka} ${v.model}</td>
+      <td><strong style="font-family:var(--mono)">${esc(v.nrRej)}</strong></td>
+      <td style="font-size:12px">${esc(v.marka)} ${esc(v.model)}</td>
       <td>${_datePill(v.ocEnd)}</td>
       <td>${_datePill(v.acEnd)}</td>
       <td>${_datePill(v.nextInspection)}</td>
@@ -2177,7 +2177,7 @@ function _renderServiceDash() {
       return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border);cursor:pointer" onclick="TaxOrderVehicleDetail.open(${v.id})">
         <i class="ti ${t.icon}" style="color:${t.color};font-size:14px;flex-shrink:0"></i>
         <div style="flex:1;min-width:0">
-          <div style="font-size:11px;font-weight:700;font-family:var(--mono)">${v.nrRej}</div>
+          <div style="font-size:11px;font-weight:700;font-family:var(--mono)">${esc(v.nrRej)}</div>
           <div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.label}${s.nextServiceDate ? ' · ' + s.nextServiceDate.slice(0,10) : ''}</div>
         </div>
         <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${days<0?'var(--red)':days<=7?'var(--red)':days<=14?'var(--amber)':'var(--text2)'}">${days<0?Math.abs(days)+'d temu':'za '+days+'d'}</span>
@@ -2815,7 +2815,7 @@ function renderFormularze() {
         </td>
         <td colspan="5" style="border:0.5px solid #000;border-left:none;border-top:none;padding:2px 4px">
           <div style="font-size:5.5pt;font-weight:bold">4. Numer rejestracyjny pojazdu</div>
-          <div style="font-weight:bold;font-size:10pt;letter-spacing:1px">${v.nrRej}</div>
+          <div style="font-weight:bold;font-size:10pt;letter-spacing:1px">${esc(v.nrRej)}</div>
         </td>
       </tr>
       <tr>
@@ -7003,10 +7003,10 @@ function renderBatchResults(results) {
     html+=`<div class="tbl-wrap" style="margin-bottom:10px"><table>
       <thead><tr><th>Nr rej.</th><th>Marka / Model</th><th>Rok</th><th>Rozbieżne pola</th><th></th></tr></thead>
       <tbody>${diffs.map(({v,diffs:ds,cepikData})=>`<tr>
-        <td><strong style="font-family:var(--mono)">${v.nrRej}</strong></td>
-        <td style="font-size:12px">${v.marka} ${v.model}</td>
+        <td><strong style="font-family:var(--mono)">${esc(v.nrRej)}</strong></td>
+        <td style="font-size:12px">${esc(v.marka)} ${esc(v.model)}</td>
         <td style="text-align:center">${v.rok||'—'}</td>
-        <td>${ds.map(d=>`<div style="font-size:10px;margin-bottom:2px"><span style="color:var(--amber);font-weight:500">${d.label}:</span> <span style="font-family:var(--mono)">${d.baza||'—'}</span> <i class="ti ti-arrow-right" style="font-size:9px"></i> <span style="font-family:var(--mono);font-weight:600;color:var(--blue)">${d.cepik}</span></div>`).join('')}</td>
+        <td>${ds.map(d=>`<div style="font-size:10px;margin-bottom:2px"><span style="color:var(--amber);font-weight:500">${esc(d.label)}:</span> <span style="font-family:var(--mono)">${esc(d.baza||'—')}</span> <i class="ti ti-arrow-right" style="font-size:9px"></i> <span style="font-family:var(--mono);font-weight:600;color:var(--blue)">${esc(d.cepik)}</span></div>`).join('')}</td>
         <td><button class="btn btn-blue" style="font-size:11px;padding:5px 10px" onclick='cepikApplyToVeh(${v.id},${JSON.stringify(cepikData||{})})'>
           <i class="ti ti-database-import"></i>Aktualizuj
         </button></td>
