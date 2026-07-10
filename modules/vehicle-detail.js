@@ -997,16 +997,16 @@ window.TaxOrderVehicleDetail = {
             <tbody>
               ${history.slice(0,100).map(h => `
                 <tr style="border-bottom:0.5px solid var(--border)">
-                  <td style="padding:5px 8px;font-family:var(--mono);font-size:11px">${h.date||'—'}<br><span style="color:var(--text3)">${h.time||''}</span></td>
+                  <td style="padding:5px 8px;font-family:var(--mono);font-size:11px">${esc(h.date||'—')}<br><span style="color:var(--text3)">${esc(h.time||'')}</span></td>
                   <td style="padding:5px 8px">
                     <span style="font-size:10px;font-weight:600;color:${PRODUCT_COLOR[h.product]||'var(--text2)'}">
-                      ${(h.product||'—').toUpperCase()}
+                      ${esc((h.product||'—').toUpperCase())}
                     </span>
                   </td>
                   <td style="padding:5px 8px;text-align:right;font-family:var(--mono)">${h.liters!=null?h.liters.toFixed(1):'—'}</td>
                   <td style="padding:5px 8px;text-align:right;font-family:var(--mono);color:var(--text2)">${h.pricePerL!=null?h.pricePerL.toFixed(3):'—'}</td>
                   <td style="padding:5px 8px;text-align:right;font-family:var(--mono);font-weight:500">${h.totalGross!=null?h.totalGross.toFixed(2):'—'}</td>
-                  <td style="padding:5px 8px;color:var(--text2);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${h.station||''}">${h.station||'—'}</td>
+                  <td style="padding:5px 8px;color:var(--text2);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(h.station||'')}">${esc(h.station||'—')}</td>
                   <td style="padding:5px 8px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text2)">${h.km!=null?h.km.toLocaleString('pl-PL'):'—'}</td>
                   <td style="padding:5px 8px;text-align:center">
                     <button onclick="FuelImport.removeFuel(${v.id},${h.id})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 4px" title="Usuń">&times;</button>
@@ -1519,8 +1519,8 @@ window.TaxOrderVehicleDetail = {
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span style="font-family:var(--mono);font-weight:600;font-size:13px">${(c.card_no||'').replace(/\d(?=\d{4})/g,'•')}</span>
-            <span class="pill pill-blue" style="font-size:10px">${c.type||'—'}</span>
-            <span class="pill ${STATUS_CLS[c.status]||'pill-gray'}" style="font-size:10px">${c.status||'—'}</span>
+            <span class="pill pill-blue" style="font-size:10px">${esc(c.type||'—')}</span>
+            <span class="pill ${STATUS_CLS[c.status]||'pill-gray'}" style="font-size:10px">${esc(c.status||'—')}</span>
           </div>
           ${c.provider?`<div style="font-size:11px;color:var(--text2);margin-top:2px"><i class="ti ti-building" style="font-size:10px"></i> ${esc(c.provider)}</div>`:''}
           ${c.notes?`<div style="font-size:11px;color:var(--text3)">${esc(c.notes)}</div>`:''}
@@ -1844,13 +1844,13 @@ window.TaxOrderVehicleDetail = {
           </tr></thead>
           <tbody>
             ${gps.slice(0,200).map(r => `<tr>
-              <td style="font-family:var(--mono);white-space:nowrap">${r.date||'—'}</td>
-              <td style="font-family:var(--mono);color:var(--text2)">${r.time||'—'}</td>
+              <td style="font-family:var(--mono);white-space:nowrap">${esc(r.date||'—')}</td>
+              <td style="font-family:var(--mono);color:var(--text2)">${esc(r.time||'—')}</td>
               <td style="text-align:right;font-family:var(--mono)">${r.km!=null?r.km.toLocaleString('pl-PL'):'—'}</td>
-              <td style="white-space:nowrap">${r.driver||'—'}</td>
+              <td style="white-space:nowrap">${esc(r.driver||'—')}</td>
               <td style="text-align:right;font-family:var(--mono);color:${r.speed>100?'var(--red)':'var(--text)'}">${r.speed!=null?r.speed:'—'}</td>
-              <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)" title="${r.location||''}">${r.location||'—'}</td>
-              <td style="font-size:10px;color:var(--text3)">${r.event||''}</td>
+              <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)" title="${esc(r.location||'')}">${esc(r.location||'—')}</td>
+              <td style="font-size:10px;color:var(--text3)">${esc(r.event||'')}</td>
             </tr>`).join('')}
           </tbody>
         </table>
