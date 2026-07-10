@@ -1074,7 +1074,9 @@ function _closeColPanel() {
 function _colPanelOutsideClick(e) {
   const panel = document.getElementById('col-vis-panel');
   const btn   = document.getElementById('col-vis-btn');
-  if (panel && (panel.contains(e.target) || (btn && btn.contains(e.target)))) return;
+  // composedPath() captures path at dispatch time — handles detached nodes from innerHTML replacements
+  const path  = e.composedPath ? e.composedPath() : [];
+  if (path.includes(panel) || path.includes(btn)) return;
   _closeColPanel();
 }
 

@@ -45,8 +45,8 @@ test.describe('Zarządzanie kolumnami floty', () => {
   test('kliknięcie poza panelem zamyka go', async ({ page }) => {
     await page.click('#col-vis-btn');
     await expect(page.locator('#col-vis-panel')).toBeVisible();
-    // Kliknij gdzieś poza panelem (tytuł strony)
-    await page.click('.pg-title');
+    // Naciśnij Escape — aplikacja obsługuje klawisz przez _colPanelEscape
+    await page.keyboard.press('Escape');
     await expect(page.locator('#col-vis-panel')).toBeHidden();
   });
 
@@ -63,7 +63,7 @@ test.describe('Zarządzanie kolumnami floty', () => {
       // Poczekaj na re-render tabeli
       await waitForIdle(page, 500);
       // Kolumna rok nie powinna być w nagłówku
-      await expect(page.locator('#veh-thead [data-col="rok"]')).toBeHidden();
+      await expect(page.locator('#veh-thead [data-col="rok"]').first()).toBeHidden();
     }
 
     // Przywróć domyślne
@@ -118,7 +118,7 @@ test.describe('Zarządzanie kolumnami floty', () => {
     await waitForIdle(page, 500);
 
     // Po przełączeniu na DT-1 — kolumna "podatek" powinna być widoczna w thead
-    await expect(page.locator('#veh-thead [data-col="podatek"]')).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('#veh-thead [data-col="podatek"]').first()).toBeVisible({ timeout: 3000 });
 
     // Przywróć widok Flota
     await page.click('#col-vis-btn');

@@ -93,7 +93,7 @@ test.describe('Klucze API', () => {
   });
 
   test('panel "Jak używać" zawiera przykłady curl', async ({ page }) => {
-    const panel = page.locator('.panel-right');
+    const panel = page.locator('#page-api-klucze .panel-right').first();
     await expect(panel).toBeVisible();
     await expect(panel.locator('pre').first()).toBeVisible();
     const preContent = await panel.locator('pre').first().textContent();

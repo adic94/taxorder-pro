@@ -30,7 +30,7 @@ test.describe('Zlecenia serwisowe', () => {
 
   test('strona zleceń zawiera tabelę i przycisk "Nowe zlecenie"', async ({ page }) => {
     await goToPage(page, 'zlecenia');
-    await expect(page.locator('#page-zlecenia table, #page-zlecenia .tbl-wrap')).toBeVisible({ timeout: 8_000 });
+    await expect(page.locator('#page-zlecenia table, #page-zlecenia .tbl-wrap').first()).toBeVisible({ timeout: 8_000 });
     await expect(page.locator('#page-zlecenia button:has-text("Nowe"), #page-zlecenia button:has-text("Zlecenie")')).toBeVisible();
   });
 
@@ -38,7 +38,7 @@ test.describe('Zlecenia serwisowe', () => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await goToPage(page, 'zlecenia');
-    const statusSel = page.locator('#zlc-status, select[id*="status"]');
+    const statusSel = page.locator('#zlc-status, select[id*="status"]').first();
     if (await statusSel.isVisible()) {
       await statusSel.selectOption('AUTORYZOWANE');
       await waitForIdle(page, 500);
@@ -58,22 +58,29 @@ test.describe('Mandaty', () => {
   test('strona mandatów ładuje się bez błędów JS', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    await goToPage(page, 'mandaty');
-    await waitForIdle(page, 1000);
+    // Mandaty to modal, nie strona — FinesModule.open() wyświetla #fines-modal
+    await page.evaluate(async () => { await window.FinesModule?.open?.(); });
+    await expect(page.locator('#fines-modal')).toBeVisible({ timeout: 8_000 });
+    await waitForIdle(page, 500);
+    await page.evaluate(() => window.FinesModule?.close?.());
     expect(errors.filter(e => !e.includes('net::ERR'))).toHaveLength(0);
   });
 
   test('strona mandatów zawiera przycisk "Dodaj mandat"', async ({ page }) => {
-    await goToPage(page, 'mandaty');
-    await expect(page.locator('#page-mandaty button:has-text("Dodaj"), #page-mandaty button:has-text("mandat")')).toBeVisible({ timeout: 8_000 });
+    await page.evaluate(async () => { await window.FinesModule?.open?.(); });
+    await expect(page.locator('#fines-modal')).toBeVisible({ timeout: 8_000 });
+    await expect(page.locator('#fines-modal-body button:has-text("Dodaj")')).toBeVisible({ timeout: 8_000 });
+    await page.evaluate(() => window.FinesModule?.close?.());
   });
 
   test('kliknięcie "Dodaj mandat" otwiera modal bez błędu JS', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    await goToPage(page, 'mandaty');
-    await page.click('#page-mandaty button:has-text("Dodaj"), #page-mandaty button:has-text("mandat")');
+    await page.evaluate(async () => { await window.FinesModule?.open?.(); });
+    await expect(page.locator('#fines-modal')).toBeVisible({ timeout: 8_000 });
+    await page.locator('#fines-modal-body button:has-text("Dodaj")').click();
     await waitForIdle(page, 500);
+    await page.evaluate(() => window.FinesModule?.close?.());
     expect(errors.filter(e => !e.includes('net::ERR'))).toHaveLength(0);
   });
 
@@ -150,7 +157,7 @@ test.describe('Mapa floty', () => {
     await goToPage(page, 'mapa');
     await waitForIdle(page, 1500);
     // Sprawdź że sidebar nie zawiera niezescapowanego <script> lub <img onerror>
-    const sidebarHtml = await page.locator('#page-mapa #fm-sidebar, #page-mapa .map-sidebar').innerHTML().catch(() => '');
+    const sidebarHtml = await page.locator('#page-mapa #mapa-sidebar').innerHTML().catch(() => '');
     expect(sidebarHtml).not.toMatch(/<script/i);
     expect(sidebarHtml).not.toMatch(/onerror=/i);
   });
