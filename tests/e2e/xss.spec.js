@@ -22,11 +22,8 @@ test.describe('XSS — dane wejściowe użytkownika', () => {
   test.skip(!process.env.TEST_EMAIL, 'Wymaga TEST_EMAIL i TEST_PASS');
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.fill('#login-email', process.env.TEST_EMAIL);
-    await page.fill('#login-pass', process.env.TEST_PASS);
-    await page.click('#login-btn, button[type="submit"]');
-    await page.waitForSelector('#page-dash, .pg-title', { timeout: 15000 });
+    const { login } = require('./helpers');
+    await login(page);
   });
 
   for (const payload of XSS_PAYLOADS) {

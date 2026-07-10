@@ -48,10 +48,8 @@ test.describe('Logowanie', () => {
   // Ten test wymaga prawidłowych danych — pominięty jeśli brak zmiennych środowiskowych
   test.skip(!process.env.TEST_EMAIL, 'Wymaga TEST_EMAIL i TEST_PASS');
   test('poprawne logowanie → widoczny pulpit', async ({ page }) => {
-    await page.goto('/');
-    await page.fill('#login-email', process.env.TEST_EMAIL);
-    await page.fill('#login-pass', process.env.TEST_PASS);
-    await page.click('#login-btn, button[type="submit"]');
-    await expect(page.locator('#page-dash, .pg-title').first()).toBeVisible({ timeout: 15_000 });
+    const { login } = require('./helpers');
+    await login(page);
+    await expect(page.locator('#login-screen')).toBeHidden({ timeout: 5_000 });
   });
 });
