@@ -2047,7 +2047,7 @@ function renderDash() {
   // Alerty — pojazdy z terminami w ciągu 60 dni lub przeterminowanymi
   const alertsEl = document.getElementById('dash-alerts');
   if (alertsEl) {
-    const now = new Date();
+    const now = new Date(); now.setHours(0, 0, 0, 0);
     const DAYS60 = 60 * 86400000;
     const _alertDates = v => {
       const d = [
@@ -2103,7 +2103,7 @@ function _renderActivityFeed() {
   const el = document.getElementById('dash-activity');
   if (!el) return;
 
-  const now = new Date();
+  const now = new Date(); now.setHours(0, 0, 0, 0);
   const events = [];
 
   (window.vehs || []).forEach(v => {
@@ -2206,7 +2206,7 @@ function _renderFinesDash() {
     </div>`;
     return;
   }
-  const days = d => d ? Math.round((new Date(d)-new Date())/86400000) : null;
+  const days = d => { if (!d) return null; const dt = new Date(d.includes('T') ? d : d + 'T00:00:00'); if (isNaN(dt)) return null; const t = new Date(); t.setHours(0,0,0,0); return Math.round((dt-t)/86400000); };
   el.innerHTML = `
     <div style="font-size:12px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px;color:var(--red)">
       <i class="ti ti-alert-triangle"></i>Nieopłacone mandaty (${alerts.length})
