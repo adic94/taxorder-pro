@@ -8,11 +8,30 @@ const TEST_COMPANY  = process.env.TEST_COMPANY  || '';
 
 /**
  * Zaloguj się do aplikacji i poczekaj na załadowanie pulpitu.
+ *
+ * Kiedy playwright.config.js ustawia storageState (.auth-state.json z globalSetup),
+ * SPA wykrywa zapisaną sesję i ukrywa login-screen samodzielnie — ta funkcja wraca
+ * od razu bez wysyłania żadnego żądania do API (0 prób logowania, brak ryzyka rate-limit).
+ *
+ * Kiedy storageState nie jest ustawiony (brak TEST_EMAIL), wykonuje pełne logowanie.
  * Rzuca błąd z czytelnym komunikatem gdy login API zwróci błąd.
  */
 async function login(page) {
   await page.goto('/');
-  await page.waitForSelector('#login-email', { timeout: 10_000 });
+
+  // Daj SPA do 5s na auto-restore sesji z sessionStorage (zapisanego przez globalSetup).
+  // Jeśli login-screen zniknie w tym czasie — jesteśmy już zalogowani.
+  const alreadyIn = await page
+    .waitForSelector('#login-screen', { state: 'hidden', timeout: 5_000 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (alreadyIn) return;
+
+  // Login-screen nadal widoczny — wykonaj pełne logowanie przez formularz.
+  if (!TEST_EMAIL) throw new Error('TEST_EMAIL nie ustawiony — ustaw zmienną środowiskową lub dodaj do .env');
+
+  await page.waitForSelector('#login-email', { timeout: 8_000 });
   await page.fill('#login-email', TEST_EMAIL);
   await page.fill('#login-pass', TEST_PASSWORD);
 

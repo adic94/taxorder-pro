@@ -56,6 +56,9 @@ tests/results/
 test-results/
 playwright-report/
 
+# Playwright — zapisany stan auth (localStorage/sessionStorage z tokenem sesji)
+tests/e2e/.auth-state.json
+
 # Wygenerowane dokumenty AI — mogą zawierać wrażliwe dane systemowe
 SYSTEM_BRIEF_FOR_AI.md
 

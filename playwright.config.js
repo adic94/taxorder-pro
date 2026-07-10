@@ -1,12 +1,19 @@
 // @ts-check
 const { defineConfig, devices } = require('@playwright/test');
 
+// Plik .auth-state.json tworzony przez globalSetup przy każdym uruchomieniu CI.
+// Lokalnie: powstaje po pierwszym `npm run test:e2e` z ustawionymi zmiennymi.
+const AUTH_STATE = 'tests/e2e/.auth-state.json';
+
 module.exports = defineConfig({
   testDir: './tests/e2e',
   fullyParallel: false,   // testy logowania muszą być sekwencyjne
   retries: process.env.CI ? 1 : 0,
   timeout: 30_000,
   expect: { timeout: 8_000 },
+
+  // Uruchom logowanie raz przed całą sesją — wynik zapisany w .auth-state.json
+  globalSetup: process.env.TEST_EMAIL ? './tests/e2e/global-setup.js' : undefined,
 
   reporter: [
     ['list'],
@@ -15,6 +22,8 @@ module.exports = defineConfig({
 
   use: {
     baseURL: process.env.TEST_URL || 'http://localhost:3000',
+    // Każdy test startuje z przywróconym stanem logowania (bez ponownego logowania przez API)
+    storageState: process.env.TEST_EMAIL ? AUTH_STATE : undefined,
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     trace: 'on-first-retry',
