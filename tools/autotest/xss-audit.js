@@ -57,6 +57,17 @@ const FILES_TO_CHECK = [
   'modules/notification-settings.js',
   'modules/dt1-declarations.js',
   'modules/webhooks-ui.js',
+  'modules/handover-protocol.js',
+  'modules/service-orders.js',
+  'modules/fines.js',
+  'modules/documents.js',
+  'modules/inspection-calendar.js',
+  'modules/fleet-calendar.js',
+  'modules/reports.js',
+  'modules/service.js',
+  'modules/notifications.js',
+  'modules/fuel-import.js',
+  'modules/ai-chat.js',
 ];
 
 const ROOT = path.resolve(__dirname, '../..');

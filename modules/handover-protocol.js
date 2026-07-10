@@ -40,10 +40,10 @@ window.TaxOrderHandoverProtocol = (function () {
       return;
     }
     tbody.innerHTML = filtered.map(p => `<tr>
-      <td><strong style="font-family:var(--mono)">${p.nr_rej || '—'}</strong></td>
+      <td><strong style="font-family:var(--mono)">${esc(p.nr_rej || '—')}</strong></td>
       <td><span class="pill ${p.typ === 'WYDANIE' ? 'pill-blue' : 'pill-amber'}">${p.typ === 'WYDANIE' ? 'Wydanie' : 'Zdanie'}</span></td>
       <td style="font-size:12px">${p.data ? new Date(p.data).toLocaleDateString('pl-PL') : '—'}</td>
-      <td style="font-size:12px">${p.osoba_wydajaca || '—'} → ${p.osoba_odbierajaca || '—'}</td>
+      <td style="font-size:12px">${esc(p.osoba_wydajaca || '—')} → ${esc(p.osoba_odbierajaca || '—')}</td>
       <td style="font-family:var(--mono)">${p.stan_licznika != null ? Number(p.stan_licznika).toLocaleString('pl-PL') + ' km' : '—'}</td>
       <td style="text-align:center">
         ${(p.photos || []).length ? `<i class="ti ti-photo"></i> ${p.photos.length}` : ''}
