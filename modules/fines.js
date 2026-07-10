@@ -199,7 +199,7 @@ window.FinesModule = (function () {
           </div>
           <div class="vdf">
             <label class="vdl">Data zdarzenia *</label>
-            <input id="_fn-date" type="date" class="fi" value="${ex?.date || new Date().toISOString().slice(0, 10)}">
+            <input id="_fn-date" type="date" class="fi" value="${ex?.date || (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date())}">
           </div>
           <div class="vdf">
             <label class="vdl">Kwota mandatu (zł)</label>

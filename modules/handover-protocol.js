@@ -68,7 +68,7 @@ window.TaxOrderHandoverProtocol = (function () {
     document.getElementById('prm-title').textContent = p ? 'Edytuj protokół' : 'Nowy protokół zdawczo-odbiorczy';
     document.getElementById('prm-nrrej').value = p?.nr_rej || presetNrRej || '';
     document.getElementById('prm-typ').value = p?.typ || 'WYDANIE';
-    document.getElementById('prm-data').value = p?.data ? p.data.slice(0, 10) : new Date().toISOString().slice(0, 10);
+    document.getElementById('prm-data').value = p?.data ? p.data.slice(0, 10) : (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date());
     const dlVeh = document.getElementById('prm-veh-list');
     if (dlVeh) dlVeh.innerHTML = (window.vehs || []).map(v => `<option value="${esc(v.nrRej)}">${esc(v.nrRej)} — ${esc(v.marka)} ${esc(v.model)}</option>`).join('');
     const dlDrv = document.getElementById('prm-driver-list');
