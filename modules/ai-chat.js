@@ -30,7 +30,7 @@
       .map(([c, n]) => `${c}: ${n}`).join(', ');
 
     // Alerty ubezpieczeniowe
-    const now = new Date(), DAYS30 = 30 * 86400000;
+    const now = new Date(); now.setHours(0,0,0,0); const DAYS30 = 30 * 86400000;
     const expiring = vehs.filter(v => {
       const check = d => d && (new Date(d) - now) < DAYS30;
       return check(v.ocEnd) || check(v.acEnd) || check(v.nextInspection);
