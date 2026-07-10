@@ -15,7 +15,7 @@ window.TaxOrderServiceOrders = (function () {
     return { ...(t ? { 'Authorization': 'Bearer ' + t } : {}), ...(extra || {}) };
   }
   function _company() { return window.currentCompanyId || 'mtoilet'; }
-  function _typeLabel(typ) { return window.ServiceModule?.SERVICE_TYPES?.[typ]?.label || typ || '—'; }
+  function _typeLabel(typ) { const lbl = window.ServiceModule?.SERVICE_TYPES?.[typ]?.label; return lbl != null ? lbl : esc(typ || '—'); }
 
   async function load() {
     try {
