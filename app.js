@@ -863,7 +863,7 @@ const _FLEET_COL_TD = {
   zawieszenie:(v)  =>`<td data-col="zawieszenie" onclick="event.stopPropagation()"><select class="isel" style="width:120px" onchange="setV(${v.id},'zawieszenie',this.value)"><option ${v.zawieszenie==='pneumatyczne'?'selected':''}>pneumatyczne</option><option ${v.zawieszenie==='równoważne'?'selected':''}>równoważne</option><option ${v.zawieszenie==='inne'?'selected':''}>inne</option></select></td>`,
   dmczesp:    (v,c)=>`<td data-col="dmczesp" onclick="event.stopPropagation()">${c.isTrailerV?`<input class="inum" style="width:70px" type="number" step="0.001" min="0" max="100" value="${((v.dmcZespolu||0)/1000).toFixed(1)}" onchange="setV(${v.id},'dmcZespolu',parseFloat(this.value)*1000||0)" title="DMC zesp. w tonach">${c.needsDmcZ?'<span style="color:var(--amber);font-size:11px"> ⚠</span>':''}` : '<span style="color:var(--text3)">—</span>'}</td>`,
   mies:       (v)  =>`<td data-col="mies" onclick="event.stopPropagation()" title="Miesiące obowiązku podatkowego (1–12). Dla nabycia: 13 minus miesiąc. Dla zbycia: numer miesiąca."><div style="display:flex;align-items:center;gap:3px"><input class="inum" type="number" min="1" max="12" value="${v.miesiacePodatku||12}" onchange="setV(${v.id},'miesiacePodatku',parseInt(this.value)||12)" style="width:36px;text-align:center"><button style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--text3);padding:0 2px" title="Oblicz z daty" onclick="event.stopPropagation();_pickMiesiace(${v.id})">📅</button></div></td>`,
-  status:     (v)  =>`<td data-col="status"><span class="pill ${STAT_LABELS[v.status]||'pill-gray'}">${v.status}</span></td>`,
+  status:     (v)  =>`<td data-col="status"><span class="pill ${STAT_LABELS[v.status]||'pill-gray'}">${esc(v.status)}</span></td>`,
   oc:         (v)  =>`<td data-col="oc">${_datePill(v.ocEnd)}</td>`,
   ac:         (v)  =>`<td data-col="ac">${_datePill(v.acEnd)}</td>`,
   przeglad:   (v)  =>`<td data-col="przeglad">${_datePill(v.nextInspection)}</td>`,
@@ -877,17 +877,17 @@ const _FLEET_COL_TD = {
   gmina:      (v)  =>`<td data-col="gmina" onclick="event.stopPropagation()" style="font-size:11px"><select class="isel" style="width:100px;font-size:11px" onchange="setV(${v.id},'gmina',this.value);renderFormularze&&renderFormularze()">${(window.GminyRates?GminyRates.listGminy():['Warszawa']).map(g=>`<option ${(v.gmina||'Warszawa')===g?'selected':''}>${g}</option>`).join('')}</select></td>`,
   kategoria:  (v,c)=>`<td data-col="kategoria">${c.t.cat?`<span class="pill ${CAT_COLORS[c.t.cat]||'pill-gray'}">${c.t.cat}</span>${c.needsDmcZ?'<span style="font-size:10px;color:var(--amber)"> brak DMC zesp.</span>':''}` : '<span style="color:var(--text3);font-size:11px">—</span>'}</td>`,
   podatek:    (v,c)=>`<td data-col="podatek" style="text-align:right">${c.t.amount>0?`<strong style="color:var(--green);font-family:var(--mono)">${fmt2(c.t.amount)} zł</strong>`:'<span style="color:var(--text3)">—</span>'}</td>`,
-  vin:        (v)  =>`<td data-col="vin" style="font-size:10px;font-family:var(--mono);color:var(--text2)">${v.vin||'—'}</td>`,
-  paliwo:     (v)  =>`<td data-col="paliwo" style="font-size:11px">${v.paliwo||'—'}</td>`,
+  vin:        (v)  =>`<td data-col="vin" style="font-size:10px;font-family:var(--mono);color:var(--text2)">${esc(v.vin||'—')}</td>`,
+  paliwo:     (v)  =>`<td data-col="paliwo" style="font-size:11px">${esc(v.paliwo||'—')}</td>`,
   poj:        (v)  =>`<td data-col="poj" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.pojSilnika!=null?v.pojSilnika.toLocaleString('pl-PL')+' cm³':'—'}</td>`,
   mocKw:      (v)  =>`<td data-col="mocKw" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.mocKW!=null?v.mocKW+' kW':'—'}</td>`,
   masaWl:     (v)  =>`<td data-col="masaWl" style="font-size:11px;text-align:right;font-family:var(--mono)">${(v.masaWlasna??v.masaWlKg)!=null?(v.masaWlasna??v.masaWlKg).toLocaleString('pl-PL')+' kg':'—'}</td>`,
   msc:        (v)  =>`<td data-col="msc" style="font-size:11px;text-align:center">${v.miejscaSied!=null?v.miejscaSied:'—'}</td>`,
-  euro:       (v)  =>`<td data-col="euro" style="font-size:11px">${v.euro||'—'}</td>`,
+  euro:       (v)  =>`<td data-col="euro" style="font-size:11px">${esc(v.euro||'—')}</td>`,
   dmcF2:      (v)  =>`<td data-col="dmcF2" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.dmcKg2!=null&&v.dmcKg2!==''?Number(v.dmcKg2).toLocaleString('pl-PL')+' kg':'—'}</td>`,
   ladownosc:  (v)  =>{const _d=v.dmcKg2||v.dmc||v.dmcMax,_m=v.masaWlasna??v.masaWlKg;const l=v.ladownosc!=null&&v.ladownosc!==''?Number(v.ladownosc):(_d&&_m!=null&&Number(_d)>Number(_m)?Number(_d)-Number(_m):null);return `<td data-col="ladownosc" style="font-size:11px;text-align:right;font-family:var(--mono)">${l!=null?l.toLocaleString('pl-PL')+' kg':'—'}</td>`;},
   dataRej:    (v)  =>`<td data-col="dataRej" style="font-size:11px;white-space:nowrap">${v.dataRejestracji||v.dataRej||'—'}</td>`,
-  katDR:      (v)  =>`<td data-col="katDR" style="font-size:11px;text-align:center">${(v.katPojazdu||v.kategoria)?`<span class="pill pill-gray">${v.katPojazdu||v.kategoria}</span>`:'—'}</td>`,
+  katDR:      (v)  =>`<td data-col="katDR" style="font-size:11px;text-align:center">${(v.katPojazdu||v.kategoria)?`<span class="pill pill-gray">${esc(v.katPojazdu||v.kategoria)}</span>`:'—'}</td>`,
 };
 
 const _COL_LABELS = {
@@ -2821,11 +2821,11 @@ function renderFormularze() {
       <tr>
         <td colspan="3" style="border:0.5px solid #000;border-top:none;padding:2px 4px">
           <div style="font-size:5.5pt;font-weight:bold">5. Numer Identyfikacyjny VIN / nadwozia / podwozia / ramy <sup>1)</sup></div>
-          <div style="font-weight:bold;font-size:8pt;letter-spacing:1px">${v.vin||'—'}</div>
+          <div style="font-weight:bold;font-size:8pt;letter-spacing:1px">${esc(v.vin||'—')}</div>
         </td>
         <td colspan="3" style="border:0.5px solid #000;border-left:none;border-top:none;padding:2px 4px">
           <div style="font-size:5.5pt;font-weight:bold">6. Marka, typ, model pojazdu</div>
-          <div style="font-weight:bold">${v.marka} ${v.model}</div>
+          <div style="font-weight:bold">${esc(v.marka)} ${esc(v.model)}</div>
         </td>
       </tr>
       <tr>
@@ -3697,14 +3697,14 @@ function renderRaporty() {
       const r1v=Math.round((v.amount||0)/2), r2v=Math.round(v.amount||0)-r1v;
       const isNew=(parseInt(v.rok)||0)>=2024;
       return `<tr>
-        <td><strong style="font-family:var(--mono)">${v.nrRej}</strong></td>
-        <td>${v.marka} ${v.model} ${isNew?'<span class="pill pill-new" style="font-size:9px">§2</span>':''}</td>
+        <td><strong style="font-family:var(--mono)">${esc(v.nrRej)}</strong></td>
+        <td>${esc(v.marka)} ${esc(v.model)} ${isNew?'<span class="pill pill-new" style="font-size:9px">§2</span>':''}</td>
         <td>${v.rok||'—'}</td>
-        <td><span class="pill pill-gray" style="font-size:10px">${v.typ}</span></td>
+        <td><span class="pill pill-gray" style="font-size:10px">${esc(v.typ)}</span></td>
         <td style="font-family:var(--mono);font-size:12px">${(v.dmc||v.dmcMax||0).toLocaleString('pl-PL')}</td>
-        <td><span class="pill ${STAT_LABELS[v.status]||'pill-gray'}">${v.status}</span></td>
-        <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis">${v.wlasciciel||'—'}</td>
-        <td>${v.cat?`<span class="pill ${CAT_COLORS[v.cat]||'pill-gray'}">${v.cat}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
+        <td><span class="pill ${STAT_LABELS[v.status]||'pill-gray'}">${esc(v.status)}</span></td>
+        <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis">${esc(v.wlasciciel||'—')}</td>
+        <td>${v.cat?`<span class="pill ${CAT_COLORS[v.cat]||'pill-gray'}">${esc(v.cat)}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
         <td style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--text2)">${v.rate?v.rate.toLocaleString('pl-PL')+' zł':'—'}</td>
         <td style="text-align:right;font-family:var(--mono);font-weight:600;color:${v.amount>0?'var(--green)':'var(--text3)'}">${v.amount>0?fmt2(v.amount)+' zł':'—'}</td>
         <td style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--blue)">${v.amount>0?fmtZl(r1v)+' zł':'—'}</td>
@@ -5429,12 +5429,12 @@ function showImpPreview(rows,source) {
   body.innerHTML=`<div class="tbl-wrap" style="margin-bottom:12px"><table>
     <thead><tr><th>Nr rej.</th><th>Marka</th><th>Model</th><th>Rok</th><th>Typ</th><th>DMC (kg)</th><th>Status</th><th>EURO</th></tr></thead>
     <tbody>${sample.map(v=>`<tr>
-      <td><strong style="font-family:var(--mono)">${v.nrRej||'—'}</strong></td>
-      <td>${v.marka}</td><td>${v.model}</td><td>${v.rok||'—'}</td>
-      <td><span class="pill pill-gray">${v.typ}</span></td>
+      <td><strong style="font-family:var(--mono)">${esc(v.nrRej||'—')}</strong></td>
+      <td>${esc(v.marka||'—')}</td><td>${esc(v.model||'—')}</td><td>${v.rok||'—'}</td>
+      <td><span class="pill pill-gray">${esc(v.typ||'—')}</span></td>
       <td style="font-family:var(--mono)">${(v.dmc||v.dmcMax||0).toLocaleString('pl-PL')}</td>
-      <td><span class="pill ${STAT_LABELS[v.status]||'pill-gray'}">${v.status}</span></td>
-      <td style="font-size:11px">${v.euro||'—'}</td>
+      <td><span class="pill ${STAT_LABELS[v.status]||'pill-gray'}">${esc(v.status||'—')}</span></td>
+      <td style="font-size:11px">${esc(v.euro||'—')}</td>
     </tr>`).join('')}
     ${rows.length>20?`<tr><td colspan="8" style="text-align:center;color:var(--text3);font-size:12px">...i ${rows.length-20} więcej pojazdów</td></tr>`:''}
     </tbody></table></div>
