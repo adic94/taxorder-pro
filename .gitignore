@@ -38,6 +38,7 @@ build/
 
 # API Explorer — raporty mogą zawierać tokeny/ciasteczka, nigdy nie commitować
 tools/api-explorer/reports/
+tools/api-explorer/package-lock.json
 
 # Backupy SQL — mogą zawierać dane wrażliwe, przechowuj lokalnie
 backups/
