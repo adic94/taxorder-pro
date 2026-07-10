@@ -65,7 +65,10 @@ window.ServiceModule = (function () {
 
   function _daysDiff(dateStr) {
     if (!dateStr) return null;
-    return Math.round((new Date(dateStr) - new Date()) / 86400000);
+    const d = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00');
+    if (isNaN(d)) return null;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    return Math.round((d - today) / 86400000);
   }
 
   function _urgencyColor(days) {

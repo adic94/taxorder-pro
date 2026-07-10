@@ -1408,9 +1408,9 @@ window.TaxOrderVehicleDetail = {
   _renderMaintItems(v) {
     const items = v.maintenanceItems || [];
     if (!items.length) return '<div style="font-size:12px;color:var(--text3);padding:20px;text-align:center"><i class="ti ti-tool" style="font-size:28px;display:block;margin-bottom:6px"></i>Brak elementów konserwacji. Dodaj element lub przypisz szablon w Centrum Powiadomień.</div>';
-    const now = new Date();
+    const now = new Date(); now.setHours(0, 0, 0, 0);
     return items.map(item => {
-      const daysDue = item.nextDate ? Math.round((new Date(item.nextDate) - now) / 86400000) : null;
+      const daysDue = item.nextDate ? Math.round((new Date(item.nextDate.includes('T') ? item.nextDate : item.nextDate + 'T00:00:00') - now) / 86400000) : null;
       const kmDue   = (item.nextKm && v.stanKilometrow) ? item.nextKm - v.stanKilometrow : null;
       const isOk    = (daysDue === null || daysDue > 14) && (kmDue === null || kmDue > 500);
       const color   = daysDue !== null && daysDue < 0 || kmDue !== null && kmDue < 0 ? 'var(--red)' : (!isOk ? 'var(--amber)' : 'var(--green)');

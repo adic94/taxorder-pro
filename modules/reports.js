@@ -298,9 +298,9 @@ window.FleetReports = (function () {
   function renderInsuranceReport(containerId) {
     const el = document.getElementById(containerId || 'fr-insurance-body');
     if (!el) return;
-    const now   = new Date();
+    const now   = new Date(); now.setHours(0, 0, 0, 0);
     const fd    = d => d ? new Date(d).toLocaleDateString('pl-PL') : '—';
-    const days  = d => d ? Math.round((new Date(d)-now)/86400000) : null;
+    const days  = d => d ? Math.round((new Date(d.includes('T') ? d : d + 'T00:00:00') - now) / 86400000) : null;
     const pill  = d => {
       const n = days(d);
       if (n == null) return '<span style="color:var(--text3)">—</span>';
@@ -400,7 +400,7 @@ window.FleetReports = (function () {
 
   // ── Raport zarządu — Executive Summary HTML export ───────────────────────
   function exportExecutiveSummary() {
-    const now = new Date();
+    const now = new Date(); now.setHours(0, 0, 0, 0);
     const yr = now.getFullYear();
     const prefix = String(yr);
     const vehs = window.vehs || [];
@@ -1106,11 +1106,12 @@ window.FleetReports = (function () {
 
   function exportServicePlanHtml() {
     const rows = _buildServicePlanRows();
-    const today = new Date().toISOString().slice(0,10);
+    const _todayMs = (() => { const t = new Date(); t.setHours(0,0,0,0); return t; })();
+    const today = _todayMs.toISOString().slice(0,10);
     const fd = d => d ? new Date(d).toLocaleDateString('pl-PL') : '—';
     const urgencyBadge = d => {
       if (!d) return '';
-      const diff = Math.round((new Date(d) - new Date()) / 86400000);
+      const diff = Math.round((new Date(d.includes('T') ? d : d + 'T00:00:00') - _todayMs) / 86400000);
       const color = diff < 0 ? '#dc2626' : diff <= 7 ? '#dc2626' : diff <= 14 ? '#d97706' : '#16a34a';
       const label = diff < 0 ? `${Math.abs(diff)} dni po terminie` : diff === 0 ? 'dziś' : `${diff} dni`;
       return `<span style="background:${color};color:#fff;border-radius:9px;font-size:9px;font-weight:700;padding:1px 7px">${label}</span>`;
@@ -1142,7 +1143,7 @@ tr:hover td{background:#f9fafb}
   </tr></thead>
   <tbody>
     ${rows.map(r => {
-      const diff = r.nextServiceDate ? Math.round((new Date(r.nextServiceDate) - new Date()) / 86400000) : null;
+      const diff = r.nextServiceDate ? Math.round((new Date(r.nextServiceDate.includes('T') ? r.nextServiceDate : r.nextServiceDate + 'T00:00:00') - _todayMs) / 86400000) : null;
       const bg   = diff == null ? '' : diff < 0 ? '#fef2f2' : diff <= 7 ? '#fff7ed' : '';
       return `<tr style="background:${bg}">
         <td class="mono" style="font-weight:700">${r.nrRej}</td>
@@ -1166,13 +1167,13 @@ tr:hover td{background:#f9fafb}
   }
 
   function _buildServicePlanRows() {
-    const today = new Date();
+    const today = new Date(); today.setHours(0, 0, 0, 0);
     const rows = [];
     (window.vehs||[]).forEach(v => {
       (v.serviceHistory||[]).forEach(s => {
         if (!s.nextServiceDate && !s.nextServiceKm) return;
         const svcLabel = window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label || s.type || 'Serwis';
-        const diff = s.nextServiceDate ? Math.round((new Date(s.nextServiceDate) - today) / 86400000) : null;
+        const diff = s.nextServiceDate ? Math.round((new Date(s.nextServiceDate.includes('T') ? s.nextServiceDate : s.nextServiceDate + 'T00:00:00') - today) / 86400000) : null;
         rows.push({ nrRej:v.nrRej, marka:v.marka, model:v.model, svcLabel, lastDate:s.date, nextServiceDate:s.nextServiceDate, nextServiceKm:s.nextServiceKm, workshop:s.workshop, diff });
       });
     });
@@ -1186,7 +1187,7 @@ tr:hover td{background:#f9fafb}
 
   // Generuje tekstowe podsumowanie raportu i otwiera klienta poczty (mailto:)
   function emailExecutiveSummary() {
-    const now = new Date();
+    const now = new Date(); now.setHours(0, 0, 0, 0);
     const yr  = now.getFullYear();
     const prefix = String(yr);
     const vehs = window.vehs || [];
