@@ -1513,6 +1513,7 @@ async function handleFleetCards(req, env, user, url, path) {
   if (req.method === 'POST') {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
     if (!body.card_no) return err('Wymagane: card_no');
+    if (body.id && !/^[0-9a-f-]{36}$/i.test(body.id)) return err('Nieprawidłowy format id', 400);
     const id = body.id || crypto.randomUUID();
     await env.DB.prepare(
       `INSERT OR REPLACE INTO fleet_cards(id,company_id,card_no,pin,nr_rej,type,provider,limit_pln,expires,status,notes,updated_at)

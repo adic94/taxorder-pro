@@ -3344,7 +3344,7 @@ async function generujDt1Multi() {
         gmina:         document.getElementById('vd-gmina')?.value || taxpayerData.gmina || 'brak',
         vehicles:      allTaxable.map(v => {
           const t = typeof calcTax === 'function' ? calcTax(v) : {};
-          return { nrRej: v.nrRej, marka: v.marka, model: v.model, cat: t.cat||v.cat, miesiacePodatku: v.miesiacePodatku||12, amount: t.amount||v.amount||0 };
+          return { nrRej: v.nrRej, marka: v.marka, model: v.model, cat: t.cat||v.cat, miesiacePodatku: v.miesiacePodatku ?? 12, amount: t.amount||v.amount||0 };
         }),
       });
     }
@@ -6000,8 +6000,8 @@ function renderKarty() {
     <td><span class="pill ${STATUS_COLORS[k.status]||'pill-gray'}">${esc(k.status)}</span></td>
     <td>
       <div style="display:flex;gap:4px">
-        <button class="tbtn" onclick="openKartaModal('${k.id}')"><i class="ti ti-edit"></i></button>
-        <button class="tbtn" onclick="deleteKarta('${k.id}')" style="color:var(--red)"><i class="ti ti-trash"></i></button>
+        <button class="tbtn" data-id="${esc(k.id)}" onclick="openKartaModal(this.dataset.id)"><i class="ti ti-edit"></i></button>
+        <button class="tbtn" data-id="${esc(k.id)}" onclick="deleteKarta(this.dataset.id)" style="color:var(--red)"><i class="ti ti-trash"></i></button>
       </div>
     </td>
   </tr>`).join('');
@@ -6145,8 +6145,8 @@ let currentDocNrRej=null;
 
 function getDocIcon(nrRej){
   const docs=docStore[nrRej]||[];
-  if(!docs.length) return `<button class="tbtn" style="padding:3px 8px;font-size:10px;color:var(--text3)" title="Dodaj dokument" onclick="event.stopPropagation();triggerDocUpload('${nrRej}')"><i class="ti ti-upload"></i></button>`;
-  return `<button class="tbtn" style="padding:3px 8px;font-size:10px;color:var(--blue)" title="${docs.length} dok." onclick="event.stopPropagation();openDocModal('${nrRej}')"><i class="ti ti-file-description"></i> ${docs.length}</button>`;
+  if(!docs.length) return `<button class="tbtn" style="padding:3px 8px;font-size:10px;color:var(--text3)" title="Dodaj dokument" data-nr="${esc(nrRej)}" onclick="event.stopPropagation();triggerDocUpload(this.dataset.nr)"><i class="ti ti-upload"></i></button>`;
+  return `<button class="tbtn" style="padding:3px 8px;font-size:10px;color:var(--blue)" title="${docs.length} dok." data-nr="${esc(nrRej)}" onclick="event.stopPropagation();openDocModal(this.dataset.nr)"><i class="ti ti-file-description"></i> ${docs.length}</button>`;
 }
 
 function triggerDocUpload(nrRej){
