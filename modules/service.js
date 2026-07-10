@@ -514,14 +514,14 @@ window.ServiceModule = (function () {
                 return `<tr>
                   <td style="font-family:var(--mono);white-space:nowrap">${_fmtDate(s.date)}</td>
                   <td><span style="color:${t.color}"><i class="ti ${t.icon}"></i> ${t.label}</span></td>
-                  <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.description||''}">${s.description||'—'}</td>
+                  <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s.description||'')}">${esc(s.description||'—')}</td>
                   <td style="font-family:var(--mono);text-align:right">${s.km ? s.km.toLocaleString('pl-PL') : '—'}</td>
                   <td style="font-family:var(--mono);font-weight:600;text-align:right;white-space:nowrap">${s.cost ? s.cost.toFixed(2)+' '+curr : '—'}</td>
                   <td style="font-family:var(--mono);text-align:right;white-space:nowrap">${s.costNet ? s.costNet.toFixed(2)+' '+curr : '—'}</td>
                   <td style="font-size:10px;color:var(--text3)">${s.vatRate != null ? s.vatRate+'%' : '—'}</td>
-                  <td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.workshop||''}">${s.workshop||'—'}</td>
-                  <td style="font-family:var(--mono);font-size:10px;color:var(--text2)">${s.workshopNip||'—'}</td>
-                  <td style="font-family:var(--mono);font-size:10px">${s.invoiceNo||'—'}</td>
+                  <td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s.workshop||'')}">${esc(s.workshop||'—')}</td>
+                  <td style="font-family:var(--mono);font-size:10px;color:var(--text2)">${esc(s.workshopNip||'—')}</td>
+                  <td style="font-family:var(--mono);font-size:10px">${esc(s.invoiceNo||'—')}</td>
                   <td style="text-align:center;white-space:nowrap">
                     ${canEdit ? `<button class="btn btn-gray" style="font-size:10px;padding:2px 8px" onclick="ServiceModule.addService(${v.id},'${s.id}')">✏</button>` : ''}
                   </td>

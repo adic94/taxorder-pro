@@ -532,7 +532,7 @@ window.TaxOrderDiagnostics = (function () {
       const c = avg < 300 ? '#16a34a' : avg < 700 ? '#d97706' : '#dc2626';
       return `<div class="dg-row" style="flex-direction:column;align-items:stretch;gap:2px">
         <div style="display:flex;justify-content:space-between">
-          <span style="font-family:monospace;font-size:10px;overflow:hidden;text-overflow:ellipsis;max-width:300px" title="${path}">${path}</span>
+          <span style="font-family:monospace;font-size:10px;overflow:hidden;text-overflow:ellipsis;max-width:300px" title="${esc(path)}">${esc(path)}</span>
           <span style="font-family:monospace;font-size:11px;color:${c};font-weight:700">${avg}ms avg</span>
           <span style="font-size:10px;color:var(--text2)">${times.length}× · ${min}–${max}ms</span>
         </div>
