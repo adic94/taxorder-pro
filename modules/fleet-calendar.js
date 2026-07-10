@@ -223,7 +223,7 @@ window.FleetCalendar = (function () {
       <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:460px;max-width:98vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
         <div style="font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px">
           <i class="ti ti-calendar-plus" style="color:var(--blue)"></i>${t('cal.new.title')}
-          ${nrRej ? `<span style="font-family:var(--mono);font-size:13px">${nrRej}</span>` : ''}
+          ${nrRej ? `<span style="font-family:var(--mono);font-size:13px">${esc(nrRej)}</span>` : ''}
         </div>
         <div class="vdfg" style="margin-bottom:14px">
           <div class="vdf">

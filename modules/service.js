@@ -173,7 +173,7 @@ window.ServiceModule = (function () {
                 <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.description || '—')}</td>
                 <td style="font-family:var(--mono);text-align:right">${s.km ? s.km.toLocaleString('pl-PL') : '—'}</td>
                 <td style="font-family:var(--mono);font-weight:600">${s.cost ? s.cost.toFixed(2)+' zł' : '—'}</td>
-                <td>${s.workshop || '—'}</td>
+                <td>${esc(s.workshop || '—')}</td>
               </tr>`;
             }).join('')}
           </tbody>
@@ -253,7 +253,7 @@ window.ServiceModule = (function () {
           </div>
           <div class="vdf" style="grid-column:1/-1">
             <label class="vdl">Opis / zakres prac</label>
-            <input id="_svc-desc" type="text" class="fi" placeholder="np. Wymiana oleju 5W-40 + filtr oleju" value="${ex?.description || ''}">
+            <input id="_svc-desc" type="text" class="fi" placeholder="np. Wymiana oleju 5W-40 + filtr oleju" value="${esc(ex?.description || '')}">
           </div>
           <div class="vdf">
             <label class="vdl">Przebieg przy serwisie (km)</label>
@@ -300,20 +300,20 @@ window.ServiceModule = (function () {
           <!-- Warsztat -->
           <div class="vdf">
             <label class="vdl">Warsztat / serwis</label>
-            <input id="_svc-workshop" type="text" class="fi" placeholder="np. ASO Volkswagen Warszawa" value="${ex?.workshop || ''}">
+            <input id="_svc-workshop" type="text" class="fi" placeholder="np. ASO Volkswagen Warszawa" value="${esc(ex?.workshop || '')}">
           </div>
           <div class="vdf">
             <label class="vdl">NIP warsztatu / serwisu</label>
             <input id="_svc-nip" type="text" class="fi" placeholder="000-000-00-00" maxlength="13"
-              oninput="this.value=this.value.replace(/[^0-9-]/g,'')" value="${ex?.workshopNip || ''}">
+              oninput="this.value=this.value.replace(/[^0-9-]/g,'')" value="${esc(ex?.workshopNip || '')}">
           </div>
           <div class="vdf">
             <label class="vdl">Nr faktury / zlecenia</label>
-            <input id="_svc-invoice" type="text" class="fi" value="${ex?.invoiceNo || ''}">
+            <input id="_svc-invoice" type="text" class="fi" value="${esc(ex?.invoiceNo || '')}">
           </div>
           <div class="vdf" style="grid-column:1/-1">
             <label class="vdl">Wymienione części / materiały</label>
-            <input id="_svc-parts" type="text" class="fi" placeholder="np. filtr oleju, filtr powietrza, olej 5l 5W-40" value="${ex?.parts || ''}">
+            <input id="_svc-parts" type="text" class="fi" placeholder="np. filtr oleju, filtr powietrza, olej 5l 5W-40" value="${esc(ex?.parts || '')}">
           </div>
           <div class="vdf">
             <label class="vdl">Następny serwis — data</label>
@@ -325,7 +325,7 @@ window.ServiceModule = (function () {
           </div>
           <div class="vdf" style="grid-column:1/-1">
             <label class="vdl">Uwagi</label>
-            <input id="_svc-notes" type="text" class="fi" value="${ex?.notes || ''}">
+            <input id="_svc-notes" type="text" class="fi" value="${esc(ex?.notes || '')}">
           </div>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end">

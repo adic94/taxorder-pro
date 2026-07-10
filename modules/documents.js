@@ -103,7 +103,7 @@ window.DocumentsModule = (function () {
           </div>
           <div class="vdf">
             <label class="vdl">Nazwa / opis *</label>
-            <input id="_doc-name" type="text" class="fi" placeholder="np. OC PZU 2025/26" value="${ex?.name||''}">
+            <input id="_doc-name" type="text" class="fi" placeholder="np. OC PZU 2025/26" value="${esc(ex?.name||'')}">
           </div>
           <div class="vdf">
             <label class="vdl">Data wystawienia</label>
@@ -115,19 +115,19 @@ window.DocumentsModule = (function () {
           </div>
           <div class="vdf">
             <label class="vdl">Numer dokumentu</label>
-            <input id="_doc-number" type="text" class="fi" placeholder="np. PZU/2025/001234" value="${ex?.docNumber||''}">
+            <input id="_doc-number" type="text" class="fi" placeholder="np. PZU/2025/001234" value="${esc(ex?.docNumber||'')}">
           </div>
           <div class="vdf">
             <label class="vdl">Towarzystwo / wystawca</label>
-            <input id="_doc-issuer" type="text" class="fi" placeholder="np. PZU S.A." value="${ex?.issuer||''}">
+            <input id="_doc-issuer" type="text" class="fi" placeholder="np. PZU S.A." value="${esc(ex?.issuer||'')}">
           </div>
           <div class="vdf" style="grid-column:1/-1">
             <label class="vdl">Link / URL (skan, chmura)</label>
-            <input id="_doc-url" type="url" class="fi" placeholder="https://drive.google.com/..." value="${ex?.url||''}">
+            <input id="_doc-url" type="url" class="fi" placeholder="https://drive.google.com/..." value="${esc(ex?.url||'')}">
           </div>
           <div class="vdf" style="grid-column:1/-1">
             <label class="vdl">Uwagi</label>
-            <input id="_doc-notes" type="text" class="fi" value="${ex?.notes||''}">
+            <input id="_doc-notes" type="text" class="fi" value="${esc(ex?.notes||'')}">
           </div>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
