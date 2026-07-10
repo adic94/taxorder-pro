@@ -1282,10 +1282,84 @@ function updateCounters() {
       ? `${vehs.length} pojazdów`
       : `${filtered} z ${vehs.length} pojazdów`;
   }
+  // Bulk-bar
+  const bulkBar = document.getElementById('bulk-bar');
+  if (bulkBar) {
+    if (cnt > 0) {
+      bulkBar.style.display = 'flex';
+      const s = cnt === 1 ? 'pojazd zaznaczony' : cnt < 5 ? 'pojazdy zaznaczone' : 'pojazdów zaznaczonych';
+      const bc = document.getElementById('bulk-count');
+      if (bc) bc.textContent = cnt + ' ' + s;
+    } else {
+      bulkBar.style.display = 'none';
+    }
+  }
 }
 
 function refreshAll() { renderVeh(); renderKalkulator(); updateCounters(); renderDash(); window.TaxOrderNotifications?.updateBadge?.(); }
 function updateAll() { updateCounters(); renderKalkulator(); }
+
+// ==================== BULK ACTIONS ====================
+function bulkExportSelected() {
+  const sel = getSel();
+  if (!sel.length) return;
+  if (!window.XLSX) { toast('⚠ Brak biblioteki XLSX'); return; }
+  const rows = sel.map(v => ({
+    'Nr rej.': v.nrRej || '',
+    'Marka': v.marka || '',
+    'Model': v.model || '',
+    'Rok': v.rok || '',
+    'DMC (kg)': v.dmc ?? v.dmcMax ?? '',
+    'Typ': v.typ || '',
+    'Właściciel': v.wlasciciel || '',
+    'Status': v.status || '',
+    'Kierowca': v.kierowca || '',
+    'Kat. DT-1': v.cat || '',
+    'Podatek': v.amount > 0 ? v.amount : '',
+  }));
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, 'Pojazdy');
+  XLSX.writeFile(wb, 'flota-' + new Date().toISOString().slice(0,10) + '.xlsx');
+  toast('✓ Wyeksportowano ' + sel.length + ' pojazdów do Excel');
+}
+
+function bulkAssignCompany() {
+  const sel = getSel();
+  if (!sel.length) return;
+  const companies = ['mToilet', 'GCON', 'KJR Supply', 'G-Rental', 'NWK Invest', 'Wolund'];
+  const choice = prompt('Przypisz firmę dla ' + sel.length + ' pojazdów:\n' + companies.map((c,i)=>(i+1)+'. '+c).join('\n') + '\n\nWpisz numer:');
+  const idx = parseInt(choice) - 1;
+  if (isNaN(idx) || idx < 0 || idx >= companies.length) return;
+  const company = companies[idx];
+  sel.forEach(v => { v.wlasciciel = company; window.TaxOrderFleetCloud?.saveVehicle?.(v); });
+  renderVeh(); updateCounters();
+  toast('✓ Przypisano „' + company + '" dla ' + sel.length + ' pojazdów');
+}
+
+function bulkSetTaxMonths() {
+  const sel = getSel();
+  if (!sel.length) return;
+  const months = prompt('Ustaw miesiące podatku DT-1 dla ' + sel.length + ' pojazdów (1–12):');
+  const m = parseInt(months);
+  if (isNaN(m) || m < 1 || m > 12) { toast('⚠ Nieprawidłowa liczba miesięcy (1–12)'); return; }
+  sel.forEach(v => { v.miesiacePodatku = m; window.TaxOrderFleetCloud?.saveVehicle?.(v); });
+  renderVeh(); updateCounters(); renderKalkulator();
+  toast('✓ Ustawiono ' + m + ' miesięcy podatku dla ' + sel.length + ' pojazdów');
+}
+
+function bulkChangeStatus() {
+  const sel = getSel();
+  if (!sel.length) return;
+  const statuses = ['Własny', 'Leasing', 'Wynajęty'];
+  const choice = prompt('Zmień status dla ' + sel.length + ' pojazdów:\n1. Własny\n2. Leasing\n3. Wynajęty\n\nWpisz numer:');
+  const idx = parseInt(choice) - 1;
+  if (isNaN(idx) || idx < 0 || idx >= statuses.length) return;
+  const status = statuses[idx];
+  sel.forEach(v => { v.status = status; window.TaxOrderFleetCloud?.saveVehicle?.(v); });
+  renderVeh(); updateCounters();
+  toast('✓ Zmieniono status na „' + status + '" dla ' + sel.length + ' pojazdów');
+}
 
 // ── REGON / NIP lookup (White List API MF) ────────────────────────────────
 async function lookupNip() {
@@ -3616,61 +3690,127 @@ function renderRaporty() {
   });
   const maxTax = Math.max(...Object.values(groups).map(g=>g.tax),1);
 
-  // Wykres słupkowy
-  const barColors = ['var(--blue)','var(--green)','var(--amber)','var(--red)','#8b5cf6','#ec4899','#14b8a6','#f97316'];
-  document.getElementById('rp-chart').innerHTML = Object.entries(groups).sort((a,b)=>b[1].tax-a[1].tax).map(([k,g],i)=>{
-    const pct = Math.round(g.tax/maxTax*100);
-    const col = barColors[i%barColors.length];
-    return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <div style="width:110px;font-size:12px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text2)">${k}</div>
-      <div style="flex:1;background:var(--bg3);border-radius:4px;overflow:hidden;height:22px">
-        <div style="width:${pct}%;background:${col};height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;transition:width .4s">
-          <span style="font-size:10px;color:#fff;white-space:nowrap;font-weight:600">${pct>15?fmt2(g.tax)+' zł':''}</span>
+  // Wykres słupkowy — Chart.js (fallback: HTML bars)
+  const CHART_COLORS = ['#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316'];
+  const isDark = document.documentElement.classList.contains('dark');
+  const _tc = isDark ? '#9ca3af' : '#6b7280';
+  const _gc = isDark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.05)';
+  const sortedGroups = Object.entries(groups).sort((a,b)=>b[1].tax-a[1].tax);
+  if (!window._rpCharts) window._rpCharts = {};
+  const barEl = document.getElementById('rp-chart');
+  if (window.Chart) {
+    barEl.innerHTML = '<div style="position:relative;height:260px"><canvas id="rp-bar-canvas"></canvas></div>';
+    if (window._rpCharts.bar) { window._rpCharts.bar.destroy(); window._rpCharts.bar = null; }
+    if (sortedGroups.length) {
+      window._rpCharts.bar = new Chart(document.getElementById('rp-bar-canvas'), {
+        type: 'bar',
+        data: {
+          labels: sortedGroups.map(([k])=>k),
+          datasets: [{ data: sortedGroups.map(([,g])=>g.tax), backgroundColor: sortedGroups.map((_,i)=>CHART_COLORS[i%CHART_COLORS.length]), borderRadius: 4, borderSkipped: false }]
+        },
+        options: {
+          indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => '  ' + fmt2(ctx.raw) + ' zł · ' + (sortedGroups[ctx.dataIndex]?.[1]?.count||0) + ' poj.' } } },
+          scales: {
+            x: { ticks: { color: _tc, callback: v => fmtZl(v) + ' zł', font: { size: 10 } }, grid: { color: _gc } },
+            y: { ticks: { color: _tc, font: { size: 11 } }, grid: { display: false } }
+          }
+        }
+      });
+    } else {
+      barEl.innerHTML = '<div style="color:var(--text3);text-align:center;padding:2rem">Brak danych podatkowych</div>';
+    }
+  } else {
+    barEl.innerHTML = sortedGroups.map(([k,g],i)=>{
+      const pct = Math.round(g.tax/maxTax*100);
+      const col = CHART_COLORS[i%CHART_COLORS.length];
+      return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="width:110px;font-size:12px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text2)">${k}</div>
+        <div style="flex:1;background:var(--bg3);border-radius:4px;overflow:hidden;height:22px">
+          <div style="width:${pct}%;background:${col};height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;transition:width .4s">
+            <span style="font-size:10px;color:#fff;white-space:nowrap;font-weight:600">${pct>15?fmt2(g.tax)+' zł':''}</span>
+          </div>
         </div>
-      </div>
-      <div style="width:85px;font-size:11px;font-family:var(--mono);text-align:right;color:${col};font-weight:600">${fmt2(g.tax)} zł</div>
-      <div style="width:30px;font-size:11px;color:var(--text3);text-align:right">${g.count}</div>
-    </div>`;
-  }).join('') || '<div style="color:var(--text3);text-align:center;padding:1rem">Brak danych</div>';
+        <div style="width:85px;font-size:11px;font-family:var(--mono);text-align:right;color:${col};font-weight:600">${fmt2(g.tax)} zł</div>
+        <div style="width:30px;font-size:11px;color:var(--text3);text-align:right">${g.count}</div>
+      </div>`;
+    }).join('') || '<div style="color:var(--text3);text-align:center;padding:1rem">Brak danych</div>';
+  }
 
-  // §1 vs §2 pie
+  // §1 vs §2 — Chart.js doughnut + statystyki (fallback: SVG)
   const p1 = total>0?Math.round(oldTax/total*100):0;
   const p2 = 100-p1;
   const oldCount = taxable.length-newCount;
-  document.getElementById('rp-pie').innerHTML = `
-    <div style="display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap">
-      <div style="position:relative;width:120px;height:120px;flex-shrink:0">
-        <svg viewBox="0 0 36 36" style="width:120px;height:120px;transform:rotate(-90deg)">
-          <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--bg3)" stroke-width="3.2"/>
-          <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--blue)" stroke-width="3.2"
-            stroke-dasharray="${p1} ${100-p1}" stroke-dashoffset="0"/>
-          <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--amber)" stroke-width="3.2"
-            stroke-dasharray="${p2} ${100-p2}" stroke-dashoffset="${-p1}"/>
-        </svg>
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${p1}%</div>
-      </div>
-      <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-          <div style="width:14px;height:14px;border-radius:3px;background:var(--blue);flex-shrink:0"></div>
-          <div>
-            <div style="font-weight:600;font-size:13px">§1 — stawka standardowa</div>
-            <div style="font-size:12px;color:var(--text2)">${oldCount} pojazdów · ${fmt2(oldTax)} zł (${p1}%)</div>
-          </div>
+  const pieEl = document.getElementById('rp-pie');
+  if (window.Chart) {
+    pieEl.innerHTML = `
+      <div style="position:relative;height:180px"><canvas id="rp-pie-canvas"></canvas></div>
+      <div style="display:flex;flex-direction:column;gap:7px;margin-top:12px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:12px;height:12px;border-radius:2px;background:#3b82f6;flex-shrink:0"></div>
+          <div style="font-size:12px">§1 standardowa — ${oldCount} poj. · <strong>${fmt2(oldTax)} zł</strong> (${p1}%)</div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-          <div style="width:14px;height:14px;border-radius:3px;background:var(--amber);flex-shrink:0"></div>
-          <div>
-            <div style="font-weight:600;font-size:13px">§2 — stawka obniżona (rok ≥ 2024)</div>
-            <div style="font-size:12px;color:var(--text2)">${newCount} pojazdów · ${fmt2(newTax)} zł (${p2}%)</div>
-          </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:12px;height:12px;border-radius:2px;background:#f59e0b;flex-shrink:0"></div>
+          <div style="font-size:12px">§2 obniżona 2024+ — ${newCount} poj. · <strong>${fmt2(newTax)} zł</strong> (${p2}%)</div>
         </div>
-        <div style="padding:10px;background:var(--green-light);border-radius:var(--radius);border:1px solid #a3c97a">
+        <div style="padding:8px 12px;background:var(--green-light);border-radius:var(--radius);border:1px solid #a3c97a;margin-top:4px">
           <div style="font-size:11px;color:var(--green);font-weight:600">Oszczędność dzięki §2</div>
-          <div style="font-size:16px;font-weight:700;color:var(--green)">${fmt2(newCount*((840-744)+(1128-1008))/2)} zł est.</div>
-          <div style="font-size:10px;color:var(--green)">szacunkowe (śr. różnica stawek)</div>
+          <div style="font-size:15px;font-weight:700;color:var(--green)">${fmt2(newCount*((840-744)+(1128-1008))/2)} zł est.</div>
         </div>
-      </div>
-    </div>`;
+      </div>`;
+    if (window._rpCharts.pie) { window._rpCharts.pie.destroy(); window._rpCharts.pie = null; }
+    window._rpCharts.pie = new Chart(document.getElementById('rp-pie-canvas'), {
+      type: 'doughnut',
+      data: {
+        labels: ['§1 standardowa', '§2 obniżona (2024+)'],
+        datasets: [{ data: [oldTax||0.01, newTax||0.01], backgroundColor: ['#3b82f6','#f59e0b'], borderWidth: 0, hoverOffset: 4 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => '  ' + ctx.label + ': ' + fmt2(ctx.raw) + ' zł' } }
+        },
+        cutout: '65%'
+      }
+    });
+  } else {
+    pieEl.innerHTML = `
+      <div style="display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap">
+        <div style="position:relative;width:120px;height:120px;flex-shrink:0">
+          <svg viewBox="0 0 36 36" style="width:120px;height:120px;transform:rotate(-90deg)">
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--bg3)" stroke-width="3.2"/>
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--blue)" stroke-width="3.2"
+              stroke-dasharray="${p1} ${100-p1}" stroke-dashoffset="0"/>
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--amber)" stroke-width="3.2"
+              stroke-dasharray="${p2} ${100-p2}" stroke-dashoffset="${-p1}"/>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${p1}%</div>
+        </div>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <div style="width:14px;height:14px;border-radius:3px;background:var(--blue);flex-shrink:0"></div>
+            <div>
+              <div style="font-weight:600;font-size:13px">§1 — stawka standardowa</div>
+              <div style="font-size:12px;color:var(--text2)">${oldCount} pojazdów · ${fmt2(oldTax)} zł (${p1}%)</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <div style="width:14px;height:14px;border-radius:3px;background:var(--amber);flex-shrink:0"></div>
+            <div>
+              <div style="font-weight:600;font-size:13px">§2 — stawka obniżona (rok ≥ 2024)</div>
+              <div style="font-size:12px;color:var(--text2)">${newCount} pojazdów · ${fmt2(newTax)} zł (${p2}%)</div>
+            </div>
+          </div>
+          <div style="padding:10px;background:var(--green-light);border-radius:var(--radius);border:1px solid #a3c97a">
+            <div style="font-size:11px;color:var(--green);font-weight:600">Oszczędność dzięki §2</div>
+            <div style="font-size:16px;font-weight:700;color:var(--green)">${fmt2(newCount*((840-744)+(1128-1008))/2)} zł est.</div>
+            <div style="font-size:10px;color:var(--green)">szacunkowe (śr. różnica stawek)</div>
+          </div>
+        </div>
+      </div>`;
+  }
 
   // Harmonogram
   const months = ['Sty','Lut','Mar','Kwi','Maj','Cze','Lip','Sie','Wrz','Paź','Lis','Gru'];

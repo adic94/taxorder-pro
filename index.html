@@ -26,6 +26,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" integrity="sha512-2/YdOMV+YNpanLCF5MdQwaoFRVbTmrJ4u4EpqS/USXAQNUDgI5uwYi6J98WVtJKcfe1AbgerygzDFToxAlOGEQ==" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="style.css">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#3b82f6">
@@ -125,6 +126,20 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <div class="yr-wrap" style="display:flex;align-items:center;gap:8px;margin-left:auto">
     <label style="font-size:12px;color:var(--text2)">Rok:</label>
     <input id="taxYear" type="number" min="2020" max="2035" value="2026" list="taxYear-list" class="yr-sel" onchange="refreshAll()" oninput="if(this.value.length===4&&parseInt(this.value)>=2020)refreshAll()" style="width:68px;text-align:center;font-size:12px;font-weight:600;padding:4px 6px;border-radius:var(--radius);border:1px solid var(--border)"><datalist id="taxYear-list"><option value="2024"><option value="2025"><option value="2026"><option value="2027"></datalist>
+  </div>
+  <!-- Globalna wyszukiwarka -->
+  <div id="gs-wrap" style="position:relative;display:flex;align-items:center">
+    <div style="position:relative">
+      <i class="ti ti-search" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:14px;pointer-events:none"></i>
+      <input id="gs-input" type="search" placeholder="Szukaj pojazdu, kierowcy..." autocomplete="off"
+        style="padding:6px 10px 6px 30px;border:1px solid var(--border);background:var(--bg3);border-radius:var(--radius);font-size:12px;width:210px;outline:none;color:var(--text);transition:border-color .15s"
+        oninput="TaxOrderSearch?.search(this.value)"
+        onfocus="TaxOrderSearch?.show()"
+        onkeydown="if(event.key==='Escape'){TaxOrderSearch?.hide();this.blur()}"
+        onfocusin="this.style.borderColor='var(--blue)'"
+        onfocusout="this.style.borderColor='var(--border)'">
+    </div>
+    <div id="gs-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:320px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:9999;overflow:hidden;max-height:420px;overflow-y:auto"></div>
   </div>
   <div id="i18n-selector" style="display:flex;gap:3px;align-items:center"></div>
   <!-- Dark mode toggle -->
@@ -2778,6 +2793,18 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 </div><!-- /app-body -->
 </div><!-- /app -->
 
+<!-- Pasek akcji masowych — pojawia się gdy zaznaczono pojazdy -->
+<div id="bulk-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:500;background:var(--blue);color:#fff;padding:10px 20px;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 -4px 24px rgba(0,0,0,.25)">
+  <i class="ti ti-checkbox" style="font-size:18px;flex-shrink:0"></i>
+  <span id="bulk-count" style="font-weight:600;font-size:13px;white-space:nowrap;margin-right:4px">0 zaznaczonych</span>
+  <div style="flex:1;display:flex;gap:6px;flex-wrap:wrap">
+    <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35);font-size:12px" onclick="bulkExportSelected()"><i class="ti ti-download"></i>Eksportuj Excel</button>
+    <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35);font-size:12px" onclick="bulkAssignCompany()"><i class="ti ti-building"></i>Przypisz firmę</button>
+    <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35);font-size:12px" onclick="bulkSetTaxMonths()"><i class="ti ti-calendar"></i>Miesiące podatku</button>
+    <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35);font-size:12px" onclick="bulkChangeStatus()"><i class="ti ti-tag"></i>Zmień status</button>
+  </div>
+  <button class="btn" style="background:transparent;color:rgba(255,255,255,.75);border-color:rgba(255,255,255,.3);font-size:12px;flex-shrink:0" onclick="deselAll()"><i class="ti ti-x"></i>Odznacz wszystko</button>
+</div>
 <div class="toast" id="toast"></div>
 
   <script src="modules/i18n.js"></script>
@@ -2831,6 +2858,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/error-tracker.js"></script>
   <script src="modules/etoll-import.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+  <script src="modules/global-search.js"></script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
