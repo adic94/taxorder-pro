@@ -421,13 +421,13 @@ window.TaxOrderNotifSettings = (function () {
             </div>
           </div>
           <div style="display:flex;gap:4px;flex-shrink:0">
-            <button class="btn btn-blue" style="font-size:11px" onclick="TaxOrderNotifSettings._applyTemplate('${t.id}','${t.name}')">
+            <button class="btn btn-blue" style="font-size:11px" data-id="${esc(t.id)}" data-name="${esc(t.name)}" onclick="TaxOrderNotifSettings._applyTemplate(this.dataset.id,this.dataset.name)">
               <i class="ti ti-truck"></i>Przypisz do pojazdów
             </button>
-            <button class="btn btn-gray" style="font-size:11px" onclick="TaxOrderNotifSettings._editTemplate('${t.id}')">
+            <button class="btn btn-gray" style="font-size:11px" data-id="${esc(t.id)}" onclick="TaxOrderNotifSettings._editTemplate(this.dataset.id)">
               <i class="ti ti-pencil"></i>
             </button>
-            <button class="btn btn-gray" style="font-size:11px;color:var(--red)" onclick="TaxOrderNotifSettings._deleteTemplate('${t.id}')">
+            <button class="btn btn-gray" style="font-size:11px;color:var(--red)" data-id="${esc(t.id)}" onclick="TaxOrderNotifSettings._deleteTemplate(this.dataset.id)">
               <i class="ti ti-trash"></i>
             </button>
           </div>
@@ -744,7 +744,7 @@ window.TaxOrderNotifSettings = (function () {
 
     const html = `<div id="apply-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:5001;display:flex;align-items:center;justify-content:center">
       <div style="background:var(--bg);border-radius:var(--radius-lg);width:480px;max-width:95vw;max-height:85vh;overflow-y:auto;padding:24px;box-shadow:0 8px 40px rgba(0,0,0,.25)">
-        <strong style="font-size:15px">Przypisz "${name}" do pojazdów</strong>
+        <strong style="font-size:15px">Przypisz „${esc(name)}" do pojazdów</strong>
         <div style="margin:12px 0;max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);padding:10px">${vehList}</div>
         <div style="display:flex;gap:6px;justify-content:space-between">
           <button class="btn btn-gray" style="font-size:11px" onclick="document.querySelectorAll('.aply-cb').forEach(c=>c.checked=true)">Zaznacz wszystkie</button>
