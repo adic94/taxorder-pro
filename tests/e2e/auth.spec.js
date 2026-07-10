@@ -14,10 +14,11 @@ const WORKER_URL = process.env.PROD_WORKER_URL
 test.describe('Formularz logowania', () => {
 
   test('strona główna wyświetla formularz logowania gdy brak sesji', async ({ page }) => {
-    // Otwórz stronę bez storageState (nowa karta, czysta sesja)
+    // Nawiguj najpierw — localStorage niedostępne na about:blank
+    await page.goto('/');
     await page.context().clearCookies();
     await page.evaluate(() => localStorage.clear());
-    await page.goto('/');
+    await page.reload();
     // Ekran logowania powinien być widoczny
     await expect(page.locator('#login-screen')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('#login-email')).toBeVisible();
@@ -25,9 +26,10 @@ test.describe('Formularz logowania', () => {
   });
 
   test('błędne dane logowania wyświetlają komunikat błędu', async ({ page }) => {
+    await page.goto('/');
     await page.context().clearCookies();
     await page.evaluate(() => localStorage.clear());
-    await page.goto('/');
+    await page.reload();
     await page.waitForSelector('#login-screen', { state: 'visible', timeout: 10_000 });
 
     await page.fill('#login-email', 'nieistniejacy@example.com');
@@ -39,9 +41,10 @@ test.describe('Formularz logowania', () => {
   });
 
   test('puste pola logowania nie przechodzą walidacji', async ({ page }) => {
+    await page.goto('/');
     await page.context().clearCookies();
     await page.evaluate(() => localStorage.clear());
-    await page.goto('/');
+    await page.reload();
     await page.waitForSelector('#login-screen', { state: 'visible', timeout: 10_000 });
 
     await page.fill('#login-email', '');
