@@ -58,6 +58,27 @@ window.TaxOrderNotifications = (function () {
     }
   }
 
+  function _dt1DeadlineAlerts(now) {
+    const yr = now.getFullYear();
+    const deadlines = [
+      { date: `${yr}-02-15`, label: 'I rata DT-1', key: `dt1_rata1_${yr}`, urgent: true },
+      { date: `${yr}-09-15`, label: 'II rata DT-1', key: `dt1_rata2_${yr}`, urgent: false },
+    ];
+    deadlines.forEach(({ date, label, key, urgent }) => {
+      const days = _daysUntil(date);
+      if (days === null || days > 30 || days < 0) return;
+      if (_wasSentToday(key)) return;
+      const dateStr = new Date(date + 'T00:00:00').toLocaleDateString('pl-PL');
+      const icon = urgent ? '🔴' : '🟡';
+      _send(
+        `${icon} Termin płatności: ${label}`,
+        `${dateStr} — za ${days} dni\nPrzygotuj środki na ratę podatku transportowego`,
+        key
+      );
+      _markSent(key);
+    });
+  }
+
   function check() {
     if (!('Notification' in window)) return;
     if (Notification.permission !== 'granted') return;
@@ -65,6 +86,9 @@ window.TaxOrderNotifications = (function () {
     const vehs = window.vehs || [];
     const now = new Date();
     _cleanup();
+
+    // Alerty terminów płatności DT-1
+    _dt1DeadlineAlerts(now);
 
     let sent = 0;
     vehs.forEach(v => {

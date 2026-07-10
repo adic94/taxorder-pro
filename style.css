@@ -538,3 +538,19 @@ td{transition:background .1s}
 #dash-quick-actions .btn{transition:all .15s}
 #dash-quick-actions .btn-gray:hover{background:var(--bg3);border-color:var(--blue);color:var(--blue)}
 #dash-quick-actions .btn-blue:hover{box-shadow:0 2px 8px rgba(24,95,165,.3)}
+
+/* --- Skeleton screens — animowane szare prostokąty podczas ładowania --- */
+@keyframes sk-pulse{0%,100%{opacity:.45}50%{opacity:.85}}
+.sk{background:var(--border);border-radius:4px;display:inline-block;animation:sk-pulse 1.5s ease-in-out infinite}
+.sk-row td{padding:8px 12px}
+.sk-line{height:12px;border-radius:3px;background:var(--border);display:block;animation:sk-pulse 1.5s ease-in-out infinite}
+.sk-line+.sk-line{margin-top:6px}
+.sk-circle{border-radius:50%;background:var(--border);animation:sk-pulse 1.5s ease-in-out infinite;flex-shrink:0}
+
+/* --- Budget/TCO page --- */
+.budp-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 22px}
+.budp-prog{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;margin-top:6px}
+.budp-prog-fill{height:100%;border-radius:4px;transition:width .5s}
+
+/* --- Keyboard shortcut badge --- */
+kbd{background:var(--bg2);border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;padding:2px 7px;font-size:11px;font-family:var(--mono);font-weight:700;color:var(--text)}

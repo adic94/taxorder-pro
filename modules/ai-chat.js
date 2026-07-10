@@ -1,10 +1,53 @@
 /**
  * TaxOrder Pro — AI Chat
  * Komunikacja z /api/ai/chat (Cloudflare Worker → Groq API)
+ * Historia persystowana w localStorage, kontekst bieżącego pojazdu, szybkie pytania
  */
 (function () {
   const API = (window.CF_API_URL || '').replace(/\/$/, '');
+  const HIST_KEY = 'taxorder-ai-history';
   let _history = [];
+
+  function _saveHistory() {
+    try { localStorage.setItem(HIST_KEY, JSON.stringify(_history.slice(-20))); } catch {}
+  }
+
+  function _loadHistory() {
+    try { _history = JSON.parse(localStorage.getItem(HIST_KEY)) || []; } catch { _history = []; }
+  }
+
+  function _vehicleContext() {
+    // Pobiera aktywny pojazd z VehicleDetail jeśli otwarty
+    const activeId = window.TaxOrderVehicleDetail?._currentId;
+    if (!activeId) return null;
+    const v = (window.vehs||[]).find(x => x.id === activeId);
+    if (!v) return null;
+    const tax = typeof calcTax === 'function' ? calcTax(v) : {};
+    return `Bieżący pojazd: ${v.nrRej} | ${v.marka} ${v.model} ${v.rok||''} | DMC: ${v.dmc??v.dmcMax??'?'} kg | Typ: ${v.typ||'?'} | Kat.DT-1: ${tax.cat||'brak'} | Podatek: ${tax.amount?Math.round(tax.amount)+' zł':'—'} | Kierowca: ${v.kierowca||'—'}`;
+  }
+
+  function _renderQuickQuestions() {
+    const el = document.getElementById('ai-quick-questions');
+    if (!el) return;
+    const activeId = window.TaxOrderVehicleDetail?._currentId;
+    const v = activeId ? (window.vehs||[]).find(x => x.id === activeId) : null;
+    const vehs = window.vehs || [];
+    const questions = v ? [
+      `Ile wynosi podatek DT-1 za ${v.nrRej} (${v.marka} ${v.model}, DMC ${v.dmc??v.dmcMax??'?'} kg)?`,
+      `Do której kategorii DT-1 należy ${v.nrRej}?`,
+      `Kiedy należy odnowić OC dla ${v.nrRej}?`,
+      `Jaki jest szacunkowy TCO dla ${v.nrRej} w bieżącym roku?`,
+    ] : [
+      `Ile mamy pojazdów z kategorią D9?`,
+      `Jaki jest łączny podatek DT-1 mojej floty na ${new Date().getFullYear()}?`,
+      `Które pojazdy płacą wyższy podatek §1?`,
+      `Ile zapłacimy I ratę DT-1 w lutym?`,
+      `Jakie są stawki podatku dla pojazdów powyżej 12 ton?`,
+    ];
+    el.innerHTML = questions.map(q =>
+      `<button class="ai-example" onclick="aiAsk(this)" style="text-align:left;font-size:11px">${esc(q)}</button>`
+    ).join('');
+  }
 
   function _token() { return localStorage.getItem('cf_token'); }
 
@@ -113,6 +156,10 @@
     _addMsg('user', message);
     _setLoading(true);
 
+    const vehCtx = _vehicleContext();
+    const fleetCtx = _fleetSummary();
+    const combinedCtx = [vehCtx, fleetCtx].filter(Boolean).join(' || ') || null;
+
     try {
       const resp = await fetch(API + '/api/ai/chat', {
         method: 'POST',
@@ -122,7 +169,7 @@
         },
         body: JSON.stringify({
           message,
-          fleetSummary: _fleetSummary(),
+          fleetSummary: combinedCtx,
           history: _history,
         }),
       });
@@ -134,7 +181,8 @@
       _addMsg('assistant', answer);
       _history.push({ role: 'user', content: message });
       _history.push({ role: 'assistant', content: answer });
-      if (_history.length > 12) _history = _history.slice(-12);
+      if (_history.length > 20) _history = _history.slice(-20);
+      _saveHistory();
 
     } catch (e) {
       _addMsg('assistant', '⚠ Błąd: ' + e.message);
@@ -144,6 +192,12 @@
     }
   };
 
+  // Wyślij z gotowego przycisku szybkiego pytania
+  window.aiAsk = function (btn) {
+    const input = document.getElementById('ai-input');
+    if (input) { input.value = btn.textContent.trim(); window.aiSend(); }
+  };
+
   window.aiExample = function (btn) {
     const input = document.getElementById('ai-input');
     if (input) { input.value = btn.textContent.trim(); input.focus(); }
@@ -151,13 +205,24 @@
 
   window.aiClear = function () {
     _history = [];
+    _saveHistory();
     const container = document.getElementById('ai-messages');
     if (!container) return;
     container.innerHTML = '';
     _addMsg('assistant', 'Rozmowa wyczyszczona. Jak mogę pomóc?');
   };
 
-  // Enter wysyła, Shift+Enter = nowa linia (DOM jest już gotowy gdy skrypt się wykonuje)
+  // Załaduj historię i odtwórz wiadomości
+  function _restoreHistory() {
+    _loadHistory();
+    if (!_history.length) return;
+    const container = document.getElementById('ai-messages');
+    if (!container) return;
+    // Wstaw historię za powitaniem
+    _history.forEach(m => { if (m.role && m.content) _addMsg(m.role === 'user' ? 'user' : 'assistant', m.content); });
+  }
+
+  // Enter wysyła, Shift+Enter = nowa linia
   const _input = document.getElementById('ai-input');
   if (_input) {
     _input.addEventListener('keydown', e => {
@@ -168,5 +233,14 @@
     });
   }
 
-  console.log('[AI Chat] Moduł załadowany');
+  // Odśwież szybkie pytania przy otwarciu strony
+  document.addEventListener('taxorder-page-change', e => {
+    if (e.detail?.page === 'ai') _renderQuickQuestions();
+  });
+
+  // Init
+  _restoreHistory();
+  _renderQuickQuestions();
+
+  console.log('[AI Chat] Moduł załadowany, historia: ' + _history.length + ' wiadomości');
 })();

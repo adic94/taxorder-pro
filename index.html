@@ -198,6 +198,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <button class="tnb" id="tnb-ocr" onclick="showPage('ocr')"><i class="ti ti-scan"></i><span data-i18n="nav.ocr">OCR Dowodów</span></button>
   <button class="tnb" id="tnb-pdfexport" onclick="showPage('pdfexport')"><i class="ti ti-file-type-pdf"></i><span data-i18n="nav.pdfexport">Eksport PDF</span></button>
   <button class="tnb" id="tnb-raporty" onclick="showPage('raporty')"><i class="ti ti-chart-line"></i><span data-i18n="nav.raporty">Raporty</span></button>
+  <button class="tnb" id="tnb-budzet" onclick="showPage('budzet')"><i class="ti ti-wallet"></i><span>Budżet / TCO</span></button>
 
   <div class="sidebar-label">Podatki</div>
   <button class="tnb" id="tnb-kalkulator" onclick="showPage('kalkulator')"><i class="ti ti-calculator"></i><span data-i18n="nav.kalkulator">Kalkulator DT-1</span></button>
@@ -559,7 +560,13 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <div class="tbl-wrap" id="fleet-tbl-wrap">
     <table>
       <thead id="veh-thead"></thead>
-      <tbody id="veh-tbody"></tbody>
+      <tbody id="veh-tbody">
+        <tr class="sk-row"><td><div class="sk-circle" style="width:16px;height:16px"></div></td><td><span class="sk" style="width:72px;height:13px"></span></td><td><span class="sk" style="width:55px;height:13px"></span><span class="sk" style="width:40px;height:13px;margin-left:6px"></span></td><td><span class="sk" style="width:30px;height:13px"></span></td><td><span class="sk" style="width:48px;height:13px"></span></td><td><span class="sk" style="width:60px;height:13px"></span></td><td colspan="6"><span class="sk" style="width:90px;height:13px"></span></td></tr>
+        <tr class="sk-row"><td><div class="sk-circle" style="width:16px;height:16px"></div></td><td><span class="sk" style="width:80px;height:13px"></span></td><td><span class="sk" style="width:62px;height:13px"></span><span class="sk" style="width:35px;height:13px;margin-left:6px"></span></td><td><span class="sk" style="width:28px;height:13px"></span></td><td><span class="sk" style="width:52px;height:13px"></span></td><td><span class="sk" style="width:55px;height:13px"></span></td><td colspan="6"><span class="sk" style="width:75px;height:13px"></span></td></tr>
+        <tr class="sk-row"><td><div class="sk-circle" style="width:16px;height:16px"></div></td><td><span class="sk" style="width:65px;height:13px"></span></td><td><span class="sk" style="width:50px;height:13px"></span><span class="sk" style="width:45px;height:13px;margin-left:6px"></span></td><td><span class="sk" style="width:33px;height:13px"></span></td><td><span class="sk" style="width:44px;height:13px"></span></td><td><span class="sk" style="width:65px;height:13px"></span></td><td colspan="6"><span class="sk" style="width:80px;height:13px"></span></td></tr>
+        <tr class="sk-row"><td><div class="sk-circle" style="width:16px;height:16px"></div></td><td><span class="sk" style="width:78px;height:13px"></span></td><td><span class="sk" style="width:58px;height:13px"></span><span class="sk" style="width:38px;height:13px;margin-left:6px"></span></td><td><span class="sk" style="width:26px;height:13px"></span></td><td><span class="sk" style="width:56px;height:13px"></span></td><td><span class="sk" style="width:48px;height:13px"></span></td><td colspan="6"><span class="sk" style="width:88px;height:13px"></span></td></tr>
+        <tr class="sk-row"><td><div class="sk-circle" style="width:16px;height:16px"></div></td><td><span class="sk" style="width:70px;height:13px"></span></td><td><span class="sk" style="width:53px;height:13px"></span><span class="sk" style="width:42px;height:13px;margin-left:6px"></span></td><td><span class="sk" style="width:32px;height:13px"></span></td><td><span class="sk" style="width:50px;height:13px"></span></td><td><span class="sk" style="width:60px;height:13px"></span></td><td colspan="6"><span class="sk" style="width:85px;height:13px"></span></td></tr>
+      </tbody>
     </table>
   </div>
   <!-- Widok kart flotowych -->
@@ -2743,6 +2750,55 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 </div>
 
 <!-- ==================== AI ASYSTENT ==================== -->
+<!-- ==================== BUDŻET / TCO ==================== -->
+<div class="page" id="page-budzet">
+  <div class="pg-title"><i class="ti ti-wallet"></i>Budżet flotowy &amp; TCO</div>
+  <div class="pg-sub">Plan vs wykonanie, całkowity koszt posiadania (TCO) per pojazd, prognoza roczna</div>
+
+  <div class="toolbar" style="margin-bottom:1.5rem">
+    <select id="budp-year" onchange="TaxOrderBudget?.render()">
+      <option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option>
+    </select>
+    <select id="budp-company" onchange="TaxOrderBudget?.render()">
+      <option value="">Cała flota</option>
+      <option value="mToilet">mToilet</option>
+      <option value="GCON">GCON</option>
+      <option value="KJR Supply">KJR Supply</option>
+    </select>
+    <button class="btn btn-green" onclick="TaxOrderBudget?.exportExcel()"><i class="ti ti-download"></i>Eksport TCO Excel</button>
+    <button class="btn btn-gray" onclick="TaxOrderBudget?.render()"><i class="ti ti-refresh"></i>Odśwież</button>
+  </div>
+
+  <!-- KPI -->
+  <div class="stats" id="budp-kpi" style="grid-template-columns:repeat(5,1fr);margin-bottom:1.5rem"></div>
+
+  <!-- Budżet plan vs wykonanie -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem">
+    <div class="budp-card">
+      <div style="font-weight:700;font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+        <i class="ti ti-target" style="color:var(--blue)"></i>Plan vs Wykonanie
+        <button class="btn btn-gray" style="margin-left:auto;font-size:11px;padding:3px 10px" onclick="TaxOrderBudget?.savePlan()"><i class="ti ti-check"></i>Zapisz plan</button>
+      </div>
+      <div id="budp-plan"></div>
+    </div>
+    <!-- Prognoza roczna -->
+    <div class="budp-card">
+      <div style="font-weight:700;font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+        <i class="ti ti-trending-up" style="color:var(--green)"></i>Prognoza na koniec roku
+      </div>
+      <div id="budp-forecast"></div>
+    </div>
+  </div>
+
+  <!-- TCO Top 10 per pojazd -->
+  <div>
+    <div style="font-weight:700;font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <i class="ti ti-podium" style="color:var(--amber)"></i>Top 15 pojazdów wg całkowitego kosztu (TCO)
+    </div>
+    <div class="tbl-wrap" id="budp-tco"></div>
+  </div>
+</div>
+
 <div class="page" id="page-ai">
   <div class="pg-title"><i class="ti ti-robot"></i>Asystent AI</div>
   <div class="pg-sub">Zadaj pytanie o podatek DT-1, stawki, pojazdy — AI odpowiada w kontekście Twojej floty</div>
@@ -2773,18 +2829,25 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
         <div style="font-size:12px;color:var(--text2)">AI dostaje podsumowanie Twojej floty — liczbę pojazdów, marki, kategorie DT-1.</div>
       </div>
 
+      <!-- Kontekst bieżącego pojazdu -->
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem">
-        <div style="font-size:13px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:6px"><i class="ti ti-bulb" style="color:var(--amber)"></i>Przykłady pytań</div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          <button class="ai-example" onclick="aiExample(this)">Ile wynosi podatek za Mercedes Atego 9,5t z 2022 roku?</button>
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+          <i class="ti ti-truck" style="color:var(--blue)"></i>Szybkie pytania
+          <span style="font-size:10px;color:var(--text3);font-weight:400;margin-left:4px">(kontekst floty lub pojazdu)</span>
+        </div>
+        <div id="ai-quick-questions" style="display:flex;flex-direction:column;gap:6px">
+          <button class="ai-example" onclick="aiExample(this)">Jaki jest łączny podatek mojej floty?</button>
+          <button class="ai-example" onclick="aiExample(this)">Ile zapłacimy I ratę DT-1 w lutym?</button>
+          <button class="ai-example" onclick="aiExample(this)">Które pojazdy płacą wyższy podatek §1?</button>
           <button class="ai-example" onclick="aiExample(this)">Do której kategorii DT-1 należy przyczepa 14t?</button>
           <button class="ai-example" onclick="aiExample(this)">Kiedy trzeba złożyć deklarację DT-1?</button>
-          <button class="ai-example" onclick="aiExample(this)">Ile mamy pojazdów z kategorią D9?</button>
-          <button class="ai-example" onclick="aiExample(this)">Jaki jest łączny podatek mojej floty?</button>
         </div>
       </div>
 
-      <button onclick="aiClear()" class="btn btn-gray" style="width:100%;justify-content:center"><i class="ti ti-trash"></i>Wyczyść rozmowę</button>
+      <div style="display:flex;gap:6px">
+        <button onclick="aiClear()" class="btn btn-gray" style="flex:1;justify-content:center"><i class="ti ti-trash"></i>Wyczyść</button>
+        <button onclick="if(window.TaxOrderShortcuts)window.TaxOrderShortcuts.showCheatSheet()" class="btn btn-gray" style="flex:1;justify-content:center" title="Skróty klawiszowe"><i class="ti ti-keyboard"></i>Skróty</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2859,6 +2922,8 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/etoll-import.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
   <script src="modules/global-search.js"></script>
+  <script src="modules/keyboard-shortcuts.js"></script>
+  <script src="modules/budget.js"></script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
