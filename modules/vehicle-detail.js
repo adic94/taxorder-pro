@@ -888,7 +888,7 @@ window.TaxOrderVehicleDetail = {
 
     // Statystyki
     const now = new Date();
-    const thisMonth = now.toISOString().slice(0,7);
+    const thisMonth = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
     const thisYear  = now.getFullYear().toString();
 
     const monthFuel   = history.filter(h => (h.date||'').startsWith(thisMonth));

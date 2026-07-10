@@ -1339,7 +1339,7 @@ function renderFuelDash() {
   const el = document.getElementById('dash-fuel');
   if (!el) return;
   const now = new Date();
-  const thisMonth = now.toISOString().slice(0,7);
+  const thisMonth = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
 
   const stats = vehs
     .filter(v => Array.isArray(v.fuelHistory) && v.fuelHistory.length)
@@ -1367,7 +1367,7 @@ function renderFuelDash() {
   const totalLiters = stats.reduce((s,x)=>s+x.liters,0);
   const totalCO2    = window.FuelImport?.getFleetCO2 ? window.FuelImport.getFleetCO2(thisMonth) : 0;
   const co2Label    = totalCO2 >= 1000 ? `${(totalCO2/1000).toFixed(2)} t` : `${totalCO2.toFixed(0)} kg`;
-  const prevMonth   = new Date(now.getFullYear(), now.getMonth()-1, 1).toISOString().slice(0,7);
+  const prevMonth   = (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))(new Date(now.getFullYear(), now.getMonth()-1, 1));
   const prevCO2     = window.FuelImport?.getFleetCO2 ? window.FuelImport.getFleetCO2(prevMonth) : 0;
   const co2Trend    = prevCO2 > 0 ? ((totalCO2 - prevCO2) / prevCO2 * 100) : null;
   const co2TrendStr = co2Trend != null ? `<span style="font-size:10px;color:${co2Trend<=0?'var(--green)':'var(--red)'}">${co2Trend>0?'↑':'↓'}${Math.abs(co2Trend).toFixed(0)}% vs poprzedni mies.</span>` : '';
@@ -1405,7 +1405,7 @@ function exportPaliwoCSV() {
   const mSel = document.getElementById('paliwo-month-sel');
   const vSel = document.getElementById('paliwo-veh-sel');
   const fSel = document.getElementById('paliwo-fuel-sel');
-  const selMonth = mSel?.value || new Date().toISOString().slice(0, 7);
+  const selMonth = mSel?.value || (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))(new Date());
   const selVeh   = vSel?.value || '';
   const selFuel  = fSel?.value || '';
 
@@ -1460,7 +1460,7 @@ function renderPaliwoPage() {
     const opts = [];
     for (let i = 0; i < 18; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const val = d.toISOString().slice(0, 7);
+      const val = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
       const label = d.toLocaleDateString('pl-PL', { year: 'numeric', month: 'long' });
       opts.push(`<option value="${val}"${i === 0 ? ' selected' : ''}>${label}</option>`);
     }
@@ -1477,7 +1477,7 @@ function renderPaliwoPage() {
     if (prev) vSel.value = prev;
   }
 
-  const selMonth = mSel?.value || now.toISOString().slice(0, 7);
+  const selMonth = mSel?.value || now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   const selVeh   = vSel?.value || '';
   const selFuel  = document.getElementById('paliwo-fuel-sel')?.value || '';
 
@@ -1640,7 +1640,7 @@ function renderPaliwoPage() {
     const months = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      months.push(d.toISOString().slice(0, 7));
+      months.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));
     }
     const mCosts = months.map(m => {
       let c = 0;

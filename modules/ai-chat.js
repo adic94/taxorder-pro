@@ -37,7 +37,7 @@
     }).length;
 
     // Koszty paliwa bieżący miesiąc
-    const thisMonth = new Date().toISOString().slice(0,7);
+    const thisMonth = (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))(new Date());
     let fuelCostM = 0, fuelLitersM = 0, fuelVehsM = 0;
     vehs.forEach(v => {
       const mh = (v.fuelHistory||[]).filter(h=>(h.date||'').startsWith(thisMonth));

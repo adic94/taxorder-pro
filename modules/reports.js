@@ -527,7 +527,7 @@ window.FleetReports = (function () {
 
     const now = new Date();
     const curYr = now.getFullYear();
-    const curMo = now.toISOString().slice(0,7);
+    const curMo = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
 
     el.innerHTML = `
       <!-- Selektor okresu -->

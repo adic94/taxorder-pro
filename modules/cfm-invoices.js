@@ -70,7 +70,7 @@ window.TaxOrderCfmInvoices = (function () {
     if (extSel) extSel.innerHTML = (window.TaxOrderCfmClients?.getAll() || []).map(cl => `<option value="${esc(cl.id)}">${esc(cl.nazwa)}</option>`).join('');
     document.getElementById('cfmg-client-type').value = 'COMPANY';
     _toggleGenClientType();
-    document.getElementById('cfmg-okres').value = new Date().toISOString().slice(0, 7);
+    document.getElementById('cfmg-okres').value = (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))(new Date());
     document.getElementById('cfm-generate-modal').classList.remove('hidden');
   }
   function closeGenerateModal() { document.getElementById('cfm-generate-modal').classList.add('hidden'); }
