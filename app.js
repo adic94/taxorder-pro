@@ -3490,7 +3490,7 @@ function runValidation() {
 
   // --- UBEZPIECZENIA I BADANIA TECHNICZNE (cała flota) ---
   const allFleet = vehs.filter(v => v.is_active !== false);
-  const _daysDiff = dateStr => { if(!dateStr) return null; const d=new Date(dateStr)-new Date(); return Math.round(d/86400000); };
+  const _daysDiff = dateStr => { if(!dateStr) return null; const d=new Date(dateStr.includes('T')?dateStr:dateStr+'T00:00:00'); if(isNaN(d)) return null; const t=new Date(); t.setHours(0,0,0,0); return Math.round((d-t)/86400000); };
   allFleet.forEach(v => {
     const checks = [
       { label:'OC', date: v.ocEnd,           code: 'OC' },
