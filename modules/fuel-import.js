@@ -368,7 +368,7 @@ window.FuelImport = (function () {
         <div class="vdfg" style="margin-bottom:14px">
           <div class="vdf">
             <label class="vdl">Data *</label>
-            <input id="_fuel-date" type="date" class="fi" value="${new Date().toISOString().slice(0,10)}">
+            <input id="_fuel-date" type="date" class="fi" value="${(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date())}">
           </div>
           <div class="vdf">
             <label class="vdl">Godzina</label>
