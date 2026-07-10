@@ -1,0 +1,26 @@
+{
+  "editor.formatOnSave": false,
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "files.eol": "\n",
+  "eslint.validate": ["javascript"],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "never"
+  },
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/.wrangler": true,
+    "**/taxorder-pro/": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.wrangler": true,
+    "**/taxorder-pro/": true,
+    "**/tests/results": true
+  },
+  "github-actions.org-secrets.enabled": false,
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.integrated.env.windows": {
+    "Path": "C:\\Users\\acichocki\\node\\node-v24.16.0-win-x64;${env:Path}"
+  }
+}

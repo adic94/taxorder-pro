@@ -3,8 +3,8 @@
 Thumbs.db
 
 # IDE
-.vscode/
 .idea/
+.vscode/mcp.json
 *.swp
 *.swo
 *~

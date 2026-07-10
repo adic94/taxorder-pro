@@ -2,97 +2,91 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "npm: install",
+      "label": "test:e2e",
       "type": "shell",
       "command": "npm",
-      "args": ["install"],
+      "args": ["run", "test:e2e"],
       "problemMatcher": [],
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      }
+      "group": "test"
     },
     {
-      "label": "npm: dev",
+      "label": "test:api",
       "type": "shell",
       "command": "npm",
-      "args": ["run", "dev"],
-      "isBackground": true,
-      "problemMatcher": {
-        "pattern": {
-          "regexp": "^.*$",
-          "file": 1,
-          "location": 2,
-          "message": 3
-        },
-        "background": {
-          "activeOnStart": true,
-          "beginsPattern": "^.*starting dev server.*",
-          "endsPattern": "^.*ready in.*"
-        }
-      }
+      "args": ["run", "test:api"],
+      "problemMatcher": [],
+      "group": "test"
     },
     {
-      "label": "npm: build",
-      "type": "shell",
-      "command": "npm",
-      "args": ["run", "build"],
-      "problemMatcher": []
-    },
-    {
-      "label": "npm: test",
-      "type": "shell",
-      "command": "npm",
-      "args": ["test"],
-      "problemMatcher": []
-    },
-    {
-      "label": "npm: lint",
+      "label": "lint",
       "type": "shell",
       "command": "npm",
       "args": ["run", "lint"],
-      "problemMatcher": []
+      "problemMatcher": ["$eslint-stylish"],
+      "group": "build"
     },
     {
-      "label": "wrangler: dev",
+      "label": "audit:all",
       "type": "shell",
-      "command": "npx",
-      "args": ["wrangler", "dev"],
+      "command": "npm",
+      "args": ["run", "audit:all"],
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "serve (lokalny http-server)",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "serve"],
       "isBackground": true,
       "problemMatcher": {
-        "pattern": {
-          "regexp": "^.*$",
-          "file": 1,
-          "location": 2,
-          "message": 3
-        },
+        "pattern": { "regexp": "^(.*)$", "message": 1 },
         "background": {
           "activeOnStart": true,
-          "beginsPattern": "^.*starting.*",
-          "endsPattern": "^.*ready.*"
+          "beginsPattern": "Starting up",
+          "endsPattern": "Hit CTRL-C"
         }
       }
     },
     {
       "label": "wrangler: deploy",
       "type": "shell",
-      "command": "npx",
-      "args": ["wrangler", "deploy"],
-      "problemMatcher": []
+      "command": "node_modules\\.bin\\wrangler.cmd",
+      "args": ["deploy"],
+      "problemMatcher": [],
+      "options": {
+        "env": {
+          "Path": "C:\\Users\\acichocki\\node\\node-v24.16.0-win-x64;${env:Path}"
+        }
+      }
     },
     {
-      "label": "Python: Install OCR dependencies",
+      "label": "wrangler: dev (lokalny Worker)",
       "type": "shell",
-      "command": "pip",
-      "args": ["install", "-r", "ocr-service/requirements.txt"],
-      "problemMatcher": []
+      "command": "node_modules\\.bin\\wrangler.cmd",
+      "args": ["dev"],
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": { "regexp": "^(.*)$", "message": 1 },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Starting local server",
+          "endsPattern": "Ready on"
+        }
+      },
+      "options": {
+        "env": {
+          "Path": "C:\\Users\\acichocki\\node\\node-v24.16.0-win-x64;${env:Path}"
+        }
+      }
     },
     {
-      "label": "Git: Clone TaxOrder Pro",
+      "label": "syntax-check",
       "type": "shell",
-      "command": "git",
-      "args": ["clone", "https://github.com/adic94/taxorder-pro.git"],
-      "problemMatcher": []
+      "command": "npm",
+      "args": ["run", "syntax-check"],
+      "problemMatcher": [],
+      "group": "build"
     }
   ]
 }
