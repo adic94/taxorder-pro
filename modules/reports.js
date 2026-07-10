@@ -90,9 +90,9 @@ window.FleetReports = (function () {
               const fuels = Object.entries(r.fuelBreakdown).map(([k,v2]) => `${k}: ${fmt1(v2)}l`).join(', ');
               const pct   = (r.co2 / totCo2 * 100).toFixed(1);
               return `<tr>
-                <td style="font-weight:700;font-family:var(--mono)">${r.v.nrRej}</td>
-                <td>${r.v.marka} ${r.v.model}</td>
-                <td style="font-size:10px;color:var(--text2)">${fuels}</td>
+                <td style="font-weight:700;font-family:var(--mono)">${esc(r.v.nrRej)}</td>
+                <td>${esc(r.v.marka)} ${esc(r.v.model)}</td>
+                <td style="font-size:10px;color:var(--text2)">${esc(fuels)}</td>
                 <td style="text-align:right;font-family:var(--mono)">${fmt1(r.liters)}</td>
                 <td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt1(r.co2)}</td>
                 <td style="text-align:right;font-family:var(--mono)">${fmt3(r.co2/1000)}</td>
@@ -238,8 +238,8 @@ window.FleetReports = (function () {
             ${rows.map(r => {
               const w = (r.total/maxTotal*100).toFixed(1);
               return `<tr>
-                <td style="font-weight:700;font-family:var(--mono)">${r.v.nrRej}</td>
-                <td style="font-size:11px">${r.v.marka} ${r.v.model} <span style="color:var(--text3)">${r.v.rok||''}</span></td>
+                <td style="font-weight:700;font-family:var(--mono)">${esc(r.v.nrRej)}</td>
+                <td style="font-size:11px">${esc(r.v.marka)} ${esc(r.v.model)} <span style="color:var(--text3)">${r.v.rok||''}</span></td>
                 <td style="text-align:right;font-family:var(--mono);color:var(--orange)">${r.fuel?fmt(r.fuel):'—'}</td>
                 <td style="text-align:right;font-family:var(--mono);color:var(--red)">${r.svc?fmt(r.svc):'—'}</td>
                 <td style="text-align:right;font-family:var(--mono);color:var(--green)">${r.ins?fmt(r.ins):'—'}</td>
@@ -353,11 +353,11 @@ window.FleetReports = (function () {
               const rowBg = n!=null&&n<0?'background:#fef2f2' : n!=null&&n<=30?'background:#fff7ed' : '';
               const typeColor = p.type==='OC'?'var(--green)':p.type==='AC'?'var(--blue)':'var(--text2)';
               return `<tr style="${rowBg}">
-                <td style="font-weight:700;font-family:var(--mono)">${p.nrRej}</td>
-                <td style="font-size:11px;color:var(--text2)">${p.marka} ${p.model}</td>
+                <td style="font-weight:700;font-family:var(--mono)">${esc(p.nrRej)}</td>
+                <td style="font-size:11px;color:var(--text2)">${esc(p.marka)} ${esc(p.model)}</td>
                 <td style="text-align:center"><span style="font-size:10px;font-weight:700;color:${typeColor};background:var(--bg3);border-radius:4px;padding:1px 6px">${p.type}</span></td>
-                <td style="font-weight:${p.insurer?500:400}">${p.insurer||'<span style="color:var(--text3)">—</span>'}</td>
-                <td style="font-family:var(--mono);font-size:10px;color:var(--text2)">${p.policyNo||'—'}</td>
+                <td style="font-weight:${p.insurer?500:400}">${p.insurer ? esc(p.insurer) : '<span style="color:var(--text3)">—</span>'}</td>
+                <td style="font-family:var(--mono);font-size:10px;color:var(--text2)">${esc(p.policyNo||'—')}</td>
                 <td>${pill(p.endDate)}</td>
                 <td style="text-align:right;font-family:var(--mono)">${fmt(p.premium)}</td>
               </tr>`;
@@ -374,7 +374,7 @@ window.FleetReports = (function () {
             <i class="ti ti-alert-triangle"></i> ${noOC.length} pojazd${noOC.length>1?'ów':''} bez polisy OC:
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:6px">
-            ${noOC.map(v=>`<span style="font-family:var(--mono);font-size:11px;background:#fff;border:1px solid #fca5a5;border-radius:4px;padding:2px 8px;font-weight:600">${v.nrRej}</span>`).join('')}
+            ${noOC.map(v=>`<span style="font-family:var(--mono);font-size:11px;background:#fff;border:1px solid #fca5a5;border-radius:4px;padding:2px 8px;font-weight:600">${esc(v.nrRej)}</span>`).join('')}
           </div>
         </div>`;
       })()}`;
@@ -444,15 +444,15 @@ window.FleetReports = (function () {
 
     const renewalRows = soon30.map(r => `
       <tr>
-        <td>${r.nrRej}</td><td>${r.type}</td>
+        <td>${esc(r.nrRej)}</td><td>${esc(r.type)}</td>
         <td style="color:${r.days<=7?'#e53e3e':'#dd6b20'};font-weight:600">${r.days} dni</td>
         <td>${r.end}</td>
       </tr>`).join('') || '<tr><td colspan="4" style="color:#48bb78;text-align:center">Brak wymagających odnowienia</td></tr>';
 
     const top5Rows = top5.map((r,i) => `
       <tr>
-        <td>${i+1}. ${r.nrRej}</td>
-        <td>${r.marka} ${r.model}</td>
+        <td>${i+1}. ${esc(r.nrRej)}</td>
+        <td>${esc(r.marka)} ${esc(r.model)}</td>
         <td style="text-align:right">${fmt(r.fuel)}</td>
         <td style="text-align:right">${fmt(r.svc)}</td>
         <td style="text-align:right;font-weight:700">${fmt(r.total)}</td>
@@ -650,8 +650,8 @@ window.FleetReports = (function () {
         <tbody>
           ${rows.map(r=>`
             <tr style="cursor:pointer" onclick="TaxOrderVehicleDetail.open(${r.v.id})">
-              <td style="font-family:var(--mono);font-weight:700">${r.v.nrRej}</td>
-              <td>${r.v.marka} ${r.v.model}</td>
+              <td style="font-family:var(--mono);font-weight:700">${esc(r.v.nrRej)}</td>
+              <td>${esc(r.v.marka)} ${esc(r.v.model)}</td>
               <td style="font-family:var(--mono)">${r.v.rok||'—'}</td>
               <td style="text-align:right;font-family:var(--mono)">${r.fuel?_fmt2(r.fuel):'-'}</td>
               <td style="text-align:right;font-family:var(--mono)">${r.fuelL?r.fuelL.toFixed(1):'-'}</td>
@@ -808,9 +808,9 @@ window.FleetReports = (function () {
           <th>Następna data</th><th></th>
         </tr></thead>
         <tbody>${rows.map(({ v, item, curKm, kmLeft }) => `<tr>
-          <td style="font-family:var(--mono);font-weight:700">${v.nrRej || '—'}</td>
-          <td style="color:var(--text2)">${v.marka || ''} ${v.model || ''}</td>
-          <td>${item.label || 'Serwis'}</td>
+          <td style="font-family:var(--mono);font-weight:700">${esc(v.nrRej || '—')}</td>
+          <td style="color:var(--text2)">${esc(v.marka || '')} ${esc(v.model || '')}</td>
+          <td>${esc(item.label || 'Serwis')}</td>
           <td style="text-align:right;font-family:var(--mono)">${curKm != null ? curKm.toLocaleString('pl-PL') : '—'}</td>
           <td style="text-align:right;font-family:var(--mono)">${item.nextKm != null ? Number(item.nextKm).toLocaleString('pl-PL') : '—'}</td>
           <td>${_badge(kmLeft)}</td>
@@ -1096,7 +1096,7 @@ window.FleetReports = (function () {
                     <div style="width:${barW}%;height:100%;background:var(--blue);border-radius:4px"></div>
                   </div>
                 </td>
-                <td style="text-align:center;padding:4px 8px;font-size:10px;color:var(--text2)">${[...r.vehs].join(', ')}</td>
+                <td style="text-align:center;padding:4px 8px;font-size:10px;color:var(--text2)">${[...r.vehs].map(v=>esc(v)).join(', ')}</td>
               </tr>`;
             }).join('')}
           </tbody>
