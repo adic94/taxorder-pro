@@ -187,7 +187,7 @@ function showPage(id) {
 
 // ==================== POJAZDY ====================
 function _hasExpiryAlert(v) {
-  const now = new Date(), W = 60 * 86400000;
+  const now = new Date(); now.setHours(0,0,0,0); const W = 60 * 86400000;
   return [v.ocEnd, v.acEnd, v.nextInspection,
     ...(v.hasUdt && v.udtNextDate ? [v.udtNextDate] : []),
     ...(v.hasTacho && v.tachoNextCalib ? [v.tachoNextCalib] : []),
@@ -2234,7 +2234,7 @@ function _renderDriversDash() {
     return;
   }
   const drivers = window.TaxOrderDrivers.getAll();
-  const now = new Date();
+  const now = new Date(); now.setHours(0, 0, 0, 0);
   const DAYS90 = 90 * 86400000;
   const expiring = drivers
     .filter(d => d.license_expiry)
@@ -2290,7 +2290,7 @@ function _renderFleetCardsDash() {
     </div>`;
     return;
   }
-  const now = new Date();
+  const now = new Date(); now.setHours(0, 0, 0, 0);
   const DAYS30 = 30 * 86400000;
   const expiring = cards
     .filter(k => k.status !== 'NIEAKTYWNA' && k.expires)
@@ -2342,7 +2342,7 @@ function _renderFleetKpi() {
   const finesAmt       = allUnpaidFines.reduce((s,f) => s+(f.amount||0), 0);
   let docAlerts = 0;
   allVehs.forEach(v => { docAlerts += (window.DocumentsModule?.getDocAlerts(v, 30)||[]).length; });
-  const now = new Date();
+  const now = new Date(); now.setHours(0, 0, 0, 0);
   const withAlerts  = allVehs.filter(v =>
     [v.ocEnd, v.acEnd, v.nextInspection].some(d => d && (new Date(d)-now) < 60*86400000)
   ).length;
