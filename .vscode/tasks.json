@@ -1,0 +1,98 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "npm: install",
+      "type": "shell",
+      "command": "npm",
+      "args": ["install"],
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "npm: dev",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "dev"],
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^.*$",
+          "file": 1,
+          "location": 2,
+          "message": 3
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*starting dev server.*",
+          "endsPattern": "^.*ready in.*"
+        }
+      }
+    },
+    {
+      "label": "npm: build",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "build"],
+      "problemMatcher": []
+    },
+    {
+      "label": "npm: test",
+      "type": "shell",
+      "command": "npm",
+      "args": ["test"],
+      "problemMatcher": []
+    },
+    {
+      "label": "npm: lint",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "lint"],
+      "problemMatcher": []
+    },
+    {
+      "label": "wrangler: dev",
+      "type": "shell",
+      "command": "npx",
+      "args": ["wrangler", "dev"],
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^.*$",
+          "file": 1,
+          "location": 2,
+          "message": 3
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*starting.*",
+          "endsPattern": "^.*ready.*"
+        }
+      }
+    },
+    {
+      "label": "wrangler: deploy",
+      "type": "shell",
+      "command": "npx",
+      "args": ["wrangler", "deploy"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Python: Install OCR dependencies",
+      "type": "shell",
+      "command": "pip",
+      "args": ["install", "-r", "ocr-service/requirements.txt"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Git: Clone TaxOrder Pro",
+      "type": "shell",
+      "command": "git",
+      "args": ["clone", "https://github.com/adic94/taxorder-pro.git"],
+      "problemMatcher": []
+    }
+  ]
+}
