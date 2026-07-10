@@ -661,11 +661,11 @@ window.TaxOrderNotifSettings = (function () {
         </div>
         <div class="f" style="margin-bottom:10px">
           <label>Nazwa szablonu</label>
-          <input id="tpl-name" class="fi" value="${tpl?.name||''}" placeholder="np. MAN TGL — pakiet roczny">
+          <input id="tpl-name" class="fi" value="${esc(tpl?.name||'')}" placeholder="np. MAN TGL — pakiet roczny">
         </div>
         <div class="f" style="margin-bottom:16px">
           <label>Opis (opcjonalny)</label>
-          <input id="tpl-desc" class="fi" value="${tpl?.description||''}" placeholder="Krótki opis...">
+          <input id="tpl-desc" class="fi" value="${esc(tpl?.description||'')}" placeholder="Krótki opis...">
         </div>
         <div style="font-size:13px;font-weight:600;margin-bottom:8px">Elementy konserwacji:</div>
         <div id="tpl-items">${itemRows()}</div>

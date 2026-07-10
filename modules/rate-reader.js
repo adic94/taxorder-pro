@@ -325,7 +325,7 @@ window.TaxOrderRateReader = {
           <div class="vdfg">
             <div class="vdf">
               <label class="vdl">Gmina</label>
-              <input id="ru-mun" class="fi" value="${mun}">
+              <input id="ru-mun" class="fi" value="${esc(mun)}">
             </div>
             <div class="vdf">
               <label class="vdl">Rok podatkowy</label>

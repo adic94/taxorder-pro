@@ -83,11 +83,11 @@ window.WebhooksUI = (function () {
         <div style="display:flex;flex-direction:column;gap:14px">
           <div>
             <label style="font-size:12px;font-weight:600;margin-bottom:4px;display:block">Nazwa</label>
-            <input id="wh-name" class="fi" placeholder="np. Teams — Alert floty" value="${data.name||''}">
+            <input id="wh-name" class="fi" placeholder="np. Teams — Alert floty" value="${esc(data.name||'')}">
           </div>
           <div>
             <label style="font-size:12px;font-weight:600;margin-bottom:4px;display:block">URL endpointu</label>
-            <input id="wh-url" class="fi" placeholder="https://hooks.teams.microsoft.com/..." value="${data.url||''}">
+            <input id="wh-url" class="fi" placeholder="https://hooks.teams.microsoft.com/..." value="${esc(data.url||'')}">
           </div>
           <div>
             <label style="font-size:12px;font-weight:600;margin-bottom:6px;display:block">Zdarzenia (zaznacz które mają wyzwalać webhook)</label>
@@ -101,7 +101,7 @@ window.WebhooksUI = (function () {
           </div>
           <div>
             <label style="font-size:12px;font-weight:600;margin-bottom:4px;display:block">Sekret (opcjonalnie — wysyłany jako nagłówek X-TaxOrder-Signature)</label>
-            <input id="wh-secret" class="fi" placeholder="Zostaw puste jeśli nie potrzebujesz weryfikacji" value="${data.secret||''}">
+            <input id="wh-secret" class="fi" placeholder="Zostaw puste jeśli nie potrzebujesz weryfikacji" value="${esc(data.secret||'')}">
           </div>
         </div>
         <div style="display:flex;gap:10px;margin-top:20px">

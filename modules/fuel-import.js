@@ -407,7 +407,7 @@ window.FuelImport = (function () {
           </div>
           <div class="vdf">
             <label class="vdl">Nr karty paliwowej</label>
-            <input id="_fuel-card" type="text" class="fi" value="${v.kartaOrlen||''}">
+            <input id="_fuel-card" type="text" class="fi" value="${esc(v.kartaOrlen||'')}">
           </div>
           <div class="vdf">
             <label class="vdl">Stan licznika (km)</label>

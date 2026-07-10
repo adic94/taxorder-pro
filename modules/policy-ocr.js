@@ -254,11 +254,11 @@ window.TaxOrderPolicyOcr = (function () {
           </div>
           <div>
             <label style="font-size:11px;color:var(--text2)">Nr polisy</label>
-            <input id="pocr-nr-polisy" class="fi" value="${parsed.nr_polisy||''}">
+            <input id="pocr-nr-polisy" class="fi" value="${esc(parsed.nr_polisy||'')}">
           </div>
           <div>
             <label style="font-size:11px;color:var(--text2)">Ubezpieczyciel</label>
-            <input id="pocr-firma" class="fi" value="${parsed.firma||''}">
+            <input id="pocr-firma" class="fi" value="${esc(parsed.firma||'')}">
           </div>
           <div>
             <label style="font-size:11px;color:var(--text2)">Data od</label>

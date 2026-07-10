@@ -69,7 +69,7 @@ window.TekomSync = (function () {
           <div class="vdfg" style="margin-bottom:12px">
             <div class="vdf">
               <label class="vdl">Login MyCar *</label>
-              <input id="tekom-login" type="text" class="fi" placeholder="np. adamc" value="${cfg?.login||''}">
+              <input id="tekom-login" type="text" class="fi" placeholder="np. adamc" value="${esc(cfg?.login||'')}">
             </div>
             <div class="vdf">
               <label class="vdl">Hasło MyCar *</label>
@@ -77,11 +77,11 @@ window.TekomSync = (function () {
             </div>
             <div class="vdf">
               <label class="vdl">Nazwa serwera <span style="color:var(--text3)">(opcjonalnie)</span></label>
-              <input id="tekom-server" type="text" class="fi" placeholder="domyślny serwer" value="${cfg?.serverName||''}">
+              <input id="tekom-server" type="text" class="fi" placeholder="domyślny serwer" value="${esc(cfg?.serverName||'')}">
             </div>
             <div class="vdf">
               <label class="vdl">Baza danych <span style="color:var(--text3)">(opcjonalnie)</span></label>
-              <input id="tekom-db" type="text" class="fi" placeholder="domyślna baza" value="${cfg?.dbName||''}">
+              <input id="tekom-db" type="text" class="fi" placeholder="domyślna baza" value="${esc(cfg?.dbName||'')}">
             </div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">

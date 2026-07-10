@@ -474,16 +474,16 @@ window.ServiceModule = (function () {
             <tr>
               <th><input class="col-fi" type="date" value="${_svcFilters.date||''}"
                 oninput="ServiceModule._setSvcFilter('date',this.value,${v.id})" style="width:100%"></th>
-              <th><input class="col-fi" type="text" placeholder="typ..." value="${_svcFilters.typ||''}"
+              <th><input class="col-fi" type="text" placeholder="typ..." value="${esc(_svcFilters.typ||'')}"
                 oninput="ServiceModule._setSvcFilter('typ',this.value,${v.id})" style="width:100%"></th>
-              <th><input class="col-fi" type="text" placeholder="opis..." value="${_svcFilters.desc||''}"
+              <th><input class="col-fi" type="text" placeholder="opis..." value="${esc(_svcFilters.desc||'')}"
                 oninput="ServiceModule._setSvcFilter('desc',this.value,${v.id})" style="width:100%"></th>
               <th></th><th></th><th></th><th></th>
-              <th><input class="col-fi" type="text" placeholder="warsztat..." value="${_svcFilters.workshop||''}"
+              <th><input class="col-fi" type="text" placeholder="warsztat..." value="${esc(_svcFilters.workshop||'')}"
                 oninput="ServiceModule._setSvcFilter('workshop',this.value,${v.id})" style="width:100%"></th>
-              <th><input class="col-fi" type="text" placeholder="NIP..." value="${_svcFilters.nip||''}"
+              <th><input class="col-fi" type="text" placeholder="NIP..." value="${esc(_svcFilters.nip||'')}"
                 oninput="ServiceModule._setSvcFilter('nip',this.value,${v.id})" style="width:100%"></th>
-              <th><input class="col-fi" type="text" placeholder="faktura..." value="${_svcFilters.inv||''}"
+              <th><input class="col-fi" type="text" placeholder="faktura..." value="${esc(_svcFilters.inv||'')}"
                 oninput="ServiceModule._setSvcFilter('inv',this.value,${v.id})" style="width:100%"></th>
               <th></th>
             </tr>

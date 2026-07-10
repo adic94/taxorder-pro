@@ -236,7 +236,7 @@ window.FleetCalendar = (function () {
           </div>
           <div class="vdf">
             <label class="vdl">${t('cal.field.driver')}</label>
-            <input id="_res-user" type="text" class="fi" list="drivers-datalist" value="${_currentUser()}" placeholder="${t('cal.field.notes.ph')}">
+            <input id="_res-user" type="text" class="fi" list="drivers-datalist" value="${esc(_currentUser())}" placeholder="${t('cal.field.notes.ph')}">
           </div>
           <div class="vdf">
             <label class="vdl">${t('cal.field.from')}</label>
