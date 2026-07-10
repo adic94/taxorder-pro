@@ -47,7 +47,7 @@ window.FinesModule = (function () {
         nr_rej:      f.nrRej      || null,
         driver_name: f.driverName || null,
         type:        f.type       || 'inne',
-        date:        f.date       || new Date().toISOString().slice(0, 10),
+        date:        f.date       || new Date().toLocaleDateString('sv'),
         amount:      f.amount     ?? null,
         deadline:    f.deadline   || null,
         description: f.description|| null,

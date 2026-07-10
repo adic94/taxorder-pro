@@ -210,7 +210,7 @@ window.TaxOrderFleetCloud = {
     }
 
     v.cepikSyncStatus = 'ok';
-    v.cepikSyncDate   = new Date().toISOString().slice(0,10);
+    v.cepikSyncDate   = new Date().toLocaleDateString('sv');
 
     const saveResult = await this.saveVehicle(v);
     return { ok: true, fields: updated, saved: saveResult.ok };

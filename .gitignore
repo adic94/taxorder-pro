@@ -60,3 +60,6 @@ SYSTEM_BRIEF_FOR_AI.md
 
 # MCP — lokalna konfiguracja z account ID (nie commitować)
 .mcp.json
+
+# VS Code temp files (random session IDs)
+.vscode/*.txt
