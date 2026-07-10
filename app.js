@@ -5085,7 +5085,7 @@ function fakShowForm(d, rawText) {
   el.classList.remove('hidden');
   const fld=(id,lbl,val,ph,hint)=>`<div class="f">
     <label>${lbl}${hint?`<span style="font-size:10px;color:var(--text3);margin-left:5px">${hint}</span>`:''}  </label>
-    <input id="fakf-${id}" class="fi" value="${val||''}" placeholder="${ph}"
+    <input id="fakf-${id}" class="fi" value="${esc(val||'')}" placeholder="${ph}"
       style="${val?'border-color:var(--green);background:#f0fff0':''}">
   </div>`;
 
@@ -7119,7 +7119,7 @@ function showCorsHelp(returnStr=false) {
     <div style="margin-top:10px">
       <div style="font-size:11px;font-weight:600;color:#633806;margin-bottom:4px">Własny URL proxy (opcjonalnie):</div>
       <div style="display:flex;gap:6px">
-        <input id="cepik-proxy-inp" class="fi" placeholder="https://moj-serwer.pl/cepik-proxy" value="${cepikProxy}" style="flex:1">
+        <input id="cepik-proxy-inp" class="fi" placeholder="https://moj-serwer.pl/cepik-proxy" value="${esc(cepikProxy)}" style="flex:1">
         <button class="btn btn-amber" style="font-size:11px" onclick="saveCepikProxyInline()"><i class="ti ti-plug"></i>Użyj proxy</button>
       </div>
     </div>
