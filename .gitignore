@@ -16,7 +16,6 @@ node_modules/
 
 # Node.js
 npm-debug.log
-package-lock.json
 yarn.lock
 
 # Build artifacts

@@ -37,18 +37,18 @@ jobs:
         run: npm run test:e2e
         env:
           TEST_URL: http://localhost:3000
-          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
-          TEST_PASS:  ${{ secrets.TEST_PASS }}
-          TEST_COMPANY: ${{ secrets.TEST_COMPANY }}
+          TEST_EMAIL:   ${{ secrets.TEST_EMAIL || '' }}
+          TEST_PASS:    ${{ secrets.TEST_PASS || '' }}
+          TEST_COMPANY: ${{ secrets.TEST_COMPANY || '' }}
 
       - name: Testy API (tylko gdy podano TEST_URL produkcyjny)
         if: ${{ vars.PROD_WORKER_URL != '' }}
         run: npm run test:api
         env:
-          TEST_URL:     ${{ vars.PROD_WORKER_URL }}
-          TEST_EMAIL:   ${{ secrets.TEST_EMAIL }}
-          TEST_PASS:    ${{ secrets.TEST_PASS }}
-          TEST_COMPANY: ${{ secrets.TEST_COMPANY }}
+          TEST_URL:     ${{ vars.PROD_WORKER_URL || '' }}
+          TEST_EMAIL:   ${{ secrets.TEST_EMAIL || '' }}
+          TEST_PASS:    ${{ secrets.TEST_PASS || '' }}
+          TEST_COMPANY: ${{ secrets.TEST_COMPANY || '' }}
 
       - name: Upload raportu Playwright
         if: failure()
