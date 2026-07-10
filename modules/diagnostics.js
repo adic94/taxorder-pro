@@ -621,7 +621,7 @@ window.TaxOrderDiagnostics = (function () {
     const html = `<!DOCTYPE html><html lang="pl"><head><meta charset="UTF-8"><title>TaxOrder Diagnostics — ${new Date().toLocaleDateString('pl-PL')}</title>
 <style>*{box-sizing:border-box}body{font-family:system-ui;max-width:960px;margin:0 auto;padding:24px;font-size:13px;color:#111}h1{font-size:22px;font-weight:900;margin-bottom:4px}h2{font-size:14px;font-weight:700;margin:20px 0 8px;padding:6px 14px;background:#f3f4f6;border-left:4px solid #2563eb;border-radius:0 6px 6px 0}.ok{color:#16a34a;font-weight:700}.err{color:#dc2626;font-weight:700}.warn{color:#d97706;font-weight:700}table{border-collapse:collapse;width:100%;margin:6px 0}td,th{padding:5px 10px;border:1px solid #e5e7eb;font-size:12px;text-align:left}th{background:#f9fafb;font-weight:700}.score{font-size:48px;font-weight:900;color:${s >= 80 ? '#16a34a' : s >= 55 ? '#d97706' : '#dc2626'}}</style></head><body>
 <h1>TaxOrder Pro — Raport diagnostyczny</h1>
-<p style="color:#6b7280">Wygenerowano: ${new Date().toLocaleString('pl-PL')} | Użytkownik: ${user.name || '—'} (${user.role || '—'})</p>
+<p style="color:#6b7280">Wygenerowano: ${new Date().toLocaleString('pl-PL')} | Użytkownik: ${esc(user.name || '—')} (${esc(user.role || '—')})</p>
 <div class="score">${s} <span style="font-size:20px;font-weight:400;color:#6b7280">/ 100</span></div>
 <h2>Moduły JS</h2>
 <table><tr><th>Moduł</th><th>Status</th></tr>
@@ -634,7 +634,7 @@ ${_apiResults.length ? `<table><tr><th>Test</th><th>Status HTTP</th><th>Czas</th
 ${_apiResults.map(r => `<tr><td>${r.label}</td><td>${r.status}</td><td>${r.ms}ms</td><td class="${r.ok ? 'ok' : 'err'}">${r.ok ? '✅ PASS' : '❌ FAIL' + (r.note ? ` — ${r.note}` : '')}</td></tr>`).join('')}</table>` : '<p style="color:#6b7280">Nie uruchomiono testów API</p>'}
 <h2>Błędy JS (${_errors.length})</h2>
 ${_errors.length ? `<table><tr><th>Czas</th><th>Typ</th><th>Komunikat</th><th>Źródło</th></tr>
-${_errors.slice(-30).map(e => `<tr><td>${e.ts.slice(11, 19)}</td><td>${e.type}</td><td>${e.msg}</td><td>${e.src}</td></tr>`).join('')}</table>` : '<p class="ok">Brak błędów</p>'}
+${_errors.slice(-30).map(e => `<tr><td>${esc(e.ts.slice(11, 19))}</td><td>${esc(e.type)}</td><td>${esc(e.msg)}</td><td>${esc(e.src)}</td></tr>`).join('')}</table>` : '<p class="ok">Brak błędów</p>'}
 <h2>Wydajność endpointów</h2>
 ${Object.entries(_perf).length ? `<table><tr><th>Endpoint</th><th>Wywołania</th><th>Avg ms</th><th>Min</th><th>Max</th></tr>
 ${Object.entries(_perf).map(([p, t]) => { const avg = Math.round(t.reduce((s, v) => s + v, 0) / t.length); return `<tr><td><code>${p}</code></td><td>${t.length}</td><td class="${avg < 300 ? 'ok' : avg < 700 ? 'warn' : 'err'}">${avg}ms</td><td>${Math.min(...t)}ms</td><td>${Math.max(...t)}ms</td></tr>`; }).join('')}</table>` : '<p style="color:#6b7280">Brak danych (używaj aplikacji normalnie)</p>'}
