@@ -1107,7 +1107,7 @@ window.FleetReports = (function () {
   function exportServicePlanHtml() {
     const rows = _buildServicePlanRows();
     const _todayMs = (() => { const t = new Date(); t.setHours(0,0,0,0); return t; })();
-    const today = _todayMs.toISOString().slice(0,10);
+    const today = _todayMs.getFullYear()+'-'+String(_todayMs.getMonth()+1).padStart(2,'0')+'-'+String(_todayMs.getDate()).padStart(2,'0');
     const fd = d => d ? new Date(d).toLocaleDateString('pl-PL') : '—';
     const urgencyBadge = d => {
       if (!d) return '';

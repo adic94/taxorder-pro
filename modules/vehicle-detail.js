@@ -1065,7 +1065,7 @@ window.TaxOrderVehicleDetail = {
         <div class="vdfg" style="margin-bottom:14px">
           <div class="vdf">
             <label class="vdl">Data przeglądu</label>
-            <input id="_ins-date" type="date" class="fi" value="${new Date().toISOString().slice(0,10)}">
+            <input id="_ins-date" type="date" class="fi" value="${(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date())}">
           </div>
           <div class="vdf">
             <label class="vdl">Wynik</label>
@@ -1189,7 +1189,7 @@ window.TaxOrderVehicleDetail = {
         <div class="vdfg" style="margin-bottom:14px">
           <div class="vdf">
             <label class="vdl">Data badania/wpisu</label>
-            <input id="_udt-date" type="date" class="fi" value="${new Date().toISOString().slice(0,10)}">
+            <input id="_udt-date" type="date" class="fi" value="${(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date())}">
           </div>
           <div class="vdf">
             <label class="vdl">Typ wpisu</label>
@@ -1316,7 +1316,7 @@ window.TaxOrderVehicleDetail = {
         <div class="vdfg" style="margin-bottom:14px">
           <div class="vdf">
             <label class="vdl">Data legalizacji</label>
-            <input id="_tch-date" type="date" class="fi" value="${new Date().toISOString().slice(0,10)}">
+            <input id="_tch-date" type="date" class="fi" value="${(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date())}">
           </div>
           <div class="vdf">
             <label class="vdl">Typ wpisu</label>
@@ -1444,7 +1444,7 @@ window.TaxOrderVehicleDetail = {
   _openMaintModal(vId, item) {
     const types = window._ns_alertTypes || [];
     const typeOpts = types.map(a => `<option value="${esc(a.id)}" ${item?.typeId===a.id?'selected':''}>${esc(a.name)}</option>`).join('');
-    const fmtDate = d => d ? new Date(d).toISOString().slice(0,10) : '';
+    const fmtDate = d => { if (!d) return ''; const dt = new Date(d.includes('T') ? d : d + 'T00:00:00'); return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); };
     const html = `<div id="maint-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:5002;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)this.remove()">
       <div style="background:var(--bg);border-radius:var(--radius-lg);width:420px;max-width:95vw;padding:24px;box-shadow:0 8px 40px rgba(0,0,0,.25)">
         <strong style="font-size:15px">${item?'Edytuj':'Dodaj'} element konserwacji</strong>
@@ -1483,7 +1483,7 @@ window.TaxOrderVehicleDetail = {
     const lastKm   = parseInt(document.getElementById('mi-lastKm')?.value) || null;
     const intDays  = parseInt(document.getElementById('mi-intDays')?.value) || null;
     const intKm    = parseInt(document.getElementById('mi-intKm')?.value) || null;
-    const nextDate = (lastDate && intDays) ? new Date(new Date(lastDate).getTime() + intDays*86400000).toISOString().slice(0,10) : null;
+    const nextDate = (lastDate && intDays) ? (() => { const d = new Date(lastDate + 'T00:00:00'); d.setDate(d.getDate() + intDays); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })() : null;
     const nextKm   = (lastKm && intKm) ? lastKm + intKm : null;
 
     if (!v.maintenanceItems) v.maintenanceItems = [];
@@ -2384,7 +2384,7 @@ td:last-child{font-weight:600;color:#1e293b}
     if (clean.length !== 10) return;
     const statusEl = document.getElementById(statusId);
     if (statusEl) statusEl.textContent = 'Szukam...';
-    const today = new Date().toISOString().slice(0,10);
+    const today = (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date());
     fetch(`https://wl.mf.gov.pl/api/check/nip/${clean}?date=${today}`)
       .then(r => r.ok ? r.json() : Promise.reject('http'))
       .then(data => {

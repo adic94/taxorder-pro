@@ -245,7 +245,7 @@ window.ServiceModule = (function () {
           <div class="vdf">
             <label class="vdl">Data wykonania *</label>
             <div style="display:flex;gap:6px">
-              <input id="_svc-date" type="date" class="fi" value="${ex?.date || new Date().toISOString().slice(0,10)}" style="flex:1">
+              <input id="_svc-date" type="date" class="fi" value="${ex?.date || (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date())}" style="flex:1">
               <input id="_svc-date-txt" type="text" class="fi" placeholder="DD.MM.RRRR" maxlength="10" style="width:110px"
                 oninput="ServiceModule._parseDateText(this)" value="${ex?.date ? ex.date.split('-').reverse().join('.') : ''}">
             </div>
