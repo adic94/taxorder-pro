@@ -204,7 +204,9 @@ async function handlePzStart(request, env, url) {
   const base        = env.PZ_BASE_URL      || 'https://login.gov.pl';
   const realm       = env.PZ_REALM         || 'UZYTKOWNIK';
   const redirectUri = env.PZ_REDIRECT_URI  || 'https://taxorder-pro-api.adamus1000.workers.dev/api/auth/pz/callback';
-  const appUrl      = env.PZ_APP_URL       || url.searchParams.get('app_url') || 'https://taxorder-pro.pages.dev';
+  const _rawAppUrl  = url.searchParams.get('app_url') || '';
+  const _safeAppUrl = /^https:\/\/([\w-]+\.)?taxorder-pro\.pages\.dev(\/|$)/.test(_rawAppUrl) || /^http:\/\/localhost(:\d+)?(\/|$)/.test(_rawAppUrl) ? _rawAppUrl : null;
+  const appUrl      = env.PZ_APP_URL || _safeAppUrl || 'https://taxorder-pro.pages.dev';
   const company     = url.searchParams.get('company') || '';
 
   const verifier  = await _pzVerifier();
