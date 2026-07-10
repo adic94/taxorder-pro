@@ -431,7 +431,7 @@ window.FleetReports = (function () {
       ['oc','ac','ass'].forEach(t => {
         const end = v[t+'End'];
         if (!end) return;
-        const days = Math.round((new Date(end) - now) / 86400000);
+        const days = Math.round((new Date(end.includes('T') ? end : end + 'T00:00:00') - now) / 86400000);
         if (days >= 0 && days <= 30) soon30.push({ nrRej: v.nrRej, type: t.toUpperCase(), end, days });
       });
     });
@@ -1213,7 +1213,7 @@ tr:hover td{background:#f9fafb}
       ['oc','ac','ass'].forEach(t => {
         const end = v[t+'End'];
         if (!end) return;
-        const days = Math.round((new Date(end) - now) / 86400000);
+        const days = Math.round((new Date(end.includes('T') ? end : end + 'T00:00:00') - now) / 86400000);
         if (days >= 0 && days <= 30) soon30.push({ nrRej: v.nrRej, type: t.toUpperCase(), days });
       });
     });
