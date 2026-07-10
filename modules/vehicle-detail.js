@@ -662,7 +662,7 @@ window.TaxOrderVehicleDetail = {
             <div class="vdf">
               <label class="vdl">Rok DOT (4 cyfry, np. 3523)</label>
               <input id="vd-tireSP_dot" type="text" class="fi" maxlength="4" pattern="\\d{4}"
-                value="${v.tireSP?.dot||''}" placeholder="3523"
+                value="${esc(v.tireSP?.dot||'')}" placeholder="3523"
                 oninput="TaxOrderVehicleDetail._showDotInfo(this,'vd-tireSP_dot_info')">
               <div id="vd-tireSP_dot_info" style="font-size:10px;color:var(--blue);margin-top:2px">${TaxOrderVehicleDetail._dotInfo(v.tireSP?.dot)}</div>
             </div>
@@ -678,7 +678,7 @@ window.TaxOrderVehicleDetail = {
             <label class="vdl">Przypisany kierowca
               <span style="font-size:10px;color:var(--blue);cursor:pointer;margin-left:6px" onclick="TaxOrderDrivers.open()" title="Zarządzaj kierowcami">&#9881; kartoteka</span>
             </label>
-            <input id="vd-kierowca" type="text" class="fi" value="${v.kierowca??''}" autocomplete="off" list="drivers-datalist" placeholder="Wybierz lub wpisz...">
+            <input id="vd-kierowca" type="text" class="fi" value="${esc(v.kierowca??'')}" autocomplete="off" list="drivers-datalist" placeholder="Wybierz lub wpisz...">
           </div>
           ${field('stanKilometrow','Stan licznika (km)', v.stanKilometrow,'number')}
           ${field('kartaOrlen','Nr karty flotowej / paliwa', v.kartaOrlen)}
@@ -745,7 +745,7 @@ window.TaxOrderVehicleDetail = {
           <div class="vdf">
             <label class="vdl">NIP nabywcy</label>
             <div style="display:flex;gap:6px;align-items:center">
-              <input id="vd-saleBuyerNip" type="text" class="fi" value="${v.saleBuyerNip||''}"
+              <input id="vd-saleBuyerNip" type="text" class="fi" value="${esc(v.saleBuyerNip||'')}"
                 placeholder="10 cyfr" maxlength="13" style="flex:1"
                 oninput="this.value=this.value.replace(/[^0-9-]/g,'')">
               <button type="button" class="btn btn-gray" style="padding:4px 8px;font-size:11px;white-space:nowrap"
@@ -1077,7 +1077,7 @@ window.TaxOrderVehicleDetail = {
           </div>
           <div class="vdf">
             <label class="vdl">Stacja SKP / nazwa</label>
-            <input id="_ins-station" type="text" class="fi" placeholder="Nazwa stacji" value="${v.inspectionStation||''}">
+            <input id="_ins-station" type="text" class="fi" placeholder="Nazwa stacji" value="${esc(v.inspectionStation||'')}">
           </div>
           <div class="vdf">
             <label class="vdl">Nr dokumentu / zaświadczenia</label>
@@ -1450,7 +1450,7 @@ window.TaxOrderVehicleDetail = {
         <strong style="font-size:15px">${item?'Edytuj':'Dodaj'} element konserwacji</strong>
         <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px">
           <div class="f"><label>Typ</label><select id="mi-type" class="fi">${typeOpts||'<option value="">—</option>'}</select></div>
-          <div class="f"><label>Własna nazwa (opcjonalna)</label><input id="mi-label" class="fi" value="${item?.label||''}" placeholder="np. Olej 10W-40 Shell"></div>
+          <div class="f"><label>Własna nazwa (opcjonalna)</label><input id="mi-label" class="fi" value="${esc(item?.label||'')}" placeholder="np. Olej 10W-40 Shell"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div class="f"><label>Ostatnia data</label><input id="mi-lastDate" type="date" class="fi" value="${fmtDate(item?.lastDate)}"></div>
             <div class="f"><label>Ostatnie km</label><input id="mi-lastKm" type="number" class="fi" value="${item?.lastKm||''}" placeholder="np. 145000"></div>
@@ -2167,7 +2167,7 @@ td:last-child{font-weight:600;color:#1e293b}
         </div>
         <div class="f" style="margin-bottom:12px">
           <label style="font-size:12px;color:var(--text2)">Obecny numer</label>
-          <input class="fi" value="${oldNrRej}" readonly style="opacity:.6">
+          <input class="fi" value="${esc(oldNrRej)}" readonly style="opacity:.6">
         </div>
         <div class="f" style="margin-bottom:12px">
           <label style="font-size:12px;color:var(--text2)">Nowy numer rejestracyjny</label>
@@ -2446,16 +2446,16 @@ td:last-child{font-weight:600;color:#1e293b}
     return `<div class="vdfg">
       <div class="vdf">
         <label class="vdl">Rozmiar (np. 235/65 R16)</label>
-        <input id="vd-tire${pos}_size" type="text" class="fi" value="${tire.size||''}" placeholder="205/55R16">
+        <input id="vd-tire${pos}_size" type="text" class="fi" value="${esc(tire.size||'')}" placeholder="205/55R16">
       </div>
       <div class="vdf">
         <label class="vdl">Marka / producent</label>
-        <input id="vd-tire${pos}_brand" type="text" class="fi" value="${tire.brand||''}" placeholder="np. Michelin">
+        <input id="vd-tire${pos}_brand" type="text" class="fi" value="${esc(tire.brand||'')}" placeholder="np. Michelin">
       </div>
       <div class="vdf">
         <label class="vdl">Rok DOT (4 cyfry, np. 3523)</label>
         <input id="vd-tire${pos}_dot" type="text" class="fi" maxlength="4" pattern="\\d{4}"
-          value="${tire.dot||''}" placeholder="3523"
+          value="${esc(tire.dot||'')}" placeholder="3523"
           oninput="TaxOrderVehicleDetail._showDotInfo(this,'vd-tire${pos}_dot_info')">
         <div id="vd-tire${pos}_dot_info" style="font-size:10px;color:var(--blue);margin-top:2px">${dotInfo}</div>
       </div>
