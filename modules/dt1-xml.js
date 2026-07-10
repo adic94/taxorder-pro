@@ -264,7 +264,7 @@ window.DT1XML = (function () {
     const total = taxable.reduce((s, x) => s + x.amount, 0);
     const r1    = Math.round(total / 2);
     const r2    = Math.round(total) - r1;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date());
 
     const x = [];
     x.push(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`);
@@ -375,7 +375,7 @@ window.DT1XML = (function () {
     const taxable = _taxableVehs();
     if (!taxable.length) { toast('⚠ Brak pojazdów'); return; }
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date());
     const x = [];
     x.push(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`);
     x.push(`<wnio:Dokument ${_nsDecl()}>`);

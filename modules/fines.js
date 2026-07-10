@@ -301,12 +301,12 @@ window.FinesModule = (function () {
     try {
       const r = await fetch(`${API()}/api/fines/${fineId}?company=${company()}`, {
         method: 'PUT', headers: hdrs(),
-        body: JSON.stringify({ paid: 1, paid_date: new Date().toISOString().slice(0, 10) }),
+        body: JSON.stringify({ paid: 1, paid_date: (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date()) }),
       });
       if (!r.ok) { toast(t('fines.toast.err').replace('{0}', r.status)); return; }
       toast(t('fines.toast.paid'));
       const f = _fines.find(x => x.id === fineId);
-      if (f) { f.paid = 1; f.paid_date = new Date().toISOString().slice(0, 10); }
+      if (f) { f.paid = 1; f.paid_date = (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date()); }
       _render();
       if (typeof renderDash === 'function') renderDash();
     } catch { toast(t('fines.toast.conn')); }

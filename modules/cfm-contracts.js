@@ -100,7 +100,7 @@ window.TaxOrderCfmContracts = (function () {
     if (dl) dl.innerHTML = (window.vehs || []).map(v => `<option value="${esc(v.nrRej)}">${esc(v.nrRej)} — ${esc(v.marka)} ${esc(v.model)}</option>`).join('');
     _populateClientPickers(c);
     document.getElementById('cfmum-typ').value = c?.typ_umowy || 'NAJEM';
-    document.getElementById('cfmum-od').value = c?.data_od || new Date().toISOString().slice(0, 10);
+    document.getElementById('cfmum-od').value = c?.data_od || (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date());
     document.getElementById('cfmum-do').value = c?.data_do || '';
     document.getElementById('cfmum-stawka').value = c?.stawka_miesieczna ?? '';
     document.getElementById('cfmum-dzien').value = c?.dzien_platnosci ?? 10;
@@ -153,7 +153,7 @@ window.TaxOrderCfmContracts = (function () {
   async function endContract(id) {
     if (!confirm('Zakończyć kontrakt? Nie będzie już uwzględniany przy generowaniu faktur.')) return;
     try {
-      const resp = await fetch(`${_cfApi()}/api/cfm-contracts/${id}`, { method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ status: 'ZAKONCZONY', data_do: new Date().toISOString().slice(0, 10) }) });
+      const resp = await fetch(`${_cfApi()}/api/cfm-contracts/${id}`, { method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ status: 'ZAKONCZONY', data_do: (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date()) }) });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       toast('✓ Kontrakt zakończony');
       await load();

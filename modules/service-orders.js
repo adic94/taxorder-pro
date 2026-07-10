@@ -133,7 +133,7 @@ window.TaxOrderServiceOrders = (function () {
 
   function openRealizeModal(id) {
     realizeId = id;
-    document.getElementById('zlr-data').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('zlr-data').value = (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date());
     document.getElementById('zlr-km').value = '';
     document.getElementById('zlr-koszt').value = '';
     document.getElementById('zlr-nastepny-termin').value = '';
@@ -176,7 +176,7 @@ window.TaxOrderServiceOrders = (function () {
     if (!Array.isArray(v.serviceHistory)) v.serviceHistory = [];
     v.serviceHistory.push({
       id: 'so_' + order.id,
-      date: realizeBody.data_realizacji || new Date().toISOString().slice(0, 10),
+      date: realizeBody.data_realizacji || (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date()),
       type: order.typ,
       description: order.opis,
       km: realizeBody.km_realizacji,
