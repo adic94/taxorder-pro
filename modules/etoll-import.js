@@ -137,7 +137,7 @@ window.ETollImport = (function () {
           <div style="font-size:11px;color:var(--text2)">Łączna kwota</div>
         </div>
       </div>
-      ${unmatched.length ? `<div class="gbox" style="margin-bottom:10px"><i class="ti ti-alert-triangle"></i>${unmatched.length} transakcji z nieznanymi tablicami: ${[...new Set(unmatched.map(r=>r.nrRej))].slice(0,6).join(', ')}${unmatched.length>6?'…':''}</div>` : ''}
+      ${unmatched.length ? `<div class="gbox" style="margin-bottom:10px"><i class="ti ti-alert-triangle"></i>${unmatched.length} transakcji z nieznanymi tablicami: ${[...new Set(unmatched.map(r=>r.nrRej))].slice(0,6).map(nr=>esc(nr)).join(', ')}${unmatched.length>6?'…':''}</div>` : ''}
       <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px">
         <thead><tr style="background:var(--bg2)">
           <th style="padding:6px 10px;text-align:left">Nr rej.</th>
