@@ -1146,14 +1146,14 @@ tr:hover td{background:#f9fafb}
       const diff = r.nextServiceDate ? Math.round((new Date(r.nextServiceDate.includes('T') ? r.nextServiceDate : r.nextServiceDate + 'T00:00:00') - _todayMs) / 86400000) : null;
       const bg   = diff == null ? '' : diff < 0 ? '#fef2f2' : diff <= 7 ? '#fff7ed' : '';
       return `<tr style="background:${bg}">
-        <td class="mono" style="font-weight:700">${r.nrRej}</td>
-        <td>${r.marka} ${r.model}</td>
-        <td>${r.svcLabel}</td>
+        <td class="mono" style="font-weight:700">${esc(r.nrRej)}</td>
+        <td>${esc(r.marka)} ${esc(r.model)}</td>
+        <td>${esc(r.svcLabel)}</td>
         <td class="mono">${fd(r.lastDate)}</td>
         <td class="mono">${fd(r.nextServiceDate)} ${urgencyBadge(r.nextServiceDate)}</td>
         <td class="mono">${r.nextServiceKm ? r.nextServiceKm.toLocaleString('pl-PL')+' km' : '—'}</td>
         <td class="mono" style="color:${diff!=null&&diff<0?'#dc2626':'#6b7280'}">${diff!=null ? (diff<0?`${Math.abs(diff)} dni po`:`${diff} dni`) : '—'}</td>
-        <td>${r.workshop||'—'}</td>
+        <td>${esc(r.workshop||'—')}</td>
       </tr>`;
     }).join('')}
   </tbody>
