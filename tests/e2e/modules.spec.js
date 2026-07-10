@@ -31,7 +31,7 @@ test.describe('Zlecenia serwisowe', () => {
   test('strona zleceń zawiera tabelę i przycisk "Nowe zlecenie"', async ({ page }) => {
     await goToPage(page, 'zlecenia');
     await expect(page.locator('#page-zlecenia table, #page-zlecenia .tbl-wrap').first()).toBeVisible({ timeout: 8_000 });
-    await expect(page.locator('#page-zlecenia button:has-text("Nowe"), #page-zlecenia button:has-text("Zlecenie")')).toBeVisible();
+    await expect(page.locator('#page-zlecenia button:has-text("Zgłoś")')).toBeVisible();
   });
 
   test('filtr statusu działa — wybór AUTORYZOWANE nie powoduje błędu JS', async ({ page }) => {
