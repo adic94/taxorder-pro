@@ -32,7 +32,7 @@ if ($nodeCmd) {
 $ghCmd = Get-Command gh -ErrorAction SilentlyContinue
 if (-not $ghCmd) {
     Write-Host "[..] Instaluje GitHub CLI..." -ForegroundColor Yellow
-    winget install --id GitHub.cli --silent --accept-package-agreements --accept-source-agreements
+    winget install --id GitHub.cli --scope user --silent --accept-package-agreements --accept-source-agreements
     $newMachine = [Environment]::GetEnvironmentVariable("Path", "Machine")
     $newUser    = [Environment]::GetEnvironmentVariable("Path", "User")
     $env:Path   = $newMachine + $sep + $newUser
