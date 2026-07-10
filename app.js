@@ -567,6 +567,87 @@ function exportFleetCSV() {
   toast(`✅ Wyeksportowano ${list.length} pojazdów do CSV`);
 }
 
+// ==================== EKSPORT — ROZSZERZENIA ====================
+
+function exportVehicleListPdf() {
+  const jsPDFCls = (window.jspdf?.jsPDF) || window.jsPDF;
+  if (!jsPDFCls) { toast('⚠ Brak jsPDF — odśwież stronę'); return; }
+  const list = filterVeh();
+  if (!list.length) { toast('Brak pojazdów do eksportu'); return; }
+  const doc = new jsPDFCls({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const company = typeof getCurrentCompany === 'function' ? getCurrentCompany() : {};
+  doc.setFontSize(14);
+  doc.text('Lista pojazdów — ' + (company.name || ''), 14, 15);
+  doc.setFontSize(9);
+  doc.text('Wygenerowano: ' + new Date().toLocaleString('pl-PL'), 14, 22);
+  doc.autoTable({
+    startY: 26,
+    head: [['Nr rej.','Marka','Model','Rok','Typ','DMC (kg)','Status','Kierowca','VIN']],
+    body: list.map(v => [
+      v.nrRej||'', v.marka||'', v.model||'', v.rok||'', v.typ||'',
+      v.dmc??v.dmcMax??'', v.status||'', v.kierowca||'', v.vin||''
+    ]),
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [59, 130, 246] },
+    alternateRowStyles: { fillColor: [245, 245, 245] },
+  });
+  doc.save(`lista_pojazdow_${new Date().toISOString().slice(0,10)}.pdf`);
+  toast(`✅ PDF z ${list.length} pojazdami pobrano`);
+}
+
+function exportServiceHistoryCsv() {
+  const list = window.vehs || [];
+  const HEADERS = ['Nr rej.','Marka','Model','Data','Typ usługi','Opis','Przebieg (km)','Koszt (zł)'];
+  const rows = [];
+  list.forEach(v => {
+    (v.serviceHistory || []).forEach(s => {
+      const typeLabel = window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label || s.type || '';
+      rows.push([
+        v.nrRej||'', v.marka||'', v.model||'',
+        s.date||'', typeLabel, s.description||'',
+        s.km != null ? s.km : '', s.cost != null ? (+s.cost).toFixed(2) : ''
+      ]);
+    });
+  });
+  if (!rows.length) { toast('Brak historii serwisowej do eksportu'); return; }
+  const csv = [HEADERS, ...rows]
+    .map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';'))
+    .join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `historia_serwisow_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`✅ Wyeksportowano ${rows.length} wpisów serwisowych do CSV`);
+}
+
+function exportFinesCsv() {
+  const fines = window.TaxOrderFines?.getAllSync() || [];
+  if (!fines.length) { toast('Brak mandatów do eksportu'); return; }
+  const FINE_TYPES = window.TaxOrderFines?.FINE_TYPES || {};
+  const HEADERS = ['Nr rej.','Kierowca','Data','Typ','Kwota (zł)','Termin płatności','Zapłacono','Data zapłaty','Opis','Nr mandatu','Wystawił','Punkty'];
+  const rows = fines.map(f => [
+    f.nr_rej||'', f.driver_name||'', f.date||'',
+    FINE_TYPES[f.type]?.label || f.type || '',
+    f.amount != null ? f.amount : '', f.deadline||'',
+    f.paid ? 'TAK' : 'NIE', f.paid_date||'',
+    f.description||'', f.fine_no||'', f.issuer||'', f.points||''
+  ]);
+  const csv = [HEADERS, ...rows]
+    .map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';'))
+    .join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `mandaty_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`✅ Wyeksportowano ${fines.length} mandatów do CSV`);
+}
+
 // ==================== WALIDACJA VIN (ISO 3779) ====================
 const _VIN_TRANS = {A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9,'0':0,'1':1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9};
 const _VIN_W    = [8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];

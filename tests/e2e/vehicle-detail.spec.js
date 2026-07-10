@@ -83,4 +83,40 @@ test.describe('Karta pojazdu', () => {
     const deleteBtn = page.locator('#vd-modal button[title="Usuń pojazd z floty"]');
     await expect(deleteBtn).toBeVisible();
   });
+
+  test('edycja uwag i zapis — wartość persystuje po ponownym otwarciu', async ({ page }) => {
+    const firstCardBtn = page.locator('#veh-tbody button[title="Karta pojazdu"]').first();
+    if (!(await firstCardBtn.isVisible())) { test.skip(); return; }
+    await firstCardBtn.click();
+    await expect(page.locator('#vd-modal')).toBeVisible({ timeout: 8_000 });
+
+    // Otwórz zakładkę "Podstawowe" (domyślna) — tam jest pole #vd-uwagi
+    const uwagiFld = page.locator('#vd-uwagi');
+    if (!(await uwagiFld.isVisible())) {
+      // Spróbuj zakładki z uwagami jeśli nie widoczne od razu
+      const tabUwagi = page.locator('#vd-modal [data-tab*="uwagi"], #vd-modal [onclick*="tab"][onclick*="uwagi"]').first();
+      if (await tabUwagi.isVisible()) await tabUwagi.click();
+      await waitForIdle(page, 300);
+    }
+    if (!(await uwagiFld.isVisible())) { test.skip(); return; }
+
+    const testNote = 'Test-E2E-' + Date.now();
+    await uwagiFld.fill(testNote);
+
+    // Kliknij Zapisz i poczekaj na toast
+    await page.click('#vd-save-btn');
+    await waitForIdle(page, 1500);
+
+    // Zamknij i ponownie otwórz kartę
+    const closeBtn = page.locator('#vd-modal button[onclick*="close"]').first();
+    await closeBtn.click();
+    await expect(page.locator('#vd-modal')).toBeHidden({ timeout: 5_000 });
+
+    await firstCardBtn.click();
+    await expect(page.locator('#vd-modal')).toBeVisible({ timeout: 8_000 });
+
+    // Wartość powinna być zachowana
+    const savedVal = await page.locator('#vd-uwagi').inputValue();
+    expect(savedVal).toContain(testNote);
+  });
 });

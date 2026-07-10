@@ -537,6 +537,12 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
     <button class="btn btn-gray" onclick="exportFleetCSV()">
       <i class="ti ti-file-download"></i><span data-i18n="btn.export.csv">Eksport CSV</span>
     </button>
+    <button class="btn btn-gray" onclick="exportVehicleListPdf()" title="Eksportuj widoczną listę pojazdów do PDF">
+      <i class="ti ti-file-type-pdf"></i><span>Eksport PDF</span>
+    </button>
+    <button class="btn btn-gray" onclick="exportServiceHistoryCsv()" title="Eksportuj historię serwisową wszystkich pojazdów do CSV">
+      <i class="ti ti-tools"></i><span>Historia serwisów CSV</span>
+    </button>
     <button class="btn btn-amber" onclick="FuelImport.open()" title="Import tankowań z kart paliwowych (ORLEN, DKV, BP, Shell)">
       <i class="ti ti-gas-station"></i><span data-i18n="btn.import.fuel">Import tankowań</span>
     </button>

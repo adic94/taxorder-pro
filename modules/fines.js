@@ -122,6 +122,9 @@ window.FinesModule = (function () {
         <button class="btn btn-green" style="font-size:11px" onclick="FinesModule.exportExcel()">
           <i class="ti ti-download"></i>Excel
         </button>
+        <button class="btn btn-gray" style="font-size:11px" onclick="exportFinesCsv()" title="Eksportuj mandaty do CSV">
+          <i class="ti ti-file-download"></i>CSV
+        </button>
       </div>
       ${_fines.length ? `
       <div class="tbl-wrap"><table style="width:100%;font-size:12px">

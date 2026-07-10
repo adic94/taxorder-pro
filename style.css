@@ -534,6 +534,68 @@ td{transition:background .1s}
 /* --- pg-title — subtelna linia pod tytułem strony --- */
 .pg-title{padding-bottom:14px;margin-bottom:1.5rem;border-bottom:1px solid var(--border)}
 
+/* --- Animacja przejść między stronami --- */
+@keyframes page-enter{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.page.active{animation:page-enter .15s ease-out}
+
+/* ==================== MOBILE RESPONSIVENESS ==================== */
+/* Telefony ≤ 480px */
+@media(max-width:480px){
+  /* Topbar */
+  .topbar{flex-wrap:wrap;gap:4px;padding:6px 10px}
+  .yr-wrap label{display:none}
+  #gs-input{width:140px}
+  .brand-badge{display:none}
+  #user-role-lbl{display:none}
+  #user-name{font-size:11px}
+  /* Sidebar — zmniejsz tekst */
+  .tnb{font-size:11px;padding:7px 10px}
+  .sidebar-label{font-size:9px;padding:6px 10px 2px}
+  /* Stats / KPI chips — 2 kolumny zamiast 5 */
+  .stats{grid-template-columns:repeat(2,1fr)!important}
+  #rp-kpi{grid-template-columns:repeat(2,1fr)!important}
+  #budp-kpi{grid-template-columns:repeat(2,1fr)!important}
+  /* Raporty — wykres + pie w jednej kolumnie */
+  #page-raporty>div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}
+  /* Budżet plan */
+  #budp-plan>div:last-child{flex-direction:column!important}
+  /* Dashboard layout */
+  .dash-widget,.dash-card{min-width:0}
+  /* Toolbar — zawijanie */
+  .toolbar{flex-wrap:wrap;gap:4px}
+  .toolbar .fi{min-width:0;width:100%!important}
+  .toolbar .btn{font-size:11px;padding:5px 8px}
+  /* Tabele — zawsze scroll poziomy */
+  .tbl-wrap{overflow-x:auto}
+  table{font-size:11px}
+  th,td{padding:5px 7px!important;white-space:nowrap}
+  /* Vehicle detail — pola formularza w 1 kolumnie */
+  .vdfg{grid-template-columns:1fr!important}
+  /* VD modal — full width */
+  #vd-modal>.modal-inner,#vd-modal>[style*="width"]{width:100%!important;max-width:100vw!important;margin:0!important;border-radius:0!important}
+  /* Modal generyczny */
+  .modal-bg>div{width:95vw!important;max-width:95vw!important}
+  /* Karty flotowe — 1 kolumna */
+  #fleet-cards{grid-template-columns:1fr!important}
+  /* Dash quick actions — mniejsze przyciski */
+  #dash-quick-actions .btn{font-size:11px;padding:5px 8px}
+  #dash-quick-actions{gap:4px!important}
+  /* Bulk-bar */
+  #bulk-bar{flex-wrap:wrap;gap:6px;padding:8px 10px}
+  /* Page title */
+  .pg-title{font-size:15px}
+  /* Reports charts — zmniejsz */
+  #rp-bar-canvas,#rp-pie-canvas{max-height:200px!important}
+}
+/* Tablety ≤ 768px */
+@media(max-width:768px){
+  .stats{grid-template-columns:repeat(3,1fr)!important}
+  #page-raporty>div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}
+  .vdfg{grid-template-columns:1fr 1fr!important}
+  #gs-input{width:160px}
+  table{font-size:12px}
+}
+
 /* --- Przycisk szybkich akcji w dashboardzie — hover --- */
 #dash-quick-actions .btn{transition:all .15s}
 #dash-quick-actions .btn-gray:hover{background:var(--bg3);border-color:var(--blue);color:var(--blue)}
