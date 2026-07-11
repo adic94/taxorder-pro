@@ -18,7 +18,7 @@
 
   function _vehicleContext() {
     // Pobiera aktywny pojazd z VehicleDetail jeśli otwarty
-    const activeId = window.TaxOrderVehicleDetail?._currentId;
+    const activeId = window.TaxOrderVehicleDetail?._currentVehId;
     if (!activeId) return null;
     const v = (window.vehs||[]).find(x => x.id === activeId);
     if (!v) return null;
@@ -29,7 +29,7 @@
   function _renderQuickQuestions() {
     const el = document.getElementById('ai-quick-questions');
     if (!el) return;
-    const activeId = window.TaxOrderVehicleDetail?._currentId;
+    const activeId = window.TaxOrderVehicleDetail?._currentVehId;
     const v = activeId ? (window.vehs||[]).find(x => x.id === activeId) : null;
     const vehs = window.vehs || [];
     const questions = v ? [

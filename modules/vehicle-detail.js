@@ -27,6 +27,7 @@ window.TaxOrderVehicleDetail = {
     const v = vehs.find(x => x.id === vehId);
     if (!v) return;
     this._currentVehId = vehId;
+    this._dirty = false;
     this._render(v);
     // Aktywuj pierwszą widoczną zakładkę (uwzględnia konfigurację użytkownika)
     const cfg = this._getVdTabsCfg();
@@ -39,6 +40,9 @@ window.TaxOrderVehicleDetail = {
   },
 
   close() {
+    if (this._dirty && !confirm('Masz niezapisane zmiany. Zamknąć bez zapisania?')) return;
+    this._dirty = false;
+    if (this._vdCharts) { Object.values(this._vdCharts).forEach(c => { try { c.destroy(); } catch {} }); this._vdCharts = {}; }
     document.getElementById('vd-modal').style.display = 'none';
     history.replaceState(null, '', window.location.pathname);
   },
@@ -77,6 +81,8 @@ window.TaxOrderVehicleDetail = {
     const gb = id => document.getElementById('vd-' + id)?.checked || false;
     const gi = id => { const val = g(id); return val ? parseInt(val) : null; };
     const gf = id => { const val = g(id); return val ? parseFloat(val) : null; };
+
+    const _prevKm = v.stanKilometrow;
 
     Object.assign(v, {
       // === IDENTYFIKACJA POJAZDU ===
@@ -193,6 +199,18 @@ window.TaxOrderVehicleDetail = {
       miesiacePodatku: gi('miesiacePodatku') ?? 12,
     });
 
+    // Historia przebiegu km — zapisz punkt jeśli km wzrósł lub zmienił się
+    if (v.stanKilometrow != null && v.stanKilometrow > 0) {
+      if (!Array.isArray(v.kmHistory)) v.kmHistory = [];
+      const today = new Date().toISOString().slice(0, 10);
+      const last  = v.kmHistory[v.kmHistory.length - 1];
+      if (_prevKm == null || v.stanKilometrow !== _prevKm) {
+        if (!last || last.date !== today || last.km !== v.stanKilometrow) {
+          v.kmHistory.push({ date: today, km: v.stanKilometrow });
+        }
+      }
+    }
+
     // Walidacja pól technicznych
     const _typ = (v.typ||'').toLowerCase();
     const _isPrzyczepa = _typ.includes('przy') || _typ.includes('nacz');
@@ -234,6 +252,7 @@ window.TaxOrderVehicleDetail = {
     } else {
       toast(t('vd.toast.updated').replace('{0}', v.nrRej));
     }
+    this._dirty = false;
     this.close();
   },
 
@@ -688,6 +707,7 @@ window.TaxOrderVehicleDetail = {
           ${field('assetCode','Kod wewnętrzny pojazdu', v.assetCode, 'text', '(AssetCode — np. ST000001, zgodny z formatem RTM)')}
           ${field('normaSpalania','Norma spalania (l/100km)', v.normaSpalania,'number')}
         </div>
+        <div id="vd-km-history"></div>
       </div>
 
       <!-- TAB: KOSZTY / TANKOWANIA -->
@@ -881,6 +901,15 @@ window.TaxOrderVehicleDetail = {
     document.getElementById('vd-save-btn').onclick = () => this.save(v.id);
     const ocrBtn = document.getElementById('vd-ocr-btn');
     if (ocrBtn) ocrBtn.onclick = () => this._openOcrScan(v.id);
+
+    // Dirty detection — nasłuchuj zmian w polach formularza
+    const _self = this;
+    const _markDirty = () => { _self._dirty = true; };
+    const _body = document.getElementById('vd-modal-body');
+    if (_body) {
+      _body.addEventListener('input',  _markDirty, { once: false });
+      _body.addEventListener('change', _markDirty, { once: false });
+    }
   },
 
   _renderKosztyTab(v) {
@@ -939,6 +968,9 @@ window.TaxOrderVehicleDetail = {
           <div style="font-size:11px;color:var(--text2)">${avgEff ? '/100 km'+(norm?` (norma: ${norm})`:'') : 'brak danych km'}${effOver?' ⚠':''}</div>
         </div>
       </div>
+
+      <!-- Wykres trendu spalania — wypełniany przez _renderFuelChart() -->
+      <div id="vd-fuel-chart-wrap" style="margin-bottom:14px"></div>
 
       <!-- TCO (Total Cost of Ownership) YTD -->
       ${(() => {
@@ -2133,6 +2165,117 @@ td:last-child{font-weight:600;color:#1e293b}
       btn.style.color = 'var(--text)';
       btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
     }
+    // Renderuj wykresy po przełączeniu zakładki
+    const v = (window.vehs||[]).find(x => x.id === this._currentVehId);
+    if (v) {
+      if (name === 'eksploatacja') this._renderKmChart(v);
+      if (name === 'koszty')       this._renderFuelChart(v);
+    }
+  },
+
+  _renderKmChart(v) {
+    const el = document.getElementById('vd-km-history');
+    if (!el) return;
+    if (!this._vdCharts) this._vdCharts = {};
+    if (this._vdCharts.km) { try { this._vdCharts.km.destroy(); } catch {} this._vdCharts.km = null; }
+
+    const hist = [...(v.kmHistory || [])].sort((a, b) => a.date < b.date ? -1 : 1).slice(-24);
+    if (hist.length < 2) {
+      el.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:10px 0;margin-top:12px"><i class="ti ti-info-circle"></i> Historia przebiegu pojawi się po kolejnym zapisaniu ze zmienionym stanem licznika.</div>`;
+      return;
+    }
+    const isDark = document.documentElement.classList.contains('dark');
+    const tc = isDark ? '#9ca3af' : '#6b7280';
+    el.innerHTML = `
+      <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin:18px 0 8px">Historia przebiegu km</div>
+      <div style="position:relative;height:140px"><canvas id="vd-km-canvas"></canvas></div>
+    `;
+    if (!window.Chart) return;
+    this._vdCharts.km = new window.Chart(document.getElementById('vd-km-canvas'), {
+      type: 'line',
+      data: {
+        labels: hist.map(h => h.date.slice(5)),
+        datasets: [{ label: 'km', data: hist.map(h => h.km), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.1)', fill: true, tension: 0.3, pointRadius: 3 }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: tc, font: { size: 10 } }, grid: { display: false } },
+          y: { ticks: { color: tc, font: { size: 10 }, callback: v => v.toLocaleString('pl-PL') }, grid: { color: isDark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.04)' } },
+        },
+      },
+    });
+  },
+
+  _renderFuelChart(v) {
+    const el = document.getElementById('vd-fuel-chart-wrap');
+    if (!el) return;
+    if (!this._vdCharts) this._vdCharts = {};
+    if (this._vdCharts.fuel) { try { this._vdCharts.fuel.destroy(); } catch {} this._vdCharts.fuel = null; }
+
+    const history = [...(v.fuelHistory || [])].filter(h => h.km != null && h.km > 0 && h.liters > 0).sort((a, b) => a.km - b.km);
+    if (history.length < 3) { el.innerHTML = ''; return; }
+
+    // Segmenty l/100km między kolejnymi tankowaniami z km
+    const segments = [];
+    for (let i = 1; i < history.length; i++) {
+      const kd = history[i].km - history[i-1].km;
+      if (kd > 10 && kd < 5000) {
+        const month = (history[i].date || '').slice(0, 7);
+        if (month) segments.push({ month, l100: history[i].liters / kd * 100 });
+      }
+    }
+    if (!segments.length) { el.innerHTML = ''; return; }
+
+    // Średnia l/100 km per miesiąc
+    const byMonth = {};
+    segments.forEach(s => {
+      if (!byMonth[s.month]) byMonth[s.month] = { sum: 0, n: 0 };
+      byMonth[s.month].sum += s.l100;
+      byMonth[s.month].n++;
+    });
+    const labels = Object.keys(byMonth).sort().slice(-12);
+    const data   = labels.map(m => +(byMonth[m].sum / byMonth[m].n).toFixed(2));
+    const norm   = v.normaSpalania ? parseFloat(v.normaSpalania) : null;
+
+    const isDark = document.documentElement.classList.contains('dark');
+    const tc = isDark ? '#9ca3af' : '#6b7280';
+    const gc = isDark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.04)';
+
+    el.innerHTML = `
+      <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px">Spalanie miesięczne (l/100 km)</div>
+      <div style="position:relative;height:160px"><canvas id="vd-fuel-canvas"></canvas></div>
+    `;
+    if (!window.Chart) return;
+
+    const datasets = [{
+      label: 'l/100 km',
+      data,
+      borderColor: '#3b82f6',
+      backgroundColor: 'rgba(59,130,246,.15)',
+      fill: true,
+      tension: 0.3,
+      pointRadius: 4,
+      pointBackgroundColor: data.map(d => norm && d > norm * 1.15 ? '#ef4444' : '#3b82f6'),
+    }];
+    if (norm) datasets.push({ label: `Norma (${norm} l)`, data: labels.map(() => norm), borderColor: '#22c55e', borderDash: [4,4], fill: false, pointRadius: 0 });
+
+    this._vdCharts.fuel = new window.Chart(document.getElementById('vd-fuel-canvas'), {
+      type: 'line',
+      data: { labels: labels.map(m => m.slice(5)), datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: !!norm, labels: { color: tc, font: { size: 11 } } },
+          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.raw} l/100km` } },
+        },
+        scales: {
+          x: { ticks: { color: tc, font: { size: 10 } }, grid: { display: false } },
+          y: { ticks: { color: tc, font: { size: 10 }, callback: val => val + ' l' }, grid: { color: gc }, suggestedMin: Math.max(0, Math.min(...data) - 2) },
+        },
+      },
+    });
   },
 
   _copyLink(nrRej) {
