@@ -1,0 +1,37 @@
+name: Utwórz labelki GitHub
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/labels.yml'
+
+jobs:
+  labels:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Utwórz/zaktualizuj labelki
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = [
+              { name: 'claude',       color: '7c3aed', description: 'Claude Code automatycznie zaimplementuje tę funkcję/naprawę' },
+              { name: 'health-alert', color: 'dc2626', description: 'Automatyczny alert z health-check workflow' },
+              { name: 'enhancement',  color: '2563eb', description: 'Nowa funkcja lub ulepszenie' },
+              { name: 'bug',          color: 'dc2626', description: 'Błąd do naprawienia' },
+            ];
+            for (const label of labels) {
+              try {
+                await github.rest.issues.createLabel({ owner: context.repo.owner, repo: context.repo.repo, ...label });
+                console.log(`✅ Utworzono: ${label.name}`);
+              } catch (e) {
+                if (e.status === 422) {
+                  await github.rest.issues.updateLabel({ owner: context.repo.owner, repo: context.repo.repo, ...label });
+                  console.log(`♻️  Zaktualizowano: ${label.name}`);
+                } else throw e;
+              }
+            }

@@ -1,0 +1,51 @@
+name: "🤖 Nowa funkcja (Claude implementuje automatycznie)"
+description: "Opisz funkcję — Claude automatycznie ją zaimplementuje po dodaniu labela 'claude'"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Jak działa automatyczna implementacja?
+        1. Wypełnij ten formularz
+        2. Dodaj label **`claude`** do Issue
+        3. Claude Code Action uruchomi się i zaimplementuje funkcję
+        4. Zmiany pojawią się jako PR do zatwierdzenia (lub bezpośrednio na main)
+
+        > ⚠️ Upewnij się że `ANTHROPIC_API_KEY` jest ustawiony w Settings → Secrets
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Opis funkcji"
+      description: "Opisz dokładnie co ma robić nowa funkcja. Im dokładniej, tym lepiej."
+      placeholder: |
+        Np: Dodaj do karty pojazdu sekcję "Ubezpieczenia" która pokazuje listę polis OC/AC z datami ważności.
+        Polisy powinny być kolorowo oznaczone: czerwony = wygasła, żółty = wygasa w 30 dni, zielony = OK.
+    validations:
+      required: true
+
+  - type: textarea
+    id: files
+    attributes:
+      label: "Pliki do zmodyfikowania (opcjonalnie)"
+      description: "Jeśli wiesz gdzie jest zmiana, podaj pliki"
+      placeholder: |
+        - modules/vehicle-detail.js — dodaj zakładkę
+        - worker/index.js — dodaj endpoint API
+        - worker/schema_vN.sql — nowa tabela
+
+  - type: textarea
+    id: context
+    attributes:
+      label: "Dodatkowy kontekst"
+      placeholder: "Screenshoty, przykłady z innych systemów, linki..."
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: "Checklist przed uruchomieniem Claude"
+      options:
+        - label: "Opis jest wystarczająco szczegółowy"
+          required: true
+        - label: "Nie narusza bezpieczeństwa (XSS, SQL injection)"
+          required: true

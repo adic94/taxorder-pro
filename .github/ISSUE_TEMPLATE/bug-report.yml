@@ -1,0 +1,39 @@
+name: "🐛 Zgłoszenie błędu"
+description: "Opisz błąd — dodaj label 'claude' żeby Claude automatycznie naprawił"
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: "Opis błędu"
+      placeholder: "Co się dzieje? Co powinno się dziać?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: "Kroki do odtworzenia"
+      placeholder: |
+        1. Przejdź do strony '...'
+        2. Kliknij '...'
+        3. Zobaczysz błąd '...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: console
+    attributes:
+      label: "Błędy w konsoli przeglądarki (F12)"
+      render: shell
+
+  - type: input
+    id: browser
+    attributes:
+      label: "Przeglądarka"
+      placeholder: "np. Chrome 120, Firefox 121"
+
+  - type: markdown
+    attributes:
+      value: |
+        > Dodaj label **`claude`** żeby Claude automatycznie naprawił ten błąd

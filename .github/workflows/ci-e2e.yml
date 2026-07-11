@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Nightly testy o 02:00 UTC (04:00 czasu polskiego)
+    - cron: '0 2 * * *'
 
 jobs:
   e2e:

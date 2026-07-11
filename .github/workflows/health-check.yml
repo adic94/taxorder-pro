@@ -1,0 +1,151 @@
+name: Health Check — monitorowanie API i frontendu
+
+on:
+  schedule:
+    # Co 4 godziny — 06:00 / 10:00 / 14:00 / 18:00 / 22:00 / 02:00 UTC
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+
+jobs:
+  health:
+    name: Sprawdź dostępność systemu
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Sprawdź Worker API (oczekiwany status 401 = API żyje)
+        id: api_check
+        run: |
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
+            "https://taxorder-pro-api.adamus1000.workers.dev/api/auth/me")
+          echo "status=$HTTP" >> $GITHUB_OUTPUT
+          if [ "$HTTP" = "401" ] || [ "$HTTP" = "200" ]; then
+            echo "api_ok=true" >> $GITHUB_OUTPUT
+            echo "✅ Worker API odpowiada (HTTP $HTTP)"
+          else
+            echo "api_ok=false" >> $GITHUB_OUTPUT
+            echo "❌ Worker API nie odpowiada lub zwrócił błąd (HTTP $HTTP)"
+          fi
+
+      - name: Sprawdź Cloudflare Pages (frontend)
+        id: pages_check
+        run: |
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
+            "https://taxorder-pro.pages.dev/")
+          echo "status=$HTTP" >> $GITHUB_OUTPUT
+          if [ "$HTTP" = "200" ]; then
+            echo "pages_ok=true" >> $GITHUB_OUTPUT
+            echo "✅ Frontend (Pages) odpowiada (HTTP $HTTP)"
+          else
+            echo "pages_ok=false" >> $GITHUB_OUTPUT
+            echo "❌ Frontend (Pages) nie odpowiada (HTTP $HTTP)"
+          fi
+
+      - name: Sprawdź endpoint logowania (CORS + JSON)
+        id: login_check
+        run: |
+          RESP=$(curl -s --max-time 15 -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"login":"health_check_probe","password":"invalid"}' \
+            "https://taxorder-pro-api.adamus1000.workers.dev/api/auth/login")
+          if echo "$RESP" | grep -q '"error"'; then
+            echo "login_ok=true" >> $GITHUB_OUTPUT
+            echo "✅ Endpoint logowania zwraca poprawny JSON"
+          else
+            echo "login_ok=false" >> $GITHUB_OUTPUT
+            echo "❌ Endpoint logowania nie zwraca poprawnego JSON"
+          fi
+
+      - name: Otwórz Issue jeśli coś nie działa
+        if: |
+          steps.api_check.outputs.api_ok == 'false' ||
+          steps.pages_check.outputs.pages_ok == 'false' ||
+          steps.login_check.outputs.login_ok == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const apiOk    = '${{ steps.api_check.outputs.api_ok }}'    === 'true';
+            const pagesOk  = '${{ steps.pages_check.outputs.pages_ok }}' === 'true';
+            const loginOk  = '${{ steps.login_check.outputs.login_ok }}' === 'true';
+            const apiHttp  = '${{ steps.api_check.outputs.status }}';
+            const pagesHttp= '${{ steps.pages_check.outputs.status }}';
+            const now      = new Date().toISOString();
+
+            // Sprawdź czy istnieje już otwarty alert
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              labels: 'health-alert',
+              state:  'open',
+            });
+
+            const body = [
+              `## 🚨 Wykryto problem z systemem TaxOrder Pro`,
+              `**Czas:** ${now}`,
+              '',
+              `| Komponent | Status | HTTP |`,
+              `|---|---|---|`,
+              `| Worker API | ${apiOk   ? '✅ OK' : '❌ Problem'} | ${apiHttp} |`,
+              `| Frontend Pages | ${pagesOk ? '✅ OK' : '❌ Problem'} | ${pagesHttp} |`,
+              `| Endpoint logowania | ${loginOk ? '✅ OK' : '❌ Problem'} | — |`,
+              '',
+              `### Możliwe przyczyny`,
+              `- Przekroczony limit Worker requests (Cloudflare Free: 100k/dzień)`,
+              `- Błąd w ostatnim deploy — sprawdź [Actions](../../actions)`,
+              `- Awaria Cloudflare — sprawdź [status.cloudflare.com](https://www.cloudflarestatus.com/)`,
+              '',
+              `### Szybka diagnoza`,
+              '```',
+              `curl https://taxorder-pro-api.adamus1000.workers.dev/api/auth/me`,
+              '```',
+              '',
+              `_Wygenerowano automatycznie przez health-check workflow_`,
+            ].join('\n');
+
+            if (issues.length > 0) {
+              // Dodaj komentarz do istniejącego Issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                issue_number: issues[0].number,
+                body: `### 🔄 Ponowne sprawdzenie — ${now}\n\n${!apiOk ? '❌ Worker API nadal nie odpowiada\n' : ''}${!pagesOk ? '❌ Frontend nadal niedostępny\n' : ''}${!loginOk ? '❌ Logowanie nadal nie działa\n' : ''}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                title: `🚨 Health Check FAILED — ${now.slice(0,16)} UTC`,
+                body,
+                labels: ['health-alert', 'bug'],
+              });
+            }
+
+      - name: Zamknij stare alerty jeśli wszystko OK
+        if: |
+          steps.api_check.outputs.api_ok == 'true' &&
+          steps.pages_check.outputs.pages_ok == 'true' &&
+          steps.login_check.outputs.login_ok == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              labels: 'health-alert',
+              state:  'open',
+            });
+            for (const issue of issues) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                issue_number: issue.number,
+                body: `✅ System powrócił do normalnego działania — ${new Date().toISOString()}`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+              });
+            }

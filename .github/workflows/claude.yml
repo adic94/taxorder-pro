@@ -1,0 +1,61 @@
+name: Claude Code — automatyczna implementacja
+
+# Jak używać:
+#   1. Otwórz Issue lub PR i wpisz: @claude zrób X
+#   2. Dodaj label "claude" do Issue — Claude automatycznie wdroży zmianę
+#   3. W komentarzu PR: @claude popraw ten fragment
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, labeled]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  claude:
+    # Uruchom tylko gdy:
+    # - komentarz zawiera "@claude"
+    # - Issue ma label "claude"
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' && (
+        (github.event.action == 'labeled' && github.event.label.name == 'claude') ||
+        (github.event.action == 'opened' && contains(github.event.issue.body, '@claude'))
+      ))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Kontekst projektu — Claude dostaje te instrukcje automatycznie
+          custom_instructions: |
+            Jesteś asystentem dla projektu TaxOrder Pro — systemu zarządzania flotą pojazdów.
+            Stack: Cloudflare Pages SPA + Worker (REST) + D1 (SQLite) + R2 (pliki).
+            Worker URL: https://taxorder-pro-api.adamus1000.workers.dev
+            Język UI: polski. Język kodu (zmienne, funkcje): angielski.
+
+            BEZPIECZEŃSTWO — OBOWIĄZKOWE:
+            - XSS: esc() obowiązkowe przy każdym innerHTML z danymi użytkownika
+            - onclick z danymi: zawsze data-* + dataset.*, nigdy inline interpolacja
+            - Fallback numeryczny: ?? nie ||  (szczególnie dmc, rok, miesiacePodatku)
+            - Nowe tabele D1: zawsze CREATE TABLE IF NOT EXISTS w nowym pliku schema_vN.sql
+            - Service Worker: przy nowych <script> w index.html → bump CACHE_NAME w sw.js
+
+            Wdrożenie:
+            - Worker: wrangler deploy (GitHub Action deploy-worker.yml robi to automatycznie)
+            - Frontend: git push → Cloudflare Pages auto-deploy
+          timeout_minutes: 30

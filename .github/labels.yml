@@ -1,0 +1,18 @@
+# Definicje labelek — tworzone automatycznie przez workflow
+# Możesz też stworzyć je ręcznie na: github.com/adic94/taxorder-pro/labels
+
+- name: claude
+  color: "7c3aed"
+  description: "Claude Code automatycznie zaimplementuje tę funkcję/naprawę"
+
+- name: health-alert
+  color: "dc2626"
+  description: "Automatyczny alert z health-check workflow"
+
+- name: enhancement
+  color: "2563eb"
+  description: "Nowa funkcja lub ulepszenie"
+
+- name: bug
+  color: "dc2626"
+  description: "Błąd do naprawienia"
