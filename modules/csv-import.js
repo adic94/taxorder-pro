@@ -200,32 +200,36 @@ window.CSVImport = (function () {
     const nrRejIdx = parseInt(Object.keys(_mapping).find(k => _mapping[k] === 'nrRej'));
     if (isNaN(nrRejIdx)) return;
 
-    let updated = 0;
-    const notFound = [];
+    let updated = 0, skipped = 0;
+    const rowLog = [];
     const updatedVehs = [];
 
-    _data.forEach(row => {
+    _data.forEach((row, rowIdx) => {
       const nr = (row[nrRejIdx] || '').trim().toUpperCase();
-      if (!nr) return;
+      if (!nr) {
+        skipped++;
+        rowLog.push({ rowIdx: rowIdx + 2, nr: '—', result: 'empty' });
+        return;
+      }
       const v = (window.vehs || []).find(x => x.nrRej.toUpperCase() === nr);
-      if (!v) { notFound.push(nr); return; }
+      if (!v) {
+        rowLog.push({ rowIdx: rowIdx + 2, nr, result: 'notFound' });
+        return;
+      }
 
+      let fieldsUpdated = 0;
       Object.entries(_mapping).forEach(([colIdx, field]) => {
         if (field === 'nrRej') return;
         let val = (row[parseInt(colIdx)] || '').trim() || null;
         if (val && NUMERIC_FIELDS.has(field)) {
           val = parseFloat(val.replace(',', '.').replace(/\s/g, '')) || null;
         }
-        if (val !== null) v[field] = val;
+        if (val !== null) { v[field] = val; fieldsUpdated++; }
       });
       updated++;
       updatedVehs.push(v);
+      rowLog.push({ rowIdx: rowIdx + 2, nr, result: 'ok', fieldsUpdated });
     });
-
-    const notFoundMsg = notFound.length
-      ? ` · ${t('csvi.not.found')}: ${notFound.slice(0, 3).join(', ')}${notFound.length > 3 ? `...+${notFound.length - 3}` : ''}`
-      : '';
-    if (typeof toast === 'function') toast(t('csvi.toast.updated').replace('{0}', updated) + notFoundMsg);
 
     if (window.TaxOrderFleetCloud?.saveVehicle) {
       for (const v of updatedVehs) {
@@ -235,7 +239,56 @@ window.CSVImport = (function () {
 
     if (typeof renderVeh === 'function') renderVeh();
     if (typeof renderDash === 'function') renderDash();
-    close();
+
+    // Pokaż raport w oknie zamiast toast+zamknij
+    const preview = document.getElementById('csv-preview');
+    if (!preview) { close(); return; }
+
+    const problemRows = rowLog.filter(r => r.result !== 'ok');
+    const notFoundCount = rowLog.filter(r => r.result === 'notFound').length;
+
+    preview.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+        <div style="padding:12px;background:var(--green-light,#f0fdf4);border:1px solid var(--green,#22c55e);border-radius:var(--radius);text-align:center">
+          <div style="font-size:22px;font-weight:700;color:var(--green,#22c55e)">${updated}</div>
+          <div style="font-size:11px;color:var(--text2)">Zaktualizowanych</div>
+        </div>
+        <div style="padding:12px;background:${notFoundCount ? 'var(--amber-light,#fffbeb)' : 'var(--bg3)'};border:1px solid ${notFoundCount ? 'var(--amber,#f59e0b)' : 'var(--border)'};border-radius:var(--radius);text-align:center">
+          <div style="font-size:22px;font-weight:700;color:${notFoundCount ? 'var(--amber,#f59e0b)' : 'var(--text3)'}">${notFoundCount}</div>
+          <div style="font-size:11px;color:var(--text2)">Nie znaleziono w flocie</div>
+        </div>
+        <div style="padding:12px;background:var(--bg3);border-radius:var(--radius);text-align:center">
+          <div style="font-size:22px;font-weight:700;color:var(--text3)">${skipped}</div>
+          <div style="font-size:11px;color:var(--text2)">Pominiętych (brak nr rej.)</div>
+        </div>
+      </div>
+      ${problemRows.length ? `
+        <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:8px">Wiersze z problemami (${problemRows.length})</div>
+        <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px">
+          <table style="width:100%;font-size:11px;border-collapse:collapse">
+            <thead><tr style="background:var(--bg3);position:sticky;top:0">
+              <th style="padding:5px 8px;text-align:left">Wiersz CSV</th>
+              <th style="padding:5px 8px;text-align:left">Nr rejestracyjny</th>
+              <th style="padding:5px 8px;text-align:left">Problem</th>
+            </tr></thead>
+            <tbody>
+              ${problemRows.map(r => `<tr style="border-top:1px solid var(--border)">
+                <td style="padding:4px 8px;font-family:var(--mono);color:var(--text3)">${r.rowIdx}</td>
+                <td style="padding:4px 8px;font-weight:500">${esc(r.nr)}</td>
+                <td style="padding:4px 8px;color:${r.result === 'notFound' ? 'var(--amber,#f59e0b)' : 'var(--text3)'}">
+                  ${r.result === 'notFound' ? 'Brak pojazdu w flocie' : 'Pusty numer rej.'}
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>` : `
+        <div style="padding:12px;background:var(--green-light,#f0fdf4);border-radius:var(--radius);text-align:center;margin-bottom:16px;color:var(--green,#22c55e);font-weight:600">
+          <i class="ti ti-check"></i> Wszystkie wiersze przetworzone bez błędów!
+        </div>`}
+      <button class="btn btn-blue" style="width:100%;justify-content:center;padding:10px" onclick="CSVImport.close()">
+        <i class="ti ti-check"></i>Zamknij — import zakończony
+      </button>
+    `;
   }
 
   function _download(content, filename, type) {

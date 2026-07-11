@@ -481,6 +481,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
     <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
     <button id="veh-filter-btn" class="btn btn-gray" onclick="toggleFilterRow()" title="Wyszukiwanie per kolumna"><i class="ti ti-filter"></i>Filtry</button>
     <button class="btn btn-gray" style="font-size:11px" onclick="clearColFilters()" title="Wyczyść wszystkie filtry"><i class="ti ti-filter-off"></i></button>
+    <button class="btn btn-gray" style="font-size:11px" onclick="toggleDateFilters()" title="Filtry zakresów dat (OC, AC, przegląd)"><i class="ti ti-calendar-search"></i>Daty</button>
     <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
     <span style="font-size:12px;color:var(--text3)" id="veh-count-label"></span>
   </div>
@@ -527,6 +528,25 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
     <button class="btn btn-blue" onclick="selAll()"><i class="ti ti-checkbox"></i><span data-i18n="btn.sel.all">Zaznacz wszystkie</span></button>
     <button class="btn btn-gray" onclick="deselAll()"><i class="ti ti-square"></i><span data-i18n="btn.sel.none">Odznacz</span></button>
     <button class="btn btn-green" onclick="showPage('kalkulator')"><i class="ti ti-calculator"></i>Kalkulator (<span id="btn-sel-cnt">0</span>)</button>
+  </div>
+
+  <!-- Filtry zakresów dat (OC/AC/przegląd) -->
+  <div id="date-filter-row" style="display:none;gap:8px;flex-wrap:wrap;padding:10px 0;border-top:1px dashed var(--border);align-items:center;margin-bottom:4px">
+    <span style="font-size:11px;font-weight:600;color:var(--text3);white-space:nowrap">OC wygasa:</span>
+    <input type="date" class="fi date-filter-input" style="width:140px;height:28px;font-size:11px" title="OC od" oninput="applyDateFilter('ocFrom',this.value)">
+    <span style="font-size:11px;color:var(--text2)">—</span>
+    <input type="date" class="fi date-filter-input" style="width:140px;height:28px;font-size:11px" title="OC do" oninput="applyDateFilter('ocTo',this.value)">
+    <div style="width:1px;height:18px;background:var(--border)"></div>
+    <span style="font-size:11px;font-weight:600;color:var(--text3);white-space:nowrap">Przegląd:</span>
+    <input type="date" class="fi date-filter-input" style="width:140px;height:28px;font-size:11px" title="Przegląd od" oninput="applyDateFilter('inspFrom',this.value)">
+    <span style="font-size:11px;color:var(--text2)">—</span>
+    <input type="date" class="fi date-filter-input" style="width:140px;height:28px;font-size:11px" title="Przegląd do" oninput="applyDateFilter('inspTo',this.value)">
+    <div style="width:1px;height:18px;background:var(--border)"></div>
+    <span style="font-size:11px;font-weight:600;color:var(--text3);white-space:nowrap">AC wygasa:</span>
+    <input type="date" class="fi date-filter-input" style="width:140px;height:28px;font-size:11px" title="AC od" oninput="applyDateFilter('acFrom',this.value)">
+    <span style="font-size:11px;color:var(--text2)">—</span>
+    <input type="date" class="fi date-filter-input" style="width:140px;height:28px;font-size:11px" title="AC do" oninput="applyDateFilter('acTo',this.value)">
+    <button class="btn btn-gray" style="font-size:11px;padding:4px 10px;margin-left:4px" onclick="clearDateFilters()"><i class="ti ti-filter-off"></i>Wyczyść</button>
   </div>
 
   <!-- Pasek narzędziowy tabeli: Import / Export / Kolumny -->
@@ -2871,6 +2891,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
     <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35);font-size:12px" onclick="bulkAssignCompany()"><i class="ti ti-building"></i>Przypisz firmę</button>
     <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35);font-size:12px" onclick="bulkSetTaxMonths()"><i class="ti ti-calendar"></i>Miesiące podatku</button>
     <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35);font-size:12px" onclick="bulkChangeStatus()"><i class="ti ti-tag"></i>Zmień status</button>
+    <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35);font-size:12px" onclick="bulkCompare()"><i class="ti ti-scale"></i>Porównaj zaznaczone</button>
   </div>
   <button class="btn" style="background:transparent;color:rgba(255,255,255,.75);border-color:rgba(255,255,255,.3);font-size:12px;flex-shrink:0" onclick="deselAll()"><i class="ti ti-x"></i>Odznacz wszystko</button>
 </div>

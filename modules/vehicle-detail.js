@@ -19,6 +19,7 @@ const VD_TABS = [
   { id: 'gps',          label: '🗺 GPS',            i18n: 'vd.tab.gps' },
   { id: 'karty',        label: '💳 Karty',          i18n: 'vd.tab.karty' },
   { id: 'konserwacja',  label: '🔨 Konserwacja',   i18n: 'vd.tab.konserwacja' },
+  { id: 'changelog',   label: '🕐 Historia zmian', i18n: 'vd.tab.changelog' },
 ];
 
 window.TaxOrderVehicleDetail = {
@@ -83,6 +84,9 @@ window.TaxOrderVehicleDetail = {
     const gf = id => { const val = g(id); return val ? parseFloat(val) : null; };
 
     const _prevKm = v.stanKilometrow;
+    const _AUDIT_FIELDS = ['marka','model','rok','vin','typ','dmcMax','paliwo','kierowca','stanKilometrow','normaSpalania','ocEnd','acEnd','nextInspection','status','ownership_type','miesiacePodatku','gmina','uwagi','leasingEnd','leasingRate','leasingCompany'];
+    const _prevSnap = {};
+    _AUDIT_FIELDS.forEach(f => { _prevSnap[f] = v[f]; });
 
     Object.assign(v, {
       // === IDENTYFIKACJA POJAZDU ===
@@ -236,7 +240,19 @@ window.TaxOrderVehicleDetail = {
       v.archivedAt = null;
     }
 
-    // Audit trail
+    // Audit trail — per-vehicle changelog with field diffs
+    const _diffs = [];
+    _AUDIT_FIELDS.forEach(f => {
+      const oldVal = _prevSnap[f], newVal = v[f];
+      if (String(oldVal ?? '') !== String(newVal ?? '')) _diffs.push({ field: f, old: oldVal ?? null, new: newVal ?? null });
+    });
+    if (!Array.isArray(v.changeLog)) v.changeLog = [];
+    v.changeLog.push({
+      ts: new Date().toISOString(),
+      user: window.currentUser?.name || window.currentUser?.email || 'nieznany',
+      fields: _diffs,
+    });
+    if (v.changeLog.length > 200) v.changeLog.splice(0, v.changeLog.length - 200);
     this._logAudit('save', vehId, { nrRej: v.nrRej });
 
     // Zapisz (lokalnie zawsze, chmura jeśli dostępna)
@@ -836,8 +852,13 @@ window.TaxOrderVehicleDetail = {
       <!-- TAB: UWAGI -->
       <div id="vd-tab-notes-content" class="vd-tab-content" style="display:none">
         <div>
-          <label class="vdl">Uwagi do pojazdu</label>
-          <textarea id="vd-uwagi" class="fi" style="height:140px;resize:vertical">${esc(v.uwagi || '')}</textarea>
+          <label class="vdl">Uwagi do pojazdu <span style="font-size:10px;color:var(--text3);font-weight:400;margin-left:6px">szybkie szablony:</span></label>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
+            ${['Pojazd w serwisie','Oczekuje na OC','Oczekuje na przegląd','Uszkodzone lusterko','Pojazd zastępczy','Do zbycia','Pojazd zatrzymany'].map(tpl =>
+              `<button class="btn btn-gray" style="font-size:10px;padding:3px 8px;height:auto" data-tpl="${esc(tpl)}" onclick="TaxOrderVehicleDetail._insertNote(this.dataset.tpl)">${esc(tpl)}</button>`
+            ).join('')}
+          </div>
+          <textarea id="vd-uwagi" class="fi" style="height:120px;resize:vertical">${esc(v.uwagi || '')}</textarea>
         </div>
       </div>
 
@@ -881,6 +902,11 @@ window.TaxOrderVehicleDetail = {
         </div>
         <div id="vd-maint-list">${this._renderMaintItems(v)}</div>
         ${!(v.stanKilometrow) ? `<div class="wbox" style="margin-top:12px;font-size:12px"><i class="ti ti-alert-triangle"></i> Uzupełnij licznik km w zakładce DR aby alerty km-based działały poprawnie.</div>` : ''}
+      </div>
+
+      <!-- TAB: HISTORIA ZMIAN -->
+      <div id="vd-tab-changelog-content" class="vd-tab-content" style="display:none">
+        <div id="vd-changelog-body">${this._renderChangelogTab(v)}</div>
       </div>
     `;
 
@@ -2165,12 +2191,55 @@ td:last-child{font-weight:600;color:#1e293b}
       btn.style.color = 'var(--text)';
       btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
     }
-    // Renderuj wykresy po przełączeniu zakładki
+    // Renderuj wykresy/changelog po przełączeniu zakładki
     const v = (window.vehs||[]).find(x => x.id === this._currentVehId);
     if (v) {
       if (name === 'eksploatacja') this._renderKmChart(v);
       if (name === 'koszty')       this._renderFuelChart(v);
+      if (name === 'changelog') {
+        const el = document.getElementById('vd-changelog-body');
+        if (el) el.innerHTML = this._renderChangelogTab(v);
+      }
     }
+  },
+
+  _renderChangelogTab(v) {
+    const log = [...(v.changeLog || [])].reverse();
+    if (!log.length) return `
+      <div style="text-align:center;padding:2.5rem 1rem;color:var(--text3)">
+        <i class="ti ti-history" style="font-size:40px;display:block;margin-bottom:12px;opacity:.4"></i>
+        <div style="font-size:13px">Brak historii zmian.</div>
+        <div style="font-size:11px;margin-top:4px">Po pierwszym zapisaniu karty pojazdu zmiany będą tu widoczne.</div>
+      </div>`;
+
+    const FIELD_LABELS = {
+      marka:'Marka', model:'Model', rok:'Rok', vin:'VIN', typ:'Typ pojazdu',
+      dmcMax:'DMC (kg)', paliwo:'Paliwo', kierowca:'Kierowca',
+      stanKilometrow:'Stan licznika', normaSpalania:'Norma spalania',
+      ocEnd:'OC — koniec', acEnd:'AC — koniec', nextInspection:'Przegląd — termin',
+      status:'Status', ownership_type:'Typ własności', miesiacePodatku:'Mies. podatku',
+      gmina:'Gmina', uwagi:'Uwagi', leasingEnd:'Leasing — koniec',
+      leasingRate:'Rata leasingowa', leasingCompany:'Leasingodawca',
+    };
+
+    return log.map(entry => `
+      <div style="padding:12px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:${entry.fields?.length ? '8px' : '0'}">
+          <i class="ti ti-edit" style="color:var(--blue);flex-shrink:0"></i>
+          <span style="font-weight:600;font-size:12px">${esc(entry.user || 'nieznany')}</span>
+          <span style="font-size:11px;color:var(--text3);margin-left:auto;white-space:nowrap">${new Date(entry.ts).toLocaleString('pl-PL')}</span>
+        </div>
+        ${entry.fields?.length ? `
+          <div style="display:flex;flex-direction:column;gap:3px">
+            ${entry.fields.map(f => `
+              <div style="display:flex;align-items:center;gap:6px;font-size:11px;padding:3px 0;border-top:1px solid var(--bg3)">
+                <span style="min-width:130px;color:var(--text3);flex-shrink:0">${FIELD_LABELS[f.field] || f.field}</span>
+                <span style="color:var(--red,#ef4444);text-decoration:line-through;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(String(f.old ?? '—'))}</span>
+                <i class="ti ti-arrow-right" style="color:var(--text3);flex-shrink:0;font-size:10px"></i>
+                <span style="color:var(--green,#22c55e);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(String(f.new ?? '—'))}</span>
+              </div>`).join('')}
+          </div>` : `<div style="font-size:11px;color:var(--text3)">Zapisano (bez wykrytych zmian w śledzonych polach)</div>`}
+      </div>`).join('');
   },
 
   _renderKmChart(v) {
@@ -2541,6 +2610,15 @@ td:last-child{font-weight:600;color:#1e293b}
         }
       })
       .catch(() => { if (statusEl) statusEl.textContent = ''; });
+  },
+
+  _insertNote(tpl) {
+    const ta = document.getElementById('vd-uwagi');
+    if (!ta) return;
+    const cur = ta.value.trim();
+    ta.value = cur ? cur + '\n' + tpl : tpl;
+    this._dirty = true;
+    ta.focus();
   },
 
   _logAudit(action, vehId, changes) {

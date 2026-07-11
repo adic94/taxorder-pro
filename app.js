@@ -8,6 +8,7 @@ let selected = new Set();
 window.selected = selected;
 let sortKey = 'nrRej', sortAsc = true;
 var _vehPage = 0, _vehPageSize = 100, _lastFilteredLen = -1;
+var _dateFilters = { ocFrom: '', ocTo: '', acFrom: '', acTo: '', inspFrom: '', inspTo: '' };
 
 // ── Konfiguracja API ──────────────────────────────────────────────────────────
 window.CF_WORKER_URL = 'https://taxorder-pro-api.adamus1000.workers.dev';
@@ -227,6 +228,16 @@ function filterVeh() {
       if (fAlert === 'no_driver'   && v.kierowca)                                        return false;
       if (fAlert === 'no_oc'       && v.ocEnd)                                           return false;
     }
+    // Date range filters
+    const _inDateRange = (ds, from, to) => {
+      if (!ds) return !(from || to);
+      if (from && ds < from) return false;
+      if (to && ds > to) return false;
+      return true;
+    };
+    if ((_dateFilters.ocFrom || _dateFilters.ocTo) && !_inDateRange(v.ocEnd, _dateFilters.ocFrom, _dateFilters.ocTo)) return false;
+    if ((_dateFilters.acFrom || _dateFilters.acTo) && !_inDateRange(v.acEnd, _dateFilters.acFrom, _dateFilters.acTo)) return false;
+    if ((_dateFilters.inspFrom || _dateFilters.inspTo) && !_inDateRange(v.nextInspection, _dateFilters.inspFrom, _dateFilters.inspTo)) return false;
     // Per-column filters
     for (const [col, val] of Object.entries(_colFilters)) {
       if (!val) continue;
@@ -270,6 +281,28 @@ function clearColFilters() {
   _colFilters = {};
   try { localStorage.removeItem(_COL_FILTERS_LS); } catch {}
   renderVeh();
+}
+
+function applyDateFilter(field, val) {
+  _dateFilters[field] = val;
+  _vehPage = 0;
+  renderVeh();
+}
+
+function clearDateFilters() {
+  _dateFilters = { ocFrom: '', ocTo: '', acFrom: '', acTo: '', inspFrom: '', inspTo: '' };
+  document.querySelectorAll('.date-filter-input').forEach(el => { el.value = ''; });
+  _vehPage = 0;
+  renderVeh();
+}
+
+function toggleDateFilters() {
+  const el = document.getElementById('date-filter-row');
+  if (!el) return;
+  const show = el.style.display === 'none' || !el.style.display;
+  el.style.display = show ? 'flex' : 'none';
+  const btn = document.querySelector('button[onclick="toggleDateFilters()"]');
+  if (btn) btn.className = btn.className.replace(show ? 'btn-gray' : 'btn-blue', show ? 'btn-blue' : 'btn-gray');
 }
 
 function quickFilterVeh(alertType) {
@@ -1442,6 +1475,81 @@ function bulkChangeStatus() {
   sel.forEach(v => { v.status = status; window.TaxOrderFleetCloud?.saveVehicle?.(v); });
   renderVeh(); updateCounters();
   toast('✓ Zmieniono status na „' + status + '" dla ' + sel.length + ' pojazdów');
+}
+
+function bulkCompare() {
+  const ids = getSel();
+  if (ids.size < 2) { toast('Zaznacz co najmniej 2 pojazdy do porównania'); return; }
+  const vList = [...ids].slice(0, 4).map(id => (window.vehs || []).find(v => v.id === id)).filter(Boolean);
+  if (vList.length < 2) return;
+
+  const yr = String(new Date().getFullYear());
+  const _days = ds => { if (!ds) return null; const d = new Date(ds + 'T00:00:00'); return isNaN(d) ? null : Math.round((d - Date.now()) / 86400000); };
+  const _fuelEff = v => {
+    const h = [...(v.fuelHistory || [])].filter(x => x.km > 0 && x.liters > 0).sort((a, b) => a.km - b.km);
+    let l = 0, k = 0, n = 0;
+    for (let i = 1; i < h.length; i++) { const d = h[i].km - h[i - 1].km; if (d > 10 && d < 5000) { l += h[i].liters; k += d; n++; } }
+    return n >= 2 && k > 0 ? (l / k * 100).toFixed(1) : null;
+  };
+
+  const ROWS = [
+    ['Marka / Model',          v => (v.marka || '—') + ' ' + (v.model || '')],
+    ['Rok',                    v => v.rok || '—'],
+    ['Typ pojazdu',            v => v.typ || '—'],
+    ['DMC (kg)',               v => v.dmc ?? v.dmcMax ?? '—'],
+    ['Paliwo',                 v => v.paliwo || '—'],
+    ['Kierowca',               v => v.kierowca || '—'],
+    ['Stan licznika (km)',     v => v.stanKilometrow != null ? v.stanKilometrow.toLocaleString('pl-PL') : '—'],
+    ['Norma spalania (l/100)', v => v.normaSpalania || '—'],
+    ['Śr. spalanie (rzeczyw.)',v => { const e = _fuelEff(v); return e ? e + ' l/100km' : '—'; }],
+    ['OC — wygasa',            v => v.ocEnd || '—', v => v.ocEnd && _days(v.ocEnd) < 30],
+    ['AC — wygasa',            v => v.acEnd || '—', v => v.acEnd && _days(v.acEnd) < 30],
+    ['Przegląd — termin',      v => v.nextInspection || '—', v => v.nextInspection && _days(v.nextInspection) < 30],
+    ['Kategoria DT-1',         v => (typeof calcTax === 'function' ? calcTax(v).cat : null) || v.cat || '—'],
+    ['Podatek DT-1 (zł/rok)',  v => { const t = typeof calcTax === 'function' ? calcTax(v) : {}; return t.amount != null ? Math.round(t.amount).toLocaleString('pl-PL') + ' zł' : '—'; }],
+    ['TCO — paliwo (rok)',     v => { const f = (v.fuelHistory || []).filter(h => (h.date || '').startsWith(yr)).reduce((s, h) => s + (h.totalGross || 0), 0); return f > 0 ? f.toFixed(0) + ' zł' : '—'; }],
+    ['TCO — serwis (rok)',     v => { const s = (v.serviceHistory || []).filter(h => (h.date || '').startsWith(yr)).reduce((s, h) => s + (+h.cost || 0), 0); return s > 0 ? s.toFixed(0) + ' zł' : '—'; }],
+    ['Ubezpieczenia (rok)',    v => { const i = (+(v.ocPremium) || 0) + (+(v.acPremium) || 0); return i > 0 ? i.toFixed(0) + ' zł' : '—'; }],
+    ['Status',                 v => v.status || '—'],
+  ];
+
+  const headCols = vList.map(v =>
+    `<th style="padding:8px 12px;text-align:center;background:var(--blue-light,#eff6ff);color:var(--blue);white-space:nowrap">
+      ${esc(v.nrRej)}<br><span style="font-size:10px;font-weight:400;color:var(--text2)">${esc(v.marka)} ${esc(v.model)}</span>
+    </th>`
+  ).join('');
+
+  const bodyRows = ROWS.map(([lbl, fn, alertFn]) => {
+    const vals = vList.map(fn);
+    const alerts = alertFn ? vList.map(alertFn) : vList.map(() => false);
+    return `<tr style="border-top:1px solid var(--border)">
+      <td style="padding:7px 12px;font-size:12px;font-weight:500;background:var(--bg3);white-space:nowrap">${lbl}</td>
+      ${vals.map((val, i) => `<td style="padding:7px 12px;font-size:12px;text-align:center;color:${alerts[i] ? 'var(--amber,#f59e0b)' : 'var(--text)'}">${esc(String(val))}</td>`).join('')}
+    </tr>`;
+  }).join('');
+
+  const modal = document.createElement('div');
+  modal.id = 'compare-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:5500;display:flex;align-items:flex-start;justify-content:center;padding:20px 10px;overflow:auto';
+  modal.innerHTML = `
+    <div style="background:var(--bg);border-radius:var(--radius-lg);width:min(${200 + vList.length * 180}px,100%);box-shadow:0 8px 40px rgba(0,0,0,.3);overflow:hidden;margin-top:10px">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:1">
+        <i class="ti ti-scale" style="font-size:20px;color:var(--blue)"></i>
+        <strong style="font-size:15px">Porównanie pojazdów (${vList.length})</strong>
+        <button onclick="document.getElementById('compare-modal').remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);line-height:1">×</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;min-width:${120 + vList.length * 150}px">
+          <thead><tr>
+            <th style="padding:8px 12px;text-align:left;background:var(--bg3);font-size:12px;white-space:nowrap;min-width:160px">Parametr</th>
+            ${headCols}
+          </tr></thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      </div>
+    </div>`;
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
 }
 
 // ── REGON / NIP lookup (White List API MF) ────────────────────────────────

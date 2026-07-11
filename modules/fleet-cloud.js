@@ -84,7 +84,8 @@ window.TaxOrderFleetCloud = {
       uwagi: v.uwagi, insurancePolicyNo: v.insurancePolicyNo,
       is_active: v.is_active, archivedAt: v.archivedAt, archivedReason: v.archivedReason,
       cepikSyncStatus: v.cepikSyncStatus,
-      kmHistory: v.kmHistory?.length ? v.kmHistory : undefined,
+      kmHistory:   v.kmHistory?.length   ? v.kmHistory   : undefined,
+      changeLog:   v.changeLog?.length   ? v.changeLog   : undefined,
     };
     Object.keys(raw).forEach(k => { if (raw[k] === undefined) delete raw[k]; });
 
