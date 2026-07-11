@@ -195,6 +195,9 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 
   <div class="sidebar-label">Dokumenty</div>
   <button class="tnb" id="tnb-dok-smart" onclick="showPage('dok-smart')"><i class="ti ti-files"></i><span>Dokumenty flotowe</span></button>
+  <button class="tnb" id="tnb-policies" onclick="showPage('policies')"><i class="ti ti-shield-check"></i><span>Polisy ubezp.</span></button>
+  <button class="tnb" id="tnb-service-schedule" onclick="showPage('service-schedule')"><i class="ti ti-tool"></i><span>Harmonogram serwis.</span></button>
+  <button class="tnb" id="tnb-mileage-claims" onclick="showPage('mileage-claims')"><i class="ti ti-road"></i><span>Rozliczenia km</span></button>
   <button class="tnb" id="tnb-impexp" onclick="showPage('impexp')"><i class="ti ti-arrows-exchange"></i><span data-i18n="nav.impexp">Import / Eksport</span></button>
   <button class="tnb" id="tnb-ocr" onclick="showPage('ocr')"><i class="ti ti-scan"></i><span data-i18n="nav.ocr">OCR Dowodów</span></button>
   <button class="tnb" id="tnb-pdfexport" onclick="showPage('pdfexport')"><i class="ti ti-file-type-pdf"></i><span data-i18n="nav.pdfexport">Eksport PDF</span></button>
@@ -338,6 +341,13 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
           <span style="font-size:10px;color:var(--text3);margin-left:6px">(serwisy, szkody, tankowania)</span>
         </div>
         <div id="dash-activity" style="max-height:260px;overflow-y:auto"></div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-card-hdr">
+          <i class="ti ti-flame" style="color:#f44336"></i>Anomalie zużycia paliwa
+          <span style="font-size:10px;color:var(--text3);margin-left:6px">(>&nbsp;20% powyżej normy, ostatnie 3 tankowania)</span>
+        </div>
+        <div id="dash-fuel-anomaly" style="max-height:200px;overflow-y:auto"></div>
       </div>
     </div>
 
@@ -1156,6 +1166,32 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
     <div id="fr-insurance-body"></div>
   </div>
 
+  <!-- FK Export Symfonia/Comarch -->
+  <div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border)">
+    <div style="font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <i class="ti ti-building-bank" style="color:#607d8b"></i>Eksport FK — Symfonia / Comarch
+      <span style="font-size:11px;font-weight:400;color:var(--text2)">Faktury serwisowe → CSV do importu w programach FK</span>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <select id="fr-year" class="fi" style="width:90px;margin:0">
+        <option>2026</option><option>2025</option><option>2024</option><option>2023</option>
+      </select>
+      <select id="fr-month" class="fi" style="width:120px;margin:0">
+        <option value="">Cały rok</option>
+        <option value="1">Styczeń</option><option value="2">Luty</option>
+        <option value="3">Marzec</option><option value="4">Kwiecień</option>
+        <option value="5">Maj</option><option value="6">Czerwiec</option>
+        <option value="7">Lipiec</option><option value="8">Sierpień</option>
+        <option value="9">Wrzesień</option><option value="10">Październik</option>
+        <option value="11">Listopad</option><option value="12">Grudzień</option>
+      </select>
+      <input id="fr-fk-wn" class="fi" placeholder="Konto WN (np. 401)" value="401" style="width:160px;margin:0">
+      <input id="fr-fk-ma" class="fi" placeholder="Konto MA (np. 201)" value="201" style="width:160px;margin:0">
+      <button class="btn btn-gray" onclick="FleetReports.exportFkCsv()"><i class="ti ti-download"></i> Generuj CSV</button>
+    </div>
+    <div style="font-size:11px;color:var(--text3)">Eksportuje wpisy z historii serwisowej (koszt + NIP warsztatu + nr faktury) w formacie CSV zgodnym z Symfonia FK i Comarch Optima.</div>
+  </div>
+
   <!-- Raport zarządu -->
   <div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
     <div>
@@ -1614,6 +1650,190 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
         <i class="ti ti-upload"></i>Wgraj
       </button>
       <button class="btn btn-gray" onclick="document.getElementById('dm-global-upload-modal').style.display='none'">Anuluj</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== POLISY UBEZPIECZENIOWE ==================== -->
+<div class="page" id="page-policies" style="display:none">
+  <div class="pg-title"><i class="ti ti-shield-check"></i>Historia polis ubezpieczeniowych</div>
+  <div class="pg-sub">Pełna historia OC/AC/NNW per pojazd — daty ważności, składki, ubezpieczyciele</div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+    <button class="btn btn-primary" onclick="PoliciesModule._openEdit(null,'')"><i class="ti ti-plus"></i> Nowa polisa</button>
+  </div>
+  <div id="policies-global-content"><div style="padding:24px;color:#888">Kliknij by załadować...</div></div>
+</div>
+
+<!-- ==================== HARMONOGRAM SERWISOWY ==================== -->
+<div class="page" id="page-service-schedule" style="display:none">
+  <div class="pg-title"><i class="ti ti-tool"></i>Harmonogram serwisowy</div>
+  <div class="pg-sub">Planowanie przeglądów i serwisów według przebiegu km i dat — alerty gdy zbliża się termin</div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+    <button class="btn btn-primary" onclick="ServiceScheduleModule._openEdit(null,'')"><i class="ti ti-plus"></i> Dodaj pozycję</button>
+  </div>
+  <div id="ss-global-content"><div style="padding:24px;color:#888">Kliknij by załadować...</div></div>
+</div>
+
+<!-- ==================== ROZLICZENIA KM ==================== -->
+<div class="page" id="page-mileage-claims" style="display:none">
+  <div class="pg-title"><i class="ti ti-road"></i>Rozliczenia km pracowniczych</div>
+  <div class="pg-sub">Delegacje i ryczałty samochodowe — akceptacja, wypłata, eksport CSV dla FK</div>
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+    <select id="mc-filter-status" class="form-select" style="width:160px" onchange="MileageClaimsModule._renderGlobalPage()">
+      <option value="">Wszystkie statusy</option>
+      <option value="pending">Oczekuje</option>
+      <option value="approved">Zatwierdzone</option>
+      <option value="rejected">Odrzucone</option>
+      <option value="paid">Wypłacone</option>
+    </select>
+    <input id="mc-filter-driver" class="form-control" placeholder="Filtruj po pracowniku..." style="width:220px" oninput="MileageClaimsModule._renderGlobalPage()">
+  </div>
+  <div id="mc-global-content"><div style="padding:24px;color:#888">Kliknij by załadować...</div></div>
+</div>
+
+<!-- ==================== MODAL: POLISA ==================== -->
+<div id="pm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9400;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <strong id="pm-modal-title" style="font-size:16px">Polisa</strong>
+      <button class="btn-icon" onclick="PoliciesModule._closeEdit()"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="pm-f-id">
+    <input type="hidden" id="pm-f-nrrej">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group">
+        <label class="form-label">Typ polisy</label>
+        <select id="pm-f-type" class="form-select">
+          <option value="oc">OC</option><option value="ac">AC</option>
+          <option value="nnw">NNW</option><option value="assistance">Assistance</option>
+          <option value="inne">Inne</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nr polisy</label>
+        <input id="pm-f-number" class="form-control" placeholder="np. POL-2026/000123">
+      </div>
+      <div class="form-group" style="grid-column:span 2">
+        <label class="form-label">Ubezpieczyciel</label>
+        <input id="pm-f-insurer" class="form-control" placeholder="np. PZU, Allianz...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Data od</label>
+        <input id="pm-f-start" type="date" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Data do</label>
+        <input id="pm-f-end" type="date" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Składka (zł)</label>
+        <input id="pm-f-premium" type="number" step="0.01" class="form-control" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Rat</label>
+        <input id="pm-f-installments" type="number" min="1" max="12" class="form-control" value="1">
+      </div>
+      <div class="form-group" style="grid-column:span 2">
+        <label class="form-label">Notatki</label>
+        <textarea id="pm-f-notes" class="form-control" rows="2"></textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-gray" onclick="PoliciesModule._closeEdit()">Anuluj</button>
+      <button class="btn btn-primary" onclick="PoliciesModule._submitEdit()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: HARMONOGRAM SERWISOWY ==================== -->
+<div id="ss-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9400;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <strong id="ss-modal-title" style="font-size:16px">Pozycja harmonogramu</strong>
+      <button class="btn-icon" onclick="ServiceScheduleModule._closeEdit()"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="ss-f-id">
+    <input type="hidden" id="ss-f-nrrej">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group" style="grid-column:span 2">
+        <label class="form-label">Nazwa czynności</label>
+        <input id="ss-f-name" class="form-control" placeholder="np. Wymiana oleju i filtrów">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Co ile km</label>
+        <input id="ss-f-intkm" type="number" class="form-control" placeholder="np. 15000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Co ile miesięcy</label>
+        <input id="ss-f-intmo" type="number" class="form-control" placeholder="np. 12">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ostatni przebieg (km)</label>
+        <input id="ss-f-lastkm" type="number" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ostatnia data</label>
+        <input id="ss-f-lastdt" type="date" class="form-control">
+      </div>
+      <div class="form-group" style="grid-column:span 2">
+        <label class="form-label">Notatki</label>
+        <textarea id="ss-f-notes" class="form-control" rows="2"></textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-gray" onclick="ServiceScheduleModule._closeEdit()">Anuluj</button>
+      <button class="btn btn-primary" onclick="ServiceScheduleModule._submitEdit()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: ROZLICZENIE KM ==================== -->
+<div id="mc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9400;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <strong id="mc-modal-title" style="font-size:16px">Rozliczenie km</strong>
+      <button class="btn-icon" onclick="MileageClaimsModule._closeEdit()"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group">
+        <label class="form-label">Data</label>
+        <input id="mc-f-date" type="date" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Pojazd (nr rej.)</label>
+        <input id="mc-f-nrrej" class="form-control" placeholder="opcjonalnie">
+      </div>
+      <div class="form-group" style="grid-column:span 2">
+        <label class="form-label">Pracownik</label>
+        <input id="mc-f-driver" class="form-control" placeholder="Imię i Nazwisko">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Stan licznika — od (km)</label>
+        <input id="mc-f-kmstart" type="number" class="form-control" oninput="MileageClaimsModule._updateCalc()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Stan licznika — do (km)</label>
+        <input id="mc-f-kmend" type="number" class="form-control" oninput="MileageClaimsModule._updateCalc()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Stawka (zł/km)</label>
+        <input id="mc-f-rate" type="number" step="0.01" value="0.89" class="form-control" oninput="MileageClaimsModule._updateCalc()">
+      </div>
+      <div class="form-group" style="display:flex;align-items:flex-end">
+        <div id="mc-calc-preview" style="font-size:14px;font-weight:600;color:var(--accent);padding-bottom:8px"></div>
+      </div>
+      <div class="form-group" style="grid-column:span 2">
+        <label class="form-label">Cel podróży</label>
+        <input id="mc-f-purpose" class="form-control" placeholder="np. Wizyta serwisowa, delegacja...">
+      </div>
+      <div class="form-group" style="grid-column:span 2">
+        <label class="form-label">Notatki</label>
+        <textarea id="mc-f-notes" class="form-control" rows="2"></textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-gray" onclick="MileageClaimsModule._closeEdit()">Anuluj</button>
+      <button class="btn btn-primary" onclick="MileageClaimsModule._submitEdit()">Zapisz</button>
     </div>
   </div>
 </div>
@@ -2937,6 +3157,39 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
     <i class="ti ti-info-circle"></i>
     <div><strong>Multi-firma:</strong> Każda spółka ma osobne dane. Stan zapisuje się automatycznie przy przełączaniu.</div>
   </div>
+
+  <!-- Dane do wydruku / nagłówek PDF -->
+  <div class="card" style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1.25rem;margin-top:1rem">
+    <div style="font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <i class="ti ti-printer" style="color:var(--text2)"></i>Dane firmy — nagłówek wydruku PDF / kart pojazdów
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group">
+        <label class="form-label">Nazwa firmy</label>
+        <input id="print-company-name" class="form-control" placeholder="np. mToilet Sp. z o.o."
+          value="" oninput="localStorage.setItem('print_company_name',this.value)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">NIP</label>
+        <input id="print-company-nip" class="form-control" placeholder="000-000-00-00"
+          oninput="localStorage.setItem('print_company_nip',this.value)">
+      </div>
+      <div class="form-group" style="grid-column:span 2">
+        <label class="form-label">Adres</label>
+        <input id="print-company-addr" class="form-control" placeholder="ul. Przykładowa 1, 00-000 Warszawa"
+          oninput="localStorage.setItem('print_company_addr',this.value)">
+      </div>
+      <div class="form-group" style="grid-column:span 2">
+        <label class="form-label">URL logo (https://...)</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="print-company-logo" class="form-control" placeholder="https://example.com/logo.png"
+            oninput="localStorage.setItem('print_company_logo',this.value);document.getElementById('print-logo-preview').src=this.value">
+          <img id="print-logo-preview" src="" alt="" style="height:40px;object-fit:contain;border:1px solid var(--border);border-radius:6px;background:var(--bg);padding:4px;display:block">
+        </div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">Dane zapisywane lokalnie (localStorage) — widoczne na wydruku kart pojazdów i raportach PDF.</div>
+  </div>
 </div>
 
 <!-- ==================== HISTORIA DEKLARACJI DT-1 ==================== -->
@@ -3182,6 +3435,9 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/keyboard-shortcuts.js"></script>
   <script src="modules/budget.js"></script>
   <script src="modules/document-manager.js"></script>
+  <script src="modules/policies.js"></script>
+  <script src="modules/service-schedule.js"></script>
+  <script src="modules/mileage-claims.js"></script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">

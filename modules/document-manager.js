@@ -137,6 +137,85 @@
     return false;
   }
 
+  // ─── OCR faktury → propozycja wpisu serwisowego ──────────────────────────
+  function extractInvoiceData(text) {
+    if (!text) return null;
+    const lower = text.toLowerCase();
+    // Kwota brutto — różne wzorce polskich faktur
+    let amount = null;
+    const amtPatterns = [
+      /(?:do zap.aty|razem|total|brutto)[:\s]*(\d[\d\s]*[,.]?\d{2})/i,
+      /(\d{1,6}[,\s]\d{2})\s*z.?\b/,
+      /\b(\d{1,6})\s*,\s*(\d{2})\s*(?:PLN|zł|zl)\b/i,
+    ];
+    for (const p of amtPatterns) {
+      const m = text.match(p);
+      if (m) {
+        const raw = (m[1] + (m[2] ? '.' + m[2] : '')).replace(/\s/g, '').replace(',', '.');
+        const val = parseFloat(raw);
+        if (!isNaN(val) && val > 10 && val < 500000) { amount = val; break; }
+      }
+    }
+    // Data dokumentu (pierwsza znaleziona data w formacie DD.MM.YYYY lub YYYY-MM-DD)
+    let date = null;
+    const dm = text.match(/(\d{4}-\d{2}-\d{2})|(\d{2}[./]\d{2}[./]\d{4})/);
+    if (dm) {
+      const raw = dm[0];
+      if (raw.includes('-')) date = raw;
+      else {
+        const parts = raw.split(/[./]/);
+        if (parts.length === 3) date = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+      }
+    }
+    // Nazwa kontrahenta / warsztatu
+    let workshop = null;
+    const wm = text.match(/(?:sprzedawca|wystawca|firma|us.ugodawca)[:\s]+([A-Z][^\n]{3,60})/i);
+    if (wm) workshop = wm[1].trim().slice(0, 80);
+    // NIP
+    let nip = null;
+    const nm = text.match(/NIP[:\s]*(\d{3}[- ]?\d{3}[- ]?\d{2}[- ]?\d{2}|\d{10})/i);
+    if (nm) nip = nm[1].replace(/[- ]/g, '');
+    // Nr faktury
+    let invoiceNo = null;
+    const im = text.match(/(?:faktura|nr faktury|invoice)[:\s]*([A-Z0-9\/_-]{4,25})/i);
+    if (im) invoiceNo = im[1].trim();
+    if (!amount && !date) return null;
+    return { amount, date: date || new Date().toISOString().slice(0, 10), workshop, nip, invoiceNo };
+  }
+
+  async function _createServiceEntryFromInvoice(vehicleId, invoiceData, docType) {
+    const v = (window.vehs || []).find(x => String(x.id) === String(vehicleId));
+    if (!v || !invoiceData) return;
+    const type = docType === 'faktura' ? 'naprawa' : docType === 'serwis' ? 'serwis' : 'inne';
+    const entry = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+      date: invoiceData.date,
+      type,
+      km: null,
+      cost: invoiceData.amount,
+      costNet: invoiceData.amount ? parseFloat((invoiceData.amount / 1.23).toFixed(2)) : null,
+      currency: 'PLN',
+      vatRate: 23,
+      workshop: invoiceData.workshop || '',
+      workshopNip: invoiceData.nip || '',
+      invoiceNo: invoiceData.invoiceNo || '',
+      parts: '',
+      notes: 'Auto-import z OCR faktury',
+      createdAt: new Date().toISOString(),
+    };
+    if (!v.serviceHistory) v.serviceHistory = [];
+    v.serviceHistory.push(entry);
+    try {
+      const res = await window.FleetCloud?.saveVehicle(v);
+      if (res?.ok) {
+        window.toast?.(`✓ Dodano wpis serwisowy z faktury (${(invoiceData.amount || 0).toFixed(2)} zł)`);
+        return true;
+      }
+    } catch {}
+    window.toast?.('Błąd zapisu wpisu serwisowego', 'error');
+    return false;
+  }
+
   // ─── Ekstrakcja tekstu z PDF (pdf.js jest ładowany w index.html) ──────────
   async function extractPdfText(file) {
     if (!window.pdfjsLib) return '';
@@ -469,6 +548,21 @@
           <i class="ti ti-arrow-right" style="font-size:9px"></i>Zastosuj ${esc(fieldMap.label)} do pojazdu
         </button>` : '';
 
+    // OCR faktury — wykryj kwotę i zaproponuj wpis serwisowy
+    let invoiceChip = '';
+    let invoiceHint = null;
+    if (['faktura', 'serwis'].includes(docType)) {
+      invoiceHint = extractInvoiceData(text);
+      if (invoiceHint?.amount) {
+        const amtStr = esc(invoiceHint.amount.toFixed(2));
+        const wsStr  = invoiceHint.workshop ? ` · ${esc(invoiceHint.workshop.slice(0, 30))}` : '';
+        invoiceChip = `<button type="button" onclick="DocumentsModule._applyInvoiceNow()" style="font-size:10px;padding:3px 10px;background:#f0fdf4;border:1px solid #a7f3d0;color:#059669;border-radius:99px;cursor:pointer;display:inline-flex;align-items:center;gap:4px">
+          <i class="ti ti-tool" style="font-size:9px"></i>Dodaj wpis serwisowy ${amtStr} zł${wsStr}
+        </button>`;
+      }
+    }
+    input._invoiceHint = invoiceHint;
+
     statusEl.innerHTML = `
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px">
         ${typeChip(docType)}
@@ -476,11 +570,20 @@
         ${expiry ? `<span style="font-size:10px;padding:2px 8px;border-radius:99px;background:#f0fdf4;color:#059669;border:1px solid #a7f3d0"><i class="ti ti-calendar-check" style="font-size:9px"></i> Termin: ${expiry}</span>` : ''}
         ${docNum ? `<span style="font-size:10px;font-family:monospace;padding:2px 8px;border-radius:99px;background:#f8fafc;color:var(--text2);border:1px solid var(--border)">Nr: ${esc(docNum)}</span>` : ''}
         ${applyBtn}
+        ${invoiceChip}
       </div>`;
 
     // Zapis do input._expiry / _docNum dla _submitUpload
     input._expiry = expiry || '';
     input._docNum = docNum || '';
+  }
+
+  async function _applyInvoiceNow() {
+    const input   = document.getElementById('dm-upload-file');
+    const docType = document.getElementById('dm-upload-type-sel').value;
+    const hint    = input._invoiceHint;
+    if (!hint || !_uploadVehicle) return;
+    await _createServiceEntryFromInvoice(_uploadVehicle.id, hint, docType);
   }
 
   async function _applyExpiryNow() {
@@ -821,6 +924,7 @@
     _closeUpload,
     _submitUpload,
     _applyExpiryNow,
+    _applyInvoiceNow,
     _handleUploadFileChange,
     _handleGuFileChange,
     _submitGlobalUpload,

@@ -15,6 +15,8 @@ const VD_TABS = [
   { id: 'archive',      label: '📦 Archiwum',      i18n: 'vd.tab.archive' },
   { id: 'notes',        label: '📝 Uwagi',          i18n: 'vd.tab.notes' },
   { id: 'dokumenty',    label: '📄 Dokumenty',     i18n: 'vd.tab.dokumenty' },
+  { id: 'polisy',       label: '🛡 Polisy',         i18n: 'vd.tab.polisy' },
+  { id: 'harmonogram',  label: '🔨 Harmonogram',   i18n: 'vd.tab.harmonogram' },
   { id: 'mandaty',      label: '🚨 Mandaty',       i18n: 'vd.tab.mandaty' },
   { id: 'gps',          label: '🗺 GPS',            i18n: 'vd.tab.gps' },
   { id: 'karty',        label: '💳 Karty',          i18n: 'vd.tab.karty' },
@@ -866,6 +868,20 @@ window.TaxOrderVehicleDetail = {
       <div id="vd-tab-dokumenty-content" class="vd-tab-content" style="display:none">
         <div id="vd-dokumenty-body">
           ${window.DocumentsModule ? window.DocumentsModule.renderForVehicle(v) : '<div style="padding:20px;text-align:center;color:var(--text3)">Ładowanie modułu dokumentów...</div>'}
+        </div>
+      </div>
+
+      <!-- TAB: POLISY -->
+      <div id="vd-tab-polisy-content" class="vd-tab-content" style="display:none">
+        <div id="vd-polisy-body">
+          <div style="padding:20px;text-align:center;color:var(--text3)"><i class="ti ti-loader-2" style="font-size:20px"></i></div>
+        </div>
+      </div>
+
+      <!-- TAB: HARMONOGRAM SERWISOWY -->
+      <div id="vd-tab-harmonogram-content" class="vd-tab-content" style="display:none">
+        <div id="vd-harmonogram-body">
+          <div style="padding:20px;text-align:center;color:var(--text3)"><i class="ti ti-loader-2" style="font-size:20px"></i></div>
         </div>
       </div>
 
@@ -1972,6 +1988,24 @@ window.TaxOrderVehicleDetail = {
   ${rowH('Łącznie', `<span style="color:#1d4ed8;font-weight:700">${fz(tcoTotal)}</span>`)}
   ${kmDriven ? row('Koszt/km', fz(tcoTotal/kmDriven).replace(' zł','')+' zł/km') : ''}
 </table>` : '';
+    // Company branding from localStorage (set in Settings)
+    const cLogo   = localStorage.getItem('print_company_logo')  || '';
+    const cName   = localStorage.getItem('print_company_name')  || localStorage.getItem('cf_company') || '';
+    const cNip    = localStorage.getItem('print_company_nip')   || '';
+    const cAddr   = localStorage.getItem('print_company_addr')  || '';
+    const logoHtml = cLogo
+      ? `<img src="${cLogo}" style="height:48px;object-fit:contain;margin-right:16px" alt="logo">`
+      : '';
+    const brandingHtml = (cName || cNip || cAddr)
+      ? `<div style="display:flex;align-items:center;padding:10px 16px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:14px">
+           ${logoHtml}
+           <div>
+             ${cName ? `<div style="font-size:14px;font-weight:700">${esc(cName)}</div>` : ''}
+             ${cNip  ? `<div style="font-size:11px;color:#6b7280">NIP: ${esc(cNip)}</div>` : ''}
+             ${cAddr ? `<div style="font-size:11px;color:#6b7280">${esc(cAddr)}</div>` : ''}
+           </div>
+         </div>`
+      : '';
     const html = `<!DOCTYPE html>
 <html lang="pl"><head><meta charset="UTF-8">
 <title>Karta pojazdu — ${esc(v.nrRej)}</title>
@@ -1982,6 +2016,7 @@ table{width:100%;border-collapse:collapse}th{background:#f9fafb;font-size:10px;f
 @media print{button{display:none}body{padding:8px}}</style></head>
 <body>
 <button onclick="window.print()" style="float:right;background:#1d4ed8;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;margin-bottom:8px">🖨 Drukuj</button>
+${brandingHtml}
 <h1>${esc(v.nrRej)}</h1>
 <div style="color:#6b7280;font-size:13px;margin-bottom:4px">${esc(v.marka)} ${esc(v.model)} · ${v.rok||'—'} · ${esc(v.typ||'—')}</div>
 <div style="font-size:10px;color:#9ca3af;margin-bottom:14px">Wygenerowano: ${new Date().toLocaleDateString('pl-PL')} | TaxOrder Pro</div>
@@ -2202,6 +2237,20 @@ td:last-child{font-weight:600;color:#1e293b}
       }
       if (name === 'dokumenty') {
         window.DocumentsModule?.loadForVehicle(v);
+      }
+      if (name === 'polisy') {
+        const body = document.getElementById('vd-polisy-body');
+        if (body) {
+          const div = window.PoliciesModule?.renderForVehicle(v);
+          if (div) { body.innerHTML = ''; body.appendChild(div); }
+        }
+      }
+      if (name === 'harmonogram') {
+        const body = document.getElementById('vd-harmonogram-body');
+        if (body) {
+          const div = window.ServiceScheduleModule?.renderForVehicle(v);
+          if (div) { body.innerHTML = ''; body.appendChild(div); }
+        }
       }
     }
   },

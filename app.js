@@ -170,7 +170,18 @@ function showPage(id) {
   if(id==='uzytkownicy') renderUsers();
   if(id==='api-klucze') window.TaxOrderApiKeys?.load();
   if(id==='cepik') initCepikPage();
-  if(id==='firmy') { if(typeof renderCompanyOverview==='function') renderCompanyOverview(); }
+  if(id==='firmy') {
+    if(typeof renderCompanyOverview==='function') renderCompanyOverview();
+    // Uzupełnij pola nagłówka wydruku z localStorage
+    const pn = document.getElementById('print-company-name');
+    if (pn) pn.value = localStorage.getItem('print_company_name') || '';
+    const pnip = document.getElementById('print-company-nip');
+    if (pnip) pnip.value = localStorage.getItem('print_company_nip') || '';
+    const pa = document.getElementById('print-company-addr');
+    if (pa) pa.value = localStorage.getItem('print_company_addr') || '';
+    const pl = document.getElementById('print-company-logo');
+    if (pl) { pl.value = localStorage.getItem('print_company_logo') || ''; const prev = document.getElementById('print-logo-preview'); if (prev) prev.src = pl.value; }
+  }
   if(id==='paliwo') renderPaliwoPage();
   if(id==='alert-dashboard') window.TaxOrderAlertDashboard?.load();
   if(id==='terminarz') window.TaxOrderInspectionCalendar?.load();
@@ -184,7 +195,10 @@ function showPage(id) {
   if(id==='mapa') window.FleetMap?.render();
   if(id==='kalendarz') window.FleetCalendar?.open();
   if(id==='budzet') window.TaxOrderBudget?.render();
-  if(id==='dok-smart') window.DocumentsModule?._renderGlobalPage();
+  if(id==='dok-smart')         window.DocumentsModule?._renderGlobalPage();
+  if(id==='policies')          window.PoliciesModule?._renderGlobalPage();
+  if(id==='service-schedule')  window.ServiceScheduleModule?._renderGlobalPage();
+  if(id==='mileage-claims')    window.MileageClaimsModule?._renderGlobalPage();
   document.dispatchEvent(new CustomEvent('taxorder-page-change', { detail: { page: id } }));
   updateCounters();
 }
@@ -2685,6 +2699,7 @@ function renderDash() {
   _renderFleetKpi();
   _renderAgeDist();
   _renderActivityFeed();
+  _renderFuelAnomalyAlerts();
   const _luEl = document.getElementById('dash-last-update');
   if (_luEl) _luEl.textContent = 'Odświeżono ' + new Date().toLocaleTimeString('pl-PL', {hour:'2-digit', minute:'2-digit'});
 }
@@ -2749,6 +2764,43 @@ function _renderActivityFeed() {
       <span style="font-size:10px;color:var(--text3);flex-shrink:0">${timeLabel}</span>
     </div>`;
   }).join('');
+}
+
+function _renderFuelAnomalyAlerts() {
+  const el = document.getElementById('dash-fuel-anomaly');
+  if (!el) return;
+  const anomalies = [];
+  for (const v of (window.vehs || [])) {
+    const norm = parseFloat(v.normaSpalania);
+    if (!norm || norm <= 0) continue;
+    const fh = [...(v.fuelHistory || [])].filter(x => x.km > 0 && x.liters > 0).sort((a, b) => a.km - b.km);
+    if (fh.length < 3) continue;
+    const recent = fh.slice(-3);
+    let totalL = 0, totalKm = 0;
+    for (let i = 1; i < recent.length; i++) {
+      const dk = recent[i].km - recent[i-1].km;
+      if (dk > 10 && dk < 5000) { totalL += recent[i].liters; totalKm += dk; }
+    }
+    if (totalKm < 100) continue;
+    const actual = (totalL / totalKm) * 100;
+    if (actual > norm * 1.2) {
+      anomalies.push({ v, actual: actual.toFixed(1), norm, excess: ((actual / norm - 1) * 100).toFixed(0) });
+    }
+  }
+  if (!anomalies.length) {
+    el.innerHTML = `<div style="color:var(--text3);font-size:12px;padding:12px 0">Brak anomalii paliwowych — zużycie w normie ✓</div>`;
+    return;
+  }
+  el.innerHTML = anomalies.map(({ v, actual, norm, excess }) =>
+    `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border);cursor:pointer" onclick="TaxOrderVehicleDetail.open(${v.id})">
+      <i class="ti ti-flame" style="color:#f44336;font-size:14px;flex-shrink:0"></i>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;font-weight:700;font-family:var(--mono)">${esc(v.nrRej)}</div>
+        <div style="font-size:11px;color:var(--text2)">Norma: ${norm} l/100km · Rzeczywiste: ${esc(actual)} l/100km</div>
+      </div>
+      <span style="font-size:11px;font-weight:700;color:#f44336;flex-shrink:0">+${esc(excess)}%</span>
+    </div>`
+  ).join('');
 }
 
 function _renderServiceDash() {

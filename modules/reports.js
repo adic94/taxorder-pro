@@ -1587,5 +1587,51 @@ tr:hover td{background:#f9fafb}
       </table>`;
   }
 
-  return { renderPage, exportExcel, exportCsv, renderServicePlan, exportServicePlanExcel, exportServicePlanHtml, renderMaintenanceKm, exportMaintenanceKmExcel, saveBudgetInputs, renderKobize, exportKobizeCsv, exportKobizeExcel, renderTco, exportTcoExcel, renderInsuranceReport, exportInsuranceExcel, exportExecutiveSummary, emailExecutiveSummary, generateMonthlyPdf, initPdfSelectors, renderDt1Projection };
+  // ── FK Export — Symfonia/Comarch CSV ──────────────────────────────────────
+  function exportFkCsv() {
+    const yr   = parseInt(document.getElementById('fr-year')?.value  || new Date().getFullYear());
+    const mo   = parseInt(document.getElementById('fr-month')?.value || 0);
+
+    const accountWn = document.getElementById('fr-fk-wn')?.value?.trim()  || '401';
+    const accountMa = document.getElementById('fr-fk-ma')?.value?.trim()  || '201';
+
+    const lines = [];
+    for (const v of (window.vehs || [])) {
+      for (const s of (v.serviceHistory || [])) {
+        if (!s.date) continue;
+        const d = new Date(s.date);
+        if (mo && d.getMonth() + 1 !== mo) continue;
+        if (d.getFullYear() !== yr) continue;
+        const net   = s.costNet ?? ((s.cost || 0) / 1.23);
+        const gross = s.cost    ?? (s.costNet * (1 + (s.vatRate ?? 23) / 100));
+        const vat   = gross - net;
+        lines.push([
+          s.date,
+          `Serwis: ${s.type || 'serwis'} — ${v.nrRej || ''}`,
+          s.invoiceNo || '',
+          s.workshop  || '',
+          s.workshopNip || '',
+          accountWn,
+          accountMa,
+          net.toFixed(2),
+          vat.toFixed(2),
+          gross.toFixed(2),
+          s.currency || 'PLN',
+          v.nrRej || '',
+        ]);
+      }
+    }
+
+    if (!lines.length) { alert('Brak wpisów serwisowych w wybranym okresie.'); return; }
+
+    const header = 'Data;Opis;Nr dokumentu;Kontrahent;NIP;Konto WN;Konto MA;Kwota netto;VAT;Kwota brutto;Waluta;Pojazd';
+    const csv = '﻿' + [header, ...lines.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(';'))].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `fk-export-${yr}${mo ? '-' + String(mo).padStart(2, '0') : ''}.csv`;
+    a.click();
+  }
+
+  return { renderPage, exportExcel, exportCsv, exportFkCsv, renderServicePlan, exportServicePlanExcel, exportServicePlanHtml, renderMaintenanceKm, exportMaintenanceKmExcel, saveBudgetInputs, renderKobize, exportKobizeCsv, exportKobizeExcel, renderTco, exportTcoExcel, renderInsuranceReport, exportInsuranceExcel, exportExecutiveSummary, emailExecutiveSummary, generateMonthlyPdf, initPdfSelectors, renderDt1Projection };
 })();

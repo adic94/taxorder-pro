@@ -3769,6 +3769,206 @@ async function runNightlyAnalysis(env) {
   ).bind(analysis.substring(0, 2000)).run();
 }
 
+// ─── POLISY UBEZPIECZENIOWE (D1) ─────────────────────────────────────────────
+async function handlePoliciesDB(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  const segs = path.split('/').filter(Boolean); // ['api','policies-db', id?]
+  const id = segs[2] || null;
+  const method = req.method;
+
+  if (method === 'GET') {
+    const nrRej = url.searchParams.get('nrRej');
+    const vin   = url.searchParams.get('vin');
+    let q, binds;
+    if (nrRej) {
+      q = 'SELECT * FROM policies WHERE company_id=? AND nr_rej=? ORDER BY end_date DESC';
+      binds = [company, nrRej];
+    } else if (vin) {
+      q = 'SELECT * FROM policies WHERE company_id=? AND vin=? ORDER BY end_date DESC';
+      binds = [company, vin];
+    } else {
+      q = 'SELECT * FROM policies WHERE company_id=? ORDER BY end_date DESC LIMIT 500';
+      binds = [company];
+    }
+    const rows = (await env.DB.prepare(q).bind(...binds).all()).results || [];
+    return json(rows);
+  }
+
+  if (method === 'POST') {
+    const d = await req.json();
+    const pid = crypto.randomUUID();
+    await env.DB.prepare(
+      `INSERT INTO policies (id,company_id,nr_rej,vin,type,policy_number,insurer,premium,installments,start_date,end_date,notes,doc_id)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(pid, company, d.nr_rej||'', d.vin||null, d.type||'oc', d.policy_number||null,
+      d.insurer||null, d.premium??null, d.installments??1,
+      d.start_date||null, d.end_date||null, d.notes||null, d.doc_id||null).run();
+    return json({ ok: true, id: pid });
+  }
+
+  if (method === 'PUT' && id) {
+    const d = await req.json();
+    await env.DB.prepare(
+      `UPDATE policies SET nr_rej=?,vin=?,type=?,policy_number=?,insurer=?,premium=?,installments=?,start_date=?,end_date=?,notes=?,doc_id=?,updated_at=datetime('now')
+       WHERE id=? AND company_id=?`
+    ).bind(d.nr_rej||'', d.vin||null, d.type||'oc', d.policy_number||null,
+      d.insurer||null, d.premium??null, d.installments??1,
+      d.start_date||null, d.end_date||null, d.notes||null, d.doc_id||null, id, company).run();
+    return json({ ok: true });
+  }
+
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM policies WHERE id=? AND company_id=?').bind(id, company).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda nieobsługiwana', 405);
+}
+
+// ─── HARMONOGRAM SERWISOWY ────────────────────────────────────────────────────
+async function handleServiceSchedules(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  const segs = path.split('/').filter(Boolean);
+  const id = segs[2] || null;
+  const method = req.method;
+
+  if (method === 'GET') {
+    const nrRej = url.searchParams.get('nrRej');
+    const due   = url.searchParams.get('due');   // 'soon' = due within 30 days / 1000 km
+    let rows;
+    if (nrRej) {
+      rows = (await env.DB.prepare(
+        'SELECT * FROM service_schedules WHERE company_id=? AND nr_rej=? ORDER BY next_date ASC'
+      ).bind(company, nrRej).all()).results || [];
+    } else if (due === 'soon') {
+      const inMonth = new Date(); inMonth.setDate(inMonth.getDate() + 30);
+      const dateStr = inMonth.toISOString().slice(0, 10);
+      rows = (await env.DB.prepare(
+        `SELECT * FROM service_schedules WHERE company_id=? AND (next_date <= ? OR next_date IS NULL) ORDER BY next_date ASC LIMIT 200`
+      ).bind(company, dateStr).all()).results || [];
+    } else {
+      rows = (await env.DB.prepare(
+        'SELECT * FROM service_schedules WHERE company_id=? ORDER BY nr_rej, next_date ASC LIMIT 500'
+      ).bind(company).all()).results || [];
+    }
+    return json(rows);
+  }
+
+  if (method === 'POST') {
+    const d = await req.json();
+    const sid = crypto.randomUUID();
+    const nextKm   = (d.last_km   != null && d.interval_km)     ? (d.last_km + d.interval_km)         : null;
+    const nextDate = (d.last_date && d.interval_months)          ? _addMonths(d.last_date, d.interval_months) : null;
+    await env.DB.prepare(
+      `INSERT INTO service_schedules (id,company_id,nr_rej,name,interval_km,interval_months,last_km,last_date,next_km,next_date,notes)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(sid, company, d.nr_rej, d.name, d.interval_km??null, d.interval_months??null,
+      d.last_km??null, d.last_date||null, nextKm, nextDate, d.notes||null).run();
+    return json({ ok: true, id: sid });
+  }
+
+  if (method === 'PUT' && id) {
+    const d = await req.json();
+    const nextKm   = (d.last_km   != null && d.interval_km)     ? (d.last_km + d.interval_km)         : null;
+    const nextDate = (d.last_date && d.interval_months)          ? _addMonths(d.last_date, d.interval_months) : null;
+    await env.DB.prepare(
+      `UPDATE service_schedules SET nr_rej=?,name=?,interval_km=?,interval_months=?,last_km=?,last_date=?,next_km=?,next_date=?,notes=?,updated_at=datetime('now')
+       WHERE id=? AND company_id=?`
+    ).bind(d.nr_rej, d.name, d.interval_km??null, d.interval_months??null,
+      d.last_km??null, d.last_date||null, nextKm, nextDate, d.notes||null, id, company).run();
+    return json({ ok: true });
+  }
+
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM service_schedules WHERE id=? AND company_id=?').bind(id, company).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda nieobsługiwana', 405);
+}
+
+function _addMonths(dateStr, months) {
+  if (!dateStr || !months) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d)) return null;
+  d.setMonth(d.getMonth() + months);
+  return d.toISOString().slice(0, 10);
+}
+
+// ─── ROZLICZENIA KM PRACOWNICZYCH ─────────────────────────────────────────────
+async function handleMileageClaims(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  const segs = path.split('/').filter(Boolean);
+  const id     = segs[2] || null;
+  const action = segs[3] || null; // approve | reject | pay
+  const method = req.method;
+
+  if (method === 'GET') {
+    const driver = url.searchParams.get('driver');
+    const status = url.searchParams.get('status');
+    const nrRej  = url.searchParams.get('nrRej');
+    let q = 'SELECT * FROM mileage_claims WHERE company_id=?';
+    const binds = [company];
+    if (driver) { q += ' AND driver_name=?'; binds.push(driver); }
+    if (status) { q += ' AND status=?';      binds.push(status); }
+    if (nrRej)  { q += ' AND nr_rej=?';      binds.push(nrRej);  }
+    q += ' ORDER BY claim_date DESC LIMIT 500';
+    const rows = (await env.DB.prepare(q).bind(...binds).all()).results || [];
+    return json(rows);
+  }
+
+  if (method === 'POST') {
+    const d = await req.json();
+    const cid = crypto.randomUUID();
+    const kmTotal = (d.km_start != null && d.km_end != null) ? Math.max(0, d.km_end - d.km_start) : (d.km_total ?? 0);
+    const rate   = d.rate ?? 0.89;
+    const amount = parseFloat((kmTotal * rate).toFixed(2));
+    await env.DB.prepare(
+      `INSERT INTO mileage_claims (id,company_id,nr_rej,driver_name,claim_date,km_start,km_end,km_total,purpose,rate,amount,status,notes)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(cid, company, d.nr_rej||null, d.driver_name, d.claim_date, d.km_start??null, d.km_end??null,
+      kmTotal, d.purpose||null, rate, amount, d.status||'pending', d.notes||null).run();
+    return json({ ok: true, id: cid, amount });
+  }
+
+  if (method === 'PUT' && id && !action) {
+    const d = await req.json();
+    const kmTotal = (d.km_start != null && d.km_end != null) ? Math.max(0, d.km_end - d.km_start) : (d.km_total ?? 0);
+    const rate   = d.rate ?? 0.89;
+    const amount = parseFloat((kmTotal * rate).toFixed(2));
+    await env.DB.prepare(
+      `UPDATE mileage_claims SET nr_rej=?,driver_name=?,claim_date=?,km_start=?,km_end=?,km_total=?,purpose=?,rate=?,amount=?,status=?,notes=?
+       WHERE id=? AND company_id=?`
+    ).bind(d.nr_rej||null, d.driver_name, d.claim_date, d.km_start??null, d.km_end??null,
+      kmTotal, d.purpose||null, rate, amount, d.status||'pending', d.notes||null, id, company).run();
+    return json({ ok: true, amount });
+  }
+
+  // Status transitions: POST /api/mileage-claims/:id/approve|reject|pay
+  if (method === 'POST' && id && action) {
+    if (!['approved','rejected','paid'].includes(action)) return err('Nieznana akcja', 400);
+    if (!['admin','kierownik'].includes(user.role)) return err('Brak uprawnień', 403);
+    const now = new Date().toISOString();
+    let q, binds;
+    if (action === 'paid') {
+      q = `UPDATE mileage_claims SET status='paid' WHERE id=? AND company_id=? AND status='approved'`;
+      binds = [id, company];
+    } else {
+      q = `UPDATE mileage_claims SET status=?, approved_by=?, approved_at=? WHERE id=? AND company_id=?`;
+      binds = [action, user.email || user.login, now, id, company];
+    }
+    await env.DB.prepare(q).bind(...binds).run();
+    return json({ ok: true });
+  }
+
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM mileage_claims WHERE id=? AND company_id=?').bind(id, company).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda nieobsługiwana', 405);
+}
+
 // ─── MAIN FETCH ───────────────────────────────────────────────────────────────
 async function handleRequest(request, env, url, path) {
   // Public endpoints (no auth required)
@@ -3909,6 +4109,9 @@ async function handleRequest(request, env, url, path) {
   if (path.startsWith('/api/notif-prefs'))         { if (!user) return err('Nieautoryzowany', 401); return handleNotifPrefs(request, env, user, url); }
   if (path.startsWith('/api/notif-log'))           { if (!user) return err('Nieautoryzowany', 401); return handleNotifLog(request, env, user, url, path); }
   if (path.startsWith('/api/maintenance-templates')){ if (!user) return err('Nieautoryzowany', 401); return handleMaintenanceTemplates(request, env, user, url, path); }
+  if (path.startsWith('/api/policies-db'))      { if (!user) return err('Nieautoryzowany', 401); return handlePoliciesDB(request, env, user, url, path); }
+  if (path.startsWith('/api/service-schedules')){ if (!user) return err('Nieautoryzowany', 401); return handleServiceSchedules(request, env, user, url, path); }
+  if (path.startsWith('/api/mileage-claims'))   { if (!user) return err('Nieautoryzowany', 401); return handleMileageClaims(request, env, user, url, path); }
   // Admin: ręczne wyzwolenie kolejkowania powiadomień (do testów bez crona)
   if (path === '/api/notif-trigger' && request.method === 'POST') {
     if (!user) return err('Nieautoryzowany', 401);
