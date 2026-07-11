@@ -49,6 +49,94 @@
     return matches.find(v => new Set(v).size > 4) || null;
   }
 
+  // ─── Ekstrakcja daty ważności z treści dokumentu ──────────────────────────
+  // Obsługiwane wzorce: polisy OC/AC, przeglądy techniczne
+  const _EXPIRY_PATTERNS = [
+    /wa[żz]n[ay]\s*do\s*[:\s]\s*(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{4})/i,
+    /termin\s+wa[żz]no[śs]ci\s*[:\s]\s*(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{4})/i,
+    /data\s+zako[ńn]czenia\s*[:\s]\s*(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{4})/i,
+    /koniec\s+okresu\s*[:\s]\s*(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{4})/i,
+    /do\s+dnia\s*[:\s]\s*(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{4})/i,
+    /okres\s+ubezp[a-z]*\s*[:\s].*?[-–]\s*(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{4})/i,
+    /ubezpiecz[a-z]*\s+do\s*[:\s]\s*(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{4})/i,
+    /\bdo\b\s*(\d{1,2}[.\-\/]\d{1,2}[.\-\/]\d{4})/i,
+  ];
+
+  function _parsePLDate(str) {
+    if (!str) return null;
+    const parts = str.split(/[.\-\/]/);
+    if (parts.length !== 3) return null;
+    let [a, b, c] = parts.map(Number);
+    // DD.MM.YYYY
+    if (c >= 2020 && c <= 2040 && a <= 31 && b <= 12) {
+      return `${c}-${String(b).padStart(2,'0')}-${String(a).padStart(2,'0')}`;
+    }
+    // YYYY.MM.DD
+    if (a >= 2020 && a <= 2040 && b <= 12 && c <= 31) {
+      return `${a}-${String(b).padStart(2,'0')}-${String(c).padStart(2,'0')}`;
+    }
+    return null;
+  }
+
+  function extractExpiryDate(text) {
+    for (const pat of _EXPIRY_PATTERNS) {
+      const m = text.match(pat);
+      if (m) {
+        const d = _parsePLDate(m[1]);
+        if (d) return d;
+      }
+    }
+    // Fallback: wszystkie daty DD.MM.YYYY → najdalsza przyszła
+    const allMatches = [...text.matchAll(/\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b/g)];
+    const futureDates = allMatches
+      .map(m => _parsePLDate(`${m[1]}.${m[2]}.${m[3]}`))
+      .filter(Boolean)
+      .filter(d => d > new Date().toISOString().slice(0, 10))
+      .sort();
+    return futureDates[futureDates.length - 1] || null; // najdalszy termin
+  }
+
+  // ─── Ekstrakcja numeru polisy / dokumentu ─────────────────────────────────
+  function extractDocNumber(text) {
+    const patterns = [
+      /(?:numer|nr|no\.?)\s+polisy\s*[:\s]+([A-Z0-9\/\-]{5,30})/i,
+      /polisa\s+(?:nr|numer)\s*[:\s]+([A-Z0-9\/\-]{5,30})/i,
+      /(?:seria\s+i\s+numer|nr\s+dokumentu)\s*[:\s]+([A-Z0-9\/\-]{5,30})/i,
+      /nr\s+badania\s*[:\s]+([A-Z0-9\/\-]{5,30})/i,
+      /numer\s+zlecenia\s*[:\s]+([A-Z0-9\/\-]{5,30})/i,
+    ];
+    for (const pat of patterns) {
+      const m = text.match(pat);
+      if (m) return m[1].trim();
+    }
+    return null;
+  }
+
+  // ─── Auto-fill daty do pojazdu — pola wg typu dokumentu ──────────────────
+  const _VEHICLE_FIELD_MAP = {
+    oc:       { field: 'ocEnd',            label: 'OC — data końca' },
+    ac:       { field: 'acEnd',            label: 'AC — data końca' },
+    przeglad: { field: 'nextInspection',   label: 'Przegląd — termin' },
+    leasing:  { field: 'leasingEnd',       label: 'Leasing — koniec' },
+  };
+
+  async function applyExpiryToVehicle(vehicleId, docType, expiryDate) {
+    const fieldMap = _VEHICLE_FIELD_MAP[docType];
+    if (!fieldMap || !expiryDate) return false;
+    const v = (window.vehs || []).find(x => String(x.id) === String(vehicleId));
+    if (!v) return false;
+    v[fieldMap.field] = expiryDate;
+    try {
+      const res = await window.FleetCloud?.saveVehicle(v);
+      if (res?.ok) {
+        window.toast?.(`✓ Zaktualizowano "${fieldMap.label}" → ${expiryDate}`);
+        return true;
+      }
+    } catch {}
+    window.toast?.('Błąd zapisu do pojazdu', 'error');
+    return false;
+  }
+
   // ─── Ekstrakcja tekstu z PDF (pdf.js jest ładowany w index.html) ──────────
   async function extractPdfText(file) {
     if (!window.pdfjsLib) return '';
@@ -97,12 +185,14 @@
   async function uploadDoc(file, meta) {
     const fd = new FormData();
     fd.append('file', file);
-    if (meta.nrRej)      fd.append('nrRej',      meta.nrRej);
-    if (meta.vin)        fd.append('vin',         meta.vin);
-    if (meta.vehicle_id) fd.append('vehicle_id',  String(meta.vehicle_id));
-    if (meta.doc_type)   fd.append('doc_type',    meta.doc_type);
-    if (meta.textHint)   fd.append('textHint',    meta.textHint.slice(0, 2000));
-    if (meta.notes)      fd.append('notes',       meta.notes);
+    if (meta.nrRej)       fd.append('nrRej',       meta.nrRej);
+    if (meta.vin)         fd.append('vin',          meta.vin);
+    if (meta.vehicle_id)  fd.append('vehicle_id',   String(meta.vehicle_id));
+    if (meta.doc_type)    fd.append('doc_type',     meta.doc_type);
+    if (meta.textHint)    fd.append('textHint',     meta.textHint.slice(0, 2000));
+    if (meta.notes)       fd.append('notes',        meta.notes);
+    if (meta.expiry_date) fd.append('expiry_date',  meta.expiry_date);
+    if (meta.doc_number)  fd.append('doc_number',   meta.doc_number);
     fd.append('company', company());
 
     const r = await fetch(`${API()}/api/docs/upload`, {
@@ -214,28 +304,42 @@
         </div>`;
     }
 
-    const rows = docs.map(d => `
+    const today = new Date().toISOString().slice(0, 10);
+    const rows = docs.map(d => {
+      const expiry = d.expiry_date || '';
+      const expiryColor = !expiry ? '' :
+        expiry < today                              ? '#dc2626' :
+        expiry <= new Date(Date.now() + 30*864e5).toISOString().slice(0,10) ? '#b45309' :
+        '#059669';
+      const expiryBg = !expiry ? '' :
+        expiry < today ? '#fef2f2' :
+        expiry <= new Date(Date.now() + 30*864e5).toISOString().slice(0,10) ? '#fffbeb' : '#f0fdf4';
+      const expiryIcon = !expiry ? '' :
+        expiry < today ? 'ti-alert-circle' :
+        expiry <= new Date(Date.now() + 30*864e5).toISOString().slice(0,10) ? 'ti-clock' : 'ti-calendar-check';
+
+      return `
       <tr>
         <td style="padding:6px 8px">
           <i class="ti ${iconForMime(d.mime_type)}" style="font-size:16px;color:var(--text3)"></i>
         </td>
-        <td style="padding:6px 8px;max-width:200px">
+        <td style="padding:6px 8px;max-width:180px">
           <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(d.name)}">${esc(d.name)}</div>
-          <div style="font-size:10px;color:var(--text3)">${formatDate(d.uploaded_at)}${d.file_size ? ' · ' + formatSize(d.file_size) : ''}</div>
+          <div style="font-size:10px;color:var(--text3)">${formatDate(d.uploaded_at)}${d.file_size ? ' · ' + formatSize(d.file_size) : ''}${d.doc_number ? ' · ' + esc(d.doc_number) : ''}</div>
         </td>
         <td style="padding:6px 8px">${typeChip(d.doc_type || 'inne')}</td>
-        <td style="padding:6px 8px">
-          ${d.detected_vin && d.detected_vin !== v.vin
-            ? `<span title="VIN w dokumencie: ${esc(d.detected_vin)}" style="font-size:10px;color:#b45309;background:#fef3c7;padding:1px 6px;border-radius:99px;border:1px solid #fde68a"><i class="ti ti-alert-triangle" style="font-size:9px"></i> ${esc(d.detected_vin)}</span>`
-            : d.detected_vin ? `<span style="font-size:10px;color:#059669;background:#f0fdf4;padding:1px 6px;border-radius:99px;border:1px solid #a7f3d0"><i class="ti ti-check" style="font-size:9px"></i> VIN OK</span>` : ''
+        <td style="padding:6px 8px;white-space:nowrap">
+          ${expiry
+            ? `<span style="font-size:10px;padding:2px 7px;border-radius:99px;background:${expiryBg};color:${expiryColor};border:1px solid ${expiryColor}44;display:inline-flex;align-items:center;gap:3px">
+                <i class="ti ${expiryIcon}" style="font-size:9px"></i>${expiry}
+              </span>`
+            : '<span style="font-size:10px;color:var(--text3)">—</span>'
           }
         </td>
         <td style="padding:6px 8px;white-space:nowrap">
           <a href="${fileUrl(d.r2_key)}" target="_blank" rel="noopener"
-             style="font-size:11px;color:var(--blue);text-decoration:none;margin-right:8px"
-             title="Otwórz / pobierz">
-            <i class="ti ti-download"></i>
-          </a>
+             style="font-size:11px;color:var(--blue);text-decoration:none;margin-right:6px"
+             title="Otwórz / pobierz"><i class="ti ti-download"></i></a>
           <button onclick="DocumentsModule._changeType('${esc(d.id)}','${esc(d.doc_type||'inne')}',${v.id})"
             style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:11px;padding:0 4px" title="Zmień typ">
             <i class="ti ti-edit"></i>
@@ -245,7 +349,8 @@
             <i class="ti ti-trash"></i>
           </button>
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
 
     return `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -264,7 +369,7 @@
               <th style="padding:4px 8px;font-size:10px;font-weight:600;color:var(--text3);text-align:left;width:28px"></th>
               <th style="padding:4px 8px;font-size:10px;font-weight:600;color:var(--text3);text-align:left">Nazwa pliku</th>
               <th style="padding:4px 8px;font-size:10px;font-weight:600;color:var(--text3);text-align:left">Typ</th>
-              <th style="padding:4px 8px;font-size:10px;font-weight:600;color:var(--text3);text-align:left">VIN</th>
+              <th style="padding:4px 8px;font-size:10px;font-weight:600;color:var(--text3);text-align:left">Ważny do</th>
               <th style="padding:4px 8px;font-size:10px;font-weight:600;color:var(--text3);text-align:left">Akcje</th>
             </tr>
           </thead>
@@ -326,30 +431,25 @@
   async function _handleUploadFileChange(input) {
     const file = input.files[0];
     if (!file) return;
-    const status = document.getElementById('dm-upload-status');
-    status.innerHTML = `<span style="color:var(--text3)"><i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Analizuję plik…</span>`;
+    const statusEl = document.getElementById('dm-upload-status');
+    statusEl.innerHTML = `<span style="color:var(--text3)"><i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Analizuję plik…</span>`;
 
-    const text     = await extractTextFromFile(file);
-    const detVin   = extractVin(text + ' ' + file.name);
-    const docType  = classifyDoc(file.name, text);
-    const typeInfo = DOC_TYPES[docType] || DOC_TYPES.inne;
+    const text       = await extractTextFromFile(file);
+    const detVin     = extractVin(text + ' ' + file.name);
+    const docType    = classifyDoc(file.name, text);
+    const expiry     = extractExpiryDate(text);
+    const docNum     = extractDocNumber(text);
 
     input._textHint = text;
 
-    const vinMatch = _uploadVehicle?.vin && detVin && detVin === _uploadVehicle.vin;
+    const vinMatch    = _uploadVehicle?.vin && detVin && detVin === _uploadVehicle.vin;
     const vinMismatch = _uploadVehicle?.vin && detVin && detVin !== _uploadVehicle.vin;
+    const fieldMap    = _VEHICLE_FIELD_MAP[docType];
 
-    status.innerHTML = `
-      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-        ${typeChip(docType)}
-        ${detVin
-          ? `<span style="font-size:11px;font-family:monospace;padding:2px 8px;border-radius:99px;background:${vinMatch ? '#f0fdf4' : vinMismatch ? '#fef3c7' : '#f8fafc'};color:${vinMatch ? '#059669' : vinMismatch ? '#b45309' : 'var(--text2)'};border:1px solid ${vinMatch ? '#a7f3d0' : vinMismatch ? '#fde68a' : 'var(--border)'}">
-              <i class="ti ${vinMatch ? 'ti-check' : 'ti-alert-triangle'}" style="font-size:10px"></i>
-              VIN z dok.: ${esc(detVin)}${vinMismatch ? ' ≠ pojazd' : ''}
-            </span>`
-          : '<span style="font-size:11px;color:var(--text3)">VIN nie wykryto w pliku</span>'
-        }
-      </div>`;
+    // Auto-uzupełnij pola w modalu
+    document.getElementById('dm-upload-type-sel').value = docType;
+    if (expiry) document.getElementById('dm-upload-expiry').value = expiry;
+    if (docNum) document.getElementById('dm-upload-docnum').value = docNum;
 
     document.getElementById('dm-upload-preview').innerHTML = `
       <div style="font-size:12px;color:var(--text2);padding:6px 0">
@@ -358,7 +458,37 @@
         ${file.size ? ` <span style="color:var(--text3)">(${formatSize(file.size)})</span>` : ''}
       </div>`;
 
-    document.getElementById('dm-upload-type-sel').value = docType;
+    const vinChip = detVin
+      ? `<span style="font-size:10px;font-family:monospace;padding:2px 8px;border-radius:99px;background:${vinMatch ? '#f0fdf4' : vinMismatch ? '#fef3c7' : '#f8fafc'};color:${vinMatch ? '#059669' : vinMismatch ? '#b45309' : 'var(--text2)'};border:1px solid ${vinMatch ? '#a7f3d0' : vinMismatch ? '#fde68a' : 'var(--border)'}">
+          <i class="ti ${vinMatch ? 'ti-check' : 'ti-alert-triangle'}" style="font-size:9px"></i>
+          VIN z dok.: ${esc(detVin)}${vinMismatch ? ' ≠ pojazd' : ''}
+        </span>` : '';
+
+    const applyBtn = expiry && fieldMap && _uploadVehicle
+      ? `<button type="button" onclick="DocumentsModule._applyExpiryNow()" style="font-size:10px;padding:3px 10px;background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;border-radius:99px;cursor:pointer;display:inline-flex;align-items:center;gap:4px">
+          <i class="ti ti-arrow-right" style="font-size:9px"></i>Zastosuj ${esc(fieldMap.label)} do pojazdu
+        </button>` : '';
+
+    statusEl.innerHTML = `
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px">
+        ${typeChip(docType)}
+        ${vinChip}
+        ${expiry ? `<span style="font-size:10px;padding:2px 8px;border-radius:99px;background:#f0fdf4;color:#059669;border:1px solid #a7f3d0"><i class="ti ti-calendar-check" style="font-size:9px"></i> Termin: ${expiry}</span>` : ''}
+        ${docNum ? `<span style="font-size:10px;font-family:monospace;padding:2px 8px;border-radius:99px;background:#f8fafc;color:var(--text2);border:1px solid var(--border)">Nr: ${esc(docNum)}</span>` : ''}
+        ${applyBtn}
+      </div>`;
+
+    // Zapis do input._expiry / _docNum dla _submitUpload
+    input._expiry = expiry || '';
+    input._docNum = docNum || '';
+  }
+
+  async function _applyExpiryNow() {
+    const input = document.getElementById('dm-upload-file');
+    const expiry  = document.getElementById('dm-upload-expiry').value;
+    const docType = document.getElementById('dm-upload-type-sel').value;
+    if (!expiry || !_uploadVehicle) return;
+    await applyExpiryToVehicle(_uploadVehicle.id, docType, expiry);
   }
 
   async function _submitUpload() {
@@ -371,17 +501,27 @@
     btn.disabled = true;
     btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Wysyłam…';
 
+    const expiry  = document.getElementById('dm-upload-expiry')?.value || input._expiry || '';
+    const docNum  = document.getElementById('dm-upload-docnum')?.value || input._docNum || '';
+    const docType = document.getElementById('dm-upload-type-sel').value;
+
     try {
       const res = await uploadDoc(file, {
-        nrRej:      _uploadVehicle.nrRej,
-        vin:        _uploadVehicle.vin || '',
-        vehicle_id: _uploadVehicle.id,
-        doc_type:   document.getElementById('dm-upload-type-sel').value,
-        textHint:   input._textHint || '',
-        notes:      document.getElementById('dm-upload-notes').value,
+        nrRej:       _uploadVehicle.nrRej,
+        vin:         _uploadVehicle.vin || '',
+        vehicle_id:  _uploadVehicle.id,
+        doc_type:    docType,
+        textHint:    input._textHint || '',
+        notes:       document.getElementById('dm-upload-notes').value,
+        expiry_date: expiry,
+        doc_number:  docNum,
       });
 
       if (res.ok) {
+        // Auto-zastosuj termin do pojazdu jeśli pasuje
+        if (expiry && _VEHICLE_FIELD_MAP[docType]) {
+          await applyExpiryToVehicle(_uploadVehicle.id, docType, expiry);
+        }
         window.toast?.('Dokument dodany');
         _closeUpload();
         loadForVehicle(_uploadVehicle);
@@ -399,13 +539,21 @@
   async function _processAndUpload(file, v) {
     const text    = await extractTextFromFile(file);
     const docType = classifyDoc(file.name, text);
-    return uploadDoc(file, {
-      nrRej:      v.nrRej,
-      vin:        v.vin || '',
-      vehicle_id: v.id,
-      doc_type:   docType,
-      textHint:   text,
+    const expiry  = extractExpiryDate(text);
+    const docNum  = extractDocNumber(text);
+    const res = await uploadDoc(file, {
+      nrRej:       v.nrRej,
+      vin:         v.vin || '',
+      vehicle_id:  v.id,
+      doc_type:    docType,
+      textHint:    text,
+      expiry_date: expiry || '',
+      doc_number:  docNum || '',
     });
+    if (res.ok && expiry && _VEHICLE_FIELD_MAP[docType]) {
+      await applyExpiryToVehicle(v.id, docType, expiry);
+    }
+    return res;
   }
 
   async function _del(id, vehicleId) {
@@ -577,9 +725,13 @@
 
     _globalUploadText = await extractTextFromFile(file);
     _globalDetectedVin = extractVin(_globalUploadText + ' ' + file.name);
-    const docType = classifyDoc(file.name, _globalUploadText);
+    const docType  = classifyDoc(file.name, _globalUploadText);
+    const expiry   = extractExpiryDate(_globalUploadText);
+    const docNum   = extractDocNumber(_globalUploadText);
 
     document.getElementById('dm-gu-type-sel').value = docType;
+    if (expiry) document.getElementById('dm-gu-expiry').value = expiry;
+    if (docNum) document.getElementById('dm-gu-docnum').value = docNum;
 
     previewEl.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -587,6 +739,8 @@
         <span style="font-size:12px;font-weight:500">${esc(file.name)}</span>
         <span style="font-size:11px;color:var(--text3)">${formatSize(file.size)}</span>
         ${typeChip(docType)}
+        ${expiry ? `<span style="font-size:10px;padding:2px 8px;border-radius:99px;background:#f0fdf4;color:#059669;border:1px solid #a7f3d0"><i class="ti ti-calendar-check" style="font-size:9px"></i> ${expiry}</span>` : ''}
+        ${docNum ? `<span style="font-size:10px;font-family:monospace;padding:2px 8px;border-radius:99px;background:#f8fafc;color:var(--text2);border:1px solid var(--border)">${esc(docNum)}</span>` : ''}
       </div>`;
 
     if (_globalDetectedVin) {
@@ -624,16 +778,24 @@
     btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Wysyłam…';
 
     try {
+      const docType  = document.getElementById('dm-gu-type-sel').value;
+      const expiry   = document.getElementById('dm-gu-expiry')?.value || '';
+      const docNum   = document.getElementById('dm-gu-docnum')?.value || '';
       const res = await uploadDoc(file, {
-        nrRej:      veh?.nrRej || '',
-        vin:        (veh?.vin || _globalDetectedVin || '').toUpperCase(),
-        vehicle_id: veh?.id || '',
-        doc_type:   document.getElementById('dm-gu-type-sel').value,
-        textHint:   _globalUploadText,
-        notes:      document.getElementById('dm-gu-notes').value,
+        nrRej:       veh?.nrRej || '',
+        vin:         (veh?.vin || _globalDetectedVin || '').toUpperCase(),
+        vehicle_id:  veh?.id || '',
+        doc_type:    docType,
+        textHint:    _globalUploadText,
+        notes:       document.getElementById('dm-gu-notes').value,
+        expiry_date: expiry,
+        doc_number:  docNum,
       });
 
       if (res.ok) {
+        if (expiry && veh && _VEHICLE_FIELD_MAP[docType]) {
+          await applyExpiryToVehicle(veh.id, docType, expiry);
+        }
         window.toast?.('Dokument wgrany' + (veh ? ` → ${veh.nrRej}` : ''));
         document.getElementById('dm-global-upload-modal').style.display = 'none';
         _globalUploadFile = null;
@@ -658,11 +820,13 @@
     _openUpload,
     _closeUpload,
     _submitUpload,
+    _applyExpiryNow,
     _handleUploadFileChange,
     _handleGuFileChange,
     _submitGlobalUpload,
     _del,
     _changeType,
+    applyExpiryToVehicle,
     DOC_TYPES,
   };
 })();

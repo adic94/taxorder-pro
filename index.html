@@ -1528,9 +1528,19 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
           <option value="inne" selected>Inne</option>
         </select>
       </div>
+      <div style="display:flex;gap:10px">
+        <div class="f" style="flex:1">
+          <label style="font-size:12px">Ważny do <span style="font-size:10px;color:var(--text3)">(auto-wykrywane)</span></label>
+          <input id="dm-upload-expiry" type="date" class="fi" style="font-size:12px">
+        </div>
+        <div class="f" style="flex:1">
+          <label style="font-size:12px">Nr dokumentu / polisy</label>
+          <input id="dm-upload-docnum" type="text" class="fi" style="font-size:12px" placeholder="Np. POL/2026/12345">
+        </div>
+      </div>
       <div class="f">
         <label style="font-size:12px">Notatka (opcjonalnie)</label>
-        <input id="dm-upload-notes" type="text" class="fi" style="font-size:12px" placeholder="Np. numer polisy, uwagi…">
+        <input id="dm-upload-notes" type="text" class="fi" style="font-size:12px" placeholder="Uwagi…">
       </div>
     </div>
     <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px">
@@ -1584,9 +1594,19 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
           <option value="">-- wybierz pojazd --</option>
         </select>
       </div>
+      <div style="display:flex;gap:10px">
+        <div class="f" style="flex:1">
+          <label style="font-size:12px">Ważny do <span style="font-size:10px;color:var(--text3)">(auto-wykrywane)</span></label>
+          <input id="dm-gu-expiry" type="date" class="fi" style="font-size:12px">
+        </div>
+        <div class="f" style="flex:1">
+          <label style="font-size:12px">Nr dokumentu / polisy</label>
+          <input id="dm-gu-docnum" type="text" class="fi" style="font-size:12px" placeholder="Np. POL/2026/12345">
+        </div>
+      </div>
       <div class="f">
         <label style="font-size:12px">Notatka (opcjonalnie)</label>
-        <input id="dm-gu-notes" type="text" class="fi" style="font-size:12px" placeholder="Np. numer polisy, uwagi…">
+        <input id="dm-gu-notes" type="text" class="fi" style="font-size:12px" placeholder="Uwagi…">
       </div>
     </div>
     <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px">

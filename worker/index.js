@@ -585,15 +585,15 @@ async function handleDocs(req, env, user, url, path) {
     let rows;
     if (nrRej) {
       rows = await env.DB.prepare(
-        'SELECT id,nr_rej,vin,name,mime_type,doc_type,detected_vin,vehicle_id,file_size,notes,uploaded_at,uploaded_by FROM documents WHERE nr_rej=? AND company_id=? ORDER BY uploaded_at DESC'
+        'SELECT id,nr_rej,vin,name,mime_type,doc_type,detected_vin,vehicle_id,file_size,notes,expiry_date,doc_number,uploaded_at,uploaded_by FROM documents WHERE nr_rej=? AND company_id=? ORDER BY uploaded_at DESC'
       ).bind(nrRej, company).all();
     } else if (vin) {
       rows = await env.DB.prepare(
-        'SELECT id,nr_rej,vin,name,mime_type,doc_type,detected_vin,vehicle_id,file_size,notes,uploaded_at,uploaded_by FROM documents WHERE vin=? AND company_id=? ORDER BY uploaded_at DESC'
+        'SELECT id,nr_rej,vin,name,mime_type,doc_type,detected_vin,vehicle_id,file_size,notes,expiry_date,doc_number,uploaded_at,uploaded_by FROM documents WHERE vin=? AND company_id=? ORDER BY uploaded_at DESC'
       ).bind(vin, company).all();
     } else {
       rows = await env.DB.prepare(
-        'SELECT id,nr_rej,vin,name,mime_type,doc_type,detected_vin,vehicle_id,file_size,notes,uploaded_at,uploaded_by FROM documents WHERE company_id=? ORDER BY uploaded_at DESC LIMIT 500'
+        'SELECT id,nr_rej,vin,name,mime_type,doc_type,detected_vin,vehicle_id,file_size,notes,expiry_date,doc_number,uploaded_at,uploaded_by FROM documents WHERE company_id=? ORDER BY uploaded_at DESC LIMIT 500'
       ).bind(company).all();
     }
     return json(rows.results || []);
@@ -617,6 +617,8 @@ async function handleDocs(req, env, user, url, path) {
     const detected_vin = _extractVin(textHint + ' ' + file.name);
     const vin          = vinParam || detected_vin || null;
     const anchor       = vin || nrRej || 'global';
+    const expiryDate   = (fd.get('expiry_date') || '').trim() || null;
+    const docNumber    = (fd.get('doc_number')   || '').slice(0, 100).trim() || null;
 
     const docId = crypto.randomUUID();
     const ext   = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : 'bin';
@@ -626,17 +628,17 @@ async function handleDocs(req, env, user, url, path) {
       httpMetadata: { contentType: file.type || 'application/octet-stream' },
     });
     await env.DB.prepare(
-      `INSERT INTO documents(id,nr_rej,company_id,name,mime_type,r2_key,vin,doc_type,detected_vin,vehicle_id,file_size,notes,uploaded_by)
-       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      `INSERT INTO documents(id,nr_rej,company_id,name,mime_type,r2_key,vin,doc_type,detected_vin,vehicle_id,file_size,notes,uploaded_by,expiry_date,doc_number)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
     ).bind(
       docId, nrRej || null, company, file.name,
       file.type || 'application/octet-stream', r2Key,
       vin, doc_type, detected_vin,
       vehicleId || null, file.size || 0, notesIn || null,
-      user?.email || null,
+      user?.email || null, expiryDate, docNumber,
     ).run();
 
-    return json({ ok: true, id: docId, key: r2Key, doc_type, detected_vin, vin });
+    return json({ ok: true, id: docId, key: r2Key, doc_type, detected_vin, vin, expiry_date: expiryDate, doc_number: docNumber });
   }
 
   // GET /api/docs/file/:key... — pobierz plik z R2
@@ -660,9 +662,11 @@ async function handleDocs(req, env, user, url, path) {
     try { body = await req.json(); } catch { return err('Wymagany JSON'); }
     const fields = [];
     const vals   = [];
-    if (body.doc_type !== undefined) { fields.push('doc_type=?'); vals.push(body.doc_type); }
-    if (body.notes    !== undefined) { fields.push('notes=?');    vals.push((body.notes||'').slice(0,500)); }
-    if (body.vin      !== undefined) { fields.push('vin=?');      vals.push(body.vin || null); }
+    if (body.doc_type    !== undefined) { fields.push('doc_type=?');    vals.push(body.doc_type); }
+    if (body.notes       !== undefined) { fields.push('notes=?');       vals.push((body.notes||'').slice(0,500)); }
+    if (body.vin         !== undefined) { fields.push('vin=?');         vals.push(body.vin || null); }
+    if (body.expiry_date !== undefined) { fields.push('expiry_date=?'); vals.push(body.expiry_date || null); }
+    if (body.doc_number  !== undefined) { fields.push('doc_number=?');  vals.push((body.doc_number||'').slice(0,100) || null); }
     if (!fields.length) return err('Brak pól do aktualizacji');
     vals.push(segs[2]);
     await env.DB.prepare(`UPDATE documents SET ${fields.join(',')} WHERE id=?`).bind(...vals).run();
