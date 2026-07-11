@@ -473,15 +473,29 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <!-- KPI strip -->
   <div class="fleet-kpi-strip" id="fleet-kpi-strip"></div>
 
+  <!-- Alert banner — wygasłe/bliskie terminy -->
+  <div id="fleet-alert-banner" style="display:none;gap:8px;flex-wrap:wrap;margin-bottom:10px"></div>
+
   <!-- Przełącznik widoku -->
   <div class="view-mode-bar">
     <button id="view-btn-fleet" class="btn btn-blue view-mode-btn" onclick="switchFleetView('fleet')"><i class="ti ti-layout-list"></i>Widok floty</button>
     <button id="view-btn-cards" class="btn btn-gray view-mode-btn" onclick="switchFleetView('cards')"><i class="ti ti-layout-grid"></i>Karty</button>
     <button id="view-btn-dt1" class="btn btn-gray view-mode-btn" onclick="switchFleetView('dt1')"><i class="ti ti-file-invoice"></i>Widok DT-1</button>
+    <button id="view-btn-driver" class="btn btn-gray view-mode-btn" onclick="switchFleetView('driver')"><i class="ti ti-users"></i>Kierowcy</button>
+    <button id="view-btn-calendar" class="btn btn-gray view-mode-btn" onclick="switchFleetView('calendar')"><i class="ti ti-calendar-event"></i>Kalendarz</button>
     <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
     <button id="veh-filter-btn" class="btn btn-gray" onclick="toggleFilterRow()" title="Wyszukiwanie per kolumna"><i class="ti ti-filter"></i>Filtry</button>
     <button class="btn btn-gray" style="font-size:11px" onclick="clearColFilters()" title="Wyczyść wszystkie filtry"><i class="ti ti-filter-off"></i></button>
     <button class="btn btn-gray" style="font-size:11px" onclick="toggleDateFilters()" title="Filtry zakresów dat (OC, AC, przegląd)"><i class="ti ti-calendar-search"></i>Daty</button>
+    <div style="position:relative">
+      <button class="btn btn-gray" style="font-size:11px" onclick="toggleSavedFiltersPanel()" title="Zapisane zestawy filtrów"><i class="ti ti-bookmark"></i>Filtry</button>
+      <div id="saved-filters-dropdown" style="display:none;position:absolute;top:calc(100%+4px);right:0;z-index:400;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:6px;min-width:220px;box-shadow:0 4px 20px rgba(0,0,0,.18)">
+        <div id="saved-filters-list"></div>
+        <div style="border-top:1px solid var(--border);padding-top:6px;margin-top:6px">
+          <button class="btn btn-blue" style="width:100%;font-size:11px;justify-content:center" onclick="saveCurrentFilter()"><i class="ti ti-plus"></i>Zapisz bieżące filtry</button>
+        </div>
+      </div>
+    </div>
     <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
     <span style="font-size:12px;color:var(--text3)" id="veh-count-label"></span>
   </div>
@@ -519,6 +533,10 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
       <optgroup label="── Przegląd SKP ──">
         <option value="insp_expired">Przegląd — wygasły</option>
         <option value="insp_30">Przegląd — ≤ 30 dni</option>
+      </optgroup>
+      <optgroup label="── Leasing ──">
+        <option value="leasing_expired">Leasing — wygasły</option>
+        <option value="leasing_30">Leasing — ≤ 30 dni</option>
       </optgroup>
       <optgroup label="── Inne ──">
         <option value="no_driver">Bez kierowcy</option>
@@ -563,6 +581,12 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
     <button class="btn btn-gray" onclick="exportServiceHistoryCsv()" title="Eksportuj historię serwisową wszystkich pojazdów do CSV">
       <i class="ti ti-tools"></i><span>Historia serwisów CSV</span>
     </button>
+    <button class="btn btn-gray" onclick="exportTcoCsv()" title="Raport TCO: paliwo + serwis + ubezpieczenia + leasing per pojazd (bieżący rok)">
+      <i class="ti ti-report-analytics"></i><span>Raport TCO CSV</span>
+    </button>
+    <button class="btn btn-gray" onclick="showFuelByDriver()" title="Ranking kierowców wg zużycia paliwa">
+      <i class="ti ti-chart-bar"></i><span>Spalanie/kierowca</span>
+    </button>
     <button class="btn btn-amber" onclick="FuelImport.open()" title="Import tankowań z kart paliwowych (ORLEN, DKV, BP, Shell)">
       <i class="ti ti-gas-station"></i><span data-i18n="btn.import.fuel">Import tankowań</span>
     </button>
@@ -597,6 +621,10 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   </div>
   <!-- Widok kart flotowych -->
   <div id="fleet-cards"></div>
+  <!-- Widok kierowców -->
+  <div id="fleet-driver-panel" style="display:none;padding:4px 0"></div>
+  <!-- Widok kalendarza terminów -->
+  <div id="fleet-calendar" style="display:none;padding:4px 0"></div>
   <!-- Paginacja (widoczna przy >100 pojazdów) -->
   <div id="veh-pager"></div>
 </div>
@@ -2892,9 +2920,43 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
     <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35);font-size:12px" onclick="bulkSetTaxMonths()"><i class="ti ti-calendar"></i>Miesiące podatku</button>
     <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35);font-size:12px" onclick="bulkChangeStatus()"><i class="ti ti-tag"></i>Zmień status</button>
     <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35);font-size:12px" onclick="bulkCompare()"><i class="ti ti-scale"></i>Porównaj zaznaczone</button>
+    <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35);font-size:12px" onclick="bulkEditField()"><i class="ti ti-pencil"></i>Edytuj pole</button>
   </div>
   <button class="btn" style="background:transparent;color:rgba(255,255,255,.75);border-color:rgba(255,255,255,.3);font-size:12px;flex-shrink:0" onclick="deselAll()"><i class="ti ti-x"></i>Odznacz wszystko</button>
 </div>
+<!-- Modal masowej edycji pola -->
+<div id="bulk-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:5000;align-items:center;justify-content:center">
+  <div style="background:var(--bg);border-radius:var(--radius-lg);width:min(420px,95%);box-shadow:0 8px 40px rgba(0,0,0,.3);overflow:hidden">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border)">
+      <i class="ti ti-pencil" style="font-size:18px;color:var(--blue)"></i>
+      <strong>Edytuj pole dla <span id="bulk-edit-count">0</span> pojazdów</strong>
+      <button onclick="document.getElementById('bulk-edit-modal').style.display='none'" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2);line-height:1">×</button>
+    </div>
+    <div style="padding:18px;display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label class="vdl">Pole do edycji</label>
+        <select id="bulk-edit-field" class="fi">
+          <option value="kierowca">Kierowca</option>
+          <option value="gmina">Gmina (DT-1)</option>
+          <option value="miesiacePodatku">Miesiące podatku (1–12)</option>
+          <option value="normaSpalania">Norma spalania (l/100km)</option>
+          <option value="paliwo">Paliwo</option>
+          <option value="ownership_type">Typ własności (own/leasing/rental)</option>
+          <option value="wlasciciel">Właściciel</option>
+          <option value="assetCode">Kod wewnętrzny</option>
+        </select>
+      </div>
+      <div>
+        <label class="vdl">Nowa wartość</label>
+        <input id="bulk-edit-value" class="fi" type="text" placeholder="Wpisz wartość...">
+      </div>
+      <button class="btn btn-blue" style="justify-content:center;padding:10px" onclick="bulkEditApply()">
+        <i class="ti ti-check"></i>Zastosuj dla wszystkich zaznaczonych
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
   <script src="modules/i18n.js"></script>

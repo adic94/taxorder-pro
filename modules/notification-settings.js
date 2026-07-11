@@ -335,14 +335,21 @@ window.TaxOrderNotifSettings = (function () {
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
             <i class="ti ti-mail" style="font-size:18px;color:#d97706"></i>
             <strong>Email</strong>
-            <span style="font-size:10px;background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:99px"><i class="ti ti-check"></i> Aktywny</span>
+            <span style="font-size:10px;background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:99px"><i class="ti ti-check"></i> Backend gotowy</span>
           </div>
-          <div style="font-size:12px;color:var(--text2);margin-bottom:10px">
-            Powiadomienia email przez Resend. Włącz EMAIL dla wybranych alertów w zakładce <strong>Moje alerty</strong>.
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px">
+            Powiadomienia email przez Resend API. Włącz EMAIL dla wybranych alertów w zakładce <strong>Moje alerty</strong>.
           </div>
-          <button class="btn btn-gray" style="font-size:11px" onclick="TaxOrderNotifSettings._testEmail()">
-            <i class="ti ti-mail-forward"></i>Wyślij testowy email
-          </button>
+          <div style="font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:10px;font-family:var(--mono)">
+            <div style="font-weight:600;margin-bottom:4px;font-family:var(--font);font-size:10px;color:var(--text3);text-transform:uppercase">Aktywacja (jednorazowo w terminalu):</div>
+            wrangler secret put RESEND_API_KEY<br>
+            <span style="color:var(--text3)"># następnie: wrangler deploy</span>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-gray" style="font-size:11px" onclick="TaxOrderNotifSettings._testEmail()">
+              <i class="ti ti-mail-forward"></i>Wyślij testowy email
+            </button>
+          </div>
         </div>
         <!-- SMS -->
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px">

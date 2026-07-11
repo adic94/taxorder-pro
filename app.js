@@ -196,6 +196,8 @@ function _hasExpiryAlert(v) {
     ...(v.hasTacho && v.tachoNextCalib ? [v.tachoNextCalib] : []),
     ...(v.tireNextChange ? [v.tireNextChange] : []),
     ...(v.serviceHistory||[]).filter(s=>s.nextServiceDate).map(s=>s.nextServiceDate),
+    ...(v.leasingEnd ? [v.leasingEnd] : []),
+    ...(v.rentalEnd  ? [v.rentalEnd]  : []),
   ].some(d => d && (new Date(d) - now) < W);
 }
 
@@ -225,8 +227,10 @@ function filterVeh() {
       if (fAlert === 'ac_30'       && !(_days(v.acEnd) !== null && _days(v.acEnd) >= 0 && _days(v.acEnd) <= 30))  return false;
       if (fAlert === 'insp_expired'&& !(_days(v.nextInspection) !== null && _days(v.nextInspection) < 0)) return false;
       if (fAlert === 'insp_30'     && !(_days(v.nextInspection) !== null && _days(v.nextInspection) >= 0 && _days(v.nextInspection) <= 30)) return false;
-      if (fAlert === 'no_driver'   && v.kierowca)                                        return false;
-      if (fAlert === 'no_oc'       && v.ocEnd)                                           return false;
+      if (fAlert === 'no_driver'       && v.kierowca)                                            return false;
+      if (fAlert === 'no_oc'           && v.ocEnd)                                             return false;
+      if (fAlert === 'leasing_expired' && !(_days(v.leasingEnd)!==null&&_days(v.leasingEnd)<0)) return false;
+      if (fAlert === 'leasing_30'      && !(_days(v.leasingEnd)!==null&&_days(v.leasingEnd)>=0&&_days(v.leasingEnd)<=30)) return false;
     }
     // Date range filters
     const _inDateRange = (ds, from, to) => {
@@ -392,6 +396,7 @@ function vehGoPage(page) {
 function renderVeh() {
   if (!_colVis) _initColVis();
   _renderFleetKpiStrip();
+  _renderAlertBanner();
   _syncViewModeButtons();
   const list = filterVeh();
 
@@ -400,18 +405,26 @@ function renderVeh() {
   _lastFilteredLen = list.length;
   const pageList = list.slice(_vehPage * _vehPageSize, (_vehPage + 1) * _vehPageSize);
 
-  // Widok kart
+  // Widok kart / kierowcy / kalendarz
   const tblWrap = document.getElementById('fleet-tbl-wrap');
   const cardsEl = document.getElementById('fleet-cards');
+  const driverEl = document.getElementById('fleet-driver-panel');
+  const calEl   = document.getElementById('fleet-calendar');
+  [tblWrap, cardsEl, driverEl, calEl].forEach(el => { if (el) el.style.display = 'none'; });
+
   if (_viewMode === 'cards') {
-    if (tblWrap) tblWrap.style.display = 'none';
     if (cardsEl) { cardsEl.style.display = 'grid'; _renderCards(pageList); }
-    _renderVehPager(list);
-    updateCounters();
-    return;
+    _renderVehPager(list); updateCounters(); return;
+  }
+  if (_viewMode === 'driver') {
+    if (driverEl) { driverEl.style.display = 'block'; _renderDriverPanel(); }
+    updateCounters(); return;
+  }
+  if (_viewMode === 'calendar') {
+    if (calEl) { calEl.style.display = 'block'; _renderCalendarView(); }
+    updateCounters(); return;
   }
   if (tblWrap) tblWrap.style.display = '';
-  if (cardsEl) cardsEl.style.display = 'none';
   _renderVehPager(list);
   _renderFleetThead();
 
@@ -679,6 +692,313 @@ function exportFinesCsv() {
   a.click();
   URL.revokeObjectURL(url);
   toast(`✅ Wyeksportowano ${fines.length} mandatów do CSV`);
+}
+
+// ==================== EKSPORT TCO ====================
+
+function exportTcoCsv() {
+  const yr = String(new Date().getFullYear());
+  const list = filterVeh();
+  if (!list.length) { toast('Brak pojazdów do eksportu'); return; }
+  const HEADERS = ['Nr rej.','Marka','Model','Rok','Typ','Kierowca',
+    'OC składka (zł/rok)','AC składka (zł/rok)','Leasing łączny (zł/rok)',
+    `Paliwo ${yr} (zł)`,`Serwis ${yr} (zł)`,`TCO ${yr} (zł)`,
+    'Śr. spalanie (l/100km)','Kat. DT-1','Podatek DT-1 (zł/rok)'];
+
+  const rows = list.map(v => {
+    const tax = typeof calcTax === 'function' ? calcTax(v) : {};
+    const ocZl     = +(v.ocPremium) || 0;
+    const acZl     = +(v.acPremium) || 0;
+    const leasingZl = v.leasingRate ? +(v.leasingRate) * 12 : 0;
+    const fuelZl   = (v.fuelHistory  ||[]).filter(h=>(h.date||'').startsWith(yr)).reduce((s,h)=>s+(h.totalGross||0),0);
+    const serwisZl = (v.serviceHistory||[]).filter(h=>(h.date||'').startsWith(yr)).reduce((s,h)=>s+(+h.cost||0),0);
+    const tco = ocZl + acZl + leasingZl + fuelZl + serwisZl;
+    // Average fuel efficiency
+    const fh = [...(v.fuelHistory||[])].filter(x=>x.km>0&&x.liters>0).sort((a,b)=>a.km-b.km);
+    let fl=0,fk=0,fn=0;
+    for(let i=1;i<fh.length;i++){const d=fh[i].km-fh[i-1].km;if(d>10&&d<5000){fl+=fh[i].liters;fk+=d;fn++;}}
+    const avgFuel = fn>=2&&fk>0?(fl/fk*100).toFixed(1):'';
+    return [
+      v.nrRej||'',v.marka||'',v.model||'',v.rok||'',v.typ||'',v.kierowca||'',
+      ocZl.toFixed(2),acZl.toFixed(2),leasingZl.toFixed(2),
+      fuelZl.toFixed(2),serwisZl.toFixed(2),tco.toFixed(2),
+      avgFuel, tax.cat||v.cat||'', tax.amount!=null?Math.round(tax.amount):''
+    ];
+  });
+  const csv = [HEADERS,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+  const blob = new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=`tco_${yr}_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  toast(`✅ Raport TCO ${yr} dla ${list.length} pojazdów`);
+}
+
+// ==================== ALERT BANNER ====================
+
+function _renderAlertBanner() {
+  const el = document.getElementById('fleet-alert-banner');
+  if (!el || !vehs.length) return;
+  const now = new Date(); now.setHours(0,0,0,0);
+  const _d = ds => { if(!ds) return null; const d=new Date(ds+'T00:00:00'); return isNaN(d)?null:Math.round((d-now)/86400000); };
+  const expired = vehs.filter(v=>[v.ocEnd,v.acEnd,v.nextInspection].some(ds=>{const d=_d(ds);return d!==null&&d<0;}));
+  const soon30  = vehs.filter(v=>!expired.includes(v)&&[v.ocEnd,v.acEnd,v.nextInspection].some(ds=>{const d=_d(ds);return d!==null&&d>=0&&d<=30;}));
+  if(!expired.length&&!soon30.length){el.style.display='none';el.innerHTML='';return;}
+  el.style.display='flex';
+  el.innerHTML=`
+    ${expired.length?`<div class="fleet-alert-chip fleet-alert-red" onclick="document.getElementById('f-alert').value='expired';renderVeh();" title="Kliknij aby odfiltrować">
+      <i class="ti ti-alert-circle"></i><strong>${expired.length}</strong> wygasłe OC/AC/przegląd
+    </div>`:''}
+    ${soon30.length?`<div class="fleet-alert-chip fleet-alert-amber" onclick="document.getElementById('f-alert').value='alert';renderVeh();" title="Kliknij aby odfiltrować">
+      <i class="ti ti-alert-triangle"></i><strong>${soon30.length}</strong> terminów OC/AC/przegląd ≤ 30 dni
+    </div>`:''}`;
+}
+
+// ==================== MASOWA EDYCJA POLA ====================
+
+function bulkEditField() {
+  const sel = getSel();
+  if (!sel.length) { toast('Zaznacz pojazdy do edycji'); return; }
+  const modal = document.getElementById('bulk-edit-modal');
+  if (modal) {
+    document.getElementById('bulk-edit-count').textContent = sel.length;
+    modal.style.display = 'flex';
+  }
+}
+
+function bulkEditApply() {
+  const sel = getSel();
+  const fieldKey = document.getElementById('bulk-edit-field')?.value;
+  const newVal   = document.getElementById('bulk-edit-value')?.value?.trim();
+  if (!fieldKey || !sel.length) return;
+
+  const parsed = fieldKey === 'miesiacePodatku' ? (parseInt(newVal)||12) :
+                 fieldKey === 'normaSpalania'    ? (parseFloat(newVal.replace(',','.'))||null) :
+                 (newVal||null);
+
+  sel.forEach(v => {
+    if (parsed !== null && parsed !== undefined) v[fieldKey] = parsed;
+    window.TaxOrderFleetCloud?.saveVehicle?.(v);
+  });
+  document.getElementById('bulk-edit-modal').style.display = 'none';
+  renderVeh(); updateCounters();
+  toast(`✓ Zaktualizowano "${fieldKey}" dla ${sel.length} pojazdów`);
+}
+
+// ==================== PANEL KIEROWCÓW ====================
+
+function _renderDriverPanel() {
+  const el = document.getElementById('fleet-driver-panel');
+  if (!el) return;
+  const now = new Date(); now.setHours(0,0,0,0); const DAYS30=30*86400000;
+  const map = {};
+  vehs.forEach(v => {
+    const key = v.kierowca || '— bez kierowcy —';
+    if (!map[key]) map[key] = {name:key, vehs:[], alerts:0, fl:0, fk:0, fn:0};
+    const d = map[key];
+    d.vehs.push(v);
+    if ([v.ocEnd,v.acEnd,v.nextInspection].some(ds=>ds&&(new Date(ds+'T00:00:00')-now)<DAYS30&&(new Date(ds+'T00:00:00')-now)>=-86400000)) d.alerts++;
+    const fh=[...(v.fuelHistory||[])].filter(x=>x.km>0&&x.liters>0).sort((a,b)=>a.km-b.km);
+    for(let i=1;i<fh.length;i++){const dk=fh[i].km-fh[i-1].km;if(dk>10&&dk<5000){d.fl+=fh[i].liters;d.fk+=dk;d.fn++;}}
+  });
+  const list = Object.values(map).sort((a,b)=>b.vehs.length-a.vehs.length);
+  const active = window._driverFilter;
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase">Kierowcy (${list.length})</div>
+      ${active?`<button class="btn btn-gray" style="font-size:11px;padding:3px 8px" onclick="window._driverFilter=null;renderVeh()"><i class="ti ti-filter-off"></i>Pokaż wszystkich</button>`:''}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">
+      ${list.map(d=>{
+        const avgFuel=d.fn>=2&&d.fk>0?(d.fl/d.fk*100).toFixed(1):null;
+        const isActive=active===d.name||(active===''&&d.name==='— bez kierowcy —');
+        return `<div style="background:var(--bg2);border:1px solid ${isActive?'var(--blue)':'var(--border)'};border-radius:var(--radius);padding:10px;cursor:pointer;${isActive?'box-shadow:0 0 0 2px var(--blue-light)':''}"
+          data-driver="${esc(d.name)}" onclick="TaxOrderVehicleDetail?._driverPanelClick?.(this.dataset.driver)">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+            <i class="ti ti-user-circle" style="color:var(--blue);font-size:16px"></i>
+            <span style="font-weight:600;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px">${esc(d.name)}</span>
+            ${d.alerts?`<span class="pill pill-amber" style="margin-left:auto;font-size:9px">${d.alerts}⚠</span>`:''}
+          </div>
+          <div style="font-size:10px;color:var(--text2)">
+            <div><i class="ti ti-truck" style="font-size:10px;margin-right:3px"></i>${d.vehs.length} poj.</div>
+            ${avgFuel?`<div><i class="ti ti-gas-station" style="font-size:10px;margin-right:3px"></i>${avgFuel} l/100km</div>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  window.TaxOrderVehicleDetail._driverPanelClick = (name) => {
+    const raw = (name === '— bez kierowcy —') ? '' : name;
+    window._driverFilter = (window._driverFilter === raw) ? null : raw;
+    renderVeh();
+  };
+}
+
+// ==================== WIDOK KALENDARZA ====================
+
+function _renderCalendarView() {
+  const el = document.getElementById('fleet-calendar');
+  if (!el) return;
+  const now = new Date(); const yr=now.getFullYear(); const mo=now.getMonth();
+  const todayStr = now.toISOString().slice(0,10);
+  const events = {};
+  vehs.forEach(v=>{
+    const add=(ds,label,color)=>{
+      if(!ds)return; const key=ds.slice(0,10);
+      if(!events[key])events[key]=[];
+      events[key].push({nrRej:v.nrRej,label,color});
+    };
+    add(v.ocEnd,'OC','#dc2626'); add(v.acEnd,'AC','#d97706');
+    add(v.nextInspection,'Prz','#2563eb'); add(v.leasingEnd,'Lea','#7c3aed');
+  });
+
+  const DN=['Pn','Wt','Śr','Cz','Pt','So','Nd'];
+  let html=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px">`;
+
+  for(let m=0;m<3;m++){
+    const tMo=(mo+m)%12, tYr=yr+Math.floor((mo+m)/12);
+    const first=new Date(tYr,tMo,1), last=new Date(tYr,tMo+1,0);
+    const offset=(first.getDay()+6)%7;
+    const monthLabel=first.toLocaleDateString('pl-PL',{month:'long',year:'numeric'});
+    const pfx=`${tYr}-${String(tMo+1).padStart(2,'0')}`;
+    const monthEvents=Object.keys(events).filter(k=>k.startsWith(pfx)).reduce((s,k)=>s+events[k].length,0);
+
+    html+=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
+      <div style="display:flex;align-items:center;margin-bottom:10px">
+        <strong style="font-size:12px;text-transform:capitalize">${monthLabel}</strong>
+        ${monthEvents?`<span class="pill pill-amber" style="margin-left:auto;font-size:10px">${monthEvents} terminów</span>`:'<span style="font-size:10px;color:var(--text3);margin-left:auto">brak terminów</span>'}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">
+        ${DN.map(d=>`<div style="font-size:9px;font-weight:600;color:var(--text3);text-align:center;padding:2px">${d}</div>`).join('')}
+        ${Array(offset).fill('<div></div>').join('')}
+        ${Array.from({length:last.getDate()},(_,i)=>{
+          const day=i+1;
+          const ds=`${pfx}-${String(day).padStart(2,'0')}`;
+          const ev=events[ds]||[];
+          const isToday=ds===todayStr;
+          return `<div style="min-height:30px;border:1px solid ${isToday?'var(--blue)':'var(--border)'};border-radius:3px;padding:1px;background:${isToday?'var(--blue-light,#eff6ff)':'transparent'}">
+            <div style="font-size:9px;text-align:right;color:${isToday?'var(--blue)':'var(--text3)'}${ev.length?';font-weight:700':''}">${day}</div>
+            ${ev.slice(0,2).map(e=>`<div style="font-size:8px;background:${e.color};color:#fff;border-radius:2px;padding:0 2px;line-height:13px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis" title="${esc(e.nrRej)} — ${e.label}">${esc(e.nrRej.slice(0,6))}</div>`).join('')}
+            ${ev.length>2?`<div style="font-size:8px;color:var(--text3)">+${ev.length-2}</div>`:''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+  html+=`</div><div style="display:flex;gap:12px;margin-top:12px;font-size:11px;flex-wrap:wrap">
+    ${[['#dc2626','OC'],['#d97706','AC'],['#2563eb','Przegląd SKP'],['#7c3aed','Leasing']].map(([c,l])=>
+      `<span><span style="display:inline-block;width:10px;height:10px;background:${c};border-radius:2px;margin-right:4px;vertical-align:middle"></span>${l}</span>`
+    ).join('')}
+  </div>`;
+  el.innerHTML=html;
+}
+
+// ==================== ANALIZA SPALANIA PER KIEROWCA ====================
+
+function showFuelByDriver() {
+  const map = {};
+  vehs.forEach(v=>{
+    const key = v.kierowca || '— bez kierowcy —';
+    if(!map[key])map[key]={name:key,fl:0,fk:0,fn:0,vehs:0};
+    map[key].vehs++;
+    const fh=[...(v.fuelHistory||[])].filter(x=>x.km>0&&x.liters>0).sort((a,b)=>a.km-b.km);
+    for(let i=1;i<fh.length;i++){const d=fh[i].km-fh[i-1].km;if(d>10&&d<5000){map[key].fl+=fh[i].liters;map[key].fk+=d;map[key].fn++;}}
+  });
+  const ranked = Object.values(map).filter(d=>d.fn>=2).sort((a,b)=>(a.fl/a.fk)-(b.fl/b.fk));
+  if(!ranked.length){toast('Brak danych tankowania do analizy');return;}
+
+  const avg = ranked.reduce((s,d)=>s+(d.fl/d.fk),0)/ranked.length*100;
+  const modal = document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:5500;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML=`
+    <div style="background:var(--bg);border-radius:var(--radius-lg);width:min(520px,100%);box-shadow:0 8px 40px rgba(0,0,0,.3);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border)">
+        <i class="ti ti-gas-station" style="font-size:20px;color:var(--blue)"></i>
+        <strong style="font-size:15px">Spalanie per kierowca (l/100km)</strong>
+        <button onclick="this.closest('div[style*=fixed]').remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2)">×</button>
+      </div>
+      <div style="padding:16px;overflow-y:auto;max-height:70vh">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:12px">Średnia floty: <strong>${avg.toFixed(1)} l/100km</strong> · posortowani od najoszczędniejszego</div>
+        ${ranked.map((d,i)=>{
+          const val=(d.fl/d.fk*100);
+          const pct=Math.round(val/avg*100);
+          const color=val<avg*0.9?'var(--green,#22c55e)':val>avg*1.1?'var(--red,#ef4444)':'var(--amber,#f59e0b)';
+          return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border)">
+            <span style="min-width:20px;font-size:11px;color:var(--text3);text-align:right">${i+1}.</span>
+            <span style="flex:1;font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</span>
+            <span style="font-size:10px;color:var(--text2)">${d.vehs} poj.</span>
+            <div style="width:80px;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
+              <div style="height:100%;width:${Math.min(pct,150)}%;background:${color};border-radius:3px"></div>
+            </div>
+            <strong style="font-size:13px;min-width:50px;text-align:right;color:${color}">${val.toFixed(1)}</strong>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
+  document.body.appendChild(modal);
+}
+
+// ==================== ZAPISANE FILTRY ====================
+
+const _SAVED_FILTERS_LS = 'taxorder-saved-filters';
+let _savedFilters = (() => { try{return JSON.parse(localStorage.getItem(_SAVED_FILTERS_LS))||[];}catch{return[];} })();
+
+function saveCurrentFilter() {
+  const name = prompt('Nazwa dla tego zestawu filtrów:');
+  if (!name?.trim()) return;
+  const q = document.getElementById('q-veh')?.value||'';
+  const fTyp = document.getElementById('f-typ')?.value||'';
+  const fStat = document.getElementById('f-status')?.value||'';
+  const fWl = document.getElementById('f-wl')?.value||'';
+  const fAlert = document.getElementById('f-alert')?.value||'';
+  const entry = { id: Date.now(), name: name.trim(), q, fTyp, fStat, fWl, fAlert, dateFilters: {..._dateFilters} };
+  _savedFilters = _savedFilters.filter(f=>f.name!==entry.name);
+  _savedFilters.unshift(entry);
+  if (_savedFilters.length > 20) _savedFilters.pop();
+  try{localStorage.setItem(_SAVED_FILTERS_LS, JSON.stringify(_savedFilters));}catch{}
+  _renderSavedFiltersList();
+  toast(`✓ Zapisano filtr „${esc(entry.name)}"`);
+}
+
+function loadSavedFilter(id) {
+  const f = _savedFilters.find(x=>x.id===id);
+  if (!f) return;
+  const setV = (elId, val) => { const el=document.getElementById(elId); if(el) el.value=val||''; };
+  setV('q-veh', f.q); setV('f-typ', f.fTyp); setV('f-status', f.fStat); setV('f-wl', f.fWl); setV('f-alert', f.fAlert);
+  if (f.dateFilters) {
+    _dateFilters = {..._dateFilters, ...f.dateFilters};
+    document.querySelectorAll('.date-filter-input').forEach(el => {
+      const field = el.getAttribute('oninput')?.match(/applyDateFilter\('(\w+)'/)?.[1];
+      if (field && _dateFilters[field] !== undefined) el.value = _dateFilters[field];
+    });
+  }
+  _vehPage = 0; renderVeh();
+  document.getElementById('saved-filters-dropdown')?.classList.remove('open');
+}
+
+function deleteSavedFilter(id) {
+  _savedFilters = _savedFilters.filter(x=>x.id!==id);
+  try{localStorage.setItem(_SAVED_FILTERS_LS, JSON.stringify(_savedFilters));}catch{}
+  _renderSavedFiltersList();
+}
+
+function _renderSavedFiltersList() {
+  const el = document.getElementById('saved-filters-list');
+  if (!el) return;
+  if (!_savedFilters.length) { el.innerHTML='<div style="padding:8px 12px;font-size:11px;color:var(--text3)">Brak zapisanych filtrów</div>'; return; }
+  el.innerHTML = _savedFilters.map(f=>`
+    <div style="display:flex;align-items:center;gap:4px;padding:5px 8px;border-radius:var(--radius-sm);cursor:pointer" onmouseenter="this.style.background='var(--bg3)'" onmouseleave="this.style.background='transparent'">
+      <button onclick="loadSavedFilter(${f.id})" style="flex:1;background:none;border:none;cursor:pointer;text-align:left;font-size:12px;color:var(--text);padding:0">${esc(f.name)}</button>
+      <button onclick="event.stopPropagation();deleteSavedFilter(${f.id})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:0 2px;line-height:1" title="Usuń">×</button>
+    </div>`).join('');
+}
+
+function toggleSavedFiltersPanel() {
+  const panel = document.getElementById('saved-filters-dropdown');
+  if (!panel) return;
+  const open = panel.style.display !== 'block';
+  panel.style.display = open ? 'block' : 'none';
+  if (open) _renderSavedFiltersList();
 }
 
 // ==================== WALIDACJA VIN (ISO 3779) ====================

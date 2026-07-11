@@ -409,6 +409,12 @@ th.sort-th:hover{color:var(--blue)}
 .fkpi-amber{border-color:var(--amber)!important;background:var(--amber-light)!important}.fkpi-amber .fkpi-val{color:var(--amber)}
 @media(max-width:600px){.fleet-kpi-strip{grid-template-columns:repeat(2,1fr)}}
 
+/* ===== FLEET ALERT BANNER ===== */
+.fleet-alert-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);font-size:12px;cursor:pointer;transition:opacity .15s;user-select:none}
+.fleet-alert-chip:hover{opacity:.8}
+.fleet-alert-red{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+.fleet-alert-amber{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
+
 /* ===== FLEET VIEW MODE TOGGLE ===== */
 .view-mode-bar{display:flex;gap:4px;margin-bottom:8px;align-items:center;flex-wrap:wrap}
 .view-mode-bar .btn{font-size:12px;padding:5px 12px}
