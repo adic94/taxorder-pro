@@ -184,6 +184,7 @@ function showPage(id) {
   if(id==='mapa') window.FleetMap?.render();
   if(id==='kalendarz') window.FleetCalendar?.open();
   if(id==='budzet') window.TaxOrderBudget?.render();
+  if(id==='dok-smart') window.DocumentsModule?._renderGlobalPage();
   document.dispatchEvent(new CustomEvent('taxorder-page-change', { detail: { page: id } }));
   updateCounters();
 }

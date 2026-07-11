@@ -2200,6 +2200,9 @@ td:last-child{font-weight:600;color:#1e293b}
         const el = document.getElementById('vd-changelog-body');
         if (el) el.innerHTML = this._renderChangelogTab(v);
       }
+      if (name === 'dokumenty') {
+        window.DocumentsModule?.loadForVehicle(v);
+      }
     }
   },
 

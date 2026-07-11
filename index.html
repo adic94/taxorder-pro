@@ -194,6 +194,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <button class="tnb" id="tnb-cfm-faktury" onclick="showPage('cfm-faktury')"><i class="ti ti-file-invoice"></i><span data-i18n="nav.cfmFaktury">Faktury CFM</span></button>
 
   <div class="sidebar-label">Dokumenty</div>
+  <button class="tnb" id="tnb-dok-smart" onclick="showPage('dok-smart')"><i class="ti ti-files"></i><span>Dokumenty flotowe</span></button>
   <button class="tnb" id="tnb-impexp" onclick="showPage('impexp')"><i class="ti ti-arrows-exchange"></i><span data-i18n="nav.impexp">Import / Eksport</span></button>
   <button class="tnb" id="tnb-ocr" onclick="showPage('ocr')"><i class="ti ti-scan"></i><span data-i18n="nav.ocr">OCR Dowodów</span></button>
   <button class="tnb" id="tnb-pdfexport" onclick="showPage('pdfexport')"><i class="ti ti-file-type-pdf"></i><span data-i18n="nav.pdfexport">Eksport PDF</span></button>
@@ -1446,6 +1447,153 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
           <div style="margin-top:6px;color:var(--amber)">⚠ Podpisanie wymaga odręcznie lub kwalifikowanym podpisem elektronicznym</div>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== DOKUMENTY FLOTOWE (smart) ==================== -->
+<div class="page" id="page-dok-smart" style="display:none">
+  <div class="pg-title"><i class="ti ti-files"></i>Dokumenty flotowe</div>
+  <div class="pg-sub">Jeden rejestr dokumentów dla całej floty — auto-klasyfikacja, detekcja VIN, przypisanie do pojazdu</div>
+
+  <!-- toolbar -->
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+    <button class="btn btn-blue" onclick="DocumentsModule.openGlobalUpload()">
+      <i class="ti ti-upload"></i>Wgraj dokument
+    </button>
+    <input id="dm-global-search" type="text" class="fi" placeholder="Szukaj nazwy, nr rej., VIN…"
+      style="width:220px;font-size:12px" oninput="DocumentsModule._renderGlobalPage()">
+    <select id="dm-global-filter-type" class="fi" style="width:170px;font-size:12px"
+      onchange="DocumentsModule._renderGlobalPage()">
+      <option value="">Wszystkie typy</option>
+      <option value="oc">Polisa OC</option>
+      <option value="ac">Polisa AC</option>
+      <option value="przeglad">Przegląd techniczny</option>
+      <option value="leasing">Umowa leasingu</option>
+      <option value="dowod_rej">Dowód rejestracyjny</option>
+      <option value="faktura">Faktura</option>
+      <option value="serwis">Faktura serwisowa</option>
+      <option value="ubezp">Ubezpieczenie</option>
+      <option value="mandat">Mandat</option>
+      <option value="inne">Inne</option>
+    </select>
+    <input id="dm-global-filter-vin" type="text" class="fi" placeholder="Filtruj VIN…"
+      style="width:160px;font-size:12px;font-family:monospace" oninput="DocumentsModule._renderGlobalPage()">
+  </div>
+
+  <!-- lista dokumentów pogrupowana per pojazd -->
+  <div id="dm-global-list">
+    <div style="padding:40px;text-align:center;color:var(--text3)">
+      <i class="ti ti-files" style="font-size:48px;display:block;margin-bottom:12px;opacity:.3"></i>
+      <div style="font-size:14px">Załaduj stronę aby zobaczyć dokumenty</div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: upload pojazd-specific -->
+<div id="dm-upload-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9400;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg);border-radius:var(--radius-lg);width:480px;max-width:98vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.25)">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+      <i class="ti ti-upload" style="color:var(--blue);font-size:18px"></i>
+      <div>
+        <div style="font-size:15px;font-weight:600">Dodaj dokument</div>
+        <div style="font-size:11px;color:var(--text2)">
+          <span id="dm-upload-veh-label"></span>
+          <span id="dm-upload-vin-label" style="font-family:monospace;margin-left:8px;color:var(--text3)"></span>
+        </div>
+      </div>
+      <button onclick="DocumentsModule._closeUpload()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);line-height:1">&times;</button>
+    </div>
+    <div style="padding:16px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:12px">
+      <div class="f">
+        <label style="font-size:12px">Plik <span style="color:var(--red)">*</span></label>
+        <input id="dm-upload-file" type="file" class="fi" style="font-size:12px"
+          accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx,.xls"
+          onchange="DocumentsModule._handleUploadFileChange(this)">
+      </div>
+      <div id="dm-upload-preview"></div>
+      <div id="dm-upload-status"></div>
+      <div class="f">
+        <label style="font-size:12px">Typ dokumentu</label>
+        <select id="dm-upload-type-sel" class="fi" style="font-size:12px">
+          <option value="oc">Polisa OC</option>
+          <option value="ac">Polisa AC</option>
+          <option value="przeglad">Przegląd techniczny</option>
+          <option value="leasing">Umowa leasingu</option>
+          <option value="dowod_rej">Dowód rejestracyjny</option>
+          <option value="faktura">Faktura</option>
+          <option value="serwis">Faktura serwisowa</option>
+          <option value="ubezp">Ubezpieczenie</option>
+          <option value="mandat">Mandat</option>
+          <option value="inne" selected>Inne</option>
+        </select>
+      </div>
+      <div class="f">
+        <label style="font-size:12px">Notatka (opcjonalnie)</label>
+        <input id="dm-upload-notes" type="text" class="fi" style="font-size:12px" placeholder="Np. numer polisy, uwagi…">
+      </div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px">
+      <button id="dm-upload-submit" class="btn btn-blue" onclick="DocumentsModule._submitUpload()">
+        <i class="ti ti-upload"></i>Wyślij
+      </button>
+      <button class="btn btn-gray" onclick="DocumentsModule._closeUpload()">Anuluj</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: globalny upload z auto-detekcją VIN -->
+<div id="dm-global-upload-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9400;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg);border-radius:var(--radius-lg);width:520px;max-width:98vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.25)">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+      <i class="ti ti-files" style="color:var(--blue);font-size:18px"></i>
+      <div>
+        <div style="font-size:15px;font-weight:600">Wgraj dokument — auto-detekcja VIN</div>
+        <div style="font-size:11px;color:var(--text2)">System odczyta VIN z pliku i przypisze do właściwego pojazdu</div>
+      </div>
+      <button onclick="document.getElementById('dm-global-upload-modal').style.display='none'"
+        style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);line-height:1">&times;</button>
+    </div>
+    <div style="padding:16px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:12px">
+      <div class="f">
+        <label style="font-size:12px">Plik <span style="color:var(--red)">*</span></label>
+        <input id="dm-gu-file" type="file" class="fi" style="font-size:12px"
+          accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx,.xls"
+          onchange="DocumentsModule._handleGuFileChange(this)">
+      </div>
+      <div id="dm-gu-preview"></div>
+      <div id="dm-gu-match"></div>
+      <div class="f">
+        <label style="font-size:12px">Typ dokumentu</label>
+        <select id="dm-gu-type-sel" class="fi" style="font-size:12px">
+          <option value="oc">Polisa OC</option>
+          <option value="ac">Polisa AC</option>
+          <option value="przeglad">Przegląd techniczny</option>
+          <option value="leasing">Umowa leasingu</option>
+          <option value="dowod_rej">Dowód rejestracyjny</option>
+          <option value="faktura">Faktura</option>
+          <option value="serwis">Faktura serwisowa</option>
+          <option value="ubezp">Ubezpieczenie</option>
+          <option value="mandat">Mandat</option>
+          <option value="inne" selected>Inne</option>
+        </select>
+      </div>
+      <div class="f">
+        <label style="font-size:12px">Przypisz do pojazdu <span style="font-size:10px;color:var(--text3)">(auto-wykryto jeśli znaleziono VIN)</span></label>
+        <select id="dm-gu-vehicle-sel" class="fi" style="font-size:12px">
+          <option value="">-- wybierz pojazd --</option>
+        </select>
+      </div>
+      <div class="f">
+        <label style="font-size:12px">Notatka (opcjonalnie)</label>
+        <input id="dm-gu-notes" type="text" class="fi" style="font-size:12px" placeholder="Np. numer polisy, uwagi…">
+      </div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px">
+      <button id="dm-gu-submit" class="btn btn-blue" onclick="DocumentsModule._submitGlobalUpload()">
+        <i class="ti ti-upload"></i>Wgraj
+      </button>
+      <button class="btn btn-gray" onclick="document.getElementById('dm-global-upload-modal').style.display='none'">Anuluj</button>
     </div>
   </div>
 </div>
@@ -3013,6 +3161,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/global-search.js"></script>
   <script src="modules/keyboard-shortcuts.js"></script>
   <script src="modules/budget.js"></script>
+  <script src="modules/document-manager.js"></script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">

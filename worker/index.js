@@ -545,40 +545,98 @@ async function handlePrefs(req, env, user) {
   return err('Metoda niedozwolona', 405);
 }
 
+// ─── DOCUMENTS — HELPERS ──────────────────────────────────────────────────────
+const _DOC_TYPE_RULES = [
+  { type: 'oc',        re: [/\boc\b/i, /odpowiedzia.*cywil/i, /ubezp.*komun/i, /polisa.*oc/i, /oc[-_]polisa/i, /oc[-_\s]ubezp/i] },
+  { type: 'ac',        re: [/\bac\b/i, /autocasco/i, /ubezp.*\bac\b/i, /ac[-_\s]polisa/i, /\bkasko\b/i] },
+  { type: 'przeglad',  re: [/badanie[\s_-]?tech/i, /stacja[\s_-]?kontrol/i, /diagnos/i, /przegl[aą]d[\s_-]?tech/i, /\bskt\b/i, /\bbt\b.*pojazd/i] },
+  { type: 'leasing',   re: [/leasing/i, /umowa[\s_-]?leas/i, /leasodawca/i, /rata[\s_-]?leas/i] },
+  { type: 'dowod_rej', re: [/dow[oó]d[\s_-]?rej/i, /rejestracyjny/i, /\bcrd\b/i, /\bdowodrej/i] },
+  { type: 'faktura',   re: [/\bfaktura\b/i, /\bfvat\b/i, /\bf[\s_-]?vat\b/i, /\binvoice\b/i, /\brachun/i] },
+  { type: 'serwis',    re: [/\bserwis\b/i, /\bnaprawa\b/i, /\bwarsztat\b/i, /\bmechanik\b/i, /zlecenie[\s_-]?serwis/i] },
+  { type: 'ubezp',     re: [/\bubezpiecz/i, /\bpolisa\b/i, /towarzystwo[\s_-]?ubezp/i] },
+  { type: 'mandat',    re: [/\bmandat\b/i, /wykroczen/i, /kara[\s_-]?pienia/i] },
+];
+
+function _classifyDoc(filename, textHint = '') {
+  const src = (filename + ' ' + textHint).toLowerCase();
+  for (const { type, re } of _DOC_TYPE_RULES) {
+    if (re.some(r => r.test(src))) return type;
+  }
+  return 'inne';
+}
+
+function _extractVin(text) {
+  const matches = text.match(/[A-HJ-NPR-Z0-9]{17}/g) || [];
+  return matches.find(v => new Set(v).size > 4) || null;
+}
+
 // ─── DOCUMENTS ────────────────────────────────────────────────────────────────
 async function handleDocs(req, env, user, url, path) {
   const segs = path.split('/').filter(Boolean); // ['api','docs',...]
 
-  // GET /api/docs?nrRej=XX&company=YY — lista dokumentów
+  // GET /api/docs?nrRej=XX&company=YY — lista dla pojazdu
+  // GET /api/docs?company=YY            — lista wszystkich (global view)
+  // GET /api/docs?vin=VIN&company=YY   — lista wg VIN
   if (req.method === 'GET' && segs.length === 2) {
     const nrRej   = url.searchParams.get('nrRej');
+    const vin     = url.searchParams.get('vin');
     const company = url.searchParams.get('company') || 'mtoilet';
-    if (!nrRej) return err('nrRej wymagany');
-    const rows = await env.DB.prepare(
-      'SELECT id,nr_rej,name,mime_type,uploaded_at FROM documents WHERE nr_rej=? AND company_id=? ORDER BY uploaded_at DESC'
-    ).bind(nrRej, company).all();
+    let rows;
+    if (nrRej) {
+      rows = await env.DB.prepare(
+        'SELECT id,nr_rej,vin,name,mime_type,doc_type,detected_vin,vehicle_id,file_size,notes,uploaded_at,uploaded_by FROM documents WHERE nr_rej=? AND company_id=? ORDER BY uploaded_at DESC'
+      ).bind(nrRej, company).all();
+    } else if (vin) {
+      rows = await env.DB.prepare(
+        'SELECT id,nr_rej,vin,name,mime_type,doc_type,detected_vin,vehicle_id,file_size,notes,uploaded_at,uploaded_by FROM documents WHERE vin=? AND company_id=? ORDER BY uploaded_at DESC'
+      ).bind(vin, company).all();
+    } else {
+      rows = await env.DB.prepare(
+        'SELECT id,nr_rej,vin,name,mime_type,doc_type,detected_vin,vehicle_id,file_size,notes,uploaded_at,uploaded_by FROM documents WHERE company_id=? ORDER BY uploaded_at DESC LIMIT 500'
+      ).bind(company).all();
+    }
     return json(rows.results || []);
   }
 
-  // POST /api/docs/upload
+  // POST /api/docs/upload — smart upload z auto-klasyfikacją i detekcją VIN
   if (req.method === 'POST' && segs[2] === 'upload') {
     let fd;
     try { fd = await req.formData(); } catch { return err('Wymagany FormData'); }
-    const file    = fd.get('file');
-    const nrRej   = fd.get('nrRej');
-    const company = fd.get('company') || 'mtoilet';
-    if (!file || !nrRej) return err('Wymagane: file, nrRej');
+    const file       = fd.get('file');
+    const nrRej      = fd.get('nrRej') || '';
+    const company    = fd.get('company') || 'mtoilet';
+    const vinParam   = (fd.get('vin') || '').trim().toUpperCase();
+    const textHint   = (fd.get('textHint') || '').slice(0, 2000);
+    const docTypeIn  = fd.get('doc_type') || '';
+    const vehicleId  = fd.get('vehicle_id') || '';
+    const notesIn    = (fd.get('notes') || '').slice(0, 500);
+    if (!file) return err('Wymagane: file');
+
+    const doc_type     = docTypeIn || _classifyDoc(file.name, textHint);
+    const detected_vin = _extractVin(textHint + ' ' + file.name);
+    const vin          = vinParam || detected_vin || null;
+    const anchor       = vin || nrRej || 'global';
 
     const docId = crypto.randomUUID();
-    const r2Key = `docs/${company}/${nrRej}/${docId}`;
+    const ext   = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : 'bin';
+    const r2Key = `docs/${company}/vin/${anchor}/${docId}.${ext}`;
+
     await env.DOCS.put(r2Key, file.stream(), {
       httpMetadata: { contentType: file.type || 'application/octet-stream' },
     });
     await env.DB.prepare(
-      'INSERT INTO documents(id,nr_rej,company_id,name,mime_type,r2_key) VALUES(?,?,?,?,?,?)'
-    ).bind(docId, nrRej, company, file.name, file.type || 'application/octet-stream', r2Key).run();
+      `INSERT INTO documents(id,nr_rej,company_id,name,mime_type,r2_key,vin,doc_type,detected_vin,vehicle_id,file_size,notes,uploaded_by)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(
+      docId, nrRej || null, company, file.name,
+      file.type || 'application/octet-stream', r2Key,
+      vin, doc_type, detected_vin,
+      vehicleId || null, file.size || 0, notesIn || null,
+      user?.email || null,
+    ).run();
 
-    return json({ ok: true, id: docId, key: r2Key });
+    return json({ ok: true, id: docId, key: r2Key, doc_type, detected_vin, vin });
   }
 
   // GET /api/docs/file/:key... — pobierz plik z R2
@@ -596,15 +654,30 @@ async function handleDocs(req, env, user, url, path) {
     });
   }
 
+  // PATCH /api/docs/:docId — aktualizacja doc_type, notes, vin
+  if (req.method === 'PATCH' && segs[2] && segs[2] !== 'file') {
+    let body;
+    try { body = await req.json(); } catch { return err('Wymagany JSON'); }
+    const fields = [];
+    const vals   = [];
+    if (body.doc_type !== undefined) { fields.push('doc_type=?'); vals.push(body.doc_type); }
+    if (body.notes    !== undefined) { fields.push('notes=?');    vals.push((body.notes||'').slice(0,500)); }
+    if (body.vin      !== undefined) { fields.push('vin=?');      vals.push(body.vin || null); }
+    if (!fields.length) return err('Brak pól do aktualizacji');
+    vals.push(segs[2]);
+    await env.DB.prepare(`UPDATE documents SET ${fields.join(',')} WHERE id=?`).bind(...vals).run();
+    return json({ ok: true });
+  }
+
   // DELETE /api/docs/:docId
   if (req.method === 'DELETE' && segs[2] && segs[2] !== 'file') {
     const row = await env.DB.prepare(
-      'SELECT r2_key FROM documents WHERE id = ?'
+      'SELECT r2_key FROM documents WHERE id=?'
     ).bind(segs[2]).first();
     if (row) {
       await Promise.all([
         env.DOCS.delete(row.r2_key),
-        env.DB.prepare('DELETE FROM documents WHERE id = ?').bind(segs[2]).run(),
+        env.DB.prepare('DELETE FROM documents WHERE id=?').bind(segs[2]).run(),
       ]);
     }
     return json({ ok: true });
