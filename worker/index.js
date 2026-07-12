@@ -756,21 +756,25 @@ async function handleDamages(req, env, user, url, path) {
   // PUT /api/damages/:id — edycja / zmiana statusu
   if (req.method === 'PUT' && segs[2]) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const company = user.company_id || url.searchParams.get('company');
     await env.DB.prepare(`
       UPDATE damage_reports SET
         opis=?, przyczyna=?, data_zdarzenia=?, status=?, koszt=?, zglaszajacy=?, uwagi=?, updated_at=datetime('now')
-      WHERE id=?`
+      WHERE id=? AND company_id=?`
     ).bind(
       body.opis || null, body.przyczyna || null, body.data_zdarzenia || null,
       body.status || 'ZGLOSZONA', body.koszt != null ? Number(body.koszt) : null,
-      body.zglaszajacy || null, body.uwagi || null, segs[2]
+      body.zglaszajacy || null, body.uwagi || null, segs[2], company
     ).run();
     return json({ ok: true });
   }
 
   // DELETE /api/damages/photo/:photoId — usuń pojedyncze zdjęcie
   if (req.method === 'DELETE' && segs[2] === 'photo' && segs[3]) {
-    const row = await env.DB.prepare('SELECT r2_key FROM damage_photos WHERE id=?').bind(segs[3]).first();
+    const company = user.company_id || url.searchParams.get('company');
+    const row = await env.DB.prepare(
+      'SELECT dp.r2_key FROM damage_photos dp JOIN damage_reports dr ON dp.damage_id=dr.id WHERE dp.id=? AND dr.company_id=?'
+    ).bind(segs[3], company).first();
     if (row) {
       await Promise.all([
         env.DOCS.delete(row.r2_key),
@@ -782,9 +786,12 @@ async function handleDamages(req, env, user, url, path) {
 
   // DELETE /api/damages/:id — usuń zgłoszenie (kaskadowo zdjęcia D1 + R2)
   if (req.method === 'DELETE' && segs[2]) {
+    const company = user.company_id || url.searchParams.get('company');
+    const dmgRow = await env.DB.prepare('SELECT id FROM damage_reports WHERE id=? AND company_id=?').bind(segs[2], company).first();
+    if (!dmgRow) return json({ ok: true });
     const photoRows = await env.DB.prepare('SELECT r2_key FROM damage_photos WHERE damage_id=?').bind(segs[2]).all();
     await Promise.all((photoRows.results || []).map(p => env.DOCS.delete(p.r2_key)));
-    await env.DB.prepare('DELETE FROM damage_reports WHERE id=?').bind(segs[2]).run(); // ON DELETE CASCADE usuwa damage_photos
+    await env.DB.prepare('DELETE FROM damage_reports WHERE id=? AND company_id=?').bind(segs[2], company).run();
     return json({ ok: true });
   }
 
