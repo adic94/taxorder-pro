@@ -366,7 +366,7 @@ async function handleVehicles(req, env, user, url, path) {
 
   // GET /api/vehicles?company=mtoilet
   if (req.method === 'GET') {
-    const company = user.company_id || url.searchParams.get('company') || 'mtoilet';
+    const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     const rows = await env.DB.prepare(
       'SELECT * FROM vehicles WHERE company_id = ? ORDER BY nr_rej'
     ).bind(company).all();
@@ -426,7 +426,7 @@ async function handleVehicles(req, env, user, url, path) {
   if (req.method === 'DELETE' && segs[2]) {
     await env.DB.prepare(
       'DELETE FROM vehicles WHERE company_id = ? AND nr_rej = ?'
-    ).bind(user.company_id || url.searchParams.get('company') || 'mtoilet', decodeURIComponent(segs[2])).run();
+    ).bind(url.searchParams.get('company') || user.company_id || 'mtoilet', decodeURIComponent(segs[2])).run();
     return json({ ok: true });
   }
 
@@ -581,7 +581,7 @@ async function handleDocs(req, env, user, url, path) {
   if (req.method === 'GET' && segs.length === 2) {
     const nrRej   = url.searchParams.get('nrRej');
     const vin     = url.searchParams.get('vin');
-    const company = user.company_id || url.searchParams.get('company') || 'mtoilet';
+    const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     let rows;
     if (nrRej) {
       rows = await env.DB.prepare(
@@ -649,7 +649,7 @@ async function handleDocs(req, env, user, url, path) {
     const docMeta = await env.DB.prepare(
       'SELECT company_id, name FROM documents WHERE r2_key=?'
     ).bind(r2Key).first();
-    if (docMeta && docMeta.company_id !== (user.company_id || url.searchParams.get('company'))) {
+    if (docMeta && user.role !== 'admin' && docMeta.company_id !== (url.searchParams.get('company') || user.company_id)) {
       return err('Brak dostępu', 403);
     }
     const obj = await env.DOCS.get(r2Key);
@@ -707,7 +707,7 @@ async function handleDamages(req, env, user, url, path) {
 
   // GET /api/damages?company=&nrRej= — lista (cała flota lub jeden pojazd)
   if (req.method === 'GET' && segs.length === 2) {
-    const company = user.company_id || url.searchParams.get('company') || 'mtoilet';
+    const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     const nrRej   = url.searchParams.get('nrRej');
     const rows = nrRej
       ? await env.DB.prepare('SELECT * FROM damage_reports WHERE company_id=? AND nr_rej=? ORDER BY data_zdarzenia DESC, created_at DESC').bind(company, nrRej).all()
@@ -813,7 +813,7 @@ async function handleTires(req, env, user, url, path) {
 
   // GET /api/tires?company=&status=&nrRej=
   if (req.method === 'GET' && segs.length === 2) {
-    const company = user.company_id || url.searchParams.get('company') || 'mtoilet';
+    const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     const status  = url.searchParams.get('status');
     const nrRej   = url.searchParams.get('nrRej');
     let sql = 'SELECT * FROM tires WHERE company_id=?';
@@ -901,7 +901,7 @@ async function handleServiceOrders(req, env, user, url, path) {
 
   // GET /api/service-orders?company=&nrRej=&status=
   if (req.method === 'GET' && segs.length === 2) {
-    const company = user.company_id || url.searchParams.get('company') || 'mtoilet';
+    const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     const nrRej   = url.searchParams.get('nrRej');
     const status  = url.searchParams.get('status');
     let sql = 'SELECT * FROM service_orders WHERE company_id=?';
@@ -987,7 +987,7 @@ async function handleProtocols(req, env, user, url, path) {
 
   // GET /api/protocols?company=&nrRej=
   if (req.method === 'GET' && segs.length === 2) {
-    const company = user.company_id || url.searchParams.get('company') || 'mtoilet';
+    const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     const nrRej   = url.searchParams.get('nrRej');
     const rows = nrRej
       ? await env.DB.prepare('SELECT * FROM handover_protocols WHERE company_id=? AND nr_rej=? ORDER BY data DESC').bind(company, nrRej).all()
@@ -1087,7 +1087,7 @@ async function handleCfmClients(req, env, user, url, path) {
   const segs = path.split('/').filter(Boolean); // ['api','cfm-clients',...]
 
   if (req.method === 'GET' && segs.length === 2) {
-    const company = user.company_id || url.searchParams.get('company') || 'mtoilet';
+    const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     const rows = await env.DB.prepare('SELECT * FROM cfm_clients WHERE company_id=? ORDER BY nazwa').bind(company).all();
     return json(rows.results || []);
   }
@@ -1138,7 +1138,7 @@ async function handleCfmContracts(req, env, user, url, path) {
   const segs = path.split('/').filter(Boolean); // ['api','cfm-contracts',...]
 
   if (req.method === 'GET' && segs.length === 2) {
-    const company    = user.company_id || url.searchParams.get('company') || 'mtoilet';
+    const company    = url.searchParams.get('company') || user.company_id || 'mtoilet';
     const clientType = url.searchParams.get('clientType');
     const clientRef  = url.searchParams.get('clientRef');
     const nrRej      = url.searchParams.get('nrRej');
@@ -1210,7 +1210,7 @@ async function handleCfmInvoices(req, env, user, url, path) {
 
   // GET /api/cfm-invoices?company=&clientType=&clientRef=&okres=
   if (req.method === 'GET' && segs.length === 2) {
-    const company    = user.company_id || url.searchParams.get('company') || 'mtoilet';
+    const company    = url.searchParams.get('company') || user.company_id || 'mtoilet';
     const clientType = url.searchParams.get('clientType');
     const clientRef  = url.searchParams.get('clientRef');
     const okres      = url.searchParams.get('okres');
@@ -3151,7 +3151,7 @@ async function handleGpsWebhook(req, env, user, url) {
   }
   if (!records.length) return err('Brak danych GPS w payload');
 
-  const company = user.company_id || user.company_id || url.searchParams.get('company') || 'mtoilet';
+  const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
   if (user._apiKey && user.company_id && user.company_id !== company)
     return err('Brak dostępu do tej firmy', 403);
 
@@ -3267,7 +3267,7 @@ async function handleFuelWebhook(req, env, user, url) {
   }
   if (!records.length) return err('Brak wierszy tankowań w payload');
 
-  const company = user.company_id || user.company_id || url.searchParams.get('company') || 'mtoilet';
+  const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
   if (user._apiKey && user.company_id && user.company_id !== company)
     return err('Brak dostępu do tej firmy', 403);
 
@@ -3328,7 +3328,7 @@ async function handleFuelWebhook(req, env, user, url) {
 // ─── ALERT TYPES ─────────────────────────────────────────────────────────────
 async function handleAlertTypes(req, env, user, url, path) {
   const segs = path.split('/').filter(Boolean);
-  const company = user.company_id || user.company_id || url.searchParams.get('company') || 'mtoilet';
+  const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
   const canManage = user.role === 'admin' || (JSON.parse(user.extra_permissions || '[]')).includes('manage_alert_types');
 
   if (req.method === 'GET') {
@@ -3425,7 +3425,7 @@ async function handleNotifPrefs(req, env, user, url) {
 // ─── NOTIFICATION LOG ─────────────────────────────────────────────────────────
 async function handleNotifLog(req, env, user, url, path) {
   const segs = path.split('/').filter(Boolean);
-  const company = user.company_id || url.searchParams.get('company') || 'mtoilet';
+  const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
 
   if (req.method === 'GET') {
     const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '100'), 500);
@@ -3479,7 +3479,7 @@ async function handleNotifLog(req, env, user, url, path) {
 // ─── MAINTENANCE TEMPLATES ────────────────────────────────────────────────────
 async function handleMaintenanceTemplates(req, env, user, url, path) {
   const segs = path.split('/').filter(Boolean);
-  const company = user.company_id || user.company_id || url.searchParams.get('company') || 'mtoilet';
+  const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
   const canManage = user.role === 'admin' || user.role === 'kierownik'
     || (JSON.parse(user.extra_permissions || '[]')).includes('manage_templates');
 
