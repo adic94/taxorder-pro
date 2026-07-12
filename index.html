@@ -362,6 +362,34 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
       </div>
     </div>
 
+    <!-- Widget: Polisy wygasające + Rozliczenia km -->
+    <div class="dash-widget" data-wid="policies_claims">
+      <div class="dash-2col">
+        <div class="dash-card">
+          <div class="dash-card-hdr">
+            <i class="ti ti-shield-check" style="color:var(--red)"></i>Polisy wygasające — 60 dni
+            <button class="btn btn-gray" style="font-size:11px;padding:4px 10px;margin-left:auto" onclick="showPage('policies')">
+              <i class="ti ti-external-link"></i>Wszystkie
+            </button>
+          </div>
+          <div id="dash-policy-expiry" style="max-height:200px;overflow-y:auto">
+            <div style="color:var(--text3);font-size:12px;padding:8px 0">Ładowanie...</div>
+          </div>
+        </div>
+        <div class="dash-card">
+          <div class="dash-card-hdr">
+            <i class="ti ti-road" style="color:var(--blue)"></i>Rozliczenia km — oczekujące
+            <button class="btn btn-gray" style="font-size:11px;padding:4px 10px;margin-left:auto" onclick="showPage('mileage-claims')">
+              <i class="ti ti-external-link"></i>Wszystkie
+            </button>
+          </div>
+          <div id="dash-mileage-pending" style="max-height:200px;overflow-y:auto">
+            <div style="color:var(--text3);font-size:12px;padding:8px 0">Ładowanie...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Widget: Struktura floty + DT-1 -->
     <div class="dash-widget" data-wid="structure">
       <div class="dash-2col">

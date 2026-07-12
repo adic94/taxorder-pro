@@ -200,9 +200,19 @@
     container.innerHTML = html;
   }
 
+  async function fetchExpiringSoon(days) {
+    const all = await fetchPolicies({});
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() + days);
+    return all.filter(p => {
+      if (!p.end_date) return false;
+      const d = new Date(p.end_date);
+      return !isNaN(d) && d <= cutoff;
+    }).sort((a, b) => new Date(a.end_date) - new Date(b.end_date));
+  }
+
   window.PoliciesModule = {
     renderForVehicle, loadForVehicle,
     _openEdit, _closeEdit, _submitEdit, _del,
-    _renderGlobalPage,
+    _renderGlobalPage, fetchExpiringSoon,
   };
 })();

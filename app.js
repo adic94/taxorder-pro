@@ -2701,6 +2701,8 @@ function renderDash() {
   _renderActivityFeed();
   _renderFuelAnomalyAlerts();
   _renderServiceScheduleDash();
+  _renderPolicyExpiryDash();
+  _renderMileagePendingDash();
   const _luEl = document.getElementById('dash-last-update');
   if (_luEl) _luEl.textContent = 'Odświeżono ' + new Date().toLocaleTimeString('pl-PL', {hour:'2-digit', minute:'2-digit'});
 }
@@ -2788,6 +2790,61 @@ async function _renderServiceScheduleDash() {
           <div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name)}</div>
         </div>
         <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${color}">${esc(hint || kmHint)}</span>
+      </div>`;
+    }).join('');
+  } catch { el.innerHTML = '<div style="color:var(--text3);font-size:11px;padding:8px">—</div>'; }
+}
+
+async function _renderMileagePendingDash() {
+  const el = document.getElementById('dash-mileage-pending');
+  if (!el || !window.MileageClaimsModule) return;
+  try {
+    const BASE  = localStorage.getItem('cf_worker_url') || 'https://taxorder-pro-api.adamus1000.workers.dev';
+    const token = localStorage.getItem('cf_token') || '';
+    const co    = localStorage.getItem('cf_company') || '';
+    const r = await fetch(`${BASE}/api/mileage-claims?company=${encodeURIComponent(co)}&status=pending`, {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    const list = r.ok ? await r.json() : [];
+    if (!list.length) {
+      el.innerHTML = `<div style="color:var(--text3);font-size:12px;padding:8px 0">Brak rozliczeń oczekujących na akceptację ✓</div>`;
+      return;
+    }
+    const total = list.reduce((s, c) => s + (c.amount || 0), 0);
+    el.innerHTML = `<div style="font-size:11px;color:var(--text3);margin-bottom:6px">${list.length} rozliczeń · suma ${total.toFixed(2)} zł</div>`
+      + list.slice(0, 5).map(c => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border);cursor:pointer" onclick="showPage('mileage-claims')">
+        <i class="ti ti-user" style="color:var(--blue);font-size:13px;flex-shrink:0"></i>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.driver_name)}</div>
+          <div style="font-size:11px;color:var(--text2)">${esc(c.claim_date)} · ${esc(c.nr_rej || '—')}</div>
+        </div>
+        <span style="font-size:11px;font-weight:700;flex-shrink:0;color:var(--blue)">${c.amount != null ? c.amount.toFixed(2) + ' zł' : '—'}</span>
+      </div>`).join('');
+  } catch { el.innerHTML = '<div style="color:var(--text3);font-size:11px;padding:8px">—</div>'; }
+}
+
+async function _renderPolicyExpiryDash() {
+  const el = document.getElementById('dash-policy-expiry');
+  if (!el || !window.PoliciesModule) return;
+  try {
+    const policies = await window.PoliciesModule.fetchExpiringSoon(60);
+    if (!policies.length) {
+      el.innerHTML = `<div style="color:var(--text3);font-size:12px;padding:8px 0">Brak polis wygasających w ciągu 60 dni ✓</div>`;
+      return;
+    }
+    const TYPE_LABELS = { oc: 'OC', ac: 'AC', nnw: 'NNW', assistance: 'Assistance', inne: 'Inne' };
+    el.innerHTML = policies.slice(0, 6).map(p => {
+      const days = Math.round((new Date(p.end_date) - new Date()) / 86400000);
+      const color = days < 0 ? 'var(--red)' : days < 30 ? 'var(--amber)' : 'var(--yellow)';
+      const hint  = days < 0 ? `${Math.abs(days)}d temu` : `za ${days}d`;
+      const type  = TYPE_LABELS[p.type] || esc(p.type);
+      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border);cursor:pointer" onclick="showPage('policies')">
+        <span style="background:${color};color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:2px 7px;flex-shrink:0">${type}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;font-weight:700;font-family:var(--mono)">${esc(p.nr_rej || '—')}</div>
+          <div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.insurer || p.policy_number || '—')}</div>
+        </div>
+        <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${color}">${esc(hint)}</span>
       </div>`;
     }).join('');
   } catch { el.innerHTML = '<div style="color:var(--text3);font-size:11px;padding:8px">—</div>'; }

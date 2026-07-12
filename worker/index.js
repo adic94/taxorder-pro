@@ -3909,7 +3909,7 @@ async function handleMileageClaims(req, env, user, url, path) {
     const nrRej  = url.searchParams.get('nrRej');
     let q = 'SELECT * FROM mileage_claims WHERE company_id=?';
     const binds = [company];
-    if (driver) { q += ' AND driver_name=?'; binds.push(driver); }
+    if (driver) { q += " AND driver_name LIKE '%' || ? || '%'"; binds.push(driver); }
     if (status) { q += ' AND status=?';      binds.push(status); }
     if (nrRej)  { q += ' AND nr_rej=?';      binds.push(nrRej);  }
     q += ' ORDER BY claim_date DESC LIMIT 500';
