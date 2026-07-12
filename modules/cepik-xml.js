@@ -299,7 +299,7 @@ window.CepikXML = (function () {
     const el = document.getElementById('cepik-preview');
     if (!el) return;
 
-    document.getElementById('cepik-stats').innerHTML = `
+    document.getElementById('cepik-import-stats').innerHTML = `
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
         <div class="stat-chip"><span>${_stats.total}</span> pojazdów w pliku</div>
         <div class="stat-chip stat-chip-green"><span>${_stats.matched}</span> pasuje do bazy (aktualizacja)</div>
