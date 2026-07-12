@@ -587,6 +587,10 @@ async function checkD1Status() {
 }
 
 // ==================== CSV EXPORT ====================
+function csvCell(v) {
+  const s = String(v ?? '');
+  return '"' + (/^[=+\-@]/.test(s) ? '\t' + s : s).replace(/"/g, '""') + '"';
+}
 function exportFleetCSV() {
   const HEADERS = [
     'Nr rej.','Marka','Model','Rok','Typ','DMC (kg)','Status','VIN',
@@ -616,7 +620,7 @@ function exportFleetCSV() {
     v.ownership_type||'', v.miesiacePodatku||12, v.assetCode||''
   ]);
   const csv = [HEADERS, ...rows]
-    .map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';'))
+    .map(r => r.map(csvCell).join(';'))
     .join('\r\n');
   const blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8'});
   const url = URL.createObjectURL(blob);
@@ -672,7 +676,7 @@ function exportServiceHistoryCsv() {
   });
   if (!rows.length) { toast('Brak historii serwisowej do eksportu'); return; }
   const csv = [HEADERS, ...rows]
-    .map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';'))
+    .map(r => r.map(csvCell).join(';'))
     .join('\r\n');
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -697,7 +701,7 @@ function exportFinesCsv() {
     f.description||'', f.fine_no||'', f.issuer||'', f.points||''
   ]);
   const csv = [HEADERS, ...rows]
-    .map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';'))
+    .map(r => r.map(csvCell).join(';'))
     .join('\r\n');
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -740,7 +744,7 @@ function exportTcoCsv() {
       avgFuel, tax.cat||v.cat||'', tax.amount!=null?Math.round(tax.amount):''
     ];
   });
-  const csv = [HEADERS,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+  const csv = [HEADERS,...rows].map(r=>r.map(csvCell).join(';')).join('\r\n');
   const blob = new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download=`tco_${yr}_${new Date().toISOString().slice(0,10)}.csv`; a.click();
@@ -2041,7 +2045,7 @@ function exportPaliwoCSV() {
     h.km != null ? String(h.km) : '',
   ]);
 
-  const csv = '﻿' + [hdrs, ...data].map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+  const csv = '﻿' + [hdrs, ...data].map(r => r.map(csvCell).join(';')).join('\r\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -5987,7 +5991,7 @@ function exportFakturyToFK() {
     h.nrRej || '', h.uwagi || '',
   ]);
   const csv = '﻿' + [headers, ...rows]
-    .map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';'))
+    .map(r => r.map(csvCell).join(';'))
     .join('\r\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -6286,7 +6290,7 @@ function expXlExport(list,fname) {
 function expCsv() {
   const taxes=vehs.map(v=>({...v,...calcTax(v)}));
   const hdrs=['nrRej','marka','model','rok','typ','dmc','dmcZespolu','euro','vin','status','wlasciciel','osie','zawieszenie','miesiacePodatku','cat','rate','amount'];
-  const rows=[hdrs.join(';'),...taxes.map(v=>hdrs.map(k=>String(v[k]||'').replace(/;/g,',')).join(';'))];
+  const rows=[hdrs.map(csvCell).join(';'),...taxes.map(v=>hdrs.map(k=>csvCell(v[k]??'')).join(';'))];
   const blob=new Blob(['\uFEFF'+rows.join('\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='flota_dt1_'+new Date().toISOString().slice(0,10)+'.csv';

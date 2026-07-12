@@ -4,7 +4,7 @@
 // Wszystkie zakładki karty pojazdu — kolejność domyślna
 const VD_TABS = [
   { id: 'dr',           label: '📋 DR',           i18n: 'vd.tab.dr' },
-  { id: 'insurance',    label: '🛡 Polisy',        i18n: 'vd.tab.insurance' },
+  { id: 'insurance',    label: '🛡 OC/AC/NNW',     i18n: 'vd.tab.insurance' },
   { id: 'badania',      label: '🔧 Badania',       i18n: 'vd.tab.badania' },
   { id: 'serwis',       label: '🔩 Serwis',        i18n: 'vd.tab.serwis' },
   { id: 'opony',        label: '⭕ Opony',          i18n: 'vd.tab.opony' },

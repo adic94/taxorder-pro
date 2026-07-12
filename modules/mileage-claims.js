@@ -103,14 +103,19 @@
   }
 
   // ─── CSV Export ───────────────────────────────────────────────────────────
+  function _csvCell(v) {
+    const s = String(v ?? '');
+    const safe = /^[=+\-@\t\r\n]/.test(s) ? '\t' + s : s;
+    return `"${safe.replace(/"/g, '""')}"`;
+  }
   async function _exportCsv() {
     const claims = await fetchClaims({});
-    const header = 'Data;Pracownik;Pojazd;Cel;km_start;km_end;km;Stawka;Kwota;Status';
+    const header = '"Data";"Pracownik";"Pojazd";"Cel";"km_start";"km_end";"km";"Stawka";"Kwota";"Status"';
     const lines  = claims.map(c =>
       [c.claim_date, c.driver_name, c.nr_rej || '', c.purpose || '',
        c.km_start ?? '', c.km_end ?? '', c.km_total ?? '',
        (c.rate || 0).toFixed(2), (c.amount || 0).toFixed(2), c.status
-      ].join(';')
+      ].map(_csvCell).join(';')
     );
     const csv = [header, ...lines].join('\r\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
