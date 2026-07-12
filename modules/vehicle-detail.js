@@ -1989,7 +1989,8 @@ window.TaxOrderVehicleDetail = {
   ${kmDriven ? row('Koszt/km', fz(tcoTotal/kmDriven).replace(' zł','')+' zł/km') : ''}
 </table>` : '';
     // Company branding from localStorage (set in Settings)
-    const cLogo   = localStorage.getItem('print_company_logo')  || '';
+    const _rawLogo = localStorage.getItem('print_company_logo') || '';
+    const cLogo = (_rawLogo.startsWith('https://') || _rawLogo.startsWith('data:image/')) ? _rawLogo : '';
     const cName   = localStorage.getItem('print_company_name')  || localStorage.getItem('cf_company') || '';
     const cNip    = localStorage.getItem('print_company_nip')   || '';
     const cAddr   = localStorage.getItem('print_company_addr')  || '';
