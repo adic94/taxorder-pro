@@ -2286,7 +2286,7 @@ td:last-child{font-weight:600;color:#1e293b}
           <div style="display:flex;flex-direction:column;gap:3px">
             ${entry.fields.map(f => `
               <div style="display:flex;align-items:center;gap:6px;font-size:11px;padding:3px 0;border-top:1px solid var(--bg3)">
-                <span style="min-width:130px;color:var(--text3);flex-shrink:0">${FIELD_LABELS[f.field] || f.field}</span>
+                <span style="min-width:130px;color:var(--text3);flex-shrink:0">${FIELD_LABELS[f.field] || esc(f.field)}</span>
                 <span style="color:var(--red,#ef4444);text-decoration:line-through;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(String(f.old ?? '—'))}</span>
                 <i class="ti ti-arrow-right" style="color:var(--text3);flex-shrink:0;font-size:10px"></i>
                 <span style="color:var(--green,#22c55e);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(String(f.new ?? '—'))}</span>
