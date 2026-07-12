@@ -658,6 +658,7 @@ async function handleDocs(req, env, user, url, path) {
 
   // PATCH /api/docs/:docId — aktualizacja doc_type, notes, vin
   if (req.method === 'PATCH' && segs[2] && segs[2] !== 'file') {
+    const company = url.searchParams.get('company') || user.company_id;
     let body;
     try { body = await req.json(); } catch { return err('Wymagany JSON'); }
     const fields = [];
@@ -668,20 +669,21 @@ async function handleDocs(req, env, user, url, path) {
     if (body.expiry_date !== undefined) { fields.push('expiry_date=?'); vals.push(body.expiry_date || null); }
     if (body.doc_number  !== undefined) { fields.push('doc_number=?');  vals.push((body.doc_number||'').slice(0,100) || null); }
     if (!fields.length) return err('Brak pól do aktualizacji');
-    vals.push(segs[2]);
-    await env.DB.prepare(`UPDATE documents SET ${fields.join(',')} WHERE id=?`).bind(...vals).run();
+    vals.push(segs[2], company);
+    await env.DB.prepare(`UPDATE documents SET ${fields.join(',')} WHERE id=? AND company_id=?`).bind(...vals).run();
     return json({ ok: true });
   }
 
   // DELETE /api/docs/:docId
   if (req.method === 'DELETE' && segs[2] && segs[2] !== 'file') {
+    const company = url.searchParams.get('company') || user.company_id;
     const row = await env.DB.prepare(
-      'SELECT r2_key FROM documents WHERE id=?'
-    ).bind(segs[2]).first();
+      'SELECT r2_key FROM documents WHERE id=? AND company_id=?'
+    ).bind(segs[2], company).first();
     if (row) {
       await Promise.all([
         env.DOCS.delete(row.r2_key),
-        env.DB.prepare('DELETE FROM documents WHERE id=?').bind(segs[2]).run(),
+        env.DB.prepare('DELETE FROM documents WHERE id=? AND company_id=?').bind(segs[2], company).run(),
       ]);
     }
     return json({ ok: true });
@@ -829,7 +831,8 @@ async function handleTires(req, env, user, url, path) {
   // PUT /api/tires/:id — edycja pól LUB akcja mount/unmount/scrap
   if (req.method === 'PUT' && segs[2]) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const row = await env.DB.prepare('SELECT * FROM tires WHERE id=?').bind(segs[2]).first();
+    const company = user.company_id || url.searchParams.get('company');
+    const row = await env.DB.prepare('SELECT * FROM tires WHERE id=? AND company_id=?').bind(segs[2], company).first();
     if (!row) return err('Opona nie znaleziona', 404);
     const historia = JSON.parse(row.historia || '[]');
 
@@ -868,7 +871,8 @@ async function handleTires(req, env, user, url, path) {
 
   // DELETE /api/tires/:id
   if (req.method === 'DELETE' && segs[2]) {
-    await env.DB.prepare('DELETE FROM tires WHERE id=?').bind(segs[2]).run();
+    const company = user.company_id || url.searchParams.get('company');
+    await env.DB.prepare('DELETE FROM tires WHERE id=? AND company_id=?').bind(segs[2], company).run();
     return json({ ok: true });
   }
 
@@ -912,7 +916,8 @@ async function handleServiceOrders(req, env, user, url, path) {
   // PUT /api/service-orders/:id — edycja LUB akcja AUTORYZUJ/ODRZUC/ZREALIZUJ
   if (req.method === 'PUT' && segs[2]) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const row = await env.DB.prepare('SELECT * FROM service_orders WHERE id=?').bind(segs[2]).first();
+    const company = user.company_id || url.searchParams.get('company');
+    const row = await env.DB.prepare('SELECT * FROM service_orders WHERE id=? AND company_id=?').bind(segs[2], company).first();
     if (!row) return err('Zlecenie nie znalezione', 404);
 
     if (body.akcja === 'AUTORYZUJ') {
@@ -952,7 +957,8 @@ async function handleServiceOrders(req, env, user, url, path) {
 
   // DELETE /api/service-orders/:id
   if (req.method === 'DELETE' && segs[2]) {
-    await env.DB.prepare('DELETE FROM service_orders WHERE id=?').bind(segs[2]).run();
+    const company = user.company_id || url.searchParams.get('company');
+    await env.DB.prepare('DELETE FROM service_orders WHERE id=? AND company_id=?').bind(segs[2], company).run();
     return json({ ok: true });
   }
 
@@ -1026,7 +1032,8 @@ async function handleProtocols(req, env, user, url, path) {
   // PUT /api/protocols/:id — edycja
   if (req.method === 'PUT' && segs[2]) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const row = await env.DB.prepare('SELECT * FROM handover_protocols WHERE id=?').bind(segs[2]).first();
+    const company = user.company_id || url.searchParams.get('company');
+    const row = await env.DB.prepare('SELECT * FROM handover_protocols WHERE id=? AND company_id=?').bind(segs[2], company).first();
     if (!row) return err('Protokół nie znaleziony', 404);
     await env.DB.prepare(`
       UPDATE handover_protocols SET typ=?, data=?, osoba_wydajaca=?, osoba_odbierajaca=?, stan_licznika=?,
@@ -1047,9 +1054,12 @@ async function handleProtocols(req, env, user, url, path) {
 
   // DELETE /api/protocols/:id — kaskadowo usuwa zdjęcia D1 + R2
   if (req.method === 'DELETE' && segs[2]) {
+    const company = user.company_id || url.searchParams.get('company');
+    const protRow = await env.DB.prepare('SELECT id FROM handover_protocols WHERE id=? AND company_id=?').bind(segs[2], company).first();
+    if (!protRow) return json({ ok: true });
     const photoRows = await env.DB.prepare('SELECT r2_key FROM protocol_photos WHERE protocol_id=?').bind(segs[2]).all();
     await Promise.all((photoRows.results || []).map(p => env.DOCS.delete(p.r2_key)));
-    await env.DB.prepare('DELETE FROM handover_protocols WHERE id=?').bind(segs[2]).run();
+    await env.DB.prepare('DELETE FROM handover_protocols WHERE id=? AND company_id=?').bind(segs[2], company).run();
     return json({ ok: true });
   }
 
@@ -1084,21 +1094,23 @@ async function handleCfmClients(req, env, user, url, path) {
 
   if (req.method === 'PUT' && segs[2]) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const row = await env.DB.prepare('SELECT * FROM cfm_clients WHERE id=?').bind(segs[2]).first();
+    const company = user.company_id || url.searchParams.get('company');
+    const row = await env.DB.prepare('SELECT * FROM cfm_clients WHERE id=? AND company_id=?').bind(segs[2], company).first();
     if (!row) return err('Klient nie znaleziony', 404);
     await env.DB.prepare(`
       UPDATE cfm_clients SET nazwa=?, nip=?, regon=?, ulica=?, kod=?, miasto=?, email=?, telefon=?, osoba_kontaktowa=?, uwagi=?, updated_at=datetime('now')
-      WHERE id=?`
+      WHERE id=? AND company_id=?`
     ).bind(
       body.nazwa ?? row.nazwa, body.nip ?? row.nip, body.regon ?? row.regon, body.ulica ?? row.ulica,
       body.kod ?? row.kod, body.miasto ?? row.miasto, body.email ?? row.email, body.telefon ?? row.telefon,
-      body.osoba_kontaktowa ?? row.osoba_kontaktowa, body.uwagi ?? row.uwagi, segs[2]
+      body.osoba_kontaktowa ?? row.osoba_kontaktowa, body.uwagi ?? row.uwagi, segs[2], company
     ).run();
     return json({ ok: true });
   }
 
   if (req.method === 'DELETE' && segs[2]) {
-    await env.DB.prepare('DELETE FROM cfm_clients WHERE id=?').bind(segs[2]).run();
+    const company = user.company_id || url.searchParams.get('company');
+    await env.DB.prepare('DELETE FROM cfm_clients WHERE id=? AND company_id=?').bind(segs[2], company).run();
     return json({ ok: true });
   }
 
@@ -1147,24 +1159,26 @@ async function handleCfmContracts(req, env, user, url, path) {
 
   if (req.method === 'PUT' && segs[2]) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const row = await env.DB.prepare('SELECT * FROM cfm_contracts WHERE id=?').bind(segs[2]).first();
+    const company = user.company_id || url.searchParams.get('company');
+    const row = await env.DB.prepare('SELECT * FROM cfm_contracts WHERE id=? AND company_id=?').bind(segs[2], company).first();
     if (!row) return err('Kontrakt nie znaleziony', 404);
     await env.DB.prepare(`
       UPDATE cfm_contracts SET typ_umowy=?, data_od=?, data_do=?, stawka_miesieczna=?, dzien_platnosci=?,
         refakturowanie_kosztow=?, status=?, uwagi=?, updated_at=datetime('now')
-      WHERE id=?`
+      WHERE id=? AND company_id=?`
     ).bind(
       body.typ_umowy ?? row.typ_umowy, body.data_od ?? row.data_od, body.data_do ?? row.data_do,
       body.stawka_miesieczna != null ? Number(body.stawka_miesieczna) : row.stawka_miesieczna,
       body.dzien_platnosci != null ? Number(body.dzien_platnosci) : row.dzien_platnosci,
       body.refakturowanie_kosztow != null ? (body.refakturowanie_kosztow ? 1 : 0) : row.refakturowanie_kosztow,
-      body.status ?? row.status, body.uwagi ?? row.uwagi, segs[2]
+      body.status ?? row.status, body.uwagi ?? row.uwagi, segs[2], company
     ).run();
     return json({ ok: true });
   }
 
   if (req.method === 'DELETE' && segs[2]) {
-    await env.DB.prepare('DELETE FROM cfm_contracts WHERE id=?').bind(segs[2]).run();
+    const company = user.company_id || url.searchParams.get('company');
+    await env.DB.prepare('DELETE FROM cfm_contracts WHERE id=? AND company_id=?').bind(segs[2], company).run();
     return json({ ok: true });
   }
 
@@ -1279,7 +1293,8 @@ async function handleCfmInvoices(req, env, user, url, path) {
   // PUT /api/cfm-invoices/:id — edycja pozycji/statusu (przeliczenie sum)
   if (req.method === 'PUT' && segs[2]) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const row = await env.DB.prepare('SELECT * FROM cfm_invoices WHERE id=?').bind(segs[2]).first();
+    const company = user.company_id || url.searchParams.get('company');
+    const row = await env.DB.prepare('SELECT * FROM cfm_invoices WHERE id=? AND company_id=?').bind(segs[2], company).first();
     if (!row) return err('Faktura nie znaleziona', 404);
     let pozycje = row.pozycje ? JSON.parse(row.pozycje) : [];
     if (Array.isArray(body.pozycje)) pozycje = body.pozycje;
@@ -1288,19 +1303,20 @@ async function handleCfmInvoices(req, env, user, url, path) {
     const suma_vat    = _num2(suma_brutto - suma_netto);
     await env.DB.prepare(`
       UPDATE cfm_invoices SET pozycje=?, suma_netto=?, suma_vat=?, suma_brutto=?, status=?, termin_platnosci=?
-      WHERE id=?`
+      WHERE id=? AND company_id=?`
     ).bind(
       JSON.stringify(pozycje), suma_netto, suma_vat, suma_brutto,
-      body.status ?? row.status, body.termin_platnosci ?? row.termin_platnosci, segs[2]
+      body.status ?? row.status, body.termin_platnosci ?? row.termin_platnosci, segs[2], company
     ).run();
     return json({ ok: true });
   }
 
   // DELETE /api/cfm-invoices/:id — tylko gdy nieopłacona
   if (req.method === 'DELETE' && segs[2]) {
-    const row = await env.DB.prepare('SELECT status FROM cfm_invoices WHERE id=?').bind(segs[2]).first();
+    const company = user.company_id || url.searchParams.get('company');
+    const row = await env.DB.prepare('SELECT status FROM cfm_invoices WHERE id=? AND company_id=?').bind(segs[2], company).first();
     if (row && row.status === 'OPLACONA') return err('Nie można usunąć opłaconej faktury', 409);
-    await env.DB.prepare('DELETE FROM cfm_invoices WHERE id=?').bind(segs[2]).run();
+    await env.DB.prepare('DELETE FROM cfm_invoices WHERE id=? AND company_id=?').bind(segs[2], company).run();
     return json({ ok: true });
   }
 
