@@ -605,7 +605,7 @@ async function handleDocs(req, env, user, url, path) {
     try { fd = await req.formData(); } catch { return err('Wymagany FormData'); }
     const file       = fd.get('file');
     const nrRej      = fd.get('nrRej') || '';
-    const company    = fd.get('company') || 'mtoilet';
+    const company    = url.searchParams.get('company') || user.company_id || 'mtoilet';
     const vinParam   = (fd.get('vin') || '').trim().toUpperCase();
     const textHint   = (fd.get('textHint') || '').slice(0, 2000);
     const docTypeIn  = fd.get('doc_type') || '';
@@ -751,6 +751,7 @@ async function handleDamages(req, env, user, url, path) {
     let fd; try { fd = await req.formData(); } catch { return err('Wymagany FormData'); }
     const file = fd.get('file');
     if (!file) return err('Wymagane: file');
+    if (!file.type || !file.type.startsWith('image/')) return err('Dozwolone tylko pliki graficzne (image/*)', 400);
     const photoId = crypto.randomUUID();
     const r2Key = `damage/${report.company_id}/${report.nr_rej}/${damageId}/${photoId}`;
     await env.DOCS.put(r2Key, file.stream(), {
@@ -1034,6 +1035,7 @@ async function handleProtocols(req, env, user, url, path) {
     let fd; try { fd = await req.formData(); } catch { return err('Wymagany FormData'); }
     const file = fd.get('file');
     if (!file) return err('Wymagane: file');
+    if (!file.type || !file.type.startsWith('image/')) return err('Dozwolone tylko pliki graficzne (image/*)', 400);
     const photoId = crypto.randomUUID();
     const r2Key = `protocol/${protocol.company_id}/${protocol.nr_rej}/${protocolId}/${photoId}`;
     await env.DOCS.put(r2Key, file.stream(), {
