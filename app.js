@@ -8161,7 +8161,7 @@ async function renderErrorsAdmin() {
               <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.url??'')}"><small>${esc((r.url||'').replace(/^https?:\/\/[^/]+/,''))}</small></td>
               <td><small>${esc(r.company_id??'–')}</small></td>
               <td>${r.github_issue_url && (r.github_issue_url||'').startsWith('https://') ? `<a href="${esc(r.github_issue_url)}" target="_blank" rel="noopener" style="font-size:.8rem">Issue ↗</a>` : r.analyzed ? '<span style="color:var(--muted);font-size:.8rem">✓ OK</span>' : ''}</td>
-              <td><button class="btn-sm btn-ghost" onclick="deleteErrorLog('${esc(r.id)}')" title="Usuń">🗑</button></td>
+              <td><button class="btn-sm btn-ghost" data-id="${esc(r.id)}" onclick="deleteErrorLog(this.dataset.id)" title="Usuń">🗑</button></td>
             </tr>`;
           }).join('')}
         </tbody>

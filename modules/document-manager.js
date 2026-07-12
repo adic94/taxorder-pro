@@ -419,11 +419,13 @@
           <a href="${fileUrl(d.r2_key)}" target="_blank" rel="noopener"
              style="font-size:11px;color:var(--blue);text-decoration:none;margin-right:6px"
              title="Otwórz / pobierz"><i class="ti ti-download"></i></a>
-          <button onclick="DocumentsModule._changeType('${esc(d.id)}','${esc(d.doc_type||'inne')}',${v.id})"
+          <button data-doc-id="${esc(d.id)}" data-doc-type="${esc(d.doc_type||'inne')}" data-vehicle-id="${v.id}"
+            onclick="DocumentsModule._changeType(this.dataset.docId,this.dataset.docType,this.dataset.vehicleId)"
             style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:11px;padding:0 4px" title="Zmień typ">
             <i class="ti ti-edit"></i>
           </button>
-          <button onclick="DocumentsModule._del('${esc(d.id)}',${v.id})"
+          <button data-doc-id="${esc(d.id)}" data-vehicle-id="${v.id}"
+            onclick="DocumentsModule._del(this.dataset.docId,this.dataset.vehicleId)"
             style="background:none;border:none;cursor:pointer;color:var(--red);font-size:11px;padding:0 4px" title="Usuń">
             <i class="ti ti-trash"></i>
           </button>
@@ -757,11 +759,13 @@
                style="font-size:11px;color:var(--blue);margin-right:8px;text-decoration:none" title="Pobierz">
               <i class="ti ti-download"></i>
             </a>
-            ${veh ? `<button onclick="DocumentsModule._changeType('${esc(d.id)}','${esc(d.doc_type||'inne')}',${veh.id})"
+            ${veh ? `<button data-doc-id="${esc(d.id)}" data-doc-type="${esc(d.doc_type||'inne')}" data-vehicle-id="${veh.id}"
+              onclick="DocumentsModule._changeType(this.dataset.docId,this.dataset.docType,this.dataset.vehicleId)"
               style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:11px;padding:0 4px" title="Zmień typ">
               <i class="ti ti-edit"></i>
             </button>
-            <button onclick="DocumentsModule._del('${esc(d.id)}',${veh.id})"
+            <button data-doc-id="${esc(d.id)}" data-vehicle-id="${veh.id}"
+              onclick="DocumentsModule._del(this.dataset.docId,this.dataset.vehicleId)"
               style="background:none;border:none;cursor:pointer;color:var(--red);font-size:11px;padding:0 4px" title="Usuń">
               <i class="ti ti-trash"></i>
             </button>` : ''}
