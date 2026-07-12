@@ -1113,12 +1113,12 @@ window.TaxOrderVehicleDetail = {
           <div style="flex:1">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
               <span style="font-family:var(--mono);font-weight:600;font-size:13px">${ins.date ? new Date(ins.date).toLocaleDateString('pl-PL') : '—'}</span>
-              <span class="pill" style="font-size:10px;background:${resultColor}20;color:${resultColor}">${ins.result || 'brak wyniku'}</span>
-              ${ins.station ? `<span style="font-size:11px;color:var(--text2)">${ins.station}</span>` : ''}
+              <span class="pill" style="font-size:10px;background:${resultColor}20;color:${resultColor}">${esc(ins.result || 'brak wyniku')}</span>
+              ${ins.station ? `<span style="font-size:11px;color:var(--text2)">${esc(ins.station)}</span>` : ''}
             </div>
-            ${ins.docNr ? `<div style="font-size:10px;color:var(--text3)">Dok.: ${ins.docNr}${ins.nip?' · NIP: '+ins.nip:''}</div>` : ''}
-            ${ins.notes ? `<div style="font-size:11px;color:var(--text2)">${ins.notes}</div>` : ''}
-            ${ins.addedBy ? `<div style="font-size:10px;color:var(--text3)">Dodał: ${ins.addedBy}</div>` : ''}
+            ${ins.docNr ? `<div style="font-size:10px;color:var(--text3)">Dok.: ${esc(ins.docNr)}${ins.nip?' · NIP: '+esc(ins.nip):''}</div>` : ''}
+            ${ins.notes ? `<div style="font-size:11px;color:var(--text2)">${esc(ins.notes)}</div>` : ''}
+            ${ins.addedBy ? `<div style="font-size:10px;color:var(--text3)">Dodał: ${esc(ins.addedBy)}</div>` : ''}
           </div>
           <button onclick="TaxOrderVehicleDetail._removeInspection(${v.id},${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px" title="Usuń wpis">&times;</button>
         </div>`;
@@ -1134,7 +1134,7 @@ window.TaxOrderVehicleDetail = {
     overlay.innerHTML = `
       <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:480px;max-width:98vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
         <div style="font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px">
-          <i class="ti ti-tool" style="color:var(--amber)"></i>Nowy wpis przeglądu — ${v.nrRej}
+          <i class="ti ti-tool" style="color:var(--amber)"></i>Nowy wpis przeglądu — ${esc(v.nrRej)}
         </div>
         <div class="vdfg" style="margin-bottom:14px">
           <div class="vdf">
@@ -1238,13 +1238,13 @@ window.TaxOrderVehicleDetail = {
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
             <span style="font-family:var(--mono);font-weight:600">${e.date?new Date(e.date).toLocaleDateString('pl-PL'):'—'}</span>
-            <span class="pill pill-gray" style="font-size:10px">${e.typ||'badanie'}</span>
-            ${e.result?`<span class="pill" style="font-size:10px;background:${{pozytywny:'var(--green)20',warunkowy:'var(--amber)20',negatywny:'var(--red)20'}[e.result]||'#eee'};color:${{pozytywny:'var(--green)',warunkowy:'var(--amber)',negatywny:'var(--red)'}[e.result]||'#666'}">${e.result}</span>`:''}
+            <span class="pill pill-gray" style="font-size:10px">${esc(e.typ||'badanie')}</span>
+            ${e.result?`<span class="pill" style="font-size:10px;background:${{pozytywny:'var(--green)20',warunkowy:'var(--amber)20',negatywny:'var(--red)20'}[e.result]||'#eee'};color:${{pozytywny:'var(--green)',warunkowy:'var(--amber)',negatywny:'var(--red)'}[e.result]||'#666'}">${esc(e.result)}</span>`:''}
           </div>
-          ${e.docNr?`<div style="font-size:10px;color:var(--text3)">Dok.: ${e.docNr}${e.nip?' · NIP: '+e.nip:''}</div>`:''}
-          ${e.firma?`<div style="font-size:11px;color:var(--text2)">${e.firma}</div>`:''}
-          ${e.notes?`<div style="font-size:11px;color:var(--text2)">${e.notes}</div>`:''}
-          ${e.addedBy?`<div style="font-size:10px;color:var(--text3)">Dodał: ${e.addedBy}</div>`:''}
+          ${e.docNr?`<div style="font-size:10px;color:var(--text3)">Dok.: ${esc(e.docNr)}${e.nip?' · NIP: '+esc(e.nip):''}</div>`:''}
+          ${e.firma?`<div style="font-size:11px;color:var(--text2)">${esc(e.firma)}</div>`:''}
+          ${e.notes?`<div style="font-size:11px;color:var(--text2)">${esc(e.notes)}</div>`:''}
+          ${e.addedBy?`<div style="font-size:10px;color:var(--text3)">Dodał: ${esc(e.addedBy)}</div>`:''}
         </div>
         <button onclick="TaxOrderVehicleDetail._removeUdtEntry(${v.id},${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px">&times;</button>
       </div>`).join('');
@@ -1258,7 +1258,7 @@ window.TaxOrderVehicleDetail = {
     overlay.innerHTML = `
       <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:480px;max-width:98vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
         <div style="font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px">
-          <i class="ti ti-building-factory-2" style="color:var(--red)"></i>Nowy wpis UDT — ${v.nrRej}
+          <i class="ti ti-building-factory-2" style="color:var(--red)"></i>Nowy wpis UDT — ${esc(v.nrRej)}
         </div>
         <div class="vdfg" style="margin-bottom:14px">
           <div class="vdf">
@@ -1365,13 +1365,13 @@ window.TaxOrderVehicleDetail = {
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
             <span style="font-family:var(--mono);font-weight:600">${e.date?new Date(e.date).toLocaleDateString('pl-PL'):'—'}</span>
-            <span class="pill pill-gray" style="font-size:10px">${e.typ||'legalizacja'}</span>
+            <span class="pill pill-gray" style="font-size:10px">${esc(e.typ||'legalizacja')}</span>
             ${e.wazneDo?`<span style="font-size:10px;color:var(--text2)">ważne do: ${new Date(e.wazneDo).toLocaleDateString('pl-PL')}</span>`:''}
           </div>
-          ${e.certNr?`<div style="font-size:10px;color:var(--text3)">Cert.: ${e.certNr}${e.nip?' · NIP: '+e.nip:''}</div>`:''}
-          ${e.firma?`<div style="font-size:11px;color:var(--text2)">${e.firma}</div>`:''}
-          ${e.notes?`<div style="font-size:11px;color:var(--text2)">${e.notes}</div>`:''}
-          ${e.addedBy?`<div style="font-size:10px;color:var(--text3)">Dodał: ${e.addedBy}</div>`:''}
+          ${e.certNr?`<div style="font-size:10px;color:var(--text3)">Cert.: ${esc(e.certNr)}${e.nip?' · NIP: '+esc(e.nip):''}</div>`:''}
+          ${e.firma?`<div style="font-size:11px;color:var(--text2)">${esc(e.firma)}</div>`:''}
+          ${e.notes?`<div style="font-size:11px;color:var(--text2)">${esc(e.notes)}</div>`:''}
+          ${e.addedBy?`<div style="font-size:10px;color:var(--text3)">Dodał: ${esc(e.addedBy)}</div>`:''}
         </div>
         <button onclick="TaxOrderVehicleDetail._removeTachoEntry(${v.id},${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px">&times;</button>
       </div>`).join('');
@@ -1385,7 +1385,7 @@ window.TaxOrderVehicleDetail = {
     overlay.innerHTML = `
       <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:480px;max-width:98vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
         <div style="font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px">
-          <i class="ti ti-device-desktop-analytics" style="color:var(--blue)"></i>Nowy wpis tachografu — ${v.nrRej}
+          <i class="ti ti-device-desktop-analytics" style="color:var(--blue)"></i>Nowy wpis tachografu — ${esc(v.nrRej)}
         </div>
         <div class="vdfg" style="margin-bottom:14px">
           <div class="vdf">
@@ -1490,7 +1490,7 @@ window.TaxOrderVehicleDetail = {
       const color   = daysDue !== null && daysDue < 0 || kmDue !== null && kmDue < 0 ? 'var(--red)' : (!isOk ? 'var(--amber)' : 'var(--green)');
       return `<div style="background:var(--bg3);border-radius:var(--radius);border-left:3px solid ${color};padding:10px 14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap">
         <div style="flex:1;min-width:180px">
-          <div style="font-weight:600;font-size:13px">${item.label || item.typeId}</div>
+          <div style="font-weight:600;font-size:13px">${esc(item.label || (window._ns_alertTypes||[]).find(a=>a.id===item.typeId)?.name || item.typeId || '')}</div>
           ${item.intervalDays ? `<div style="font-size:11px;color:var(--text2)">Cykl: co ${item.intervalDays} dni</div>` : ''}
           ${item.intervalKm   ? `<div style="font-size:11px;color:var(--text2)">Cykl: co ${item.intervalKm} km</div>` : ''}
         </div>
