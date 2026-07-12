@@ -196,14 +196,18 @@
   async function _changeStatus(id, action) {
     const labels = { approved: 'Zatwierdzić', rejected: 'Odrzucić', paid: 'Oznaczyć jako wypłacone' };
     if (!confirm(`${labels[action] || action} to rozliczenie?`)) return;
-    await changeStatus(id, action);
-    _renderGlobalPage();
+    try {
+      await changeStatus(id, action);
+      _renderGlobalPage();
+    } catch (e) { if (window.toast) toast('Błąd zmiany statusu — spróbuj ponownie'); }
   }
 
   async function _del(id) {
     if (!confirm('Usunąć rozliczenie?')) return;
-    await deleteClaim(id);
-    _renderGlobalPage();
+    try {
+      await deleteClaim(id);
+      _renderGlobalPage();
+    } catch (e) { if (window.toast) toast('Błąd usuwania — spróbuj ponownie'); }
   }
 
   window.MileageClaimsModule = {

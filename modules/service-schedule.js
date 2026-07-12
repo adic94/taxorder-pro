@@ -187,20 +187,23 @@
       last_date:       todayStr,
       notes:           s.notes,
     };
-    await saveSchedule(data, id);
+    const res2 = await saveSchedule(data, id);
+    if (!res2.ok && !res2.id) { alert('Błąd zapisu'); return; }
     const vFull = (window.vehs || []).find(x => x.nrRej === nrRej) || { nrRej };
     loadForVehicle(vFull);
-    const page = document.getElementById('page-service-schedule');
-    if (page && page.style.display !== 'none') _renderGlobalPage();
+    const page2 = document.getElementById('page-service-schedule');
+    if (page2 && page2.style.display !== 'none') _renderGlobalPage();
   }
 
   async function _del(id, nrRej) {
     if (!confirm('Usunąć pozycję harmonogramu?')) return;
-    await deleteSchedule(id);
-    const v = (window.vehs || []).find(x => x.nrRej === nrRej) || { nrRej };
-    loadForVehicle(v);
-    const page = document.getElementById('page-service-schedule');
-    if (page && page.style.display !== 'none') _renderGlobalPage();
+    try {
+      await deleteSchedule(id);
+      const v = (window.vehs || []).find(x => x.nrRej === nrRej) || { nrRej };
+      loadForVehicle(v);
+      const page = document.getElementById('page-service-schedule');
+      if (page && page.style.display !== 'none') _renderGlobalPage();
+    } catch (e) { if (window.toast) toast('Błąd usuwania — spróbuj ponownie'); }
   }
 
   // ─── Strona globalna ──────────────────────────────────────────────────────

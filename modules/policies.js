@@ -166,11 +166,13 @@
 
   async function _del(id, nrRej) {
     if (!confirm('Usunąć polisę?')) return;
-    await deletePolicy(id);
-    const v = (window.vehs || []).find(x => x.nrRej === nrRej) || { nrRej };
-    loadForVehicle(v);
-    const page = document.getElementById('page-policies');
-    if (page && page.style.display !== 'none') _renderGlobalPage();
+    try {
+      await deletePolicy(id);
+      const v = (window.vehs || []).find(x => x.nrRej === nrRej) || { nrRej };
+      loadForVehicle(v);
+      const page = document.getElementById('page-policies');
+      if (page && page.style.display !== 'none') _renderGlobalPage();
+    } catch (e) { if (window.toast) toast('Błąd usuwania — spróbuj ponownie'); }
   }
 
   // ─── Strona globalna ──────────────────────────────────────────────────────
