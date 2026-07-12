@@ -645,11 +645,20 @@ async function handleDocs(req, env, user, url, path) {
   if (req.method === 'GET' && segs[2] === 'file') {
     const r2Key = segs.slice(3).join('/');
     if (!r2Key) return err('Brak klucza');
+    // Weryfikacja własności: dokument musi należeć do firmy użytkownika
+    const docMeta = await env.DB.prepare(
+      'SELECT company_id, name FROM documents WHERE r2_key=?'
+    ).bind(r2Key).first();
+    if (docMeta && docMeta.company_id !== (user.company_id || url.searchParams.get('company'))) {
+      return err('Brak dostępu', 403);
+    }
     const obj = await env.DOCS.get(r2Key);
     if (!obj) return err('Dokument nie znaleziony', 404);
+    const safeName = (docMeta?.name || r2Key.split('/').pop() || 'dokument').replace(/[^\w.\-]/g, '_');
     return new Response(obj.body, {
       headers: {
         'Content-Type': obj.httpMetadata?.contentType || 'application/octet-stream',
+        'Content-Disposition': `attachment; filename="${safeName}"`,
         'Cache-Control': 'private, max-age=3600',
         ...CORS,
       },
