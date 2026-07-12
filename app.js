@@ -2131,7 +2131,7 @@ function renderPaliwoPage() {
       tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:2rem">Brak danych tankowań w wybranym okresie</td></tr>`;
     } else {
       tbody.innerHTML = rows.slice(0, 200).map(({ v, h }) => `<tr>
-        <td style="font-family:var(--mono);font-size:12px">${h.date || '—'}</td>
+        <td style="font-family:var(--mono);font-size:12px">${esc(h.date || '—')}</td>
         <td style="font-weight:600;font-family:var(--mono)">${esc(v.nrRej)}</td>
         <td style="font-size:12px;color:var(--text2)">${esc(v.marka)} ${esc(v.model)}</td>
         <td><span class="pill pill-gray" style="font-size:11px">${esc(h.product || '—')}</span></td>
@@ -2909,7 +2909,7 @@ function _renderServiceDash() {
         <i class="ti ${t.icon}" style="color:${t.color};font-size:14px;flex-shrink:0"></i>
         <div style="flex:1;min-width:0">
           <div style="font-size:11px;font-weight:700;font-family:var(--mono)">${esc(v.nrRej)}</div>
-          <div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.label}${s.nextServiceDate ? ' · ' + s.nextServiceDate.slice(0,10) : ''}</div>
+          <div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.label)}${s.nextServiceDate ? ' · ' + esc(s.nextServiceDate.slice(0,10)) : ''}</div>
         </div>
         <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${days<0?'var(--red)':days<=7?'var(--red)':days<=14?'var(--amber)':'var(--text2)'}">${days<0?Math.abs(days)+'d temu':'za '+days+'d'}</span>
       </div>`;
@@ -2949,7 +2949,7 @@ function _renderFinesDash() {
       return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border)">
         <i class="ti ${t.icon}" style="color:${t.color};font-size:13px;flex-shrink:0"></i>
         <div style="flex:1;min-width:0">
-          <div style="font-size:11px;font-weight:700;font-family:var(--mono)">${f.nr_rej||'—'}</div>
+          <div style="font-size:11px;font-weight:700;font-family:var(--mono)">${esc(f.nr_rej||'—')}</div>
           <div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.label}${f.amount?' · '+f.amount+' zł':''}</div>
         </div>
         <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${dl===null?'var(--text3)':dl<0?'var(--red)':dl<=3?'var(--red)':'var(--amber)'}">${dl===null?'—':dl<0?Math.abs(dl)+'d temu':'za '+dl+'d'}</span>
@@ -5971,12 +5971,12 @@ function renderFakHistory() {
   if(!list.length){el.innerHTML='<span style="color:var(--text3)">Brak historii</span>';return;}
   el.innerHTML=list.map(h=>`<div style="padding:8px 0;border-bottom:0.5px solid var(--border);font-size:12px">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-      <span class="pill ${h.typ==='ZAKUP'?'pill-green':h.typ==='SPRZEDAŻ'?'pill-red':'pill-amber'}" style="font-size:10px">${h.typ}</span>
-      <strong>${h.nrRej}</strong>
-      <span style="color:var(--text3);font-size:10px;margin-left:auto">${h.data||h.ts}</span>
+      <span class="pill ${h.typ==='ZAKUP'?'pill-green':h.typ==='SPRZEDAŻ'?'pill-red':'pill-amber'}" style="font-size:10px">${esc(h.typ)}</span>
+      <strong>${esc(h.nrRej)}</strong>
+      <span style="color:var(--text3);font-size:10px;margin-left:auto">${esc(h.data||h.ts)}</span>
     </div>
-    <div style="color:var(--text2)">${h.sprzedawca||'—'} ${h.cenaBrutto?'· '+h.cenaBrutto+' zł':''}</div>
-    ${h.nrFaktury?`<div style="font-family:var(--mono);font-size:10px;color:var(--text3)">${h.nrFaktury}</div>`:''}
+    <div style="color:var(--text2)">${esc(h.sprzedawca||'—')} ${h.cenaBrutto?'· '+h.cenaBrutto+' zł':''}</div>
+    ${h.nrFaktury?`<div style="font-family:var(--mono);font-size:10px;color:var(--text3)">${esc(h.nrFaktury)}</div>`:''}
   </div>`).join('');
 }
 
