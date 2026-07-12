@@ -474,6 +474,7 @@ async function handleState(req, env, user, url, path) {
   const segs = path.split('/').filter(Boolean);
   const companyId = segs[2];
   if (!companyId) return err('Wymagane company_id');
+  if (user.role !== 'admin' && companyId !== user.company_id) return err('Brak dostępu do tej firmy', 403);
 
   if (req.method === 'GET') {
     const row = await env.DB.prepare(
@@ -3360,6 +3361,9 @@ async function handleAlertTypes(req, env, user, url, path) {
   }
   if (req.method === 'PUT' && segs[2]) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const atRow = await env.DB.prepare('SELECT company_id FROM alert_types WHERE id=?').bind(segs[2]).first();
+    if (!atRow) return err('Typ alertu nie znaleziony', 404);
+    if (user.role !== 'admin' && (atRow.company_id === null || atRow.company_id !== company)) return err('Brak dostępu', 403);
     const sets = [], vals = [];
     if (body.name !== undefined)        { sets.push('name=?');         vals.push(body.name); }
     if (body.active !== undefined)      { sets.push('active=?');       vals.push(body.active ? 1 : 0); }
@@ -3379,6 +3383,7 @@ async function handleAlertTypes(req, env, user, url, path) {
     const existing = await env.DB.prepare('SELECT company_id FROM alert_types WHERE id=?').bind(segs[2]).first();
     if (!existing) return err('Typ alertu nie istnieje', 404);
     if (existing.company_id === null) return err('Nie można usunąć wbudowanego typu alertu', 403);
+    if (user.role !== 'admin' && existing.company_id !== company) return err('Brak dostępu', 403);
     await env.DB.prepare('UPDATE alert_types SET active=0 WHERE id=? AND company_id IS NOT NULL').bind(segs[2]).run();
     return json({ ok: true });
   }
@@ -3538,6 +3543,9 @@ async function handleMaintenanceTemplates(req, env, user, url, path) {
   }
   if (req.method === 'PUT' && segs[2]) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const tmplRow = await env.DB.prepare('SELECT company_id FROM maintenance_templates WHERE id=?').bind(segs[2]).first();
+    if (!tmplRow) return err('Szablon nie znaleziony', 404);
+    if (user.role !== 'admin' && tmplRow.company_id !== company) return err('Brak dostępu', 403);
     const sets = [], vals = [];
     if (body.name !== undefined)        { sets.push('name=?');        vals.push(body.name); }
     if (body.description !== undefined) { sets.push('description=?'); vals.push(body.description); }
