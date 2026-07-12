@@ -224,7 +224,7 @@ window.TaxOrderPolicyOcr = (function () {
       `<option value="${t}" ${parsed.typ===t?'selected':''}>${t}</option>`).join('');
     const vehOpts = _vehs
       .filter(v => !v.is_active === false)
-      .map(v => `<option value="${v.nr_rej}" ${parsed.nr_rej && v.nr_rej === parsed.nr_rej ? 'selected' : ''}>${v.nr_rej}${v.marka ? ' — ' + v.marka : ''}${v.model ? ' ' + v.model : ''}</option>`).join('');
+      .map(v => `<option value="${esc(v.nr_rej)}" ${parsed.nr_rej && v.nr_rej === parsed.nr_rej ? 'selected' : ''}>${esc(v.nr_rej)}${v.marka ? ' — ' + esc(v.marka) : ''}${v.model ? ' ' + esc(v.model) : ''}</option>`).join('');
 
     const pewnosc = parsed.pewnosc || 'niska';
     const pewnosColor = pewnosc==='wysoka' ? '#065f46' : pewnosc==='srednia' ? '#92400e' : '#7f1d1d';
