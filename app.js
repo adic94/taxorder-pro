@@ -6695,11 +6695,11 @@ function showAuditLog() {
           '<table style="width:100%;font-size:11px;border-collapse:collapse">' +
           '<thead><tr><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Kiedy</th><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Kto</th><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Akcja</th><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Pojazd</th></tr></thead><tbody>' +
           log.map(e => {
-            const veh = e.vehId != null ? (vehs.find(v=>v.id===e.vehId)?.nrRej || 'id:'+e.vehId) : (e.changes?.nrRej || '—');
+            const veh = e.vehId != null ? esc(vehs.find(v=>v.id===e.vehId)?.nrRej || 'id:'+e.vehId) : esc(e.changes?.nrRej || '—');
             return `<tr style="border-bottom:0.5px solid var(--border)">
               <td style="padding:4px 6px;font-family:var(--mono);white-space:nowrap">${e.ts ? new Date(e.ts).toLocaleString('pl-PL') : '—'}</td>
-              <td style="padding:4px 6px">${e.user||'—'}</td>
-              <td style="padding:4px 6px">${ACTION_LABEL[e.action]||e.action||'—'}</td>
+              <td style="padding:4px 6px">${esc(e.user||'—')}</td>
+              <td style="padding:4px 6px">${ACTION_LABEL[e.action] || esc(e.action||'—')}</td>
               <td style="padding:4px 6px;font-family:var(--mono)">${veh}</td>
             </tr>`;
           }).join('') + '</tbody></table>'}
