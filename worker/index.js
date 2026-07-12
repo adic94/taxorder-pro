@@ -437,7 +437,7 @@ async function handleVehicles(req, env, user, url, path) {
     if (!user || (user.role !== 'admin' && user.role !== 'kierownik')) return err('Brak uprawnień', 403);
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
     const { old_nr_rej, new_nr_rej, reason } = body;
-    const company = user.company_id || url.searchParams.get('company') || body.company_id;
+    const company = url.searchParams.get('company') || user.company_id;
     if (!old_nr_rej || !new_nr_rej || !company) return err('Wymagane: old_nr_rej, new_nr_rej, company');
     if (old_nr_rej.trim().toUpperCase() === new_nr_rej.trim().toUpperCase()) return err('Nowy numer musi być inny od obecnego');
 
@@ -670,7 +670,7 @@ async function handleDocs(req, env, user, url, path) {
 
   // PATCH /api/docs/:docId — aktualizacja doc_type, notes, vin
   if (req.method === 'PATCH' && segs[2] && segs[2] !== 'file') {
-    const company = user.company_id || url.searchParams.get('company');
+    const company = url.searchParams.get('company') || user.company_id;
     let body;
     try { body = await req.json(); } catch { return err('Wymagany JSON'); }
     const fields = [];
@@ -688,7 +688,7 @@ async function handleDocs(req, env, user, url, path) {
 
   // DELETE /api/docs/:docId
   if (req.method === 'DELETE' && segs[2] && segs[2] !== 'file') {
-    const company = user.company_id || url.searchParams.get('company');
+    const company = url.searchParams.get('company') || user.company_id;
     const row = await env.DB.prepare(
       'SELECT r2_key FROM documents WHERE id=? AND company_id=?'
     ).bind(segs[2], company).first();
@@ -769,7 +769,7 @@ async function handleDamages(req, env, user, url, path) {
   // PUT /api/damages/:id — edycja / zmiana statusu
   if (req.method === 'PUT' && segs[2]) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const company = user.company_id || url.searchParams.get('company');
+    const company = url.searchParams.get('company') || user.company_id;
     await env.DB.prepare(`
       UPDATE damage_reports SET
         opis=?, przyczyna=?, data_zdarzenia=?, status=?, koszt=?, zglaszajacy=?, uwagi=?, updated_at=datetime('now')
@@ -784,7 +784,7 @@ async function handleDamages(req, env, user, url, path) {
 
   // DELETE /api/damages/photo/:photoId — usuń pojedyncze zdjęcie
   if (req.method === 'DELETE' && segs[2] === 'photo' && segs[3]) {
-    const company = user.company_id || url.searchParams.get('company');
+    const company = url.searchParams.get('company') || user.company_id;
     const row = await env.DB.prepare(
       'SELECT dp.r2_key FROM damage_photos dp JOIN damage_reports dr ON dp.damage_id=dr.id WHERE dp.id=? AND dr.company_id=?'
     ).bind(segs[3], company).first();
@@ -799,7 +799,7 @@ async function handleDamages(req, env, user, url, path) {
 
   // DELETE /api/damages/:id — usuń zgłoszenie (kaskadowo zdjęcia D1 + R2)
   if (req.method === 'DELETE' && segs[2]) {
-    const company = user.company_id || url.searchParams.get('company');
+    const company = url.searchParams.get('company') || user.company_id;
     const dmgRow = await env.DB.prepare('SELECT id FROM damage_reports WHERE id=? AND company_id=?').bind(segs[2], company).first();
     if (!dmgRow) return json({ ok: true });
     const photoRows = await env.DB.prepare('SELECT r2_key FROM damage_photos WHERE damage_id=?').bind(segs[2]).all();
@@ -851,7 +851,7 @@ async function handleTires(req, env, user, url, path) {
   // PUT /api/tires/:id — edycja pól LUB akcja mount/unmount/scrap
   if (req.method === 'PUT' && segs[2]) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const company = user.company_id || url.searchParams.get('company');
+    const company = url.searchParams.get('company') || user.company_id;
     const row = await env.DB.prepare('SELECT * FROM tires WHERE id=? AND company_id=?').bind(segs[2], company).first();
     if (!row) return err('Opona nie znaleziona', 404);
     const historia = JSON.parse(row.historia || '[]');
@@ -891,7 +891,7 @@ async function handleTires(req, env, user, url, path) {
 
   // DELETE /api/tires/:id
   if (req.method === 'DELETE' && segs[2]) {
-    const company = user.company_id || url.searchParams.get('company');
+    const company = url.searchParams.get('company') || user.company_id;
     await env.DB.prepare('DELETE FROM tires WHERE id=? AND company_id=?').bind(segs[2], company).run();
     return json({ ok: true });
   }
@@ -936,7 +936,7 @@ async function handleServiceOrders(req, env, user, url, path) {
   // PUT /api/service-orders/:id — edycja LUB akcja AUTORYZUJ/ODRZUC/ZREALIZUJ
   if (req.method === 'PUT' && segs[2]) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const company = user.company_id || url.searchParams.get('company');
+    const company = url.searchParams.get('company') || user.company_id;
     const row = await env.DB.prepare('SELECT * FROM service_orders WHERE id=? AND company_id=?').bind(segs[2], company).first();
     if (!row) return err('Zlecenie nie znalezione', 404);
 
@@ -977,7 +977,7 @@ async function handleServiceOrders(req, env, user, url, path) {
 
   // DELETE /api/service-orders/:id
   if (req.method === 'DELETE' && segs[2]) {
-    const company = user.company_id || url.searchParams.get('company');
+    const company = url.searchParams.get('company') || user.company_id;
     await env.DB.prepare('DELETE FROM service_orders WHERE id=? AND company_id=?').bind(segs[2], company).run();
     return json({ ok: true });
   }
@@ -1053,7 +1053,7 @@ async function handleProtocols(req, env, user, url, path) {
   // PUT /api/protocols/:id — edycja
   if (req.method === 'PUT' && segs[2]) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const company = user.company_id || url.searchParams.get('company');
+    const company = url.searchParams.get('company') || user.company_id;
     const row = await env.DB.prepare('SELECT * FROM handover_protocols WHERE id=? AND company_id=?').bind(segs[2], company).first();
     if (!row) return err('Protokół nie znaleziony', 404);
     await env.DB.prepare(`
@@ -1075,7 +1075,7 @@ async function handleProtocols(req, env, user, url, path) {
 
   // DELETE /api/protocols/:id — kaskadowo usuwa zdjęcia D1 + R2
   if (req.method === 'DELETE' && segs[2]) {
-    const company = user.company_id || url.searchParams.get('company');
+    const company = url.searchParams.get('company') || user.company_id;
     const protRow = await env.DB.prepare('SELECT id FROM handover_protocols WHERE id=? AND company_id=?').bind(segs[2], company).first();
     if (!protRow) return json({ ok: true });
     const photoRows = await env.DB.prepare('SELECT r2_key FROM protocol_photos WHERE protocol_id=?').bind(segs[2]).all();
@@ -1115,7 +1115,7 @@ async function handleCfmClients(req, env, user, url, path) {
 
   if (req.method === 'PUT' && segs[2]) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const company = user.company_id || url.searchParams.get('company');
+    const company = url.searchParams.get('company') || user.company_id;
     const row = await env.DB.prepare('SELECT * FROM cfm_clients WHERE id=? AND company_id=?').bind(segs[2], company).first();
     if (!row) return err('Klient nie znaleziony', 404);
     await env.DB.prepare(`
@@ -1130,7 +1130,7 @@ async function handleCfmClients(req, env, user, url, path) {
   }
 
   if (req.method === 'DELETE' && segs[2]) {
-    const company = user.company_id || url.searchParams.get('company');
+    const company = url.searchParams.get('company') || user.company_id;
     await env.DB.prepare('DELETE FROM cfm_clients WHERE id=? AND company_id=?').bind(segs[2], company).run();
     return json({ ok: true });
   }
@@ -1180,7 +1180,7 @@ async function handleCfmContracts(req, env, user, url, path) {
 
   if (req.method === 'PUT' && segs[2]) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const company = user.company_id || url.searchParams.get('company');
+    const company = url.searchParams.get('company') || user.company_id;
     const row = await env.DB.prepare('SELECT * FROM cfm_contracts WHERE id=? AND company_id=?').bind(segs[2], company).first();
     if (!row) return err('Kontrakt nie znaleziony', 404);
     await env.DB.prepare(`
@@ -1198,7 +1198,7 @@ async function handleCfmContracts(req, env, user, url, path) {
   }
 
   if (req.method === 'DELETE' && segs[2]) {
-    const company = user.company_id || url.searchParams.get('company');
+    const company = url.searchParams.get('company') || user.company_id;
     await env.DB.prepare('DELETE FROM cfm_contracts WHERE id=? AND company_id=?').bind(segs[2], company).run();
     return json({ ok: true });
   }
@@ -1314,7 +1314,7 @@ async function handleCfmInvoices(req, env, user, url, path) {
   // PUT /api/cfm-invoices/:id — edycja pozycji/statusu (przeliczenie sum)
   if (req.method === 'PUT' && segs[2]) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const company = user.company_id || url.searchParams.get('company');
+    const company = url.searchParams.get('company') || user.company_id;
     const row = await env.DB.prepare('SELECT * FROM cfm_invoices WHERE id=? AND company_id=?').bind(segs[2], company).first();
     if (!row) return err('Faktura nie znaleziona', 404);
     let pozycje = row.pozycje ? JSON.parse(row.pozycje) : [];
@@ -1334,7 +1334,7 @@ async function handleCfmInvoices(req, env, user, url, path) {
 
   // DELETE /api/cfm-invoices/:id — tylko gdy nieopłacona
   if (req.method === 'DELETE' && segs[2]) {
-    const company = user.company_id || url.searchParams.get('company');
+    const company = url.searchParams.get('company') || user.company_id;
     const row = await env.DB.prepare('SELECT status FROM cfm_invoices WHERE id=? AND company_id=?').bind(segs[2], company).first();
     if (row && row.status === 'OPLACONA') return err('Nie można usunąć opłaconej faktury', 409);
     await env.DB.prepare('DELETE FROM cfm_invoices WHERE id=? AND company_id=?').bind(segs[2], company).run();
@@ -1401,7 +1401,7 @@ async function handleUsers(req, env, user, url, path) {
 
 // ─── KIEROWCY ─────────────────────────────────────────────────────────────────
 async function handleDrivers(req, env, user, url, path) {
-  const company = user.company_id || url.searchParams.get('company');
+  const company = url.searchParams.get('company') || user.company_id;
   if (!company) return err('Wymagane: ?company=', 400);
   const segs     = path.split('/').filter(Boolean);
   const driverId = segs[2] || null;
@@ -1469,7 +1469,7 @@ async function handleDrivers(req, env, user, url, path) {
 
 // ─── MANDATY I NARUSZENIA ─────────────────────────────────────────────────────
 async function handleFines(req, env, user, url, path) {
-  const company = user.company_id || url.searchParams.get('company');
+  const company = url.searchParams.get('company') || user.company_id;
   if (!company) return err('Wymagane: ?company=', 400);
   const segs   = path.split('/').filter(Boolean);
   const fineId = segs[2] || null;
@@ -1537,7 +1537,7 @@ async function handleFines(req, env, user, url, path) {
 
 // ─── REZERWACJE (Kalendarz floty) ─────────────────────────────────────────────
 async function handleReservations(req, env, user, url, path) {
-  const company = user.company_id || url.searchParams.get('company');
+  const company = url.searchParams.get('company') || user.company_id;
   if (!company) return err('Wymagane: ?company=', 400);
   const segs  = path.split('/').filter(Boolean);
   const resId = segs[2] || null;
@@ -1605,7 +1605,7 @@ async function handleReservations(req, env, user, url, path) {
 
 // ─── KARTY FLOTOWE ────────────────────────────────────────────────────────────
 async function handleFleetCards(req, env, user, url, path) {
-  const company = user.company_id || url.searchParams.get('company');
+  const company = url.searchParams.get('company') || user.company_id;
   if (!company) return err('Wymagane: ?company=', 400);
   const segs   = path.split('/').filter(Boolean);
   const cardId = segs[2] || null;
@@ -1720,7 +1720,7 @@ async function handleApiKeys(req, env, user, url, path) {
 // ─── HISTORIA DEKLARACJI DT-1 ────────────────────────────────────────────────
 async function handleDt1Declarations(req, env, user, url, path) {
   const segs = path.split('/').filter(Boolean); // ['api','dt1-declarations',id?]
-  const company = user.company_id || url.searchParams.get('company');
+  const company = url.searchParams.get('company') || user.company_id;
   const declId  = segs[2] || null;
 
   if (req.method === 'GET') {
@@ -1761,7 +1761,7 @@ async function handleDt1Declarations(req, env, user, url, path) {
 // ─── WEBHOOKI WYCHODZĄCE ──────────────────────────────────────────────────────
 async function handleWebhooks(req, env, user, url, path) {
   const segs  = path.split('/').filter(Boolean);
-  const company = user.company_id || url.searchParams.get('company');
+  const company = url.searchParams.get('company') || user.company_id;
   const hookId  = segs[2] || null;
 
   if (req.method === 'GET' && !hookId) {
@@ -1969,7 +1969,7 @@ async function tekomGetVehicles(token) {
 
 async function handleTekomIntegration(req, env, user, url, path) {
   if (!['admin','kierownik'].includes(user.role)) return err('Brak uprawnień', 403);
-  const company = user.company_id || url.searchParams.get('company');
+  const company = url.searchParams.get('company') || user.company_id;
   if (!company) return err('Podaj ?company=', 400);
   const cfgKey = `tekom_cfg_${company}`;
 
@@ -3816,7 +3816,7 @@ async function runNightlyAnalysis(env) {
 
 // ─── POLISY UBEZPIECZENIOWE (D1) ─────────────────────────────────────────────
 async function handlePoliciesDB(req, env, user, url, path) {
-  const company = user.company_id || url.searchParams.get('company');
+  const company = url.searchParams.get('company') || user.company_id;
   const segs = path.split('/').filter(Boolean); // ['api','policies-db', id?]
   const id = segs[2] || null;
   const method = req.method;
@@ -3872,7 +3872,7 @@ async function handlePoliciesDB(req, env, user, url, path) {
 
 // ─── HARMONOGRAM SERWISOWY ────────────────────────────────────────────────────
 async function handleServiceSchedules(req, env, user, url, path) {
-  const company = user.company_id || url.searchParams.get('company');
+  const company = url.searchParams.get('company') || user.company_id;
   const segs = path.split('/').filter(Boolean);
   const id = segs[2] || null;
   const method = req.method;
@@ -3942,7 +3942,7 @@ function _addMonths(dateStr, months) {
 
 // ─── ROZLICZENIA KM PRACOWNICZYCH ─────────────────────────────────────────────
 async function handleMileageClaims(req, env, user, url, path) {
-  const company = user.company_id || url.searchParams.get('company');
+  const company = url.searchParams.get('company') || user.company_id;
   const segs = path.split('/').filter(Boolean);
   const id     = segs[2] || null;
   const action = segs[3] || null; // approve | reject | pay
