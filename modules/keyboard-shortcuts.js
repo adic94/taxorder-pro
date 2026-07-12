@@ -12,6 +12,10 @@ window.TaxOrderShortcuts = (function () {
     { keys: 'G + K', desc: 'Przejdź do Kalkulatora DT-1' },
     { keys: 'G + A', desc: 'Przejdź do Asystenta AI' },
     { keys: 'G + B', desc: 'Przejdź do Budżetu / TCO' },
+    { keys: 'G + F', desc: 'Przejdź do Dokumentów flotowych' },
+    { keys: 'G + U', desc: 'Przejdź do Polis ubezpieczeniowych' },
+    { keys: 'G + H', desc: 'Przejdź do Harmonogramu serwisowego' },
+    { keys: 'G + J', desc: 'Przejdź do Rozliczeń km (delegacje)' },
     { keys: '/', desc: 'Szukaj (globalna wyszukiwarka)' },
     { keys: 'N', desc: 'Nowy wpis (kontekst bieżącej strony)' },
     { keys: '?', desc: 'Pokaż tę ściągę skrótów' },
@@ -32,11 +36,15 @@ window.TaxOrderShortcuts = (function () {
     const pageEl = document.querySelector('.page.active');
     const pageId = pageEl?.id?.replace('page-', '') || '';
     switch (pageId) {
-      case 'paliwo':    window.FuelImport?.open?.(); break;
-      case 'zlecenia':  window.TaxOrderServiceOrders?.openNew?.(); break;
-      case 'szkody':    window.TaxOrderDamages?.openNew?.(); break;
-      case 'kierowcy':  window.TaxOrderDrivers?.openNew?.(); break;
-      case 'mandaty':   window.FinesModule?.open?.(); break;
+      case 'paliwo':           window.FuelImport?.open?.(); break;
+      case 'zlecenia':         window.TaxOrderServiceOrders?.openNew?.(); break;
+      case 'szkody':           window.TaxOrderDamages?.openNew?.(); break;
+      case 'kierowcy':         window.TaxOrderDrivers?.openNew?.(); break;
+      case 'mandaty':          window.FinesModule?.open?.(); break;
+      case 'dok-smart':        window.DocumentsModule?.openGlobalUpload?.(); break;
+      case 'policies':         window.PoliciesModule?._openEdit?.(null, ''); break;
+      case 'service-schedule': window.ServiceScheduleModule?._openEdit?.(null, ''); break;
+      case 'mileage-claims':   window.MileageClaimsModule?._openEdit?.(null); break;
       default:
         toast('ℹ Naciśnij N na stronie z listą aby dodać nowy wpis');
     }
@@ -115,12 +123,16 @@ window.TaxOrderShortcuts = (function () {
       clearTimeout(_gTimer);
       e.preventDefault();
       switch (key.toLowerCase()) {
-        case 'd': _go('dash');      break;
-        case 'p': _go('pojazdy');   break;
-        case 'r': _go('raporty');   break;
-        case 'k': _go('kalkulator');break;
-        case 'a': _go('ai');        break;
-        case 'b': _go('budzet');    break;
+        case 'd': _go('dash');            break;
+        case 'p': _go('pojazdy');         break;
+        case 'r': _go('raporty');         break;
+        case 'k': _go('kalkulator');      break;
+        case 'a': _go('ai');              break;
+        case 'b': _go('budzet');          break;
+        case 'f': _go('dok-smart');       break;
+        case 'u': _go('policies');        break;
+        case 'h': _go('service-schedule');break;
+        case 'j': _go('mileage-claims');  break;
       }
     }
   });

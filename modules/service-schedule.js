@@ -150,9 +150,9 @@
     const data = {
       nr_rej:          nrRej,
       name:            document.getElementById('ss-f-name').value.trim(),
-      interval_km:     parseInt(document.getElementById('ss-f-intkm').value) || null,
-      interval_months: parseInt(document.getElementById('ss-f-intmo').value) || null,
-      last_km:         parseInt(document.getElementById('ss-f-lastkm').value) || null,
+      interval_km:     document.getElementById('ss-f-intkm').value  !== '' ? parseInt(document.getElementById('ss-f-intkm').value)  : null,
+      interval_months: document.getElementById('ss-f-intmo').value  !== '' ? parseInt(document.getElementById('ss-f-intmo').value)  : null,
+      last_km:         document.getElementById('ss-f-lastkm').value !== '' ? parseInt(document.getElementById('ss-f-lastkm').value) : null,
       last_date:       document.getElementById('ss-f-lastdt').value || null,
       notes:           document.getElementById('ss-f-notes').value.trim(),
     };

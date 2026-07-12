@@ -2700,6 +2700,7 @@ function renderDash() {
   _renderAgeDist();
   _renderActivityFeed();
   _renderFuelAnomalyAlerts();
+  _renderServiceScheduleDash();
   const _luEl = document.getElementById('dash-last-update');
   if (_luEl) _luEl.textContent = 'Odświeżono ' + new Date().toLocaleTimeString('pl-PL', {hour:'2-digit', minute:'2-digit'});
 }
@@ -2764,6 +2765,32 @@ function _renderActivityFeed() {
       <span style="font-size:10px;color:var(--text3);flex-shrink:0">${timeLabel}</span>
     </div>`;
   }).join('');
+}
+
+async function _renderServiceScheduleDash() {
+  const el = document.getElementById('dash-service-schedule');
+  if (!el || !window.ServiceScheduleModule) return;
+  try {
+    const alerts = await window.ServiceScheduleModule.getAlerts();
+    if (!alerts.length) {
+      el.innerHTML = `<div style="color:var(--text3);font-size:12px;padding:8px 0">Brak zbliżających się terminów serwisowych ✓</div>`;
+      return;
+    }
+    el.innerHTML = alerts.slice(0, 6).map(s => {
+      const overdue = (s.daysLeft != null && s.daysLeft < 0) || (s.kmLeft != null && s.kmLeft < 0);
+      const color   = overdue ? 'var(--red)' : 'var(--amber)';
+      const hint    = s.daysLeft != null ? (s.daysLeft < 0 ? `${Math.abs(s.daysLeft)}d temu` : `za ${s.daysLeft}d`) : '';
+      const kmHint  = s.kmLeft  != null ? (s.kmLeft  < 0 ? `${Math.abs(s.kmLeft)}km przekr.` : `za ${s.kmLeft}km`) : '';
+      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border);cursor:pointer" onclick="showPage('service-schedule')">
+        <i class="ti ti-tool" style="color:${color};font-size:14px;flex-shrink:0"></i>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;font-weight:700;font-family:var(--mono)">${esc(s.nr_rej)}</div>
+          <div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name)}</div>
+        </div>
+        <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${color}">${esc(hint || kmHint)}</span>
+      </div>`;
+    }).join('');
+  } catch { el.innerHTML = '<div style="color:var(--text3);font-size:11px;padding:8px">—</div>'; }
 }
 
 function _renderFuelAnomalyAlerts() {

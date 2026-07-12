@@ -349,6 +349,17 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
         </div>
         <div id="dash-fuel-anomaly" style="max-height:200px;overflow-y:auto"></div>
       </div>
+      <div class="dash-card">
+        <div class="dash-card-hdr">
+          <i class="ti ti-tool" style="color:var(--amber)"></i>Harmonogram serwisowy — wkrótce
+          <button class="btn btn-gray" style="font-size:11px;padding:4px 10px;margin-left:auto" onclick="showPage('service-schedule')">
+            <i class="ti ti-external-link"></i>Wszystkie
+          </button>
+        </div>
+        <div id="dash-service-schedule" style="max-height:200px;overflow-y:auto">
+          <div style="color:var(--text3);font-size:12px;padding:8px 0">Ładowanie...</div>
+        </div>
+      </div>
     </div>
 
     <!-- Widget: Struktura floty + DT-1 -->
