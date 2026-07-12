@@ -1352,7 +1352,7 @@ async function handleUsers(req, env, user, url, path) {
 
   if (req.method === 'GET' && !userId) {
     const rows = await env.DB.prepare(
-      'SELECT id,email,name,role,active,created_at FROM users ORDER BY name'
+      'SELECT id,email,name,role,active,company_id,created_at FROM users ORDER BY name'
     ).all();
     return json(rows.results || []);
   }
@@ -1360,14 +1360,14 @@ async function handleUsers(req, env, user, url, path) {
   if (req.method === 'POST') {
     let body;
     try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const { email, name, password, role } = body;
+    const { email, name, password, role, company_id } = body;
     if (!email || !password) return err('Email i hasło wymagane');
     const salt = genSalt();
     const hash = await hashPwd(password, salt);
     try {
       const res = await env.DB.prepare(
-        'INSERT INTO users(email,name,password_hash,salt,role) VALUES(?,?,?,?,?)'
-      ).bind(email.toLowerCase(), name || email, hash, salt, role || 'viewer').run();
+        'INSERT INTO users(email,name,password_hash,salt,role,company_id) VALUES(?,?,?,?,?,?)'
+      ).bind(email.toLowerCase(), name || email, hash, salt, role || 'viewer', company_id || null).run();
       return json({ ok: true, id: res.meta.last_row_id });
     } catch (e) {
       if (e.message.includes('UNIQUE')) return err('Email już istnieje', 409);
@@ -1382,6 +1382,7 @@ async function handleUsers(req, env, user, url, path) {
     if (body.name)              { sets.push('name=?');          vals.push(body.name); }
     if (body.role)              { sets.push('role=?');          vals.push(body.role); }
     if (body.active !== undefined) { sets.push('active=?');     vals.push(body.active ? 1 : 0); }
+    if (body.company_id !== undefined) { sets.push('company_id=?'); vals.push(body.company_id || null); }
     if (body.password)          { const s=genSalt(); sets.push('password_hash=?','salt=?'); vals.push(await hashPwd(body.password, s), s); }
     if (!sets.length) return err('Brak pól do aktualizacji');
     vals.push(userId);
