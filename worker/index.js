@@ -404,6 +404,7 @@ async function handleVehicles(req, env, user, url, path) {
   if (req.method === 'PUT' && segs[2]) {
     let body;
     try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const putCompany = url.searchParams.get('company') || user.company_id || 'mtoilet';
     await env.DB.prepare(`
       INSERT INTO vehicles(company_id,nr_rej,axles_count,suspension_type,
         dmc_zespolu,miesiace_podatku,dt1_category,dt1_tax_amount,data,updated_at)
@@ -414,7 +415,7 @@ async function handleVehicles(req, env, user, url, path) {
         dt1_category=excluded.dt1_category, dt1_tax_amount=excluded.dt1_tax_amount,
         data=excluded.data, updated_at=datetime('now')`
     ).bind(
-      body.company_id, body.nr_rej, body.axles_count ?? 2, body.suspension_type ?? 'pneumatyczne',
+      putCompany, body.nr_rej, body.axles_count ?? 2, body.suspension_type ?? 'pneumatyczne',
       body.dmc_zespolu ?? 0, body.miesiace_podatku ?? 12,
       body.dt1_category ?? null, body.dt1_tax_amount ?? null,
       typeof body.data === 'string' ? body.data : JSON.stringify(body.data ?? {})
@@ -729,7 +730,7 @@ async function handleDamages(req, env, user, url, path) {
   // POST /api/damages — utworzenie zgłoszenia (JSON)
   if (req.method === 'POST' && segs.length === 2) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const company = body.company_id || 'mtoilet';
+    const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     if (!body.nr_rej) return err('Wymagane: nr_rej');
     const id = crypto.randomUUID();
     await env.DB.prepare(`
@@ -829,7 +830,7 @@ async function handleTires(req, env, user, url, path) {
   // POST /api/tires — nowa opona (domyślnie do magazynu)
   if (req.method === 'POST' && segs.length === 2) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const company = body.company_id || 'mtoilet';
+    const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     const id = crypto.randomUUID();
     const historia = [{ data: new Date().toISOString(), akcja: 'UTWORZONA', nrRej: null, pozycja: null }];
     await env.DB.prepare(`
@@ -917,7 +918,7 @@ async function handleServiceOrders(req, env, user, url, path) {
   // POST /api/service-orders — nowe zgłoszenie
   if (req.method === 'POST' && segs.length === 2) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const company = body.company_id || 'mtoilet';
+    const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     if (!body.nr_rej) return err('Wymagane: nr_rej');
     const id = crypto.randomUUID();
     await env.DB.prepare(`
@@ -1010,7 +1011,7 @@ async function handleProtocols(req, env, user, url, path) {
   // POST /api/protocols — nowy protokół
   if (req.method === 'POST' && segs.length === 2) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const company = body.company_id || 'mtoilet';
+    const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     if (!body.nr_rej) return err('Wymagane: nr_rej');
     const id = crypto.randomUUID();
     await env.DB.prepare(`
@@ -1096,7 +1097,7 @@ async function handleCfmClients(req, env, user, url, path) {
 
   if (req.method === 'POST' && segs.length === 2) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const company = body.company_id || 'mtoilet';
+    const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     if (!body.nazwa) return err('Wymagane: nazwa');
     const id = crypto.randomUUID();
     await env.DB.prepare(`
@@ -1158,7 +1159,7 @@ async function handleCfmContracts(req, env, user, url, path) {
 
   if (req.method === 'POST' && segs.length === 2) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const company = body.company_id || 'mtoilet';
+    const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     if (!body.nr_rej || !body.client_type || !body.client_ref) return err('Wymagane: nr_rej, client_type, client_ref');
     const id = crypto.randomUUID();
     await env.DB.prepare(`
@@ -1229,7 +1230,7 @@ async function handleCfmInvoices(req, env, user, url, path) {
   // POST /api/cfm-invoices/generate — agreguje koszty wszystkich aktywnych kontraktów klienta za okres
   if (req.method === 'POST' && segs[2] === 'generate') {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-    const company = body.company_id || 'mtoilet';
+    const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     const { client_type, client_ref, okres } = body;
     if (!client_type || !client_ref || !okres) return err('Wymagane: client_type, client_ref, okres');
 
