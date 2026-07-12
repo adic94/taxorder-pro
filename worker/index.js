@@ -658,7 +658,7 @@ async function handleDocs(req, env, user, url, path) {
 
   // PATCH /api/docs/:docId — aktualizacja doc_type, notes, vin
   if (req.method === 'PATCH' && segs[2] && segs[2] !== 'file') {
-    const company = url.searchParams.get('company') || user.company_id;
+    const company = user.company_id || url.searchParams.get('company');
     let body;
     try { body = await req.json(); } catch { return err('Wymagany JSON'); }
     const fields = [];
@@ -676,7 +676,7 @@ async function handleDocs(req, env, user, url, path) {
 
   // DELETE /api/docs/:docId
   if (req.method === 'DELETE' && segs[2] && segs[2] !== 'file') {
-    const company = url.searchParams.get('company') || user.company_id;
+    const company = user.company_id || url.searchParams.get('company');
     const row = await env.DB.prepare(
       'SELECT r2_key FROM documents WHERE id=? AND company_id=?'
     ).bind(segs[2], company).first();
@@ -1386,7 +1386,7 @@ async function handleUsers(req, env, user, url, path) {
 
 // ─── KIEROWCY ─────────────────────────────────────────────────────────────────
 async function handleDrivers(req, env, user, url, path) {
-  const company = url.searchParams.get('company') || user.company_id;
+  const company = user.company_id || url.searchParams.get('company');
   if (!company) return err('Wymagane: ?company=', 400);
   const segs     = path.split('/').filter(Boolean);
   const driverId = segs[2] || null;
@@ -1454,7 +1454,7 @@ async function handleDrivers(req, env, user, url, path) {
 
 // ─── MANDATY I NARUSZENIA ─────────────────────────────────────────────────────
 async function handleFines(req, env, user, url, path) {
-  const company = url.searchParams.get('company') || user.company_id;
+  const company = user.company_id || url.searchParams.get('company');
   if (!company) return err('Wymagane: ?company=', 400);
   const segs   = path.split('/').filter(Boolean);
   const fineId = segs[2] || null;
@@ -1522,7 +1522,7 @@ async function handleFines(req, env, user, url, path) {
 
 // ─── REZERWACJE (Kalendarz floty) ─────────────────────────────────────────────
 async function handleReservations(req, env, user, url, path) {
-  const company = url.searchParams.get('company') || user.company_id;
+  const company = user.company_id || url.searchParams.get('company');
   if (!company) return err('Wymagane: ?company=', 400);
   const segs  = path.split('/').filter(Boolean);
   const resId = segs[2] || null;
@@ -1590,7 +1590,7 @@ async function handleReservations(req, env, user, url, path) {
 
 // ─── KARTY FLOTOWE ────────────────────────────────────────────────────────────
 async function handleFleetCards(req, env, user, url, path) {
-  const company = url.searchParams.get('company') || user.company_id;
+  const company = user.company_id || url.searchParams.get('company');
   if (!company) return err('Wymagane: ?company=', 400);
   const segs   = path.split('/').filter(Boolean);
   const cardId = segs[2] || null;
@@ -1705,7 +1705,7 @@ async function handleApiKeys(req, env, user, url, path) {
 // ─── HISTORIA DEKLARACJI DT-1 ────────────────────────────────────────────────
 async function handleDt1Declarations(req, env, user, url, path) {
   const segs = path.split('/').filter(Boolean); // ['api','dt1-declarations',id?]
-  const company = url.searchParams.get('company') || user.company_id;
+  const company = user.company_id || url.searchParams.get('company');
   const declId  = segs[2] || null;
 
   if (req.method === 'GET') {
@@ -1746,7 +1746,7 @@ async function handleDt1Declarations(req, env, user, url, path) {
 // ─── WEBHOOKI WYCHODZĄCE ──────────────────────────────────────────────────────
 async function handleWebhooks(req, env, user, url, path) {
   const segs  = path.split('/').filter(Boolean);
-  const company = url.searchParams.get('company') || user.company_id;
+  const company = user.company_id || url.searchParams.get('company');
   const hookId  = segs[2] || null;
 
   if (req.method === 'GET' && !hookId) {
@@ -1954,7 +1954,7 @@ async function tekomGetVehicles(token) {
 
 async function handleTekomIntegration(req, env, user, url, path) {
   if (!['admin','kierownik'].includes(user.role)) return err('Brak uprawnień', 403);
-  const company = url.searchParams.get('company') || user.company_id;
+  const company = user.company_id || url.searchParams.get('company');
   if (!company) return err('Podaj ?company=', 400);
   const cfgKey = `tekom_cfg_${company}`;
 
@@ -3142,7 +3142,7 @@ async function handleGpsWebhook(req, env, user, url) {
   }
   if (!records.length) return err('Brak danych GPS w payload');
 
-  const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
+  const company = user.company_id || url.searchParams.get('company') || 'mtoilet';
   if (user._apiKey && user.company_id && user.company_id !== company)
     return err('Brak dostępu do tej firmy', 403);
 
@@ -3258,7 +3258,7 @@ async function handleFuelWebhook(req, env, user, url) {
   }
   if (!records.length) return err('Brak wierszy tankowań w payload');
 
-  const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
+  const company = user.company_id || url.searchParams.get('company') || 'mtoilet';
   if (user._apiKey && user.company_id && user.company_id !== company)
     return err('Brak dostępu do tej firmy', 403);
 
@@ -3319,7 +3319,7 @@ async function handleFuelWebhook(req, env, user, url) {
 // ─── ALERT TYPES ─────────────────────────────────────────────────────────────
 async function handleAlertTypes(req, env, user, url, path) {
   const segs = path.split('/').filter(Boolean);
-  const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
+  const company = user.company_id || url.searchParams.get('company') || 'mtoilet';
   const canManage = user.role === 'admin' || (JSON.parse(user.extra_permissions || '[]')).includes('manage_alert_types');
 
   if (req.method === 'GET') {
@@ -3470,7 +3470,7 @@ async function handleNotifLog(req, env, user, url, path) {
 // ─── MAINTENANCE TEMPLATES ────────────────────────────────────────────────────
 async function handleMaintenanceTemplates(req, env, user, url, path) {
   const segs = path.split('/').filter(Boolean);
-  const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
+  const company = user.company_id || url.searchParams.get('company') || 'mtoilet';
   const canManage = user.role === 'admin' || user.role === 'kierownik'
     || (JSON.parse(user.extra_permissions || '[]')).includes('manage_templates');
 
@@ -3794,7 +3794,7 @@ async function runNightlyAnalysis(env) {
 
 // ─── POLISY UBEZPIECZENIOWE (D1) ─────────────────────────────────────────────
 async function handlePoliciesDB(req, env, user, url, path) {
-  const company = url.searchParams.get('company') || user.company_id;
+  const company = user.company_id || url.searchParams.get('company');
   const segs = path.split('/').filter(Boolean); // ['api','policies-db', id?]
   const id = segs[2] || null;
   const method = req.method;
@@ -3850,7 +3850,7 @@ async function handlePoliciesDB(req, env, user, url, path) {
 
 // ─── HARMONOGRAM SERWISOWY ────────────────────────────────────────────────────
 async function handleServiceSchedules(req, env, user, url, path) {
-  const company = url.searchParams.get('company') || user.company_id;
+  const company = user.company_id || url.searchParams.get('company');
   const segs = path.split('/').filter(Boolean);
   const id = segs[2] || null;
   const method = req.method;
@@ -3920,7 +3920,7 @@ function _addMonths(dateStr, months) {
 
 // ─── ROZLICZENIA KM PRACOWNICZYCH ─────────────────────────────────────────────
 async function handleMileageClaims(req, env, user, url, path) {
-  const company = url.searchParams.get('company') || user.company_id;
+  const company = user.company_id || url.searchParams.get('company');
   const segs = path.split('/').filter(Boolean);
   const id     = segs[2] || null;
   const action = segs[3] || null; // approve | reject | pay
@@ -3950,7 +3950,7 @@ async function handleMileageClaims(req, env, user, url, path) {
       `INSERT INTO mileage_claims (id,company_id,nr_rej,driver_name,claim_date,km_start,km_end,km_total,purpose,rate,amount,status,notes)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
     ).bind(cid, company, d.nr_rej||null, d.driver_name, d.claim_date, d.km_start??null, d.km_end??null,
-      kmTotal, d.purpose||null, rate, amount, d.status||'pending', d.notes||null).run();
+      kmTotal, d.purpose||null, rate, amount, 'pending', d.notes||null).run();
     return json({ ok: true, id: cid, amount });
   }
 
@@ -3960,10 +3960,10 @@ async function handleMileageClaims(req, env, user, url, path) {
     const rate   = d.rate ?? 0.89;
     const amount = parseFloat((kmTotal * rate).toFixed(2));
     await env.DB.prepare(
-      `UPDATE mileage_claims SET nr_rej=?,driver_name=?,claim_date=?,km_start=?,km_end=?,km_total=?,purpose=?,rate=?,amount=?,status=?,notes=?
-       WHERE id=? AND company_id=?`
+      `UPDATE mileage_claims SET nr_rej=?,driver_name=?,claim_date=?,km_start=?,km_end=?,km_total=?,purpose=?,rate=?,amount=?,notes=?
+       WHERE id=? AND company_id=? AND status='pending'`
     ).bind(d.nr_rej||null, d.driver_name, d.claim_date, d.km_start??null, d.km_end??null,
-      kmTotal, d.purpose||null, rate, amount, d.status||'pending', d.notes||null, id, company).run();
+      kmTotal, d.purpose||null, rate, amount, d.notes||null, id, company).run();
     return json({ ok: true, amount });
   }
 
