@@ -6142,7 +6142,7 @@ function impXlProcess(f) {
       showImpPreview(imported,'xl');
       document.getElementById('imp-xl-result').innerHTML=`<div class="gbox"><i class="ti ti-circle-check"></i>Wczytano ${imported.length} pojazdów z ${rows.length} wierszy. Sprawdź podgląd poniżej.</div>`;
     } catch(err) {
-      document.getElementById('imp-xl-result').innerHTML=`<div class="ebox"><i class="ti ti-alert-circle"></i>Błąd odczytu: ${err.message}</div>`;
+      document.getElementById('imp-xl-result').innerHTML=`<div class="ebox"><i class="ti ti-alert-circle"></i>Błąd odczytu: ${esc(err.message)}</div>`;
     }
   };
   reader.readAsArrayBuffer(f);
@@ -6178,7 +6178,7 @@ function impCsvHandle(inp) {
       showImpPreview(imported,'csv');
       document.getElementById('imp-csv-result').innerHTML=`<div class="gbox"><i class="ti ti-circle-check"></i>Wczytano ${imported.length} pojazdów.</div>`;
     } catch(err) {
-      document.getElementById('imp-csv-result').innerHTML=`<div class="ebox">Błąd: ${err.message}</div>`;
+      document.getElementById('imp-csv-result').innerHTML=`<div class="ebox">Błąd: ${esc(err.message)}</div>`;
     }
   };
   reader.readAsText(inp.files[0],'UTF-8');
@@ -6208,7 +6208,7 @@ function impJsonHandle(inp) {
         toast(`✓ Backup wczytany — ${count} pojazdów, ${state.selected?.length||0} zaznaczonych`);
       }else{throw new Error('Nieprawidłowy format JSON');}
     } catch(err) {
-      document.getElementById('imp-json-result').innerHTML=`<div class="ebox">Błąd: ${err.message}</div>`;
+      document.getElementById('imp-json-result').innerHTML=`<div class="ebox">Błąd: ${esc(err.message)}</div>`;
     }
   };
   reader.readAsText(inp.files[0],'UTF-8');
@@ -7640,7 +7640,7 @@ async function cepikCheckSingle() {
     const json = await cepikFetch(nr, woj==='auto'?'auto':woj);
     const items = json?.data||[];
     if(!items.length) {
-      resEl.innerHTML=`<div class="wbox"><i class="ti ti-alert-triangle"></i>Pojazd <strong>${nr}</strong> nie znaleziony w CEPiK w żadnym województwie. Sprawdź numer rejestracyjny.</div>`;
+      resEl.innerHTML=`<div class="wbox"><i class="ti ti-alert-triangle"></i>Pojazd <strong>${esc(nr)}</strong> nie znaleziony w CEPiK w żadnym województwie. Sprawdź numer rejestracyjny.</div>`;
       return;
     }
     const attrs    = items[0]?.attributes||{};
