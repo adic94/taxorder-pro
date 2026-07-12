@@ -122,7 +122,7 @@ window.ZsiaImporter = (() => {
       <div style="background:var(--bg2);border:1px solid var(--blue);border-radius:var(--radius-lg);padding:20px;margin-top:1rem">
         <div style="font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px">
           <i class="ti ti-database-import" style="color:var(--blue)"></i>
-          Podgląd importu ZSIA — <span style="color:var(--text2);font-weight:400">${filename}</span>
+          Podgląd importu ZSIA — <span style="color:var(--text2);font-weight:400">${esc(filename)}</span>
         </div>
 
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:16px">

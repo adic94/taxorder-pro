@@ -218,7 +218,7 @@ window.FuelImport = (function () {
     if (!el) return;
 
     const schemaOpts = Object.keys(_savedSchemas).map(n =>
-      `<option value="${n}">${n}</option>`).join('');
+      `<option value="${esc(n)}">${esc(n)}</option>`).join('');
 
     el.innerHTML = `
       ${schemaOpts ? `
@@ -241,7 +241,7 @@ window.FuelImport = (function () {
             <label class="vdl">${label}</label>
             <select id="fuel-map-${field}" class="fi" onchange="FuelImport.updateMap('${field}',this.value)">
               <option value="-1">— pomijaj —</option>
-              ${_headers.map((h,i) => `<option value="${i}" ${_colMap[field]===i?'selected':''}>${h}</option>`).join('')}
+              ${_headers.map((h,i) => `<option value="${i}" ${_colMap[field]===i?'selected':''}>${esc(h)}</option>`).join('')}
             </select>
           </div>`).join('')}
       </div>`;

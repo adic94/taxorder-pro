@@ -147,10 +147,10 @@ window.TaxOrderNotifSettings = (function () {
       const fg = (a.days??0) < 0 ? '#991b1b' : (a.days??0) <= 7 ? '#92400e' : '#166534';
       const badge = (a.days??0) < 0 ? `Wygasło ${Math.abs(a.days??0)}d temu` : `za ${a.days??'?'} dni`;
       return `<tr>
-        <td style="font-family:var(--mono);font-weight:700">${a.nrRej||a.subject||'—'}</td>
-        <td style="font-size:12px">${a.subject||a.typeId}</td>
+        <td style="font-family:var(--mono);font-weight:700">${esc(a.nrRej||a.subject||'—')}</td>
+        <td style="font-size:12px">${esc(a.subject||a.typeId)}</td>
         <td><span style="font-size:11px;background:${bg};color:${fg};padding:2px 8px;border-radius:99px">${badge}</span></td>
-        <td style="font-size:11px;color:var(--text3)">${a.typeId}</td>
+        <td style="font-size:11px;color:var(--text3)">${esc(a.typeId)}</td>
       </tr>`;
     }).join('') : `<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text3)">
       <i class="ti ti-circle-check" style="font-size:32px;display:block;margin-bottom:8px;color:var(--green)"></i>

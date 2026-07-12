@@ -222,7 +222,7 @@ WZ124HW;2025-06-01;07:45:00;12430;Adam Nowak;65;al. Jerozolimskie 120, Warszawa`
 
         ${unknownNrRej.length ? `
         <div class="wbox" style="margin-bottom:12px"><i class="ti ti-alert-triangle"></i>
-          Nieznane tablice rejestracyjne (brak w bazie pojazdów): ${unknownNrRej.map(n=>`<strong>${n}</strong>`).join(', ')}
+          Nieznane tablice rejestracyjne (brak w bazie pojazdów): ${unknownNrRej.map(n=>`<strong>${esc(n)}</strong>`).join(', ')}
         </div>` : ''}
 
         <div style="font-size:12px;font-weight:600;margin-bottom:8px">Aktualizacje stanu licznika:</div>
@@ -234,7 +234,7 @@ WZ124HW;2025-06-01;07:45:00;12430;Adam Nowak;65;al. Jerozolimskie 120, Warszawa`
               const currKm = v?.stanKilometrow || 0;
               const diff = newKm - currKm;
               return `<tr>
-                <td style="font-family:var(--mono);font-weight:700">${nrRej}</td>
+                <td style="font-family:var(--mono);font-weight:700">${esc(nrRej)}</td>
                 <td style="font-family:var(--mono)">${currKm ? currKm.toLocaleString('pl-PL') : '—'}</td>
                 <td style="font-family:var(--mono);color:var(--blue);font-weight:600">${newKm.toLocaleString('pl-PL')}</td>
                 <td style="font-family:var(--mono);color:${diff>0?'var(--green)':diff<0?'var(--red)':'var(--text3)'}">${diff>0?'+'+diff.toLocaleString('pl-PL'):diff.toLocaleString('pl-PL')} km</td>

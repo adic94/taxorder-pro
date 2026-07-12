@@ -53,9 +53,9 @@ window.TekomSync = (function () {
         ${cfg?.configured ? `
           <div style="background:var(--bg3);border-radius:var(--radius);padding:12px;margin-bottom:16px;font-size:12px">
             <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px">
-              <span style="color:var(--text3)">Login:</span><span style="font-weight:500">${cfg.login || '—'}</span>
-              ${cfg.serverName ? `<span style="color:var(--text3)">Serwer:</span><span>${cfg.serverName}</span>` : ''}
-              ${cfg.dbName     ? `<span style="color:var(--text3)">Baza:</span><span>${cfg.dbName}</span>` : ''}
+              <span style="color:var(--text3)">Login:</span><span style="font-weight:500">${esc(cfg.login || '—')}</span>
+              ${cfg.serverName ? `<span style="color:var(--text3)">Serwer:</span><span>${esc(cfg.serverName)}</span>` : ''}
+              ${cfg.dbName     ? `<span style="color:var(--text3)">Baza:</span><span>${esc(cfg.dbName)}</span>` : ''}
               <span style="color:var(--text3)">Ostatni sync:</span>
               <span>${cfg.lastSync ? _fmtDate(cfg.lastSync) + ` (${cfg.lastSyncVehicles||0} pojazdów)` : 'Nigdy'}</span>
             </div>
@@ -176,17 +176,17 @@ window.TekomSync = (function () {
         if (d.ok) {
           res.innerHTML = `
             <div style="background:#d1fae5;border:1px solid #6ee7b7;border-radius:var(--radius);padding:12px">
-              <div style="font-weight:600;color:#065f46"><i class="ti ti-circle-check"></i> ${d.msg}</div>
+              <div style="font-weight:600;color:#065f46"><i class="ti ti-circle-check"></i> ${esc(d.msg)}</div>
               ${d.sampleVehicles?.length ? `
                 <div style="margin-top:8px;font-size:11px;color:#047857">
-                  Przykładowe pojazdy: ${d.sampleVehicles.map(v => v.Registration||v.registration||JSON.stringify(v).slice(0,40)).join(', ')}
+                  Przykładowe pojazdy: ${d.sampleVehicles.map(v => esc(v.Registration||v.registration||String(v).slice(0,40))).join(', ')}
                 </div>` : ''}
             </div>`;
         } else {
           res.innerHTML = `
             <div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:var(--radius);padding:12px">
               <div style="font-weight:600;color:#991b1b"><i class="ti ti-alert-triangle"></i> Błąd połączenia</div>
-              <div style="font-size:12px;margin-top:4px;color:#7f1d1d">${d.msg}</div>
+              <div style="font-size:12px;margin-top:4px;color:#7f1d1d">${esc(d.msg)}</div>
             </div>`;
         }
       }

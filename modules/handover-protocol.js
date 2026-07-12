@@ -164,7 +164,7 @@ window.TaxOrderHandoverProtocol = (function () {
     if (!grid) return;
     grid.innerHTML = photos.map(p => `
       <div style="position:relative;width:70px;height:70px">
-        <img src="${_cfApi()}/api/docs/file/${p.r2_key}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid var(--border)">
+        <img src="${_cfApi()}/api/docs/file/${esc(p.r2_key)}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid var(--border)">
       </div>`).join('');
   }
 

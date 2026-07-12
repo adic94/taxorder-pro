@@ -299,7 +299,7 @@
 
   // ─── Helpers renderowania ─────────────────────────────────────────────────
   function fileUrl(r2Key) {
-    return `${API()}/api/docs/file/${r2Key}`;
+    return `${API()}/api/docs/file/${encodeURIComponent(r2Key)}`;
   }
 
   function typeChip(type) {
