@@ -1592,7 +1592,7 @@ window.TaxOrderVehicleDetail = {
         <i class="ti ti-credit-card" style="color:var(--blue);font-size:16px;flex-shrink:0;margin-top:2px"></i>
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span style="font-family:var(--mono);font-weight:600;font-size:13px">${(c.card_no||'').replace(/\d(?=\d{4})/g,'•')}</span>
+            <span style="font-family:var(--mono);font-weight:600;font-size:13px">${esc((c.card_no||'').replace(/\d(?=\d{4})/g,'•'))}</span>
             <span class="pill pill-blue" style="font-size:10px">${esc(c.type||'—')}</span>
             <span class="pill ${STATUS_CLS[c.status]||'pill-gray'}" style="font-size:10px">${esc(c.status||'—')}</span>
           </div>
@@ -1881,10 +1881,10 @@ window.TaxOrderVehicleDetail = {
         const polyline = window.L.polyline(coords, { color: '#185FA5', weight: 3, opacity: .8 }).addTo(map);
         // Punkt startowy (zielony) i końcowy (czerwony)
         window.L.circleMarker(coords[0], { radius: 7, color: '#3B6D11', fillColor: '#5fb336', fillOpacity: 1 })
-          .bindPopup(`Start: ${withCoords[0].date} ${withCoords[0].time||''}`).addTo(map);
+          .bindPopup(`Start: ${esc(withCoords[0].date)} ${esc(withCoords[0].time||'')}`).addTo(map);
         if (coords.length > 1) {
           window.L.circleMarker(coords[coords.length-1], { radius: 7, color: '#A32D2D', fillColor: '#d44a4a', fillOpacity: 1 })
-            .bindPopup(`Koniec: ${withCoords[withCoords.length-1].date} ${withCoords[withCoords.length-1].time||''}`).addTo(map);
+            .bindPopup(`Koniec: ${esc(withCoords[withCoords.length-1].date)} ${esc(withCoords[withCoords.length-1].time||'')}`).addTo(map);
         }
         map.fitBounds(polyline.getBounds(), { padding: [20, 20] });
       }, 150);
@@ -1893,7 +1893,7 @@ window.TaxOrderVehicleDetail = {
     return `
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
         <div class="stat-chip"><span>${gps.length}</span> rekordów GPS</div>
-        ${dates.length ? `<div class="stat-chip"><span>${dates[0]}</span> — <span>${dates[dates.length-1]}</span></div>` : ''}
+        ${dates.length ? `<div class="stat-chip"><span>${esc(dates[0])}</span> — <span>${esc(dates[dates.length-1])}</span></div>` : ''}
         ${minKm != null ? `<div class="stat-chip"><span>${minKm.toLocaleString('pl-PL')}</span> – <span>${maxKm.toLocaleString('pl-PL')} km</span></div>` : ''}
         ${drivers.length ? `<div class="stat-chip"><span>${drivers.length}</span> kierowców</div>` : ''}
         <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="TaxOrderVehicleDetail._exportGpsCsv(${v.id})">
@@ -1937,8 +1937,9 @@ window.TaxOrderVehicleDetail = {
     if (!v) return;
     const gps = [...(v.gpsHistory||[])].sort((a,b)=>(a.date+a.time)<(b.date+b.time)?1:-1);
     const headers = ['Data','Czas','Nr rej.','Km','Kierowca','V max (km/h)','Lokalizacja','Zdarzenie'];
+    const _c = v => { const s=String(v??''); return '"'+(/^[=+\-@]/.test(s)?'\t'+s:s).replace(/"/g,'""')+'"'; };
     const csv = '﻿' + [headers, ...gps.map(r=>[r.date,r.time,r.nrRej,r.km??'',r.driver,r.speed??'',r.location,r.event])]
-      .map(row => row.map(c=>`"${String(c??'').replace(/"/g,'""')}"`).join(';')).join('\r\n');
+      .map(row => row.map(_c).join(';')).join('\r\n');
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href=url; a.download=`gps_${v.nrRej}_${new Date().toISOString().slice(0,10)}.csv`;
