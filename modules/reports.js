@@ -1589,8 +1589,8 @@ tr:hover td{background:#f9fafb}
 
   // ── FK Export — Symfonia/Comarch CSV ──────────────────────────────────────
   function exportFkCsv() {
-    const yr   = parseInt(document.getElementById('fr-year')?.value  || new Date().getFullYear());
-    const mo   = parseInt(document.getElementById('fr-month')?.value || 0);
+    const yr   = parseInt(document.getElementById('fr-fk-year')?.value  || new Date().getFullYear());
+    const mo   = parseInt(document.getElementById('fr-fk-month')?.value || 0);
 
     const accountWn = document.getElementById('fr-fk-wn')?.value?.trim()  || '401';
     const accountMa = document.getElementById('fr-fk-ma')?.value?.trim()  || '201';
