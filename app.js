@@ -2302,12 +2302,13 @@ function renderPaliwoPage() {
 
 // ==================== MODULARNY KOKPIT ====================
 const DASH_WIDGETS = [
-  { id: 'kpi',          label: 'Wskaźniki KPI floty',          icon: 'ti-chart-bar' },
-  { id: 'notifs',       label: 'Mandaty / Kierowcy / Karty',   icon: 'ti-bell' },
-  { id: 'alerts',       label: 'Alerty terminów',              icon: 'ti-bell-ringing' },
-  { id: 'service_fuel', label: 'Serwis + Paliwo',              icon: 'ti-tools' },
-  { id: 'activity',     label: 'Aktywność floty',              icon: 'ti-activity' },
-  { id: 'structure',    label: 'Struktura floty + DT-1',       icon: 'ti-chart-pie' },
+  { id: 'kpi',              label: 'Wskaźniki KPI floty',             icon: 'ti-chart-bar' },
+  { id: 'notifs',           label: 'Mandaty / Kierowcy / Karty',      icon: 'ti-bell' },
+  { id: 'alerts',           label: 'Alerty terminów',                 icon: 'ti-bell-ringing' },
+  { id: 'service_fuel',     label: 'Serwis + Paliwo',                 icon: 'ti-tools' },
+  { id: 'activity',         label: 'Aktywność floty',                 icon: 'ti-activity' },
+  { id: 'policies_claims',  label: 'Polisy wygasajace + Rozliczenia', icon: 'ti-shield-check' },
+  { id: 'structure',        label: 'Struktura floty + DT-1',          icon: 'ti-chart-pie' },
 ];
 
 const _DASH_LS_KEY = 'taxorder-dash-config';
