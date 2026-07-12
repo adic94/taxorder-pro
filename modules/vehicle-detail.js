@@ -1674,7 +1674,7 @@ window.TaxOrderVehicleDetail = {
   _renderDrView(v) {
     const f = (val, unit = '') => {
       if (val == null || val === '' || val === 0) return '<span style="color:var(--text3)">—</span>';
-      return `<strong>${val}</strong>${unit ? ' <span style="color:var(--text3);font-size:10px">' + unit + '</span>' : ''}`;
+      return `<strong>${esc(String(val))}</strong>${unit ? ' <span style="color:var(--text3);font-size:10px">' + unit + '</span>' : ''}`;
     };
     const row = (code, label, val, unit = '') => `
       <tr>
@@ -1708,7 +1708,7 @@ window.TaxOrderVehicleDetail = {
               font-size:15px;font-weight:700;letter-spacing:.08em;
               padding:4px 12px;border-radius:4px;
               border:2px solid #0d2050
-            ">${v.nrRej || '—'}</div>
+            ">${esc(v.nrRej || '—')}</div>
             <div style="font-size:8px;color:#7a6a55;margin-top:4px">🇵🇱 POL</div>
           </div>
         </div>
@@ -1740,8 +1740,8 @@ window.TaxOrderVehicleDetail = {
 
         <!-- Stopka -->
         <div style="margin-top:10px;padding-top:8px;border-top:1px solid #c8b89a;display:flex;justify-content:space-between;font-size:9px;color:#7a6a55">
-          <span>H — Ważny do: ${v.docWaznyDo ? `<strong style="color:#2a1f0f">${v.docWaznyDo}</strong>` : '<em>bez daty ważności</em>'}</span>
-          <span>I — Wydany: ${v.docDataWydania ? `<strong style="color:#2a1f0f">${v.docDataWydania}</strong>` : '<span style="color:var(--text3)">—</span>'}</span>
+          <span>H — Ważny do: ${v.docWaznyDo ? `<strong style="color:#2a1f0f">${esc(v.docWaznyDo)}</strong>` : '<em>bez daty ważności</em>'}</span>
+          <span>I — Wydany: ${v.docDataWydania ? `<strong style="color:#2a1f0f">${esc(v.docDataWydania)}</strong>` : '<span style="color:var(--text3)">—</span>'}</span>
         </div>
 
         <!-- Watermark -->
