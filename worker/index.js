@@ -3954,7 +3954,7 @@ async function handleMileageClaims(req, env, user, url, path) {
       q = `UPDATE mileage_claims SET status='paid' WHERE id=? AND company_id=? AND status='approved'`;
       binds = [id, company];
     } else {
-      q = `UPDATE mileage_claims SET status=?, approved_by=?, approved_at=? WHERE id=? AND company_id=?`;
+      q = `UPDATE mileage_claims SET status=?, approved_by=?, approved_at=? WHERE id=? AND company_id=? AND status='pending'`;
       binds = [action, user.email || user.login, now, id, company];
     }
     await env.DB.prepare(q).bind(...binds).run();
