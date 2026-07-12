@@ -498,7 +498,7 @@ function renderKalkulator() {
   tbody.innerHTML = selT.map(v => `<tr>
     <td><strong style="font-family:var(--mono)">${esc(v.nrRej)}</strong></td>
     <td>${esc(v.marka)} ${esc(v.model)} <span style="font-size:11px;color:var(--text2)">${v.rok||''}</span></td>
-    <td>${v.cat?`<span class="pill ${CAT_COLORS[v.cat]||'pill-gray'}">${v.cat}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
+    <td>${v.cat?`<span class="pill ${CAT_COLORS[v.cat]||'pill-gray'}">${esc(v.cat)}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
     <td style="text-align:center">${v.miesiacePodatku||12}</td>
     <td style="text-align:right;font-family:var(--mono);color:var(--text2)">${v.rate?v.rate.toLocaleString('pl-PL')+' zł':'—'}</td>
     <td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--green)">${v.amount>0?fmt2(v.amount)+' zł':'—'}</td>
@@ -1330,7 +1330,7 @@ const _FLEET_COL_TD = {
   km:         (v)  =>`<td data-col="km" style="font-size:12px;text-align:right;font-family:var(--mono);white-space:nowrap">${v.stanKilometrow!=null?v.stanKilometrow.toLocaleString('pl-PL'):'<span style="color:var(--text3)">—</span>'}${_gpsIndicator(v)}</td>`,
   dt1ok:      (v)  =>`<td data-col="dt1ok" style="text-align:center">${_dt1CompletenessCell(v)}</td>`,
   gmina:      (v)  =>`<td data-col="gmina" onclick="event.stopPropagation()" style="font-size:11px"><select class="isel" style="width:100px;font-size:11px" onchange="setV(${v.id},'gmina',this.value);renderFormularze&&renderFormularze()">${(window.GminyRates?GminyRates.listGminy():['Warszawa']).map(g=>`<option ${(v.gmina||'Warszawa')===g?'selected':''}>${g}</option>`).join('')}</select></td>`,
-  kategoria:  (v,c)=>`<td data-col="kategoria">${c.t.cat?`<span class="pill ${CAT_COLORS[c.t.cat]||'pill-gray'}">${c.t.cat}</span>${c.needsDmcZ?'<span style="font-size:10px;color:var(--amber)"> brak DMC zesp.</span>':''}` : '<span style="color:var(--text3);font-size:11px">—</span>'}</td>`,
+  kategoria:  (v,c)=>`<td data-col="kategoria">${c.t.cat?`<span class="pill ${CAT_COLORS[c.t.cat]||'pill-gray'}">${esc(c.t.cat)}</span>${c.needsDmcZ?'<span style="font-size:10px;color:var(--amber)"> brak DMC zesp.</span>':''}` : '<span style="color:var(--text3);font-size:11px">—</span>'}</td>`,
   podatek:    (v,c)=>`<td data-col="podatek" style="text-align:right">${c.t.amount>0?`<strong style="color:var(--green);font-family:var(--mono)">${fmt2(c.t.amount)} zł</strong>`:'<span style="color:var(--text3)">—</span>'}</td>`,
   vin:        (v)  =>`<td data-col="vin" style="font-size:10px;font-family:var(--mono);color:var(--text2)">${esc(v.vin||'—')}</td>`,
   paliwo:     (v)  =>`<td data-col="paliwo" style="font-size:11px">${esc(v.paliwo||'—')}</td>`,
@@ -1341,7 +1341,7 @@ const _FLEET_COL_TD = {
   euro:       (v)  =>`<td data-col="euro" style="font-size:11px">${esc(v.euro||'—')}</td>`,
   dmcF2:      (v)  =>`<td data-col="dmcF2" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.dmcKg2!=null&&v.dmcKg2!==''?Number(v.dmcKg2).toLocaleString('pl-PL')+' kg':'—'}</td>`,
   ladownosc:  (v)  =>{const _d=v.dmcKg2||v.dmc||v.dmcMax,_m=v.masaWlasna??v.masaWlKg;const l=v.ladownosc!=null&&v.ladownosc!==''?Number(v.ladownosc):(_d&&_m!=null&&Number(_d)>Number(_m)?Number(_d)-Number(_m):null);return `<td data-col="ladownosc" style="font-size:11px;text-align:right;font-family:var(--mono)">${l!=null?l.toLocaleString('pl-PL')+' kg':'—'}</td>`;},
-  dataRej:    (v)  =>`<td data-col="dataRej" style="font-size:11px;white-space:nowrap">${v.dataRejestracji||v.dataRej||'—'}</td>`,
+  dataRej:    (v)  =>`<td data-col="dataRej" style="font-size:11px;white-space:nowrap">${esc(v.dataRejestracji||v.dataRej||'—')}</td>`,
   katDR:      (v)  =>`<td data-col="katDR" style="font-size:11px;text-align:center">${(v.katPojazdu||v.kategoria)?`<span class="pill pill-gray">${esc(v.katPojazdu||v.kategoria)}</span>`:'—'}</td>`,
 };
 
