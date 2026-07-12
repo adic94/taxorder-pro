@@ -390,9 +390,10 @@ async function handleVehicles(req, env, user, url, path) {
         dt1_category=excluded.dt1_category, dt1_tax_amount=excluded.dt1_tax_amount,
         data=excluded.data, updated_at=datetime('now')`;
 
+    const bulkCompany = url.searchParams.get('company') || user.company_id || 'mtoilet';
     const stmt = env.DB.prepare(UPSERT);
     await env.DB.batch(vehicles.map(v => stmt.bind(
-      v.company_id, v.nr_rej, v.axles_count ?? 2, v.suspension_type ?? 'pneumatyczne',
+      bulkCompany, v.nr_rej, v.axles_count ?? 2, v.suspension_type ?? 'pneumatyczne',
       v.dmc_zespolu ?? 0, v.miesiace_podatku ?? 12,
       v.dt1_category ?? null, v.dt1_tax_amount ?? null,
       typeof v.data === 'string' ? v.data : JSON.stringify(v.data ?? {})
