@@ -21,15 +21,15 @@ test.describe('Modularny kokpit', () => {
   test('kliknięcie "Dostosuj kokpit" otwiera modal', async ({ page }) => {
     await page.click('button:has-text("Dostosuj kokpit")');
     await expect(page.locator('#modal-dash-customize')).toBeVisible();
-    await expect(page.locator('#dash-customize-list li')).toHaveCount(6);
+    await expect(page.locator('#dash-customize-list li')).toHaveCount(7);
   });
 
-  test('modal zawiera wszystkie 6 widgetów z checkboxami', async ({ page }) => {
+  test('modal zawiera wszystkie 7 widgetów z checkboxami', async ({ page }) => {
     await page.click('button:has-text("Dostosuj kokpit")');
     const items = page.locator('#dash-customize-list li');
-    await expect(items).toHaveCount(6);
+    await expect(items).toHaveCount(7);
     const checkboxes = page.locator('#dash-customize-list input[type="checkbox"]');
-    await expect(checkboxes).toHaveCount(6);
+    await expect(checkboxes).toHaveCount(7);
   });
 
   test('odznaczenie widgetu i zapisanie ukrywa sekcję', async ({ page }) => {
@@ -77,8 +77,8 @@ test.describe('Modularny kokpit', () => {
     await page.click('button:has-text("Dostosuj kokpit")');
     await page.click('#modal-dash-customize button:has-text("Domyślny")');
     await waitForIdle(page);
-    // Wszystkie 6 widgetów widoczne
-    await expect(page.locator('[data-wid]:visible')).toHaveCount(6);
+    // Wszystkie 7 widgetów widoczne
+    await expect(page.locator('[data-wid]:visible')).toHaveCount(7);
   });
 
   test('KPI strip jest widoczny po zalogowaniu', async ({ page }) => {
