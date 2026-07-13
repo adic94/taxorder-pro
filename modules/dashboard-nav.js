@@ -47,7 +47,7 @@ window.TaxOrderDashNav = {
             <i class="ti ti-building-community" style="font-size:24px;color:${company?.color || '#185FA5'}"></i>
           </div>
           <div>
-            <div style="font-size:18px;font-weight:700">${company?.shortName || 'TaxOrder Pro'}</div>
+            <div style="font-size:18px;font-weight:700">${esc(company?.shortName || 'TaxOrder Pro')}</div>
             <div style="font-size:12px;color:var(--text2)">${esc(company?.name || 'System DT-1')}</div>
           </div>
           <select onchange="switchCompany(this.value)" style="margin-left:auto;padding:6px 10px;border-radius:var(--radius);border:1px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">

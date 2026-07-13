@@ -82,7 +82,7 @@ window.TaxOrderInspectionCalendar = (function () {
       tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:3rem;color:var(--text3)">
         <i class="ti ti-circle-check" style="font-size:40px;display:block;margin-bottom:10px;color:var(--green)"></i>
         <div style="font-size:14px;font-weight:500">Brak terminów do wyświetlenia</div>
-        <div style="font-size:12px;margin-top:4px">Horyzont: ${_horizon} dni${_filter ? ` · filtr: ${ENTRY_DEFS.find(d=>d.type===_filter)?.label||_filter}` : ''}</div>
+        <div style="font-size:12px;margin-top:4px">Horyzont: ${_horizon} dni${_filter ? ` · filtr: ${esc(ENTRY_DEFS.find(d=>d.type===_filter)?.label||_filter)}` : ''}</div>
       </td></tr>`;
       return;
     }
