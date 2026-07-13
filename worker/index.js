@@ -4565,14 +4565,15 @@ async function queueNotificationJobs(env) {
 }
 
 // ─── EMAIL: Resend API ───────────────────────────────────────────────────────
+const _he = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function buildEmailHtml(alerts) {
   const rows = alerts.map(a => {
     const daysStr = a.days != null
       ? (a.days <= 0 ? '<b style="color:#c0392b">WYGASŁO</b>' : `za <b>${a.days}</b> dni`)
       : '';
     const kmStr   = a.km   != null ? `, za <b>${a.km}</b> km` : '';
-    return `<tr><td style="padding:6px 12px;border-bottom:1px solid #eee">${a.nrRej}</td>
-              <td style="padding:6px 12px;border-bottom:1px solid #eee">${a.label || a.typeId}</td>
+    return `<tr><td style="padding:6px 12px;border-bottom:1px solid #eee">${_he(a.nrRej)}</td>
+              <td style="padding:6px 12px;border-bottom:1px solid #eee">${_he(a.label || a.typeId)}</td>
               <td style="padding:6px 12px;border-bottom:1px solid #eee">${daysStr}${kmStr}</td></tr>`;
   }).join('');
   return `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#333;max-width:600px;margin:0 auto">
