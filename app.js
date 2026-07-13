@@ -343,6 +343,18 @@ function filterVeh() {
       else if (col === 'leasNo' && !String(v.leasingContractNo||'').toLowerCase().includes(lv)) return false;
       else if (col === 'leasStart' && !String(v.leasingStart||'').includes(val)) return false;
       else if (col === 'leasEnd' && !String(v.leasingEnd||'').includes(val)) return false;
+      else if (col === 'wlasciciel' && !String(v.wlasciciel||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'ownType' && !String(v.ownershipType||v.ownership_type||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'kartaPal' && !String(v.kartaOrlen||v.kartaFlotowa||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'assetCode' && !String(v.assetCode||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'nrSilnika' && !String(v.nrSilnika||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'kolor' && !String(v.kolor||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'lastInsp' && !String(v.lastInspection||'').includes(val)) return false;
+      else if (col === 'drExpiry' && !String(v.dataWaznosciDR||'').includes(val)) return false;
+      else if (col === 'rentStart' && !String(v.rentalStart||'').includes(val)) return false;
+      else if (col === 'rentEnd' && !String(v.rentalEnd||'').includes(val)) return false;
+      else if (col === 'purchDate' && !String(v.purchaseDate||v.dataNabycia||'').includes(val)) return false;
+      else if (col === 'assEnd' && !String(v.assEnd||'').includes(val)) return false;
       else if (['rok','dmc','km','poj','mocKw','masaWl','msc'].includes(col) && !fv.includes(lv)) return false;
     }
     return true;
@@ -668,7 +680,11 @@ function exportFleetCSV() {
     'Tacho - Nr','Tacho - Ostatnia legalizacja','Tacho - Następna legalizacja',
     'Kat.pojazdu','Paliwo','Ładowność (kg)','Masa własna (kg)','Norma (l/100km)',
     'Właściciel','Osie','Zawieszenie','Ownership','Mies. podatku','Kod wewnętrzny',
-    'Oddział','Leasingodawca','Leasingobiorca','Nr umowy leasingowej','Leasing od','Leasing do'
+    'Oddział','Leasingodawca','Leasingobiorca','Nr umowy leasingowej','Leasing od','Leasing do',
+    'Właściciel','Typ własności','Karta paliwowa','Kod wewnętrzny','Nr silnika','Kolor',
+    'Ostatni przegląd','Ważność DR','Wynajem od','Wynajem do',
+    'Składka OC (zł)','Składka AC (zł)','Rata leasingu (zł)','Cena wykupu (zł)',
+    'Data zakupu','Cena zakupu (zł)','Norma spalania (l/100km)','NNW/Assistance do'
   ];
   const list = filterVeh();
   const rows = list.map(v => [
@@ -685,7 +701,12 @@ function exportFleetCSV() {
     v.wlasciciel||'', v.osie||'', v.zawieszenie||'',
     v.ownership_type||'', v.miesiacePodatku||12, v.assetCode||'',
     v.oddzial||v.branch_id||'', v.leasingCompany||'', v.leasingUser||'',
-    v.leasingContractNo||'', v.leasingStart||'', v.leasingEnd||''
+    v.leasingContractNo||'', v.leasingStart||'', v.leasingEnd||'',
+    v.wlasciciel||'', v.ownershipType||v.ownership_type||'', v.kartaOrlen||v.kartaFlotowa||'',
+    v.assetCode||'', v.nrSilnika||'', v.kolor||'',
+    v.lastInspection||'', v.dataWaznosciDR||'', v.rentalStart||'', v.rentalEnd||'',
+    v.ocPremium??'', v.acPremium??'', v.leasingRate??'', v.leasingBuyout??'',
+    v.purchaseDate||v.dataNabycia||'', v.purchasePrice??'', v.normaSpalania??'', v.assEnd||''
   ]);
   const csv = [HEADERS, ...rows]
     .map(r => r.map(csvCell).join(';'))
@@ -1287,19 +1308,28 @@ const _COL_FILTERS_LS = 'taxColFilters';
 const _COL_ORDER_DEFAULT = [
   'rok','typ','dmc','osie','zawieszenie','dmczesp','mies',
   'status','oc','ac','przeglad','ocInsurer','acInsurer',
-  'ocStart','acStart',
+  'ocStart','acStart','assEnd',
   'udt','tacho','kierowca','km','oddzial','dt1ok','gmina',
   'kategoria','podatek','vin','paliwo','poj','mocKw',
   'masaWl','msc','euro','dmcF2','ladownosc','dataRej','katDR',
   'leasOwner','leasUser','leasNo','leasStart','leasEnd',
+  'wlasciciel','ownType','kartaPal','assetCode','nrSilnika','kolor',
+  'lastInsp','drExpiry','rentStart','rentEnd',
+  'ocPrem','acPrem','leasRate','leasBuyout','purchDate','purchPrice','normaSpal',
 ];
 
 const _COL_FLEET = {rok:1,typ:1,dmc:0,osie:0,zawieszenie:0,dmczesp:0,mies:0,status:1,oc:1,ac:1,przeglad:1,kategoria:0,podatek:0,ocInsurer:1,acInsurer:0,udt:1,tacho:1,kierowca:1,km:1,dt1ok:0,gmina:0,
   vin:0,paliwo:0,poj:0,mocKw:0,masaWl:0,msc:0,euro:0,dmcF2:0,ladownosc:0,dataRej:0,katDR:0,
-  ocStart:0,acStart:0,oddzial:1,leasOwner:0,leasUser:0,leasNo:0,leasStart:0,leasEnd:0};
+  ocStart:0,acStart:0,assEnd:0,oddzial:1,leasOwner:0,leasUser:0,leasNo:0,leasStart:0,leasEnd:0,
+  wlasciciel:0,ownType:0,kartaPal:0,assetCode:0,nrSilnika:0,kolor:0,
+  lastInsp:0,drExpiry:0,rentStart:0,rentEnd:0,
+  ocPrem:0,acPrem:0,leasRate:0,leasBuyout:0,purchDate:0,purchPrice:0,normaSpal:0};
 const _COL_DT1   = {rok:1,typ:1,dmc:1,osie:1,zawieszenie:1,dmczesp:1,mies:1,status:1,oc:0,ac:0,przeglad:0,kategoria:1,podatek:1,ocInsurer:0,acInsurer:0,udt:0,tacho:0,kierowca:1,km:0,dt1ok:1,gmina:1,
   vin:0,paliwo:0,poj:0,mocKw:0,masaWl:1,msc:0,euro:0,dmcF2:1,ladownosc:1,dataRej:1,katDR:1,
-  ocStart:0,acStart:0,oddzial:0,leasOwner:0,leasUser:0,leasNo:0,leasStart:0,leasEnd:0};
+  ocStart:0,acStart:0,assEnd:0,oddzial:0,leasOwner:0,leasUser:0,leasNo:0,leasStart:0,leasEnd:0,
+  wlasciciel:0,ownType:0,kartaPal:0,assetCode:0,nrSilnika:0,kolor:0,
+  lastInsp:0,drExpiry:0,rentStart:0,rentEnd:0,
+  ocPrem:0,acPrem:0,leasRate:0,leasBuyout:0,purchDate:0,purchPrice:0,normaSpal:0};
 const _COL_DEFAULTS = {..._COL_FLEET};
 
 let _colVis   = null;
@@ -1350,6 +1380,24 @@ const _FLEET_COL_TH = {
   leasNo:     `<th data-col="leasNo" title="Numer umowy leasingowej">Nr umowy</th>`,
   leasStart:  `<th data-col="leasStart" title="Leasing — data początkowa umowy">Leasing od</th>`,
   leasEnd:    `<th data-col="leasEnd" title="Leasing — data końca umowy (alert przy wygasaniu)">Leasing do</th>`,
+  wlasciciel: `<th data-col="wlasciciel" class="sort-th" onclick="sortBy('wlasciciel')" title="Właściciel pojazdu">Właściciel</th>`,
+  ownType:    `<th data-col="ownType" title="Typ własności (własna/leasing/wynajem)">Typ własności</th>`,
+  kartaPal:   `<th data-col="kartaPal" class="sort-th" onclick="sortBy('kartaOrlen')" title="Numer karty paliwowej">Karta paliwowa</th>`,
+  assetCode:  `<th data-col="assetCode" class="sort-th" onclick="sortBy('assetCode')" title="Kod wewnętrzny / inwentarzowy pojazdu">Kod wewnętrzny</th>`,
+  nrSilnika:  `<th data-col="nrSilnika" title="Numer silnika (z dowodu rejestracyjnego)">Nr silnika</th>`,
+  kolor:      `<th data-col="kolor" class="sort-th" onclick="sortBy('kolor')" title="Kolor pojazdu">Kolor</th>`,
+  lastInsp:   `<th data-col="lastInsp" class="sort-th" onclick="sortBy('lastInspection')" title="Data ostatniego przeglądu technicznego">Ostatni przegląd</th>`,
+  drExpiry:   `<th data-col="drExpiry" class="sort-th" onclick="sortBy('dataWaznosciDR')" title="Data ważności dowodu rejestracyjnego">Ważność DR</th>`,
+  rentStart:  `<th data-col="rentStart" title="Wynajem — data początkowa">Wynajem od</th>`,
+  rentEnd:    `<th data-col="rentEnd" title="Wynajem — data końca (alert przy wygasaniu)">Wynajem do</th>`,
+  ocPrem:     `<th data-col="ocPrem" class="sort-th" onclick="sortBy('ocPremium')" style="text-align:right" title="Składka OC (roczna)">Składka OC</th>`,
+  acPrem:     `<th data-col="acPrem" class="sort-th" onclick="sortBy('acPremium')" style="text-align:right" title="Składka AC (roczna)">Składka AC</th>`,
+  leasRate:   `<th data-col="leasRate" class="sort-th" onclick="sortBy('leasingRate')" style="text-align:right" title="Miesięczna rata leasingowa netto">Rata leasingu</th>`,
+  leasBuyout: `<th data-col="leasBuyout" class="sort-th" onclick="sortBy('leasingBuyout')" style="text-align:right" title="Cena wykupu po zakończeniu leasingu">Cena wykupu</th>`,
+  purchDate:  `<th data-col="purchDate" class="sort-th" onclick="sortBy('purchaseDate')" title="Data zakupu pojazdu">Data zakupu</th>`,
+  purchPrice: `<th data-col="purchPrice" class="sort-th" onclick="sortBy('purchasePrice')" style="text-align:right" title="Cena zakupu pojazdu netto">Cena zakupu</th>`,
+  normaSpal:  `<th data-col="normaSpal" class="sort-th" onclick="sortBy('normaSpalania')" style="text-align:right" title="Norma spalania (l/100 km)">Spalanie</th>`,
+  assEnd:     `<th data-col="assEnd" title="Polisa Assistance/NNW — data ważności">NNW/Assist. do</th>`,
 };
 
 // ── Komórki filtrów ──────────────────────────────────────────────────
@@ -1394,6 +1442,24 @@ const _FLEET_COL_FI = {
   leasNo:     `<th data-col="leasNo"><input class="col-fi" type="text" placeholder="⌕ Nr umowy" oninput="applyColFilter('leasNo',this.value)"></th>`,
   leasStart:  `<th data-col="leasStart"><input class="col-fi" type="date" oninput="applyColFilter('leasStart',this.value)"></th>`,
   leasEnd:    `<th data-col="leasEnd"><input class="col-fi" type="date" oninput="applyColFilter('leasEnd',this.value)"></th>`,
+  wlasciciel: `<th data-col="wlasciciel"><input class="col-fi" type="text" placeholder="⌕ Właściciel" oninput="applyColFilter('wlasciciel',this.value)"></th>`,
+  ownType:    `<th data-col="ownType"><input class="col-fi" type="text" placeholder="⌕ leasing…" oninput="applyColFilter('ownType',this.value)"></th>`,
+  kartaPal:   `<th data-col="kartaPal"><input class="col-fi" type="text" placeholder="⌕ Nr karty" oninput="applyColFilter('kartaPal',this.value)"></th>`,
+  assetCode:  `<th data-col="assetCode"><input class="col-fi" type="text" placeholder="⌕ Kod" oninput="applyColFilter('assetCode',this.value)"></th>`,
+  nrSilnika:  `<th data-col="nrSilnika"><input class="col-fi" type="text" placeholder="⌕ Nr silnika" oninput="applyColFilter('nrSilnika',this.value)"></th>`,
+  kolor:      `<th data-col="kolor"><input class="col-fi" type="text" placeholder="⌕ Kolor" oninput="applyColFilter('kolor',this.value)"></th>`,
+  lastInsp:   `<th data-col="lastInsp"><input class="col-fi" type="date" oninput="applyColFilter('lastInsp',this.value)"></th>`,
+  drExpiry:   `<th data-col="drExpiry"><input class="col-fi" type="date" oninput="applyColFilter('drExpiry',this.value)"></th>`,
+  rentStart:  `<th data-col="rentStart"><input class="col-fi" type="date" oninput="applyColFilter('rentStart',this.value)"></th>`,
+  rentEnd:    `<th data-col="rentEnd"><input class="col-fi" type="date" oninput="applyColFilter('rentEnd',this.value)"></th>`,
+  ocPrem:     `<th data-col="ocPrem"></th>`,
+  acPrem:     `<th data-col="acPrem"></th>`,
+  leasRate:   `<th data-col="leasRate"></th>`,
+  leasBuyout: `<th data-col="leasBuyout"></th>`,
+  purchDate:  `<th data-col="purchDate"><input class="col-fi" type="date" oninput="applyColFilter('purchDate',this.value)"></th>`,
+  purchPrice: `<th data-col="purchPrice"></th>`,
+  normaSpal:  `<th data-col="normaSpal"></th>`,
+  assEnd:     `<th data-col="assEnd"><input class="col-fi" type="date" oninput="applyColFilter('assEnd',this.value)"></th>`,
 };
 
 // ── Renderery komórek danych ─────────────────────────────────────────
@@ -1439,6 +1505,24 @@ const _FLEET_COL_TD = {
   leasNo:     (v)  =>`<td data-col="leasNo" onclick="event.stopPropagation()"><input class="inum" type="text" style="width:100px;font-size:11px" value="${esc(v.leasingContractNo||'')}" placeholder="—" onchange="setV(${v.id},'leasingContractNo',this.value)" title="Nr umowy leasingowej"></td>`,
   leasStart:  (v)  =>`<td data-col="leasStart" onclick="event.stopPropagation()"><input class="inum" type="date" style="font-size:11px;width:110px" value="${esc(v.leasingStart||'')}" onchange="setV(${v.id},'leasingStart',this.value)" title="Leasing od"></td>`,
   leasEnd:    (v)  =>{ const _pill=v.leasingEnd?_datePill(v.leasingEnd):''; return `<td data-col="leasEnd" onclick="event.stopPropagation()"><div style="display:flex;flex-direction:column;gap:2px">${_pill}<input class="inum" type="date" style="font-size:10px;width:110px" value="${esc(v.leasingEnd||'')}" onchange="setV(${v.id},'leasingEnd',this.value)" title="Leasing do"></div></td>`; },
+  wlasciciel: (v)  =>`<td data-col="wlasciciel" style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(v.wlasciciel||'')}">${v.wlasciciel?esc(v.wlasciciel):'<span style="color:var(--text3)">—</span>'}</td>`,
+  ownType:    (v)  =>{ const OT={own:'Własna',leasing:'Leasing',rental:'Wynajem',leaseback:'Leasing zwrotny',service_loan:'Zastępczy'}; const OC={own:'pill-green',leasing:'pill-blue',rental:'pill-amber',leaseback:'pill-blue',service_loan:'pill-gray'}; const ot=v.ownershipType||v.ownership_type; return `<td data-col="ownType" style="font-size:11px">${ot?`<span class="pill ${OC[ot]||'pill-gray'}">${OT[ot]||esc(ot)}</span>`:'<span style="color:var(--text3)">—</span>'}</td>`; },
+  kartaPal:   (v)  =>`<td data-col="kartaPal" style="font-size:11px;font-family:var(--mono)">${esc(v.kartaOrlen||v.kartaFlotowa||'—')}</td>`,
+  assetCode:  (v)  =>`<td data-col="assetCode" onclick="event.stopPropagation()"><input class="inum" type="text" style="width:90px;font-size:11px" value="${esc(v.assetCode||'')}" placeholder="—" onchange="setV(${v.id},'assetCode',this.value)" title="Kod wewnętrzny"></td>`,
+  nrSilnika:  (v)  =>`<td data-col="nrSilnika" style="font-size:10px;font-family:var(--mono);color:var(--text2)">${esc(v.nrSilnika||'—')}</td>`,
+  kolor:      (v)  =>`<td data-col="kolor" style="font-size:11px">${v.kolor?esc(v.kolor):'<span style="color:var(--text3)">—</span>'}</td>`,
+  lastInsp:   (v)  =>`<td data-col="lastInsp" style="font-size:11px;white-space:nowrap">${v.lastInspection?esc(v.lastInspection):'<span style="color:var(--text3)">—</span>'}</td>`,
+  drExpiry:   (v)  =>`<td data-col="drExpiry">${v.dataWaznosciDR?_datePill(v.dataWaznosciDR):'<span style="color:var(--text3)">—</span>'}</td>`,
+  rentStart:  (v)  =>`<td data-col="rentStart" style="font-size:11px;white-space:nowrap">${v.rentalStart?esc(v.rentalStart):'<span style="color:var(--text3)">—</span>'}</td>`,
+  rentEnd:    (v)  =>`<td data-col="rentEnd">${v.rentalEnd?_datePill(v.rentalEnd):'<span style="color:var(--text3)">—</span>'}</td>`,
+  ocPrem:     (v)  =>`<td data-col="ocPrem" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.ocPremium!=null?Number(v.ocPremium).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł':'<span style="color:var(--text3)">—</span>'}</td>`,
+  acPrem:     (v)  =>`<td data-col="acPrem" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.acPremium!=null?Number(v.acPremium).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł':'<span style="color:var(--text3)">—</span>'}</td>`,
+  leasRate:   (v)  =>`<td data-col="leasRate" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.leasingRate!=null?Number(v.leasingRate).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł':'<span style="color:var(--text3)">—</span>'}</td>`,
+  leasBuyout: (v)  =>`<td data-col="leasBuyout" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.leasingBuyout!=null?Number(v.leasingBuyout).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł':'<span style="color:var(--text3)">—</span>'}</td>`,
+  purchDate:  (v)  =>`<td data-col="purchDate" style="font-size:11px;white-space:nowrap">${esc(v.purchaseDate||v.dataNabycia||'—')}</td>`,
+  purchPrice: (v)  =>`<td data-col="purchPrice" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.purchasePrice!=null?Number(v.purchasePrice).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł':'<span style="color:var(--text3)">—</span>'}</td>`,
+  normaSpal:  (v)  =>`<td data-col="normaSpal" onclick="event.stopPropagation()"><div style="display:flex;align-items:center;gap:3px"><input class="inum" type="number" step="0.1" min="0" max="99" style="width:48px;text-align:right" value="${v.normaSpalania??''}" placeholder="—" onchange="setV(${v.id},'normaSpalania',this.value===''?null:parseFloat(this.value))" title="Norma spalania"><span style="font-size:10px;color:var(--text3);white-space:nowrap">l/100</span></div></td>`,
+  assEnd:     (v)  =>`<td data-col="assEnd" style="font-size:11px">${v.assEnd?_datePill(v.assEnd):'<span style="color:var(--text3)">—</span>'}${v.assInsurer?`<div style="font-size:10px;color:var(--text3)">${esc(v.assInsurer)}</div>`:''}</td>`,
 };
 
 const _COL_LABELS = {
@@ -1452,9 +1536,14 @@ const _COL_LABELS = {
   vin:'VIN',paliwo:'Paliwo (P.3)',poj:'Pojemność (cm³)',mocKw:'Moc (kW)',
   masaWl:'Masa własna (kg)',msc:'Miejsca siedz.',euro:'Norma EURO',
   dmcF2:'F.2 DMC z ładunkiem (kg)',ladownosc:'Ładowność (kg)',dataRej:'Data 1. rejestracji',katDR:'Kat. pojazdu DR (J)',
-  ocStart:'OC od (data początku)',acStart:'AC od (data początku)',oddzial:'Oddział',
+  ocStart:'OC od (data początku)',acStart:'AC od (data początku)',assEnd:'NNW/Assistance do',oddzial:'Oddział',
   leasOwner:'Leasingodawca',leasUser:'Leasingobiorca',leasNo:'Nr umowy leasingowej',
   leasStart:'Leasing od',leasEnd:'Leasing do',
+  wlasciciel:'Właściciel',ownType:'Typ własności',kartaPal:'Karta paliwowa',
+  assetCode:'Kod wewnętrzny',nrSilnika:'Nr silnika',kolor:'Kolor',
+  lastInsp:'Ostatni przegląd',drExpiry:'Ważność DR',rentStart:'Wynajem od',rentEnd:'Wynajem do',
+  ocPrem:'Składka OC',acPrem:'Składka AC',leasRate:'Rata leasingu',leasBuyout:'Cena wykupu',
+  purchDate:'Data zakupu',purchPrice:'Cena zakupu',normaSpal:'Norma spalania (l/100km)',
 };
 
 // ── Inicjalizacja ────────────────────────────────────────────────────
