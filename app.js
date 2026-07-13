@@ -208,7 +208,16 @@ function showPage(id) {
   if(id==='driver-shifts')  window.DriverShiftsModule?.renderDriverShifts('');
   if(id==='tacho')          window.TachoModule?.renderTacho('');
   if(id==='benchmark')      window.BenchmarkModule?.renderBenchmark();
-  if(id==='fk-export')      window.FkExportModule?.renderFkExport();
+  if(id==='fk-export')           window.FkExportModule?.renderFkExport();
+  if(id==='exec-dashboard')      window.ExecDashboardModule?.renderExecDashboard();
+  if(id==='approvals')           window.ApprovalsModule?.renderApprovals();
+  if(id==='driver-profiles')     window.DriverProfilesModule?.renderDriverProfiles();
+  if(id==='driver-performance')  window.DriverPerformanceModule?.renderDriverPerformance();
+  if(id==='reservations')        window.ReservationsModule?.renderReservations();
+  if(id==='fleet-policies')      window.FleetPoliciesModule?.renderFleetPolicies();
+  if(id==='spare-parts')         window.SparePartsModule?.renderSpareParts();
+  if(id==='service-contracts')   window.ServiceContractsModule?.renderServiceContracts();
+  if(id==='supplier-invoices')   window.SupplierInvoicesModule?.renderSupplierInvoices();
   document.dispatchEvent(new CustomEvent('taxorder-page-change', { detail: { page: id } }));
   updateCounters();
 }
@@ -222,6 +231,20 @@ function _initBudgetYearSelect() {
     opt.value = y - i; opt.textContent = y - i;
     sel.appendChild(opt);
   }
+}
+
+async function _refreshApprovalBadge() {
+  try {
+    const co = window._cfCo ? window._cfCo() : '';
+    if (!co) return;
+    const url = window._cfApi ? window._cfApi() : window.WORKER_URL;
+    const hdrs = window._cfHdrs ? window._cfHdrs() : {};
+    const r = await fetch(`${url}/api/approvals/count?company=${encodeURIComponent(co)}`, { headers: hdrs });
+    if (!r.ok) return;
+    const d = await r.json();
+    const badge = document.getElementById('badge-approvals');
+    if (badge) { badge.textContent = d.count || 0; badge.style.display = d.count > 0 ? 'inline' : 'none'; }
+  } catch {}
 }
 
 // ==================== POJAZDY ====================
@@ -6429,6 +6452,8 @@ async function doLogin(){
 
     // Ładuj oddziały po zalogowaniu
     loadBranches().catch(e => console.warn('[Branches] init:', e.message));
+    // Badge zatwierdzeń
+    _refreshApprovalBadge();
 
     // Subskrybuj zmiany real-time po zalogowaniu
     window.TaxOrderFleetCloud?.subscribeRealTime?.(currentCompanyId);

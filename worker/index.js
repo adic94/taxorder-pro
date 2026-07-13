@@ -4421,6 +4421,258 @@ async function handleTachoRecords(req, env, user, url, path) {
   return err('Metoda nieobsługiwana', 405);
 }
 
+// ─── KARTOTEKA KIEROWCÓW ─────────────────────────────────────────────────────
+async function handleDriverProfiles(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const segs = path.split('/').filter(Boolean); // ['api','driver-profiles', id?, action?]
+  const id = (segs[2] && segs[2] !== 'alerts') ? segs[2] : null;
+  const action = segs[3] || (segs[2] === 'alerts' ? 'alerts' : null);
+  const method = req.method;
+
+  if (method === 'GET' && action === 'alerts') {
+    const pol = await env.DB.prepare('SELECT license_alert_days, medical_alert_days FROM fleet_policies WHERE company_id=?').bind(company).first();
+    const licDays = pol?.license_alert_days ?? 30;
+    const medDays = pol?.medical_alert_days ?? 30;
+    const today = new Date().toISOString().slice(0, 10);
+    const licDate = new Date(Date.now() + licDays*86400000).toISOString().slice(0,10);
+    const medDate = new Date(Date.now() + medDays*86400000).toISOString().slice(0,10);
+    const rows = (await env.DB.prepare(`
+      SELECT id, first_name, last_name, license_expiry, medical_expiry, psychotech_expiry
+      FROM driver_profiles WHERE company_id=? AND status='active'
+      AND (license_expiry <= ? OR medical_expiry <= ? OR psychotech_expiry <= ?)
+    `).bind(company, licDate, medDate, medDate).all()).results || [];
+    return json(rows);
+  }
+  if (method === 'GET' && id) {
+    const row = await env.DB.prepare('SELECT * FROM driver_profiles WHERE id=? AND company_id=?').bind(id, company).first();
+    if (!row) return err('Nie znaleziono', 404);
+    return json(row);
+  }
+  if (method === 'GET') {
+    const status = url.searchParams.get('status') || '';
+    const branch = url.searchParams.get('branch_id') || '';
+    let q = 'SELECT * FROM driver_profiles WHERE company_id=?';
+    const params = [company];
+    if (status) { q += ' AND status=?'; params.push(status); }
+    if (branch) { q += ' AND branch_id=?'; params.push(parseInt(branch)); }
+    q += ' ORDER BY last_name, first_name';
+    const rows = (await env.DB.prepare(q).bind(...params).all()).results || [];
+    return json(rows);
+  }
+  if (method === 'POST') {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!d.first_name || !d.last_name) return err('Wymagane: first_name, last_name', 400);
+    const nid = crypto.randomUUID();
+    await env.DB.prepare(`INSERT INTO driver_profiles
+      (id,company_id,branch_id,first_name,last_name,employee_id,email,phone,birth_date,
+       license_number,license_categories,license_expiry,medical_expiry,psychotech_expiry,
+       assigned_nr_rej,status,notes)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(nid, company, d.branch_id??null, d.first_name, d.last_name,
+        d.employee_id??null, d.email??null, d.phone??null, d.birth_date??null,
+        d.license_number??null, d.license_categories ? JSON.stringify(d.license_categories) : null,
+        d.license_expiry??null, d.medical_expiry??null, d.psychotech_expiry??null,
+        d.assigned_nr_rej??null, d.status||'active', d.notes??null).run();
+    return json({ ok: true, id: nid });
+  }
+  if ((method === 'PUT') && id) {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    await env.DB.prepare(`UPDATE driver_profiles SET
+      branch_id=?,first_name=?,last_name=?,employee_id=?,email=?,phone=?,birth_date=?,
+      license_number=?,license_categories=?,license_expiry=?,medical_expiry=?,psychotech_expiry=?,
+      assigned_nr_rej=?,status=?,notes=?,updated_at=datetime('now')
+      WHERE id=? AND company_id=?`)
+      .bind(d.branch_id??null, d.first_name, d.last_name, d.employee_id??null,
+        d.email??null, d.phone??null, d.birth_date??null, d.license_number??null,
+        d.license_categories ? JSON.stringify(d.license_categories) : null,
+        d.license_expiry??null, d.medical_expiry??null, d.psychotech_expiry??null,
+        d.assigned_nr_rej??null, d.status||'active', d.notes??null, id, company).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM driver_profiles WHERE id=? AND company_id=?').bind(id, company).run();
+    return json({ ok: true });
+  }
+  return err('Metoda nieobsługiwana', 405);
+}
+
+// ─── REZERWACJE POJAZDÓW ──────────────────────────────────────────────────────
+async function handleVehicleReservations(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const segs = path.split('/').filter(Boolean);
+  const id = (segs[2] && !['calendar'].includes(segs[2])) ? segs[2] : null;
+  const action = segs[3] || null; // approve / reject / complete
+  const method = req.method;
+
+  // Widok kalendarza
+  if (method === 'GET' && segs[2] === 'calendar') {
+    const from = url.searchParams.get('from') || new Date().toISOString().slice(0,7)+'-01';
+    const to   = url.searchParams.get('to')   || new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).toISOString().slice(0,10);
+    const rows = (await env.DB.prepare(`
+      SELECT * FROM vehicle_reservations
+      WHERE company_id=? AND date_from<=? AND date_to>=? AND status NOT IN ('rejected','cancelled')
+      ORDER BY date_from`).bind(company, to, from).all()).results || [];
+    return json(rows);
+  }
+  if (method === 'GET') {
+    const nrRej  = url.searchParams.get('nr_rej') || '';
+    const status = url.searchParams.get('status') || '';
+    let q = 'SELECT * FROM vehicle_reservations WHERE company_id=?';
+    const p = [company];
+    if (nrRej)  { q += ' AND nr_rej=?'; p.push(nrRej); }
+    if (status) { q += ' AND status=?'; p.push(status); }
+    q += ' ORDER BY date_from DESC';
+    const rows = (await env.DB.prepare(q).bind(...p).all()).results || [];
+    return json(rows);
+  }
+  if (method === 'POST') {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!d.nr_rej || !d.driver_name || !d.date_from || !d.date_to) return err('Wymagane: nr_rej, driver_name, date_from, date_to', 400);
+    // Sprawdź kolizję (aktywne rezerwacje)
+    const collision = await env.DB.prepare(`
+      SELECT id FROM vehicle_reservations
+      WHERE company_id=? AND nr_rej=? AND status IN ('pending','approved')
+      AND date_from<=? AND date_to>=?`).bind(company, d.nr_rej, d.date_to, d.date_from).first();
+    if (collision) return err('Pojazd jest już zarezerwowany w tym terminie', 409);
+    // Sprawdź politykę — czy wymaga zatwierdzenia
+    const pol = await env.DB.prepare('SELECT reservation_requires_approval FROM fleet_policies WHERE company_id=?').bind(company).first();
+    const needsApproval = pol?.reservation_requires_approval ?? 1;
+    const nid = crypto.randomUUID();
+    const status = needsApproval ? 'pending' : 'approved';
+    await env.DB.prepare(`INSERT INTO vehicle_reservations
+      (id,company_id,nr_rej,driver_name,driver_id,date_from,date_to,purpose,destination,expected_km,notes,status)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(nid, company, d.nr_rej, d.driver_name, d.driver_id??null,
+        d.date_from, d.date_to, d.purpose??null, d.destination??null,
+        d.expected_km??null, d.notes??null, status).run();
+    // Jeśli wymaga zatwierdzenia — utwórz rekord w approvals
+    if (needsApproval) {
+      const aid = crypto.randomUUID();
+      await env.DB.prepare(`INSERT INTO approvals (id,company_id,record_type,record_id,nr_rej,description,requested_by)
+        VALUES(?,?,?,?,?,?,?)`)
+        .bind(aid, company, 'reservation', nid, d.nr_rej,
+          `Rezerwacja ${d.nr_rej} ${d.date_from}–${d.date_to} przez ${d.driver_name}`,
+          d.driver_name).run();
+    }
+    return json({ ok: true, id: nid, status });
+  }
+  if (method === 'PUT' && id && action === 'approve') {
+    const approver = user.email || user.name || 'manager';
+    await env.DB.prepare(`UPDATE vehicle_reservations SET status='approved',approved_by=?,approved_at=datetime('now') WHERE id=? AND company_id=?`).bind(approver, id, company).run();
+    await env.DB.prepare(`UPDATE approvals SET status='approved',approved_by=?,decided_at=datetime('now') WHERE record_type='reservation' AND record_id=? AND company_id=?`).bind(approver, id, company).run();
+    return json({ ok: true });
+  }
+  if (method === 'PUT' && id && action === 'reject') {
+    let d = {}; try { d = await req.json(); } catch {}
+    await env.DB.prepare(`UPDATE vehicle_reservations SET status='rejected',rejection_reason=? WHERE id=? AND company_id=?`).bind(d.reason??null, id, company).run();
+    await env.DB.prepare(`UPDATE approvals SET status='rejected',rejection_reason=?,decided_at=datetime('now') WHERE record_type='reservation' AND record_id=? AND company_id=?`).bind(d.reason??null, id, company).run();
+    return json({ ok: true });
+  }
+  if (method === 'PUT' && id && action === 'complete') {
+    let d = {}; try { d = await req.json(); } catch {}
+    await env.DB.prepare(`UPDATE vehicle_reservations SET status='completed',actual_km=? WHERE id=? AND company_id=?`).bind(d.actual_km??null, id, company).run();
+    return json({ ok: true });
+  }
+  if (method === 'PUT' && id) {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    await env.DB.prepare(`UPDATE vehicle_reservations SET nr_rej=?,driver_name=?,date_from=?,date_to=?,purpose=?,destination=?,expected_km=?,notes=? WHERE id=? AND company_id=?`)
+      .bind(d.nr_rej, d.driver_name, d.date_from, d.date_to, d.purpose??null, d.destination??null, d.expected_km??null, d.notes??null, id, company).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM vehicle_reservations WHERE id=? AND company_id=?').bind(id, company).run();
+    return json({ ok: true });
+  }
+  return err('Metoda nieobsługiwana', 405);
+}
+
+// ─── KOLEJKA ZATWIERDZEŃ ──────────────────────────────────────────────────────
+async function handleApprovals(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const segs = path.split('/').filter(Boolean);
+  const id   = segs[2] && !['count'].includes(segs[2]) ? segs[2] : null;
+  const action = segs[3] || null; // approve / reject
+  const method = req.method;
+
+  if (method === 'GET' && segs[2] === 'count') {
+    const row = await env.DB.prepare(`SELECT COUNT(*) AS cnt FROM approvals WHERE company_id=? AND status='pending'`).bind(company).first();
+    return json({ count: row?.cnt ?? 0 });
+  }
+  if (method === 'GET') {
+    const status = url.searchParams.get('status') || 'pending';
+    const type   = url.searchParams.get('type') || '';
+    let q = 'SELECT * FROM approvals WHERE company_id=?';
+    const p = [company];
+    if (status) { q += ' AND status=?'; p.push(status); }
+    if (type)   { q += ' AND record_type=?'; p.push(type); }
+    q += ' ORDER BY created_at DESC';
+    const rows = (await env.DB.prepare(q).bind(...p).all()).results || [];
+    return json(rows);
+  }
+  if (method === 'PUT' && id && action === 'approve') {
+    const approver = user.email || user.name || 'manager';
+    await env.DB.prepare(`UPDATE approvals SET status='approved',approved_by=?,decided_at=datetime('now') WHERE id=? AND company_id=?`).bind(approver, id, company).run();
+    return json({ ok: true });
+  }
+  if (method === 'PUT' && id && action === 'reject') {
+    let d = {}; try { d = await req.json(); } catch {}
+    const approver = user.email || user.name || 'manager';
+    await env.DB.prepare(`UPDATE approvals SET status='rejected',approved_by=?,rejection_reason=?,decided_at=datetime('now') WHERE id=? AND company_id=?`).bind(approver, d.reason??null, id, company).run();
+    return json({ ok: true });
+  }
+  if (method === 'POST') {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const nid = crypto.randomUUID();
+    await env.DB.prepare(`INSERT INTO approvals (id,company_id,record_type,record_id,nr_rej,amount,description,requested_by) VALUES(?,?,?,?,?,?,?,?)`)
+      .bind(nid, company, d.record_type, d.record_id, d.nr_rej??null, d.amount??null, d.description??null, d.requested_by??null).run();
+    return json({ ok: true, id: nid });
+  }
+  return err('Metoda nieobsługiwana', 405);
+}
+
+// ─── POLITYKI FLOTOWE ─────────────────────────────────────────────────────────
+async function handleFleetPolicies(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const method = req.method;
+  if (method === 'GET') {
+    const row = await env.DB.prepare('SELECT * FROM fleet_policies WHERE company_id=?').bind(company).first();
+    return json(row || {
+      service_approval_threshold: 2000, damage_approval_threshold: 500,
+      mileage_approval_threshold: 1000, fuel_norm_diesel: 8.0, fuel_norm_petrol: 9.0,
+      max_private_km: 0, reservation_requires_approval: 1, license_alert_days: 30, medical_alert_days: 30
+    });
+  }
+  if (method === 'PUT' || method === 'POST') {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    await env.DB.prepare(`INSERT INTO fleet_policies
+      (company_id,service_approval_threshold,damage_approval_threshold,mileage_approval_threshold,
+       fuel_norm_diesel,fuel_norm_petrol,max_private_km,reservation_requires_approval,license_alert_days,medical_alert_days,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,datetime('now'))
+      ON CONFLICT(company_id) DO UPDATE SET
+        service_approval_threshold=excluded.service_approval_threshold,
+        damage_approval_threshold=excluded.damage_approval_threshold,
+        mileage_approval_threshold=excluded.mileage_approval_threshold,
+        fuel_norm_diesel=excluded.fuel_norm_diesel,
+        fuel_norm_petrol=excluded.fuel_norm_petrol,
+        max_private_km=excluded.max_private_km,
+        reservation_requires_approval=excluded.reservation_requires_approval,
+        license_alert_days=excluded.license_alert_days,
+        medical_alert_days=excluded.medical_alert_days,
+        updated_at=datetime('now')`)
+      .bind(company,
+        d.service_approval_threshold??2000, d.damage_approval_threshold??500,
+        d.mileage_approval_threshold??1000, d.fuel_norm_diesel??8.0, d.fuel_norm_petrol??9.0,
+        d.max_private_km??0, d.reservation_requires_approval??1,
+        d.license_alert_days??30, d.medical_alert_days??30).run();
+    return json({ ok: true });
+  }
+  return err('Metoda nieobsługiwana', 405);
+}
+
 // ─── BENCHMARKING ────────────────────────────────────────────────────────────
 async function handleBenchmark(req, env, user, url, path) {
   const company = url.searchParams.get('company') || user.company_id;
@@ -4467,6 +4719,313 @@ async function handleBenchmark(req, env, user, url, path) {
     };
   });
   return json(result);
+}
+
+// ─── WYDAJNOŚĆ KIEROWCÓW ──────────────────────────────────────────────────────
+async function handleDriverPerformance(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const year   = parseInt(url.searchParams.get('year') || new Date().getFullYear());
+  const yStr   = String(year);
+  const driver = url.searchParams.get('driver') || '';
+
+  const [shiftRows, fuelRows, faultRows, claimRows, fineRows] = await Promise.all([
+    env.DB.prepare(`SELECT driver_name,
+      SUM(work_minutes) AS total_minutes, SUM(overtime_minutes) AS total_overtime, COUNT(*) AS shifts
+      FROM driver_shifts WHERE company_id=? AND strftime('%Y',shift_date)=? ${driver?'AND driver_name=?':''}
+      GROUP BY driver_name ORDER BY driver_name`)
+      .bind(company, yStr, ...(driver ? [driver] : [])).all(),
+    env.DB.prepare(`SELECT driver_name,
+      SUM(liters) AS liters, SUM(total_cost) AS fuel_cost, COUNT(*) AS fills,
+      MAX(odometer) AS odo_max, MIN(odometer) AS odo_min
+      FROM fuel_fills WHERE company_id=? AND strftime('%Y',fill_date)=? AND driver_name IS NOT NULL ${driver?'AND driver_name=?':''}
+      GROUP BY driver_name`)
+      .bind(company, yStr, ...(driver ? [driver] : [])).all(),
+    env.DB.prepare(`SELECT reported_by AS driver_name, COUNT(*) AS faults_reported,
+      SUM(CASE WHEN status='resolved' THEN 1 ELSE 0 END) AS resolved
+      FROM faults WHERE company_id=? AND strftime('%Y',report_date)=? AND reported_by IS NOT NULL
+      GROUP BY reported_by`)
+      .bind(company, yStr).all(),
+    env.DB.prepare(`SELECT driver_name, SUM(amount) AS claims_amount, COUNT(*) AS claims_cnt
+      FROM mileage_claims WHERE company_id=? AND strftime('%Y',claim_date)=? AND driver_name IS NOT NULL
+      GROUP BY driver_name`)
+      .bind(company, yStr).all(),
+    env.DB.prepare(`SELECT driver_name, COUNT(*) AS fine_cnt, SUM(amount) AS fine_amount
+      FROM fines WHERE company_id=? AND strftime('%Y',date)=? AND driver_name IS NOT NULL
+      GROUP BY driver_name`)
+      .bind(company, yStr).all(),
+  ]);
+
+  const idx = (rows, key='driver_name') => {
+    const m = {};
+    for (const r of (rows.results||[])) m[r[key]] = r;
+    return m;
+  };
+  const shiftIdx = idx(shiftRows); const fuelIdx = idx(fuelRows);
+  const faultIdx = idx(faultRows); const claimIdx = idx(claimRows); const fineIdx = idx(fineRows);
+  const allDrivers = new Set([...Object.keys(shiftIdx),...Object.keys(fuelIdx),...Object.keys(claimIdx),...Object.keys(fineIdx)]);
+
+  const result = [...allDrivers].map(name => {
+    const s = shiftIdx[name]||{}; const f = fuelIdx[name]||{};
+    const fa = faultIdx[name]||{}; const c = claimIdx[name]||{}; const fi = fineIdx[name]||{};
+    const km = (f.odo_max && f.odo_min && f.odo_max>f.odo_min) ? f.odo_max-f.odo_min : null;
+    return {
+      driver_name: name,
+      total_minutes: s.total_minutes??0, total_overtime: s.total_overtime??0, shifts: s.shifts??0,
+      fuel_liters: f.liters??0, fuel_cost: f.fuel_cost??0, fuel_fills: f.fills??0,
+      driven_km: km, avg_consumption: (km&&f.liters) ? parseFloat(((f.liters/km)*100).toFixed(2)) : null,
+      faults_reported: fa.faults_reported??0, faults_resolved: fa.resolved??0,
+      claims_amount: c.claims_amount??0, claims_cnt: c.claims_cnt??0,
+      fine_cnt: fi.fine_cnt??0, fine_amount: fi.fine_amount??0,
+    };
+  }).sort((a,b) => (a.driver_name||'').localeCompare(b.driver_name||''));
+  return json(result);
+}
+
+// ─── EXECUTIVE DASHBOARD ──────────────────────────────────────────────────────
+async function handleExecutiveDashboard(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const now   = new Date();
+  const yStr  = String(now.getFullYear());
+  const mStr  = `${yStr}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const today = now.toISOString().slice(0,10);
+  const alert30 = new Date(Date.now()+30*86400000).toISOString().slice(0,10);
+
+  const [
+    vehRow, ytdRow, mtdRow, pendAppRow,
+    pendResRow, lowStockRow, driverAlertRow, budRow, faultOpenRow
+  ] = await Promise.all([
+    env.DB.prepare('SELECT COUNT(*) AS cnt FROM vehicles WHERE company_id=? AND COALESCE(JSON_EXTRACT(data,\'$.status\'),\'active\')!=\'archived\'').bind(company).first(),
+    env.DB.prepare(`SELECT
+      COALESCE((SELECT SUM(koszt_rzeczywisty) FROM service_orders WHERE company_id=? AND strftime('%Y',COALESCE(data_realizacji,created_at))=?),0)+
+      COALESCE((SELECT SUM(total_cost) FROM fuel_fills WHERE company_id=? AND strftime('%Y',fill_date)=?),0)+
+      COALESCE((SELECT SUM(amount) FROM fines WHERE company_id=? AND strftime('%Y',date)=?),0)+
+      COALESCE((SELECT SUM(koszt) FROM damage_reports WHERE company_id=? AND strftime('%Y',COALESCE(data_zdarzenia,created_at))=?),0)
+      AS total`).bind(company,yStr,company,yStr,company,yStr,company,yStr).first(),
+    env.DB.prepare(`SELECT
+      COALESCE((SELECT SUM(koszt_rzeczywisty) FROM service_orders WHERE company_id=? AND strftime('%Y-%m',COALESCE(data_realizacji,created_at))=?),0)+
+      COALESCE((SELECT SUM(total_cost) FROM fuel_fills WHERE company_id=? AND strftime('%Y-%m',fill_date)=?),0)+
+      COALESCE((SELECT SUM(amount) FROM fines WHERE company_id=? AND strftime('%Y-%m',date)=?),0)
+      AS total`).bind(company,mStr,company,mStr,company,mStr).first(),
+    env.DB.prepare(`SELECT COUNT(*) AS cnt FROM approvals WHERE company_id=? AND status='pending'`).bind(company).first(),
+    env.DB.prepare(`SELECT COUNT(*) AS cnt FROM vehicle_reservations WHERE company_id=? AND status='pending'`).bind(company).first(),
+    env.DB.prepare(`SELECT COUNT(*) AS cnt FROM spare_parts WHERE company_id=? AND quantity<=min_quantity`).bind(company).first(),
+    env.DB.prepare(`SELECT COUNT(*) AS cnt FROM driver_profiles WHERE company_id=? AND status='active' AND (license_expiry<=? OR medical_expiry<=? OR psychotech_expiry<=?)`).bind(company,alert30,alert30,alert30).first(),
+    env.DB.prepare(`SELECT SUM(amount) AS budget FROM budgets WHERE company_id=? AND year=? AND month IS NULL`).bind(company, now.getFullYear()).first(),
+    env.DB.prepare(`SELECT COUNT(*) AS cnt FROM faults WHERE company_id=? AND status='open'`).bind(company).first(),
+  ]);
+
+  // Top 5 najdroższych pojazdów YTD
+  const topVeh = (await env.DB.prepare(`
+    SELECT nr_rej,
+      COALESCE((SELECT SUM(koszt_rzeczywisty) FROM service_orders s WHERE s.company_id=v.company_id AND s.nr_rej=v.nr_rej AND strftime('%Y',COALESCE(data_realizacji,created_at))=?),0)+
+      COALESCE((SELECT SUM(total_cost) FROM fuel_fills f WHERE f.company_id=v.company_id AND f.nr_rej=v.nr_rej AND strftime('%Y',fill_date)=?),0)+
+      COALESCE((SELECT SUM(amount) FROM fines fi WHERE fi.company_id=v.company_id AND fi.nr_rej=v.nr_rej AND strftime('%Y',date)=?),0) AS cost
+    FROM vehicles v WHERE v.company_id=? ORDER BY cost DESC LIMIT 5`).bind(yStr,yStr,yStr,company).all()).results||[];
+
+  return json({
+    vehicles_active:    vehRow?.cnt ?? 0,
+    cost_ytd:           ytdRow?.total ?? 0,
+    cost_mtd:           mtdRow?.total ?? 0,
+    budget_annual:      budRow?.budget ?? null,
+    pending_approvals:  pendAppRow?.cnt ?? 0,
+    pending_reservations: pendResRow?.cnt ?? 0,
+    low_stock_parts:    lowStockRow?.cnt ?? 0,
+    driver_alerts:      driverAlertRow?.cnt ?? 0,
+    open_faults:        faultOpenRow?.cnt ?? 0,
+    top_cost_vehicles:  topVeh,
+  });
+}
+
+// ─── MAGAZYN CZĘŚCI ───────────────────────────────────────────────────────────
+async function handleSpareParts(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const segs = path.split('/').filter(Boolean);
+  const id   = segs[2] && segs[2] !== 'alerts' ? segs[2] : null;
+  const action = segs[3] || (segs[2] === 'alerts' ? 'alerts' : null);
+  const method = req.method;
+
+  if (method === 'GET' && action === 'alerts') {
+    const rows = (await env.DB.prepare('SELECT * FROM spare_parts WHERE company_id=? AND quantity<=min_quantity ORDER BY name').bind(company).all()).results||[];
+    return json(rows);
+  }
+  if (method === 'GET' && id) {
+    const row = await env.DB.prepare('SELECT * FROM spare_parts WHERE id=? AND company_id=?').bind(id, company).first();
+    if (!row) return err('Nie znaleziono', 404);
+    const txns = (await env.DB.prepare('SELECT * FROM spare_parts_transactions WHERE part_id=? ORDER BY created_at DESC LIMIT 50').bind(id).all()).results||[];
+    return json({ ...row, transactions: txns });
+  }
+  if (method === 'GET') {
+    const cat = url.searchParams.get('category') || '';
+    let q = 'SELECT * FROM spare_parts WHERE company_id=?'; const p=[company];
+    if (cat) { q+=' AND category=?'; p.push(cat); }
+    q += ' ORDER BY name';
+    const rows = (await env.DB.prepare(q).bind(...p).all()).results||[];
+    return json(rows);
+  }
+  if (method === 'POST') {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!d.name) return err('Wymagane: name', 400);
+    const nid = crypto.randomUUID();
+    await env.DB.prepare(`INSERT INTO spare_parts (id,company_id,part_number,name,category,compatible_models,quantity,min_quantity,unit,unit_price,supplier,location,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(nid,company,d.part_number??null,d.name,d.category??null,
+        d.compatible_models?JSON.stringify(d.compatible_models):null,
+        d.quantity??0,d.min_quantity??1,d.unit||'szt',d.unit_price??null,d.supplier??null,d.location??null,d.notes??null).run();
+    return json({ ok:true, id:nid });
+  }
+  if (method === 'PUT' && id && action === 'stock') {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const qty = parseInt(d.qty_change);
+    if (!qty) return err('Wymagane: qty_change (liczba całkowita, nie-zerowa)', 400);
+    await env.DB.prepare(`UPDATE spare_parts SET quantity=MAX(0,quantity+?),updated_at=datetime('now') WHERE id=? AND company_id=?`).bind(qty,id,company).run();
+    await env.DB.prepare(`INSERT INTO spare_parts_transactions (company_id,part_id,nr_rej,qty_change,reason,user_name) VALUES(?,?,?,?,?,?)`)
+      .bind(company,id,d.nr_rej??null,qty,d.reason??null,d.user_name??user.email??null).run();
+    return json({ ok: true });
+  }
+  if (method === 'PUT' && id) {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    await env.DB.prepare(`UPDATE spare_parts SET part_number=?,name=?,category=?,compatible_models=?,quantity=?,min_quantity=?,unit=?,unit_price=?,supplier=?,location=?,notes=?,updated_at=datetime('now') WHERE id=? AND company_id=?`)
+      .bind(d.part_number??null,d.name,d.category??null,d.compatible_models?JSON.stringify(d.compatible_models):null,
+        d.quantity??0,d.min_quantity??1,d.unit||'szt',d.unit_price??null,d.supplier??null,d.location??null,d.notes??null,id,company).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM spare_parts WHERE id=? AND company_id=?').bind(id,company).run();
+    return json({ ok: true });
+  }
+  return err('Metoda nieobsługiwana', 405);
+}
+
+// ─── KONTRAKTY Z SERWISAMI ────────────────────────────────────────────────────
+async function handleServiceContracts(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const segs = path.split('/').filter(Boolean);
+  const id   = segs[2] || null;
+  const method = req.method;
+
+  if (method === 'GET' && id) {
+    const row = await env.DB.prepare('SELECT * FROM service_contracts WHERE id=? AND company_id=?').bind(id,company).first();
+    if (!row) return err('Nie znaleziono', 404);
+    // Faktury powiązane z tym kontraktem
+    const invoices = (await env.DB.prepare('SELECT id,invoice_number,invoice_date,total_gross,status FROM supplier_invoices WHERE service_contract_id=? ORDER BY invoice_date DESC LIMIT 20').bind(id).all()).results||[];
+    return json({ ...row, invoices });
+  }
+  if (method === 'GET') {
+    const rows = (await env.DB.prepare('SELECT * FROM service_contracts WHERE company_id=? ORDER BY workshop_name').bind(company).all()).results||[];
+    return json(rows);
+  }
+  if (method === 'POST') {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!d.workshop_name) return err('Wymagane: workshop_name', 400);
+    const nid = crypto.randomUUID();
+    await env.DB.prepare(`INSERT INTO service_contracts (id,company_id,workshop_name,nip,address,contact_person,phone,email,hourly_rate,parts_discount,contract_from,contract_to,services_covered,payment_days,notes)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(nid,company,d.workshop_name,d.nip??null,d.address??null,d.contact_person??null,
+        d.phone??null,d.email??null,d.hourly_rate??null,d.parts_discount??0,
+        d.contract_from??null,d.contract_to??null,
+        d.services_covered?JSON.stringify(d.services_covered):null,
+        d.payment_days??14,d.notes??null).run();
+    return json({ ok:true, id:nid });
+  }
+  if (method === 'PUT' && id) {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    await env.DB.prepare(`UPDATE service_contracts SET workshop_name=?,nip=?,address=?,contact_person=?,phone=?,email=?,hourly_rate=?,parts_discount=?,contract_from=?,contract_to=?,services_covered=?,payment_days=?,notes=? WHERE id=? AND company_id=?`)
+      .bind(d.workshop_name,d.nip??null,d.address??null,d.contact_person??null,
+        d.phone??null,d.email??null,d.hourly_rate??null,d.parts_discount??0,
+        d.contract_from??null,d.contract_to??null,
+        d.services_covered?JSON.stringify(d.services_covered):null,
+        d.payment_days??14,d.notes??null,id,company).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM service_contracts WHERE id=? AND company_id=?').bind(id,company).run();
+    return json({ ok: true });
+  }
+  return err('Metoda nieobsługiwana', 405);
+}
+
+// ─── FAKTURY OD DOSTAWCÓW ─────────────────────────────────────────────────────
+async function handleSupplierInvoices(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const segs   = path.split('/').filter(Boolean);
+  const id     = segs[2] && !['stats'].includes(segs[2]) ? segs[2] : null;
+  const action = segs[3] || (segs[2]==='stats' ? 'stats' : null);
+  const method = req.method;
+
+  if (method === 'GET' && action === 'stats') {
+    const year = url.searchParams.get('year') || new Date().getFullYear();
+    const rows = (await env.DB.prepare(`
+      SELECT invoice_type, SUM(total_gross) AS total, COUNT(*) AS cnt,
+        SUM(CASE WHEN status='pending' THEN total_gross ELSE 0 END) AS pending_amount
+      FROM supplier_invoices WHERE company_id=? AND strftime('%Y',invoice_date)=?
+      GROUP BY invoice_type ORDER BY total DESC`).bind(company, String(year)).all()).results||[];
+    const overdue = (await env.DB.prepare(`
+      SELECT COUNT(*) AS cnt, SUM(total_gross) AS amount FROM supplier_invoices
+      WHERE company_id=? AND status IN ('pending','approved') AND due_date < date('now')`).bind(company).first());
+    return json({ by_type: rows, overdue_count: overdue?.cnt??0, overdue_amount: overdue?.amount??0 });
+  }
+  if (method === 'GET' && id) {
+    const inv = await env.DB.prepare('SELECT * FROM supplier_invoices WHERE id=? AND company_id=?').bind(id,company).first();
+    if (!inv) return err('Nie znaleziono', 404);
+    const items = (await env.DB.prepare('SELECT * FROM supplier_invoice_items WHERE invoice_id=?').bind(id).all()).results||[];
+    return json({ ...inv, items });
+  }
+  if (method === 'GET') {
+    const status = url.searchParams.get('status') || '';
+    const type   = url.searchParams.get('type') || '';
+    const from   = url.searchParams.get('from') || '';
+    const to     = url.searchParams.get('to') || '';
+    let q = 'SELECT * FROM supplier_invoices WHERE company_id=?'; const p=[company];
+    if (status) { q+=' AND status=?'; p.push(status); }
+    if (type)   { q+=' AND invoice_type=?'; p.push(type); }
+    if (from)   { q+=' AND invoice_date>=?'; p.push(from); }
+    if (to)     { q+=' AND invoice_date<=?'; p.push(to); }
+    q += ' ORDER BY invoice_date DESC';
+    const rows = (await env.DB.prepare(q).bind(...p).all()).results||[];
+    return json(rows);
+  }
+  if (method === 'POST') {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!d.invoice_number || !d.supplier_name || !d.invoice_date) return err('Wymagane: invoice_number, supplier_name, invoice_date', 400);
+    const nid = crypto.randomUUID();
+    await env.DB.prepare(`INSERT INTO supplier_invoices
+      (id,company_id,invoice_number,supplier_name,invoice_date,due_date,invoice_type,total_net,total_vat,total_gross,status,service_contract_id,gl_account,notes)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(nid,company,d.invoice_number,d.supplier_name,d.invoice_date,d.due_date??null,
+        d.invoice_type||'service',d.total_net??null,d.total_vat??null,d.total_gross??null,
+        d.status||'pending',d.service_contract_id??null,d.gl_account??null,d.notes??null).run();
+    if (Array.isArray(d.items) && d.items.length) {
+      const stmts = d.items.map(it => env.DB.prepare(`INSERT INTO supplier_invoice_items (invoice_id,nr_rej,description,quantity,unit_price,total,cost_type) VALUES(?,?,?,?,?,?,?)`)
+        .bind(nid,it.nr_rej??null,it.description,it.quantity??1,it.unit_price??null,it.total??null,it.cost_type??null));
+      await env.DB.batch(stmts);
+    }
+    return json({ ok:true, id:nid });
+  }
+  if (method === 'PUT' && id && action === 'approve') {
+    await env.DB.prepare(`UPDATE supplier_invoices SET status='approved' WHERE id=? AND company_id=?`).bind(id,company).run();
+    return json({ ok:true });
+  }
+  if (method === 'PUT' && id && action === 'pay') {
+    await env.DB.prepare(`UPDATE supplier_invoices SET status='paid' WHERE id=? AND company_id=?`).bind(id,company).run();
+    return json({ ok:true });
+  }
+  if (method === 'PUT' && id) {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    await env.DB.prepare(`UPDATE supplier_invoices SET invoice_number=?,supplier_name=?,invoice_date=?,due_date=?,invoice_type=?,total_net=?,total_vat=?,total_gross=?,status=?,gl_account=?,notes=? WHERE id=? AND company_id=?`)
+      .bind(d.invoice_number,d.supplier_name,d.invoice_date,d.due_date??null,d.invoice_type||'service',
+        d.total_net??null,d.total_vat??null,d.total_gross??null,d.status||'pending',d.gl_account??null,d.notes??null,id,company).run();
+    return json({ ok:true });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM supplier_invoice_items WHERE invoice_id=?').bind(id).run();
+    await env.DB.prepare('DELETE FROM supplier_invoices WHERE id=? AND company_id=?').bind(id,company).run();
+    return json({ ok:true });
+  }
+  return err('Metoda nieobsługiwana', 405);
 }
 
 // ─── KONTA GL ────────────────────────────────────────────────────────────────
@@ -4883,6 +5442,15 @@ async function handleRequest(request, env, url, path) {
   if (path.startsWith('/api/report-subs'))     { if (!user) return err('Nieautoryzowany', 401); return handleReportSubscriptions(request, env, user, url, path); }
   if (path.startsWith('/api/vehicle-tokens'))  { if (!user) return err('Nieautoryzowany', 401); return handleVehicleTokens(request, env, user, url, path); }
   if (path.startsWith('/api/driver-form'))     { return handleDriverForm(request, env, url, path); }
+  if (path.startsWith('/api/driver-profiles'))    { if (!user) return err('Nieautoryzowany', 401); return handleDriverProfiles(request, env, user, url, path); }
+  if (path.startsWith('/api/vehicle-reservations')){ if (!user) return err('Nieautoryzowany', 401); return handleVehicleReservations(request, env, user, url, path); }
+  if (path.startsWith('/api/approvals'))           { if (!user) return err('Nieautoryzowany', 401); return handleApprovals(request, env, user, url, path); }
+  if (path.startsWith('/api/fleet-policies'))      { if (!user) return err('Nieautoryzowany', 401); return handleFleetPolicies(request, env, user, url, path); }
+  if (path.startsWith('/api/driver-performance'))  { if (!user) return err('Nieautoryzowany', 401); return handleDriverPerformance(request, env, user, url, path); }
+  if (path.startsWith('/api/executive-dashboard')) { if (!user) return err('Nieautoryzowany', 401); return handleExecutiveDashboard(request, env, user, url, path); }
+  if (path.startsWith('/api/spare-parts'))         { if (!user) return err('Nieautoryzowany', 401); return handleSpareParts(request, env, user, url, path); }
+  if (path.startsWith('/api/service-contracts'))   { if (!user) return err('Nieautoryzowany', 401); return handleServiceContracts(request, env, user, url, path); }
+  if (path.startsWith('/api/supplier-invoices'))   { if (!user) return err('Nieautoryzowany', 401); return handleSupplierInvoices(request, env, user, url, path); }
   // Admin: ręczne wyzwolenie kolejkowania powiadomień (do testów bez crona)
   if (path === '/api/notif-trigger' && request.method === 'POST') {
     if (!user) return err('Nieautoryzowany', 401);

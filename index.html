@@ -186,6 +186,17 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <button class="tnb" id="tnb-szkody" onclick="showPage('szkody')"><i class="ti ti-alert-triangle"></i><span data-i18n="nav.szkody">Szkody</span></button>
   <button class="tnb" id="tnb-mandaty" onclick="FinesModule.open()" style="position:relative"><i class="ti ti-ticket"></i><span data-i18n="nav.mandaty">Mandaty</span><span id="fines-nav-badge" style="display:none;position:absolute;top:4px;right:4px;background:var(--red);color:#fff;border-radius:9px;font-size:9px;font-weight:700;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 4px"></span></button>
 
+  <div class="sidebar-label">Manager</div>
+  <button class="tnb" id="tnb-exec-dashboard" onclick="showPage('exec-dashboard')"><i class="ti ti-layout-dashboard"></i><span>Dashboard</span> <span id="badge-approvals" class="badge" style="background:var(--red)">0</span></button>
+  <button class="tnb" id="tnb-approvals" onclick="showPage('approvals')"><i class="ti ti-checks"></i><span>Zatwierdzenia</span></button>
+  <button class="tnb" id="tnb-driver-profiles" onclick="showPage('driver-profiles')"><i class="ti ti-id-badge"></i><span>Kierowcy</span></button>
+  <button class="tnb" id="tnb-driver-performance" onclick="showPage('driver-performance')"><i class="ti ti-chart-infographic"></i><span>Wydajność kierowców</span></button>
+  <button class="tnb" id="tnb-reservations" onclick="showPage('reservations')"><i class="ti ti-calendar-event"></i><span>Rezerwacje</span></button>
+  <button class="tnb" id="tnb-fleet-policies" onclick="showPage('fleet-policies')"><i class="ti ti-settings-2"></i><span>Polityki flotowe</span></button>
+  <button class="tnb" id="tnb-spare-parts" onclick="showPage('spare-parts')"><i class="ti ti-package"></i><span>Magazyn części</span></button>
+  <button class="tnb" id="tnb-service-contracts" onclick="showPage('service-contracts')"><i class="ti ti-contract"></i><span>Kontrakty serwisów</span></button>
+  <button class="tnb" id="tnb-supplier-invoices" onclick="showPage('supplier-invoices')"><i class="ti ti-receipt"></i><span>Faktury dostawców</span></button>
+
   <div class="sidebar-label">Koszty</div>
   <button class="tnb" id="tnb-paliwo" onclick="showPage('paliwo')"><i class="ti ti-gas-station"></i><span data-i18n="nav.paliwo">Paliwo</span></button>
   <button class="tnb" id="tnb-karty" onclick="showPage('karty')"><i class="ti ti-credit-card"></i><span data-i18n="nav.karty">Karty flotowe</span></button>
@@ -1783,6 +1794,194 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
       <button class="btn btn-gray" onclick="closeBranchReport()" style="font-size:16px;padding:4px 10px">&times;</button>
     </div>
     <div id="brm-body"><div style="text-align:center;padding:2rem">Ładowanie...</div></div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: KIEROWCA ==================== -->
+<div id="driver-profile-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:680px;max-height:92vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <strong style="font-size:16px"><i class="ti ti-id-badge"></i> Kierowca</strong>
+      <button class="btn-icon" onclick="window.DriverProfilesModule.closeModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="dpm-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label class="form-label">Imię *</label><input type="text" id="dpm-first" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Nazwisko *</label><input type="text" id="dpm-last" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Nr pracownika</label><input type="text" id="dpm-empid" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Telefon</label><input type="tel" id="dpm-phone" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Email</label><input type="email" id="dpm-email" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Data urodzenia</label><input type="date" id="dpm-birth" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Nr prawa jazdy</label><input type="text" id="dpm-license-no" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Kategorie PJ (np. B, C, CE)</label><input type="text" id="dpm-license-cat" class="form-input" placeholder="B C CE"></div>
+      <div class="form-group"><label class="form-label">Ważność prawa jazdy</label><input type="date" id="dpm-license-exp" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Badanie lekarskie do</label><input type="date" id="dpm-medical-exp" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Psychotechnika do</label><input type="date" id="dpm-psycho-exp" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Przypisany pojazd</label><input type="text" id="dpm-vehicle" class="form-input" placeholder="Nr rej."></div>
+      <div class="form-group"><label class="form-label">Status</label>
+        <select id="dpm-status" class="form-select"><option value="active">Aktywny</option><option value="inactive">Nieaktywny</option><option value="suspended">Zawieszony</option></select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:8px"><label class="form-label">Uwagi</label><textarea id="dpm-notes" class="form-input" rows="2"></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn-secondary" onclick="window.DriverProfilesModule.closeModal()">Anuluj</button>
+      <button class="btn-primary" onclick="window.DriverProfilesModule.saveDriver()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: REZERWACJA ==================== -->
+<div id="reservation-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:540px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <strong style="font-size:16px"><i class="ti ti-calendar-event"></i> Rezerwacja pojazdu</strong>
+      <button class="btn-icon" onclick="window.ReservationsModule.closeModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="rm-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label class="form-label">Nr rej. *</label><input type="text" id="rm-nr-rej" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Kierowca *</label><input type="text" id="rm-driver" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Od *</label><input type="date" id="rm-from" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Do *</label><input type="date" id="rm-to" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Cel wyjazdu</label><input type="text" id="rm-purpose" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Destynacja</label><input type="text" id="rm-dest" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Planowany przebieg (km)</label><input type="number" id="rm-km" class="form-input"></div>
+    </div>
+    <div class="form-group" style="margin-top:8px"><label class="form-label">Uwagi</label><textarea id="rm-notes" class="form-input" rows="2"></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn-secondary" onclick="window.ReservationsModule.closeModal()">Anuluj</button>
+      <button class="btn-primary" onclick="window.ReservationsModule.saveReservation()">Złóż rezerwację</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: CZĘŚĆ ZAMIENNA ==================== -->
+<div id="spare-part-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:560px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <strong style="font-size:16px"><i class="ti ti-package"></i> Część zamienna</strong>
+      <button class="btn-icon" onclick="window.SparePartsModule.closeModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="spm-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Nazwa *</label><input type="text" id="spm-name" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Nr katalogowy</label><input type="text" id="spm-partno" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Kategoria</label>
+        <select id="spm-cat" class="form-select"><option value="filtry">Filtry</option><option value="hamulce">Hamulce</option><option value="oleje">Oleje</option><option value="opony">Opony</option><option value="elektrika">Elektryka</option><option value="inne">Inne</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Stan magazynowy</label><input type="number" id="spm-qty" class="form-input" min="0"></div>
+      <div class="form-group"><label class="form-label">Stan minimalny</label><input type="number" id="spm-min" class="form-input" min="0"></div>
+      <div class="form-group"><label class="form-label">Jednostka</label><input type="text" id="spm-unit" class="form-input" value="szt"></div>
+      <div class="form-group"><label class="form-label">Cena jedn. (PLN)</label><input type="number" step="0.01" id="spm-price" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Dostawca</label><input type="text" id="spm-supplier" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Lokalizacja</label><input type="text" id="spm-location" class="form-input" placeholder="np. Regał A3"></div>
+    </div>
+    <div class="form-group" style="margin-top:8px"><label class="form-label">Uwagi</label><textarea id="spm-notes" class="form-input" rows="2"></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn-secondary" onclick="window.SparePartsModule.closeModal()">Anuluj</button>
+      <button class="btn-primary" onclick="window.SparePartsModule.savePart()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: STAN MAGAZYNOWY ==================== -->
+<div id="stock-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9360;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:400px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <strong id="stk-title" style="font-size:16px">Przyjęcie/Wydanie</strong>
+      <button class="btn-icon" onclick="window.SparePartsModule.closeStockModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="stk-id"><input type="hidden" id="stk-dir">
+    <p style="font-weight:600;margin-bottom:12px" id="stk-name"></p>
+    <div class="form-group"><label class="form-label">Ilość *</label><input type="number" id="stk-qty" class="form-input" min="1"></div>
+    <div class="form-group"><label class="form-label">Nr rej. (pobranie dla pojazdu)</label><input type="text" id="stk-nr-rej" class="form-input"></div>
+    <div class="form-group"><label class="form-label">Powód</label><input type="text" id="stk-reason" class="form-input"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn-secondary" onclick="window.SparePartsModule.closeStockModal()">Anuluj</button>
+      <button class="btn-primary" onclick="window.SparePartsModule.saveStock()">Zatwierdź</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: KONTRAKT SERWISOWY ==================== -->
+<div id="service-contract-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:680px;max-height:92vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <strong style="font-size:16px"><i class="ti ti-contract"></i> Kontrakt serwisowy</strong>
+      <button class="btn-icon" onclick="window.ServiceContractsModule.closeModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="scm-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Nazwa serwisu *</label><input type="text" id="scm-name" class="form-input"></div>
+      <div class="form-group"><label class="form-label">NIP</label><input type="text" id="scm-nip" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Osoba kontaktowa</label><input type="text" id="scm-contact" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Telefon</label><input type="tel" id="scm-phone" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Email</label><input type="email" id="scm-email" class="form-input"></div>
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Adres</label><input type="text" id="scm-address" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Stawka roboczogodz. (PLN)</label><input type="number" step="0.01" id="scm-rate" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Rabat na części (%)</label><input type="number" step="0.1" id="scm-discount" class="form-input" value="0"></div>
+      <div class="form-group"><label class="form-label">Kontrakt od</label><input type="date" id="scm-from" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Kontrakt do</label><input type="date" id="scm-to" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Termin płatności (dni)</label><input type="number" id="scm-payment" class="form-input" value="14"></div>
+    </div>
+    <div class="form-group" style="margin-top:12px">
+      <label class="form-label">Zakres usług</label>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;margin-top:6px" id="scm-services-list">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" class="scm-service-cb" value="Wymiana oleju"> Wymiana oleju</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" class="scm-service-cb" value="Hamulce"> Hamulce</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" class="scm-service-cb" value="Opony"> Opony</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" class="scm-service-cb" value="Skrzynia biegów"> Skrzynia biegów</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" class="scm-service-cb" value="Silnik"> Silnik</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" class="scm-service-cb" value="Zawieszenie"> Zawieszenie</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" class="scm-service-cb" value="Elektryka"> Elektryka</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" class="scm-service-cb" value="Klimatyzacja"> Klimatyzacja</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" class="scm-service-cb" value="Diagnostyka"> Diagnostyka</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" class="scm-service-cb" value="Blacharstwo"> Blacharstwo</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" class="scm-service-cb" value="Lakiernictwo"> Lakiernictwo</label>
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:8px"><label class="form-label">Uwagi</label><textarea id="scm-notes" class="form-input" rows="2"></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn-secondary" onclick="window.ServiceContractsModule.closeModal()">Anuluj</button>
+      <button class="btn-primary" onclick="window.ServiceContractsModule.saveContract()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: FAKTURA DOSTAWCY ==================== -->
+<div id="supplier-invoice-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:720px;max-height:92vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <strong style="font-size:16px"><i class="ti ti-receipt"></i> Faktura od dostawcy</strong>
+      <button class="btn-icon" onclick="window.SupplierInvoicesModule.closeModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="sim-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label class="form-label">Nr faktury *</label><input type="text" id="sim-number" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Dostawca *</label><input type="text" id="sim-supplier" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Data faktury *</label><input type="date" id="sim-date" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Termin płatności</label><input type="date" id="sim-due" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Typ</label>
+        <select id="sim-type" class="form-select"><option value="service">Serwis</option><option value="fuel">Paliwo</option><option value="parts">Części</option><option value="insurance">Ubezpieczenie</option><option value="other">Inne</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Konto GL</label><input type="text" id="sim-gl" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Kwota netto (PLN)</label><input type="number" step="0.01" id="sim-net" class="form-input"></div>
+      <div class="form-group"><label class="form-label">VAT (PLN)</label><input type="number" step="0.01" id="sim-vat" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Kwota brutto (PLN)</label><input type="number" step="0.01" id="sim-gross" class="form-input"></div>
+    </div>
+    <div class="form-group" style="margin-top:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <label class="form-label" style="margin:0">Pozycje faktury</label>
+        <button class="btn-secondary" onclick="window.SupplierInvoicesModule.addItem()" style="padding:4px 10px;font-size:12px"><i class="ti ti-plus"></i> Dodaj pozycję</button>
+      </div>
+      <div class="table-wrap"><table class="data-table" style="font-size:13px"><thead><tr><th>Nr rej.</th><th>Opis</th><th>Ilość</th><th>Cena jedn.</th><th>Razem</th><th></th></tr></thead>
+      <tbody id="sim-items"><tr><td colspan="5" class="empty">Brak pozycji — <a href="#" onclick="window.SupplierInvoicesModule.addItem();return false">Dodaj pozycję</a></td></tr></tbody></table></div>
+    </div>
+    <div class="form-group"><label class="form-label">Uwagi</label><textarea id="sim-notes" class="form-input" rows="2"></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn-secondary" onclick="window.SupplierInvoicesModule.closeModal()">Anuluj</button>
+      <button class="btn-primary" onclick="window.SupplierInvoicesModule.saveInvoice()">Zapisz</button>
+    </div>
   </div>
 </div>
 
@@ -3508,6 +3707,33 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <div id="page-fk-export-inner"></div>
 </div>
 
+<!-- ==================== EXEC DASHBOARD ==================== -->
+<div class="page" id="page-exec-dashboard"></div>
+
+<!-- ==================== ZATWIERDZENIA ==================== -->
+<div class="page" id="page-approvals"></div>
+
+<!-- ==================== KARTOTEKA KIEROWCÓW ==================== -->
+<div class="page" id="page-driver-profiles"></div>
+
+<!-- ==================== WYDAJNOŚĆ KIEROWCÓW ==================== -->
+<div class="page" id="page-driver-performance"></div>
+
+<!-- ==================== REZERWACJE POJAZDÓW ==================== -->
+<div class="page" id="page-reservations"></div>
+
+<!-- ==================== POLITYKI FLOTOWE ==================== -->
+<div class="page" id="page-fleet-policies"></div>
+
+<!-- ==================== MAGAZYN CZĘŚCI ==================== -->
+<div class="page" id="page-spare-parts"></div>
+
+<!-- ==================== KONTRAKTY SERWISÓW ==================== -->
+<div class="page" id="page-service-contracts"></div>
+
+<!-- ==================== FAKTURY DOSTAWCÓW ==================== -->
+<div class="page" id="page-supplier-invoices"></div>
+
 <!-- ==================== AI ASYSTENT ==================== -->
 <!-- ==================== BUDŻET / TCO ==================== -->
 <div class="page" id="page-budzet">
@@ -3729,6 +3955,15 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/tacho.js"></script>
   <script src="modules/benchmark.js"></script>
   <script src="modules/fk-export.js"></script>
+  <script src="modules/driver-profiles.js"></script>
+  <script src="modules/vehicle-reservations.js"></script>
+  <script src="modules/approvals.js"></script>
+  <script src="modules/fleet-policies.js"></script>
+  <script src="modules/executive-dashboard.js"></script>
+  <script src="modules/spare-parts.js"></script>
+  <script src="modules/service-contracts.js"></script>
+  <script src="modules/supplier-invoices.js"></script>
+  <script src="modules/driver-performance.js"></script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
