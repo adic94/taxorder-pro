@@ -8,6 +8,8 @@ let selected = new Set();
 window.selected = selected;
 let sortKey = 'nrRej', sortAsc = true;
 var _vehPage = 0, _vehPageSize = 100, _lastFilteredLen = -1;
+let _branches = [];
+window._branches = _branches;
 var _dateFilters = { ocFrom: '', ocTo: '', acFrom: '', acTo: '', inspFrom: '', inspTo: '' };
 
 // ── Konfiguracja API ──────────────────────────────────────────────────────────
@@ -199,6 +201,7 @@ function showPage(id) {
   if(id==='policies')          window.PoliciesModule?._renderGlobalPage();
   if(id==='service-schedule')  window.ServiceScheduleModule?._renderGlobalPage();
   if(id==='mileage-claims')    window.MileageClaimsModule?._renderGlobalPage();
+  if(id==='oddzialy') renderOddzialy();
   document.dispatchEvent(new CustomEvent('taxorder-page-change', { detail: { page: id } }));
   updateCounters();
 }
@@ -221,8 +224,10 @@ function filterVeh() {
   const fTyp = document.getElementById('f-typ')?.value||'';
   const fStat = document.getElementById('f-status')?.value||'';
   const fWl = document.getElementById('f-wl')?.value||'';
-  const fAlert = document.getElementById('f-alert')?.value||'';
+  const fAlert  = document.getElementById('f-alert')?.value||'';
+  const fBranch = document.getElementById('f-branch')?.value||'';
   return vehs.filter(v => {
+    if (fBranch && String(v.branch_id||'') !== fBranch) return false;
     if (window._driverFilter && v.kierowca !== window._driverFilter) return false;
     if (q && !v.nrRej.toLowerCase().includes(q) && !v.marka.toLowerCase().includes(q) && !v.model.toLowerCase().includes(q) && !(v.vin||'').toLowerCase().includes(q) && !(v.kierowca||'').toLowerCase().includes(q)) return false;
     if (fTyp && v.typ !== fTyp) return false;
@@ -6404,6 +6409,9 @@ async function doLogin(){
 
     if(typeof refreshAll==='function') refreshAll();
 
+    // Ładuj oddziały po zalogowaniu
+    loadBranches().catch(e => console.warn('[Branches] init:', e.message));
+
     // Subskrybuj zmiany real-time po zalogowaniu
     window.TaxOrderFleetCloud?.subscribeRealTime?.(currentCompanyId);
 
@@ -6723,6 +6731,155 @@ let _cards = [];
 let _cardsLoaded = false;
 let editKartaId = null;
 window.getFlotCards = () => _cards;
+
+// ==================== ODDZIAŁY ====================
+async function loadBranches() {
+  const co = _cfCo();
+  if (!co) return;
+  try {
+    const r = await fetch(`${_cfApi()}/api/branches?company=${encodeURIComponent(co)}`, { headers: _cfHdrs() });
+    if (!r.ok) return;
+    const rows = await r.json();
+    _branches.splice(0, _branches.length, ...rows);
+    window._branches = _branches;
+    _populateBranchFilter();
+    if (document.getElementById('page-oddzialy')?.classList.contains('active')) renderOddzialy();
+  } catch(e) { console.warn('[Branches]', e.message); }
+}
+
+function _populateBranchFilter() {
+  const sel = document.getElementById('f-branch');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Wszystkie oddziały</option>' +
+    _branches.map(b => `<option value="${b.id}"${String(b.id)===cur?' selected':''}>${esc(b.name)}</option>`).join('');
+}
+
+function renderOddzialy() {
+  const el = document.getElementById('branches-list');
+  if (!el) return;
+  if (!_branches.length) {
+    el.innerHTML = `<div style="text-align:center;padding:3rem;color:var(--text3)"><i class="ti ti-building" style="font-size:2rem"></i><br>Brak oddziałów — utwórz pierwszy oddział klikając <strong>Dodaj oddział</strong>.</div>`;
+    return;
+  }
+  el.innerHTML = _branches.map(b => `
+    <div class="card" style="padding:16px 20px;display:flex;align-items:center;gap:16px;margin-bottom:8px">
+      <div style="background:var(--blue);color:#fff;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0">
+        ${esc(b.name.slice(0,2).toUpperCase())}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:14px">${esc(b.name)}</div>
+        ${b.description?`<div style="font-size:12px;color:var(--text3);margin-top:2px">${esc(b.description)}</div>`:''}
+        <div style="font-size:11px;color:var(--text2);margin-top:4px"><i class="ti ti-truck"></i> ${b.vehicle_count||0} pojazdów</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <button class="btn btn-blue" style="font-size:11px" onclick="openBranchReport(${b.id},${JSON.stringify(esc(b.name))})"><i class="ti ti-chart-bar"></i>Raport</button>
+        <button class="btn btn-gray" style="font-size:11px" onclick="editBranch(${b.id})"><i class="ti ti-edit"></i>Edytuj</button>
+        <button class="btn btn-gray" style="font-size:11px;color:var(--red)" onclick="deleteBranch(${b.id},${JSON.stringify(esc(b.name))})" ${b.vehicle_count>0?'disabled title="Przenieś pojazdy przed usunięciem"':''}><i class="ti ti-trash"></i></button>
+      </div>
+    </div>`).join('');
+}
+
+function openBranchModal(id=null) {
+  const b = id ? _branches.find(x=>x.id===id) : null;
+  const modal = document.getElementById('branch-modal');
+  if (!modal) return;
+  document.getElementById('bm-title').textContent = b ? 'Edytuj oddział' : 'Nowy oddział';
+  document.getElementById('bm-id').value = b?.id||'';
+  document.getElementById('bm-name').value = b?.name||'';
+  document.getElementById('bm-desc').value = b?.description||'';
+  modal.style.display='flex';
+  document.getElementById('bm-name').focus();
+}
+function editBranch(id) { openBranchModal(id); }
+function closeBranchModal() { document.getElementById('branch-modal').style.display='none'; }
+
+async function saveBranch() {
+  const id   = document.getElementById('bm-id').value;
+  const name = document.getElementById('bm-name').value.trim();
+  const desc = document.getElementById('bm-desc').value.trim();
+  if (!name) { toast('⚠ Wpisz nazwę oddziału'); return; }
+  const co = _cfCo();
+  try {
+    const method = id ? 'PUT' : 'POST';
+    const url    = `${_cfApi()}/api/branches${id?'/'+id:''}?company=${encodeURIComponent(co)}`;
+    const r = await fetch(url, { method, headers: _cfHdrs(), body: JSON.stringify({ name, description: desc }) });
+    const d = await r.json();
+    if (!r.ok) { toast('❌ ' + (d.error||'Błąd')); return; }
+    toast(`✓ Oddział "${name}" ${id?'zaktualizowany':'dodany'}`);
+    closeBranchModal();
+    await loadBranches();
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+async function deleteBranch(id, name) {
+  if (!confirm(`Usunąć oddział "${name}"?`)) return;
+  const co = _cfCo();
+  try {
+    const r = await fetch(`${_cfApi()}/api/branches/${id}?company=${encodeURIComponent(co)}`, { method:'DELETE', headers: _cfHdrs() });
+    const d = await r.json();
+    if (!r.ok) { toast('❌ ' + (d.error||'Błąd')); return; }
+    toast('✓ Oddział usunięty');
+    await loadBranches();
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+async function openBranchReport(id, name) {
+  const co = _cfCo();
+  const modal = document.getElementById('branch-report-modal');
+  if (!modal) return;
+  document.getElementById('brm-title').textContent = `Raport kosztowy: ${name}`;
+  document.getElementById('brm-body').innerHTML = '<div style="text-align:center;padding:2rem">Ładowanie...</div>';
+  modal.style.display='flex';
+  try {
+    const r = await fetch(`${_cfApi()}/api/branches/${id}/report?company=${encodeURIComponent(co)}`, { headers: _cfHdrs() });
+    const d = await r.json();
+    if (!r.ok) { document.getElementById('brm-body').innerHTML = `<div style="color:var(--red)">${esc(d.error||'Błąd')}</div>`; return; }
+    const fmt = v => v!=null ? Number(v).toLocaleString('pl-PL',{style:'currency',currency:'PLN'}) : '—';
+    const sum = arr => arr.reduce((s,x)=>s+(Number(x.koszt)||0),0);
+    const tblRow = (r2) => `<tr><td>${esc(r2.nr_rej||'—')}</td><td>${esc(r2.type||'—')}</td><td>${esc(r2.date||'—')}</td><td style="text-align:right;font-weight:600">${fmt(r2.koszt)}</td></tr>`;
+    const tbl = (rows, label) => !rows.length ? '' : `
+      <div style="margin-top:20px">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">${label} (${rows.length} pozycji, łącznie ${fmt(sum(rows))})</div>
+        <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Nr rej.</th><th>Typ</th><th>Data</th><th>Kwota</th></tr></thead><tbody>${rows.map(tblRow).join('')}</tbody></table></div>
+      </div>`;
+    const totalAll = sum(d.service_orders)+sum(d.fines)+sum(d.damages)+sum(d.mileage)+sum(d.policies);
+    document.getElementById('brm-body').innerHTML = `
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px">
+        <div class="kpi-chip" style="flex:1;min-width:120px;padding:12px 16px;border-radius:var(--radius);background:var(--bg2);border:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--text3)">Suma wszystkich kosztów</div>
+          <div style="font-size:20px;font-weight:700;color:var(--green);margin-top:4px">${fmt(totalAll)}</div>
+        </div>
+        <div class="kpi-chip" style="flex:1;min-width:120px;padding:12px 16px;border-radius:var(--radius);background:var(--bg2);border:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--text3)">Serwis</div>
+          <div style="font-size:18px;font-weight:600;color:var(--text1);margin-top:4px">${fmt(sum(d.service_orders))}</div>
+        </div>
+        <div class="kpi-chip" style="flex:1;min-width:120px;padding:12px 16px;border-radius:var(--radius);background:var(--bg2);border:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--text3)">Mandaty</div>
+          <div style="font-size:18px;font-weight:600;color:var(--text1);margin-top:4px">${fmt(sum(d.fines))}</div>
+        </div>
+        <div class="kpi-chip" style="flex:1;min-width:120px;padding:12px 16px;border-radius:var(--radius);background:var(--bg2);border:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--text3)">Szkody</div>
+          <div style="font-size:18px;font-weight:600;color:var(--text1);margin-top:4px">${fmt(sum(d.damages))}</div>
+        </div>
+        <div class="kpi-chip" style="flex:1;min-width:120px;padding:12px 16px;border-radius:var(--radius);background:var(--bg2);border:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--text3)">Rozliczenia km</div>
+          <div style="font-size:18px;font-weight:600;color:var(--text1);margin-top:4px">${fmt(sum(d.mileage))}</div>
+        </div>
+        <div class="kpi-chip" style="flex:1;min-width:120px;padding:12px 16px;border-radius:var(--radius);background:var(--bg2);border:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--text3)">Polisy</div>
+          <div style="font-size:18px;font-weight:600;color:var(--text1);margin-top:4px">${fmt(sum(d.policies))}</div>
+        </div>
+      </div>
+      ${tbl(d.service_orders,'Zlecenia serwisowe')}
+      ${tbl(d.fines,'Mandaty')}
+      ${tbl(d.damages,'Szkody')}
+      ${tbl(d.mileage,'Rozliczenia km')}
+      ${tbl(d.policies,'Polisy ubezpieczeniowe')}
+    `;
+  } catch(e) { document.getElementById('brm-body').innerHTML = `<div style="color:var(--red)">${esc(e.message)}</div>`; }
+}
+function closeBranchReport() { document.getElementById('branch-report-modal').style.display='none'; }
 
 function _cfApi() { return window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev'; }
 function _cfHdrs(extra) {

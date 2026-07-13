@@ -199,6 +199,7 @@ window.TaxOrderVehicleDetail = {
       tireRRi: { size:g('tireRRi_size'), brand:g('tireRRi_brand'), dot:g('tireRRi_dot'), depth:gf('tireRRi_depth'), changed:g('tireRRi_changed') },
       tireSP:  { size:g('tireSP_size'),  brand:g('tireSP_brand'),  dot:g('tireSP_dot') },
       // === UWAGI ===
+      branch_id: gi('branchId'),
       uwagi: g('uwagi'),
       // === PODATEK DT-1 ===
       gmina:           g('gmina') || 'Warszawa',
@@ -709,6 +710,18 @@ window.TaxOrderVehicleDetail = {
 
       <!-- TAB: EKSPLOATACJA -->
       <div id="vd-tab-eksploatacja-content" class="vd-tab-content" style="display:none">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Oddział floty</div>
+        <div class="vdfg" style="margin-bottom:18px">
+          <div class="vdf">
+            <label class="vdl">Oddział
+              <span style="font-size:10px;color:var(--blue);cursor:pointer;margin-left:6px" onclick="showPage('oddzialy')" title="Zarządzaj oddziałami">&#9881; zarządzaj</span>
+            </label>
+            <select id="vd-branchId" class="fi">
+              <option value="">— brak oddziału —</option>
+              ${(window._branches||[]).map(b=>`<option value="${b.id}" ${b.id==v.branch_id?'selected':''}>${esc(b.name)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
         <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Kierowca i licznik</div>
         <div class="vdfg" style="margin-bottom:18px">
           <div class="vdf">

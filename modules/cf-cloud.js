@@ -117,6 +117,7 @@
         miesiacePodatku:  row.miesiace_podatku  ?? data.miesiacePodatku ?? 12,
         dt1_category:     row.dt1_category      || data.cat          || null,
         dt1_tax_amount:   row.dt1_tax_amount     != null ? Number(row.dt1_tax_amount) : (data.amount ?? null),
+        branch_id:        row.branch_id          ?? null,
       };
     },
 
@@ -132,6 +133,7 @@
         miesiace_podatku: parseInt(v.miesiacePodatku) || 12,
         dt1_category:     tax.cat   || v.cat           || null,
         dt1_tax_amount:   tax.amount != null ? tax.amount : (v.amount ?? null),
+        branch_id:        v.branch_id ?? null,
         data:             JSON.stringify(v),
       };
     },

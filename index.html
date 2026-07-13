@@ -198,6 +198,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <button class="tnb" id="tnb-policies" onclick="showPage('policies')"><i class="ti ti-shield-check"></i><span>Polisy ubezp.</span></button>
   <button class="tnb" id="tnb-service-schedule" onclick="showPage('service-schedule')"><i class="ti ti-tool"></i><span>Harmonogram serwis.</span></button>
   <button class="tnb" id="tnb-mileage-claims" onclick="showPage('mileage-claims')"><i class="ti ti-road"></i><span>Rozliczenia km</span></button>
+  <button class="tnb" id="tnb-oddzialy" onclick="showPage('oddzialy')"><i class="ti ti-building"></i><span>Oddziały</span></button>
   <button class="tnb" id="tnb-impexp" onclick="showPage('impexp')"><i class="ti ti-arrows-exchange"></i><span data-i18n="nav.impexp">Import / Eksport</span></button>
   <button class="tnb" id="tnb-ocr" onclick="showPage('ocr')"><i class="ti ti-scan"></i><span data-i18n="nav.ocr">OCR Dowodów</span></button>
   <button class="tnb" id="tnb-pdfexport" onclick="showPage('pdfexport')"><i class="ti ti-file-type-pdf"></i><span data-i18n="nav.pdfexport">Eksport PDF</span></button>
@@ -563,6 +564,9 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
     <select id="f-wl" onchange="renderVeh()">
       <option value="" data-i18n="filter.all.owners">Wszyscy właściciele</option>
       <option>mToilet</option><option>GCON</option><option>KJR Supply</option>
+    </select>
+    <select id="f-branch" onchange="renderVeh()" title="Filtruj wg oddziału">
+      <option value="">Wszystkie oddziały</option>
     </select>
     <select id="f-alert" onchange="renderVeh()" title="Filtruj wg stanu alertów terminowych">
       <option value="">Wszystkie</option>
@@ -1728,6 +1732,51 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
     <input id="mc-filter-driver" class="form-control" placeholder="Filtruj po pracowniku..." style="width:220px" oninput="MileageClaimsModule._renderGlobalPage()">
   </div>
   <div id="mc-global-content"><div style="padding:24px;color:#888">Kliknij by załadować...</div></div>
+</div>
+
+<!-- ==================== PAGE: ODDZIAŁY ==================== -->
+<div class="page" id="page-oddzialy" style="display:none">
+  <div class="pg-title"><i class="ti ti-building"></i>Oddziały floty</div>
+  <div class="pg-sub">Podział floty na oddziały / departamenty — przypisywanie pojazdów i raportowanie kosztów</div>
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px">
+    <button class="btn btn-blue" onclick="openBranchModal()"><i class="ti ti-plus"></i>Dodaj oddział</button>
+    <button class="btn btn-gray" onclick="loadBranches()"><i class="ti ti-refresh"></i>Odśwież</button>
+  </div>
+  <div id="branches-list"><div style="padding:24px;color:#888">Ładowanie...</div></div>
+</div>
+
+<!-- ==================== MODAL: ODDZIAŁ CRUD ==================== -->
+<div id="branch-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9500;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:460px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3 id="bm-title" style="font-size:16px;font-weight:700">Nowy oddział</h3>
+      <button class="btn btn-gray" onclick="closeBranchModal()" style="font-size:16px;padding:4px 10px">&times;</button>
+    </div>
+    <input type="hidden" id="bm-id">
+    <div class="vdf" style="margin-bottom:12px">
+      <label class="vdl">Nazwa oddziału *</label>
+      <input id="bm-name" class="fi" placeholder="np. Warszawa-Południe" style="width:100%">
+    </div>
+    <div class="vdf" style="margin-bottom:20px">
+      <label class="vdl">Opis (opcjonalnie)</label>
+      <input id="bm-desc" class="fi" placeholder="np. Baza na Mokotowie" style="width:100%">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-gray" onclick="closeBranchModal()">Anuluj</button>
+      <button class="btn btn-blue" onclick="saveBranch()"><i class="ti ti-check"></i>Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: RAPORT ODDZIAŁU ==================== -->
+<div id="branch-report-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9500;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:880px;max-height:92vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3 id="brm-title" style="font-size:16px;font-weight:700">Raport kosztowy</h3>
+      <button class="btn btn-gray" onclick="closeBranchReport()" style="font-size:16px;padding:4px 10px">&times;</button>
+    </div>
+    <div id="brm-body"><div style="text-align:center;padding:2rem">Ładowanie...</div></div>
+  </div>
 </div>
 
 <!-- ==================== MODAL: POLISA ==================== -->

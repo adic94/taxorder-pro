@@ -408,18 +408,19 @@ async function handleVehicles(req, env, user, url, path) {
     const putCompany = url.searchParams.get('company') || user.company_id || 'mtoilet';
     await env.DB.prepare(`
       INSERT INTO vehicles(company_id,nr_rej,axles_count,suspension_type,
-        dmc_zespolu,miesiace_podatku,dt1_category,dt1_tax_amount,data,updated_at)
-      VALUES(?,?,?,?,?,?,?,?,?,datetime('now'))
+        dmc_zespolu,miesiace_podatku,dt1_category,dt1_tax_amount,data,branch_id,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,datetime('now'))
       ON CONFLICT(company_id,nr_rej) DO UPDATE SET
         axles_count=excluded.axles_count, suspension_type=excluded.suspension_type,
         dmc_zespolu=excluded.dmc_zespolu, miesiace_podatku=excluded.miesiace_podatku,
         dt1_category=excluded.dt1_category, dt1_tax_amount=excluded.dt1_tax_amount,
-        data=excluded.data, updated_at=datetime('now')`
+        data=excluded.data, branch_id=excluded.branch_id, updated_at=datetime('now')`
     ).bind(
       putCompany, body.nr_rej, body.axles_count ?? 2, body.suspension_type ?? 'pneumatyczne',
       body.dmc_zespolu ?? 0, body.miesiace_podatku ?? 12,
       body.dt1_category ?? null, body.dt1_tax_amount ?? null,
-      typeof body.data === 'string' ? body.data : JSON.stringify(body.data ?? {})
+      typeof body.data === 'string' ? body.data : JSON.stringify(body.data ?? {}),
+      body.branch_id ?? null
     ).run();
     return json({ ok: true });
   }
@@ -735,13 +736,14 @@ async function handleDamages(req, env, user, url, path) {
     const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     if (!body.nr_rej) return err('Wymagane: nr_rej');
     const id = crypto.randomUUID();
+    const _branchIdDmg = await _getVehicleBranchId(env, company, body.nr_rej);
     await env.DB.prepare(`
-      INSERT INTO damage_reports(id,company_id,nr_rej,opis,przyczyna,data_zdarzenia,status,koszt,zglaszajacy,uwagi)
-      VALUES(?,?,?,?,?,?,?,?,?,?)`
+      INSERT INTO damage_reports(id,company_id,nr_rej,opis,przyczyna,data_zdarzenia,status,koszt,zglaszajacy,uwagi,branch_id)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?)`
     ).bind(
       id, company, body.nr_rej, body.opis || null, body.przyczyna || null,
       body.data_zdarzenia || null, body.status || 'ZGLOSZONA',
-      body.koszt != null ? Number(body.koszt) : null, body.zglaszajacy || null, body.uwagi || null
+      body.koszt != null ? Number(body.koszt) : null, body.zglaszajacy || null, body.uwagi || null, _branchIdDmg
     ).run();
     return json({ ok: true, id });
   }
@@ -923,12 +925,13 @@ async function handleServiceOrders(req, env, user, url, path) {
     const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     if (!body.nr_rej) return err('Wymagane: nr_rej');
     const id = crypto.randomUUID();
+    const _branchIdSvc = await _getVehicleBranchId(env, company, body.nr_rej);
     await env.DB.prepare(`
-      INSERT INTO service_orders(id,company_id,nr_rej,typ,opis,zglaszajacy,status,koszt_szacowany,warsztat)
-      VALUES(?,?,?,?,?,?,?,?,?)`
+      INSERT INTO service_orders(id,company_id,nr_rej,typ,opis,zglaszajacy,status,koszt_szacowany,warsztat,branch_id)
+      VALUES(?,?,?,?,?,?,?,?,?,?)`
     ).bind(
       id, company, body.nr_rej, body.typ || null, body.opis || null, body.zglaszajacy || null,
-      'ZGLOSZONE', body.koszt_szacowany != null ? Number(body.koszt_szacowany) : null, body.warsztat || null
+      'ZGLOSZONE', body.koszt_szacowany != null ? Number(body.koszt_szacowany) : null, body.warsztat || null, _branchIdSvc
     ).run();
     return json({ ok: true, id });
   }
@@ -1496,14 +1499,15 @@ async function handleFines(req, env, user, url, path) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
     if (!body.date) return err('Wymagane: date');
     const id = body.id || crypto.randomUUID();
+    const _branchIdFine = await _getVehicleBranchId(env, company, body.nr_rej);
     await env.DB.prepare(
       `INSERT OR REPLACE INTO fines(id,company_id,nr_rej,driver_name,type,date,amount,deadline,
-        description,fine_no,issuer,points,notes,paid,paid_date,created_by,updated_at)
-       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))`
+        description,fine_no,issuer,points,notes,paid,paid_date,created_by,branch_id,updated_at)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))`
     ).bind(id, company, body.nr_rej||null, body.driver_name||null, body.type||'inne', body.date,
       body.amount??null, body.deadline||null, body.description||null,
       body.fine_no||null, body.issuer||null, body.points??null, body.notes||null,
-      body.paid?1:0, body.paid_date||null, user._apiKey ? null : user.id
+      body.paid?1:0, body.paid_date||null, user._apiKey ? null : user.id, _branchIdFine
     ).run();
     return json({ ok: true, id });
   }
@@ -3842,12 +3846,13 @@ async function handlePoliciesDB(req, env, user, url, path) {
   if (method === 'POST') {
     const d = await req.json();
     const pid = crypto.randomUUID();
+    const _branchIdPol = await _getVehicleBranchId(env, company, d.nr_rej);
     await env.DB.prepare(
-      `INSERT INTO policies (id,company_id,nr_rej,vin,type,policy_number,insurer,premium,installments,start_date,end_date,notes,doc_id)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      `INSERT INTO policies (id,company_id,nr_rej,vin,type,policy_number,insurer,premium,installments,start_date,end_date,notes,doc_id,branch_id)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
     ).bind(pid, company, d.nr_rej||'', d.vin||null, d.type||'oc', d.policy_number||null,
       d.insurer||null, d.premium??null, d.installments??1,
-      d.start_date||null, d.end_date||null, d.notes||null, d.doc_id||null).run();
+      d.start_date||null, d.end_date||null, d.notes||null, d.doc_id||null, _branchIdPol).run();
     return json({ ok: true, id: pid });
   }
 
@@ -3972,11 +3977,12 @@ async function handleMileageClaims(req, env, user, url, path) {
     const kmTotal = (d.km_start != null && d.km_end != null) ? Math.max(0, d.km_end - d.km_start) : (d.km_total ?? 0);
     const rate   = d.rate ?? 0.89;
     const amount = parseFloat((kmTotal * rate).toFixed(2));
+    const _branchIdMil = await _getVehicleBranchId(env, company, d.nr_rej);
     await env.DB.prepare(
-      `INSERT INTO mileage_claims (id,company_id,nr_rej,driver_name,claim_date,km_start,km_end,km_total,purpose,rate,amount,status,notes)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      `INSERT INTO mileage_claims (id,company_id,nr_rej,driver_name,claim_date,km_start,km_end,km_total,purpose,rate,amount,status,notes,branch_id)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
     ).bind(cid, company, d.nr_rej||null, d.driver_name, d.claim_date, d.km_start??null, d.km_end??null,
-      kmTotal, d.purpose||null, rate, amount, 'pending', d.notes||null).run();
+      kmTotal, d.purpose||null, rate, amount, 'pending', d.notes||null, _branchIdMil).run();
     return json({ ok: true, id: cid, amount });
   }
 
@@ -4012,6 +4018,78 @@ async function handleMileageClaims(req, env, user, url, path) {
 
   if (method === 'DELETE' && id) {
     await env.DB.prepare('DELETE FROM mileage_claims WHERE id=? AND company_id=?').bind(id, company).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda nieobsługiwana', 405);
+}
+
+// ─── ODDZIAŁY (BRANCHES) ─────────────────────────────────────────────────────
+async function _getVehicleBranchId(env, company, nr_rej) {
+  if (!nr_rej) return null;
+  const row = await env.DB.prepare('SELECT branch_id FROM vehicles WHERE nr_rej=? AND company_id=?').bind(nr_rej, company).first();
+  return row?.branch_id ?? null;
+}
+
+async function handleBranches(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const segs = path.split('/').filter(Boolean);
+  const id  = segs[2] ? parseInt(segs[2]) : null;
+  const sub = segs[3] || null;
+
+  // GET /api/branches — lista z liczbą pojazdów
+  if (req.method === 'GET' && !id) {
+    const rows = (await env.DB.prepare(
+      `SELECT b.*, (SELECT COUNT(*) FROM vehicles v WHERE v.branch_id=b.id AND v.company_id=b.company_id) AS vehicle_count
+       FROM branches b WHERE b.company_id=? ORDER BY b.name`
+    ).bind(company).all()).results || [];
+    return json(rows);
+  }
+
+  // GET /api/branches/:id/report — raport kosztowy oddziału
+  if (req.method === 'GET' && id && sub === 'report') {
+    const [svcRows, fineRows, damageRows, mileageRows, policyRows] = await Promise.all([
+      env.DB.prepare(`SELECT nr_rej, typ AS type, status, koszt_rzeczywisty AS koszt, data_realizacji AS date
+        FROM service_orders WHERE company_id=? AND branch_id=? AND koszt_rzeczywisty IS NOT NULL ORDER BY date DESC LIMIT 300`).bind(company, id).all(),
+      env.DB.prepare(`SELECT nr_rej, type, date, amount AS koszt FROM fines WHERE company_id=? AND branch_id=? ORDER BY date DESC LIMIT 300`).bind(company, id).all(),
+      env.DB.prepare(`SELECT nr_rej, opis AS type, data_zdarzenia AS date, koszt FROM damage_reports WHERE company_id=? AND branch_id=? AND koszt IS NOT NULL ORDER BY date DESC LIMIT 300`).bind(company, id).all(),
+      env.DB.prepare(`SELECT nr_rej, purpose AS type, claim_date AS date, amount AS koszt FROM mileage_claims WHERE company_id=? AND branch_id=? ORDER BY date DESC LIMIT 300`).bind(company, id).all(),
+      env.DB.prepare(`SELECT nr_rej, type, start_date AS date, premium AS koszt FROM policies WHERE company_id=? AND branch_id=? AND premium IS NOT NULL ORDER BY date DESC LIMIT 300`).bind(company, id).all(),
+    ]);
+    return json({
+      service_orders: svcRows.results || [],
+      fines:          fineRows.results || [],
+      damages:        damageRows.results || [],
+      mileage:        mileageRows.results || [],
+      policies:       policyRows.results || [],
+    });
+  }
+
+  // POST /api/branches
+  if (req.method === 'POST') {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!body.name?.trim()) return err('Wymagane: name', 400);
+    const result = await env.DB.prepare(
+      'INSERT INTO branches (company_id, name, description) VALUES (?,?,?)'
+    ).bind(company, body.name.trim(), body.description || '').run();
+    return json({ ok: true, id: result.meta.last_row_id });
+  }
+
+  // PUT /api/branches/:id
+  if (req.method === 'PUT' && id) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!body.name?.trim()) return err('Wymagane: name', 400);
+    await env.DB.prepare('UPDATE branches SET name=?, description=? WHERE id=? AND company_id=?')
+      .bind(body.name.trim(), body.description || '', id, company).run();
+    return json({ ok: true });
+  }
+
+  // DELETE /api/branches/:id
+  if (req.method === 'DELETE' && id) {
+    const cnt = (await env.DB.prepare('SELECT COUNT(*) AS c FROM vehicles WHERE branch_id=? AND company_id=?').bind(id, company).first())?.c ?? 0;
+    if (cnt > 0) return err(`Oddział ma ${cnt} pojazdów — przenieś je najpierw.`, 409);
+    await env.DB.prepare('DELETE FROM branches WHERE id=? AND company_id=?').bind(id, company).run();
     return json({ ok: true });
   }
 
@@ -4161,6 +4239,7 @@ async function handleRequest(request, env, url, path) {
   if (path.startsWith('/api/policies-db'))      { if (!user) return err('Nieautoryzowany', 401); return handlePoliciesDB(request, env, user, url, path); }
   if (path.startsWith('/api/service-schedules')){ if (!user) return err('Nieautoryzowany', 401); return handleServiceSchedules(request, env, user, url, path); }
   if (path.startsWith('/api/mileage-claims'))   { if (!user) return err('Nieautoryzowany', 401); return handleMileageClaims(request, env, user, url, path); }
+  if (path.startsWith('/api/branches'))        { if (!user) return err('Nieautoryzowany', 401); return handleBranches(request, env, user, url, path); }
   // Admin: ręczne wyzwolenie kolejkowania powiadomień (do testów bez crona)
   if (path === '/api/notif-trigger' && request.method === 'POST') {
     if (!user) return err('Nieautoryzowany', 401);
