@@ -466,16 +466,16 @@ window.TaxOrderNotifSettings = (function () {
       const chIcon = { push:'ti-device-mobile', email:'ti-mail', sms:'ti-message', inapp:'ti-bell' }[entry.channel] || 'ti-bell';
       return `<tr>
         <td style="font-size:11px;color:var(--text2)">${dt}</td>
-        <td>${entry.vehicle_nr_rej ? `<strong>${entry.vehicle_nr_rej}</strong>` : '—'}</td>
-        <td style="font-size:12px">${entry.label}</td>
+        <td>${entry.vehicle_nr_rej ? `<strong>${esc(entry.vehicle_nr_rej)}</strong>` : '—'}</td>
+        <td style="font-size:12px">${esc(entry.label)}</td>
         <td style="font-size:11px">${entry.days_until !== null && entry.days_until !== undefined ? (entry.days_until < 0 ? `<span style="color:var(--red)">Wygasło ${Math.abs(entry.days_until)} dni temu</span>` : `za ${entry.days_until} dni`) : (entry.km_until !== null ? `za ${entry.km_until} km` : '—')}</td>
         <td><i class="ti ${chIcon}"></i></td>
         <td>${statusBadge}</td>
         <td>
           ${!acked && !snoozed ? `
             <div style="display:flex;gap:4px">
-              <button class="tbtn" onclick="TaxOrderNotifSettings._logAction('acknowledge','${entry.id}')" title="Potwierdź"><i class="ti ti-check"></i></button>
-              <button class="tbtn" onclick="TaxOrderNotifSettings._logSnooze('${entry.id}')" title="Odłóż"><i class="ti ti-clock-pause"></i></button>
+              <button class="tbtn" data-id="${esc(entry.id)}" onclick="TaxOrderNotifSettings._logAction('acknowledge',this.dataset.id)" title="Potwierdź"><i class="ti ti-check"></i></button>
+              <button class="tbtn" data-id="${esc(entry.id)}" onclick="TaxOrderNotifSettings._logSnooze(this.dataset.id)" title="Odłóż"><i class="ti ti-clock-pause"></i></button>
             </div>` : ''}
         </td>
       </tr>`;

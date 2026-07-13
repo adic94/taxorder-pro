@@ -6619,12 +6619,12 @@ function renderUsers(){
   tbody.innerHTML=users.map(u=>`<tr>
     <td>
       <div style="display:flex;align-items:center;gap:8px">
-        <div style="width:30px;height:30px;border-radius:50%;background:var(--blue-light);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${u.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div>
-        <div><div style="font-weight:500">${u.name}</div>${u.tel?`<div style="font-size:11px;color:var(--text3)">${u.tel}</div>`:''}</div>
+        <div style="width:30px;height:30px;border-radius:50%;background:var(--blue-light);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${esc(u.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase())}</div>
+        <div><div style="font-weight:500">${esc(u.name)}</div>${u.tel?`<div style="font-size:11px;color:var(--text3)">${esc(u.tel)}</div>`:''}</div>
       </div>
     </td>
-    <td style="font-family:var(--mono);font-size:12px">${u.email}</td>
-    <td><span class="pill ${ROLE_COLORS[u.role]||'pill-gray'}">${ROLE_LABELS[u.role]||u.role}</span></td>
+    <td style="font-family:var(--mono);font-size:12px">${esc(u.email)}</td>
+    <td><span class="pill ${ROLE_COLORS[u.role]||'pill-gray'}">${ROLE_LABELS[u.role]||esc(u.role)}</span></td>
     <td style="font-size:11px;color:var(--text2)">${(ROLE_TABS[u.role]||[]).slice(0,4).join(', ')}${(ROLE_TABS[u.role]||[]).length>4?'...':''}</td>
     <td><span class="pill ${u.active?'pill-green':'pill-red'}">${u.active?'Aktywny':'Nieaktywny'}</span></td>
     <td>
