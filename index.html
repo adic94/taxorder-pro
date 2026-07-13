@@ -204,6 +204,13 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <button class="tnb" id="tnb-pdfexport" onclick="showPage('pdfexport')"><i class="ti ti-file-type-pdf"></i><span data-i18n="nav.pdfexport">Eksport PDF</span></button>
   <button class="tnb" id="tnb-raporty" onclick="showPage('raporty')"><i class="ti ti-chart-line"></i><span data-i18n="nav.raporty">Raporty</span></button>
   <button class="tnb" id="tnb-budzet" onclick="showPage('budzet')"><i class="ti ti-wallet"></i><span>Budżet / TCO</span></button>
+  <button class="tnb" id="tnb-fuel-db" onclick="showPage('fuel-db')"><i class="ti ti-droplet"></i><span>Ewidencja paliwa</span></button>
+  <button class="tnb" id="tnb-budgets" onclick="showPage('budgets')"><i class="ti ti-target"></i><span>Budżety</span></button>
+  <button class="tnb" id="tnb-faults" onclick="showPage('faults')"><i class="ti ti-alert-triangle"></i><span>Usterki</span></button>
+  <button class="tnb" id="tnb-driver-shifts" onclick="showPage('driver-shifts')"><i class="ti ti-clock"></i><span>Czas pracy</span></button>
+  <button class="tnb" id="tnb-tacho" onclick="showPage('tacho')"><i class="ti ti-device-desktop"></i><span>Tachograf</span></button>
+  <button class="tnb" id="tnb-benchmark" onclick="showPage('benchmark')"><i class="ti ti-chart-bar"></i><span>Benchmark</span></button>
+  <button class="tnb" id="tnb-fk-export" onclick="showPage('fk-export')"><i class="ti ti-file-export"></i><span>Eksport FK</span></button>
 
   <div class="sidebar-label">Podatki</div>
   <button class="tnb" id="tnb-kalkulator" onclick="showPage('kalkulator')"><i class="ti ti-calculator"></i><span data-i18n="nav.kalkulator">Kalkulator DT-1</span></button>
@@ -1779,6 +1786,145 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   </div>
 </div>
 
+<!-- ==================== MODAL: TANKOWANIE ==================== -->
+<div id="fuel-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <strong style="font-size:16px"><i class="ti ti-droplet"></i> Tankowanie</strong>
+      <button class="btn-icon" onclick="window.FuelDbModule.closeFuelModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="fm-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label class="form-label">Nr rej. *</label><input type="text" id="fm-nr-rej" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Data *</label><input type="date" id="fm-date" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Kierowca</label><input type="text" id="fm-driver" class="form-input" placeholder="Imię i nazwisko"></div>
+      <div class="form-group"><label class="form-label">Typ paliwa</label>
+        <select id="fm-ftype" class="form-select"><option value="diesel">Diesel</option><option value="pb95">PB 95</option><option value="pb98">PB 98</option><option value="lpg">LPG</option><option value="cng">CNG</option><option value="elektryk">Elektryczny</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Litry *</label><input type="number" step="0.01" id="fm-liters" class="form-input" oninput="window.FuelDbModule.autoCalcCost()"></div>
+      <div class="form-group"><label class="form-label">Cena za litr (PLN)</label><input type="number" step="0.001" id="fm-ppl" class="form-input" oninput="window.FuelDbModule.autoCalcCost()"></div>
+      <div class="form-group"><label class="form-label">Koszt łączny (PLN)</label><input type="number" step="0.01" id="fm-cost" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Stan km (drogomierz)</label><input type="number" id="fm-odo" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Stacja</label><input type="text" id="fm-station" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Nr karty</label><input type="text" id="fm-card" class="form-input"></div>
+      <div class="form-group" style="display:flex;align-items:center;gap:8px;padding-top:24px"><input type="checkbox" id="fm-full"> <label for="fm-full">Pełny bak</label></div>
+    </div>
+    <div class="form-group" style="margin-top:8px"><label class="form-label">Uwagi</label><textarea id="fm-notes" class="form-input" rows="2"></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn-secondary" onclick="window.FuelDbModule.closeFuelModal()">Anuluj</button>
+      <button class="btn-primary" onclick="window.FuelDbModule.saveFuel()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: BUDŻET ==================== -->
+<div id="budget-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:480px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <strong style="font-size:16px"><i class="ti ti-target"></i> Budżet</strong>
+      <button class="btn-icon" onclick="window.BudgetsModule.closeBudgetModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="bm-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label class="form-label">Kategoria *</label>
+        <select id="bm-category" class="form-select">
+          <option value="fuel">Paliwo</option><option value="service">Serwis</option>
+          <option value="fine">Mandaty</option><option value="damage">Szkody</option>
+          <option value="mileage">Rozliczenia km</option><option value="insurance">Ubezpieczenia</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Nr rej. (puste = cała flota)</label><input type="text" id="bm-nr-rej" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Rok *</label><input type="number" id="bm-year" class="form-input" value="2026"></div>
+      <div class="form-group"><label class="form-label">Miesiąc (puste = roczny)</label><input type="number" id="bm-month" class="form-input" min="1" max="12" placeholder="1-12"></div>
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Kwota budżetu (PLN) *</label><input type="number" step="0.01" id="bm-amount" class="form-input"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn-secondary" onclick="window.BudgetsModule.closeBudgetModal()">Anuluj</button>
+      <button class="btn-primary" onclick="window.BudgetsModule.saveBudget()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: USTERKA ==================== -->
+<div id="fault-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:580px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <strong style="font-size:16px"><i class="ti ti-alert-triangle"></i> Usterka</strong>
+      <button class="btn-icon" onclick="window.FaultsModule.closeFaultModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="flt-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label class="form-label">Nr rej. *</label><input type="text" id="flt-nr-rej" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Data zgłoszenia *</label><input type="date" id="flt-date" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Zgłaszający</label><input type="text" id="flt-reported-by" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Ważność</label>
+        <select id="flt-severity" class="form-select"><option value="low">Niskie</option><option value="medium">Średnie</option><option value="high">Wysokie</option><option value="critical">Krytyczne</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Status</label>
+        <select id="flt-status" class="form-select"><option value="open">Otwarte</option><option value="in_progress">W toku</option><option value="resolved">Rozwiązane</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Rozwiązał</label><input type="text" id="flt-resolved-by" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Powiązane zlecenie serwisowe</label><input type="text" id="flt-svc-order" class="form-input"></div>
+    </div>
+    <div class="form-group" style="margin-top:8px"><label class="form-label">Opis usterki *</label><textarea id="flt-description" class="form-input" rows="3"></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn-secondary" onclick="window.FaultsModule.closeFaultModal()">Anuluj</button>
+      <button class="btn-primary" onclick="window.FaultsModule.saveFault()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: ZMIANA KIEROWCY ==================== -->
+<div id="shift-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:560px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <strong style="font-size:16px"><i class="ti ti-clock"></i> Zmiana robocza</strong>
+      <button class="btn-icon" onclick="window.DriverShiftsModule.closeShiftModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="sm-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label class="form-label">Kierowca *</label><input type="text" id="sm-driver" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Nr rej.</label><input type="text" id="sm-nr-rej" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Data *</label><input type="date" id="sm-date" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Typ</label>
+        <select id="sm-type" class="form-select"><option value="normal">Normalna</option><option value="night">Nocna</option><option value="weekend">Weekend</option><option value="holiday">Świąteczna</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Start</label><input type="time" id="sm-start" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Koniec</label><input type="time" id="sm-end" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Przerwa (min)</label><input type="number" id="sm-break" class="form-input" value="0" min="0"></div>
+    </div>
+    <div class="form-group" style="margin-top:8px"><label class="form-label">Uwagi</label><textarea id="sm-notes" class="form-input" rows="2"></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn-secondary" onclick="window.DriverShiftsModule.closeShiftModal()">Anuluj</button>
+      <button class="btn-primary" onclick="window.DriverShiftsModule.saveShift()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: TACHOGRAF ==================== -->
+<div id="tacho-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:520px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <strong style="font-size:16px"><i class="ti ti-device-desktop"></i> Pobranie tachografu</strong>
+      <button class="btn-icon" onclick="window.TachoModule.closeTachoModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="tm-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label class="form-label">Nr rej. *</label><input type="text" id="tm-nr-rej" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Kierowca</label><input type="text" id="tm-driver" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Data pobrania *</label><input type="date" id="tm-download" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Plik</label><input type="text" id="tm-file" class="form-input" placeholder="np. tacho_2026_07.ddd"></div>
+      <div class="form-group"><label class="form-label">Okres od</label><input type="date" id="tm-from" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Okres do</label><input type="date" id="tm-to" class="form-input"></div>
+    </div>
+    <div class="form-group" style="margin-top:8px"><label class="form-label">Uwagi</label><textarea id="tm-notes" class="form-input" rows="2"></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn-secondary" onclick="window.TachoModule.closeTachoModal()">Anuluj</button>
+      <button class="btn-primary" onclick="window.TachoModule.saveTacho()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
 <!-- ==================== MODAL: POLISA ==================== -->
 <div id="pm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9400;align-items:center;justify-content:center;padding:1rem">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto">
@@ -3312,6 +3458,56 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <div id="errors-admin-body"></div>
 </div>
 
+<!-- ==================== EWIDENCJA PALIWA ==================== -->
+<div class="page" id="page-fuel-db" style="display:none">
+  <div id="page-fuel-db-inner"></div>
+</div>
+
+<!-- ==================== BUDŻETY ==================== -->
+<div class="page" id="page-budgets" style="display:none">
+  <div class="pg-title"><i class="ti ti-target"></i>Budżety kosztowe</div>
+  <div class="pg-sub">Plan vs wykonanie per kategoria kosztów, pojazd lub oddział</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+    <select id="budg-year" onchange="window.BudgetsModule?.renderBudgets()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-card)"></select>
+    <select id="budg-month" onchange="window.BudgetsModule?.renderBudgets()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-card)">
+      <option value="">Cały rok</option>
+      <option value="1">Styczeń</option><option value="2">Luty</option><option value="3">Marzec</option>
+      <option value="4">Kwiecień</option><option value="5">Maj</option><option value="6">Czerwiec</option>
+      <option value="7">Lipiec</option><option value="8">Sierpień</option><option value="9">Wrzesień</option>
+      <option value="10">Październik</option><option value="11">Listopad</option><option value="12">Grudzień</option>
+    </select>
+    <button class="btn-primary" onclick="window.BudgetsModule?.openBudgetModal()"><i class="ti ti-plus"></i> Dodaj budżet</button>
+  </div>
+  <div class="table-wrap"><table class="data-table"><thead><tr>
+    <th>Kategoria</th><th>Nr rej.</th><th>Oddział</th><th>Budżet</th><th>Wykonanie</th><th>Realizacja</th><th></th>
+  </tr></thead><tbody id="budgets-body"></tbody></table></div>
+</div>
+
+<!-- ==================== USTERKI ==================== -->
+<div class="page" id="page-faults" style="display:none">
+  <div id="page-faults-inner"></div>
+</div>
+
+<!-- ==================== CZAS PRACY ==================== -->
+<div class="page" id="page-driver-shifts" style="display:none">
+  <div id="page-driver-shifts-inner"></div>
+</div>
+
+<!-- ==================== TACHOGRAF ==================== -->
+<div class="page" id="page-tacho" style="display:none">
+  <div id="page-tacho-inner"></div>
+</div>
+
+<!-- ==================== BENCHMARK ==================== -->
+<div class="page" id="page-benchmark" style="display:none">
+  <div id="page-benchmark-inner"></div>
+</div>
+
+<!-- ==================== EKSPORT FK ==================== -->
+<div class="page" id="page-fk-export" style="display:none">
+  <div id="page-fk-export-inner"></div>
+</div>
+
 <!-- ==================== AI ASYSTENT ==================== -->
 <!-- ==================== BUDŻET / TCO ==================== -->
 <div class="page" id="page-budzet">
@@ -3526,6 +3722,13 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/policies.js"></script>
   <script src="modules/service-schedule.js"></script>
   <script src="modules/mileage-claims.js"></script>
+  <script src="modules/fuel-db.js"></script>
+  <script src="modules/budgets.js"></script>
+  <script src="modules/faults.js"></script>
+  <script src="modules/driver-shifts.js"></script>
+  <script src="modules/tacho.js"></script>
+  <script src="modules/benchmark.js"></script>
+  <script src="modules/fk-export.js"></script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">

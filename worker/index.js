@@ -3736,6 +3736,55 @@ async function handleErrors(request, env, user, url, path) {
   return err('Metoda niedozwolona', 405);
 }
 
+// ─── MIESIĘCZNY RAPORT EMAIL ─────────────────────────────────────────────────
+async function sendMonthlyReports(env) {
+  if (!env.RESEND_API_KEY) return;
+  const today = new Date();
+  const dayOfMonth = today.getUTCDate();
+  const year  = today.getUTCFullYear();
+  const month = today.getUTCMonth() + 1;
+  const monthStr = String(month).padStart(2, '0');
+  // Poprzedni miesiąc do raportu
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear  = month === 1 ? year - 1 : year;
+  const prevMonthStr = String(prevMonth).padStart(2, '0');
+  const from = `${prevYear}-${prevMonthStr}-01`;
+  const lastDay = new Date(prevYear, prevMonth, 0).getUTCDate();
+  const to = `${prevYear}-${prevMonthStr}-${String(lastDay).padStart(2,'0')}`;
+
+  // Pobierz subskrypcje na bieżący dzień miesiąca
+  const subs = (await env.DB.prepare(`SELECT DISTINCT company_id, email FROM report_subscriptions WHERE active=1 AND day_of_month=? AND report_type='monthly'`).bind(dayOfMonth).all()).results || [];
+  if (!subs.length) return;
+
+  for (const sub of subs) {
+    try {
+      const [svcRow, fineRow, fuelRow, dmgRow] = await Promise.all([
+        env.DB.prepare(`SELECT COUNT(*) AS cnt, SUM(koszt_rzeczywisty) AS total FROM service_orders WHERE company_id=? AND data_realizacji BETWEEN ? AND ?`).bind(sub.company_id, from, to).first(),
+        env.DB.prepare(`SELECT COUNT(*) AS cnt, SUM(amount) AS total FROM fines WHERE company_id=? AND date BETWEEN ? AND ?`).bind(sub.company_id, from, to).first(),
+        env.DB.prepare(`SELECT COUNT(*) AS cnt, SUM(total_cost) AS total, SUM(liters) AS liters FROM fuel_fills WHERE company_id=? AND fill_date BETWEEN ? AND ?`).bind(sub.company_id, from, to).first(),
+        env.DB.prepare(`SELECT COUNT(*) AS cnt, SUM(koszt) AS total FROM damage_reports WHERE company_id=? AND data_zdarzenia BETWEEN ? AND ?`).bind(sub.company_id, from, to).first(),
+      ]);
+      const fmtPLN = v => v != null ? `${parseFloat(v).toFixed(2)} PLN` : '— PLN';
+      const totalCost = (svcRow?.total||0)+(fineRow?.total||0)+(fuelRow?.total||0)+(dmgRow?.total||0);
+      const htmlBody = `
+<h2>Raport miesięczny floty — ${prevMonthStr}/${prevYear}</h2>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:sans-serif">
+  <tr><th>Kategoria</th><th>Liczba</th><th>Kwota</th></tr>
+  <tr><td>Serwis/Naprawy</td><td>${svcRow?.cnt||0}</td><td>${fmtPLN(svcRow?.total)}</td></tr>
+  <tr><td>Mandaty</td><td>${fineRow?.cnt||0}</td><td>${fmtPLN(fineRow?.total)}</td></tr>
+  <tr><td>Paliwo</td><td>${fuelRow?.cnt||0} (${fuelRow?.liters ? parseFloat(fuelRow.liters).toFixed(1)+' l' : '—'})</td><td>${fmtPLN(fuelRow?.total)}</td></tr>
+  <tr><td>Szkody</td><td>${dmgRow?.cnt||0}</td><td>${fmtPLN(dmgRow?.total)}</td></tr>
+  <tr><td><strong>RAZEM</strong></td><td></td><td><strong>${fmtPLN(totalCost)}</strong></td></tr>
+</table>
+<p style="color:#666;font-size:12px">TaxOrder Pro — automatyczny raport. Aby wypisać się, wejdź w Ustawienia → Subskrypcje raportów.</p>`;
+
+      await sendEmailViaResend(env, sub.email, `Raport floty ${prevMonthStr}/${prevYear}`, htmlBody);
+    } catch (e) {
+      console.error('sendMonthlyReports error', sub.company_id, e.message);
+    }
+  }
+}
+
 // ─── NIGHTLY ANALYSIS (Claude API + GitHub Issues) ────────────────────────────
 async function runNightlyAnalysis(env) {
   if (!env.CLAUDE_API_KEY) return;   // sekret nie ustawiony — pomiń cicho
@@ -4024,6 +4073,589 @@ async function handleMileageClaims(req, env, user, url, path) {
   return err('Metoda nieobsługiwana', 405);
 }
 
+// ─── PALIWO (FUEL FILLS) ─────────────────────────────────────────────────────
+async function handleFuelFills(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const segs = path.split('/').filter(Boolean);
+  const id = segs[2] || null;
+  const sub = segs[3] || null;
+  const method = req.method;
+
+  // GET /api/fuel-fills/stats — statystyki spalania per pojazd
+  if (method === 'GET' && id === 'stats') {
+    const year  = url.searchParams.get('year')  || new Date().getFullYear();
+    const nrRej = url.searchParams.get('nr_rej');
+    let q = `SELECT nr_rej,
+               COUNT(*) AS fill_count,
+               SUM(liters) AS total_liters,
+               SUM(total_cost) AS total_cost,
+               AVG(price_per_liter) AS avg_price,
+               MIN(odometer) AS odo_min, MAX(odometer) AS odo_max
+             FROM fuel_fills WHERE company_id=? AND fill_date LIKE ?`;
+    const p = [company, `${year}%`];
+    if (nrRej) { q += ' AND nr_rej=?'; p.push(nrRej); }
+    q += ' GROUP BY nr_rej ORDER BY total_cost DESC';
+    const rows = (await env.DB.prepare(q).bind(...p).all()).results || [];
+    // Oblicz średnie spalanie (l/100km) na podstawie odometru
+    const enriched = rows.map(r => {
+      const km = (r.odo_max && r.odo_min && r.odo_max > r.odo_min) ? (r.odo_max - r.odo_min) : null;
+      return { ...r, km_driven: km, avg_consumption: (km && r.total_liters) ? ((r.total_liters / km) * 100).toFixed(2) : null };
+    });
+    return json(enriched);
+  }
+
+  // GET /api/fuel-fills — lista
+  if (method === 'GET' && !id) {
+    const nrRej  = url.searchParams.get('nr_rej');
+    const month  = url.searchParams.get('month');
+    const branch = url.searchParams.get('branch_id');
+    const limit  = Math.min(parseInt(url.searchParams.get('limit') || '500'), 2000);
+    let q = 'SELECT * FROM fuel_fills WHERE company_id=?';
+    const p = [company];
+    if (nrRej)  { q += ' AND nr_rej=?';            p.push(nrRej); }
+    if (month)  { q += ' AND fill_date LIKE ?';     p.push(`${month}%`); }
+    if (branch) { q += ' AND branch_id=?';          p.push(parseInt(branch)); }
+    q += ' ORDER BY fill_date DESC, created_at DESC LIMIT ?';
+    p.push(limit);
+    return json((await env.DB.prepare(q).bind(...p).all()).results || []);
+  }
+
+  // POST /api/fuel-fills
+  if (method === 'POST') {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!d.nr_rej)    return err('Wymagane: nr_rej', 400);
+    if (!d.fill_date) return err('Wymagane: fill_date', 400);
+    if (!d.liters)    return err('Wymagane: liters', 400);
+    const bid = await _getVehicleBranchId(env, company, d.nr_rej);
+    const totalCost = d.total_cost ?? (d.liters && d.price_per_liter ? parseFloat((d.liters * d.price_per_liter).toFixed(2)) : null);
+    const co2 = d.co2_kg ?? (d.liters ? parseFloat((d.liters * 2.64).toFixed(2)) : null); // diesel default
+    const newId = d.id || crypto.randomUUID();
+    await env.DB.prepare(`INSERT OR REPLACE INTO fuel_fills
+      (id,company_id,nr_rej,branch_id,driver_name,fill_date,liters,price_per_liter,total_cost,odometer,station,card_no,full_tank,fuel_type,co2_kg,gl_account,notes)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .bind(newId, company, d.nr_rej, d.branch_id??bid, d.driver_name||null, d.fill_date,
+      parseFloat(d.liters), d.price_per_liter??null, totalCost,
+      d.odometer??null, d.station||null, d.card_no||null,
+      d.full_tank!==false?1:0, d.fuel_type||'diesel', co2, d.gl_account||null, d.notes||null).run();
+    return json({ ok: true, id: newId });
+  }
+
+  // PUT /api/fuel-fills/:id
+  if (method === 'PUT' && id) {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const totalCost = d.total_cost ?? (d.liters && d.price_per_liter ? parseFloat((d.liters * d.price_per_liter).toFixed(2)) : null);
+    await env.DB.prepare(`UPDATE fuel_fills SET
+      fill_date=?,liters=?,price_per_liter=?,total_cost=?,odometer=?,station=?,card_no=?,
+      full_tank=?,fuel_type=?,co2_kg=?,driver_name=?,gl_account=?,notes=?
+      WHERE id=? AND company_id=?`)
+    .bind(d.fill_date, parseFloat(d.liters), d.price_per_liter??null, totalCost,
+      d.odometer??null, d.station||null, d.card_no||null,
+      d.full_tank!==false?1:0, d.fuel_type||'diesel', d.co2_kg??null,
+      d.driver_name||null, d.gl_account||null, d.notes||null, id, company).run();
+    return json({ ok: true });
+  }
+
+  // DELETE /api/fuel-fills/:id
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM fuel_fills WHERE id=? AND company_id=?').bind(id, company).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda nieobsługiwana', 405);
+}
+
+// ─── BUDŻETY ─────────────────────────────────────────────────────────────────
+async function handleBudgets(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const segs = path.split('/').filter(Boolean);
+  const id = segs[2] ? parseInt(segs[2]) : null;
+  const method = req.method;
+
+  // GET /api/budgets — budżety z wykonaniem
+  if (method === 'GET' && !id) {
+    const year = parseInt(url.searchParams.get('year') || new Date().getFullYear());
+    const budgets = (await env.DB.prepare(
+      'SELECT * FROM budgets WHERE company_id=? AND year=? ORDER BY branch_id, nr_rej, category'
+    ).bind(company, year).all()).results || [];
+
+    // Pobierz rzeczywiste koszty dla każdego budżetu
+    const [svcAgg, fineAgg, fuelAgg, damageAgg, mileAgg, polAgg] = await Promise.all([
+      env.DB.prepare(`SELECT COALESCE(branch_id,'') AS bid, COALESCE(nr_rej,'') AS veh, SUM(koszt_rzeczywisty) AS total FROM service_orders WHERE company_id=? AND strftime('%Y',data_realizacji)=? GROUP BY bid,veh`).bind(company, String(year)).all(),
+      env.DB.prepare(`SELECT COALESCE(branch_id,'') AS bid, COALESCE(nr_rej,'') AS veh, SUM(amount) AS total FROM fines WHERE company_id=? AND strftime('%Y',date)=? GROUP BY bid,veh`).bind(company, String(year)).all(),
+      env.DB.prepare(`SELECT COALESCE(branch_id,'') AS bid, COALESCE(nr_rej,'') AS veh, SUM(total_cost) AS total FROM fuel_fills WHERE company_id=? AND strftime('%Y',fill_date)=? GROUP BY bid,veh`).bind(company, String(year)).all(),
+      env.DB.prepare(`SELECT COALESCE(branch_id,'') AS bid, COALESCE(nr_rej,'') AS veh, SUM(koszt) AS total FROM damage_reports WHERE company_id=? AND strftime('%Y',data_zdarzenia)=? GROUP BY bid,veh`).bind(company, String(year)).all(),
+      env.DB.prepare(`SELECT COALESCE(branch_id,'') AS bid, COALESCE(nr_rej,'') AS veh, SUM(amount) AS total FROM mileage_claims WHERE company_id=? AND strftime('%Y',claim_date)=? GROUP BY bid,veh`).bind(company, String(year)).all(),
+      env.DB.prepare(`SELECT COALESCE(branch_id,'') AS bid, COALESCE(nr_rej,'') AS veh, SUM(premium) AS total FROM policies WHERE company_id=? AND strftime('%Y',start_date)=? GROUP BY bid,veh`).bind(company, String(year)).all(),
+    ]);
+    const aggMap = { service: svcAgg.results||[], fines: fineAgg.results||[], fuel: fuelAgg.results||[], damages: damageAgg.results||[], mileage: mileAgg.results||[], insurance: polAgg.results||[] };
+    const getActual = (cat, bid, veh) => {
+      const rows = aggMap[cat] || [];
+      return rows.filter(r => (bid ? String(r.bid) === String(bid) : true) && (veh ? r.veh === veh : true)).reduce((s, r) => s + (r.total || 0), 0);
+    };
+    const enriched = budgets.map(b => ({ ...b, actual: getActual(b.category, b.branch_id, b.nr_rej), pct: b.amount > 0 ? Math.round(getActual(b.category, b.branch_id, b.nr_rej) / b.amount * 100) : 0 }));
+    return json(enriched);
+  }
+
+  // POST /api/budgets
+  if (method === 'POST') {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!d.year || !d.category) return err('Wymagane: year, category', 400);
+    if (!d.amount) return err('Wymagane: amount', 400);
+    const result = await env.DB.prepare(
+      'INSERT INTO budgets (company_id,branch_id,nr_rej,year,month,category,amount) VALUES (?,?,?,?,?,?,?)'
+    ).bind(company, d.branch_id??null, d.nr_rej||null, d.year, d.month??null, d.category, parseFloat(d.amount)).run();
+    return json({ ok: true, id: result.meta.last_row_id });
+  }
+
+  // PUT /api/budgets/:id
+  if (method === 'PUT' && id) {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    await env.DB.prepare(`UPDATE budgets SET amount=?,category=?,month=?,branch_id=?,nr_rej=?,updated_at=datetime('now') WHERE id=? AND company_id=?`)
+      .bind(parseFloat(d.amount), d.category, d.month??null, d.branch_id??null, d.nr_rej||null, id, company).run();
+    return json({ ok: true });
+  }
+
+  // DELETE /api/budgets/:id
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM budgets WHERE id=? AND company_id=?').bind(id, company).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda nieobsługiwana', 405);
+}
+
+// ─── USTERKI ─────────────────────────────────────────────────────────────────
+async function handleFaults(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const segs = path.split('/').filter(Boolean);
+  const id = segs[2] || null;
+  const method = req.method;
+
+  if (method === 'GET' && !id) {
+    const nrRej    = url.searchParams.get('nr_rej');
+    const status   = url.searchParams.get('status');
+    const severity = url.searchParams.get('severity');
+    const limit    = Math.min(parseInt(url.searchParams.get('limit') || '500'), 1000);
+    let q = 'SELECT * FROM faults WHERE company_id=?';
+    const p = [company];
+    if (nrRej)    { q += ' AND nr_rej=?';    p.push(nrRej); }
+    if (status)   { q += ' AND status=?';    p.push(status); }
+    if (severity) { q += ' AND severity=?';  p.push(severity); }
+    q += ' ORDER BY report_date DESC, created_at DESC LIMIT ?';
+    p.push(limit);
+    return json((await env.DB.prepare(q).bind(...p).all()).results || []);
+  }
+
+  if (method === 'POST') {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!d.nr_rej)      return err('Wymagane: nr_rej', 400);
+    if (!d.description) return err('Wymagane: description', 400);
+    const bid = await _getVehicleBranchId(env, company, d.nr_rej);
+    const newId = d.id || crypto.randomUUID();
+    await env.DB.prepare(`INSERT INTO faults (id,company_id,nr_rej,branch_id,reported_by,report_date,description,severity,status)
+      VALUES(?,?,?,?,?,?,?,?,?)`)
+    .bind(newId, company, d.nr_rej, d.branch_id??bid, d.reported_by||null,
+      d.report_date || new Date().toISOString().slice(0,10),
+      d.description, d.severity||'low', 'open').run();
+    return json({ ok: true, id: newId });
+  }
+
+  if (method === 'PUT' && id) {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const row = await env.DB.prepare('SELECT * FROM faults WHERE id=? AND company_id=?').bind(id, company).first();
+    if (!row) return err('Nie znaleziono', 404);
+    const resolvedAt = (d.status === 'resolved' && row.status !== 'resolved') ? new Date().toISOString() : (row.resolved_at || null);
+    await env.DB.prepare(`UPDATE faults SET description=?,severity=?,status=?,resolved_by=?,resolved_at=?,service_order_id=? WHERE id=? AND company_id=?`)
+      .bind(d.description||row.description, d.severity||row.severity, d.status||row.status,
+        d.resolved_by||row.resolved_by||null, resolvedAt, d.service_order_id||row.service_order_id||null, id, company).run();
+    return json({ ok: true });
+  }
+
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM faults WHERE id=? AND company_id=?').bind(id, company).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda nieobsługiwana', 405);
+}
+
+// ─── CZAS PRACY KIEROWCÓW ────────────────────────────────────────────────────
+async function handleDriverShifts(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const segs = path.split('/').filter(Boolean);
+  const id = segs[2] || null;
+  const sub = segs[3] || null;
+  const method = req.method;
+
+  // GET /api/driver-shifts/summary — miesięczne podsumowanie per kierowca
+  if (method === 'GET' && id === 'summary') {
+    const month = url.searchParams.get('month') || new Date().toISOString().slice(0,7);
+    const rows = (await env.DB.prepare(`
+      SELECT driver_name,
+        COUNT(*) AS shift_count,
+        SUM(work_minutes) AS total_work_min,
+        SUM(overtime_minutes) AS total_overtime_min,
+        SUM(break_minutes) AS total_break_min,
+        GROUP_CONCAT(DISTINCT shift_type) AS shift_types
+      FROM driver_shifts WHERE company_id=? AND shift_date LIKE ?
+      GROUP BY driver_name ORDER BY driver_name`).bind(company, `${month}%`).all()).results || [];
+    return json(rows);
+  }
+
+  if (method === 'GET' && !id) {
+    const driver = url.searchParams.get('driver');
+    const month  = url.searchParams.get('month');
+    const nrRej  = url.searchParams.get('nr_rej');
+    const limit  = Math.min(parseInt(url.searchParams.get('limit') || '500'), 2000);
+    let q = 'SELECT * FROM driver_shifts WHERE company_id=?';
+    const p = [company];
+    if (driver) { q += " AND driver_name LIKE '%'||?||'%'"; p.push(driver); }
+    if (month)  { q += ' AND shift_date LIKE ?';  p.push(`${month}%`); }
+    if (nrRej)  { q += ' AND nr_rej=?';           p.push(nrRej); }
+    q += ' ORDER BY shift_date DESC LIMIT ?';
+    p.push(limit);
+    return json((await env.DB.prepare(q).bind(...p).all()).results || []);
+  }
+
+  if (method === 'POST') {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!d.driver_name) return err('Wymagane: driver_name', 400);
+    if (!d.shift_date)  return err('Wymagane: shift_date', 400);
+    // Oblicz work_minutes z start/end
+    let workMin = d.work_minutes ?? null;
+    if (!workMin && d.start_time && d.end_time) {
+      const [sh,sm] = d.start_time.split(':').map(Number);
+      const [eh,em] = d.end_time.split(':').map(Number);
+      workMin = Math.max(0, (eh*60+em) - (sh*60+sm) - (d.break_minutes||0));
+    }
+    const ovMin = d.overtime_minutes ?? Math.max(0, (workMin||0) - 8*60);
+    const bid = await _getVehicleBranchId(env, company, d.nr_rej);
+    const newId = crypto.randomUUID();
+    await env.DB.prepare(`INSERT INTO driver_shifts
+      (id,company_id,driver_name,nr_rej,branch_id,shift_date,start_time,end_time,break_minutes,work_minutes,overtime_minutes,shift_type,notes)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .bind(newId, company, d.driver_name, d.nr_rej||null, d.branch_id??bid,
+      d.shift_date, d.start_time||null, d.end_time||null,
+      d.break_minutes||0, workMin, ovMin, d.shift_type||'normal', d.notes||null).run();
+    return json({ ok: true, id: newId });
+  }
+
+  if (method === 'PUT' && id) {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    let workMin = d.work_minutes ?? null;
+    if (!workMin && d.start_time && d.end_time) {
+      const [sh,sm] = d.start_time.split(':').map(Number);
+      const [eh,em] = d.end_time.split(':').map(Number);
+      workMin = Math.max(0, (eh*60+em) - (sh*60+sm) - (d.break_minutes||0));
+    }
+    const ovMin = d.overtime_minutes ?? Math.max(0, (workMin||0) - 8*60);
+    await env.DB.prepare(`UPDATE driver_shifts SET
+      driver_name=?,nr_rej=?,shift_date=?,start_time=?,end_time=?,break_minutes=?,work_minutes=?,overtime_minutes=?,shift_type=?,notes=?
+      WHERE id=? AND company_id=?`)
+    .bind(d.driver_name, d.nr_rej||null, d.shift_date, d.start_time||null, d.end_time||null,
+      d.break_minutes||0, workMin, ovMin, d.shift_type||'normal', d.notes||null, id, company).run();
+    return json({ ok: true });
+  }
+
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM driver_shifts WHERE id=? AND company_id=?').bind(id, company).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda nieobsługiwana', 405);
+}
+
+// ─── ARCHIWUM TACHOGRAFU ─────────────────────────────────────────────────────
+async function handleTachoRecords(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const segs = path.split('/').filter(Boolean);
+  const id = segs[2] || null;
+  const method = req.method;
+
+  if (method === 'GET' && !id) {
+    const nrRej   = url.searchParams.get('nr_rej');
+    const overdue = url.searchParams.get('overdue'); // sprawdź pojazdy bez pobrania > 90 dni
+    if (overdue === '1') {
+      // Zwróć pojazdy z aktywnym tachografem, gdzie ostatnie pobranie > 90 dni temu lub brak
+      const cutoff = new Date(Date.now() - 90*86400000).toISOString().slice(0,10);
+      const vehicles = (await env.DB.prepare(
+        `SELECT v.nr_rej, v.data, MAX(t.download_date) AS last_download
+         FROM vehicles v
+         LEFT JOIN tacho_records t ON t.nr_rej = v.nr_rej AND t.company_id = v.company_id
+         WHERE v.company_id=?
+         GROUP BY v.nr_rej
+         HAVING last_download IS NULL OR last_download < ?
+         ORDER BY last_download ASC NULLS FIRST LIMIT 200`
+      ).bind(company, cutoff).all()).results || [];
+      return json(vehicles);
+    }
+    let q = 'SELECT * FROM tacho_records WHERE company_id=?';
+    const p = [company];
+    if (nrRej) { q += ' AND nr_rej=?'; p.push(nrRej); }
+    q += ' ORDER BY download_date DESC LIMIT 500';
+    return json((await env.DB.prepare(q).bind(...p).all()).results || []);
+  }
+
+  if (method === 'POST') {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!d.nr_rej)        return err('Wymagane: nr_rej', 400);
+    if (!d.download_date) return err('Wymagane: download_date', 400);
+    const newId = crypto.randomUUID();
+    await env.DB.prepare(`INSERT INTO tacho_records (id,company_id,nr_rej,driver_name,download_date,period_from,period_to,file_name,notes)
+      VALUES(?,?,?,?,?,?,?,?,?)`)
+    .bind(newId, company, d.nr_rej, d.driver_name||null, d.download_date,
+      d.period_from||null, d.period_to||null, d.file_name||null, d.notes||null).run();
+    return json({ ok: true, id: newId });
+  }
+
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM tacho_records WHERE id=? AND company_id=?').bind(id, company).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda nieobsługiwana', 405);
+}
+
+// ─── BENCHMARKING ────────────────────────────────────────────────────────────
+async function handleBenchmark(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const year = parseInt(url.searchParams.get('year') || new Date().getFullYear());
+  const yStr = String(year);
+
+  const [vehRows, svcRows, fineRows, fuelRows, damageRows, mileRows] = await Promise.all([
+    env.DB.prepare('SELECT nr_rej, data FROM vehicles WHERE company_id=? ORDER BY nr_rej').bind(company).all(),
+    env.DB.prepare(`SELECT nr_rej, SUM(koszt_rzeczywisty) AS total, COUNT(*) AS cnt FROM service_orders WHERE company_id=? AND strftime('%Y',COALESCE(data_realizacji,created_at))=? AND koszt_rzeczywisty IS NOT NULL GROUP BY nr_rej`).bind(company, yStr).all(),
+    env.DB.prepare(`SELECT nr_rej, SUM(amount) AS total, COUNT(*) AS cnt FROM fines WHERE company_id=? AND strftime('%Y',date)=? GROUP BY nr_rej`).bind(company, yStr).all(),
+    env.DB.prepare(`SELECT nr_rej, SUM(total_cost) AS total, SUM(liters) AS liters, MAX(odometer) AS odo_max, MIN(odometer) AS odo_min FROM fuel_fills WHERE company_id=? AND strftime('%Y',fill_date)=? GROUP BY nr_rej`).bind(company, yStr).all(),
+    env.DB.prepare(`SELECT nr_rej, SUM(koszt) AS total, COUNT(*) AS cnt FROM damage_reports WHERE company_id=? AND strftime('%Y',COALESCE(data_zdarzenia,created_at))=? AND koszt IS NOT NULL GROUP BY nr_rej`).bind(company, yStr).all(),
+    env.DB.prepare(`SELECT nr_rej, SUM(amount) AS total FROM mileage_claims WHERE company_id=? AND strftime('%Y',claim_date)=? GROUP BY nr_rej`).bind(company, yStr).all(),
+  ]);
+
+  const idx = (rows) => Object.fromEntries((rows.results||[]).map(r => [r.nr_rej, r]));
+  const svcIdx  = idx(svcRows);
+  const fineIdx = idx(fineRows);
+  const fuelIdx = idx(fuelRows);
+  const dmgIdx  = idx(damageRows);
+  const milIdx  = idx(mileRows);
+
+  const result = (vehRows.results||[]).map(v => {
+    let data = {}; try { data = JSON.parse(v.data||'{}'); } catch {}
+    const svc  = svcIdx[v.nr_rej]  || {};
+    const fine = fineIdx[v.nr_rej] || {};
+    const fuel = fuelIdx[v.nr_rej] || {};
+    const dmg  = dmgIdx[v.nr_rej]  || {};
+    const mil  = milIdx[v.nr_rej]  || {};
+    const fuelKm = (fuel.odo_max && fuel.odo_min && fuel.odo_max > fuel.odo_min) ? fuel.odo_max - fuel.odo_min : null;
+    const total = (svc.total||0)+(fine.total||0)+(fuel.total||0)+(dmg.total||0)+(mil.total||0);
+    return {
+      nr_rej: v.nr_rej, marka: data.marka||'', model: data.model||'', rok: data.rok||null,
+      typ: data.typ||'', dmcMax: data.dmcMax||data.dmc||0,
+      service_cost: svc.total||0, service_cnt: svc.cnt||0,
+      fine_cost: fine.total||0, fine_cnt: fine.cnt||0,
+      fuel_cost: fuel.total||0, fuel_liters: fuel.liters||0,
+      fuel_km: fuelKm, avg_consumption: (fuelKm && fuel.liters) ? parseFloat(((fuel.liters/fuelKm)*100).toFixed(2)) : null,
+      damage_cost: dmg.total||0, damage_cnt: dmg.cnt||0,
+      mileage_cost: mil.total||0,
+      total_cost: total,
+      cost_per_km: (fuelKm && total) ? parseFloat((total/fuelKm).toFixed(2)) : null,
+    };
+  });
+  return json(result);
+}
+
+// ─── KONTA GL ────────────────────────────────────────────────────────────────
+async function handleGlAccounts(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const segs = path.split('/').filter(Boolean);
+  const id = segs[2] ? parseInt(segs[2]) : null;
+  const method = req.method;
+
+  if (method === 'GET') {
+    const rows = (await env.DB.prepare('SELECT * FROM gl_accounts WHERE company_id=? ORDER BY cost_type').bind(company).all()).results || [];
+    return json(rows);
+  }
+  if (method === 'POST') {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!d.cost_type || !d.gl_account) return err('Wymagane: cost_type, gl_account', 400);
+    await env.DB.prepare('INSERT OR REPLACE INTO gl_accounts (company_id,cost_type,gl_account,description) VALUES(?,?,?,?)')
+      .bind(company, d.cost_type, d.gl_account, d.description||null).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM gl_accounts WHERE id=? AND company_id=?').bind(id, company).run();
+    return json({ ok: true });
+  }
+  return err('Metoda nieobsługiwana', 405);
+}
+
+// ─── EKSPORT FK ───────────────────────────────────────────────────────────────
+async function handleFkExport(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const from = url.searchParams.get('from') || `${new Date().getFullYear()}-01-01`;
+  const to   = url.searchParams.get('to')   || new Date().toISOString().slice(0,10);
+  const fmt  = url.searchParams.get('format') || 'csv';
+
+  // Załaduj mapowanie GL
+  const glRows = (await env.DB.prepare('SELECT cost_type, gl_account FROM gl_accounts WHERE company_id=?').bind(company).all()).results || [];
+  const gl = Object.fromEntries(glRows.map(r => [r.cost_type, r.gl_account]));
+
+  // Pobierz koszty ze wszystkich tabel
+  const [svcRows, fineRows, fuelRows, dmgRows, milRows, polRows] = await Promise.all([
+    env.DB.prepare(`SELECT 'service' AS type, id, nr_rej, data_realizacji AS date, koszt_rzeczywisty AS amount, typ AS description, branch_id FROM service_orders WHERE company_id=? AND data_realizacji BETWEEN ? AND ? AND koszt_rzeczywisty IS NOT NULL ORDER BY date`).bind(company, from, to).all(),
+    env.DB.prepare(`SELECT 'fine' AS type, id, nr_rej, date, amount, COALESCE(description,type) AS description, branch_id FROM fines WHERE company_id=? AND date BETWEEN ? AND ? ORDER BY date`).bind(company, from, to).all(),
+    env.DB.prepare(`SELECT 'fuel' AS type, id, nr_rej, fill_date AS date, total_cost AS amount, CONCAT(fuel_type,' ',liters,' l') AS description, branch_id FROM fuel_fills WHERE company_id=? AND fill_date BETWEEN ? AND ? ORDER BY date`).bind(company, from, to).all(),
+    env.DB.prepare(`SELECT 'damage' AS type, id, nr_rej, data_zdarzenia AS date, koszt AS amount, opis AS description, branch_id FROM damage_reports WHERE company_id=? AND data_zdarzenia BETWEEN ? AND ? AND koszt IS NOT NULL ORDER BY date`).bind(company, from, to).all(),
+    env.DB.prepare(`SELECT 'mileage' AS type, id, nr_rej, claim_date AS date, amount, COALESCE(purpose,'Rozliczenie km') AS description, branch_id FROM mileage_claims WHERE company_id=? AND claim_date BETWEEN ? AND ? ORDER BY date`).bind(company, from, to).all(),
+    env.DB.prepare(`SELECT 'insurance' AS type, id, nr_rej, start_date AS date, premium AS amount, CONCAT(type,' ',COALESCE(policy_number,'')) AS description, branch_id FROM policies WHERE company_id=? AND start_date BETWEEN ? AND ? AND premium IS NOT NULL ORDER BY date`).bind(company, from, to).all(),
+  ]);
+
+  const allRows = [
+    ...(svcRows.results||[]), ...(fineRows.results||[]), ...(fuelRows.results||[]),
+    ...(dmgRows.results||[]), ...(milRows.results||[]), ...(polRows.results||[])
+  ].sort((a,b) => (a.date||'').localeCompare(b.date||''));
+
+  const GL_LABELS = { service:'Serwis/Naprawy', fine:'Mandaty', fuel:'Paliwo', damage:'Szkody', mileage:'Rozliczenia km', insurance:'Ubezpieczenia' };
+
+  if (fmt === 'json') return json(allRows.map(r => ({ ...r, gl_account: gl[r.type] || '', type_label: GL_LABELS[r.type] || r.type })));
+
+  // CSV
+  const hdrs = ['Data','Typ kosztu','Konto GL','Nr rej.','Kwota (PLN)','Opis','ID zapisu'];
+  const rows = allRows.map(r => [
+    r.date||'', GL_LABELS[r.type]||r.type, gl[r.type]||'',
+    r.nr_rej||'', r.amount!=null?String(r.amount):'', (r.description||'').replace(/;/g,' '), r.id||''
+  ]);
+  const csv = '﻿' + [hdrs,...rows].map(row=>row.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+  return new Response(csv, {
+    status: 200,
+    headers: { ...CORS, 'Content-Type': 'text/csv;charset=utf-8', 'Content-Disposition': `attachment; filename="fk-export-${from}-${to}.csv"` }
+  });
+}
+
+// ─── SUBSKRYPCJE RAPORTÓW EMAIL ───────────────────────────────────────────────
+async function handleReportSubscriptions(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const segs = path.split('/').filter(Boolean);
+  const id = segs[2] ? parseInt(segs[2]) : null;
+  const method = req.method;
+
+  if (method === 'GET') {
+    const rows = (await env.DB.prepare('SELECT * FROM report_subscriptions WHERE company_id=? ORDER BY email').bind(company).all()).results || [];
+    return json(rows);
+  }
+  if (method === 'POST') {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!d.email) return err('Wymagane: email', 400);
+    await env.DB.prepare('INSERT OR REPLACE INTO report_subscriptions (company_id,email,report_type,day_of_month,active) VALUES(?,?,?,?,1)')
+      .bind(company, d.email.toLowerCase().trim(), d.report_type||'monthly', d.day_of_month||1).run();
+    return json({ ok: true });
+  }
+  if (method === 'PUT' && id) {
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    await env.DB.prepare('UPDATE report_subscriptions SET active=?,day_of_month=? WHERE id=? AND company_id=?')
+      .bind(d.active?1:0, d.day_of_month||1, id, company).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM report_subscriptions WHERE id=? AND company_id=?').bind(id, company).run();
+    return json({ ok: true });
+  }
+  return err('Metoda nieobsługiwana', 405);
+}
+
+// ─── TOKENY POJAZDÓW ─────────────────────────────────────────────────────────
+async function handleVehicleTokens(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+  const segs = path.split('/').filter(Boolean);
+  const nrRej = segs[2] ? decodeURIComponent(segs[2]) : null;
+  const method = req.method;
+
+  if (method === 'GET' && nrRej) {
+    // Pobierz lub utwórz token dla pojazdu
+    let row = await env.DB.prepare('SELECT token FROM vehicle_tokens WHERE company_id=? AND nr_rej=?').bind(company, nrRej).first();
+    if (!row) {
+      const token = crypto.randomUUID();
+      await env.DB.prepare('INSERT INTO vehicle_tokens (token,company_id,nr_rej) VALUES(?,?,?)').bind(token, company, nrRej).run();
+      row = { token };
+    }
+    const base = env.APP_URL || 'https://taxorder-pro.pages.dev';
+    return json({ token: row.token, url: `${base}/#driver-form/${row.token}` });
+  }
+  if (method === 'DELETE' && nrRej) {
+    // Regeneruj token (usuń stary)
+    await env.DB.prepare('DELETE FROM vehicle_tokens WHERE company_id=? AND nr_rej=?').bind(company, nrRej).run();
+    return json({ ok: true });
+  }
+  return err('Metoda nieobsługiwana', 405);
+}
+
+// ─── PUBLICZNY FORMULARZ KIEROWCY ─────────────────────────────────────────────
+async function handleDriverForm(req, env, url, path) {
+  const segs = path.split('/').filter(Boolean); // ['api','driver-form', token]
+  const token = segs[2];
+  if (!token) return err('Brak tokenu', 400);
+
+  const row = await env.DB.prepare('SELECT * FROM vehicle_tokens WHERE token=?').bind(token).first();
+  if (!row) return err('Nieprawidłowy token pojazdu', 404);
+  const { company_id: company, nr_rej } = row;
+
+  // GET — dane pojazdu dla kierowcy
+  if (req.method === 'GET') {
+    const veh = await env.DB.prepare('SELECT nr_rej, data FROM vehicles WHERE company_id=? AND nr_rej=?').bind(company, nr_rej).first();
+    if (!veh) return err('Pojazd nie istnieje', 404);
+    let data = {}; try { data = JSON.parse(veh.data||'{}'); } catch {}
+    // Ostatnie usterki
+    const faults = (await env.DB.prepare('SELECT id,report_date,description,severity,status FROM faults WHERE company_id=? AND nr_rej=? ORDER BY report_date DESC LIMIT 5').bind(company, nr_rej).all()).results||[];
+    return json({ nr_rej, marka: data.marka||'', model: data.model||'', faults });
+  }
+
+  // POST — zgłoszenie usterki lub tankowania
+  if (req.method === 'POST') {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (body.type === 'fault') {
+      if (!body.description) return err('Wymagane: description', 400);
+      const bid = await _getVehicleBranchId(env, company, nr_rej);
+      const fid = crypto.randomUUID();
+      await env.DB.prepare('INSERT INTO faults (id,company_id,nr_rej,branch_id,reported_by,report_date,description,severity,status) VALUES(?,?,?,?,?,?,?,?,?)')
+        .bind(fid, company, nr_rej, bid, body.reported_by||'Kierowca', new Date().toISOString().slice(0,10), body.description, body.severity||'low', 'open').run();
+      return json({ ok: true, id: fid });
+    }
+    if (body.type === 'fuel') {
+      if (!body.liters) return err('Wymagane: liters', 400);
+      const bid = await _getVehicleBranchId(env, company, nr_rej);
+      const fid = crypto.randomUUID();
+      const totalCost = body.total_cost ?? (body.liters && body.price_per_liter ? parseFloat((body.liters*body.price_per_liter).toFixed(2)) : null);
+      await env.DB.prepare('INSERT INTO fuel_fills (id,company_id,nr_rej,branch_id,driver_name,fill_date,liters,price_per_liter,total_cost,odometer,station,fuel_type,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)')
+        .bind(fid, company, nr_rej, bid, body.driver_name||null, body.fill_date||new Date().toISOString().slice(0,10), parseFloat(body.liters), body.price_per_liter??null, totalCost, body.odometer??null, body.station||null, body.fuel_type||'diesel', body.notes||null).run();
+      return json({ ok: true, id: fid });
+    }
+    if (body.type === 'km') {
+      // Zapis stanu km — aktualizuj pole w vehicle data
+      const veh = await env.DB.prepare('SELECT data FROM vehicles WHERE company_id=? AND nr_rej=?').bind(company, nr_rej).first();
+      if (!veh) return err('Pojazd nie istnieje', 404);
+      let data = {}; try { data = JSON.parse(veh.data||'{}'); } catch {}
+      data.stanKilometrow = parseInt(body.km);
+      if (!Array.isArray(data.kmHistory)) data.kmHistory = [];
+      const today = new Date().toISOString().slice(0,10);
+      const last = data.kmHistory[data.kmHistory.length-1];
+      if (!last || last.date !== today) data.kmHistory.push({ date: today, km: parseInt(body.km) });
+      await env.DB.prepare(`UPDATE vehicles SET data=?, updated_at=datetime('now') WHERE company_id=? AND nr_rej=?`).bind(JSON.stringify(data), company, nr_rej).run();
+      return json({ ok: true });
+    }
+    return err('Nieznany typ zgłoszenia (fault/fuel/km)', 400);
+  }
+  return err('Metoda nieobsługiwana', 405);
+}
+
 // ─── ODDZIAŁY (BRANCHES) ─────────────────────────────────────────────────────
 async function _getVehicleBranchId(env, company, nr_rej) {
   if (!nr_rej) return null;
@@ -4240,6 +4872,17 @@ async function handleRequest(request, env, url, path) {
   if (path.startsWith('/api/service-schedules')){ if (!user) return err('Nieautoryzowany', 401); return handleServiceSchedules(request, env, user, url, path); }
   if (path.startsWith('/api/mileage-claims'))   { if (!user) return err('Nieautoryzowany', 401); return handleMileageClaims(request, env, user, url, path); }
   if (path.startsWith('/api/branches'))        { if (!user) return err('Nieautoryzowany', 401); return handleBranches(request, env, user, url, path); }
+  if (path.startsWith('/api/fuel-fills'))      { if (!user) return err('Nieautoryzowany', 401); return handleFuelFills(request, env, user, url, path); }
+  if (path.startsWith('/api/budgets'))         { if (!user) return err('Nieautoryzowany', 401); return handleBudgets(request, env, user, url, path); }
+  if (path.startsWith('/api/faults'))          { if (!user) return err('Nieautoryzowany', 401); return handleFaults(request, env, user, url, path); }
+  if (path.startsWith('/api/driver-shifts'))   { if (!user) return err('Nieautoryzowany', 401); return handleDriverShifts(request, env, user, url, path); }
+  if (path.startsWith('/api/tacho-records'))   { if (!user) return err('Nieautoryzowany', 401); return handleTachoRecords(request, env, user, url, path); }
+  if (path.startsWith('/api/benchmark'))       { if (!user) return err('Nieautoryzowany', 401); return handleBenchmark(request, env, user, url, path); }
+  if (path.startsWith('/api/gl-accounts'))     { if (!user) return err('Nieautoryzowany', 401); return handleGlAccounts(request, env, user, url, path); }
+  if (path.startsWith('/api/fk-export'))       { if (!user) return err('Nieautoryzowany', 401); return handleFkExport(request, env, user, url, path); }
+  if (path.startsWith('/api/report-subs'))     { if (!user) return err('Nieautoryzowany', 401); return handleReportSubscriptions(request, env, user, url, path); }
+  if (path.startsWith('/api/vehicle-tokens'))  { if (!user) return err('Nieautoryzowany', 401); return handleVehicleTokens(request, env, user, url, path); }
+  if (path.startsWith('/api/driver-form'))     { return handleDriverForm(request, env, url, path); }
   // Admin: ręczne wyzwolenie kolejkowania powiadomień (do testów bez crona)
   if (path === '/api/notif-trigger' && request.method === 'POST') {
     if (!user) return err('Nieautoryzowany', 401);
@@ -4858,6 +5501,7 @@ export default {
       queueNotificationJobs(env),
       runNightlyAnalysis(env),
       checkInspectionDeadlines(env),
+      sendMonthlyReports(env),
     ]));
   },
 

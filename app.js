@@ -201,9 +201,27 @@ function showPage(id) {
   if(id==='policies')          window.PoliciesModule?._renderGlobalPage();
   if(id==='service-schedule')  window.ServiceScheduleModule?._renderGlobalPage();
   if(id==='mileage-claims')    window.MileageClaimsModule?._renderGlobalPage();
-  if(id==='oddzialy') renderOddzialy();
+  if(id==='oddzialy')       renderOddzialy();
+  if(id==='fuel-db')        window.FuelDbModule?.renderFuelDb('');
+  if(id==='budgets')        { _initBudgetYearSelect(); window.BudgetsModule?.renderBudgets(); }
+  if(id==='faults')         window.FaultsModule?.renderFaults('');
+  if(id==='driver-shifts')  window.DriverShiftsModule?.renderDriverShifts('');
+  if(id==='tacho')          window.TachoModule?.renderTacho('');
+  if(id==='benchmark')      window.BenchmarkModule?.renderBenchmark();
+  if(id==='fk-export')      window.FkExportModule?.renderFkExport();
   document.dispatchEvent(new CustomEvent('taxorder-page-change', { detail: { page: id } }));
   updateCounters();
+}
+
+function _initBudgetYearSelect() {
+  const sel = document.getElementById('budg-year');
+  if (!sel || sel.options.length) return;
+  const y = new Date().getFullYear();
+  for (let i = 0; i <= 2; i++) {
+    const opt = document.createElement('option');
+    opt.value = y - i; opt.textContent = y - i;
+    sel.appendChild(opt);
+  }
 }
 
 // ==================== POJAZDY ====================
