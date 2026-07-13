@@ -355,6 +355,23 @@ function filterVeh() {
       else if (col === 'rentEnd' && !String(v.rentalEnd||'').includes(val)) return false;
       else if (col === 'purchDate' && !String(v.purchaseDate||v.dataNabycia||'').includes(val)) return false;
       else if (col === 'assEnd' && !String(v.assEnd||'').includes(val)) return false;
+      else if (col === 'drNr' && !String(v.drNr||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'miejsceRej' && !String(v.miejsceRejestracji||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'dataWydDR' && !String(v.dataWydaniaDR||'').includes(val)) return false;
+      else if (col === 'wariant' && !String((v.wariant||'')+(v.wersja||'')).toLowerCase().includes(lv)) return false;
+      else if (col === 'homolog' && !String(v.homologacja||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'uzytkownik' && !String(v.uzytkownik||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'inspResult' && !String(v.inspectionResult||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'inspStation' && !String(v.inspectionStation||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'tachoNo' && !String(v.tachoNo||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'udtDevNo' && !String(v.udtDeviceNo||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'assStart' && !String(v.assStart||'').includes(val)) return false;
+      else if (col === 'assPolicyNo' && !String(v.assPolicyNo||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'assInsurer' && !String(v.assInsurer||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'saleDate' && !String(v.saleDate||'').includes(val)) return false;
+      else if (col === 'dataWycof' && !String(v.dataWycofania||'').includes(val)) return false;
+      else if (col === 'dataWyreg' && !String(v.dataWyrejestrowania||'').includes(val)) return false;
+      else if (col === 'wlascNip' && !String(v.wlascicielNIP||v.nipWlasciciela||'').toLowerCase().includes(lv)) return false;
       else if (['rok','dmc','km','poj','mocKw','masaWl','msc'].includes(col) && !fv.includes(lv)) return false;
     }
     return true;
@@ -684,7 +701,12 @@ function exportFleetCSV() {
     'Właściciel','Typ własności','Karta paliwowa','Kod wewnętrzny','Nr silnika','Kolor',
     'Ostatni przegląd','Ważność DR','Wynajem od','Wynajem do',
     'Składka OC (zł)','Składka AC (zł)','Rata leasingu (zł)','Cena wykupu (zł)',
-    'Data zakupu','Cena zakupu (zł)','Norma spalania (l/100km)','NNW/Assistance do'
+    'Data zakupu','Cena zakupu (zł)','Norma spalania (l/100km)','NNW/Assistance do',
+    'Nr dowodu rej.','Miejsce rejestracji','Data wydania DR','Wariant/Wersja','Nr homologacji','Użytkownik',
+    'Wynik przeglądu','Stacja diagnostyczna','Nr tachografu','Nr urządzenia UDT',
+    'Assistance od','Nr polisy Assistance','Ubezpieczyciel NNW',
+    'Limit km (leasing)','Data sprzedaży','Cena sprzedaży (zł)','Emisja CO₂ (g/km)',
+    'Data wycofania','Data wyrejestrowania','NIP właściciela'
   ];
   const list = filterVeh();
   const rows = list.map(v => [
@@ -706,7 +728,13 @@ function exportFleetCSV() {
     v.assetCode||'', v.nrSilnika||'', v.kolor||'',
     v.lastInspection||'', v.dataWaznosciDR||'', v.rentalStart||'', v.rentalEnd||'',
     v.ocPremium??'', v.acPremium??'', v.leasingRate??'', v.leasingBuyout??'',
-    v.purchaseDate||v.dataNabycia||'', v.purchasePrice??'', v.normaSpalania??'', v.assEnd||''
+    v.purchaseDate||v.dataNabycia||'', v.purchasePrice??'', v.normaSpalania??'', v.assEnd||'',
+    v.drNr||'', v.miejsceRejestracji||'', v.dataWydaniaDR||'',
+    [v.wariant,v.wersja].filter(Boolean).join(' / ')||'', v.homologacja||'', v.uzytkownik||'',
+    v.inspectionResult||'', v.inspectionStation||'', v.tachoNo||'', v.udtDeviceNo||'',
+    v.assStart||'', v.assPolicyNo||'', v.assInsurer||'',
+    v.leasingKmLimit??'', v.saleDate||'', v.salePrice??'', (v.co2GPerKm??v.co2Emission)??'',
+    v.dataWycofania||'', v.dataWyrejestrowania||'', v.wlascicielNIP||v.nipWlasciciela||''
   ]);
   const csv = [HEADERS, ...rows]
     .map(r => r.map(csvCell).join(';'))
@@ -1316,6 +1344,10 @@ const _COL_ORDER_DEFAULT = [
   'wlasciciel','ownType','kartaPal','assetCode','nrSilnika','kolor',
   'lastInsp','drExpiry','rentStart','rentEnd',
   'ocPrem','acPrem','leasRate','leasBuyout','purchDate','purchPrice','normaSpal',
+  'drNr','miejsceRej','dataWydDR','wariant','homolog','uzytkownik',
+  'inspResult','inspStation','tachoNo','udtDevNo',
+  'assStart','assPolicyNo','assInsurer','leasKmLim',
+  'saleDate','salePrice','co2Gkm','dataWycof','dataWyreg','wlascNip',
 ];
 
 const _COL_FLEET = {rok:1,typ:1,dmc:0,osie:0,zawieszenie:0,dmczesp:0,mies:0,status:1,oc:1,ac:1,przeglad:1,kategoria:0,podatek:0,ocInsurer:1,acInsurer:0,udt:1,tacho:1,kierowca:1,km:1,dt1ok:0,gmina:0,
@@ -1323,13 +1355,21 @@ const _COL_FLEET = {rok:1,typ:1,dmc:0,osie:0,zawieszenie:0,dmczesp:0,mies:0,stat
   ocStart:0,acStart:0,assEnd:0,oddzial:1,leasOwner:0,leasUser:0,leasNo:0,leasStart:0,leasEnd:0,
   wlasciciel:0,ownType:0,kartaPal:0,assetCode:0,nrSilnika:0,kolor:0,
   lastInsp:0,drExpiry:0,rentStart:0,rentEnd:0,
-  ocPrem:0,acPrem:0,leasRate:0,leasBuyout:0,purchDate:0,purchPrice:0,normaSpal:0};
+  ocPrem:0,acPrem:0,leasRate:0,leasBuyout:0,purchDate:0,purchPrice:0,normaSpal:0,
+  drNr:0,miejsceRej:0,dataWydDR:0,wariant:0,homolog:0,uzytkownik:0,
+  inspResult:0,inspStation:0,tachoNo:0,udtDevNo:0,
+  assStart:0,assPolicyNo:0,assInsurer:0,leasKmLim:0,
+  saleDate:0,salePrice:0,co2Gkm:0,dataWycof:0,dataWyreg:0,wlascNip:0};
 const _COL_DT1   = {rok:1,typ:1,dmc:1,osie:1,zawieszenie:1,dmczesp:1,mies:1,status:1,oc:0,ac:0,przeglad:0,kategoria:1,podatek:1,ocInsurer:0,acInsurer:0,udt:0,tacho:0,kierowca:1,km:0,dt1ok:1,gmina:1,
   vin:0,paliwo:0,poj:0,mocKw:0,masaWl:1,msc:0,euro:0,dmcF2:1,ladownosc:1,dataRej:1,katDR:1,
   ocStart:0,acStart:0,assEnd:0,oddzial:0,leasOwner:0,leasUser:0,leasNo:0,leasStart:0,leasEnd:0,
   wlasciciel:0,ownType:0,kartaPal:0,assetCode:0,nrSilnika:0,kolor:0,
   lastInsp:0,drExpiry:0,rentStart:0,rentEnd:0,
-  ocPrem:0,acPrem:0,leasRate:0,leasBuyout:0,purchDate:0,purchPrice:0,normaSpal:0};
+  ocPrem:0,acPrem:0,leasRate:0,leasBuyout:0,purchDate:0,purchPrice:0,normaSpal:0,
+  drNr:0,miejsceRej:0,dataWydDR:0,wariant:0,homolog:0,uzytkownik:0,
+  inspResult:0,inspStation:0,tachoNo:0,udtDevNo:0,
+  assStart:0,assPolicyNo:0,assInsurer:0,leasKmLim:0,
+  saleDate:0,salePrice:0,co2Gkm:0,dataWycof:0,dataWyreg:0,wlascNip:0};
 const _COL_DEFAULTS = {..._COL_FLEET};
 
 let _colVis   = null;
@@ -1398,6 +1438,26 @@ const _FLEET_COL_TH = {
   purchPrice: `<th data-col="purchPrice" class="sort-th" onclick="sortBy('purchasePrice')" style="text-align:right" title="Cena zakupu pojazdu netto">Cena zakupu</th>`,
   normaSpal:  `<th data-col="normaSpal" class="sort-th" onclick="sortBy('normaSpalania')" style="text-align:right" title="Norma spalania (l/100 km)">Spalanie</th>`,
   assEnd:     `<th data-col="assEnd" title="Polisa Assistance/NNW — data ważności">NNW/Assist. do</th>`,
+  drNr:       `<th data-col="drNr" class="sort-th" onclick="sortBy('drNr')" title="Numer dowodu rejestracyjnego">Nr DR</th>`,
+  miejsceRej: `<th data-col="miejsceRej" class="sort-th" onclick="sortBy('miejsceRejestracji')" title="Organ wydający DR (starosta / urząd)">Miejsce rejestracji</th>`,
+  dataWydDR:  `<th data-col="dataWydDR" class="sort-th" onclick="sortBy('dataWydaniaDR')" title="Data wydania dowodu rejestracyjnego">Data wydania DR</th>`,
+  wariant:    `<th data-col="wariant" title="Wariant i wersja modelu pojazdu">Wariant/Wersja</th>`,
+  homolog:    `<th data-col="homolog" title="Numer homologacji pojazdu">Homologacja</th>`,
+  uzytkownik: `<th data-col="uzytkownik" class="sort-th" onclick="sortBy('uzytkownik')" title="Użytkownik pojazdu (jeśli inny niż właściciel)">Użytkownik</th>`,
+  inspResult: `<th data-col="inspResult" title="Wynik ostatniego badania technicznego">Wynik przeglądu</th>`,
+  inspStation:`<th data-col="inspStation" class="sort-th" onclick="sortBy('inspectionStation')" title="Stacja kontroli pojazdów">Stacja kontroli</th>`,
+  tachoNo:    `<th data-col="tachoNo" title="Numer seryjny tachografu">Nr tachografu</th>`,
+  udtDevNo:   `<th data-col="udtDevNo" title="Numer urządzenia UDT">Nr urządzenia UDT</th>`,
+  assStart:   `<th data-col="assStart" title="Polisa NNW/Assistance — data początku">NNW/Assist. od</th>`,
+  assPolicyNo:`<th data-col="assPolicyNo" title="Numer polisy Assistance/NNW">Nr polisy NNW</th>`,
+  assInsurer: `<th data-col="assInsurer" class="sort-th" onclick="sortBy('assInsurer')" title="Ubezpieczyciel Assistance/NNW">Ubezpieczyciel NNW</th>`,
+  leasKmLim:  `<th data-col="leasKmLim" class="sort-th" onclick="sortBy('leasingKmLimit')" style="text-align:right" title="Limit kilometrów określony w umowie leasingowej">Limit km (leasing)</th>`,
+  saleDate:   `<th data-col="saleDate" class="sort-th" onclick="sortBy('saleDate')" title="Data sprzedaży / zbycia pojazdu">Data sprzedaży</th>`,
+  salePrice:  `<th data-col="salePrice" class="sort-th" onclick="sortBy('salePrice')" style="text-align:right" title="Cena sprzedaży netto">Cena sprzedaży</th>`,
+  co2Gkm:     `<th data-col="co2Gkm" class="sort-th" onclick="sortBy('co2GPerKm')" style="text-align:right" title="Emisja CO₂ w gramach na km">CO₂ (g/km)</th>`,
+  dataWycof:  `<th data-col="dataWycof" title="Data czasowego wycofania z ruchu (DR poz. 10)">Data wycofania</th>`,
+  dataWyreg:  `<th data-col="dataWyreg" title="Data wyrejestrowania pojazdu (DR poz. 12)">Data wyrejestrowania</th>`,
+  wlascNip:   `<th data-col="wlascNip" title="NIP właściciela pojazdu">NIP właściciela</th>`,
 };
 
 // ── Komórki filtrów ──────────────────────────────────────────────────
@@ -1460,6 +1520,26 @@ const _FLEET_COL_FI = {
   purchPrice: `<th data-col="purchPrice"></th>`,
   normaSpal:  `<th data-col="normaSpal"></th>`,
   assEnd:     `<th data-col="assEnd"><input class="col-fi" type="date" oninput="applyColFilter('assEnd',this.value)"></th>`,
+  drNr:       `<th data-col="drNr"><input class="col-fi" type="text" placeholder="⌕ Nr DR" oninput="applyColFilter('drNr',this.value)"></th>`,
+  miejsceRej: `<th data-col="miejsceRej"><input class="col-fi" type="text" placeholder="⌕ Starosta…" oninput="applyColFilter('miejsceRej',this.value)"></th>`,
+  dataWydDR:  `<th data-col="dataWydDR"><input class="col-fi" type="date" oninput="applyColFilter('dataWydDR',this.value)"></th>`,
+  wariant:    `<th data-col="wariant"><input class="col-fi" type="text" placeholder="⌕ Wariant" oninput="applyColFilter('wariant',this.value)"></th>`,
+  homolog:    `<th data-col="homolog"><input class="col-fi" type="text" placeholder="⌕ Homolog." oninput="applyColFilter('homolog',this.value)"></th>`,
+  uzytkownik: `<th data-col="uzytkownik"><input class="col-fi" type="text" placeholder="⌕ Użytkownik" oninput="applyColFilter('uzytkownik',this.value)"></th>`,
+  inspResult: `<th data-col="inspResult"><input class="col-fi" type="text" placeholder="⌕ Wynik" oninput="applyColFilter('inspResult',this.value)"></th>`,
+  inspStation:`<th data-col="inspStation"><input class="col-fi" type="text" placeholder="⌕ Stacja" oninput="applyColFilter('inspStation',this.value)"></th>`,
+  tachoNo:    `<th data-col="tachoNo"><input class="col-fi" type="text" placeholder="⌕ Nr tacho" oninput="applyColFilter('tachoNo',this.value)"></th>`,
+  udtDevNo:   `<th data-col="udtDevNo"><input class="col-fi" type="text" placeholder="⌕ Nr UDT" oninput="applyColFilter('udtDevNo',this.value)"></th>`,
+  assStart:   `<th data-col="assStart"><input class="col-fi" type="date" oninput="applyColFilter('assStart',this.value)"></th>`,
+  assPolicyNo:`<th data-col="assPolicyNo"><input class="col-fi" type="text" placeholder="⌕ Nr polisy" oninput="applyColFilter('assPolicyNo',this.value)"></th>`,
+  assInsurer: `<th data-col="assInsurer"><input class="col-fi" type="text" placeholder="⌕ Ubezpieczyciel" oninput="applyColFilter('assInsurer',this.value)"></th>`,
+  leasKmLim:  `<th data-col="leasKmLim"></th>`,
+  saleDate:   `<th data-col="saleDate"><input class="col-fi" type="date" oninput="applyColFilter('saleDate',this.value)"></th>`,
+  salePrice:  `<th data-col="salePrice"></th>`,
+  co2Gkm:     `<th data-col="co2Gkm"></th>`,
+  dataWycof:  `<th data-col="dataWycof"><input class="col-fi" type="date" oninput="applyColFilter('dataWycof',this.value)"></th>`,
+  dataWyreg:  `<th data-col="dataWyreg"><input class="col-fi" type="date" oninput="applyColFilter('dataWyreg',this.value)"></th>`,
+  wlascNip:   `<th data-col="wlascNip"><input class="col-fi" type="text" placeholder="⌕ NIP" oninput="applyColFilter('wlascNip',this.value)"></th>`,
 };
 
 // ── Renderery komórek danych ─────────────────────────────────────────
@@ -1523,6 +1603,26 @@ const _FLEET_COL_TD = {
   purchPrice: (v)  =>`<td data-col="purchPrice" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.purchasePrice!=null?Number(v.purchasePrice).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł':'<span style="color:var(--text3)">—</span>'}</td>`,
   normaSpal:  (v)  =>`<td data-col="normaSpal" onclick="event.stopPropagation()"><div style="display:flex;align-items:center;gap:3px"><input class="inum" type="number" step="0.1" min="0" max="99" style="width:48px;text-align:right" value="${v.normaSpalania??''}" placeholder="—" onchange="setV(${v.id},'normaSpalania',this.value===''?null:parseFloat(this.value))" title="Norma spalania"><span style="font-size:10px;color:var(--text3);white-space:nowrap">l/100</span></div></td>`,
   assEnd:     (v)  =>`<td data-col="assEnd" style="font-size:11px">${v.assEnd?_datePill(v.assEnd):'<span style="color:var(--text3)">—</span>'}${v.assInsurer?`<div style="font-size:10px;color:var(--text3)">${esc(v.assInsurer)}</div>`:''}</td>`,
+  drNr:       (v)  =>`<td data-col="drNr" style="font-size:11px;font-family:var(--mono)">${esc(v.drNr||'—')}</td>`,
+  miejsceRej: (v)  =>`<td data-col="miejsceRej" style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(v.miejsceRejestracji||'')}">${v.miejsceRejestracji?esc(v.miejsceRejestracji):'<span style="color:var(--text3)">—</span>'}</td>`,
+  dataWydDR:  (v)  =>`<td data-col="dataWydDR" style="font-size:11px;white-space:nowrap">${v.dataWydaniaDR?esc(v.dataWydaniaDR):'<span style="color:var(--text3)">—</span>'}</td>`,
+  wariant:    (v)  =>`<td data-col="wariant" style="font-size:11px">${[v.wariant,v.wersja].filter(Boolean).map(esc).join(' / ')||'<span style="color:var(--text3)">—</span>'}</td>`,
+  homolog:    (v)  =>`<td data-col="homolog" style="font-size:10px;font-family:var(--mono);color:var(--text2)">${esc(v.homologacja||'—')}</td>`,
+  uzytkownik: (v)  =>`<td data-col="uzytkownik" style="font-size:11px;white-space:nowrap">${v.uzytkownik?esc(v.uzytkownik):'<span style="color:var(--text3)">—</span>'}</td>`,
+  inspResult: (v)  =>{ const res=v.inspectionResult; const ok=res&&String(res).toLowerCase().includes('pozyt'); const bad=res&&String(res).toLowerCase().includes('negat'); return `<td data-col="inspResult" style="font-size:11px">${res?`<span class="pill ${ok?'pill-green':bad?'pill-red':'pill-gray'}">${esc(res)}</span>`:'<span style="color:var(--text3)">—</span>'}</td>`; },
+  inspStation:(v)  =>`<td data-col="inspStation" style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(v.inspectionStation||'')}">${v.inspectionStation?esc(v.inspectionStation):'<span style="color:var(--text3)">—</span>'}</td>`,
+  tachoNo:    (v)  =>`<td data-col="tachoNo" style="font-size:10px;font-family:var(--mono);color:var(--text2)">${esc(v.tachoNo||'—')}</td>`,
+  udtDevNo:   (v)  =>`<td data-col="udtDevNo" style="font-size:10px;font-family:var(--mono);color:var(--text2)">${esc(v.udtDeviceNo||'—')}</td>`,
+  assStart:   (v)  =>`<td data-col="assStart" style="font-size:11px;white-space:nowrap">${v.assStart?esc(v.assStart):'<span style="color:var(--text3)">—</span>'}</td>`,
+  assPolicyNo:(v)  =>`<td data-col="assPolicyNo" style="font-size:10px;font-family:var(--mono)">${esc(v.assPolicyNo||'—')}</td>`,
+  assInsurer: (v)  =>`<td data-col="assInsurer" style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(v.assInsurer||'')}">${v.assInsurer?esc(v.assInsurer):'<span style="color:var(--text3)">—</span>'}</td>`,
+  leasKmLim:  (v)  =>`<td data-col="leasKmLim" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.leasingKmLimit!=null?Number(v.leasingKmLimit).toLocaleString('pl-PL')+' km':'<span style="color:var(--text3)">—</span>'}</td>`,
+  saleDate:   (v)  =>`<td data-col="saleDate" style="font-size:11px;white-space:nowrap">${v.saleDate?esc(v.saleDate):'<span style="color:var(--text3)">—</span>'}</td>`,
+  salePrice:  (v)  =>`<td data-col="salePrice" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.salePrice!=null?Number(v.salePrice).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł':'<span style="color:var(--text3)">—</span>'}</td>`,
+  co2Gkm:     (v)  =>`<td data-col="co2Gkm" style="font-size:11px;text-align:right;font-family:var(--mono)">${(v.co2GPerKm??v.co2Emission)!=null?Number(v.co2GPerKm??v.co2Emission).toLocaleString('pl-PL')+' g/km':'<span style="color:var(--text3)">—</span>'}</td>`,
+  dataWycof:  (v)  =>`<td data-col="dataWycof" style="font-size:11px;white-space:nowrap">${v.dataWycofania?esc(v.dataWycofania):'<span style="color:var(--text3)">—</span>'}</td>`,
+  dataWyreg:  (v)  =>`<td data-col="dataWyreg" style="font-size:11px;white-space:nowrap">${v.dataWyrejestrowania?esc(v.dataWyrejestrowania):'<span style="color:var(--text3)">—</span>'}</td>`,
+  wlascNip:   (v)  =>`<td data-col="wlascNip" style="font-size:11px;font-family:var(--mono)">${esc(v.wlascicielNIP||v.nipWlasciciela||'—')}</td>`,
 };
 
 const _COL_LABELS = {
@@ -1544,6 +1644,14 @@ const _COL_LABELS = {
   lastInsp:'Ostatni przegląd',drExpiry:'Ważność DR',rentStart:'Wynajem od',rentEnd:'Wynajem do',
   ocPrem:'Składka OC',acPrem:'Składka AC',leasRate:'Rata leasingu',leasBuyout:'Cena wykupu',
   purchDate:'Data zakupu',purchPrice:'Cena zakupu',normaSpal:'Norma spalania (l/100km)',
+  drNr:'Nr dowodu rejestracyjnego',miejsceRej:'Miejsce rejestracji',dataWydDR:'Data wydania DR',
+  wariant:'Wariant/Wersja',homolog:'Nr homologacji',uzytkownik:'Użytkownik',
+  inspResult:'Wynik przeglądu',inspStation:'Stacja diagnostyczna',
+  tachoNo:'Nr tachografu',udtDevNo:'Nr urządzenia UDT',
+  assStart:'Assistance/NNW od',assPolicyNo:'Nr polisy Assistance',assInsurer:'Ubezpieczyciel NNW',
+  leasKmLim:'Limit km (leasing)',saleDate:'Data sprzedaży',salePrice:'Cena sprzedaży',
+  co2Gkm:'Emisja CO₂ (g/km)',dataWycof:'Data wycofania',dataWyreg:'Data wyrejestrowania',
+  wlascNip:'NIP właściciela',
 };
 
 // ── Inicjalizacja ────────────────────────────────────────────────────
