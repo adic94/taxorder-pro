@@ -3901,6 +3901,8 @@ async function handleServiceSchedules(req, env, user, url, path) {
 
   if (method === 'POST') {
     const d = await req.json();
+    if (!d.nr_rej) return err('Wymagane: nr_rej', 400);
+    if (!d.name)   return err('Wymagane: name', 400);
     const sid = crypto.randomUUID();
     const nextKm   = (d.last_km   != null && d.interval_km)     ? (d.last_km + d.interval_km)         : null;
     const nextDate = (d.last_date && d.interval_months)          ? _addMonths(d.last_date, d.interval_months) : null;
@@ -3964,6 +3966,8 @@ async function handleMileageClaims(req, env, user, url, path) {
 
   if (method === 'POST') {
     const d = await req.json();
+    if (!d.claim_date) return err('Wymagane: claim_date', 400);
+    if (!d.driver_name) return err('Wymagane: driver_name', 400);
     const cid = crypto.randomUUID();
     const kmTotal = (d.km_start != null && d.km_end != null) ? Math.max(0, d.km_end - d.km_start) : (d.km_total ?? 0);
     const rate   = d.rate ?? 0.89;
