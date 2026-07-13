@@ -3072,7 +3072,7 @@ function _renderFleetKpi() {
   const urgentFines    = window.FinesModule?.getUnpaidAlertsSync?.() || [];
   const finesAmt       = allUnpaidFines.reduce((s,f) => s+(f.amount||0), 0);
   let docAlerts = 0;
-  allVehs.forEach(v => { docAlerts += (window.DocumentsModule?.getDocAlerts(v, 30)||[]).length; });
+  allVehs.forEach(v => { docAlerts += (typeof window.DocumentsModule?.getDocAlerts === 'function' ? window.DocumentsModule.getDocAlerts(v, 30) : []).length; });
   const now = new Date(); now.setHours(0, 0, 0, 0);
   const withAlerts  = allVehs.filter(v =>
     [v.ocEnd, v.acEnd, v.nextInspection].some(d => d && (new Date(d)-now) < 60*86400000)
