@@ -199,6 +199,16 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <button class="tnb" id="tnb-spare-parts" onclick="showPage('spare-parts')"><i class="ti ti-package"></i><span>Magazyn części</span></button>
   <button class="tnb" id="tnb-service-contracts" onclick="showPage('service-contracts')"><i class="ti ti-contract"></i><span>Kontrakty serwisów</span></button>
   <button class="tnb" id="tnb-supplier-invoices" onclick="showPage('supplier-invoices')"><i class="ti ti-receipt"></i><span>Faktury dostawców</span></button>
+  <button class="tnb" id="tnb-transport-orders" onclick="showPage('transport-orders')"><i class="ti ti-truck"></i><span>Zlecenia transportowe</span></button>
+  <button class="tnb" id="tnb-driver-schedule" onclick="showPage('driver-schedule')"><i class="ti ti-calendar-week"></i><span>Grafik kierowców</span></button>
+  <button class="tnb" id="tnb-driver-scoring" onclick="showPage('driver-scoring')"><i class="ti ti-award"></i><span>Scoring kierowców</span></button>
+  <button class="tnb" id="tnb-tco" onclick="showPage('tco')"><i class="ti ti-calculator"></i><span>TCO pojazdów</span></button>
+  <button class="tnb" id="tnb-co2-report" onclick="showPage('co2-report')"><i class="ti ti-leaf"></i><span>Raport CO₂</span></button>
+  <button class="tnb" id="tnb-budget-annual" onclick="showPage('budget-annual')"><i class="ti ti-report-money"></i><span>Budżet roczny</span></button>
+  <button class="tnb" id="tnb-fuel-card-import" onclick="showPage('fuel-card-import')"><i class="ti ti-credit-card"></i><span>Import kart paliw.</span></button>
+  <button class="tnb" id="tnb-approval-levels" onclick="showPage('approval-levels')"><i class="ti ti-list-check"></i><span>Poziomy zatwierdzeń</span></button>
+  <button class="tnb" id="tnb-audit-log" onclick="showPage('audit-log')"><i class="ti ti-history"></i><span>Historia zmian</span></button>
+  <button class="tnb" id="tnb-driver-panel" onclick="showPage('driver-panel')"><i class="ti ti-steering-wheel"></i><span>Panel kierowcy</span></button>
 
   <div class="sidebar-label">Koszty</div>
   <button class="tnb" id="tnb-paliwo" onclick="showPage('paliwo')"><i class="ti ti-gas-station"></i><span data-i18n="nav.paliwo">Paliwo</span></button>
@@ -2047,6 +2057,96 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   </div>
 </div>
 
+<!-- ==================== MODAL: ZLECENIE TRANSPORTOWE ==================== -->
+<div id="transport-order-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:660px;max-height:92vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <strong style="font-size:16px"><i class="ti ti-truck"></i> Zlecenie transportowe</strong>
+      <button class="btn-icon" onclick="window.TransportOrdersModule.closeModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="tom-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Tytuł *</label><input type="text" id="tom-title" class="form-input" placeholder="np. Dostawa Warszawa → Kraków"></div>
+      <div class="form-group"><label class="form-label">Kierowca</label><input type="text" id="tom-driver" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Nr rej. pojazdu</label><input type="text" id="tom-nrrej" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Skąd</label><input type="text" id="tom-origin" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Dokąd</label><input type="text" id="tom-destination" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Start *</label><input type="datetime-local" id="tom-start" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Koniec (plan)</label><input type="datetime-local" id="tom-end" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Odległość (km)</label><input type="number" id="tom-km" class="form-input" step="0.1"></div>
+      <div class="form-group"><label class="form-label">Ładunek (kg)</label><input type="number" id="tom-weight" class="form-input" step="0.1"></div>
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Opis ładunku</label><input type="text" id="tom-cargo" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Priorytet</label>
+        <select id="tom-priority" class="form-input"><option value="normal">Normalny</option><option value="urgent">Pilny</option><option value="low">Niski</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Status</label>
+        <select id="tom-status" class="form-input"><option value="planned">Zaplanowane</option><option value="in_progress">W trakcie</option><option value="completed">Zakończone</option><option value="cancelled">Anulowane</option></select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Uwagi</label><textarea id="tom-notes" class="form-input" rows="2"></textarea></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn-secondary" onclick="window.TransportOrdersModule.closeModal()">Anuluj</button>
+      <button class="btn-primary" onclick="window.TransportOrdersModule.saveOrder()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: GRAFIK KIEROWCY ==================== -->
+<div id="driver-schedule-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:500px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <strong style="font-size:16px"><i class="ti ti-calendar-week"></i> Wpis grafiku</strong>
+      <button class="btn-icon" onclick="window.DriverScheduleModule.closeModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="dsm-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label class="form-label">Kierowca *</label><input type="text" id="dsm-driver" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Data *</label><input type="date" id="dsm-date" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Typ zmiany</label>
+        <select id="dsm-type" class="form-input"><option value="day">Dzienna</option><option value="night">Nocna</option><option value="standby">Dyżur</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Nr rej. pojazdu</label><input type="text" id="dsm-nrrej" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Od</label><input type="time" id="dsm-start" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Do</label><input type="time" id="dsm-end" class="form-input"></div>
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Trasa</label><input type="text" id="dsm-route" class="form-input"></div>
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Uwagi</label><textarea id="dsm-notes" class="form-input" rows="2"></textarea></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn-secondary" onclick="window.DriverScheduleModule.closeModal()">Anuluj</button>
+      <button class="btn-primary" onclick="window.DriverScheduleModule.saveSchedule()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: TCO ==================== -->
+<div id="tco-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:540px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <strong style="font-size:16px"><i class="ti ti-calculator"></i> Konfiguracja TCO</strong>
+      <button class="btn-icon" onclick="window.TcoModule.closeModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <input type="hidden" id="tco-vid">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label class="form-label">Nr rej. pojazdu *</label><input type="text" id="tco-nrrej" class="form-input" placeholder="np. WA1234X"></div>
+      <div class="form-group"><label class="form-label">Cena zakupu (PLN)</label><input type="number" id="tco-price" class="form-input" step="0.01" oninput="window.TcoModule.calcDeprPreview()"></div>
+      <div class="form-group"><label class="form-label">Data zakupu</label><input type="date" id="tco-date" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Żywotność (lata)</label><input type="number" id="tco-life" class="form-input" value="5" min="1" max="20" oninput="window.TcoModule.calcDeprPreview()"></div>
+      <div class="form-group"><label class="form-label">Wartość rezydualna (PLN)</label><input type="number" id="tco-residual" class="form-input" value="0" step="0.01" oninput="window.TcoModule.calcDeprPreview()"></div>
+      <div class="form-group"><label class="form-label">Metoda amortyzacji</label>
+        <select id="tco-method" class="form-input"><option value="linear">Liniowa</option><option value="degressive">Degresywna</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Miesięczny leasing (PLN)</label><input type="number" id="tco-leasing" class="form-input" step="0.01"></div>
+      <div class="form-group"><label class="form-label">CO₂ g/km (opcjonalne)</label><input type="number" id="tco-co2" class="form-input" step="0.1"></div>
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Uwagi</label><input type="text" id="tco-notes" class="form-input"></div>
+    </div>
+    <div id="tco-depr-display" style="font-size:13px;color:var(--green);margin-top:8px;font-weight:500"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn-secondary" onclick="window.TcoModule.closeModal()">Anuluj</button>
+      <button class="btn-primary" onclick="window.TcoModule.saveTco()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
 <!-- ==================== MODAL: USTERKA ==================== -->
 <div id="fault-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;align-items:center;justify-content:center;padding:1rem">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:580px">
@@ -3737,6 +3837,36 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 <!-- ==================== FAKTURY DOSTAWCÓW ==================== -->
 <div class="page" id="page-supplier-invoices"></div>
 
+<!-- ==================== ZLECENIA TRANSPORTOWE ==================== -->
+<div class="page" id="page-transport-orders"></div>
+
+<!-- ==================== GRAFIK KIEROWCÓW ==================== -->
+<div class="page" id="page-driver-schedule"></div>
+
+<!-- ==================== SCORING KIEROWCÓW ==================== -->
+<div class="page" id="page-driver-scoring"></div>
+
+<!-- ==================== TCO ==================== -->
+<div class="page" id="page-tco"></div>
+
+<!-- ==================== RAPORT CO2 ==================== -->
+<div class="page" id="page-co2-report"></div>
+
+<!-- ==================== BUDŻET ROCZNY ==================== -->
+<div class="page" id="page-budget-annual"></div>
+
+<!-- ==================== IMPORT KART PALIWOWYCH ==================== -->
+<div class="page" id="page-fuel-card-import"></div>
+
+<!-- ==================== POZIOMY ZATWIERDZEŃ ==================== -->
+<div class="page" id="page-approval-levels"></div>
+
+<!-- ==================== HISTORIA ZMIAN ==================== -->
+<div class="page" id="page-audit-log"></div>
+
+<!-- ==================== PANEL KIEROWCY ==================== -->
+<div class="page" id="page-driver-panel"></div>
+
 <!-- ==================== AI ASYSTENT ==================== -->
 <!-- ==================== BUDŻET / TCO ==================== -->
 <div class="page" id="page-budzet">
@@ -3967,6 +4097,16 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/service-contracts.js"></script>
   <script src="modules/supplier-invoices.js"></script>
   <script src="modules/driver-performance.js"></script>
+  <script src="modules/transport-orders.js"></script>
+  <script src="modules/driver-schedule.js"></script>
+  <script src="modules/driver-scoring.js"></script>
+  <script src="modules/tco.js"></script>
+  <script src="modules/co2-report.js"></script>
+  <script src="modules/audit-log.js"></script>
+  <script src="modules/budget-annual.js"></script>
+  <script src="modules/fuel-card-import.js"></script>
+  <script src="modules/driver-panel.js"></script>
+  <script src="modules/onboarding.js"></script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">

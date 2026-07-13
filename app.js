@@ -218,6 +218,15 @@ function showPage(id) {
   if(id==='spare-parts')         window.SparePartsModule?.renderSpareParts();
   if(id==='service-contracts')   window.ServiceContractsModule?.renderServiceContracts();
   if(id==='supplier-invoices')   window.SupplierInvoicesModule?.renderSupplierInvoices();
+  if(id==='transport-orders')    window.TransportOrdersModule?.renderTransportOrders();
+  if(id==='driver-schedule')     window.DriverScheduleModule?.renderDriverSchedule();
+  if(id==='driver-scoring')      window.DriverScoringModule?.renderDriverScoring();
+  if(id==='tco')                 window.TcoModule?.renderTco();
+  if(id==='co2-report')          window.Co2ReportModule?.renderCo2Report();
+  if(id==='budget-annual')       window.BudgetAnnualModule?.renderBudgetAnnual();
+  if(id==='fuel-card-import')    window.FuelCardImportModule?.renderFuelCardImport();
+  if(id==='audit-log')           window.AuditLogModule?.renderAuditLog(true);
+  if(id==='driver-panel')        window.DriverPanelModule?.renderDriverPanel();
   document.dispatchEvent(new CustomEvent('taxorder-page-change', { detail: { page: id } }));
   updateCounters();
 }
@@ -8399,3 +8408,25 @@ async function clearAllErrorLogs() {
     toast('⚠ ' + e.message, true);
   }
 }
+
+// ─── DARK / LIGHT MODE ───────────────────────────────────────────────────────
+function _applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('theme', theme);
+  const ico = document.getElementById('dark-mode-icon');
+  if (ico) ico.className = theme === 'dark' ? 'ti ti-sun' : 'ti ti-moon';
+}
+function toggleDarkMode() {
+  const cur = localStorage.getItem('theme') || 'light';
+  _applyTheme(cur === 'dark' ? 'light' : 'dark');
+}
+(function _initTheme() {
+  const saved = localStorage.getItem('theme');
+  if (saved) _applyTheme(saved);
+  else if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) _applyTheme('dark');
+})();
+
+// ─── ONBOARDING ──────────────────────────────────────────────────────────────
+document.addEventListener('taxorder-login', () => {
+  setTimeout(() => window.OnboardingModule?.checkAndShow(), 1000);
+});
