@@ -120,7 +120,7 @@ function safeUser(u) {
 
 // ─── AUTH HANDLERS ────────────────────────────────────────────────────────────
 // Rate-limiting logowania: max 5 nieudanych prób / 15 min, liczone per (IP, email) w KV PREFS
-const LOGIN_MAX_ATTEMPTS = 100; // tymczasowo podwyższone — reset po zalogowaniu admina
+const LOGIN_MAX_ATTEMPTS = 5;
 const LOGIN_LOCKOUT_SECONDS = 15 * 60;
 
 async function handleLogin(req, env) {

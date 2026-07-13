@@ -78,7 +78,10 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
     </div>
     <div style="margin-bottom:18px">
       <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:5px;font-weight:500">Hasło</label>
-      <input type="password" id="login-pass" class="fi" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+      <div style="position:relative">
+        <input type="password" id="login-pass" class="fi" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()" style="padding-right:40px">
+        <button type="button" onclick="toggleVis('login-pass','eye-login-pass')" tabindex="-1" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;color:var(--text2)"><i class="ti ti-eye" id="eye-login-pass"></i></button>
+      </div>
     </div>
     <button onclick="doLogin()" id="login-btn" class="btn btn-blue" style="width:100%;justify-content:center;padding:12px;font-size:15px">
       <i class="ti ti-login"></i>Zaloguj się
@@ -3978,11 +3981,17 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
     <div id="pwd-reset-err" style="display:none;background:var(--red-light);color:var(--red);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;align-items:center;gap:8px"></div>
     <div class="f" style="margin-bottom:12px">
       <label>Nowe haslo <span style="font-size:10px;color:var(--text3)">(min. 6 znakow)</span></label>
-      <input id="pwd-new" type="password" class="fi" placeholder="Nowe haslo..." autocomplete="new-password">
+      <div style="position:relative">
+        <input id="pwd-new" type="password" class="fi" placeholder="Nowe haslo..." autocomplete="new-password" style="padding-right:40px">
+        <button type="button" onclick="toggleVis('pwd-new','eye-pwd-new')" tabindex="-1" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;color:var(--text2)"><i class="ti ti-eye" id="eye-pwd-new"></i></button>
+      </div>
     </div>
     <div class="f" style="margin-bottom:20px">
       <label>Potwierdz haslo</label>
-      <input id="pwd-confirm" type="password" class="fi" placeholder="Powtorz haslo..." autocomplete="new-password">
+      <div style="position:relative">
+        <input id="pwd-confirm" type="password" class="fi" placeholder="Powtorz haslo..." autocomplete="new-password" style="padding-right:40px">
+        <button type="button" onclick="toggleVis('pwd-confirm','eye-pwd-confirm')" tabindex="-1" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;color:var(--text2)"><i class="ti ti-eye" id="eye-pwd-confirm"></i></button>
+      </div>
     </div>
     <button id="pwd-reset-submit" class="btn btn-blue" style="width:100%;justify-content:center;padding:12px;font-size:14px" onclick="submitNewPassword()">
       <i class="ti ti-check"></i>Ustaw nowe haslo
