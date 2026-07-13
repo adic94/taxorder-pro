@@ -759,8 +759,9 @@ window.TaxOrderVehicleDetail = {
             <i class="ti ti-building-bank"></i> Dane leasingowe
           </div>
           <div class="vdfg">
-            ${field('leasingCompany','Nazwa leasingodawcy', v.leasingCompany)}
-            ${field('leasingContractNo','Nr umowy', v.leasingContractNo)}
+            ${field('leasingCompany','Leasingodawca (firma leasingowa)', v.leasingCompany)}
+            ${field('leasingUser','Leasingobiorca (użytkownik pojazdu)', v.leasingUser)}
+            ${field('leasingContractNo','Nr umowy leasingowej', v.leasingContractNo)}
             ${field('leasingStart','Data rozpoczęcia', v.leasingStart,'date')}
             ${field('leasingEnd','Data zakończenia', v.leasingEnd,'date')}
             ${field('leasingRate','Rata miesięczna (zł netto)', v.leasingRate,'number')}

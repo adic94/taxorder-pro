@@ -335,11 +335,21 @@ function filterVeh() {
         const l=v.ladownosc!=null&&v.ladownosc!==''?Number(v.ladownosc):(_d&&_m!=null?Number(_d)-Number(_m):null);
         if(!String(l??'').includes(val)) return false;
       }
+      else if (col === 'ocStart' && !String(v.ocStart||'').includes(val)) return false;
+      else if (col === 'acStart' && !String(v.acStart||'').includes(val)) return false;
+      else if (col === 'oddzial' && !String(v.oddzial||v.branch_id||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'leasOwner' && !String(v.leasingCompany||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'leasUser' && !String(v.leasingUser||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'leasNo' && !String(v.leasingContractNo||'').toLowerCase().includes(lv)) return false;
+      else if (col === 'leasStart' && !String(v.leasingStart||'').includes(val)) return false;
+      else if (col === 'leasEnd' && !String(v.leasingEnd||'').includes(val)) return false;
       else if (['rok','dmc','km','poj','mocKw','masaWl','msc'].includes(col) && !fv.includes(lv)) return false;
     }
     return true;
   }).sort((a,b) => {
-    let va=a[sortKey]||'', vb=b[sortKey]||'';
+    let va, vb;
+    if (sortKey === 'oddzial') { va=a.oddzial||a.branch_id||''; vb=b.oddzial||b.branch_id||''; }
+    else { va=a[sortKey]??''; vb=b[sortKey]??''; }
     if(typeof va==='number') return sortAsc?va-vb:vb-va;
     return sortAsc?String(va).localeCompare(String(vb)):String(vb).localeCompare(String(va));
   });
@@ -657,7 +667,8 @@ function exportFleetCSV() {
     'UDT - Urządzenie','UDT - Nr urządzenia','UDT - Nr decyzji','UDT - Ostatnie','UDT - Następne','UDT - Wynik',
     'Tacho - Nr','Tacho - Ostatnia legalizacja','Tacho - Następna legalizacja',
     'Kat.pojazdu','Paliwo','Ładowność (kg)','Masa własna (kg)','Norma (l/100km)',
-    'Właściciel','Osie','Zawieszenie','Ownership','Mies. podatku','Kod wewnętrzny'
+    'Właściciel','Osie','Zawieszenie','Ownership','Mies. podatku','Kod wewnętrzny',
+    'Oddział','Leasingodawca','Leasingobiorca','Nr umowy leasingowej','Leasing od','Leasing do'
   ];
   const list = filterVeh();
   const rows = list.map(v => [
@@ -672,7 +683,9 @@ function exportFleetCSV() {
     v.tachoNo||'', v.tachoLastCalib||'', v.tachoNextCalib||'',
     (v.katPojazdu||v.kategoria)||'', v.paliwo||'', v.ladownosc||'', (v.masaWlasna??v.masaWlKg)||'', v.normaSpalania||'',
     v.wlasciciel||'', v.osie||'', v.zawieszenie||'',
-    v.ownership_type||'', v.miesiacePodatku||12, v.assetCode||''
+    v.ownership_type||'', v.miesiacePodatku||12, v.assetCode||'',
+    v.oddzial||v.branch_id||'', v.leasingCompany||'', v.leasingUser||'',
+    v.leasingContractNo||'', v.leasingStart||'', v.leasingEnd||''
   ]);
   const csv = [HEADERS, ...rows]
     .map(r => r.map(csvCell).join(';'))
@@ -1274,15 +1287,19 @@ const _COL_FILTERS_LS = 'taxColFilters';
 const _COL_ORDER_DEFAULT = [
   'rok','typ','dmc','osie','zawieszenie','dmczesp','mies',
   'status','oc','ac','przeglad','ocInsurer','acInsurer',
-  'udt','tacho','kierowca','km','dt1ok','gmina',
+  'ocStart','acStart',
+  'udt','tacho','kierowca','km','oddzial','dt1ok','gmina',
   'kategoria','podatek','vin','paliwo','poj','mocKw',
   'masaWl','msc','euro','dmcF2','ladownosc','dataRej','katDR',
+  'leasOwner','leasUser','leasNo','leasStart','leasEnd',
 ];
 
 const _COL_FLEET = {rok:1,typ:1,dmc:0,osie:0,zawieszenie:0,dmczesp:0,mies:0,status:1,oc:1,ac:1,przeglad:1,kategoria:0,podatek:0,ocInsurer:1,acInsurer:0,udt:1,tacho:1,kierowca:1,km:1,dt1ok:0,gmina:0,
-  vin:0,paliwo:0,poj:0,mocKw:0,masaWl:0,msc:0,euro:0,dmcF2:0,ladownosc:0,dataRej:0,katDR:0};
+  vin:0,paliwo:0,poj:0,mocKw:0,masaWl:0,msc:0,euro:0,dmcF2:0,ladownosc:0,dataRej:0,katDR:0,
+  ocStart:0,acStart:0,oddzial:1,leasOwner:0,leasUser:0,leasNo:0,leasStart:0,leasEnd:0};
 const _COL_DT1   = {rok:1,typ:1,dmc:1,osie:1,zawieszenie:1,dmczesp:1,mies:1,status:1,oc:0,ac:0,przeglad:0,kategoria:1,podatek:1,ocInsurer:0,acInsurer:0,udt:0,tacho:0,kierowca:1,km:0,dt1ok:1,gmina:1,
-  vin:0,paliwo:0,poj:0,mocKw:0,masaWl:1,msc:0,euro:0,dmcF2:1,ladownosc:1,dataRej:1,katDR:1};
+  vin:0,paliwo:0,poj:0,mocKw:0,masaWl:1,msc:0,euro:0,dmcF2:1,ladownosc:1,dataRej:1,katDR:1,
+  ocStart:0,acStart:0,oddzial:0,leasOwner:0,leasUser:0,leasNo:0,leasStart:0,leasEnd:0};
 const _COL_DEFAULTS = {..._COL_FLEET};
 
 let _colVis   = null;
@@ -1325,6 +1342,14 @@ const _FLEET_COL_TH = {
   ladownosc:  `<th data-col="ladownosc" class="sort-th" onclick="sortBy('ladownosc')" style="text-align:right" title="Ładowność = F.2 − G">Ładowność (kg)</th>`,
   dataRej:    `<th data-col="dataRej" class="sort-th" onclick="sortBy('dataRejestracji')" title="B — Data 1. rejestracji w RP">Data 1. rej.</th>`,
   katDR:      `<th data-col="katDR" title="J — Kategoria pojazdu z DR (N1/N2/N3/O/M)">Kat. DR</th>`,
+  ocStart:    `<th data-col="ocStart" title="OC — data początku polisy">OC od</th>`,
+  acStart:    `<th data-col="acStart" title="AC — data początku polisy">AC od</th>`,
+  oddzial:    `<th data-col="oddzial" class="sort-th" onclick="sortBy('oddzial')" title="Oddział / lokalizacja pojazdu">Oddział</th>`,
+  leasOwner:  `<th data-col="leasOwner" title="Leasingodawca (firma leasingowa)">Leasingodawca</th>`,
+  leasUser:   `<th data-col="leasUser" title="Leasingobiorca (użytkownik pojazdu w leasingu)">Leasingobiorca</th>`,
+  leasNo:     `<th data-col="leasNo" title="Numer umowy leasingowej">Nr umowy</th>`,
+  leasStart:  `<th data-col="leasStart" title="Leasing — data początkowa umowy">Leasing od</th>`,
+  leasEnd:    `<th data-col="leasEnd" title="Leasing — data końca umowy (alert przy wygasaniu)">Leasing do</th>`,
 };
 
 // ── Komórki filtrów ──────────────────────────────────────────────────
@@ -1361,6 +1386,14 @@ const _FLEET_COL_FI = {
   ladownosc:  `<th data-col="ladownosc"><input class="col-fi" type="text" placeholder="⌕ kg" oninput="applyColFilter('ladownosc',this.value)"></th>`,
   dataRej:    `<th data-col="dataRej"><input class="col-fi" type="text" placeholder="⌕ DD.MM.RRRR" oninput="applyColFilter('dataRej',this.value)"></th>`,
   katDR:      `<th data-col="katDR"><input class="col-fi" type="text" placeholder="⌕ N1/N3…" oninput="applyColFilter('katDR',this.value)"></th>`,
+  ocStart:    `<th data-col="ocStart"><input class="col-fi" type="date" oninput="applyColFilter('ocStart',this.value)"></th>`,
+  acStart:    `<th data-col="acStart"><input class="col-fi" type="date" oninput="applyColFilter('acStart',this.value)"></th>`,
+  oddzial:    `<th data-col="oddzial"><input class="col-fi" type="text" placeholder="⌕ Oddział" oninput="applyColFilter('oddzial',this.value)"></th>`,
+  leasOwner:  `<th data-col="leasOwner"><input class="col-fi" type="text" placeholder="⌕ Leasingodawca" oninput="applyColFilter('leasOwner',this.value)"></th>`,
+  leasUser:   `<th data-col="leasUser"><input class="col-fi" type="text" placeholder="⌕ Leasingobiorca" oninput="applyColFilter('leasUser',this.value)"></th>`,
+  leasNo:     `<th data-col="leasNo"><input class="col-fi" type="text" placeholder="⌕ Nr umowy" oninput="applyColFilter('leasNo',this.value)"></th>`,
+  leasStart:  `<th data-col="leasStart"><input class="col-fi" type="date" oninput="applyColFilter('leasStart',this.value)"></th>`,
+  leasEnd:    `<th data-col="leasEnd"><input class="col-fi" type="date" oninput="applyColFilter('leasEnd',this.value)"></th>`,
 };
 
 // ── Renderery komórek danych ─────────────────────────────────────────
@@ -1398,6 +1431,14 @@ const _FLEET_COL_TD = {
   ladownosc:  (v)  =>{const _d=v.dmcKg2||v.dmc||v.dmcMax,_m=v.masaWlasna??v.masaWlKg;const l=v.ladownosc!=null&&v.ladownosc!==''?Number(v.ladownosc):(_d&&_m!=null&&Number(_d)>Number(_m)?Number(_d)-Number(_m):null);return `<td data-col="ladownosc" style="font-size:11px;text-align:right;font-family:var(--mono)">${l!=null?l.toLocaleString('pl-PL')+' kg':'—'}</td>`;},
   dataRej:    (v)  =>`<td data-col="dataRej" style="font-size:11px;white-space:nowrap">${esc(v.dataRejestracji||v.dataRej||'—')}</td>`,
   katDR:      (v)  =>`<td data-col="katDR" style="font-size:11px;text-align:center">${(v.katPojazdu||v.kategoria)?`<span class="pill pill-gray">${esc(v.katPojazdu||v.kategoria)}</span>`:'—'}</td>`,
+  ocStart:    (v)  =>`<td data-col="ocStart" style="font-size:11px;white-space:nowrap">${v.ocStart?esc(v.ocStart):'<span style="color:var(--text3)">—</span>'}</td>`,
+  acStart:    (v)  =>`<td data-col="acStart" style="font-size:11px;white-space:nowrap">${v.acStart?esc(v.acStart):'<span style="color:var(--text3)">—</span>'}</td>`,
+  oddzial:    (v)  =>`<td data-col="oddzial" style="font-size:12px">${(v.oddzial||v.branch_id)?`<span class="pill pill-gray" style="font-size:10px">${esc(v.oddzial||v.branch_id)}</span>`:'<span style="color:var(--text3)">—</span>'}</td>`,
+  leasOwner:  (v)  =>`<td data-col="leasOwner" onclick="event.stopPropagation()"><input class="inum" type="text" style="width:110px;font-size:11px" value="${esc(v.leasingCompany||'')}" placeholder="—" onchange="setV(${v.id},'leasingCompany',this.value)" title="Leasingodawca"></td>`,
+  leasUser:   (v)  =>`<td data-col="leasUser" onclick="event.stopPropagation()"><input class="inum" type="text" style="width:100px;font-size:11px" value="${esc(v.leasingUser||'')}" placeholder="—" onchange="setV(${v.id},'leasingUser',this.value)" title="Leasingobiorca"></td>`,
+  leasNo:     (v)  =>`<td data-col="leasNo" onclick="event.stopPropagation()"><input class="inum" type="text" style="width:100px;font-size:11px" value="${esc(v.leasingContractNo||'')}" placeholder="—" onchange="setV(${v.id},'leasingContractNo',this.value)" title="Nr umowy leasingowej"></td>`,
+  leasStart:  (v)  =>`<td data-col="leasStart" onclick="event.stopPropagation()"><input class="inum" type="date" style="font-size:11px;width:110px" value="${esc(v.leasingStart||'')}" onchange="setV(${v.id},'leasingStart',this.value)" title="Leasing od"></td>`,
+  leasEnd:    (v)  =>{ const _pill=v.leasingEnd?_datePill(v.leasingEnd):''; return `<td data-col="leasEnd" onclick="event.stopPropagation()"><div style="display:flex;flex-direction:column;gap:2px">${_pill}<input class="inum" type="date" style="font-size:10px;width:110px" value="${esc(v.leasingEnd||'')}" onchange="setV(${v.id},'leasingEnd',this.value)" title="Leasing do"></div></td>`; },
 };
 
 const _COL_LABELS = {
@@ -1411,12 +1452,22 @@ const _COL_LABELS = {
   vin:'VIN',paliwo:'Paliwo (P.3)',poj:'Pojemność (cm³)',mocKw:'Moc (kW)',
   masaWl:'Masa własna (kg)',msc:'Miejsca siedz.',euro:'Norma EURO',
   dmcF2:'F.2 DMC z ładunkiem (kg)',ladownosc:'Ładowność (kg)',dataRej:'Data 1. rejestracji',katDR:'Kat. pojazdu DR (J)',
+  ocStart:'OC od (data początku)',acStart:'AC od (data początku)',oddzial:'Oddział',
+  leasOwner:'Leasingodawca',leasUser:'Leasingobiorca',leasNo:'Nr umowy leasingowej',
+  leasStart:'Leasing od',leasEnd:'Leasing do',
 };
 
 // ── Inicjalizacja ────────────────────────────────────────────────────
 function _initColVis() {
   try { _colVis = JSON.parse(localStorage.getItem('taxColVis')) || null; } catch(e) {}
-  if (!_colVis) _colVis = {..._COL_DEFAULTS};
+  if (!_colVis) {
+    _colVis = {..._COL_DEFAULTS};
+  } else {
+    // Uzupełnij nowe kolumny brakujące w starym zapisie o wartości domyślne
+    for (const [col, def] of Object.entries(_COL_DEFAULTS)) {
+      if (_colVis[col] === undefined) _colVis[col] = def;
+    }
+  }
   _initColOrder();
   try { _colFilters = JSON.parse(localStorage.getItem(_COL_FILTERS_LS)) || {}; } catch {}
   if (Object.values(_colFilters).some(v => v)) _filterRowVisible = true;
