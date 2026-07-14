@@ -7682,6 +7682,15 @@ async function handleRequest(request, env, url, path) {
   if (path.startsWith('/api/tacho-ddd'))          { if (!user) return err('Nieautoryzowany', 401); return handleTachoDDD(request, env, user, url, path); }
   if (path.startsWith('/api/approval-levels'))    { if (!user) return err('Nieautoryzowany', 401); return handleApprovalLevels(request, env, user, url, path); }
   if (path.startsWith('/api/gps-positions'))      { if (!user) return err('Nieautoryzowany', 401); return handleGpsPositions(request, env, user, url, path); }
+  if (path.startsWith('/api/trips'))              { if (!user) return err('Nieautoryzowany', 401); return handleTrips(request, env, user, url, path); }
+  if (path.startsWith('/api/geofences'))          { if (!user) return err('Nieautoryzowany', 401); return handleGeofences(request, env, user, url, path); }
+  if (path.startsWith('/api/smart-forms'))        { if (!user) return err('Nieautoryzowany', 401); return handleSmartForms(request, env, user, url, path); }
+  if (path.startsWith('/api/driver-wages'))       { if (!user) return err('Nieautoryzowany', 401); return handleDriverWages(request, env, user, url, path); }
+  if (path.startsWith('/api/route-cost'))         { if (!user) return err('Nieautoryzowany', 401); return handleRouteCost(request, env, user, url, path); }
+  if (path.startsWith('/api/gps-integrations'))   { if (!user) return err('Nieautoryzowany', 401); return handleGpsIntegrations(request, env, user, url, path); }
+  if (path.startsWith('/api/ev-charging'))        { if (!user) return err('Nieautoryzowany', 401); return handleEVCharging(request, env, user, url, path); }
+  if (path === '/api/email-to-order' && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleEmail2Order(request, env, user, url); }
+  if (path.startsWith('/api/zapier'))             { if (!user) return err('Nieautoryzowany', 401); return handleZapierWebhook(request, env, user, url, path); }
   // Admin: ręczne wyzwolenie kolejkowania powiadomień (do testów bez crona)
   if (path === '/api/notif-trigger' && request.method === 'POST') {
     if (!user) return err('Nieautoryzowany', 401);
@@ -8320,6 +8329,758 @@ async function _sendNotificationsSync(env) {
       if (res.status === 410) await env.DB.prepare('DELETE FROM push_subscriptions WHERE id=?').bind(sub.id).run();
     }
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TRIPS — jazda prywatna / służbowa (GDPR)
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function handleTrips(req, env, user, url, path) {
+  const co     = url.searchParams.get('company') || user.company_id;
+  const method = req.method;
+  const segs   = path.split('/').filter(Boolean); // ['api','trips',id?]
+  const itemId = segs[2];
+
+  if (!co) return err('Brak company', 400);
+
+  if (method === 'GET' && !itemId) {
+    const dateFrom = url.searchParams.get('date_from') || '';
+    const dateTo   = url.searchParams.get('date_to')   || '';
+    const driverId = url.searchParams.get('driver_id') || '';
+    const vehicleId= url.searchParams.get('vehicle_id')|| '';
+    const category = url.searchParams.get('category')  || '';
+    const limit    = Math.min(parseInt(url.searchParams.get('limit') || '200'), 500);
+
+    let q = 'SELECT * FROM trips WHERE company_id=?';
+    const p = [co];
+    if (dateFrom) { q += ' AND trip_date>=?'; p.push(dateFrom); }
+    if (dateTo)   { q += ' AND trip_date<=?'; p.push(dateTo); }
+    if (driverId) { q += ' AND driver_id=?';  p.push(driverId); }
+    if (vehicleId){ q += ' AND vehicle_id=?'; p.push(vehicleId); }
+    if (category) { q += ' AND category=?';   p.push(category); }
+    q += ` ORDER BY trip_date DESC, start_time DESC LIMIT ${limit}`;
+    const rows = (await env.DB.prepare(q).bind(...p).all()).results || [];
+
+    // Agregaty
+    const biz  = rows.filter(r => r.category === 'business');
+    const priv = rows.filter(r => r.category === 'private');
+    return json({
+      trips: rows,
+      summary: {
+        total: rows.length,
+        business_count: biz.length,
+        private_count: priv.length,
+        business_km: biz.reduce((s,r) => s+(r.distance_km??0),0),
+        private_km:  priv.reduce((s,r) => s+(r.distance_km??0),0),
+        business_cost: biz.reduce((s,r) => s+(r.cost_total??0),0),
+      }
+    });
+  }
+
+  if (method === 'GET' && itemId) {
+    const row = await env.DB.prepare('SELECT * FROM trips WHERE id=? AND company_id=?').bind(itemId, co).first();
+    return row ? json(row) : err('Nie znaleziono', 404);
+  }
+
+  if (method === 'POST') {
+    let body; try { body = await req.json(); } catch { return err('JSON', 400); }
+    const id = crypto.randomUUID();
+    const { vehicle_id='', vehicle_reg='', driver_id='', driver_name='', trip_date, start_time='', end_time='',
+            start_location='', end_location='', distance_km=0, fuel_liters=0, category='business',
+            purpose='', notes='', source='manual', cost_fuel=0, cost_toll=0 } = body;
+    if (!trip_date) return err('Pole trip_date jest wymagane', 400);
+    const cost_total = parseFloat(cost_fuel||0) + parseFloat(cost_toll||0);
+    await env.DB.prepare(
+      `INSERT INTO trips (id,company_id,vehicle_id,vehicle_reg,driver_id,driver_name,trip_date,start_time,end_time,
+       start_location,end_location,distance_km,fuel_liters,category,purpose,notes,source,cost_fuel,cost_toll,cost_total)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(id,co,vehicle_id,vehicle_reg,driver_id,driver_name,trip_date,start_time,end_time,
+           start_location,end_location,distance_km,fuel_liters,category,purpose,notes,source,cost_fuel,cost_toll,cost_total).run();
+    return json({ ok:true, id });
+  }
+
+  if (method === 'PUT' && itemId) {
+    let body; try { body = await req.json(); } catch { return err('JSON', 400); }
+    const fields = ['vehicle_id','vehicle_reg','driver_id','driver_name','trip_date','start_time','end_time',
+                    'start_location','end_location','distance_km','fuel_liters','category','purpose','notes',
+                    'cost_fuel','cost_toll','cost_total','confirmed','confirmed_at'];
+    const sets = [], vals = [];
+    for (const f of fields) {
+      if (body[f] !== undefined) { sets.push(`${f}=?`); vals.push(body[f]); }
+    }
+    if (!sets.length) return err('Brak pól do aktualizacji', 400);
+    vals.push(itemId, co);
+    await env.DB.prepare(`UPDATE trips SET ${sets.join(',')} WHERE id=? AND company_id=?`).bind(...vals).run();
+    return json({ ok: true });
+  }
+
+  if (method === 'DELETE' && itemId) {
+    await env.DB.prepare('DELETE FROM trips WHERE id=? AND company_id=?').bind(itemId, co).run();
+    return json({ ok: true });
+  }
+
+  // VAT report — GET /api/trips/vat-report
+  if (method === 'GET' && itemId === 'vat-report') {
+    const year  = url.searchParams.get('year') || new Date().getFullYear();
+    const rows  = (await env.DB.prepare(
+      `SELECT trip_date, SUM(distance_km) as km_total,
+       SUM(CASE WHEN category='business' THEN distance_km ELSE 0 END) as km_biz,
+       SUM(CASE WHEN category='private'  THEN distance_km ELSE 0 END) as km_priv
+       FROM trips WHERE company_id=? AND trip_date LIKE ?
+       GROUP BY substr(trip_date,1,7) ORDER BY trip_date`
+    ).bind(co, year+'%').all()).results || [];
+    const totKm = rows.reduce((s,r)=>s+(r.km_total??0),0);
+    const bizKm = rows.reduce((s,r)=>s+(r.km_biz??0),0);
+    const vatPct = totKm>0 ? Math.round(bizKm/totKm*100) : 0;
+    return json({ year, monthly: rows, total_km: totKm, business_km: bizKm, vat_deduction_pct: vatPct });
+  }
+
+  return err('Nieznana operacja', 404);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GEOFENCING — strefy i alerty
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function handleGeofences(req, env, user, url, path) {
+  const co     = url.searchParams.get('company') || user.company_id;
+  const method = req.method;
+  const segs   = path.split('/').filter(Boolean);
+  const itemId = segs[2];
+  const sub    = segs[3]; // 'events'
+
+  if (!co) return err('Brak company', 400);
+
+  // GET /api/geofences/:id/events
+  if (method === 'GET' && itemId && sub === 'events') {
+    const limit = parseInt(url.searchParams.get('limit') || '100');
+    const rows = (await env.DB.prepare(
+      `SELECT * FROM geofence_events WHERE company_id=? AND geofence_id=? ORDER BY event_time DESC LIMIT ?`
+    ).bind(co, itemId, limit).all()).results || [];
+    return json(rows);
+  }
+
+  // GET /api/geofences/events — wszystkie zdarzenia
+  if (method === 'GET' && itemId === 'events') {
+    const limit = parseInt(url.searchParams.get('limit') || '200');
+    const df    = url.searchParams.get('date_from') || '';
+    let q = 'SELECT * FROM geofence_events WHERE company_id=?', p = [co];
+    if (df) { q += ' AND event_time>=?'; p.push(df); }
+    q += ` ORDER BY event_time DESC LIMIT ${limit}`;
+    const rows = (await env.DB.prepare(q).bind(...p).all()).results || [];
+    return json(rows);
+  }
+
+  if (method === 'GET' && !itemId) {
+    const rows = (await env.DB.prepare('SELECT * FROM geofences WHERE company_id=? ORDER BY name').bind(co).all()).results || [];
+    return json(rows);
+  }
+
+  if (method === 'GET' && itemId) {
+    const row = await env.DB.prepare('SELECT * FROM geofences WHERE id=? AND company_id=?').bind(itemId, co).first();
+    return row ? json(row) : err('Nie znaleziono', 404);
+  }
+
+  if (method === 'POST' && !itemId) {
+    let body; try { body = await req.json(); } catch { return err('JSON', 400); }
+    const { name, description='', zone_type='circle', center_lat=0, center_lon=0, radius_m=500,
+            polygon_coords='', alert_enter=1, alert_exit=0, color='#2563eb' } = body;
+    if (!name) return err('Pole name jest wymagane', 400);
+    const id = crypto.randomUUID();
+    await env.DB.prepare(
+      `INSERT INTO geofences (id,company_id,name,description,zone_type,center_lat,center_lon,radius_m,polygon_coords,alert_enter,alert_exit,color)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(id,co,name,description,zone_type,center_lat,center_lon,radius_m,polygon_coords,alert_enter,alert_exit,color).run();
+    return json({ ok:true, id });
+  }
+
+  // POST /api/geofences/event — rejestracja zdarzenia (z urządzenia GPS)
+  if (method === 'POST' && itemId === 'event') {
+    let body; try { body = await req.json(); } catch { return err('JSON', 400); }
+    const { geofence_id, vehicle_reg='', event_type='enter', lat=0, lon=0, speed_kmh=0, driver_name='' } = body;
+    if (!geofence_id) return err('Brak geofence_id', 400);
+    const gf = await env.DB.prepare('SELECT * FROM geofences WHERE id=? AND company_id=?').bind(geofence_id, co).first();
+    if (!gf) return err('Strefa nie istnieje', 404);
+    const id = crypto.randomUUID();
+    await env.DB.prepare(
+      `INSERT INTO geofence_events (id,company_id,geofence_id,geofence_name,vehicle_reg,driver_name,event_type,lat,lon,speed_kmh)
+       VALUES (?,?,?,?,?,?,?,?,?,?)`
+    ).bind(id,co,geofence_id,gf.name,vehicle_reg,driver_name,event_type,lat,lon,speed_kmh).run();
+    return json({ ok:true, id });
+  }
+
+  if (method === 'PUT' && itemId) {
+    let body; try { body = await req.json(); } catch { return err('JSON', 400); }
+    const fields = ['name','description','zone_type','center_lat','center_lon','radius_m','polygon_coords','alert_enter','alert_exit','active','color'];
+    const sets=[],vals=[];
+    for(const f of fields) if(body[f]!==undefined){sets.push(`${f}=?`);vals.push(body[f]);}
+    if(!sets.length) return err('Brak pól',400);
+    vals.push(itemId,co);
+    await env.DB.prepare(`UPDATE geofences SET ${sets.join(',')} WHERE id=? AND company_id=?`).bind(...vals).run();
+    return json({ok:true});
+  }
+
+  if (method === 'DELETE' && itemId) {
+    await env.DB.prepare('DELETE FROM geofences WHERE id=? AND company_id=?').bind(itemId, co).run();
+    return json({ok:true});
+  }
+
+  return err('Nieznana operacja', 404);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SMART FORMS — konfigurowalne formularze terenowe
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function handleSmartForms(req, env, user, url, path) {
+  const co     = url.searchParams.get('company') || user.company_id;
+  const method = req.method;
+  const segs   = path.split('/').filter(Boolean);
+  const itemId = segs[2];
+  const sub    = segs[3]; // 'submissions'
+
+  if (!co) return err('Brak company', 400);
+
+  // Szablony formularzy
+  if (!itemId || (itemId && !sub)) {
+    if (method === 'GET' && !itemId) {
+      const rows = (await env.DB.prepare('SELECT * FROM smart_form_templates WHERE company_id=? AND active=1 ORDER BY name').bind(co).all()).results || [];
+      return json(rows.map(r => ({ ...r, fields: JSON.parse(r.fields||'[]') })));
+    }
+    if (method === 'GET' && itemId) {
+      const row = await env.DB.prepare('SELECT * FROM smart_form_templates WHERE id=? AND company_id=?').bind(itemId, co).first();
+      if (!row) return err('Nie znaleziono', 404);
+      return json({ ...row, fields: JSON.parse(row.fields||'[]') });
+    }
+    if (method === 'POST') {
+      let body; try { body = await req.json(); } catch { return err('JSON', 400); }
+      const { name, description='', category='general', fields=[], require_signature=0, require_photo=0 } = body;
+      if (!name) return err('Pole name wymagane', 400);
+      const id = crypto.randomUUID();
+      await env.DB.prepare(
+        `INSERT INTO smart_form_templates (id,company_id,name,description,category,fields,require_signature,require_photo,created_by)
+         VALUES (?,?,?,?,?,?,?,?,?)`
+      ).bind(id,co,name,description,category,JSON.stringify(fields),require_signature,require_photo,user.email||'').run();
+      return json({ ok:true, id });
+    }
+    if (method === 'PUT' && itemId) {
+      let body; try { body = await req.json(); } catch { return err('JSON', 400); }
+      const flds=['name','description','category','require_signature','require_photo','active'];
+      const sets=[],vals=[];
+      for(const f of flds) if(body[f]!==undefined){sets.push(`${f}=?`);vals.push(body[f]);}
+      if(body.fields!==undefined){sets.push('fields=?');vals.push(JSON.stringify(body.fields));}
+      if(!sets.length) return err('Brak pól',400);
+      vals.push(itemId,co);
+      await env.DB.prepare(`UPDATE smart_form_templates SET ${sets.join(',')} WHERE id=? AND company_id=?`).bind(...vals).run();
+      return json({ok:true});
+    }
+    if (method === 'DELETE' && itemId) {
+      await env.DB.prepare('UPDATE smart_form_templates SET active=0 WHERE id=? AND company_id=?').bind(itemId, co).run();
+      return json({ok:true});
+    }
+  }
+
+  // Wypełnione formularze (submissions)
+  if (sub === 'submissions' || itemId === 'submissions') {
+    const tmplId = sub === 'submissions' ? itemId : null;
+    if (method === 'GET') {
+      const limit = parseInt(url.searchParams.get('limit') || '100');
+      const df    = url.searchParams.get('date_from') || '';
+      let q = 'SELECT id,company_id,template_id,template_name,vehicle_reg,driver_name,submitted_by,submitted_at,status,reviewer_notes FROM smart_form_submissions WHERE company_id=?';
+      const p = [co];
+      if (tmplId) { q += ' AND template_id=?'; p.push(tmplId); }
+      if (df)     { q += ' AND submitted_at>=?'; p.push(df); }
+      q += ` ORDER BY submitted_at DESC LIMIT ${limit}`;
+      const rows = (await env.DB.prepare(q).bind(...p).all()).results || [];
+      return json(rows);
+    }
+    if (method === 'POST') {
+      let body; try { body = await req.json(); } catch { return err('JSON', 400); }
+      const { template_id, template_name='', vehicle_id='', vehicle_reg='', driver_id='', driver_name='',
+              data={}, signature_data='', status='submitted', location_lat=null, location_lon=null } = body;
+      if (!template_id) return err('Brak template_id', 400);
+      const id = crypto.randomUUID();
+      await env.DB.prepare(
+        `INSERT INTO smart_form_submissions (id,company_id,template_id,template_name,vehicle_id,vehicle_reg,driver_id,driver_name,submitted_by,data,signature_data,status,location_lat,location_lon)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      ).bind(id,co,template_id,template_name,vehicle_id,vehicle_reg,driver_id,driver_name,user.email||'',JSON.stringify(data),signature_data,status,location_lat,location_lon).run();
+      return json({ ok:true, id });
+    }
+  }
+
+  return err('Nieznana operacja', 404);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DRIVER WAGES — wynagrodzenia kierowców
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function handleDriverWages(req, env, user, url, path) {
+  const co     = url.searchParams.get('company') || user.company_id;
+  const method = req.method;
+  const segs   = path.split('/').filter(Boolean);
+  const itemId = segs[2];
+  const sub    = segs[3]; // 'calculate' | 'rates'
+
+  if (!co) return err('Brak company', 400);
+
+  // GET /api/driver-wages/rates — stawki
+  if (itemId === 'rates') {
+    if (method === 'GET') {
+      const rows = (await env.DB.prepare('SELECT * FROM driver_wage_rates WHERE company_id=? ORDER BY driver_name').bind(co).all()).results || [];
+      return json(rows);
+    }
+    if (method === 'POST') {
+      let body; try { body = await req.json(); } catch { return err('JSON', 400); }
+      const { driver_id='', driver_name, hourly_rate=0, night_rate_mult=1.2, overtime_rate_mult=1.5,
+              daily_allowance=45, foreign_allowance=52, tax_rate=0.12 } = body;
+      if (!driver_name) return err('Pole driver_name wymagane', 400);
+      const id = crypto.randomUUID();
+      await env.DB.prepare(
+        `INSERT OR REPLACE INTO driver_wage_rates (id,company_id,driver_id,driver_name,hourly_rate,night_rate_mult,overtime_rate_mult,daily_allowance,foreign_allowance,tax_rate)
+         VALUES (?,?,?,?,?,?,?,?,?,?)`
+      ).bind(id,co,driver_id,driver_name,hourly_rate,night_rate_mult,overtime_rate_mult,daily_allowance,foreign_allowance,tax_rate).run();
+      return json({ ok:true, id });
+    }
+  }
+
+  // POST /api/driver-wages/calculate — oblicz wynagrodzenie z danych tachografu
+  if (method === 'POST' && itemId === 'calculate') {
+    let body; try { body = await req.json(); } catch { return err('JSON', 400); }
+    const { driver_name, period_month } = body;
+    if (!driver_name || !period_month) return err('Brak driver_name lub period_month', 400);
+
+    // Pobierz stawki
+    const rates = await env.DB.prepare(
+      'SELECT * FROM driver_wage_rates WHERE company_id=? AND driver_name=? LIMIT 1'
+    ).bind(co, driver_name).first();
+
+    // Pobierz dane tachografu (pliki DDD za dany miesiąc)
+    const [sn, fn] = driver_name.split(' ');
+    const tacho = await env.DB.prepare(
+      `SELECT SUM(a.duration_min) as total_min,
+       SUM(CASE WHEN a.activity_type='driving' THEN a.duration_min ELSE 0 END) as drive_min,
+       SUM(CASE WHEN a.activity_type='work'    THEN a.duration_min ELSE 0 END) as work_min
+       FROM tachograph_activities a
+       JOIN tachograph_files f ON a.file_id=f.id
+       WHERE f.company_id=? AND a.activity_date LIKE ?
+       AND (f.driver_surname LIKE ? OR f.driver_firstname LIKE ?)`
+    ).bind(co, period_month+'%', '%'+(sn||'')+'%', '%'+(fn||'')+'%').first();
+
+    const driveH      = (tacho?.drive_min||0) / 60;
+    const workH       = (tacho?.work_min||0) / 60;
+    const totalH      = driveH + workH;
+    const normalH     = Math.min(totalH, 160);
+    const overtimeH   = Math.max(0, totalH - 160);
+    const nightH      = 0; // uproszczenie — bez danych nocnych
+    const hourlyRate  = rates?.hourly_rate || 25;
+    const baseSalary  = normalH * hourlyRate;
+    const overtimeBonus = overtimeH * hourlyRate * ((rates?.overtime_rate_mult||1.5)-1);
+    const nightBonus  = nightH * hourlyRate * ((rates?.night_rate_mult||1.2)-1);
+    const dailyAllowances = 0; // wymaga danych o przejazdach międzynarodowych
+    const grossTotal  = baseSalary + overtimeBonus + nightBonus + dailyAllowances;
+    const taxAmount   = grossTotal * (rates?.tax_rate || 0.12);
+    const netTotal    = grossTotal - taxAmount;
+
+    // Sprawdź naruszenia (potrącenie)
+    const viols = await env.DB.prepare(
+      `SELECT SUM(penalty_pln) as penalty FROM tachograph_violations v
+       JOIN tachograph_files f ON v.file_id=f.id
+       WHERE f.company_id=? AND v.violation_date LIKE ?
+       AND (f.driver_surname LIKE ? OR f.driver_firstname LIKE ?)`
+    ).bind(co, period_month+'%', '%'+(sn||'')+'%', '%'+(fn||'')+'%').first();
+
+    // Zapisz lub zaktualizuj
+    const id = crypto.randomUUID();
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO driver_wages
+       (id,company_id,driver_name,period_month,base_salary,driving_hours,work_hours,total_hours,overtime_hours,
+        night_hours,overtime_bonus,night_bonus,penalty_deduction,gross_total,tax_amount,net_total,status,calculated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'draft',datetime('now'))`
+    ).bind(id,co,driver_name,period_month,
+      Math.round(baseSalary*100)/100, Math.round(driveH*100)/100, Math.round(workH*100)/100,
+      Math.round(totalH*100)/100, Math.round(overtimeH*100)/100, 0,
+      Math.round(overtimeBonus*100)/100, Math.round(nightBonus*100)/100,
+      viols?.penalty||0, Math.round(grossTotal*100)/100,
+      Math.round(taxAmount*100)/100, Math.round(netTotal*100)/100
+    ).run();
+
+    return json({ ok:true, id, driver_name, period_month,
+      driving_hours: Math.round(driveH*10)/10, work_hours: Math.round(workH*10)/10,
+      total_hours: Math.round(totalH*10)/10, overtime_hours: Math.round(overtimeH*10)/10,
+      base_salary: Math.round(baseSalary*100)/100, overtime_bonus: Math.round(overtimeBonus*100)/100,
+      penalty_deduction: viols?.penalty||0, gross_total: Math.round(grossTotal*100)/100,
+      tax_amount: Math.round(taxAmount*100)/100, net_total: Math.round(netTotal*100)/100 });
+  }
+
+  if (method === 'GET' && !itemId) {
+    const period = url.searchParams.get('period_month') || '';
+    const status = url.searchParams.get('status') || '';
+    let q = 'SELECT * FROM driver_wages WHERE company_id=?', p = [co];
+    if (period) { q += ' AND period_month=?'; p.push(period); }
+    if (status) { q += ' AND status=?'; p.push(status); }
+    q += ' ORDER BY period_month DESC, driver_name';
+    const rows = (await env.DB.prepare(q).bind(...p).all()).results || [];
+    return json(rows);
+  }
+
+  if (method === 'PUT' && itemId) {
+    let body; try { body = await req.json(); } catch { return err('JSON', 400); }
+    const flds = ['status','notes','daily_allowances','eco_bonus','gross_total','tax_amount','net_total','approved_at','paid_at'];
+    const sets=[],vals=[];
+    for(const f of flds) if(body[f]!==undefined){sets.push(`${f}=?`);vals.push(body[f]);}
+    if(!sets.length) return err('Brak pól',400);
+    vals.push(itemId,co);
+    await env.DB.prepare(`UPDATE driver_wages SET ${sets.join(',')} WHERE id=? AND company_id=?`).bind(...vals).run();
+    return json({ok:true});
+  }
+
+  return err('Nieznana operacja', 404);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUTE COST — kalkulator kosztów trasy
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function handleRouteCost(req, env, user, url, path) {
+  const co     = url.searchParams.get('company') || user.company_id;
+  const method = req.method;
+  const segs   = path.split('/').filter(Boolean);
+  const sub    = segs[2]; // 'profiles' | 'calculate'
+
+  if (!co) return err('Brak company', 400);
+
+  if (sub === 'profiles') {
+    if (method === 'GET') {
+      const rows = (await env.DB.prepare('SELECT * FROM route_cost_profiles WHERE company_id=? ORDER BY name').bind(co).all()).results || [];
+      return json(rows);
+    }
+    if (method === 'POST') {
+      let body; try { body = await req.json(); } catch { return err('JSON', 400); }
+      const { name='Domyślny', fuel_price_pln=6.50, fuel_norm_l100=8.0, toll_rate_per_km=0,
+              driver_cost_per_km=1.20, depreciation_per_km=0.35, other_per_km=0.10, is_default=0 } = body;
+      const id = crypto.randomUUID();
+      if (is_default) await env.DB.prepare('UPDATE route_cost_profiles SET is_default=0 WHERE company_id=?').bind(co).run();
+      await env.DB.prepare(
+        `INSERT INTO route_cost_profiles (id,company_id,name,fuel_price_pln,fuel_norm_l100,toll_rate_per_km,driver_cost_per_km,depreciation_per_km,other_per_km,is_default)
+         VALUES (?,?,?,?,?,?,?,?,?,?)`
+      ).bind(id,co,name,fuel_price_pln,fuel_norm_l100,toll_rate_per_km,driver_cost_per_km,depreciation_per_km,other_per_km,is_default).run();
+      return json({ ok:true, id });
+    }
+    if (method === 'PUT' && segs[3]) {
+      let body; try { body = await req.json(); } catch { return err('JSON', 400); }
+      const flds=['name','fuel_price_pln','fuel_norm_l100','toll_rate_per_km','driver_cost_per_km','depreciation_per_km','other_per_km','is_default'];
+      const sets=[],vals=[];
+      for(const f of flds) if(body[f]!==undefined){sets.push(`${f}=?`);vals.push(body[f]);}
+      if(body.is_default) await env.DB.prepare('UPDATE route_cost_profiles SET is_default=0 WHERE company_id=?').bind(co).run();
+      vals.push(segs[3],co);
+      await env.DB.prepare(`UPDATE route_cost_profiles SET ${sets.join(',')} WHERE id=? AND company_id=?`).bind(...vals).run();
+      return json({ok:true});
+    }
+    if (method === 'DELETE' && segs[3]) {
+      await env.DB.prepare('DELETE FROM route_cost_profiles WHERE id=? AND company_id=?').bind(segs[3],co).run();
+      return json({ok:true});
+    }
+  }
+
+  if (sub === 'calculate' && method === 'POST') {
+    let body; try { body = await req.json(); } catch { return err('JSON', 400); }
+    const { distance_km=0, profile_id='', fuel_price_pln, fuel_norm_l100, toll_rate_per_km,
+            driver_cost_per_km, depreciation_per_km, other_per_km,
+            cargo_weight_t=0, return_trip=false } = body;
+
+    let profile = null;
+    if (profile_id) {
+      profile = await env.DB.prepare('SELECT * FROM route_cost_profiles WHERE id=? AND company_id=?').bind(profile_id, co).first();
+    }
+    if (!profile) {
+      profile = await env.DB.prepare('SELECT * FROM route_cost_profiles WHERE company_id=? AND is_default=1 LIMIT 1').bind(co).first();
+    }
+
+    const fp   = fuel_price_pln      ?? profile?.fuel_price_pln      ?? 6.5;
+    const fn   = fuel_norm_l100      ?? profile?.fuel_norm_l100       ?? 8.0;
+    const toll = toll_rate_per_km    ?? profile?.toll_rate_per_km     ?? 0;
+    const driv = driver_cost_per_km  ?? profile?.driver_cost_per_km   ?? 1.2;
+    const depr = depreciation_per_km ?? profile?.depreciation_per_km  ?? 0.35;
+    const oth  = other_per_km        ?? profile?.other_per_km         ?? 0.1;
+    const dist = parseFloat(distance_km) * (return_trip ? 2 : 1);
+
+    const fuel_liters   = dist * fn / 100;
+    const cost_fuel     = fuel_liters * fp;
+    const cost_toll     = dist * toll;
+    const cost_driver   = dist * driv;
+    const cost_depr     = dist * depr;
+    const cost_other    = dist * oth;
+    const cost_total    = cost_fuel + cost_toll + cost_driver + cost_depr + cost_other;
+    const cost_per_km   = dist > 0 ? cost_total / dist : 0;
+
+    return json({
+      distance_km: dist, return_trip,
+      fuel_liters: Math.round(fuel_liters*10)/10,
+      cost_fuel: Math.round(cost_fuel*100)/100,
+      cost_toll: Math.round(cost_toll*100)/100,
+      cost_driver: Math.round(cost_driver*100)/100,
+      cost_depreciation: Math.round(cost_depr*100)/100,
+      cost_other: Math.round(cost_other*100)/100,
+      cost_total: Math.round(cost_total*100)/100,
+      cost_per_km: Math.round(cost_per_km*100)/100,
+      breakdown: { fuel_pct: cost_total>0?Math.round(cost_fuel/cost_total*100):0,
+                   toll_pct: cost_total>0?Math.round(cost_toll/cost_total*100):0,
+                   driver_pct: cost_total>0?Math.round(cost_driver/cost_total*100):0 }
+    });
+  }
+
+  return err('Nieznana operacja', 404);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GPS INTEGRATIONS — Teltonika / Webfleet / Samsara
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function handleGpsIntegrations(req, env, user, url, path) {
+  const co     = url.searchParams.get('company') || user.company_id;
+  const method = req.method;
+  const segs   = path.split('/').filter(Boolean);
+  const provider = segs[2]; // 'teltonika' | 'webfleet' | 'samsara'
+  const action   = segs[3]; // 'sync' | 'vehicles' | 'positions'
+
+  if (!co) return err('Brak company', 400);
+
+  if (method === 'GET' && !provider) {
+    const rows = (await env.DB.prepare('SELECT id,provider,enabled,last_sync,sync_error,vehicles_tracked,created_at FROM gps_integrations WHERE company_id=?').bind(co).all()).results || [];
+    return json(rows.map(r => {
+      try { const cfg = JSON.parse(r.config||'{}'); return { ...r, has_token: !!cfg.token, account_id: cfg.account_id||'' }; }
+      catch { return r; }
+    }));
+  }
+
+  if (method === 'GET' && provider && !action) {
+    const row = await env.DB.prepare('SELECT id,provider,enabled,last_sync,sync_error,vehicles_tracked FROM gps_integrations WHERE company_id=? AND provider=?').bind(co,provider).first();
+    if (!row) return json({ configured: false });
+    return json({ configured: true, ...row });
+  }
+
+  if (method === 'PUT' && provider && !action) {
+    let body; try { body = await req.json(); } catch { return err('JSON', 400); }
+    const { token, account_id='', server_url='', enabled=1 } = body;
+    const config = JSON.stringify({ token, account_id, server_url });
+    await env.DB.prepare(
+      `INSERT INTO gps_integrations (id,company_id,provider,config,enabled)
+       VALUES (?,?,?,?,?)
+       ON CONFLICT(company_id,provider) DO UPDATE SET config=excluded.config, enabled=excluded.enabled`
+    ).bind(crypto.randomUUID(),co,provider,config,enabled).run();
+    return json({ ok:true });
+  }
+
+  // POST /api/gps-integrations/teltonika/sync — ręczna synchronizacja
+  if (method === 'POST' && provider && action === 'sync') {
+    const row = await env.DB.prepare('SELECT config FROM gps_integrations WHERE company_id=? AND provider=? AND enabled=1').bind(co,provider).first();
+    if (!row) return err('Brak aktywnej konfiguracji', 400);
+    let cfg; try { cfg = JSON.parse(row.config); } catch { return err('Błędna konfiguracja', 500); }
+
+    let syncResult = { vehicles: 0, positions: 0, errors: [] };
+
+    try {
+      if (provider === 'teltonika') {
+        // Teltonika FMB/FMC API — pobierz listę pojazdów i ostatnie pozycje
+        const baseUrl = cfg.server_url || 'https://fm.teltonika.lt';
+        const authResp = await fetch(`${baseUrl}/api/tokens`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ username: cfg.account_id, password: cfg.token })
+        });
+        if (authResp.ok) {
+          const auth = await authResp.json();
+          const token = auth.token || auth.access_token;
+          if (token) {
+            const devResp = await fetch(`${baseUrl}/api/devices`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (devResp.ok) {
+              const devices = await devResp.json();
+              syncResult.vehicles = Array.isArray(devices) ? devices.length : 0;
+            }
+          }
+        }
+      } else if (provider === 'webfleet') {
+        // Webfleet API — REST v2
+        const baseUrl = cfg.server_url || 'https://csv.webfleet.com';
+        const resp = await fetch(`${baseUrl}/extern?action=showObjectReport&outputformat=json&apikey=${cfg.token}&account=${cfg.account_id}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          syncResult.vehicles = Array.isArray(data) ? data.length : (data?.totalRecords || 0);
+          syncResult.positions = syncResult.vehicles;
+        }
+      } else if (provider === 'samsara') {
+        const resp = await fetch('https://api.samsara.com/fleet/vehicles', {
+          headers: { Authorization: `Token ${cfg.token}` }
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          syncResult.vehicles = data?.data?.length || 0;
+        }
+      }
+    } catch(ex) {
+      syncResult.errors.push(ex.message);
+    }
+
+    const now = new Date().toISOString();
+    await env.DB.prepare(
+      `UPDATE gps_integrations SET last_sync=?, vehicles_tracked=?, sync_error=? WHERE company_id=? AND provider=?`
+    ).bind(now, syncResult.vehicles, syncResult.errors.length ? syncResult.errors[0] : null, co, provider).run();
+
+    return json({ ok: true, ...syncResult, synced_at: now });
+  }
+
+  return err('Nieznana operacja', 404);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EV CHARGING — sesje ładowania EV
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function handleEVCharging(req, env, user, url, path) {
+  const co     = url.searchParams.get('company') || user.company_id;
+  const method = req.method;
+  const segs   = path.split('/').filter(Boolean);
+  const itemId = segs[2];
+
+  if (!co) return err('Brak company', 400);
+
+  if (method === 'GET' && !itemId) {
+    const vehicleId = url.searchParams.get('vehicle_id') || '';
+    const df        = url.searchParams.get('date_from')  || '';
+    const dt        = url.searchParams.get('date_to')    || '';
+    const limit     = Math.min(parseInt(url.searchParams.get('limit')||'200'),500);
+    let q = 'SELECT * FROM ev_charging_sessions WHERE company_id=?', p = [co];
+    if (vehicleId) { q+=' AND vehicle_id=?'; p.push(vehicleId); }
+    if (df) { q+=' AND session_date>=?'; p.push(df); }
+    if (dt) { q+=' AND session_date<=?'; p.push(dt); }
+    q += ` ORDER BY session_date DESC, start_time DESC LIMIT ${limit}`;
+    const rows = (await env.DB.prepare(q).bind(...p).all()).results || [];
+    const totalKwh = rows.reduce((s,r)=>s+(r.energy_kwh??0),0);
+    const totalCost= rows.reduce((s,r)=>s+(r.cost_pln??0),0);
+    return json({ sessions: rows, stats: { count: rows.length, total_kwh: Math.round(totalKwh*10)/10, total_cost: Math.round(totalCost*100)/100,
+      avg_cost_per_kwh: totalKwh>0?Math.round(totalCost/totalKwh*100)/100:0 }});
+  }
+
+  if (method === 'POST') {
+    let body; try { body = await req.json(); } catch { return err('JSON', 400); }
+    const { vehicle_id='', vehicle_reg='', session_date, start_time='', end_time='', location='',
+            charger_type='AC_slow', energy_kwh=0, cost_pln=0, charged_from_pct=null, charged_to_pct=null,
+            range_after_km=null, provider='', home_charging=0, notes='' } = body;
+    if (!session_date) return err('Pole session_date wymagane', 400);
+    const id = crypto.randomUUID();
+    const cPerKwh = energy_kwh>0 ? Math.round(cost_pln/energy_kwh*100)/100 : 0;
+    await env.DB.prepare(
+      `INSERT INTO ev_charging_sessions (id,company_id,vehicle_id,vehicle_reg,session_date,start_time,end_time,
+       location,charger_type,energy_kwh,cost_pln,cost_per_kwh,charged_from_pct,charged_to_pct,range_after_km,provider,home_charging,notes)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(id,co,vehicle_id,vehicle_reg,session_date,start_time,end_time,location,charger_type,energy_kwh,cost_pln,cPerKwh,
+           charged_from_pct,charged_to_pct,range_after_km,provider,home_charging,notes).run();
+    return json({ ok:true, id });
+  }
+
+  if (method === 'PUT' && itemId) {
+    let body; try { body = await req.json(); } catch { return err('JSON', 400); }
+    const flds=['session_date','start_time','end_time','location','charger_type','energy_kwh','cost_pln','charged_from_pct','charged_to_pct','range_after_km','provider','home_charging','notes'];
+    const sets=[],vals=[];
+    for(const f of flds) if(body[f]!==undefined){sets.push(`${f}=?`);vals.push(body[f]);}
+    if(!sets.length) return err('Brak pól',400);
+    vals.push(itemId,co);
+    await env.DB.prepare(`UPDATE ev_charging_sessions SET ${sets.join(',')} WHERE id=? AND company_id=?`).bind(...vals).run();
+    return json({ok:true});
+  }
+
+  if (method === 'DELETE' && itemId) {
+    await env.DB.prepare('DELETE FROM ev_charging_sessions WHERE id=? AND company_id=?').bind(itemId, co).run();
+    return json({ok:true});
+  }
+
+  return err('Nieznana operacja', 404);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EMAIL2ORDER — AI parsowanie zleceń z e-maili
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function handleEmail2Order(req, env, user, url) {
+  if (req.method !== 'POST') return err('Tylko POST', 405);
+  let body; try { body = await req.json(); } catch { return err('JSON', 400); }
+  const { email_text, email_subject='' } = body;
+  if (!email_text) return err('Brak treści e-maila', 400);
+
+  if (!env.AI) return err('AI nie jest skonfigurowane', 503);
+
+  const prompt = `Przeanalizuj poniższy e-mail i wyodrębnij dane zlecenia transportowego. Zwróć TYLKO JSON bez żadnego tekstu wokół niego.
+
+Pola do wyodrębnienia:
+- order_number: numer zlecenia (string lub null)
+- customer_name: nazwa klienta/zleceniodawcy (string)
+- load_location: miejsce załadunku (string)
+- unload_location: miejsce rozładunku (string)
+- load_date: data załadunku YYYY-MM-DD (string lub null)
+- unload_date: data rozładunku YYYY-MM-DD (string lub null)
+- cargo_description: opis ładunku (string)
+- cargo_weight_t: waga w tonach (number lub null)
+- cargo_volume_m3: objętość m3 (number lub null)
+- vehicle_type: typ pojazdu (string lub null)
+- price_pln: cena w PLN (number lub null)
+- currency: waluta (string, domyślnie PLN)
+- contact_person: osoba kontaktowa (string lub null)
+- contact_phone: telefon (string lub null)
+- special_requirements: wymagania specjalne (string lub null)
+- priority: 'normal' | 'urgent' | 'low'
+
+Temat: ${email_subject}
+
+Treść e-maila:
+${email_text.slice(0, 3000)}`;
+
+  try {
+    const ai = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 800,
+    });
+    const text = ai?.response || ai?.result?.response || '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return json({ ok: false, error: 'AI nie zwróciło JSON', raw: text });
+    const parsed = JSON.parse(jsonMatch[0]);
+    return json({ ok: true, data: parsed });
+  } catch (ex) {
+    return json({ ok: false, error: ex.message });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ZAPIER/MAKE CONNECTOR — rozszerzony format webhooka
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function handleZapierWebhook(req, env, user, url, path) {
+  const co     = url.searchParams.get('company') || user.company_id;
+  const method = req.method;
+  const segs   = path.split('/').filter(Boolean);
+  const sub    = segs[2]; // 'test' | 'events'
+
+  if (method === 'GET' && sub === 'events') {
+    // Zwraca ostatnie zdarzenia w formacie Zapier (polling trigger)
+    const limit = parseInt(url.searchParams.get('limit') || '25');
+    const type  = url.searchParams.get('type') || '';
+    let q = 'SELECT * FROM webhook_logs WHERE company_id=? ';
+    const p = [co];
+    if (type) { q += 'AND event_type=? '; p.push(type); }
+    q += `ORDER BY created_at DESC LIMIT ${limit}`;
+    const rows = (await env.DB.prepare(q).bind(...p).all()).results || [];
+    // Zapier format: tablica z id jako string (wymagany dedupe)
+    return json(rows.map(r => ({ id: r.id, ...JSON.parse(r.payload||'{}'), _event_type: r.event_type, _created_at: r.created_at })));
+  }
+
+  if (method === 'POST' && sub === 'test') {
+    // Test webhooka przez Zapier
+    return json({ ok: true, message: 'TaxOrder Pro Zapier connector aktywny', company: co, timestamp: new Date().toISOString(),
+      sample: { vehicle_reg: 'WA12345', event: 'inspection_due', days_left: 14 } });
+  }
+
+  return err('Nieznana operacja', 404);
 }
 
 export default {

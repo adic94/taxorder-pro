@@ -153,5 +153,89 @@ ${_orders.length ? _orders.map((o, i) => `<tr>
     } catch (ex) { alert('Błąd: ' + ex.message); }
   }
 
-  window.TransportOrdersModule = { renderTransportOrders, openModal, closeModal, saveOrder, updateStatus, deleteOrder };
+  // ── EMAIL2ORDER — AI parsowanie e-maila → nowe zlecenie ──────────────────
+
+  async function openEmail2Order() {
+    const el = document.getElementById('page-transport-orders');
+    if (!el) return;
+    const modal = document.createElement('div');
+    modal.id = 'e2o-overlay';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;display:flex;align-items:center;justify-content:center';
+    modal.innerHTML = `<div style="background:var(--bg);border-radius:12px;padding:24px;width:min(620px,96vw);max-height:90vh;overflow-y:auto">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+  <h3 style="margin:0"><i class="ti ti-mail-forward"></i> Email2Zlecenie — AI</h3>
+  <button onclick="document.getElementById('e2o-overlay').remove()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+</div>
+<label style="font-size:12px;color:var(--text3)">Temat e-maila (opcjonalnie)</label><br>
+<input type="text" id="e2o-subject" class="sel" style="margin-bottom:8px" placeholder="np. Zlecenie transportu WA-2025/06/123"><br>
+<label style="font-size:12px;color:var(--text3)">Treść e-maila *</label><br>
+<textarea id="e2o-body" class="sel" rows="8" placeholder="Wklej tutaj treść e-maila ze zleceniem transportowym..." style="width:100%;resize:vertical"></textarea>
+<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+  <button class="btn" onclick="document.getElementById('e2o-overlay').remove()">Anuluj</button>
+  <button class="btn btn-primary" onclick="window.TransportOrdersModule._parseEmail()"><i class="ti ti-robot"></i> Wyodrębnij dane AI</button>
+</div>
+<div id="e2o-result"></div>
+</div>`;
+    document.body.appendChild(modal);
+  }
+
+  async function _parseEmail() {
+    const subject    = document.getElementById('e2o-subject')?.value || '';
+    const email_text = document.getElementById('e2o-body')?.value || '';
+    const resEl      = document.getElementById('e2o-result');
+    if (!email_text.trim()) { alert('Wklej treść e-maila'); return; }
+    if (resEl) resEl.innerHTML = '<div style="padding:12px;text-align:center"><i class="ti ti-loader"></i> AI analizuje e-mail...</div>';
+    try {
+      const r = await fetch(`${API()}/api/email-to-order?company=${encodeURIComponent(Co())}`, {
+        method: 'POST', headers: { ...H(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email_text, email_subject: subject })
+      });
+      const resp = r.ok ? await r.json() : { ok: false };
+      if (resp.ok && resp.data) {
+        const d = resp.data;
+        if (resEl) resEl.innerHTML = `<div style="margin-top:14px;background:var(--bg2);border-radius:10px;padding:14px">
+<h4 style="margin:0 0 10px;font-size:13px;color:#16a34a"><i class="ti ti-check"></i> AI wyodrębniło dane zlecenia</h4>
+<table style="width:100%;font-size:12px;border-collapse:collapse">
+  ${Object.entries(d).filter(([k])=>k!=='special_requirements').map(([k,v],i)=>
+    `<tr style="${i%2===0?'background:var(--bg)':''}">
+      <td style="padding:4px 8px;color:var(--text3);width:40%">${k.replace(/_/g,' ')}</td>
+      <td style="padding:4px 8px;font-weight:600">${typeof v==='object'?JSON.stringify(v):String(v??'—')}</td>
+    </tr>`).join('')}
+</table>
+<div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+  <button class="btn btn-primary" onclick="window.TransportOrdersModule._createFromEmail(${JSON.stringify(JSON.stringify(d)).replace(/"/g,'&quot;')})">
+    <i class="ti ti-plus"></i> Utwórz zlecenie
+  </button>
+</div>
+</div>`;
+      } else {
+        if (resEl) resEl.innerHTML = `<div style="padding:12px;color:#dc2626">Błąd AI: ${e(resp.error||'Nieznany błąd')}</div>`;
+      }
+    } catch (ex) {
+      if (resEl) resEl.innerHTML = `<div style="padding:12px;color:#dc2626">${e(ex.message)}</div>`;
+    }
+  }
+
+  async function _createFromEmail(jsonStr) {
+    try {
+      const d = JSON.parse(jsonStr);
+      document.getElementById('e2o-overlay')?.remove();
+      openModal({
+        order_number: d.order_number || '',
+        customer_name: d.customer_name || '',
+        load_location: d.load_location || '',
+        unload_location: d.unload_location || '',
+        load_date: d.load_date || '',
+        unload_date: d.unload_date || '',
+        cargo_description: d.cargo_description || '',
+        cargo_weight_t: d.cargo_weight_t || '',
+        price: d.price_pln || '',
+        priority: d.priority || 'normal',
+        notes: [d.special_requirements, d.contact_person ? 'Kontakt: '+d.contact_person : '', d.contact_phone].filter(Boolean).join('\n'),
+      });
+    } catch {}
+  }
+
+  window.TransportOrdersModule = { renderTransportOrders, openModal, closeModal, saveOrder, updateStatus, deleteOrder,
+    openEmail2Order, _parseEmail, _createFromEmail };
 })();

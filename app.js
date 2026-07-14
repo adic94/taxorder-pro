@@ -240,6 +240,12 @@ function showPage(id) {
   if(id==='epp-vat')             window.EppVatModule?.renderEppVat();
   if(id==='integrations')        window.IntegrationsModule?.renderIntegrations();
   if(id==='tachograph')          window.TachographModule?.renderTachograph();
+  if(id==='trip-private')        window.TripPrivate?.renderTripPrivate();
+  if(id==='geofencing')          window.Geofencing?.renderGeofencing();
+  if(id==='driver-wages')        window.DriverWages?.renderDriverWages();
+  if(id==='route-cost')          window.RouteCost?.renderRouteCost();
+  if(id==='smart-forms')         window.SmartForms?.renderSmartForms();
+  if(id==='gps-integrations')    window.GpsIntegrations?.renderGpsIntegrations();
   document.dispatchEvent(new CustomEvent('taxorder-page-change', { detail: { page: id } }));
   updateCounters();
 }

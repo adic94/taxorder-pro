@@ -217,6 +217,12 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <button class="tnb" id="tnb-delegations" onclick="showPage('delegations')"><i class="ti ti-briefcase"></i><span>Delegacje</span></button>
   <button class="tnb" id="tnb-fleet-reservations" onclick="showPage('fleet-reservations')"><i class="ti ti-calendar-event"></i><span>Rezerwacje</span></button>
   <button class="tnb" id="tnb-epp-vat" onclick="showPage('epp-vat')"><i class="ti ti-file-certificate"></i><span>EPP / VAT</span></button>
+  <button class="tnb" id="tnb-trip-private" onclick="showPage('trip-private')"><i class="ti ti-car-suv"></i><span>Prywatna/Służbowa</span></button>
+  <button class="tnb" id="tnb-geofencing" onclick="showPage('geofencing')"><i class="ti ti-map-pin-check"></i><span>Geofencing</span></button>
+  <button class="tnb" id="tnb-driver-wages" onclick="showPage('driver-wages')"><i class="ti ti-cash"></i><span>Wynagrodzenia</span></button>
+  <button class="tnb" id="tnb-route-cost" onclick="showPage('route-cost')"><i class="ti ti-calculator"></i><span>Koszty tras</span></button>
+  <button class="tnb" id="tnb-smart-forms" onclick="showPage('smart-forms')"><i class="ti ti-forms"></i><span>Smart Forms</span></button>
+  <button class="tnb" id="tnb-gps-integrations" onclick="showPage('gps-integrations')"><i class="ti ti-satellite"></i><span>GPS Integracje</span></button>
   <button class="tnb" id="tnb-integrations" onclick="showPage('integrations')"><i class="ti ti-plug"></i><span>Integracje</span></button>
 
   <div class="sidebar-label">Koszty</div>
@@ -4148,6 +4154,12 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/epp-vat.js"></script>
   <script src="modules/integrations.js"></script>
   <script src="modules/tachograph.js"></script>
+  <script src="modules/trip-private.js"></script>
+  <script src="modules/geofencing.js"></script>
+  <script src="modules/driver-wages.js"></script>
+  <script src="modules/route-cost.js"></script>
+  <script src="modules/smart-forms.js"></script>
+  <script src="modules/gps-integrations.js"></script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
@@ -4193,6 +4205,12 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 <div class="page" id="page-epp-vat"></div>
 <div class="page" id="page-integrations"></div>
 <div class="page" id="page-tachograph"></div>
+<div class="page" id="page-trip-private"></div>
+<div class="page" id="page-geofencing"></div>
+<div class="page" id="page-driver-wages"></div>
+<div class="page" id="page-route-cost"></div>
+<div class="page" id="page-smart-forms"></div>
+<div class="page" id="page-gps-integrations"></div>
 
 <!-- PAGE: KALENDARZ (placeholder — otwiera modal fleet-cal-modal) -->
 <div class="page" id="page-kalendarz">
