@@ -3,7 +3,7 @@
  * Cache-first dla assetów, network-first dla danych
  * Obsługuje: install, activate, fetch, push, notificationclick
  */
-const CACHE_NAME = 'taxorder-v30';
+const CACHE_NAME = 'taxorder-v31';
 const STATIC_ASSETS = [
   '/',
   '/app.js',
@@ -83,6 +83,7 @@ const STATIC_ASSETS = [
   '/modules/fleet-reservations.js',
   '/modules/epp-vat.js',
   '/modules/integrations.js',
+  '/modules/tachograph.js',
 ];
 
 self.addEventListener('install', e => {

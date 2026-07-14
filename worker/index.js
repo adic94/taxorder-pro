@@ -5826,6 +5826,497 @@ async function handleFuelCardImport(request, env, user, url, path) {
   return err('Method Not Allowed', 405);
 }
 
+// ─── TACHOGRAFY CYFROWE DDD — PARSER + ANALIZATOR EU 561/2006 ────────────────
+
+// Odczyt 35-znakowej nazwy ze struktury binarnej DDD (1 bajt codepage + 35 bajtów tekstu)
+function _tachoReadName(data, offset) {
+  if (offset + 36 > data.length) return '';
+  const nameBytes = data.slice(offset + 1, offset + 36);
+  return new TextDecoder('latin1').decode(nameBytes).replace(/\x00/g, '').trim();
+}
+
+// Odczyt daty w formacie BCD 4 bajty: YYYYMMDD → 'YYYY-MM-DD'
+function _tachoBCDDate4(data, offset) {
+  if (offset + 3 >= data.length) return null;
+  const y = ((data[offset] >> 4) & 0xF) * 1000 + (data[offset] & 0xF) * 100
+          + ((data[offset + 1] >> 4) & 0xF) * 10 + (data[offset + 1] & 0xF);
+  const m = ((data[offset + 2] >> 4) & 0xF) * 10 + (data[offset + 2] & 0xF);
+  const d = ((data[offset + 3] >> 4) & 0xF) * 10 + (data[offset + 3] & 0xF);
+  if (y < 1900 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) return null;
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+// TimeReal (uint32 BE, sekundy od 1970-01-01 UTC) → 'YYYY-MM-DD'
+function _tachoTimeReal(data, offset) {
+  if (offset + 3 >= data.length) return null;
+  const secs = ((data[offset] << 24) | (data[offset + 1] << 16)
+              | (data[offset + 2] << 8) | data[offset + 3]) >>> 0;
+  if (secs === 0 || secs > 4000000000) return null;
+  return new Date(secs * 1000).toISOString().slice(0, 10);
+}
+
+// Sprawdza czy 2-bajtowe słowo wygląda jak nagłówek dnia w buforze aktywności
+// Słowo: [bits15:9]=rok-1985, [bits8:5]=miesiąc, [bits4:0]=dzień
+// Aktywności mają timeMin max=1439 → bits[15:9] max=2 → rok ≤ 1987
+// Lata 2004-2035 → yearOfs 19-50, więc yearOfs≥19 jest jednoznacznym wyróżnikiem
+function _tachoIsDayHeader(word) {
+  const yearOfs = (word >> 9) & 0x7F;
+  const month   = (word >> 5) & 0x0F;
+  const day     = word & 0x1F;
+  return yearOfs >= 19 && yearOfs <= 50 && month >= 1 && month <= 12 && day >= 1 && day <= 31;
+}
+
+// Parser bloku CardDriverActivity (tag 0x0600) — kołowy bufor dobowych rekordów aktywności
+function _tachoParseActivities(data) {
+  if (data.length < 4) return [];
+  const oldestPtr = (data[0] << 8) | data[1];
+  const newestPtr = (data[2] << 8) | data[3];
+  const records   = data.slice(4);
+  const bufLen    = records.length;
+  if (bufLen < 4 || oldestPtr >= bufLen) return [];
+
+  // Linearyzacja bufora kołowego: zaczynamy od oldestPtr
+  const spanFwd = newestPtr > oldestPtr ? newestPtr - oldestPtr : bufLen - oldestPtr + newestPtr;
+  const span    = Math.min(spanFwd + 32, bufLen); // +32 zapas
+  const linear  = new Uint8Array(span);
+  for (let i = 0; i < span; i++) linear[i] = records[(oldestPtr + i) % bufLen];
+
+  const days = [];
+  let i = 0;
+  while (i + 1 < linear.length && days.length < 30) {
+    const word = (linear[i] << 8) | linear[i + 1];
+    if (!_tachoIsDayHeader(word)) { i += 2; continue; }
+
+    const year   = ((word >> 9) & 0x7F) + 1985;
+    const month  = (word >> 5) & 0x0F;
+    const day    = word & 0x1F;
+    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    i += 6; // skip date(2) + presenceCounter(2) + dayDistance(2)
+
+    const acts = [];
+    while (i + 1 < linear.length) {
+      const w = (linear[i] << 8) | linear[i + 1];
+      if (_tachoIsDayHeader(w) && acts.length > 0) break;
+      const slot = (w >> 15) & 1;
+      i += 2;
+      if (slot !== 0) continue; // pomijamy slot współkierowcy
+      const actCode     = (w >> 13) & 3;
+      const drivingStatus = (w >> 12) & 1;
+      const timeMin     = w & 0x7FF;
+      acts.push({
+        timeMin,
+        activity: ['rest', 'availability', 'work', 'driving'][actCode],
+        driving_status: drivingStatus === 1 ? 'crew' : 'single'
+      });
+    }
+    if (acts.length > 0) days.push({ date: dateStr, activities: acts });
+  }
+  return days;
+}
+
+// Parser bloku CardVehiclesUsed (tag 0x0606)
+function _tachoParseVehicles(data) {
+  if (data.length < 4) return [];
+  const vehicles = [];
+  let pos = 2; // skip 2-bajtowy pointer najnowszego rekordu
+  const recSize = 25; // 1(nation) + 14(reg) + 4(begin) + 4(end) + 2(counter)
+  while (pos + recSize <= data.length && vehicles.length < 200) {
+    const regBytes = data.slice(pos + 2, pos + 15); // skip nation(1) + codepage(1)
+    const reg      = new TextDecoder('latin1').decode(regBytes).replace(/\x00/g, '').trim();
+    const begin    = _tachoTimeReal(data, pos + 15);
+    const end      = _tachoTimeReal(data, pos + 19);
+    if (reg || begin) vehicles.push({ vehicle_reg: reg || null, first_use: begin, last_use: end });
+    pos += recSize;
+  }
+  return vehicles.filter(v => v.vehicle_reg || v.first_use);
+}
+
+// Główny parser pliku DDD — parsuje bufor ArrayBuffer
+function parseDDDBuffer(arrayBuffer) {
+  const buf   = arrayBuffer instanceof ArrayBuffer ? arrayBuffer : arrayBuffer.buffer;
+  const view  = new DataView(buf);
+  const bytes = new Uint8Array(buf);
+  const result = {
+    fileType: 'unknown', driver: null, cardNumber: null, cardExpiry: null,
+    activitiesByDay: [], vehiclesUsed: [], parseErrors: []
+  };
+
+  // Krok 1: odczyt wszystkich bloków TLV (tag 2B + len 2B + data LenB)
+  const blocks = new Map();
+  let offset = 0;
+  let guard  = 0;
+  while (offset + 4 <= buf.byteLength && guard++ < 200000) {
+    const tag = view.getUint16(offset, false);
+    const len = view.getUint16(offset + 2, false);
+    if (len === 0 || offset + 4 + len > buf.byteLength) { offset++; continue; }
+    if (!blocks.has(tag)) blocks.set(tag, []);
+    blocks.get(tag).push(new Uint8Array(buf, offset + 4, len));
+    offset += 4 + len;
+  }
+
+  // Krok 2: typ pliku
+  if (blocks.has(0x0520) || blocks.has(0x0600)) result.fileType = 'card';
+  else if (blocks.has(0xC100) || blocks.has(0xC101)) result.fileType = 'vu';
+
+  // Krok 3: dane kierowcy (0x0520 CardHolderIdentification)
+  if (blocks.has(0x0520)) {
+    try {
+      const d = blocks.get(0x0520)[0];
+      if (d.length >= 78) {
+        result.driver = {
+          surname:   _tachoReadName(d, 0),
+          firstName: _tachoReadName(d, 36),
+          birthDate: _tachoBCDDate4(d, 72)
+        };
+      }
+    } catch (ex) { result.parseErrors.push('driver_id:' + ex.message); }
+  }
+
+  // Krok 4: numer karty i data ważności (0x0521 CardApplicationIdentification)
+  if (blocks.has(0x0521)) {
+    try {
+      const d = blocks.get(0x0521)[0];
+      // Numer karty: bajty 1-9 (po bajcie nation) jako IA5
+      const numBytes = d.slice(1, Math.min(10, d.length));
+      const cardNum  = [...numBytes].map(b => (b > 32 && b < 127) ? String.fromCharCode(b) : '').join('').trim();
+      if (cardNum) result.cardNumber = cardNum;
+      // Data ważności: ostatnie 4 bajty TimeReal
+      if (d.length >= 4) result.cardExpiry = _tachoTimeReal(d, d.length - 4);
+    } catch (ex) { result.parseErrors.push('card_app:' + ex.message); }
+  }
+
+  // Krok 5: aktywności (0x0600 CardDriverActivity)
+  if (blocks.has(0x0600)) {
+    try {
+      result.activitiesByDay = _tachoParseActivities(blocks.get(0x0600)[0]);
+    } catch (ex) { result.parseErrors.push('activities:' + ex.message); }
+  }
+
+  // Krok 6: używane pojazdy (0x0606 CardVehiclesUsed)
+  if (blocks.has(0x0606)) {
+    try {
+      result.vehiclesUsed = _tachoParseVehicles(blocks.get(0x0606)[0]);
+    } catch (ex) { result.parseErrors.push('vehicles:' + ex.message); }
+  }
+
+  return result;
+}
+
+// Formatowanie minut → 'Xh Ymin'
+function _tachoFmtMin(min) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m > 0 ? `${h}h ${m}min` : `${h}h`;
+}
+
+// Detekcja naruszeń EU 561/2006 na podstawie sparsowanych aktywności
+function detectViolations561(activitiesByDay) {
+  const violations = [];
+
+  // Analiza per dzień
+  for (const { date, activities } of activitiesByDay) {
+    const sorted = [...activities].sort((a, b) => a.timeMin - b.timeMin);
+    let totalDriving = 0;
+    let continuousDriving = 0;
+    let maxContinuous = 0;
+    let breakAccum = 0;
+
+    for (let ai = 0; ai < sorted.length; ai++) {
+      const act  = sorted[ai];
+      const next = sorted[ai + 1];
+      const dur  = Math.max(0, (next ? next.timeMin : 1440) - act.timeMin);
+
+      if (act.activity === 'driving') {
+        totalDriving    += dur;
+        continuousDriving += dur;
+        breakAccum       = 0;
+        if (continuousDriving > maxContinuous) maxContinuous = continuousDriving;
+      } else if (act.activity === 'rest') {
+        breakAccum += dur;
+        if (breakAccum >= 45) { continuousDriving = 0; } // przerwa >= 45 min resetuje
+      } else {
+        // work / availability: nie liczy się jako przerwa
+        breakAccum = 0;
+      }
+    }
+
+    // Naruszenie: dobowy czas jazdy > 10h (art. 6 ust. 1 - bez możliwości przedłużenia)
+    if (totalDriving > 600) {
+      violations.push({
+        violation_date: date,
+        violation_type: 'daily_driving_over_10h',
+        severity: 'very_serious',
+        description: `Czas jazdy dobowej: ${_tachoFmtMin(totalDriving)} (limit: 10h)`,
+        regulation: '561/2006 Art. 6 ust. 1',
+        actual_value: totalDriving, limit_value: 600
+      });
+    } else if (totalDriving > 540) {
+      violations.push({
+        violation_date: date,
+        violation_type: 'daily_driving_over_9h',
+        severity: 'serious',
+        description: `Czas jazdy dobowej: ${_tachoFmtMin(totalDriving)} (limit standardowy: 9h)`,
+        regulation: '561/2006 Art. 6 ust. 1',
+        actual_value: totalDriving, limit_value: 540
+      });
+    }
+
+    // Naruszenie: ciągły czas jazdy > 4,5h bez 45-min przerwy (art. 7)
+    if (maxContinuous > 270) {
+      violations.push({
+        violation_date: date,
+        violation_type: 'continuous_driving_over_4h30',
+        severity: maxContinuous > 360 ? 'very_serious' : 'serious',
+        description: `Ciągły czas jazdy: ${_tachoFmtMin(maxContinuous)} bez wymaganej 45-min przerwy`,
+        regulation: '561/2006 Art. 7',
+        actual_value: maxContinuous, limit_value: 270
+      });
+    }
+  }
+
+  // Tygodniowy czas jazdy > 56h (art. 6 ust. 2)
+  const byWeek = {};
+  for (const { date, activities } of activitiesByDay) {
+    const d = new Date(date + 'T00:00:00Z');
+    // ISO tydzień (poniedziałek = 1)
+    const dow = d.getUTCDay() || 7;
+    const weekMon = new Date(d);
+    weekMon.setUTCDate(d.getUTCDate() - (dow - 1));
+    const wk = weekMon.toISOString().slice(0, 10);
+    if (!byWeek[wk]) byWeek[wk] = 0;
+    const sorted = [...activities].sort((a, b) => a.timeMin - b.timeMin);
+    for (let ai = 0; ai < sorted.length; ai++) {
+      if (sorted[ai].activity !== 'driving') continue;
+      const dur = Math.max(0, (sorted[ai + 1]?.timeMin ?? 1440) - sorted[ai].timeMin);
+      byWeek[wk] += dur;
+    }
+  }
+  for (const [wk, totalMin] of Object.entries(byWeek)) {
+    if (totalMin > 3360) {
+      violations.push({
+        violation_date: wk,
+        violation_type: 'weekly_driving_over_56h',
+        severity: totalMin > 4200 ? 'very_serious' : 'serious',
+        description: `Tygodniowy czas jazdy: ${_tachoFmtMin(totalMin)} (limit: 56h)`,
+        regulation: '561/2006 Art. 6 ust. 2',
+        actual_value: totalMin, limit_value: 3360
+      });
+    }
+  }
+
+  return violations;
+}
+
+// ─── API: Tachografy DDD ──────────────────────────────────────────────────────
+
+async function handleTachoDDD(req, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Wymagane: ?company=', 400);
+
+  const segs   = path.split('/').filter(Boolean); // ['api','tacho-ddd', sub, id?]
+  const sub    = segs[2] || '';
+  const itemId = segs[3] || null;
+  const method = req.method;
+
+  // GET /api/tacho-ddd/stats
+  if (method === 'GET' && sub === 'stats') {
+    const thisMonth = new Date().toISOString().slice(0, 7);
+    const [fc, vc, dc, vm] = await Promise.all([
+      env.DB.prepare('SELECT COUNT(*) c FROM tachograph_files WHERE company_id=?').bind(company).first(),
+      env.DB.prepare('SELECT COUNT(*) c FROM tachograph_violations WHERE company_id=?').bind(company).first(),
+      env.DB.prepare(`SELECT COUNT(DISTINCT LOWER(driver_surname||COALESCE(driver_firstname,''))) c
+                      FROM tachograph_files WHERE company_id=?`).bind(company).first(),
+      env.DB.prepare(`SELECT COUNT(*) c FROM tachograph_violations WHERE company_id=? AND violation_date LIKE ?`).bind(company, thisMonth + '%').first(),
+    ]);
+    return json({ files: fc?.c ?? 0, violations: vc?.c ?? 0, drivers: dc?.c ?? 0, violations_this_month: vm?.c ?? 0 });
+  }
+
+  // GET /api/tacho-ddd/files
+  if (method === 'GET' && sub === 'files' && !itemId) {
+    const rows = (await env.DB.prepare(
+      `SELECT id, file_name, file_type, driver_surname, driver_firstname, card_number,
+              period_start, period_end, parse_status, violations_count, activities_count, uploaded_at
+       FROM tachograph_files WHERE company_id=? ORDER BY uploaded_at DESC LIMIT 500`
+    ).bind(company).all()).results || [];
+    return json(rows);
+  }
+
+  // GET /api/tacho-ddd/files/:id
+  if (method === 'GET' && sub === 'files' && itemId) {
+    const file = await env.DB.prepare(
+      'SELECT * FROM tachograph_files WHERE id=? AND company_id=?'
+    ).bind(itemId, company).first();
+    if (!file) return err('Nie znaleziono', 404);
+    const [acts, viols, vehs] = await Promise.all([
+      env.DB.prepare('SELECT * FROM tachograph_activities WHERE file_id=? ORDER BY activity_date, start_time').bind(itemId).all(),
+      env.DB.prepare('SELECT * FROM tachograph_violations WHERE file_id=? ORDER BY violation_date').bind(itemId).all(),
+      env.DB.prepare('SELECT * FROM tachograph_vehicles_used WHERE file_id=?').bind(itemId).all(),
+    ]);
+    return json({ ...file, activities: acts.results || [], violations: viols.results || [], vehicles: vehs.results || [] });
+  }
+
+  // DELETE /api/tacho-ddd/files/:id
+  if (method === 'DELETE' && sub === 'files' && itemId) {
+    const file = await env.DB.prepare('SELECT file_key FROM tachograph_files WHERE id=? AND company_id=?').bind(itemId, company).first();
+    if (!file) return err('Nie znaleziono', 404);
+    if (file.file_key && env.DOCS) { try { await env.DOCS.delete(file.file_key); } catch {} }
+    await env.DB.prepare('DELETE FROM tachograph_files WHERE id=? AND company_id=?').bind(itemId, company).run();
+    return json({ ok: true });
+  }
+
+  // GET /api/tacho-ddd/violations
+  if (method === 'GET' && sub === 'violations') {
+    const severity = url.searchParams.get('severity');
+    const dateFrom = url.searchParams.get('date_from');
+    const dateTo   = url.searchParams.get('date_to');
+    let q = `SELECT v.*, f.driver_surname, f.driver_firstname FROM tachograph_violations v
+             JOIN tachograph_files f ON f.id=v.file_id WHERE v.company_id=?`;
+    const p = [company];
+    if (severity) { q += ' AND v.severity=?'; p.push(severity); }
+    if (dateFrom) { q += ' AND v.violation_date>=?'; p.push(dateFrom); }
+    if (dateTo)   { q += ' AND v.violation_date<=?'; p.push(dateTo); }
+    q += ' ORDER BY v.violation_date DESC LIMIT 1000';
+    return json((await env.DB.prepare(q).bind(...p).all()).results || []);
+  }
+
+  // GET /api/tacho-ddd/calendar
+  if (method === 'GET' && sub === 'calendar') {
+    const rows = (await env.DB.prepare(
+      `SELECT driver_surname, driver_firstname, card_number,
+              MAX(period_end) last_data, MAX(uploaded_at) last_upload,
+              MIN(period_start) first_data, COUNT(*) file_count
+       FROM tachograph_files WHERE company_id=? AND parse_status IN ('ok','partial')
+       GROUP BY LOWER(COALESCE(driver_surname,'')||COALESCE(driver_firstname,'')), card_number
+       ORDER BY last_data ASC`
+    ).bind(company).all()).results || [];
+    const today = new Date().toISOString().slice(0, 10);
+    return json(rows.map(r => ({
+      ...r,
+      days_since_last: r.last_data ? Math.floor((new Date(today) - new Date(r.last_data)) / 86400000) : 999,
+      overdue: r.last_data ? Math.floor((new Date(today) - new Date(r.last_data)) / 86400000) > 28 : true
+    })));
+  }
+
+  // GET /api/tacho-ddd/activities/:fileId — aktywności z jednego pliku
+  if (method === 'GET' && sub === 'activities' && itemId) {
+    const rows = (await env.DB.prepare(
+      `SELECT * FROM tachograph_activities WHERE file_id=? AND company_id=? ORDER BY activity_date, start_time`
+    ).bind(itemId, company).all()).results || [];
+    return json(rows);
+  }
+
+  // POST /api/tacho-ddd/upload — przesyłanie pliku(ów) DDD
+  if (method === 'POST' && sub === 'upload') {
+    let formData;
+    try { formData = await req.formData(); } catch { return err('Nieprawidłowe dane multipart', 400); }
+    const files = formData.getAll('file');
+    if (!files.length) return err('Brak pliku', 400);
+
+    const uploadResults = [];
+    for (const file of files) {
+      if (!file || typeof file === 'string') continue;
+      const fileName  = file.name || 'unknown.ddd';
+      const fileSize  = file.size || 0;
+      let arrayBuffer;
+      try { arrayBuffer = await file.arrayBuffer(); } catch (ex) {
+        uploadResults.push({ file: fileName, ok: false, error: 'Błąd odczytu pliku: ' + ex.message });
+        continue;
+      }
+
+      let parsed;
+      try { parsed = parseDDDBuffer(arrayBuffer); }
+      catch (ex) {
+        uploadResults.push({ file: fileName, ok: false, error: 'Błąd parsowania DDD: ' + ex.message });
+        continue;
+      }
+
+      const days      = parsed.activitiesByDay || [];
+      const dates     = days.map(d => d.date).sort();
+      const periodStart = dates[0] || null;
+      const periodEnd   = dates[dates.length - 1] || null;
+      const violations  = detectViolations561(days);
+
+      // Zapis surowego pliku w R2
+      let fileKey = null;
+      if (env.DOCS) {
+        fileKey = `tacho/${company}/${crypto.randomUUID()}_${fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        try { await env.DOCS.put(fileKey, arrayBuffer, { customMetadata: { company, fileName } }); }
+        catch { fileKey = null; }
+      }
+
+      const parseStatus = parsed.parseErrors.length === 0 ? 'ok'
+                        : (days.length > 0 ? 'partial' : 'error');
+
+      const fileId = crypto.randomUUID();
+      await env.DB.prepare(
+        `INSERT INTO tachograph_files (id, company_id, file_key, file_name, file_type,
+          card_number, driver_surname, driver_firstname, driver_birth_date, card_expiry,
+          period_start, period_end, parse_status, parse_error, violations_count,
+          activities_count, file_size, uploaded_by)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      ).bind(
+        fileId, company, fileKey, fileName, parsed.fileType,
+        parsed.cardNumber ?? null,
+        parsed.driver?.surname ?? null,
+        parsed.driver?.firstName ?? null,
+        parsed.driver?.birthDate ?? null,
+        parsed.cardExpiry ?? null,
+        periodStart, periodEnd,
+        parseStatus,
+        parsed.parseErrors.length > 0 ? parsed.parseErrors.slice(0, 3).join('; ') : null,
+        violations.length,
+        days.reduce((s, d) => s + d.activities.length, 0),
+        fileSize,
+        user.id
+      ).run();
+
+      // Zapis aktywności (batch po 100)
+      const actStmts = [];
+      for (const day of days) {
+        const sorted = [...day.activities].sort((a, b) => a.timeMin - b.timeMin);
+        for (let ai = 0; ai < sorted.length; ai++) {
+          const act  = sorted[ai];
+          const next = sorted[ai + 1];
+          const dur  = Math.max(0, (next ? next.timeMin : 1440) - act.timeMin);
+          const toHM = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+          actStmts.push(env.DB.prepare(
+            `INSERT INTO tachograph_activities (id,file_id,company_id,activity_date,start_time,end_time,duration_min,activity_type,driving_status)
+             VALUES (?,?,?,?,?,?,?,?,?)`
+          ).bind(crypto.randomUUID(), fileId, company, day.date,
+            toHM(act.timeMin), toHM(act.timeMin + dur), dur, act.activity, act.driving_status));
+        }
+      }
+
+      const violStmts = violations.map(v => env.DB.prepare(
+        `INSERT INTO tachograph_violations (id,file_id,company_id,violation_date,violation_type,severity,description,regulation,actual_value,limit_value)
+         VALUES (?,?,?,?,?,?,?,?,?,?)`
+      ).bind(crypto.randomUUID(), fileId, company, v.violation_date, v.violation_type,
+        v.severity, v.description, v.regulation, v.actual_value ?? null, v.limit_value ?? null));
+
+      const vehStmts = (parsed.vehiclesUsed || []).map(v => env.DB.prepare(
+        `INSERT INTO tachograph_vehicles_used (id,file_id,company_id,vehicle_reg,first_use,last_use)
+         VALUES (?,?,?,?,?,?)`
+      ).bind(crypto.randomUUID(), fileId, company, v.vehicle_reg, v.first_use, v.last_use));
+
+      const allStmts = [...actStmts, ...violStmts, ...vehStmts];
+      for (let i = 0; i < allStmts.length; i += 100) {
+        await env.DB.batch(allStmts.slice(i, i + 100));
+      }
+
+      uploadResults.push({
+        file: fileName, ok: true, id: fileId,
+        driver: parsed.driver, fileType: parsed.fileType,
+        days: days.length, violations: violations.length,
+        parseErrors: parsed.parseErrors
+      });
+    }
+
+    return json({ ok: true, results: uploadResults });
+  }
+
+  return err('Metoda nieobsługiwana', 405);
+}
+
 // ─── EXTERNAL INTEGRATIONS (Shell, DKV, Navifleet) ───────────────────────────
 
 async function handleIntegrations(request, env, user, url, path) {
@@ -6377,6 +6868,7 @@ async function handleRequest(request, env, url, path) {
   if (path.startsWith('/api/budget-annual'))      { if (!user) return err('Nieautoryzowany', 401); return handleBudgetAnnual(request, env, user, url, path); }
   if (path.startsWith('/api/fuel-card-import'))   { if (!user) return err('Nieautoryzowany', 401); return handleFuelCardImport(request, env, user, url, path); }
   if (path.startsWith('/api/integrations'))       { if (!user) return err('Nieautoryzowany', 401); return handleIntegrations(request, env, user, url, path); }
+  if (path.startsWith('/api/tacho-ddd'))          { if (!user) return err('Nieautoryzowany', 401); return handleTachoDDD(request, env, user, url, path); }
   if (path.startsWith('/api/approval-levels'))    { if (!user) return err('Nieautoryzowany', 401); return handleApprovalLevels(request, env, user, url, path); }
   if (path.startsWith('/api/gps-positions'))      { if (!user) return err('Nieautoryzowany', 401); return handleGpsPositions(request, env, user, url, path); }
   // Admin: ręczne wyzwolenie kolejkowania powiadomień (do testów bez crona)

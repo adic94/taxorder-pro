@@ -209,6 +209,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <button class="tnb" id="tnb-co2-report" onclick="showPage('co2-report')"><i class="ti ti-leaf"></i><span>Raport CO₂</span></button>
   <button class="tnb" id="tnb-budget-annual" onclick="showPage('budget-annual')"><i class="ti ti-report-money"></i><span>Budżet roczny</span></button>
   <button class="tnb" id="tnb-fuel-card-import" onclick="showPage('fuel-card-import')"><i class="ti ti-credit-card"></i><span>Import kart paliw.</span></button>
+  <button class="tnb" id="tnb-tachograph" onclick="showPage('tachograph')"><i class="ti ti-device-tablet-search"></i><span>Tachografy DDD</span></button>
   <button class="tnb" id="tnb-approval-levels" onclick="showPage('approval-levels')"><i class="ti ti-list-check"></i><span>Poziomy zatwierdzeń</span></button>
   <button class="tnb" id="tnb-audit-log" onclick="showPage('audit-log')"><i class="ti ti-history"></i><span>Historia zmian</span></button>
   <button class="tnb" id="tnb-driver-panel" onclick="showPage('driver-panel')"><i class="ti ti-steering-wheel"></i><span>Panel kierowcy</span></button>
@@ -4146,6 +4147,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/fleet-reservations.js"></script>
   <script src="modules/epp-vat.js"></script>
   <script src="modules/integrations.js"></script>
+  <script src="modules/tachograph.js"></script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
@@ -4190,6 +4192,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 <div class="page" id="page-fleet-reservations"></div>
 <div class="page" id="page-epp-vat"></div>
 <div class="page" id="page-integrations"></div>
+<div class="page" id="page-tachograph"></div>
 
 <!-- PAGE: KALENDARZ (placeholder — otwiera modal fleet-cal-modal) -->
 <div class="page" id="page-kalendarz">

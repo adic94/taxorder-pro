@@ -239,6 +239,7 @@ function showPage(id) {
   if(id==='fleet-reservations')  window.FleetReservationsModule?.renderFleetReservations();
   if(id==='epp-vat')             window.EppVatModule?.renderEppVat();
   if(id==='integrations')        window.IntegrationsModule?.renderIntegrations();
+  if(id==='tachograph')          window.TachographModule?.renderTachograph();
   document.dispatchEvent(new CustomEvent('taxorder-page-change', { detail: { page: id } }));
   updateCounters();
 }
