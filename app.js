@@ -270,6 +270,20 @@ function showPage(id) {
   if(id==='carpooling')          window.CarpoolingModule?.renderCarpooling();
   if(id==='gdpr')                window.GdprModule?.renderGdpr();
   if(id==='currency')            window.CurrencyModule?.renderCurrency();
+  if(id==='predictive-maintenance') window.PredictiveMaintenance?.renderPredictiveMaintenance();
+  if(id==='warranties')          window.WarrantiesModule?.renderWarranties();
+  if(id==='suppliers')           window.SuppliersModule?.renderSuppliers();
+  if(id==='fleet-disposal')      window.FleetDisposal?.renderFleetDisposal();
+  if(id==='report-builder')      window.ReportBuilder?.renderReportBuilder();
+  if(id==='cmr')                 window.CmrModule?.renderCmr();
+  if(id==='sent')                window.SentModule?.renderSent();
+  if(id==='messenger')           window.MessengerModule?.renderMessenger();
+  if(id==='vehicle-qr')          window.VehicleQrModule?.renderVehicleQr();
+  if(id==='jpk')                 window.JpkModule?.renderJpk();
+  if(id==='edoreczenia')         window.EdoreczeniaModule?.renderEdoreczenia();
+  if(id==='video-telematics')    window.VideoTelematics?.renderVideoTelematics();
+  if(id==='esg-report')          window.EsgReport?.renderEsgReport();
+  if(id==='driver-worktime')     window.DriverWorktime?.renderDriverWorktime();
   document.dispatchEvent(new CustomEvent('taxorder-page-change', { detail: { page: id } }));
   updateCounters();
 }

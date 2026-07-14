@@ -244,6 +244,26 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <button class="tnb" id="tnb-driver-training" onclick="showPage('driver-training')"><i class="ti ti-school"></i><span>Szkolenia / Badania</span></button>
   <button class="tnb" id="tnb-carpooling" onclick="showPage('carpooling')"><i class="ti ti-users"></i><span>Carpooling</span></button>
   <button class="tnb" id="tnb-internal-rental" onclick="showPage('internal-rental')"><i class="ti ti-building-warehouse"></i><span>Wynajem wewn.</span></button>
+  <button class="tnb" id="tnb-driver-worktime" onclick="showPage('driver-worktime')"><i class="ti ti-clock"></i><span>Czas pracy kierowcy</span></button>
+
+  <div class="sidebar-label">Serwis predykcyjny</div>
+  <button class="tnb" id="tnb-predictive-maintenance" onclick="showPage('predictive-maintenance')"><i class="ti ti-bulb"></i><span>Serwis predykcyjny</span></button>
+  <button class="tnb" id="tnb-warranties" onclick="showPage('warranties')"><i class="ti ti-certificate"></i><span>Gwarancje / Recall</span></button>
+  <button class="tnb" id="tnb-fleet-disposal" onclick="showPage('fleet-disposal')"><i class="ti ti-car-off"></i><span>Likwidacja pojazdu</span></button>
+  <button class="tnb" id="tnb-video-telematics" onclick="showPage('video-telematics')"><i class="ti ti-camera"></i><span>Telematyka wideo</span></button>
+  <button class="tnb" id="tnb-vehicle-qr" onclick="showPage('vehicle-qr')"><i class="ti ti-qrcode"></i><span>Kody QR</span></button>
+
+  <div class="sidebar-label">Finanse i compliance</div>
+  <button class="tnb" id="tnb-suppliers" onclick="showPage('suppliers')"><i class="ti ti-building-factory-2"></i><span>Dostawcy</span></button>
+  <button class="tnb" id="tnb-report-builder" onclick="showPage('report-builder')"><i class="ti ti-table-options"></i><span>Kreator raportów</span></button>
+  <button class="tnb" id="tnb-jpk" onclick="showPage('jpk')"><i class="ti ti-file-type-xml"></i><span>JPK / SAF-T</span></button>
+  <button class="tnb" id="tnb-esg-report" onclick="showPage('esg-report')"><i class="ti ti-leaf"></i><span>Raport ESG</span></button>
+  <button class="tnb" id="tnb-edoreczenia" onclick="showPage('edoreczenia')"><i class="ti ti-mailbox"></i><span>e-Doręczenia</span></button>
+
+  <div class="sidebar-label">Transport i komunikacja</div>
+  <button class="tnb" id="tnb-cmr" onclick="showPage('cmr')"><i class="ti ti-file-invoice"></i><span>CMR</span></button>
+  <button class="tnb" id="tnb-sent" onclick="showPage('sent')"><i class="ti ti-truck-delivery"></i><span>SENT / PUESC</span></button>
+  <button class="tnb" id="tnb-messenger" onclick="showPage('messenger')"><i class="ti ti-message-circle"></i><span>Komunikator</span></button>
 
   <div class="sidebar-label">Koszty</div>
   <button class="tnb" id="tnb-paliwo" onclick="showPage('paliwo')"><i class="ti ti-gas-station"></i><span data-i18n="nav.paliwo">Paliwo</span></button>
@@ -4196,6 +4216,20 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/carpooling.js"></script>
   <script src="modules/gdpr.js"></script>
   <script src="modules/currency.js"></script>
+  <script src="modules/predictive-maintenance.js"></script>
+  <script src="modules/warranties.js"></script>
+  <script src="modules/suppliers.js"></script>
+  <script src="modules/fleet-disposal.js"></script>
+  <script src="modules/report-builder.js"></script>
+  <script src="modules/cmr.js"></script>
+  <script src="modules/sent.js"></script>
+  <script src="modules/messenger.js"></script>
+  <script src="modules/vehicle-qr.js"></script>
+  <script src="modules/jpk.js"></script>
+  <script src="modules/edoreczenia.js"></script>
+  <script src="modules/video-telematics.js"></script>
+  <script src="modules/esg-report.js"></script>
+  <script src="modules/driver-worktime.js"></script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
@@ -4263,6 +4297,20 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 <div class="page" id="page-carpooling"></div>
 <div class="page" id="page-gdpr"></div>
 <div class="page" id="page-currency"></div>
+<div class="page" id="page-predictive-maintenance"></div>
+<div class="page" id="page-warranties"></div>
+<div class="page" id="page-suppliers"></div>
+<div class="page" id="page-fleet-disposal"></div>
+<div class="page" id="page-report-builder"></div>
+<div class="page" id="page-cmr"></div>
+<div class="page" id="page-sent"></div>
+<div class="page" id="page-messenger"></div>
+<div class="page" id="page-vehicle-qr"></div>
+<div class="page" id="page-jpk"></div>
+<div class="page" id="page-edoreczenia"></div>
+<div class="page" id="page-video-telematics"></div>
+<div class="page" id="page-esg-report"></div>
+<div class="page" id="page-driver-worktime"></div>
 
 <!-- PAGE: KALENDARZ (placeholder — otwiera modal fleet-cal-modal) -->
 <div class="page" id="page-kalendarz">
