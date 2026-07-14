@@ -459,6 +459,11 @@ ${recentViols.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń</p>' 
         </td>
         <td style="display:flex;gap:4px">
           <button class="btn btn-sm" data-dkey="${e(driverKey)}" data-dname="${e(name)}"
+            onclick="window.TachographModule._showDriverAnalysis(this.dataset.dkey,this.dataset.dname)"
+            title="Analiza wieloplikowa — 90 dni">
+            <i class="ti ti-chart-dots"></i>
+          </button>
+          <button class="btn btn-sm" data-dkey="${e(driverKey)}" data-dname="${e(name)}"
             onclick="window.TachographModule._showDriverStatement(this.dataset.dkey,this.dataset.dname)"
             title="Zaświadczenie o aktywności">
             <i class="ti ti-file-text"></i>
@@ -1756,6 +1761,145 @@ ${allViols.length>0 ? `
     } catch (ex) { alert('Błąd: ' + ex.message); }
   }
 
+  // ── ANALIZA WIELOPLIKOWA KIEROWCY ─────────────────────────────────────────
+
+  async function _showDriverAnalysis(driverKey, driverName) {
+    _showModal(`<div style="padding:30px;text-align:center"><i class="ti ti-loader" style="font-size:28px"></i><br><br>Ładowanie analizy dla: <strong>${e(driverName)}</strong>...</div>`);
+    try {
+      const dt = new Date().toISOString().slice(0,10);
+      const df = new Date(Date.now()-90*86400000).toISOString().slice(0,10);
+      const r  = await _api(`driver-analysis/${encodeURIComponent(driverKey)}&date_from=${df}&date_to=${dt}`);
+      if (!r.ok) throw new Error('API ' + r.status);
+      const data = await r.json();
+      const s    = data.summary || {};
+      const viols= data.violations || [];
+      const files= data.files || [];
+
+      const totalMin = (s.driving_total??0) + (s.work_total??0) + (s.availability_total??0) + (s.rest_total??0);
+      const drivePct = totalMin ? Math.round((s.driving_total??0)/totalMin*100) : 0;
+      const workPct  = totalMin ? Math.round((s.work_total??0)/totalMin*100) : 0;
+      const restPct  = totalMin ? Math.round((s.rest_total??0)/totalMin*100) : 0;
+
+      const violsBySev = viols.reduce((acc,v)=>{ acc[v.severity]=(acc[v.severity]||0)+1; return acc; }, {});
+      const penTotal   = viols.reduce((sum,v)=>sum+(v.penalty_pln||0), 0);
+
+      _showModal(`
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+  <div>
+    <h2 style="margin:0;font-size:17px"><i class="ti ti-user-search"></i> ${e(driverName)}</h2>
+    <div style="font-size:12px;color:var(--text3);margin-top:2px">Analiza wieloplikowa · Okres: ${e(df)} – ${e(dt)}</div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button class="btn btn-sm" onclick="window.TachographModule._showInspectorView('${e(driverKey)}','${e(driverName)}')" title="Widok do kontroli ITD" style="background:#fff3cd;color:#856404"><i class="ti ti-car-crash"></i> Kontrola ITD</button>
+    <button onclick="window.TachographModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  </div>
+</div>
+
+<div class="tach-stat-grid" style="margin-bottom:16px">
+  <div class="tach-stat">
+    <div class="tach-stat-val">${files.length}</div>
+    <div class="tach-stat-lbl"><i class="ti ti-file"></i> Analizowane pliki</div>
+  </div>
+  <div class="tach-stat">
+    <div class="tach-stat-val">${_fmtMin(s.driving_total??0)}</div>
+    <div class="tach-stat-lbl"><i class="ti ti-steering-wheel"></i> Łączna jazda</div>
+  </div>
+  <div class="tach-stat">
+    <div class="tach-stat-val" style="color:${(s.violations_total??0)>0?'#dc2626':'#16a34a'}">${s.violations_total??viols.length}</div>
+    <div class="tach-stat-lbl"><i class="ti ti-alert-triangle"></i> Naruszenia</div>
+  </div>
+  <div class="tach-stat">
+    <div class="tach-stat-val" style="color:${penTotal>0?'#dc2626':'inherit'}">${penTotal>0?penTotal.toLocaleString('pl-PL')+' PLN':'—'}</div>
+    <div class="tach-stat-lbl"><i class="ti ti-receipt"></i> Łączne kary</div>
+  </div>
+</div>
+
+<!-- Pasek aktywności -->
+${totalMin>0?`<div style="margin-bottom:16px">
+  <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px">
+    <span style="color:#dc2626"><i class="ti ti-steering-wheel"></i> Jazda ${drivePct}%</span>
+    <span style="color:#d97706"><i class="ti ti-briefcase"></i> Praca ${workPct}%</span>
+    <span style="color:#16a34a"><i class="ti ti-moon"></i> Odpoczynek ${restPct}%</span>
+  </div>
+  <div style="display:flex;height:12px;border-radius:6px;overflow:hidden">
+    <div style="width:${drivePct}%;background:#dc2626"></div>
+    <div style="width:${workPct}%;background:#d97706"></div>
+    <div style="width:${totalMin?Math.round((s.availability_total??0)/totalMin*100):0}%;background:#2563eb"></div>
+    <div style="width:${restPct}%;background:#16a34a"></div>
+  </div>
+</div>`:''}
+
+<!-- Naruszenia wg wagi -->
+${Object.keys(violsBySev).length>0?`<div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap">
+  ${(violsBySev.very_serious??violsBySev.most_serious)?`<span style="background:#fee2e2;color:#dc2626;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600"><i class="ti ti-alert-octagon"></i> Bardzo poważne: ${(violsBySev.very_serious??0)+(violsBySev.most_serious??0)}</span>`:''}
+  ${violsBySev.serious?`<span style="background:#fef3c7;color:#b45309;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600"><i class="ti ti-alert-triangle"></i> Poważne: ${violsBySev.serious}</span>`:''}
+  ${violsBySev.minor?`<span style="background:#e0f2fe;color:#0369a1;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600"><i class="ti ti-info-circle"></i> Nieznaczne: ${violsBySev.minor}</span>`:''}
+</div>`:''}
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+  <!-- Pliki -->
+  <div>
+    <h4 style="font-size:13px;margin:0 0 8px"><i class="ti ti-files"></i> Analizowane pliki (${files.length})</h4>
+    <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+      ${files.length?files.map(f=>`
+      <div style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:600">${e(f.file_name||f.period_start+' – '+f.period_end)}</div>
+          <div style="color:var(--text3)">${_fmtDate(f.period_start)} – ${_fmtDate(f.period_end)}</div>
+        </div>
+        <div style="text-align:right">
+          ${(f.violations_count||0)>0?`<span style="color:#dc2626;font-weight:700">${f.violations_count} nar.</span>`:'<span style="color:#16a34a;font-size:11px">Brak</span>'}
+          <br><button class="btn btn-sm" style="font-size:10px;padding:2px 6px;margin-top:2px"
+            onclick="window.TachographModule._closeModal();setTimeout(()=>window.TachographModule._showFile('${e(f.id)}'),50)">
+            <i class="ti ti-eye"></i>
+          </button>
+        </div>
+      </div>`).join(''):'<div style="padding:12px;color:var(--text3);font-size:12px">Brak plików</div>'}
+    </div>
+  </div>
+
+  <!-- Statystyki szczegółowe -->
+  <div>
+    <h4 style="font-size:13px;margin:0 0 8px"><i class="ti ti-chart-bar"></i> Statystyki szczegółowe</h4>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <tr><td style="padding:4px 8px;color:var(--text3)">Łączna jazda</td><td style="padding:4px 8px;font-weight:600">${_fmtMin(s.driving_total??0)}</td></tr>
+      <tr style="background:var(--bg2)"><td style="padding:4px 8px;color:var(--text3)">Czas pracy</td><td style="padding:4px 8px;font-weight:600">${_fmtMin(s.work_total??0)}</td></tr>
+      <tr><td style="padding:4px 8px;color:var(--text3)">Dyspozycja</td><td style="padding:4px 8px;font-weight:600">${_fmtMin(s.availability_total??0)}</td></tr>
+      <tr style="background:var(--bg2)"><td style="padding:4px 8px;color:var(--text3)">Odpoczynek</td><td style="padding:4px 8px;font-weight:600">${_fmtMin(s.rest_total??0)}</td></tr>
+      <tr><td style="padding:4px 8px;color:var(--text3)">Nr karty</td><td style="padding:4px 8px;font-family:monospace;font-size:11px">${e(s.card_number||data.card_number||'—')}</td></tr>
+      <tr style="background:var(--bg2)"><td style="padding:4px 8px;color:var(--text3)">Ważność karty</td><td style="padding:4px 8px">
+        ${s.card_expiry?`<span style="color:${new Date(s.card_expiry)<new Date()?'#dc2626':'#16a34a'}">${_fmtDate(s.card_expiry)}</span>`:'—'}
+      </td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- Naruszenia -->
+${viols.length>0?`
+<h4 style="font-size:13px;margin:0 0 8px"><i class="ti ti-alert-triangle" style="color:#dc2626"></i> Naruszenia w okresie (${viols.length})</h4>
+<div style="max-height:250px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+<table class="tach-table" style="margin:0">
+  <thead><tr><th>Data</th><th>Naruszenie</th><th>Waga</th><th style="text-align:right">Kara</th></tr></thead>
+  <tbody>
+    ${viols.slice(0,50).map(v=>`<tr>
+      <td style="font-size:11px">${_fmtDate(v.violation_date)}</td>
+      <td style="font-size:11px">${e(v.description||v.violation_type)}</td>
+      <td>${_sevChip(v.severity)}</td>
+      <td style="text-align:right;font-size:11px">${(v.penalty_pln||0)>0?v.penalty_pln+' PLN':'—'}</td>
+    </tr>`).join('')}
+  </tbody>
+</table>
+</div>
+${viols.length>50?`<div style="font-size:11px;color:var(--text3);padding:6px">Pokazano 50 z ${viols.length} naruszeń</div>`:''}
+`:`<div style="padding:12px;background:var(--bg);border-radius:8px;text-align:center;color:#16a34a;font-size:13px"><i class="ti ti-circle-check"></i> Brak naruszeń w analizowanym okresie</div>`}
+
+<div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+  <button class="btn btn-sm" onclick="window.TachographModule._exportCSV('violations')"><i class="ti ti-table-export"></i> Eksport CSV</button>
+  <button class="btn btn-sm" onclick="window.TachographModule._closeModal()">Zamknij</button>
+</div>`);
+    } catch(ex) { _closeModal(); alert('Błąd analizy: ' + ex.message); }
+  }
+
   // ── ZAŚWIADCZENIE ─────────────────────────────────────────────────────────
 
   async function _showDriverStatement(driverKey, driverName) {
@@ -1851,6 +1995,6 @@ ${allViols.length>0 ? `
     _showDriverStatement, _showStatementFromFile,
     _reloadCompliance, _exportCompliancePDF,
     _saveFlespiConfig, _runFlespiSync, _saveTeltonika,
-    _showInspectorView,
+    _showInspectorView, _showDriverAnalysis,
   };
 })();
