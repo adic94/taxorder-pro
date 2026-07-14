@@ -230,6 +230,20 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <button class="tnb" id="tnb-zapier-ui" onclick="showPage('zapier-ui')"><i class="ti ti-plug-connected"></i><span>Zapier / Make</span></button>
   <button class="tnb" id="tnb-access-control" onclick="showPage('access-control')"><i class="ti ti-lock-access"></i><span>Dostęp / Pakiety</span></button>
   <button class="tnb" id="tnb-integrations" onclick="showPage('integrations')"><i class="ti ti-plug"></i><span>Integracje</span></button>
+  <button class="tnb" id="tnb-ksef" onclick="showPage('ksef')"><i class="ti ti-file-invoice"></i><span>KSeF / e-Faktury</span></button>
+  <button class="tnb" id="tnb-gdpr" onclick="showPage('gdpr')"><i class="ti ti-shield-lock"></i><span>RODO / ADO</span></button>
+  <button class="tnb" id="tnb-currency" onclick="showPage('currency')"><i class="ti ti-currency-zloty"></i><span>Waluty</span></button>
+
+  <div class="sidebar-label">Pojazdy — inspekcje</div>
+  <button class="tnb" id="tnb-vehicle-inspections" onclick="showPage('vehicle-inspections')"><i class="ti ti-clipboard-check"></i><span>Inspekcje pojazdów</span></button>
+  <button class="tnb" id="tnb-fleet-renewal" onclick="showPage('fleet-renewal')"><i class="ti ti-refresh-dot"></i><span>Wymiana floty</span></button>
+  <button class="tnb" id="tnb-fleet-limits" onclick="showPage('fleet-limits')"><i class="ti ti-gauge"></i><span>Limity km/paliwa</span></button>
+  <button class="tnb" id="tnb-parking" onclick="showPage('parking')"><i class="ti ti-parking"></i><span>Miejsca parkingowe</span></button>
+
+  <div class="sidebar-label">Kierowcy — rozwój</div>
+  <button class="tnb" id="tnb-driver-training" onclick="showPage('driver-training')"><i class="ti ti-school"></i><span>Szkolenia / Badania</span></button>
+  <button class="tnb" id="tnb-carpooling" onclick="showPage('carpooling')"><i class="ti ti-users"></i><span>Carpooling</span></button>
+  <button class="tnb" id="tnb-internal-rental" onclick="showPage('internal-rental')"><i class="ti ti-building-warehouse"></i><span>Wynajem wewn.</span></button>
 
   <div class="sidebar-label">Koszty</div>
   <button class="tnb" id="tnb-paliwo" onclick="showPage('paliwo')"><i class="ti ti-gas-station"></i><span data-i18n="nav.paliwo">Paliwo</span></button>
@@ -4172,6 +4186,16 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/route-cost.js"></script>
   <script src="modules/smart-forms.js"></script>
   <script src="modules/gps-integrations.js"></script>
+  <script src="modules/ksef.js"></script>
+  <script src="modules/vehicle-inspections.js"></script>
+  <script src="modules/fleet-renewal.js"></script>
+  <script src="modules/driver-training.js"></script>
+  <script src="modules/fleet-limits.js"></script>
+  <script src="modules/parking.js"></script>
+  <script src="modules/internal-rental.js"></script>
+  <script src="modules/carpooling.js"></script>
+  <script src="modules/gdpr.js"></script>
+  <script src="modules/currency.js"></script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
@@ -4229,6 +4253,16 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 <div class="page" id="page-route-cost"></div>
 <div class="page" id="page-smart-forms"></div>
 <div class="page" id="page-gps-integrations"></div>
+<div class="page" id="page-ksef"></div>
+<div class="page" id="page-vehicle-inspections"></div>
+<div class="page" id="page-fleet-renewal"></div>
+<div class="page" id="page-driver-training"></div>
+<div class="page" id="page-fleet-limits"></div>
+<div class="page" id="page-parking"></div>
+<div class="page" id="page-internal-rental"></div>
+<div class="page" id="page-carpooling"></div>
+<div class="page" id="page-gdpr"></div>
+<div class="page" id="page-currency"></div>
 
 <!-- PAGE: KALENDARZ (placeholder — otwiera modal fleet-cal-modal) -->
 <div class="page" id="page-kalendarz">

@@ -7695,6 +7695,16 @@ async function handleRequest(request, env, url, path) {
   if (path.startsWith('/api/route-billing'))      { if (!user) return err('Nieautoryzowany', 401); return handleRouteBilling(request, env, user, url, path); }
   if (path === '/api/fleet-kpi' && request.method === 'GET') { if (!user) return err('Nieautoryzowany', 401); return handleFleetKpi(request, env, user, url); }
   if (path.startsWith('/api/access-control'))   { if (!user) return err('Nieautoryzowany', 401); return handleAccessControl(request, env, user, url, path); }
+  if (path.startsWith('/api/ksef'))             { if (!user) return err('Nieautoryzowany', 401); return handleKsef(request, env, user, url, path); }
+  if (path.startsWith('/api/vehicle-inspections')) { if (!user) return err('Nieautoryzowany', 401); return handleVehicleInspections(request, env, user, url, path); }
+  if (path.startsWith('/api/fleet-renewal'))    { if (!user) return err('Nieautoryzowany', 401); return handleFleetRenewal(request, env, user, url, path); }
+  if (path.startsWith('/api/driver-training'))  { if (!user) return err('Nieautoryzowany', 401); return handleDriverTraining(request, env, user, url, path); }
+  if (path.startsWith('/api/fleet-limits'))     { if (!user) return err('Nieautoryzowany', 401); return handleFleetLimits(request, env, user, url, path); }
+  if (path.startsWith('/api/parking'))          { if (!user) return err('Nieautoryzowany', 401); return handleParking(request, env, user, url, path); }
+  if (path.startsWith('/api/internal-rentals')) { if (!user) return err('Nieautoryzowany', 401); return handleInternalRentals(request, env, user, url, path); }
+  if (path.startsWith('/api/carpooling'))       { if (!user) return err('Nieautoryzowany', 401); return handleCarpooling(request, env, user, url, path); }
+  if (path.startsWith('/api/gdpr'))             { if (!user) return err('Nieautoryzowany', 401); return handleGdpr(request, env, user, url, path); }
+  if (path.startsWith('/api/currency'))         { if (!user) return err('Nieautoryzowany', 401); return handleCurrency(request, env, user, url, path); }
   // Admin: ręczne wyzwolenie kolejkowania powiadomień (do testów bez crona)
   if (path === '/api/notif-trigger' && request.method === 'POST') {
     if (!user) return err('Nieautoryzowany', 401);
@@ -9393,6 +9403,444 @@ async function handleAccessControl(req, env, user, url, path) {
   }
 
   return err('Nieznana operacja', 404);
+}
+
+// ─── BATCH 7: KSeF, Inspekcje, Wymiana floty, Szkolenia, Limity, Parking, Wynajem wewn., Carpooling, RODO, Waluty ───
+
+function coOf(url, user) { return url.searchParams.get('company') || user.company_id; }
+function idSeg(path, n) { return path.split('/').filter(Boolean)[n] || null; }
+
+async function handleKsef(req, env, user, url, path) {
+  const co = coOf(url, user); const id = idSeg(path, 2); const method = req.method;
+  if (method === 'GET' && !id) {
+    const status = url.searchParams.get('status') || '';
+    const q      = url.searchParams.get('q') || '';
+    const where  = [`company_id=?`];
+    const params = [co];
+    if (status) { where.push('ksef_status=?'); params.push(status); }
+    if (q)      { where.push(`(invoice_number LIKE ? OR ksef_number LIKE ? OR seller_nip LIKE ? OR buyer_nip LIKE ?)`); const lk='%'+q+'%'; params.push(lk,lk,lk,lk); }
+    const rows = (await env.DB.prepare(`SELECT * FROM ksef_invoices WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 200`).bind(...params).all().catch(()=>({results:[]}))).results||[];
+    const stats = { total: rows.length, pending: 0, sent: 0, accepted: 0, rejected: 0 };
+    rows.forEach(r => { if (stats[r.ksef_status] !== undefined) stats[r.ksef_status]++; });
+    return json({ invoices: rows, stats });
+  }
+  if (method === 'GET' && id && id !== 'nbp-fetch') {
+    const row = await env.DB.prepare('SELECT * FROM ksef_invoices WHERE id=? AND company_id=?').bind(id, co).first().catch(()=>null);
+    if (!row) return err('Nie znaleziono', 404);
+    return json({ invoice: row });
+  }
+  if (method === 'POST' && !id) {
+    const b = await req.json().catch(()=>({}));
+    if (!b.invoice_number) return err('Brak numeru faktury');
+    await env.DB.prepare(`INSERT INTO ksef_invoices(company_id,invoice_number,ksef_number,ksef_status,ksef_date,qr_code,upo_url,error_message,seller_nip,buyer_nip,gross_pln) VALUES(?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(co,b.invoice_number,b.ksef_number||null,b.ksef_status||'pending',b.ksef_date||null,b.qr_code||null,b.upo_url||null,b.error_message||null,b.seller_nip||null,b.buyer_nip||null,b.gross_pln!=null?+b.gross_pln:null).run();
+    return json({ ok: true });
+  }
+  if (method === 'PUT' && id) {
+    const b = await req.json().catch(()=>({}));
+    await env.DB.prepare(`UPDATE ksef_invoices SET invoice_number=?,ksef_number=?,ksef_status=?,ksef_date=?,upo_url=?,error_message=?,seller_nip=?,buyer_nip=?,gross_pln=? WHERE id=? AND company_id=?`)
+      .bind(b.invoice_number,b.ksef_number||null,b.ksef_status||'pending',b.ksef_date||null,b.upo_url||null,b.error_message||null,b.seller_nip||null,b.buyer_nip||null,b.gross_pln!=null?+b.gross_pln:null,id,co).run();
+    return json({ ok: true });
+  }
+  if (method === 'POST' && id && idSeg(path, 3) === 'send') {
+    await env.DB.prepare(`UPDATE ksef_invoices SET ksef_status='sent' WHERE id=? AND company_id=?`).bind(id, co).run();
+    return json({ ok: true, msg: 'Status zmieniony na sent (symulacja)' });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM ksef_invoices WHERE id=? AND company_id=?').bind(id, co).run();
+    return json({ ok: true });
+  }
+  return err('Nieznana operacja KSeF', 404);
+}
+
+async function handleVehicleInspections(req, env, user, url, path) {
+  const co = coOf(url, user); const id = idSeg(path, 2); const method = req.method;
+  if (method === 'GET' && !id) {
+    const reg    = url.searchParams.get('reg') || '';
+    const status = url.searchParams.get('status') || '';
+    const where  = ['company_id=?']; const params = [co];
+    if (reg)    { where.push('vehicle_reg LIKE ?'); params.push('%'+reg+'%'); }
+    if (status) { where.push('overall_status=?'); params.push(status); }
+    const rows = (await env.DB.prepare(`SELECT * FROM vehicle_inspections WHERE ${where.join(' AND ')} ORDER BY inspection_date DESC LIMIT 200`).bind(...params).all().catch(()=>({results:[]}))).results||[];
+    return json({ inspections: rows });
+  }
+  if (method === 'GET' && id) {
+    const row = await env.DB.prepare('SELECT * FROM vehicle_inspections WHERE id=? AND company_id=?').bind(id, co).first().catch(()=>null);
+    if (!row) return err('Nie znaleziono', 404);
+    return json({ inspection: row });
+  }
+  if (method === 'POST' && !id) {
+    const b = await req.json().catch(()=>({}));
+    if (!b.inspection_date) return err('Brak daty inspekcji');
+    await env.DB.prepare(`INSERT INTO vehicle_inspections(company_id,vehicle_id,vehicle_reg,inspection_date,inspector_name,mileage_km,overall_status,checklist,photo_urls,notes,next_inspection_date) VALUES(?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(co,b.vehicle_id||null,b.vehicle_reg||null,b.inspection_date,b.inspector_name||null,b.mileage_km!=null?+b.mileage_km:null,b.overall_status||'ok',b.checklist||'[]',b.photo_urls||'[]',b.notes||null,b.next_inspection_date||null).run();
+    return json({ ok: true });
+  }
+  if (method === 'PUT' && id) {
+    const b = await req.json().catch(()=>({}));
+    await env.DB.prepare(`UPDATE vehicle_inspections SET vehicle_reg=?,inspection_date=?,inspector_name=?,mileage_km=?,overall_status=?,checklist=?,photo_urls=?,notes=?,next_inspection_date=? WHERE id=? AND company_id=?`)
+      .bind(b.vehicle_reg||null,b.inspection_date,b.inspector_name||null,b.mileage_km!=null?+b.mileage_km:null,b.overall_status||'ok',b.checklist||'[]',b.photo_urls||'[]',b.notes||null,b.next_inspection_date||null,id,co).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM vehicle_inspections WHERE id=? AND company_id=?').bind(id, co).run();
+    return json({ ok: true });
+  }
+  return err('Nieznana operacja inspekcji', 404);
+}
+
+async function handleFleetRenewal(req, env, user, url, path) {
+  const co = coOf(url, user); const id = idSeg(path, 2); const method = req.method;
+  if (method === 'GET' && !id) {
+    const status = url.searchParams.get('status') || '';
+    const q      = url.searchParams.get('q') || '';
+    const where  = ['company_id=?']; const params = [co];
+    if (status) { where.push('status=?'); params.push(status); }
+    if (q)      { where.push('(vehicle_reg LIKE ? OR replacement_vehicle_desc LIKE ?)'); const lk='%'+q+'%'; params.push(lk,lk); }
+    const rows = (await env.DB.prepare(`SELECT * FROM fleet_renewal_plan WHERE ${where.join(' AND ')} ORDER BY planned_replacement_date ASC LIMIT 200`).bind(...params).all().catch(()=>({results:[]}))).results||[];
+    const stats = { planned: 0, in_progress: 0, done: 0, cancelled: 0, total_budget: 0 };
+    rows.forEach(r => { if (stats[r.status]!==undefined) stats[r.status]++; stats.total_budget += r.replacement_budget_pln || 0; });
+    return json({ plans: rows, stats });
+  }
+  if (method === 'GET' && id) {
+    const row = await env.DB.prepare('SELECT * FROM fleet_renewal_plan WHERE id=? AND company_id=?').bind(id, co).first().catch(()=>null);
+    if (!row) return err('Nie znaleziono', 404);
+    return json({ plan: row });
+  }
+  if (method === 'POST' && !id) {
+    const b = await req.json().catch(()=>({}));
+    await env.DB.prepare(`INSERT INTO fleet_renewal_plan(company_id,vehicle_id,vehicle_reg,current_age_months,current_mileage_km,renewal_reason,planned_replacement_date,replacement_budget_pln,replacement_vehicle_desc,status,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(co,b.vehicle_id||null,b.vehicle_reg||null,b.current_age_months!=null?+b.current_age_months:null,b.current_mileage_km!=null?+b.current_mileage_km:null,b.renewal_reason||'manual',b.planned_replacement_date||null,b.replacement_budget_pln!=null?+b.replacement_budget_pln:null,b.replacement_vehicle_desc||null,b.status||'planned',b.notes||null).run();
+    return json({ ok: true });
+  }
+  if (method === 'PUT' && id) {
+    const b = await req.json().catch(()=>({}));
+    await env.DB.prepare(`UPDATE fleet_renewal_plan SET vehicle_reg=?,current_age_months=?,current_mileage_km=?,renewal_reason=?,planned_replacement_date=?,replacement_budget_pln=?,replacement_vehicle_desc=?,status=?,notes=? WHERE id=? AND company_id=?`)
+      .bind(b.vehicle_reg||null,b.current_age_months!=null?+b.current_age_months:null,b.current_mileage_km!=null?+b.current_mileage_km:null,b.renewal_reason||'manual',b.planned_replacement_date||null,b.replacement_budget_pln!=null?+b.replacement_budget_pln:null,b.replacement_vehicle_desc||null,b.status||'planned',b.notes||null,id,co).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM fleet_renewal_plan WHERE id=? AND company_id=?').bind(id, co).run();
+    return json({ ok: true });
+  }
+  return err('Nieznana operacja', 404);
+}
+
+async function handleDriverTraining(req, env, user, url, path) {
+  const co = coOf(url, user); const id = idSeg(path, 2); const method = req.method;
+  if (method === 'GET' && !id) {
+    const type   = url.searchParams.get('type') || '';
+    const result = url.searchParams.get('result') || '';
+    const q      = url.searchParams.get('q') || '';
+    const where  = ['company_id=?']; const params = [co];
+    if (type)   { where.push('record_type=?'); params.push(type); }
+    if (result) { where.push('result=?'); params.push(result); }
+    if (q)      { where.push('(driver_name LIKE ? OR title LIKE ?)'); const lk='%'+q+'%'; params.push(lk,lk); }
+    const rows = (await env.DB.prepare(`SELECT * FROM driver_training_records WHERE ${where.join(' AND ')} ORDER BY start_date DESC LIMIT 200`).bind(...params).all().catch(()=>({results:[]}))).results||[];
+    const today = new Date().toISOString().slice(0,10);
+    const expIn30 = new Date(); expIn30.setDate(expIn30.getDate()+30);
+    const expiring = rows.filter(r => r.valid_until && r.valid_until.slice(0,10) <= expIn30.toISOString().slice(0,10) && r.valid_until.slice(0,10) >= today);
+    return json({ records: rows, expiring });
+  }
+  if (method === 'GET' && id) {
+    const row = await env.DB.prepare('SELECT * FROM driver_training_records WHERE id=? AND company_id=?').bind(id, co).first().catch(()=>null);
+    if (!row) return err('Nie znaleziono', 404);
+    return json({ record: row });
+  }
+  if (method === 'POST' && !id) {
+    const b = await req.json().catch(()=>({}));
+    if (!b.driver_name || !b.title) return err('Brak wymaganych pól');
+    await env.DB.prepare(`INSERT INTO driver_training_records(company_id,driver_id,driver_name,record_type,title,provider,start_date,end_date,valid_until,cost_pln,certificate_number,result,notes,document_url) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(co,b.driver_id||null,b.driver_name,b.record_type||'training',b.title,b.provider||null,b.start_date||null,b.end_date||null,b.valid_until||null,b.cost_pln!=null?+b.cost_pln:0,b.certificate_number||null,b.result||'passed',b.notes||null,b.document_url||null).run();
+    return json({ ok: true });
+  }
+  if (method === 'PUT' && id) {
+    const b = await req.json().catch(()=>({}));
+    await env.DB.prepare(`UPDATE driver_training_records SET driver_name=?,record_type=?,title=?,provider=?,start_date=?,end_date=?,valid_until=?,cost_pln=?,certificate_number=?,result=?,notes=?,document_url=? WHERE id=? AND company_id=?`)
+      .bind(b.driver_name,b.record_type||'training',b.title,b.provider||null,b.start_date||null,b.end_date||null,b.valid_until||null,b.cost_pln!=null?+b.cost_pln:0,b.certificate_number||null,b.result||'passed',b.notes||null,b.document_url||null,id,co).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM driver_training_records WHERE id=? AND company_id=?').bind(id, co).run();
+    return json({ ok: true });
+  }
+  return err('Nieznana operacja szkoleń', 404);
+}
+
+async function handleFleetLimits(req, env, user, url, path) {
+  const co = coOf(url, user); const id = idSeg(path, 2); const method = req.method;
+  if (method === 'GET' && !id) {
+    const scope  = url.searchParams.get('scope') || '';
+    const period = url.searchParams.get('period') || '';
+    const q      = url.searchParams.get('q') || '';
+    const where  = ['company_id=?']; const params = [co];
+    if (scope)  { where.push('limit_scope=?'); params.push(scope); }
+    if (period) { where.push('period=?'); params.push(period); }
+    if (q)      { where.push('scope_label LIKE ?'); params.push('%'+q+'%'); }
+    const rows = (await env.DB.prepare(`SELECT * FROM fleet_limits WHERE ${where.join(' AND ')} ORDER BY scope_label ASC LIMIT 200`).bind(...params).all().catch(()=>({results:[]}))).results||[];
+    return json({ limits: rows });
+  }
+  if (method === 'GET' && id) {
+    const row = await env.DB.prepare('SELECT * FROM fleet_limits WHERE id=? AND company_id=?').bind(id, co).first().catch(()=>null);
+    if (!row) return err('Nie znaleziono', 404);
+    return json({ limit: row });
+  }
+  if (method === 'POST' && !id) {
+    const b = await req.json().catch(()=>({}));
+    if (!b.limit_scope) return err('Brak limit_scope');
+    await env.DB.prepare(`INSERT OR REPLACE INTO fleet_limits(company_id,limit_scope,scope_id,scope_label,period,fuel_limit_liters,fuel_limit_pln,mileage_limit_km,private_mileage_limit_km,active) VALUES(?,?,?,?,?,?,?,?,?,?)`)
+      .bind(co,b.limit_scope,b.scope_id||null,b.scope_label||null,b.period||'monthly',b.fuel_limit_liters!=null?+b.fuel_limit_liters:null,b.fuel_limit_pln!=null?+b.fuel_limit_pln:null,b.mileage_limit_km!=null?+b.mileage_limit_km:null,b.private_mileage_limit_km!=null?+b.private_mileage_limit_km:null,b.active!=null?+b.active:1).run();
+    return json({ ok: true });
+  }
+  if (method === 'PUT' && id) {
+    const b = await req.json().catch(()=>({}));
+    await env.DB.prepare(`UPDATE fleet_limits SET scope_label=?,period=?,fuel_limit_liters=?,fuel_limit_pln=?,mileage_limit_km=?,private_mileage_limit_km=?,active=? WHERE id=? AND company_id=?`)
+      .bind(b.scope_label||null,b.period||'monthly',b.fuel_limit_liters!=null?+b.fuel_limit_liters:null,b.fuel_limit_pln!=null?+b.fuel_limit_pln:null,b.mileage_limit_km!=null?+b.mileage_limit_km:null,b.private_mileage_limit_km!=null?+b.private_mileage_limit_km:null,b.active!=null?+b.active:1,id,co).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM fleet_limits WHERE id=? AND company_id=?').bind(id, co).run();
+    return json({ ok: true });
+  }
+  return err('Nieznana operacja limitów', 404);
+}
+
+async function handleParking(req, env, user, url, path) {
+  const co = coOf(url, user); const segs = path.split('/').filter(Boolean); const id = segs[2]||null; const sub = segs[3]||null; const method = req.method;
+  if (method === 'GET' && !id) {
+    const rows = (await env.DB.prepare(`SELECT * FROM parking_spots WHERE company_id=? ORDER BY spot_number ASC`).bind(co).all().catch(()=>({results:[]}))).results||[];
+    return json({ spots: rows });
+  }
+  if (method === 'GET' && id && !sub) {
+    const row = await env.DB.prepare('SELECT * FROM parking_spots WHERE id=? AND company_id=?').bind(id, co).first().catch(()=>null);
+    if (!row) return err('Nie znaleziono', 404);
+    return json({ spot: row });
+  }
+  if (method === 'POST' && !id) {
+    const b = await req.json().catch(()=>({}));
+    if (!b.spot_number) return err('Brak numeru miejsca');
+    await env.DB.prepare(`INSERT INTO parking_spots(company_id,spot_number,location,spot_type,assigned_vehicle_reg,assigned_from,notes,active) VALUES(?,?,?,?,?,?,?,?)`)
+      .bind(co,b.spot_number,b.location||null,b.spot_type||'standard',b.assigned_vehicle_reg||null,b.assigned_from||null,b.notes||null,b.active!=null?+b.active:1).run();
+    return json({ ok: true });
+  }
+  if (method === 'PUT' && id && !sub) {
+    const b = await req.json().catch(()=>({}));
+    await env.DB.prepare(`UPDATE parking_spots SET spot_number=?,location=?,spot_type=?,assigned_vehicle_reg=?,assigned_from=?,notes=?,active=? WHERE id=? AND company_id=?`)
+      .bind(b.spot_number,b.location||null,b.spot_type||'standard',b.assigned_vehicle_reg||null,b.assigned_from||null,b.notes||null,b.active!=null?+b.active:1,id,co).run();
+    return json({ ok: true });
+  }
+  if (method === 'POST' && id && sub === 'release') {
+    await env.DB.prepare(`UPDATE parking_spots SET assigned_vehicle_reg=NULL,assigned_vehicle_id=NULL,assigned_from=NULL WHERE id=? AND company_id=?`).bind(id, co).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id && !sub) {
+    await env.DB.prepare('DELETE FROM parking_spots WHERE id=? AND company_id=?').bind(id, co).run();
+    return json({ ok: true });
+  }
+  return err('Nieznana operacja parkingu', 404);
+}
+
+async function handleInternalRentals(req, env, user, url, path) {
+  const co = coOf(url, user); const segs = path.split('/').filter(Boolean); const id = segs[2]||null; const sub = segs[3]||null; const method = req.method;
+  if (method === 'GET' && !id) {
+    const status = url.searchParams.get('status') || '';
+    const q      = url.searchParams.get('q') || '';
+    const where  = ['company_id=?']; const params = [co];
+    if (status) { where.push('status=?'); params.push(status); }
+    if (q)      { where.push('(vehicle_reg LIKE ? OR renter_department LIKE ?)'); const lk='%'+q+'%'; params.push(lk,lk); }
+    const rows = (await env.DB.prepare(`SELECT * FROM internal_rentals WHERE ${where.join(' AND ')} ORDER BY start_datetime DESC LIMIT 200`).bind(...params).all().catch(()=>({results:[]}))).results||[];
+    const stats = { active: 0, returned: 0, invoiced: 0, total_cost: 0 };
+    rows.forEach(r => { if (stats[r.status]!==undefined) stats[r.status]++; stats.total_cost += r.total_cost_pln || 0; });
+    return json({ rentals: rows, stats });
+  }
+  if (method === 'GET' && id) {
+    const row = await env.DB.prepare('SELECT * FROM internal_rentals WHERE id=? AND company_id=?').bind(id, co).first().catch(()=>null);
+    if (!row) return err('Nie znaleziono', 404);
+    return json({ rental: row });
+  }
+  if (method === 'POST' && !id) {
+    const b = await req.json().catch(()=>({}));
+    if (!b.renter_department || !b.start_datetime) return err('Brak wymaganych pól');
+    await env.DB.prepare(`INSERT INTO internal_rentals(company_id,vehicle_id,vehicle_reg,renter_department,renter_person,start_datetime,end_datetime,mileage_start,mileage_end,purpose,cost_rate_pln_per_km,cost_rate_pln_per_day,distance_km,total_cost_pln,status,invoice_number,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(co,b.vehicle_id||null,b.vehicle_reg||null,b.renter_department,b.renter_person||null,b.start_datetime,b.end_datetime||null,b.mileage_start!=null?+b.mileage_start:null,b.mileage_end!=null?+b.mileage_end:null,b.purpose||null,b.cost_rate_pln_per_km!=null?+b.cost_rate_pln_per_km:0.89,b.cost_rate_pln_per_day!=null?+b.cost_rate_pln_per_day:0,b.distance_km!=null?+b.distance_km:null,b.total_cost_pln!=null?+b.total_cost_pln:null,b.status||'active',b.invoice_number||null,b.notes||null).run();
+    return json({ ok: true });
+  }
+  if (method === 'PUT' && id && !sub) {
+    const b = await req.json().catch(()=>({}));
+    const mStart = b.mileage_start!=null?+b.mileage_start:null;
+    const mEnd   = b.mileage_end!=null?+b.mileage_end:null;
+    const dist   = mStart!=null && mEnd!=null ? Math.max(0, mEnd - mStart) : (b.distance_km!=null?+b.distance_km:null);
+    const rate   = b.cost_rate_pln_per_km!=null?+b.cost_rate_pln_per_km:0.89;
+    const auto_cost = dist!=null ? dist * rate : null;
+    await env.DB.prepare(`UPDATE internal_rentals SET vehicle_reg=?,renter_department=?,renter_person=?,start_datetime=?,end_datetime=?,mileage_start=?,mileage_end=?,purpose=?,cost_rate_pln_per_km=?,cost_rate_pln_per_day=?,distance_km=?,total_cost_pln=?,status=?,invoice_number=?,notes=? WHERE id=? AND company_id=?`)
+      .bind(b.vehicle_reg||null,b.renter_department,b.renter_person||null,b.start_datetime,b.end_datetime||null,mStart,mEnd,b.purpose||null,rate,b.cost_rate_pln_per_day!=null?+b.cost_rate_pln_per_day:0,dist,b.total_cost_pln!=null?+b.total_cost_pln:auto_cost,b.status||'active',b.invoice_number||null,b.notes||null,id,co).run();
+    return json({ ok: true });
+  }
+  if (method === 'POST' && id && sub === 'return') {
+    const b = await req.json().catch(()=>({}));
+    const row = await env.DB.prepare('SELECT * FROM internal_rentals WHERE id=? AND company_id=?').bind(id, co).first().catch(()=>null);
+    if (!row) return err('Nie znaleziono', 404);
+    const mEnd = b.mileage_end!=null?+b.mileage_end:null;
+    const dist = mEnd!=null && row.mileage_start!=null ? Math.max(0, mEnd - row.mileage_start) : null;
+    const cost = dist!=null ? dist * (row.cost_rate_pln_per_km || 0.89) : null;
+    await env.DB.prepare(`UPDATE internal_rentals SET end_datetime=?,mileage_end=?,distance_km=?,total_cost_pln=?,status='returned' WHERE id=? AND company_id=?`)
+      .bind(b.end_datetime||new Date().toISOString().slice(0,16),mEnd,dist,cost,id,co).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM internal_rentals WHERE id=? AND company_id=?').bind(id, co).run();
+    return json({ ok: true });
+  }
+  return err('Nieznana operacja', 404);
+}
+
+async function handleCarpooling(req, env, user, url, path) {
+  const co = coOf(url, user); const segs = path.split('/').filter(Boolean); const id = segs[2]||null; const sub = segs[3]||null; const method = req.method;
+  if (method === 'GET' && !id) {
+    const date   = url.searchParams.get('date') || '';
+    const status = url.searchParams.get('status') || '';
+    const q      = url.searchParams.get('q') || '';
+    const where  = ['company_id=?']; const params = [co];
+    if (date)   { where.push('trip_date=?'); params.push(date); }
+    if (status) { where.push('status=?'); params.push(status); }
+    if (q)      { where.push('(driver_name LIKE ? OR origin LIKE ? OR destination LIKE ?)'); const lk='%'+q+'%'; params.push(lk,lk,lk); }
+    const rows = (await env.DB.prepare(`SELECT * FROM carpooling_trips WHERE ${where.join(' AND ')} ORDER BY trip_date DESC, departure_time ASC LIMIT 200`).bind(...params).all().catch(()=>({results:[]}))).results||[];
+    const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
+    const weekAgoStr = weekAgo.toISOString().slice(0,10);
+    const thisWeek = rows.filter(r=>r.trip_date>=weekAgoStr).length;
+    let co2 = 0;
+    rows.forEach(r => {
+      const parts = (() => { try { return JSON.parse(r.participants||'[]'); } catch { return []; } })();
+      co2 += (r.distance_km||0) * parts.length * 0.12; // est. 120g CO2/km per avoided car trip
+    });
+    return json({ trips: rows, stats: { open: rows.filter(r=>r.status==='open').length, this_week: thisWeek, co2_saved: co2 } });
+  }
+  if (method === 'GET' && id) {
+    const row = await env.DB.prepare('SELECT * FROM carpooling_trips WHERE id=? AND company_id=?').bind(id, co).first().catch(()=>null);
+    if (!row) return err('Nie znaleziono', 404);
+    return json({ trip: row });
+  }
+  if (method === 'POST' && !id) {
+    const b = await req.json().catch(()=>({}));
+    if (!b.driver_name || !b.trip_date) return err('Brak wymaganych pól');
+    await env.DB.prepare(`INSERT INTO carpooling_trips(company_id,driver_id,driver_name,vehicle_id,vehicle_reg,trip_date,departure_time,origin,destination,available_seats,distance_km,cost_pln,status,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(co,b.driver_id||null,b.driver_name,b.vehicle_id||null,b.vehicle_reg||null,b.trip_date,b.departure_time||null,b.origin||null,b.destination||null,b.available_seats!=null?+b.available_seats:3,b.distance_km!=null?+b.distance_km:null,b.cost_pln!=null?+b.cost_pln:0,b.status||'open',b.notes||null).run();
+    return json({ ok: true });
+  }
+  if (method === 'PUT' && id && !sub) {
+    const b = await req.json().catch(()=>({}));
+    await env.DB.prepare(`UPDATE carpooling_trips SET driver_name=?,vehicle_reg=?,trip_date=?,departure_time=?,origin=?,destination=?,available_seats=?,distance_km=?,cost_pln=?,status=?,notes=? WHERE id=? AND company_id=?`)
+      .bind(b.driver_name,b.vehicle_reg||null,b.trip_date,b.departure_time||null,b.origin||null,b.destination||null,b.available_seats!=null?+b.available_seats:3,b.distance_km!=null?+b.distance_km:null,b.cost_pln!=null?+b.cost_pln:0,b.status||'open',b.notes||null,id,co).run();
+    return json({ ok: true });
+  }
+  if (method === 'POST' && id && sub === 'participants') {
+    const b = await req.json().catch(()=>({}));
+    const row = await env.DB.prepare('SELECT * FROM carpooling_trips WHERE id=? AND company_id=?').bind(id, co).first().catch(()=>null);
+    if (!row) return err('Nie znaleziono', 404);
+    const parts = (() => { try { return JSON.parse(row.participants||'[]'); } catch { return []; } })();
+    if (parts.length >= (row.available_seats || 3)) return err('Brak wolnych miejsc');
+    parts.push({ name: b.name||'', department: b.department||'', pickup_point: b.pickup_point||'' });
+    const newStatus = parts.length >= (row.available_seats || 3) ? 'full' : 'open';
+    await env.DB.prepare('UPDATE carpooling_trips SET participants=?,status=? WHERE id=? AND company_id=?').bind(JSON.stringify(parts),newStatus,id,co).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM carpooling_trips WHERE id=? AND company_id=?').bind(id, co).run();
+    return json({ ok: true });
+  }
+  return err('Nieznana operacja carpooling', 404);
+}
+
+async function handleGdpr(req, env, user, url, path) {
+  const co = coOf(url, user); const id = idSeg(path, 2); const method = req.method;
+  if (method === 'GET' && !id) {
+    const type   = url.searchParams.get('type') || '';
+    const status = url.searchParams.get('status') || '';
+    const q      = url.searchParams.get('q') || '';
+    const where  = ['company_id=?']; const params = [co];
+    if (type)   { where.push('record_type=?'); params.push(type); }
+    if (status) { where.push('status=?'); params.push(status); }
+    if (q)      { where.push('(subject_name LIKE ? OR subject_email LIKE ?)'); const lk='%'+q+'%'; params.push(lk,lk); }
+    const rows = (await env.DB.prepare(`SELECT * FROM gdpr_records WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 200`).bind(...params).all().catch(()=>({results:[]}))).results||[];
+    const in14 = new Date(); in14.setDate(in14.getDate()+14); const in14s = in14.toISOString().slice(0,10);
+    const today = new Date().toISOString().slice(0,10);
+    const stats = {
+      consent_active: rows.filter(r=>r.record_type==='consent'&&r.status==='active').length,
+      requests_open:  rows.filter(r=>r.record_type==='request'&&r.status==='active').length,
+      breaches:       rows.filter(r=>r.record_type==='breach').length,
+      expiring_soon:  rows.filter(r=>r.retention_until&&r.retention_until.slice(0,10)<=in14s&&r.retention_until.slice(0,10)>=today&&r.status==='active').length,
+    };
+    return json({ records: rows, stats });
+  }
+  if (method === 'GET' && id) {
+    const row = await env.DB.prepare('SELECT * FROM gdpr_records WHERE id=? AND company_id=?').bind(id, co).first().catch(()=>null);
+    if (!row) return err('Nie znaleziono', 404);
+    return json({ record: row });
+  }
+  if (method === 'POST' && !id) {
+    const b = await req.json().catch(()=>({}));
+    if (!b.record_type) return err('Brak record_type');
+    const ret_until = b.retention_until || (b.retention_days ? new Date(Date.now() + +b.retention_days * 86400000).toISOString().slice(0,10) : null);
+    await env.DB.prepare(`INSERT INTO gdpr_records(company_id,record_type,subject_type,subject_name,subject_email,description,legal_basis,retention_days,retention_until,status,handled_by,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(co,b.record_type,b.subject_type||'driver',b.subject_name||null,b.subject_email||null,b.description||null,b.legal_basis||null,b.retention_days!=null?+b.retention_days:null,ret_until,b.status||'active',b.handled_by||null,b.notes||null).run();
+    return json({ ok: true });
+  }
+  if (method === 'PUT' && id) {
+    const b = await req.json().catch(()=>({}));
+    await env.DB.prepare(`UPDATE gdpr_records SET record_type=?,subject_type=?,subject_name=?,subject_email=?,description=?,legal_basis=?,retention_days=?,retention_until=?,status=?,handled_by=?,notes=? WHERE id=? AND company_id=?`)
+      .bind(b.record_type,b.subject_type||'driver',b.subject_name||null,b.subject_email||null,b.description||null,b.legal_basis||null,b.retention_days!=null?+b.retention_days:null,b.retention_until||null,b.status||'active',b.handled_by||null,b.notes||null,id,co).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM gdpr_records WHERE id=? AND company_id=?').bind(id, co).run();
+    return json({ ok: true });
+  }
+  return err('Nieznana operacja RODO', 404);
+}
+
+async function handleCurrency(req, env, user, url, path) {
+  const co = coOf(url, user); const segs = path.split('/').filter(Boolean); const id = segs[2]||null; const sub = segs[3]||null; const method = req.method;
+  if (method === 'GET' && !id) {
+    const code  = url.searchParams.get('code') || '';
+    const from_ = url.searchParams.get('from') || '';
+    const to_   = url.searchParams.get('to')   || '';
+    const where = ['company_id=?']; const params = [co];
+    if (code)  { where.push('currency_code=?'); params.push(code); }
+    if (from_) { where.push('rate_date>=?'); params.push(from_); }
+    if (to_)   { where.push('rate_date<=?'); params.push(to_); }
+    const rows = (await env.DB.prepare(`SELECT * FROM currency_rates WHERE ${where.join(' AND ')} ORDER BY rate_date DESC, currency_code ASC LIMIT 500`).bind(...params).all().catch(()=>({results:[]}))).results||[];
+    return json({ rates: rows });
+  }
+  if (method === 'POST' && !id) {
+    const b = await req.json().catch(()=>({}));
+    if (!b.currency_code || !b.rate_to_pln || !b.rate_date) return err('Brak wymaganych pól');
+    await env.DB.prepare(`INSERT OR REPLACE INTO currency_rates(company_id,currency_code,rate_to_pln,rate_date,source) VALUES(?,?,?,?,?)`)
+      .bind(co, b.currency_code.toUpperCase(), +b.rate_to_pln, b.rate_date, b.source||'manual').run();
+    return json({ ok: true });
+  }
+  if (method === 'POST' && id === 'nbp-fetch') {
+    // Pobierz kursy z NBP API (tabela A — kursy średnie)
+    try {
+      const today = new Date().toISOString().slice(0,10);
+      const resp  = await fetch(`https://api.nbp.pl/api/exchangerates/tables/A/${today}/?format=json`);
+      if (!resp.ok) return json({ ok: false, error: 'NBP API niedostępne' });
+      const data  = await resp.json();
+      const rates = data[0]?.rates || [];
+      const stmts = rates.map(r =>
+        env.DB.prepare(`INSERT OR REPLACE INTO currency_rates(company_id,currency_code,rate_to_pln,rate_date,source) VALUES(?,?,?,?,?)`)
+          .bind(co, r.code, r.mid, today, 'nbp')
+      );
+      await env.DB.batch(stmts);
+      return json({ ok: true, imported: stmts.length, date: today });
+    } catch (e) {
+      return json({ ok: false, error: e.message });
+    }
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare('DELETE FROM currency_rates WHERE id=? AND company_id=?').bind(id, co).run();
+    return json({ ok: true });
+  }
+  return err('Nieznana operacja walut', 404);
 }
 
 export default {

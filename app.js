@@ -260,6 +260,16 @@ function showPage(id) {
   if(id==='smart-forms')         window.SmartForms?.renderSmartForms();
   if(id==='gps-integrations')    window.GpsIntegrations?.renderGpsIntegrations();
   if(id==='access-control')      window.AccessControl?.renderAccessControl();
+  if(id==='ksef')                window.KsefModule?.renderKsef();
+  if(id==='vehicle-inspections') window.VehicleInspections?.renderVehicleInspections();
+  if(id==='fleet-renewal')       window.FleetRenewal?.renderFleetRenewal();
+  if(id==='driver-training')     window.DriverTraining?.renderDriverTraining();
+  if(id==='fleet-limits')        window.FleetLimits?.renderFleetLimits();
+  if(id==='parking')             window.ParkingModule?.renderParking();
+  if(id==='internal-rental')     window.InternalRental?.renderInternalRental();
+  if(id==='carpooling')          window.CarpoolingModule?.renderCarpooling();
+  if(id==='gdpr')                window.GdprModule?.renderGdpr();
+  if(id==='currency')            window.CurrencyModule?.renderCurrency();
   document.dispatchEvent(new CustomEvent('taxorder-page-change', { detail: { page: id } }));
   updateCounters();
 }
