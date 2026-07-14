@@ -240,6 +240,11 @@ function showPage(id) {
   if(id==='epp-vat')             window.EppVatModule?.renderEppVat();
   if(id==='integrations')        window.IntegrationsModule?.renderIntegrations();
   if(id==='tachograph')          window.TachographModule?.renderTachograph();
+  if(id==='ev-charging')         window.EvCharging?.renderEvCharging();
+  if(id==='insurance')           window.InsuranceModule?.renderInsurance();
+  if(id==='route-billing')       window.RouteBilling?.renderRouteBilling();
+  if(id==='fleet-kpi')           window.FleetKpi?.renderFleetKpi();
+  if(id==='zapier-ui')           window.ZapierUi?.renderZapierUi();
   if(id==='trip-private')        window.TripPrivate?.renderTripPrivate();
   if(id==='geofencing')          window.Geofencing?.renderGeofencing();
   if(id==='driver-wages')        window.DriverWages?.renderDriverWages();

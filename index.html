@@ -223,6 +223,11 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <button class="tnb" id="tnb-route-cost" onclick="showPage('route-cost')"><i class="ti ti-calculator"></i><span>Koszty tras</span></button>
   <button class="tnb" id="tnb-smart-forms" onclick="showPage('smart-forms')"><i class="ti ti-forms"></i><span>Smart Forms</span></button>
   <button class="tnb" id="tnb-gps-integrations" onclick="showPage('gps-integrations')"><i class="ti ti-satellite"></i><span>GPS Integracje</span></button>
+  <button class="tnb" id="tnb-ev-charging" onclick="showPage('ev-charging')"><i class="ti ti-bolt"></i><span>Ładowanie EV</span></button>
+  <button class="tnb" id="tnb-insurance" onclick="showPage('insurance')"><i class="ti ti-shield-check"></i><span>Ubezpieczenia</span></button>
+  <button class="tnb" id="tnb-route-billing" onclick="showPage('route-billing')"><i class="ti ti-receipt"></i><span>Faktury tras</span></button>
+  <button class="tnb" id="tnb-fleet-kpi" onclick="showPage('fleet-kpi')"><i class="ti ti-chart-bar"></i><span>Dashboard KPI</span></button>
+  <button class="tnb" id="tnb-zapier-ui" onclick="showPage('zapier-ui')"><i class="ti ti-plug-connected"></i><span>Zapier / Make</span></button>
   <button class="tnb" id="tnb-integrations" onclick="showPage('integrations')"><i class="ti ti-plug"></i><span>Integracje</span></button>
 
   <div class="sidebar-label">Koszty</div>
@@ -4154,6 +4159,11 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/epp-vat.js"></script>
   <script src="modules/integrations.js"></script>
   <script src="modules/tachograph.js"></script>
+  <script src="modules/ev-charging.js"></script>
+  <script src="modules/insurance.js"></script>
+  <script src="modules/route-billing.js"></script>
+  <script src="modules/fleet-kpi.js"></script>
+  <script src="modules/zapier-ui.js"></script>
   <script src="modules/trip-private.js"></script>
   <script src="modules/geofencing.js"></script>
   <script src="modules/driver-wages.js"></script>
@@ -4205,6 +4215,11 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 <div class="page" id="page-epp-vat"></div>
 <div class="page" id="page-integrations"></div>
 <div class="page" id="page-tachograph"></div>
+<div class="page" id="page-ev-charging"></div>
+<div class="page" id="page-insurance"></div>
+<div class="page" id="page-route-billing"></div>
+<div class="page" id="page-fleet-kpi"></div>
+<div class="page" id="page-zapier-ui"></div>
 <div class="page" id="page-trip-private"></div>
 <div class="page" id="page-geofencing"></div>
 <div class="page" id="page-driver-wages"></div>

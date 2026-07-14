@@ -7691,6 +7691,9 @@ async function handleRequest(request, env, url, path) {
   if (path.startsWith('/api/ev-charging'))        { if (!user) return err('Nieautoryzowany', 401); return handleEVCharging(request, env, user, url, path); }
   if (path === '/api/email-to-order' && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleEmail2Order(request, env, user, url); }
   if (path.startsWith('/api/zapier'))             { if (!user) return err('Nieautoryzowany', 401); return handleZapierWebhook(request, env, user, url, path); }
+  if (path.startsWith('/api/insurance'))          { if (!user) return err('Nieautoryzowany', 401); return handleInsurance(request, env, user, url, path); }
+  if (path.startsWith('/api/route-billing'))      { if (!user) return err('Nieautoryzowany', 401); return handleRouteBilling(request, env, user, url, path); }
+  if (path === '/api/fleet-kpi' && request.method === 'GET') { if (!user) return err('Nieautoryzowany', 401); return handleFleetKpi(request, env, user, url); }
   // Admin: ręczne wyzwolenie kolejkowania powiadomień (do testów bez crona)
   if (path === '/api/notif-trigger' && request.method === 'POST') {
     if (!user) return err('Nieautoryzowany', 401);
@@ -9080,7 +9083,207 @@ async function handleZapierWebhook(req, env, user, url, path) {
       sample: { vehicle_reg: 'WA12345', event: 'inspection_due', days_left: 14 } });
   }
 
+  // GET /api/zapier/config — odczyt konfiguracji Zapier/Make
+  if (method === 'GET' && sub === 'config') {
+    const rows = (await env.DB.prepare('SELECT target, webhook_url, enabled, last_sent_at, last_status FROM zapier_config WHERE company_id=?').bind(co).all()).results || [];
+    const cfg  = {};
+    for (const r of rows) cfg[r.target + '_url'] = r.webhook_url;
+    return json(cfg);
+  }
+
+  // POST /api/zapier/config — zapis URL Zapier lub Make
+  if (method === 'POST' && sub === 'config') {
+    const body = await req.json().catch(() => ({}));
+    const { target, url: wurl } = body;
+    if (!target || !wurl) return err('Brak target/url', 400);
+    if (!wurl.startsWith('https://')) return err('URL musi zaczynać się od https://', 400);
+    await env.DB.prepare(`INSERT INTO zapier_config(company_id,target,webhook_url) VALUES(?,?,?)
+      ON CONFLICT(company_id,target) DO UPDATE SET webhook_url=excluded.webhook_url,enabled=1`).bind(co, target, wurl).run();
+    return json({ ok: true });
+  }
+
   return err('Nieznana operacja', 404);
+}
+
+// ── INSURANCE — polisy i roszczenia ──────────────────────────────────────────
+async function handleInsurance(req, env, user, url, path) {
+  const co     = url.searchParams.get('company') || user.company_id;
+  const method = req.method;
+  const segs   = path.split('/').filter(Boolean); // api, insurance, [claims|id], [id]
+  const isClaims = segs[2] === 'claims';
+
+  if (!isClaims) {
+    // Polisy
+    if (method === 'GET') {
+      const status = url.searchParams.get('status') || '';
+      const vreg   = url.searchParams.get('vehicle_reg') || '';
+      let q = 'SELECT * FROM insurance_policies WHERE company_id=?';
+      const p = [co];
+      if (status) { q += ' AND status=?'; p.push(status); }
+      if (vreg)   { q += ' AND vehicle_reg LIKE ?'; p.push('%' + vreg + '%'); }
+      q += ' ORDER BY end_date ASC';
+      const rows = (await env.DB.prepare(q).bind(...p).all()).results || [];
+      return json(rows);
+    }
+    if (method === 'POST') {
+      const b = await req.json().catch(() => ({}));
+      if (!b.policy_number || !b.end_date) return err('Nr polisy i data końca wymagane', 400);
+      await env.DB.prepare(`INSERT INTO insurance_policies(company_id,vehicle_id,vehicle_reg,policy_number,policy_type,insurer,start_date,end_date,premium_pln,sum_insured_pln,deductible_pln,broker,broker_contact,auto_renew,status,notes)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        .bind(co,b.vehicle_id||null,b.vehicle_reg||null,b.policy_number,b.policy_type||'OC',b.insurer||null,b.start_date||null,b.end_date,
+          b.premium_pln??0,b.sum_insured_pln??null,b.deductible_pln??0,b.broker||null,b.broker_contact||null,b.auto_renew??0,b.status||'active',b.notes||null).run();
+      return json({ ok: true });
+    }
+    const id = segs[2];
+    if (id) {
+      if (method === 'PUT') {
+        const b = await req.json().catch(() => ({}));
+        await env.DB.prepare(`UPDATE insurance_policies SET vehicle_reg=?,policy_number=?,policy_type=?,insurer=?,start_date=?,end_date=?,premium_pln=?,sum_insured_pln=?,deductible_pln=?,broker=?,broker_contact=?,auto_renew=?,status=?,notes=? WHERE id=? AND company_id=?`)
+          .bind(b.vehicle_reg||null,b.policy_number,b.policy_type||'OC',b.insurer||null,b.start_date||null,b.end_date,b.premium_pln??0,b.sum_insured_pln??null,b.deductible_pln??0,b.broker||null,b.broker_contact||null,b.auto_renew??0,b.status||'active',b.notes||null,id,co).run();
+        return json({ ok: true });
+      }
+      if (method === 'DELETE') {
+        await env.DB.prepare('DELETE FROM insurance_policies WHERE id=? AND company_id=?').bind(id, co).run();
+        return json({ ok: true });
+      }
+    }
+  } else {
+    // Roszczenia: /api/insurance/claims[/:id]
+    const claimId = segs[3];
+    if (method === 'GET') {
+      const rows = (await env.DB.prepare('SELECT * FROM insurance_claims WHERE company_id=? ORDER BY claim_date DESC').bind(co).all()).results || [];
+      return json(rows);
+    }
+    if (method === 'POST') {
+      const b = await req.json().catch(() => ({}));
+      if (!b.claim_date || !b.description) return err('Data i opis wymagane', 400);
+      await env.DB.prepare(`INSERT INTO insurance_claims(company_id,policy_id,vehicle_id,vehicle_reg,claim_date,description,claim_number,claim_amount_pln,settled_amount_pln,status,notes)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?)`)
+        .bind(co,b.policy_id||null,b.vehicle_id||null,b.vehicle_reg||null,b.claim_date,b.description,b.claim_number||null,b.claim_amount_pln??0,b.settled_amount_pln??null,b.status||'open',b.notes||null).run();
+      return json({ ok: true });
+    }
+    if (claimId) {
+      if (method === 'PUT') {
+        const b = await req.json().catch(() => ({}));
+        await env.DB.prepare(`UPDATE insurance_claims SET vehicle_reg=?,claim_date=?,description=?,claim_number=?,claim_amount_pln=?,settled_amount_pln=?,status=?,notes=? WHERE id=? AND company_id=?`)
+          .bind(b.vehicle_reg||null,b.claim_date,b.description,b.claim_number||null,b.claim_amount_pln??0,b.settled_amount_pln??null,b.status||'open',b.notes||null,claimId,co).run();
+        return json({ ok: true });
+      }
+      if (method === 'DELETE') {
+        await env.DB.prepare('DELETE FROM insurance_claims WHERE id=? AND company_id=?').bind(claimId, co).run();
+        return json({ ok: true });
+      }
+    }
+  }
+  return err('Nieznana operacja', 404);
+}
+
+// ── ROUTE BILLING — faktury zleceń transportowych ───────────────────────────
+async function handleRouteBilling(req, env, user, url, path) {
+  const co     = url.searchParams.get('company') || user.company_id;
+  const method = req.method;
+  const segs   = path.split('/').filter(Boolean);
+  const id     = segs[2];
+
+  if (method === 'GET' && !id) {
+    const status = url.searchParams.get('status') || '';
+    let q = 'SELECT * FROM route_invoices WHERE company_id=?';
+    const p = [co];
+    if (status) { q += ' AND status=?'; p.push(status); }
+    q += ' ORDER BY invoice_date DESC';
+    const rows = (await env.DB.prepare(q).bind(...p).all()).results || [];
+    const stats = {
+      total_net:   rows.reduce((s,r)=>s+(r.net_pln??0),0),
+      total_gross: rows.reduce((s,r)=>s+(r.gross_pln??0),0),
+      total_cost:  rows.reduce((s,r)=>s+(r.cost_pln??0),0),
+    };
+    stats.margin_pln = stats.total_gross - stats.total_cost;
+    stats.margin_pct = stats.total_gross > 0 ? parseFloat(((stats.margin_pln / stats.total_gross)*100).toFixed(2)) : 0;
+    return json({ invoices: rows, stats });
+  }
+  if (method === 'POST' && !id) {
+    const b = await req.json().catch(() => ({}));
+    if (!b.invoice_number || !b.client_name) return err('Nr faktury i klient wymagani', 400);
+    await env.DB.prepare(`INSERT INTO route_invoices(company_id,order_id,order_title,invoice_number,client_name,client_nip,invoice_date,due_date,net_pln,vat_rate,vat_pln,gross_pln,cost_pln,margin_pln,margin_pct,status,notes)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(co,b.order_id||null,b.order_title||null,b.invoice_number,b.client_name,b.client_nip||null,b.invoice_date||new Date().toISOString().slice(0,10),b.due_date||null,
+        b.net_pln??0,b.vat_rate??0.23,b.vat_pln??0,b.gross_pln??0,b.cost_pln??0,b.margin_pln??0,b.margin_pct??0,b.status||'draft',b.notes||null).run();
+    return json({ ok: true });
+  }
+  if (id) {
+    if (method === 'PUT') {
+      const b = await req.json().catch(() => ({}));
+      if (b.status && Object.keys(b).length === 1) {
+        await env.DB.prepare('UPDATE route_invoices SET status=? WHERE id=? AND company_id=?').bind(b.status, id, co).run();
+      } else {
+        await env.DB.prepare(`UPDATE route_invoices SET order_title=?,invoice_number=?,client_name=?,client_nip=?,invoice_date=?,due_date=?,net_pln=?,vat_rate=?,vat_pln=?,gross_pln=?,cost_pln=?,margin_pln=?,margin_pct=?,status=?,notes=? WHERE id=? AND company_id=?`)
+          .bind(b.order_title||null,b.invoice_number,b.client_name,b.client_nip||null,b.invoice_date,b.due_date||null,b.net_pln??0,b.vat_rate??0.23,b.vat_pln??0,b.gross_pln??0,b.cost_pln??0,b.margin_pln??0,b.margin_pct??0,b.status||'draft',b.notes||null,id,co).run();
+      }
+      return json({ ok: true });
+    }
+    if (method === 'DELETE') {
+      await env.DB.prepare('DELETE FROM route_invoices WHERE id=? AND company_id=?').bind(id, co).run();
+      return json({ ok: true });
+    }
+  }
+  return err('Nieznana operacja', 404);
+}
+
+// ── FLEET KPI — dashboard agregacje ─────────────────────────────────────────
+async function handleFleetKpi(req, env, user, url) {
+  const co     = url.searchParams.get('company') || user.company_id;
+  const period = url.searchParams.get('period') || 'month';
+  const days   = { week: 7, month: 30, quarter: 90, year: 365 }[period] || 30;
+  const since  = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+
+  const [veh, fuel, svc, drv, tacho, ev, geo, inv, ins, ord] = await Promise.all([
+    env.DB.prepare('SELECT COUNT(*) c, SUM(CASE WHEN status=\'active\' THEN 1 ELSE 0 END) active, SUM(CASE WHEN status=\'w_serwisie\' OR status=\'in_service\' THEN 1 ELSE 0 END) in_service FROM vehicles WHERE company_id=?').bind(co).first(),
+    env.DB.prepare('SELECT SUM(f.koszt) c FROM fuel f WHERE f.company_id=? AND f.data>=?').bind(co, since).first().catch(()=>null),
+    env.DB.prepare('SELECT SUM(so.cost) c FROM service_orders so WHERE so.company_id=? AND so.date>=?').bind(co, since).first().catch(()=>null),
+    env.DB.prepare('SELECT COUNT(*) c FROM drivers WHERE company_id=?').bind(co).first(),
+    env.DB.prepare('SELECT COUNT(*) c FROM tachograph_violations WHERE company_id=? AND created_at>=?').bind(co, since).first().catch(()=>null),
+    env.DB.prepare('SELECT COUNT(*) cnt, SUM(energy_kwh) kwh FROM ev_charging_sessions WHERE company_id=? AND session_date>=?').bind(co, since).first().catch(()=>null),
+    env.DB.prepare('SELECT COUNT(*) c FROM geofence_events WHERE company_id=? AND event_time>=?').bind(co, since).first().catch(()=>null),
+    env.DB.prepare('SELECT SUM(gross_pln) g, AVG(margin_pct) mp FROM route_invoices WHERE company_id=? AND invoice_date>=?').bind(co, since).first().catch(()=>null),
+    env.DB.prepare('SELECT COUNT(*) c FROM insurance_policies WHERE company_id=? AND end_date BETWEEN date(\'now\') AND date(\'now\',\'+30 days\')').bind(co).first().catch(()=>null),
+    env.DB.prepare('SELECT COUNT(*) c, SUM(CASE WHEN status=\'completed\' THEN 1 ELSE 0 END) done FROM transport_orders WHERE company_id=? AND created_at>=?').bind(co, since).first().catch(()=>null),
+  ]);
+
+  // Przeterminowane przeglądy
+  const ovInsp = await env.DB.prepare('SELECT COUNT(*) c FROM vehicles WHERE company_id=? AND przeglad_do IS NOT NULL AND przeglad_do < date(\'now\')').bind(co).first().catch(()=>null);
+  // Top 5 pojazdów wg kosztów paliwa
+  const topVeh = (await env.DB.prepare('SELECT nr_rej vehicle_reg, SUM(f.koszt) total_cost FROM fuel f WHERE f.company_id=? AND f.data>=? GROUP BY nr_rej ORDER BY total_cost DESC LIMIT 5').bind(co,since).all().catch(()=>({results:[]}))).results;
+  // Top naruszenia per kierowca
+  const topDrv = (await env.DB.prepare('SELECT driver_name, COUNT(*) violations FROM tachograph_violations WHERE company_id=? AND created_at>=? GROUP BY driver_name ORDER BY violations DESC LIMIT 5').bind(co,since).all().catch(()=>({results:[]}))).results;
+  // Składki ubezpieczeń
+  const insSum = await env.DB.prepare('SELECT SUM(premium_pln) c FROM insurance_policies WHERE company_id=? AND status=\'active\'').bind(co).first().catch(()=>null);
+  // CPC wygasające ≤90 dni
+  const cpcExp = await env.DB.prepare('SELECT COUNT(*) c FROM drivers WHERE company_id=? AND cpc_expiry_date IS NOT NULL AND cpc_expiry_date BETWEEN date(\'now\') AND date(\'now\',\'+90 days\')').bind(co).first().catch(()=>null);
+
+  return json({
+    vehicles_total:    veh?.c ?? 0,
+    vehicles_active:   veh?.active ?? 0,
+    vehicles_in_service: veh?.in_service ?? 0,
+    overdue_inspections: ovInsp?.c ?? 0,
+    overdue_insurance:  ins?.c ?? 0,
+    fuel_cost:         fuel?.c ?? null,
+    service_cost:      svc?.c ?? null,
+    insurance_cost:    insSum?.c ?? null,
+    invoices_total:    inv?.g ?? null,
+    margin_pct:        inv?.mp ?? null,
+    drivers_count:     drv?.c ?? 0,
+    tacho_violations:  tacho?.c ?? 0,
+    avg_eco_score:     null,
+    overtime_hours:    null,
+    cpc_expiring:      cpcExp?.c ?? 0,
+    ev_sessions:       ev?.cnt ?? 0,
+    ev_kwh:            ev?.kwh ?? null,
+    geofence_alerts:   geo?.c ?? 0,
+    transport_orders:  ord?.c ?? 0,
+    orders_completed:  ord?.done ?? 0,
+    top_vehicles_cost: topVeh,
+    top_violations:    topDrv,
+  });
 }
 
 export default {
