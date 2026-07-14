@@ -6083,6 +6083,58 @@ async function handleRequest(request, env, url, path) {
   if (path === '/api/cepik/pojazdy' && request.method === 'GET')  return handleCepikPojazdy(request, url);
   if (path === '/api/cepik/kierowca' && request.method === 'GET') return handleCepikKierowca(request, url);
 
+  // GUS BIR1 proxy — requires GUS_BIR_KEY secret in Worker env
+  if (path === '/api/gus-regon' && request.method === 'GET') {
+    if (!user) return err('Nieautoryzowany', 401);
+    const nip = url.searchParams.get('nip')?.replace(/\D/g, '');
+    if (!nip || nip.length !== 10) return err('Podaj poprawny NIP (10 cyfr)');
+    if (!env.GUS_BIR_KEY) return json({ configured: false, msg: 'Skonfiguruj klucz GUS BIR1 — wrangler secret put GUS_BIR_KEY' });
+    try {
+      // SOAP login
+      const loginResp = await fetch('https://wyszukiwarkaregon.stat.gov.pl/wsBIR/UslugaBIRzewnPubl.svc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/soap+xml; charset=utf-8', 'sid': '' },
+        body: `<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:ns="http://CIS/BIR/PUBL/2014/07"><soap:Body><ns:Zaloguj><ns:pKluczUzytkownika>${env.GUS_BIR_KEY}</ns:pKluczUzytkownika></ns:Zaloguj></soap:Body></soap:Envelope>`
+      });
+      const loginText = await loginResp.text();
+      const sidMatch = loginText.match(/<ZalogujResult>([^<]+)<\/ZalogujResult>/);
+      if (!sidMatch) return json({ configured: true, found: false, msg: 'Błąd logowania do GUS' });
+      const sid = sidMatch[1];
+      // Search by NIP
+      const searchResp = await fetch('https://wyszukiwarkaregon.stat.gov.pl/wsBIR/UslugaBIRzewnPubl.svc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/soap+xml; charset=utf-8', 'sid': sid },
+        body: `<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:ns="http://CIS/BIR/PUBL/2014/07" xmlns:dat="http://CIS/BIR/PUBL/2014/07/DataContract"><soap:Body><ns:DaneSzukajPodmioty><ns:pParametryWyszukiwania><dat:Nip>${nip}</dat:Nip></ns:pParametryWyszukiwania></ns:DaneSzukajPodmioty></soap:Body></soap:Envelope>`
+      });
+      const searchText = await searchResp.text();
+      const nameMatch = searchText.match(/<Nazwa>([^<]+)<\/Nazwa>/);
+      const regonMatch = searchText.match(/<Regon>([^<]+)<\/Regon>/);
+      const adresMatch = searchText.match(/<Ulica>([^<]+)<\/Ulica>/);
+      const kodMatch = searchText.match(/<KodPocztowy>([^<]+)<\/KodPocztowy>/);
+      const miastoMatch = searchText.match(/<Miejscowosc>([^<]+)<\/Miejscowosc>/);
+      if (!nameMatch) return json({ configured: true, found: false, nip });
+      return json({ configured: true, found: true, nip, regon: regonMatch?.[1]||'', nazwa: nameMatch[1], adres: `${adresMatch?.[1]||''} ${kodMatch?.[1]||''} ${miastoMatch?.[1]||''}`.trim() });
+    } catch (e) { return json({ configured: true, found: false, msg: e.message }); }
+  }
+
+  // VIES VAT validation proxy
+  if (path === '/api/vies-check' && request.method === 'GET') {
+    if (!user) return err('Nieautoryzowany', 401);
+    const cc = (url.searchParams.get('cc') || '').toUpperCase().slice(0, 2);
+    const vat = (url.searchParams.get('vat') || '').replace(/\s/g, '');
+    if (!cc || !vat) return err('Podaj cc (kod kraju) i vat (numer VAT)');
+    try {
+      const r = await fetch('https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ countryCode: cc, vatNumber: vat })
+      });
+      if (!r.ok) return json({ valid: false, error: `VIES HTTP ${r.status}` });
+      const d = await r.json();
+      return json({ valid: d.valid || false, name: d.traderName || '', address: d.traderAddress || '', countryCode: cc, vatNumber: vat });
+    } catch (e) { return json({ valid: false, error: e.message }); }
+  }
+
   // Push (authenticated parts)
   if (path === '/api/push/generate-keys' && request.method === 'GET') {
     if (!user) return err('Nieautoryzowany', 401);

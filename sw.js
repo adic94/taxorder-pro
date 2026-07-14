@@ -3,7 +3,7 @@
  * Cache-first dla assetów, network-first dla danych
  * Obsługuje: install, activate, fetch, push, notificationclick
  */
-const CACHE_NAME = 'taxorder-v27';
+const CACHE_NAME = 'taxorder-v28';
 const STATIC_ASSETS = [
   '/',
   '/app.js',
@@ -68,9 +68,18 @@ const STATIC_ASSETS = [
   '/modules/tekom-sync.js',
   '/modules/tires-warehouse.js',
   '/modules/vehicle-detail.js',
+  '/modules/vehicle-equipment.js',
   '/modules/vehicle-import.js',
+  '/modules/vehicle-inventory.js',
+  '/modules/vehicle-value.js',
   '/modules/webhooks-ui.js',
   '/modules/zsia-importer.js',
+  '/modules/fleet-kanban.js',
+  '/modules/ev-fleet.js',
+  '/modules/delegations.js',
+  '/modules/leasing-schedule.js',
+  '/modules/gus-regon.js',
+  '/modules/vies-validator.js',
 ];
 
 self.addEventListener('install', e => {

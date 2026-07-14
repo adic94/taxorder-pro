@@ -182,6 +182,9 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <button class="tnb" id="tnb-kalendarz" onclick="FleetCalendar.open()"><i class="ti ti-calendar"></i><span data-i18n="nav.kalendarz">Kalendarz</span></button>
   <button class="tnb" id="tnb-protokoly" onclick="showPage('protokoly')"><i class="ti ti-file-signature"></i><span data-i18n="nav.protokoly">Protokoły</span></button>
   <button class="tnb" id="tnb-mapa" onclick="showPage('mapa')"><i class="ti ti-map-2"></i><span>Mapa GPS</span></button>
+  <button class="tnb" id="tnb-fleet-kanban" onclick="showPage('fleet-kanban')"><i class="ti ti-layout-kanban"></i><span>Kanban floty</span></button>
+  <button class="tnb" id="tnb-ev-fleet" onclick="showPage('ev-fleet')"><i class="ti ti-plug"></i><span>Flota EV / Hybrid</span></button>
+  <button class="tnb" id="tnb-vehicle-equipment" onclick="showPage('vehicle-equipment')"><i class="ti ti-tool"></i><span>Wyposażenie</span></button>
 
   <div class="sidebar-label">Eksploatacja</div>
   <button class="tnb" id="tnb-zlecenia" onclick="showPage('zlecenia')"><i class="ti ti-clipboard-list"></i><span data-i18n="nav.zlecenia">Serwis / Zlecenia</span></button>
@@ -209,6 +212,8 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <button class="tnb" id="tnb-approval-levels" onclick="showPage('approval-levels')"><i class="ti ti-list-check"></i><span>Poziomy zatwierdzeń</span></button>
   <button class="tnb" id="tnb-audit-log" onclick="showPage('audit-log')"><i class="ti ti-history"></i><span>Historia zmian</span></button>
   <button class="tnb" id="tnb-driver-panel" onclick="showPage('driver-panel')"><i class="ti ti-steering-wheel"></i><span>Panel kierowcy</span></button>
+  <button class="tnb" id="tnb-vehicle-inventory" onclick="showPage('vehicle-inventory')"><i class="ti ti-list-check"></i><span>Inwentaryzacja</span></button>
+  <button class="tnb" id="tnb-delegations" onclick="showPage('delegations')"><i class="ti ti-briefcase"></i><span>Delegacje</span></button>
 
   <div class="sidebar-label">Koszty</div>
   <button class="tnb" id="tnb-paliwo" onclick="showPage('paliwo')"><i class="ti ti-gas-station"></i><span data-i18n="nav.paliwo">Paliwo</span></button>
@@ -235,6 +240,8 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <button class="tnb" id="tnb-tacho" onclick="showPage('tacho')"><i class="ti ti-device-desktop"></i><span>Tachograf</span></button>
   <button class="tnb" id="tnb-benchmark" onclick="showPage('benchmark')"><i class="ti ti-chart-bar"></i><span>Benchmark</span></button>
   <button class="tnb" id="tnb-fk-export" onclick="showPage('fk-export')"><i class="ti ti-file-export"></i><span>Eksport FK</span></button>
+  <button class="tnb" id="tnb-leasing-schedule" onclick="showPage('leasing-schedule')"><i class="ti ti-file-dollar"></i><span>Harmonogram leasingu</span></button>
+  <button class="tnb" id="tnb-vehicle-value" onclick="showPage('vehicle-value')"><i class="ti ti-trending-down"></i><span>Wartość pojazdów</span></button>
 
   <div class="sidebar-label">Podatki</div>
   <button class="tnb" id="tnb-kalkulator" onclick="showPage('kalkulator')"><i class="ti ti-calculator"></i><span data-i18n="nav.kalkulator">Kalkulator DT-1</span></button>
@@ -260,6 +267,8 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <button class="tnb" id="tnb-uzytkownicy" onclick="showPage('uzytkownicy')"><i class="ti ti-users"></i><span data-i18n="nav.uzytkownicy">Użytkownicy</span></button>
   <button class="tnb" id="tnb-api-klucze" onclick="showPage('api-klucze')"><i class="ti ti-key"></i><span data-i18n="nav.apiKlucze">Klucze API</span></button>
   <button class="tnb" id="tnb-cepik" onclick="showPage('cepik')"><i class="ti ti-database"></i><span data-i18n="nav.cepik">CEPiK</span></button>
+  <button class="tnb" id="tnb-gus-regon" onclick="showPage('gus-regon')"><i class="ti ti-building-community"></i><span>GUS / REGON</span></button>
+  <button class="tnb" id="tnb-vies-validator" onclick="showPage('vies-validator')"><i class="ti ti-world-check"></i><span>Walidator VIES</span></button>
 
   <div class="sidebar-label">AI</div>
   <button class="tnb" id="tnb-ai" onclick="showPage('ai')"><i class="ti ti-robot"></i><span data-i18n="nav.ai">Asystent AI</span></button>
@@ -4107,6 +4116,15 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/fuel-card-import.js"></script>
   <script src="modules/driver-panel.js"></script>
   <script src="modules/onboarding.js"></script>
+  <script src="modules/fleet-kanban.js"></script>
+  <script src="modules/ev-fleet.js"></script>
+  <script src="modules/vehicle-equipment.js"></script>
+  <script src="modules/vehicle-inventory.js"></script>
+  <script src="modules/delegations.js"></script>
+  <script src="modules/leasing-schedule.js"></script>
+  <script src="modules/vehicle-value.js"></script>
+  <script src="modules/gus-regon.js"></script>
+  <script src="modules/vies-validator.js"></script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
@@ -4138,6 +4156,16 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
     </button>
   </div>
 </div>
+
+<div class="page" id="page-fleet-kanban"></div>
+<div class="page" id="page-ev-fleet"></div>
+<div class="page" id="page-vehicle-equipment"></div>
+<div class="page" id="page-vehicle-inventory"></div>
+<div class="page" id="page-delegations"></div>
+<div class="page" id="page-leasing-schedule"></div>
+<div class="page" id="page-vehicle-value"></div>
+<div class="page" id="page-gus-regon"></div>
+<div class="page" id="page-vies-validator"></div>
 
 <!-- PAGE: KALENDARZ (placeholder — otwiera modal fleet-cal-modal) -->
 <div class="page" id="page-kalendarz">

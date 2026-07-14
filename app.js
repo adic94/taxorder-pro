@@ -227,6 +227,15 @@ function showPage(id) {
   if(id==='fuel-card-import')    window.FuelCardImportModule?.renderFuelCardImport();
   if(id==='audit-log')           window.AuditLogModule?.renderAuditLog(true);
   if(id==='driver-panel')        window.DriverPanelModule?.renderDriverPanel();
+  if(id==='fleet-kanban')        window.FleetKanbanModule?.renderFleetKanban();
+  if(id==='ev-fleet')            window.EvFleetModule?.renderEvFleet();
+  if(id==='vehicle-equipment')   window.VehicleEquipmentModule?.renderVehicleEquipment();
+  if(id==='vehicle-inventory')   window.VehicleInventoryModule?.renderVehicleInventory();
+  if(id==='delegations')         window.DelegationsModule?.renderDelegations();
+  if(id==='leasing-schedule')    window.LeasingScheduleModule?.renderLeasingSchedule();
+  if(id==='vehicle-value')       window.VehicleValueModule?.renderVehicleValue();
+  if(id==='gus-regon')           window.GusRegonModule?.renderGusRegon();
+  if(id==='vies-validator')      window.ViesValidatorModule?.renderViesValidator();
   document.dispatchEvent(new CustomEvent('taxorder-page-change', { detail: { page: id } }));
   updateCounters();
 }
