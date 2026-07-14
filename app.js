@@ -236,6 +236,8 @@ function showPage(id) {
   if(id==='vehicle-value')       window.VehicleValueModule?.renderVehicleValue();
   if(id==='gus-regon')           window.GusRegonModule?.renderGusRegon();
   if(id==='vies-validator')      window.ViesValidatorModule?.renderViesValidator();
+  if(id==='fleet-reservations')  window.FleetReservationsModule?.renderFleetReservations();
+  if(id==='epp-vat')             window.EppVatModule?.renderEppVat();
   document.dispatchEvent(new CustomEvent('taxorder-page-change', { detail: { page: id } }));
   updateCounters();
 }
