@@ -642,6 +642,18 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
     <button class="btn btn-green" onclick="showPage('kalkulator')"><i class="ti ti-calculator"></i>Kalkulator (<span id="btn-sel-cnt">0</span>)</button>
   </div>
 
+  <!-- Szybkie filtry preset — jednoklilkowe filtry alertów -->
+  <div id="quick-filter-chips" style="display:flex;gap:6px;flex-wrap:wrap;padding:6px 0;align-items:center">
+    <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">Szybkie filtry:</span>
+    <button class="btn btn-gray" style="font-size:11px;padding:3px 10px" onclick="quickFilterVeh('oc_30')" title="OC wygasa w ciągu 30 dni"><i class="ti ti-shield-x" style="color:var(--red)"></i>OC &lt;30 dni</button>
+    <button class="btn btn-gray" style="font-size:11px;padding:3px 10px" onclick="quickFilterVeh('insp_30')" title="Przegląd SKP w ciągu 30 dni"><i class="ti ti-tool" style="color:var(--amber)"></i>Przegląd &lt;30 dni</button>
+    <button class="btn btn-gray" style="font-size:11px;padding:3px 10px" onclick="quickFilterVeh('leasing_30')" title="Leasing kończy się w 30 dni"><i class="ti ti-credit-card" style="color:var(--blue)"></i>Leasing &lt;30 dni</button>
+    <button class="btn btn-gray" style="font-size:11px;padding:3px 10px" onclick="quickFilterVeh('no_driver')" title="Pojazdy bez przypisanego kierowcy"><i class="ti ti-user-x" style="color:var(--text2)"></i>Bez kierowcy</button>
+    <button class="btn btn-gray" style="font-size:11px;padding:3px 10px" onclick="quickFilterVeh('expired')" title="Wygasłe OC/AC lub przegląd"><i class="ti ti-alert-triangle" style="color:var(--red)"></i>Wygasłe</button>
+    <button class="btn btn-gray" style="font-size:11px;padding:3px 10px" onclick="quickFilterVeh('ok')" title="Pojazdy bez alertów"><i class="ti ti-circle-check" style="color:var(--green)"></i>Bez alertów</button>
+    <button class="btn btn-gray" style="font-size:11px;padding:3px 10px;opacity:.7" onclick="document.getElementById('f-alert').value='';renderVeh()" title="Wyczyść filtr alertów"><i class="ti ti-x"></i>Wyczyść</button>
+  </div>
+
   <!-- Filtry zakresów dat (OC/AC/przegląd) -->
   <div id="date-filter-row" style="display:none;gap:8px;flex-wrap:wrap;padding:10px 0;border-top:1px dashed var(--border);align-items:center;margin-bottom:4px">
     <span style="font-size:11px;font-weight:600;color:var(--text3);white-space:nowrap">OC wygasa:</span>
@@ -2813,7 +2825,10 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
     <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer">
       <input type="checkbox" id="mapa-only-gps" onchange="FleetMap.render()"> Tylko z GPS
     </label>
-    <button class="btn btn-gray" style="font-size:11px;margin-left:auto" onclick="FleetMap.render()"><i class="ti ti-refresh"></i>Odśwież</button>
+    <label id="mapa-live-label" style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;margin-left:auto">
+      <input type="checkbox" id="mapa-live-mode" onchange="window._mapLiveMode=this.checked;FleetMap.render()"> <i class="ti ti-live-photo" style="color:var(--red)"></i>Live 30s
+    </label>
+    <button class="btn btn-gray" style="font-size:11px" onclick="FleetMap.render()"><i class="ti ti-refresh"></i>Odśwież</button>
   </div>
   <div style="display:grid;grid-template-columns:260px 1fr;gap:12px;height:calc(100vh - 200px)">
     <div id="mapa-sidebar" style="overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg2)"></div>

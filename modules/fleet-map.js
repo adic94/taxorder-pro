@@ -212,6 +212,7 @@ window.FleetMap = (function () {
 
   function _startAutoRefresh() {
     _stopAutoRefresh();
+    const interval = window._mapLiveMode ? 30_000 : 60_000;
     _autoRefreshTimer = setInterval(async () => {
       const mapPage = document.getElementById('page-mapa');
       if (!mapPage || !mapPage.classList.contains('active')) { _stopAutoRefresh(); return; }
@@ -219,7 +220,7 @@ window.FleetMap = (function () {
         await window.TaxOrderFleetCloud.loadVehicles();
       }
       render();
-    }, 3 * 60 * 1000);
+    }, interval);
   }
 
   document.addEventListener('visibilitychange', () => { if (document.hidden) _stopAutoRefresh(); });

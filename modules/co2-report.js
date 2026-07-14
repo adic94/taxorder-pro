@@ -35,7 +35,7 @@
     el.innerHTML = `
 <div class="page-header">
   <h2><i class="ti ti-leaf"></i> Raport CO₂ / ESG</h2>
-  ${r ? `<button class="btn-secondary" onclick="window.Co2ReportModule.exportCsv()"><i class="ti ti-download"></i> Eksportuj CSV</button>` : ''}
+  ${r ? `<div style="display:flex;gap:6px"><button class="btn-secondary" onclick="window.Co2ReportModule.exportCsv()"><i class="ti ti-download"></i> CSV</button><button class="btn-secondary" onclick="window.Co2ReportModule.exportCsrd()"><i class="ti ti-file-spreadsheet"></i> CSRD Excel</button></div>` : ''}
 </div>
 <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
   <select id="co2-year" onchange="window.Co2ReportModule.renderCo2Report()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-card)">
@@ -101,5 +101,83 @@ ${r.by_vehicle?.length ? r.by_vehicle.map(v => `<tr>
     a.download = `co2_${_report.year || ''}.csv`; a.click();
   }
 
-  window.Co2ReportModule = { renderCo2Report, exportCsv };
+  function exportCsrd() {
+    if (!_report) { alert('Brak danych raportu — wybierz rok i poczekaj na załadowanie'); return; }
+    if (!window.XLSX) { alert('Biblioteka XLSX niedostępna'); return; }
+    const r = _report;
+    const year = document.getElementById('co2-year')?.value || new Date().getFullYear();
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1 — Summary CSRD (ESRS E1)
+    const summary = [
+      ['RAPORT ESG / CSRD — Emisje gazów cieplarnianych (GHG)', ''],
+      ['Standard:', 'ESRS E1 — Zmiana klimatu'],
+      ['Rok sprawozdawczy:', String(year)],
+      ['Data generowania:', new Date().toLocaleDateString('pl-PL')],
+      ['', ''],
+      ['ZAKRES 1 — Emisje bezpośrednie (spalanie paliwa przez flotę)', ''],
+      ['Całkowite emisje CO₂ (Scope 1)', `${fmtN(r.total_kg, 1)} kg CO₂e`],
+      ['Całkowite emisje CO₂ (tony)', `${fmtN(r.total_tonnes, 3)} tCO₂e`],
+      ['Spalone paliwo łącznie', `${fmtN(r.by_vehicle?.reduce((a,v)=>a+v.liters,0),0)} litrów`],
+      ['Liczba pojazdów raportujących', String(r.by_vehicle?.length || 0)],
+      ['', ''],
+      ['WSKAŹNIKI INTENSYWNOŚCI', ''],
+      ['Emisja na pojazd (średnia)', r.by_vehicle?.length ? `${fmtN(r.total_kg / r.by_vehicle.length, 1)} kg CO₂e/pojazd` : '—'],
+      ['', ''],
+      ['ZAKRES 2 — Emisje pośrednie (energia elektryczna)', ''],
+      ['Uwaga:', 'Brak danych o energii elektrycznej — wprowadź ręcznie'],
+      ['', ''],
+      ['ZAKRES 3 — Pozostałe emisje pośrednie', ''],
+      ['Uwaga:', 'Wymagana rozszerzona analiza łańcucha wartości'],
+      ['', ''],
+      ['CEL REDUKCJI (ESRS E1-4)', ''],
+      ['Cel redukcji:', 'Do uzupełnienia przez organizację'],
+      ['Poziom bazowy:', 'Do uzupełnienia'],
+      ['Rok docelowy:', 'Do uzupełnienia'],
+    ];
+    const ws1 = XLSX.utils.aoa_to_sheet(summary);
+    ws1['!cols'] = [{ wch: 45 }, { wch: 30 }];
+    XLSX.utils.book_append_sheet(wb, ws1, 'Podsumowanie CSRD');
+
+    // Sheet 2 — Per-vehicle breakdown
+    const vehHdrs = ['Nr rej.', 'Typ paliwa', 'Litry', 'CO₂ (kg)', 'CO₂ (tCO₂e)', 'Udział %', 'Współczynnik emisji (kg/l)'];
+    const EMISSION_FACTORS = { benzyna: 2.31, diesel: 2.68, lpg: 1.51, cng: 2.04, elektryczny: 0 };
+    const vehRows = (r.by_vehicle || []).map(v => {
+      const ef = EMISSION_FACTORS[v.fuel_type?.toLowerCase()] ?? 2.5;
+      return [v.nr_rej||'', v.fuel_type||'', Number(v.liters?.toFixed(1)), Number(v.kg?.toFixed(1)), Number((v.kg/1000)?.toFixed(4)), Number(v.pct?.toFixed(2)), ef];
+    });
+    const ws2 = XLSX.utils.aoa_to_sheet([vehHdrs, ...vehRows]);
+    ws2['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 22 }];
+    XLSX.utils.book_append_sheet(wb, ws2, 'Dane per pojazd');
+
+    // Sheet 3 — Monthly breakdown
+    if (r.by_month?.length) {
+      const mHdrs = ['Miesiąc', 'CO₂ (kg)', 'CO₂ (tCO₂e)'];
+      const mRows = r.by_month.map(m => [m.month||'', Number(m.kg?.toFixed(1)), Number((m.kg/1000)?.toFixed(4))]);
+      const ws3 = XLSX.utils.aoa_to_sheet([mHdrs, ...mRows]);
+      ws3['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 14 }];
+      XLSX.utils.book_append_sheet(wb, ws3, 'Rozkład miesięczny');
+    }
+
+    // Sheet 4 — ESRS disclosure checklist
+    const checklist = [
+      ['LISTA UJAWNIEŃ ESRS E1 (informacje wymagane)', 'Status', 'Uwagi'],
+      ['E1-1: Plan transformacji klimatycznej', 'Do uzupełnienia', ''],
+      ['E1-2: Polityki w zakresie łagodzenia zmian klimatu', 'Do uzupełnienia', ''],
+      ['E1-3: Działania i zasoby w zakresie zmian klimatu', 'Do uzupełnienia', ''],
+      ['E1-4: Cele w zakresie łagodzenia zmian klimatu', 'Do uzupełnienia', ''],
+      ['E1-5: Zużycie energii i miks energetyczny', 'Częściowe', 'Flota pojazdów — Scope 1'],
+      ['E1-6: Emisje gazów cieplarnianych GHG', 'Dostarczone', `Scope 1: ${fmtN(r.total_tonnes,2)} tCO₂e`],
+      ['E1-7: Pochłanianie i kredyty GHG', 'Do uzupełnienia', ''],
+      ['E1-8: Wewnętrzne ceny uprawnień do emisji CO₂', 'Do uzupełnienia', ''],
+      ['E1-9: Ekspozycja na ryzyka związane ze zmianą klimatu', 'Do uzupełnienia', ''],
+    ];
+    const ws4 = XLSX.utils.aoa_to_sheet(checklist);
+    ws4['!cols'] = [{ wch: 50 }, { wch: 16 }, { wch: 30 }];
+    XLSX.utils.book_append_sheet(wb, ws4, 'Lista ujawnień ESRS E1');
+
+    XLSX.writeFile(wb, `raport_ESG_CSRD_${year}.xlsx`);
+  }
+
+  window.Co2ReportModule = { renderCo2Report, exportCsv, exportCsrd };
 })();
