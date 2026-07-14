@@ -24,8 +24,11 @@
   let _statsData = {};
   let _calData   = [];
   let _violData  = [];
+  let _driversData = [];
+  let _vehiclesData = [];
   let _uploadResults = [];
   let _selectedFileId = null;
+  let _driverFilter = '';
 
   // ── utils ──────────────────────────────────────────────────────────────────
 
@@ -69,12 +72,14 @@
 
   async function _loadAll() {
     try {
-      const [sR, fR, cR] = await Promise.all([
-        _api('stats'), _api('files'), _api('calendar')
+      const [sR, fR, cR, dR, vhR] = await Promise.all([
+        _api('stats'), _api('files'), _api('calendar'), _api('drivers'), _api('vehicles')
       ]);
-      if (sR.ok) _statsData = await sR.json();
-      if (fR.ok) _filesData = await fR.json();
-      if (cR.ok) _calData   = await cR.json();
+      if (sR.ok) _statsData    = await sR.json();
+      if (fR.ok) _filesData    = await fR.json();
+      if (cR.ok) _calData      = await cR.json();
+      if (dR.ok) _driversData  = await dR.json();
+      if (vhR.ok) _vehiclesData = await vhR.json();
     } catch {}
     try {
       const vR = await _api('violations');
@@ -119,9 +124,9 @@
 </div>
 
 <div class="tach-tabs">
-  ${['dashboard','upload','files','violations','calendar'].map(t => {
-    const labels = {dashboard:'Dashboard',upload:'Wczytaj DDD',files:'Pliki',violations:'Naruszenia',calendar:'Kalendarz'};
-    const icons  = {dashboard:'ti-dashboard',upload:'ti-upload',files:'ti-folder',violations:'ti-alert-triangle',calendar:'ti-calendar-week'};
+  ${['dashboard','upload','files','drivers','vehicles','violations','calendar'].map(t => {
+    const labels = {dashboard:'Dashboard',upload:'Wczytaj DDD',files:'Pliki',drivers:'Kierowcy',vehicles:'Pojazdy',violations:'Naruszenia',calendar:'Kalendarz'};
+    const icons  = {dashboard:'ti-dashboard',upload:'ti-upload',files:'ti-folder',drivers:'ti-id-badge',vehicles:'ti-truck',violations:'ti-alert-triangle',calendar:'ti-calendar-week'};
     return `<button class="tach-tab${_activeTab===t?' active':''}" onclick="window.TachographModule._setTab('${t}')">
       <i class="ti ${icons[t]}"></i> ${labels[t]}
     </button>`;
@@ -138,19 +143,20 @@
     const el = document.getElementById('tach-content');
     if (el) el.innerHTML = _renderTab(tab);
     document.querySelectorAll('.tach-tab').forEach(b => {
-      b.classList.toggle('active', b.textContent.trim().toLowerCase().includes(
-        {dashboard:'dash',upload:'wczyt',files:'plik',violations:'narus',calendar:'kalen'}[tab] || tab
-      ));
+      const map = {dashboard:'dash',upload:'wczyt',files:'plik',drivers:'kierow',vehicles:'pojaz',violations:'narus',calendar:'kalen'};
+      b.classList.toggle('active', b.textContent.trim().toLowerCase().includes(map[tab] || tab));
     });
     if (tab === 'upload') _bindUpload();
   }
 
   function _renderTab(tab) {
-    if (tab === 'dashboard') return _renderDashboard();
-    if (tab === 'upload')    return _renderUpload();
-    if (tab === 'files')     return _renderFiles();
+    if (tab === 'dashboard')  return _renderDashboard();
+    if (tab === 'upload')     return _renderUpload();
+    if (tab === 'files')      return _renderFiles();
+    if (tab === 'drivers')    return _renderDrivers();
+    if (tab === 'vehicles')   return _renderVehicles();
     if (tab === 'violations') return _renderViolations();
-    if (tab === 'calendar')  return _renderCalendar();
+    if (tab === 'calendar')   return _renderCalendar();
     return '';
   }
 
@@ -218,6 +224,8 @@ ${recentViols.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń</p>' 
               Kierowca: <strong>${r.driver ? e(r.driver.surname + ' ' + (r.driver.firstName||'')) : '?'}</strong>
               · Dni: <strong>${r.days}</strong>
               · Naruszenia: <strong style="color:${r.violations>0?'#dc2626':'inherit'}">${r.violations}</strong>
+              ${r.driverLinked ? `· <span style="color:#16a34a"><i class="ti ti-check"></i> Powiązano z kierowcą</span>` : ''}
+              ${r.vehicleLinked ? `· <span style="color:#16a34a"><i class="ti ti-check"></i> Powiązano z pojazdem</span>` : ''}
               ${r.parseErrors?.length ? `· <span style="color:#b45309">Ostrzeżenia parsera: ${e(r.parseErrors.join(', '))}</span>` : ''}
             </div>` : `<div style="font-size:12px;color:#dc2626">${e(r.error || 'Błąd')}</div>`}
         </div>
@@ -353,6 +361,158 @@ ${recentViols.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń</p>' 
     }).join('')}
   </tbody>
 </table>`;
+  }
+
+  // ── KIEROWCY ──────────────────────────────────────────────────────────────
+
+  function _renderDrivers() {
+    if (!_driversData.length) return `
+<p style="color:var(--text3);padding:20px">Brak danych o kierowcach.
+  Wczytaj pliki DDD z kart kierowców aby zobaczyć archiwum per kierowca.</p>`;
+
+    return `
+<h3 style="font-size:14px;margin:0 0 14px"><i class="ti ti-id-badge"></i> Archiwum kart kierowców (${_driversData.length})</h3>
+<table class="tach-table">
+  <thead>
+    <tr>
+      <th>Kierowca</th>
+      <th>Nr karty</th>
+      <th>Data ur.</th>
+      <th>Ważność karty</th>
+      <th style="text-align:center">Pliki</th>
+      <th style="text-align:center;color:#dc2626">Naruszenia</th>
+      <th>Pierwsze dane</th>
+      <th>Ostatnie dane</th>
+      <th>Status</th>
+      <th>Powiązanie</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${_driversData.map(d => {
+      const name       = _driverName(d);
+      const daysSince  = d.days_since_last ?? 999;
+      const overdue    = daysSince > 28;
+      const statusColor = overdue ? '#dc2626' : '#16a34a';
+      const statusLabel = overdue
+        ? `Przeterminowane (${daysSince > 900 ? 'brak danych' : daysSince + ' dni temu'})`
+        : `OK (${daysSince} dni temu)`;
+      const driverKey = encodeURIComponent((d.driver_surname||'') + '|' + (d.driver_firstname||''));
+
+      return `<tr>
+        <td>
+          <strong style="cursor:pointer;color:var(--blue)" onclick="window.TachographModule._showDriverFiles('${e(driverKey)}','${e(name)}')">${e(name)}</strong>
+          <br><span style="font-size:11px;color:var(--text3)">${e(d.driver_birth_date ? 'Ur. ' + _fmtDate(d.driver_birth_date) : '')}</span>
+        </td>
+        <td style="font-size:12px;font-family:monospace">${e(d.card_number || '—')}</td>
+        <td style="font-size:12px">${_fmtDate(d.driver_birth_date)}</td>
+        <td style="font-size:12px">${d.card_expiry ? `<span style="color:${new Date(d.card_expiry) < new Date() ? '#dc2626' : 'inherit'}">${_fmtDate(d.card_expiry)}</span>` : '—'}</td>
+        <td style="text-align:center">
+          <span style="background:var(--bg2);padding:2px 8px;border-radius:10px;font-weight:600">${e(d.file_count)}</span>
+        </td>
+        <td style="text-align:center">
+          ${(d.total_violations ?? 0) > 0
+            ? `<span style="color:#dc2626;font-weight:700">${e(d.total_violations)}</span>`
+            : `<span style="color:#16a34a">0</span>`}
+        </td>
+        <td style="font-size:12px">${_fmtDate(d.first_data)}</td>
+        <td style="font-size:12px;font-weight:600;color:${statusColor}">${_fmtDate(d.last_data)}</td>
+        <td>
+          <span style="font-size:11px;color:${statusColor};font-weight:600">${statusLabel}</span>
+        </td>
+        <td>
+          ${d.driver_id
+            ? `<span style="color:#16a34a;font-size:11px"><i class="ti ti-check"></i> Powiązano</span>`
+            : `<span style="color:var(--text3);font-size:11px"><i class="ti ti-unlink"></i> Brak powiązania</span>`}
+        </td>
+      </tr>`;
+    }).join('')}
+  </tbody>
+</table>
+
+<div style="margin-top:14px;padding:12px;background:var(--bg2);border-radius:8px;font-size:12px;color:var(--text3)">
+  <i class="ti ti-info-circle"></i>
+  <strong>Powiązanie z kartoteką:</strong> System automatycznie dopasowuje kierowców z DDD do kartoteki kierowców po nazwisku.
+  Jeśli brak powiązania, sprawdź czy nazwisko kierowcy w DDD zgadza się z wpisanym w zakładce Kierowcy.
+</div>`;
+  }
+
+  async function _showDriverFiles(driverKey, name) {
+    _showModal(`<div style="padding:20px;text-align:center"><i class="ti ti-loader" style="font-size:28px"></i><br>Ładowanie...</div>`);
+    try {
+      const r = await fetch(
+        `${API()}/api/tacho-ddd/driver-files/${driverKey}?company=${encodeURIComponent(Co())}`,
+        { headers: H() }
+      );
+      const files = r.ok ? await r.json() : [];
+      _showModal(`
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+  <h2 style="margin:0;font-size:18px"><i class="ti ti-id-badge"></i> ${e(name)} — historia plików DDD</h2>
+  <button onclick="window.TachographModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+</div>
+${files.length === 0 ? '<p style="color:var(--text3)">Brak plików</p>' : `
+<table class="tach-table">
+  <thead><tr><th>Plik</th><th>Okres</th><th>Naruszenia</th><th>Aktywności</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+    ${files.map(f => `<tr>
+      <td style="font-size:12px">${e(f.file_name)}</td>
+      <td style="font-size:12px">${_fmtDate(f.period_start)} – ${_fmtDate(f.period_end)}</td>
+      <td style="text-align:center">${f.violations_count > 0 ? `<span style="color:#dc2626;font-weight:700">${f.violations_count}</span>` : '0'}</td>
+      <td style="text-align:center">${e(f.activities_count ?? '—')}</td>
+      <td style="font-size:11px">${f.parse_status === 'ok' ? '<span style="color:#16a34a">OK</span>' : e(f.parse_status)}</td>
+      <td><button class="btn btn-sm" onclick="window.TachographModule._closeModal();setTimeout(()=>window.TachographModule._showFile('${e(f.id)}'),50)"><i class="ti ti-eye"></i></button></td>
+    </tr>`).join('')}
+  </tbody>
+</table>`}`);
+    } catch (ex) { _closeModal(); alert('Błąd: ' + ex.message); }
+  }
+
+  // ── POJAZDY ────────────────────────────────────────────────────────────────
+
+  function _renderVehicles() {
+    if (!_vehiclesData.length) return `
+<p style="color:var(--text3);padding:20px">Brak danych o pojazdach z tachografów.
+  Pojazdy są wykrywane automatycznie z plików DDD (karta kierowcy zawiera listę używanych pojazdów).</p>`;
+
+    return `
+<h3 style="font-size:14px;margin:0 0 14px"><i class="ti ti-truck"></i> Pojazdy w danych tachografów (${_vehiclesData.length})</h3>
+<table class="tach-table">
+  <thead>
+    <tr>
+      <th>Rejestracja</th>
+      <th style="text-align:center">Pliki kart</th>
+      <th style="text-align:center;color:#dc2626">Naruszenia</th>
+      <th>Pierwsze użycie</th>
+      <th>Ostatnie użycie</th>
+      <th>Powiązanie</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${_vehiclesData.map(v => `<tr>
+      <td><strong>${e(v.vehicle_reg || '—')}</strong></td>
+      <td style="text-align:center">
+        <span style="background:var(--bg2);padding:2px 8px;border-radius:10px;font-weight:600">${e(v.file_count ?? 0)}</span>
+      </td>
+      <td style="text-align:center">
+        ${(v.total_violations ?? 0) > 0
+          ? `<span style="color:#dc2626;font-weight:700">${e(v.total_violations)}</span>`
+          : `<span style="color:#16a34a">0</span>`}
+      </td>
+      <td style="font-size:12px">${_fmtDate(v.first_use)}</td>
+      <td style="font-size:12px">${_fmtDate(v.last_use)}</td>
+      <td>
+        ${v.vehicle_id
+          ? `<span style="color:#16a34a;font-size:11px"><i class="ti ti-check"></i> Powiązano z flotą</span>`
+          : `<span style="color:var(--text3);font-size:11px"><i class="ti ti-unlink"></i> Brak w flocie</span>`}
+      </td>
+    </tr>`).join('')}
+  </tbody>
+</table>
+
+<div style="margin-top:14px;padding:12px;background:var(--bg2);border-radius:8px;font-size:12px;color:var(--text3)">
+  <i class="ti ti-info-circle"></i>
+  Pojazdy są wykrywane z pola <em>Używane pojazdy</em> w kartach kierowców (blok DDD 0x0606).
+  Powiązanie z flotą następuje automatycznie po nr rejestracyjnym (musi się zgadzać co do znaku).
+</div>`;
   }
 
   // ── NARUSZENIA ─────────────────────────────────────────────────────────────
@@ -655,6 +815,6 @@ ${f.vehicles?.length > 0 ? `
 
   window.TachographModule = {
     renderTachograph, _setTab, _uploadFiles, _clearResults,
-    _showFile, _closeModal, _delFile, _filterViols
+    _showFile, _closeModal, _delFile, _filterViols, _showDriverFiles
   };
 })();

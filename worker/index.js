@@ -6205,6 +6205,54 @@ async function handleTachoDDD(req, env, user, url, path) {
     return json(rows);
   }
 
+  // GET /api/tacho-ddd/drivers — zestawienie kierowców z danymi tachografu
+  if (method === 'GET' && sub === 'drivers') {
+    const rows = (await env.DB.prepare(
+      `SELECT driver_surname, driver_firstname, card_number, driver_birth_date, card_expiry, driver_id,
+              COUNT(*) file_count, SUM(violations_count) total_violations,
+              MAX(period_end) last_data, MIN(period_start) first_data, MAX(uploaded_at) last_upload
+       FROM tachograph_files
+       WHERE company_id=? AND file_type='card'
+       GROUP BY LOWER(COALESCE(driver_surname,'')||COALESCE(driver_firstname,'')||COALESCE(card_number,''))
+       ORDER BY last_data DESC`
+    ).bind(company).all()).results || [];
+    const today = new Date().toISOString().slice(0, 10);
+    return json(rows.map(r => ({
+      ...r,
+      days_since_last: r.last_data ? Math.floor((new Date(today) - new Date(r.last_data)) / 86400000) : 999,
+      overdue: r.last_data ? Math.floor((new Date(today) - new Date(r.last_data)) / 86400000) > 28 : true
+    })));
+  }
+
+  // GET /api/tacho-ddd/vehicles — zestawienie pojazdów z danych kart kierowców
+  if (method === 'GET' && sub === 'vehicles') {
+    const rows = (await env.DB.prepare(
+      `SELECT vu.vehicle_reg, vu.vehicle_id,
+              COUNT(DISTINCT tf.id) file_count,
+              MIN(vu.first_use) first_use, MAX(vu.last_use) last_use,
+              SUM(tf.violations_count) total_violations
+       FROM tachograph_vehicles_used vu
+       JOIN tachograph_files tf ON tf.id=vu.file_id
+       WHERE vu.company_id=? AND vu.vehicle_reg IS NOT NULL AND vu.vehicle_reg != ''
+       GROUP BY UPPER(REPLACE(vu.vehicle_reg,' ',''))
+       ORDER BY last_use DESC`
+    ).bind(company).all()).results || [];
+    return json(rows);
+  }
+
+  // GET /api/tacho-ddd/driver-files/:driverKey — pliki konkretnego kierowcy (surname_firstname)
+  if (method === 'GET' && sub === 'driver-files' && itemId) {
+    const [surname, firstname] = decodeURIComponent(itemId).split('|');
+    const rows = (await env.DB.prepare(
+      `SELECT id, file_name, period_start, period_end, violations_count, activities_count,
+              uploaded_at, parse_status, card_number
+       FROM tachograph_files
+       WHERE company_id=? AND LOWER(COALESCE(driver_surname,''))=LOWER(?) AND LOWER(COALESCE(driver_firstname,''))=LOWER(?)
+       ORDER BY period_end DESC`
+    ).bind(company, surname || '', firstname || '').all()).results || [];
+    return json(rows);
+  }
+
   // POST /api/tacho-ddd/upload — przesyłanie pliku(ów) DDD
   if (method === 'POST' && sub === 'upload') {
     let formData;
@@ -6230,18 +6278,55 @@ async function handleTachoDDD(req, env, user, url, path) {
         continue;
       }
 
-      const days      = parsed.activitiesByDay || [];
-      const dates     = days.map(d => d.date).sort();
+      const days        = parsed.activitiesByDay || [];
+      const dates       = days.map(d => d.date).sort();
       const periodStart = dates[0] || null;
       const periodEnd   = dates[dates.length - 1] || null;
       const violations  = detectViolations561(days);
 
-      // Zapis surowego pliku w R2
+      // ── Auto-dopasowanie kierowcy z kartoteki ────────────────────────────
+      let driverId = null;
+      if (parsed.driver?.surname) {
+        const fn1 = `${parsed.driver.surname} ${parsed.driver.firstName || ''}`.trim();
+        const fn2 = `${parsed.driver.firstName || ''} ${parsed.driver.surname}`.trim();
+        const drv = await env.DB.prepare(
+          `SELECT id FROM drivers WHERE company_id=? AND (
+             LOWER(name)=LOWER(?) OR LOWER(name)=LOWER(?) OR
+             LOWER(name) LIKE LOWER(?)
+           ) LIMIT 1`
+        ).bind(company, fn1, fn2, `%${parsed.driver.surname}%`).first();
+        if (drv) driverId = drv.id;
+      }
+
+      // ── Auto-dopasowanie pojazdu z listy pojazdów ────────────────────────
+      let vehicleId = null;
+      const vehiclesUsed = parsed.vehiclesUsed || [];
+      if (vehiclesUsed.length > 0) {
+        const latestVeh = vehiclesUsed.sort((a, b) => (b.last_use || '') > (a.last_use || '') ? 1 : -1)[0];
+        if (latestVeh?.vehicle_reg) {
+          const veh = await env.DB.prepare(
+            `SELECT id FROM vehicles WHERE company_id=?
+             AND UPPER(REPLACE(nr_rej,' ',''))=UPPER(REPLACE(?,' ','')) LIMIT 1`
+          ).bind(company, latestVeh.vehicle_reg).first();
+          if (veh) vehicleId = veh.id;
+        }
+      }
+
+      // ── R2: zorganizowana struktura folderów ─────────────────────────────
       let fileKey = null;
       if (env.DOCS) {
-        fileKey = `tacho/${company}/${crypto.randomUUID()}_${fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-        try { await env.DOCS.put(fileKey, arrayBuffer, { customMetadata: { company, fileName } }); }
-        catch { fileKey = null; }
+        const surnameClean = (parsed.driver?.surname || 'nieznany').replace(/[^a-zA-Z0-9]/g, '_');
+        const year         = periodStart?.slice(0, 4) || new Date().getFullYear().toString();
+        const uid          = crypto.randomUUID().slice(0, 8);
+        const safeFile     = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+        fileKey = parsed.fileType === 'card'
+          ? `tacho/${company}/kierowcy/${surnameClean}/${year}/${uid}_${safeFile}`
+          : `tacho/${company}/pojazdy/${year}/${uid}_${safeFile}`;
+        try {
+          await env.DOCS.put(fileKey, arrayBuffer, {
+            customMetadata: { company, fileName, driver: JSON.stringify(parsed.driver || {}) }
+          });
+        } catch { fileKey = null; }
       }
 
       const parseStatus = parsed.parseErrors.length === 0 ? 'ok'
@@ -6251,9 +6336,9 @@ async function handleTachoDDD(req, env, user, url, path) {
       await env.DB.prepare(
         `INSERT INTO tachograph_files (id, company_id, file_key, file_name, file_type,
           card_number, driver_surname, driver_firstname, driver_birth_date, card_expiry,
-          period_start, period_end, parse_status, parse_error, violations_count,
-          activities_count, file_size, uploaded_by)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+          period_start, period_end, driver_id, vehicle_id, parse_status, parse_error,
+          violations_count, activities_count, file_size, uploaded_by)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
       ).bind(
         fileId, company, fileKey, fileName, parsed.fileType,
         parsed.cardNumber ?? null,
@@ -6262,6 +6347,7 @@ async function handleTachoDDD(req, env, user, url, path) {
         parsed.driver?.birthDate ?? null,
         parsed.cardExpiry ?? null,
         periodStart, periodEnd,
+        driverId, vehicleId,
         parseStatus,
         parsed.parseErrors.length > 0 ? parsed.parseErrors.slice(0, 3).join('; ') : null,
         violations.length,
@@ -6307,6 +6393,7 @@ async function handleTachoDDD(req, env, user, url, path) {
         file: fileName, ok: true, id: fileId,
         driver: parsed.driver, fileType: parsed.fileType,
         days: days.length, violations: violations.length,
+        driverLinked: !!driverId, vehicleLinked: !!vehicleId,
         parseErrors: parsed.parseErrors
       });
     }
