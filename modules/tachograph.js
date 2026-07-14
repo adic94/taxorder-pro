@@ -129,9 +129,9 @@
 </div>
 
 <div class="tach-tabs">
-  ${['dashboard','upload','files','drivers','vehicles','violations','calendar','trend','comparison'].map(t => {
-    const labels = {dashboard:'Dashboard',upload:'Wczytaj DDD',files:'Pliki',drivers:'Kierowcy',vehicles:'Pojazdy',violations:'Naruszenia',calendar:'Kalendarz',trend:'Trend',comparison:'Porównanie'};
-    const icons  = {dashboard:'ti-dashboard',upload:'ti-upload',files:'ti-folder',drivers:'ti-id-badge',vehicles:'ti-truck',violations:'ti-alert-triangle',calendar:'ti-calendar-week',trend:'ti-chart-bar',comparison:'ti-chart-arcs'};
+  ${['dashboard','upload','files','drivers','vehicles','violations','calendar','trend','comparison','compliance','remote'].map(t => {
+    const labels = {dashboard:'Dashboard',upload:'Wczytaj DDD',files:'Pliki',drivers:'Kierowcy',vehicles:'Pojazdy',violations:'Naruszenia',calendar:'Kalendarz',trend:'Trend',comparison:'Porównanie',compliance:'Zgodność',remote:'Zdalny pobór'};
+    const icons  = {dashboard:'ti-dashboard',upload:'ti-upload',files:'ti-folder',drivers:'ti-id-badge',vehicles:'ti-truck',violations:'ti-alert-triangle',calendar:'ti-calendar-week',trend:'ti-chart-bar',comparison:'ti-chart-arcs',compliance:'ti-shield-check',remote:'ti-cloud-download'};
     return `<button class="tach-tab${_activeTab===t?' active':''}" onclick="window.TachographModule._setTab('${t}')">
       <i class="ti ${icons[t]}"></i> ${labels[t]}
     </button>`;
@@ -152,6 +152,7 @@
       b.classList.toggle('active', b.textContent.trim().toLowerCase().includes(map[tab] || tab));
     });
     if (tab === 'upload') _bindUpload();
+    if (tab === 'remote') _loadFlespiStatus();
   }
 
   function _renderTab(tab) {
@@ -164,6 +165,8 @@
     if (tab === 'calendar')   return _renderCalendar();
     if (tab === 'trend')      return _renderTrend();
     if (tab === 'comparison') return _renderComparison();
+    if (tab === 'compliance') { _loadCompliance(); return '<div id="compliance-content" style="padding:20px;text-align:center"><i class="ti ti-loader"></i> Ładowanie raportu zgodności...</div>'; }
+    if (tab === 'remote')     return _renderRemote();
     return '';
   }
 
@@ -173,6 +176,7 @@
     const st = _statsData;
     const overdue = _calData.filter(r => r.overdue);
     const recentViols = _violData.slice(0, 8);
+    setTimeout(() => _loadTodayStatus(), 50);
 
     return `
 <div class="tach-stat-grid">
@@ -210,10 +214,16 @@ ${recentViols.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń</p>' 
   </tbody>
 </table>`}
 
+<h3 style="font-size:14px;margin:0 0 10px"><i class="ti ti-activity"></i> Status bieżący kierowców (dane z dziś)</h3>
+<div id="tacho-status-today" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-bottom:20px">
+  <div style="padding:12px;background:var(--bg2);border-radius:8px;font-size:12px;color:var(--text3)">
+    <i class="ti ti-loader"></i> Ładowanie statusu...
+  </div>
+</div>
+
 <div style="margin-top:20px;padding:14px;background:var(--bg2);border-radius:8px;font-size:12px;color:var(--text3)">
-  <strong>Jak korzystać:</strong> Przejdź do zakładki <em>Wczytaj DDD</em>, przeciągnij pliki .DDD z karty kierowcy lub jednostki pokładowej.
-  System automatycznie wykrywa dane kierowcy, analizuje aktywności i sprawdza naruszenia EU 561/2006.
-  Pliki DDD pobierasz ze swojego czytnika kart (np. CDS, DigiScan, Optac) lub z oprogramowania pojazdu.
+  <strong>Jak korzystać:</strong> Wczytaj pliki .DDD z karty kierowcy lub jednostki pokładowej. System automatycznie analizuje naruszenia EU 561/2006 i Dyrektywy DYR 2002/15/WE.
+  Zdalny pobór: skonfiguruj integrację z <em>Flespi</em> lub <em>Teltonika</em> w zakładce <em>Zdalny pobór</em>.
 </div>
     `;
   }
@@ -391,6 +401,7 @@ ${recentViols.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń</p>' 
       <th>Pierwsze dane</th>
       <th>Ostatnie dane</th>
       <th>Status</th>
+      <th>CPC/Kwalifikacja</th>
       <th>Powiązanie</th>
       <th></th>
     </tr>
@@ -405,6 +416,16 @@ ${recentViols.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń</p>' 
         ? `Przeterminowane (${daysSince > 900 ? 'brak danych' : daysSince + ' dni temu'})`
         : `OK (${daysSince} dni temu)`;
       const driverKey = encodeURIComponent((d.driver_surname||'') + '|' + (d.driver_firstname||''));
+
+      // CPC expiry status
+      let cpcHtml = '<span style="color:var(--text3);font-size:11px">—</span>';
+      if (d.cpc_expiry_date) {
+        const daysLeft = Math.round((new Date(d.cpc_expiry_date) - new Date()) / 86400000);
+        const cpcColor = daysLeft < 0 ? '#dc2626' : daysLeft < 60 ? '#d97706' : '#16a34a';
+        cpcHtml = `<span style="font-size:11px;color:${cpcColor};font-weight:600">${_fmtDate(d.cpc_expiry_date)}</span>
+          <br><span style="font-size:10px;color:${cpcColor}">${daysLeft < 0 ? 'WYGASŁA' : daysLeft < 60 ? 'za '+daysLeft+'d' : 'ważna'}</span>
+          ${d.cpc_training_hours ? `<br><span style="font-size:10px;color:var(--text3)">${d.cpc_training_hours}/35h</span>` : ''}`;
+      }
 
       return `<tr>
         <td>
@@ -427,6 +448,7 @@ ${recentViols.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń</p>' 
         <td>
           <span style="font-size:11px;color:${statusColor};font-weight:600">${statusLabel}</span>
         </td>
+        <td>${cpcHtml}</td>
         <td>
           ${d.driver_id
             ? `<span style="color:#16a34a;font-size:11px"><i class="ti ti-check"></i> Powiązano</span>`
@@ -435,11 +457,16 @@ ${recentViols.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń</p>' 
                 <i class="ti ti-link"></i> Powiąż
                </button>`}
         </td>
-        <td>
+        <td style="display:flex;gap:4px">
           <button class="btn btn-sm" data-dkey="${e(driverKey)}" data-dname="${e(name)}"
             onclick="window.TachographModule._showDriverStatement(this.dataset.dkey,this.dataset.dname)"
             title="Zaświadczenie o aktywności">
             <i class="ti ti-file-text"></i>
+          </button>
+          <button class="btn btn-sm" data-dkey="${e(driverKey)}" data-dname="${e(name)}"
+            onclick="window.TachographModule._showInspectorView(this.dataset.dkey,this.dataset.dname)"
+            title="Widok do kontroli ITD / policji" style="background:#fff3cd;color:#856404">
+            <i class="ti ti-car-crash"></i>
           </button>
         </td>
       </tr>`;
@@ -501,11 +528,30 @@ ${files.length === 0 ? '<p style="color:var(--text3)">Brak plików</p>' : `
       <th style="text-align:center;color:#dc2626">Naruszenia</th>
       <th>Pierwsze użycie</th>
       <th>Ostatnie użycie</th>
+      <th>Kalibracja VU</th>
+      <th>Pobr. VU (90d)</th>
       <th>Powiązanie</th>
     </tr>
   </thead>
   <tbody>
-    ${_vehiclesData.map(v => `<tr>
+    ${_vehiclesData.map(v => {
+      // Calibration status
+      let calibHtml = '<span style="color:var(--text3);font-size:11px">—</span>';
+      if (v.tacho_calibration_next) {
+        const daysLeft = Math.round((new Date(v.tacho_calibration_next) - new Date()) / 86400000);
+        const cc = daysLeft < 0 ? '#dc2626' : daysLeft < 30 ? '#d97706' : '#16a34a';
+        calibHtml = `<span style="font-size:11px;color:${cc};font-weight:600">${_fmtDate(v.tacho_calibration_next)}</span>
+          <br><span style="font-size:10px;color:${cc}">${daysLeft < 0 ? 'PRZETERMINOWANA' : daysLeft < 30 ? 'za '+daysLeft+'d' : 'OK'}</span>`;
+      }
+      // VU download overdue
+      let vuHtml = '<span style="color:var(--text3);font-size:11px">—</span>';
+      if (v.tacho_vu_last_download) {
+        const daysSince = Math.round((new Date() - new Date(v.tacho_vu_last_download)) / 86400000);
+        const vc = daysSince > 90 ? '#dc2626' : daysSince > 75 ? '#d97706' : '#16a34a';
+        vuHtml = `<span style="font-size:11px;color:${vc};font-weight:600">${_fmtDate(v.tacho_vu_last_download)}</span>
+          <br><span style="font-size:10px;color:${vc}">${daysSince > 90 ? 'PRZETERMINOWANE!' : daysSince + ' dni temu'}</span>`;
+      }
+      return `<tr>
       <td><strong>${e(v.vehicle_reg || '—')}</strong></td>
       <td style="text-align:center">
         <span style="background:var(--bg2);padding:2px 8px;border-radius:10px;font-weight:600">${e(v.file_count ?? 0)}</span>
@@ -517,12 +563,15 @@ ${files.length === 0 ? '<p style="color:var(--text3)">Brak plików</p>' : `
       </td>
       <td style="font-size:12px">${_fmtDate(v.first_use)}</td>
       <td style="font-size:12px">${_fmtDate(v.last_use)}</td>
+      <td>${calibHtml}</td>
+      <td>${vuHtml}</td>
       <td>
         ${v.vehicle_id
           ? `<span style="color:#16a34a;font-size:11px"><i class="ti ti-check"></i> Powiązano z flotą</span>`
           : `<span style="color:var(--text3);font-size:11px"><i class="ti ti-unlink"></i> Brak w flocie</span>`}
       </td>
-    </tr>`).join('')}
+    </tr>`;
+    }).join('')}
   </tbody>
 </table>
 
@@ -857,6 +906,468 @@ ${f.vehicles?.length > 0 ? `
   function _closeModal() {
     const o = document.getElementById('tach-modal-overlay');
     if (o) o.style.display = 'none';
+  }
+
+  // ── STATUS BIEŻĄCY ────────────────────────────────────────────────────────
+
+  async function _loadTodayStatus() {
+    const el = document.getElementById('tacho-status-today');
+    if (!el || !_driversData.length) {
+      if (el) el.innerHTML = '<p style="font-size:12px;color:var(--text3);grid-column:1/-1">Brak kierowców z danymi DDD.</p>';
+      return;
+    }
+
+    // Pobieramy status dla max 12 kierowców (najaktywniejszych)
+    const toCheck = _driversData.slice(0, 12);
+    const results = await Promise.all(toCheck.map(async d => {
+      const key = encodeURIComponent((d.driver_surname||'') + '|' + (d.driver_firstname||''));
+      try {
+        const r = await fetch(`${API()}/api/tacho-ddd/remaining/${key}?company=${encodeURIComponent(Co())}`, { headers: H() });
+        return r.ok ? { ...(await r.json()), _name: _driverName(d) } : null;
+      } catch { return null; }
+    }));
+
+    const cards = results.filter(Boolean).map(r => {
+      if (!r.data_available) {
+        return `<div style="background:var(--bg2);border-radius:8px;padding:12px;border-left:3px solid var(--border)">
+          <div style="font-weight:600;font-size:13px;margin-bottom:6px">${e(r._name)}</div>
+          <div style="font-size:11px;color:var(--text3)">Brak danych na dziś</div>
+        </div>`;
+      }
+      const drivePct = Math.min(100, Math.round(r.driving_today / r.daily_limit * 100));
+      const contPct  = Math.min(100, Math.round(r.continuous_driving / 270 * 100));
+      const driveColor = drivePct > 90 ? '#dc2626' : drivePct > 70 ? '#d97706' : '#16a34a';
+      const contColor  = contPct > 90 ? '#dc2626' : contPct > 70 ? '#d97706' : '#16a34a';
+
+      return `<div style="background:var(--bg2);border-radius:8px;padding:12px;border-left:3px solid ${driveColor}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <strong style="font-size:13px">${e(r._name)}</strong>
+          ${r.crew_mode ? '<span style="font-size:10px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:8px">Podw. obsada</span>' : ''}
+          ${r.needs_break_now ? '<span style="font-size:10px;background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:8px">⚠ PRZERWA!</span>' : ''}
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Jazda dziś: ${_fmtMin(r.driving_today)} / ${_fmtMin(r.daily_limit)}</div>
+        <div style="height:6px;background:var(--border);border-radius:3px;margin-bottom:6px">
+          <div style="height:6px;background:${driveColor};border-radius:3px;width:${drivePct}%;transition:.3s"></div>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Ciągła jazda: ${_fmtMin(r.continuous_driving)} (przerwa za ${_fmtMin(r.break_needed_in)})</div>
+        <div style="height:4px;background:var(--border);border-radius:3px">
+          <div style="height:4px;background:${contColor};border-radius:3px;width:${contPct}%;transition:.3s"></div>
+        </div>
+        <div style="margin-top:6px;font-size:11px;color:var(--text3)">
+          Pozostało dziś: <strong style="color:${driveColor}">${_fmtMin(r.remaining_daily)}</strong>
+          ${r.last_activity ? `· Ost. aktywność: ${e(r.last_activity.type)} do ${e(r.last_activity.end||'?')}` : ''}
+        </div>
+      </div>`;
+    });
+
+    el.innerHTML = cards.length ? cards.join('') : '<p style="font-size:12px;color:var(--text3);grid-column:1/-1">Brak danych z dzisiejszego dnia. Dane tachografu dostępne są po wczytaniu pliku DDD z karty kierowcy.</p>';
+  }
+
+  // ── ZGODNOŚĆ (COMPLIANCE) ─────────────────────────────────────────────────
+
+  async function _loadCompliance() {
+    const el = document.getElementById('compliance-content');
+    if (!el) return;
+    const df = new Date(Date.now()-30*86400000).toISOString().slice(0,10);
+    const dt = new Date().toISOString().slice(0,10);
+    try {
+      const r = await _api(`compliance-report&date_from=${df}&date_to=${dt}`);
+      if (!r.ok) throw new Error('API error');
+      const data = await r.json();
+      el.innerHTML = _renderComplianceData(data, df, dt);
+    } catch (ex) {
+      el.innerHTML = `<p style="color:#dc2626;padding:20px">Błąd: ${e(ex.message)}</p>`;
+    }
+  }
+
+  function _renderComplianceData(data, df, dt) {
+    const rateColor = data.compliance_rate >= 80 ? '#16a34a' : data.compliance_rate >= 60 ? '#d97706' : '#dc2626';
+    return `
+<h3 style="font-size:14px;margin:0 0 16px"><i class="ti ti-shield-check"></i> Raport zgodności kierowców</h3>
+
+<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+  <div>
+    <label style="font-size:12px;color:var(--text3)">Od</label><br>
+    <input type="date" id="cpl-df" class="sel" value="${e(df)}" onchange="window.TachographModule._reloadCompliance()">
+  </div>
+  <div>
+    <label style="font-size:12px;color:var(--text3)">Do</label><br>
+    <input type="date" id="cpl-dt" class="sel" value="${e(dt)}" onchange="window.TachographModule._reloadCompliance()">
+  </div>
+  <div style="align-self:flex-end">
+    <button class="btn btn-sm" onclick="window.TachographModule._exportCompliancePDF()"><i class="ti ti-file-type-pdf"></i> Eksport PDF</button>
+  </div>
+</div>
+
+<div class="tach-stat-grid" style="margin-bottom:20px">
+  <div class="tach-stat">
+    <div class="tach-stat-val" style="color:${rateColor}">${data.compliance_rate}%</div>
+    <div class="tach-stat-lbl">Wskaźnik zgodności</div>
+  </div>
+  <div class="tach-stat">
+    <div class="tach-stat-val" style="color:#16a34a">${data.compliant_drivers}</div>
+    <div class="tach-stat-lbl">Kierowcy bez naruszeń</div>
+  </div>
+  <div class="tach-stat">
+    <div class="tach-stat-val" style="color:${data.total_violations>0?'#dc2626':'inherit'}">${data.total_violations}</div>
+    <div class="tach-stat-lbl">Łączne naruszenia</div>
+  </div>
+  <div class="tach-stat">
+    <div class="tach-stat-val" style="color:${data.total_penalty>0?'#dc2626':'inherit'}">${(data.total_penalty||0).toLocaleString('pl-PL')} PLN</div>
+    <div class="tach-stat-lbl">Łączne kary</div>
+  </div>
+</div>
+
+<div style="overflow-x:auto">
+<table class="tach-table">
+  <thead>
+    <tr>
+      <th>Kierowca</th>
+      <th>Nr karty</th>
+      <th style="text-align:center">Pliki</th>
+      <th style="text-align:center">Naruszenia</th>
+      <th style="text-align:center">Bardzo poważne</th>
+      <th style="text-align:center">Poważne</th>
+      <th style="text-align:center">Nieznaczne</th>
+      <th style="text-align:right">Kary PLN</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${(data.drivers||[]).map(d => {
+      const ok = d.compliant;
+      return `<tr>
+        <td><strong>${e([d.driver_surname,d.driver_firstname].filter(Boolean).join(' ')||'—')}</strong></td>
+        <td style="font-size:11px;font-family:monospace">${e(d.card_number||'—')}</td>
+        <td style="text-align:center">${e(d.file_count??0)}</td>
+        <td style="text-align:center;font-weight:700;color:${(d.violation_count??d.total_violations??0)>0?'#dc2626':'#16a34a'}">${d.violation_count??d.total_violations??0}</td>
+        <td style="text-align:center;color:#b91c1c">${d.very_serious??0}</td>
+        <td style="text-align:center;color:#b45309">${d.serious??0}</td>
+        <td style="text-align:center;color:#0369a1">${d.minor??0}</td>
+        <td style="text-align:right;font-weight:700;color:${(d.penalty_total||0)>0?'#dc2626':'inherit'}">${(d.penalty_total||0)>0?(d.penalty_total).toLocaleString('pl-PL')+' PLN':'—'}</td>
+        <td>
+          ${ok
+            ? '<span style="color:#16a34a;font-size:11px;font-weight:600"><i class="ti ti-check"></i> Zgodny</span>'
+            : '<span style="color:#dc2626;font-size:11px;font-weight:600"><i class="ti ti-alert-triangle"></i> Naruszenia</span>'}
+        </td>
+      </tr>`;
+    }).join('')}
+  </tbody>
+</table>
+</div>
+
+<div style="margin-top:12px;padding:12px;background:var(--bg2);border-radius:8px;font-size:11px;color:var(--text3)">
+  Okres: ${e(data.date_from)} – ${e(data.date_to)} · Łącznie kierowców: ${data.total_drivers}
+  · Eksport CSV: <button class="btn btn-sm" onclick="window.TachographModule._exportCSV('violations')">Naruszenia</button>
+</div>`;
+  }
+
+  async function _reloadCompliance() {
+    const df = document.getElementById('cpl-df')?.value;
+    const dt = document.getElementById('cpl-dt')?.value;
+    const el = document.getElementById('compliance-content');
+    if (!el || !df || !dt) return;
+    el.innerHTML = '<div style="padding:20px;text-align:center"><i class="ti ti-loader"></i></div>';
+    try {
+      const r = await _api(`compliance-report&date_from=${df}&date_to=${dt}`);
+      const data = r.ok ? await r.json() : {};
+      el.innerHTML = _renderComplianceData(data, df, dt);
+    } catch {}
+  }
+
+  async function _exportCompliancePDF() {
+    const PDFLib = window.PDFLib;
+    if (!PDFLib?.PDFDocument) { alert('pdf-lib nie jest załadowana'); return; }
+    const { PDFDocument, rgb, StandardFonts } = PDFLib;
+
+    const df = document.getElementById('cpl-df')?.value || new Date(Date.now()-30*86400000).toISOString().slice(0,10);
+    const dt = document.getElementById('cpl-dt')?.value || new Date().toISOString().slice(0,10);
+    const r  = await _api(`compliance-report&date_from=${df}&date_to=${dt}`);
+    if (!r.ok) { alert('Błąd pobierania danych'); return; }
+    const data = await r.json();
+
+    const doc  = await PDFDocument.create();
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const fontB= await doc.embedFont(StandardFonts.HelveticaBold);
+    let page   = doc.addPage([595, 842]);
+    let y      = 792;
+
+    const drawT = (t, opts={}) => {
+      page.drawText(String(t).slice(0,200), { x:opts.x||50, y, size:opts.size||10, font:opts.bold?fontB:font, color:opts.color||rgb(0,0,0) });
+      y -= (opts.lh || (opts.size||10)+4);
+    };
+
+    page.drawRectangle({ x:0, y:812, width:595, height:30, color:rgb(0.04,0.12,0.25) });
+    page.drawText('RAPORT ZGODNOŚCI KIEROWCÓW — EU 561/2006 / DYR 2002/15/WE', { x:50, y:820, size:11, font:fontB, color:rgb(1,1,1) });
+    y = 800;
+    drawT(`Okres: ${df} – ${dt}   |   Zgodność: ${data.compliance_rate}%   |   Łączne kary: ${(data.total_penalty||0).toLocaleString('pl-PL')} PLN`, { size:9, color:rgb(0.4,0.4,0.4) });
+    y -= 10;
+
+    const cols = [50,200,265,310,355,400,450,510];
+    const hdrs = ['Kierowca','Karta','Pliki','Naruszeń','B.Poważne','Poważne','Nieznaczne','Kara PLN'];
+    hdrs.forEach((h,i) => page.drawText(h, { x:cols[i], y, size:8, font:fontB, color:rgb(0.5,0.5,0.5) }));
+    y -= 4;
+    page.drawLine({ start:{x:50,y}, end:{x:545,y}, thickness:0.5, color:rgb(0.8,0.8,0.8) });
+    y -= 12;
+
+    for (const d of (data.drivers||[])) {
+      if (y < 60) { page = doc.addPage([595,842]); y=800; }
+      const row = [
+        [d.driver_surname,d.driver_firstname].filter(Boolean).join(' ')||'—',
+        d.card_number||'—',
+        String(d.file_count??0),
+        String(d.violation_count??d.total_violations??0),
+        String(d.very_serious??0),
+        String(d.serious??0),
+        String(d.minor??0),
+        (d.penalty_total||0)>0?String(d.penalty_total):'—',
+      ];
+      const isViol = (d.violation_count??d.total_violations??0) > 0;
+      row.forEach((cell,i) => {
+        page.drawText(cell, { x:cols[i], y, size:9, font,
+          color: i===3&&isViol ? rgb(0.75,0,0) : rgb(0,0,0) });
+      });
+      y -= 13;
+    }
+
+    const bytes = await doc.save();
+    const blob  = new Blob([bytes], { type:'application/pdf' });
+    const link  = document.createElement('a');
+    link.href   = URL.createObjectURL(blob);
+    link.download = `raport_zgodnosci_${df}_${dt}.pdf`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+  // ── ZDALNY POBÓR (FLESPI / TELTONIKA) ────────────────────────────────────
+
+  function _renderRemote() {
+    return `
+<h3 style="font-size:14px;margin:0 0 16px"><i class="ti ti-cloud-download"></i> Zdalny pobór danych tachografu</h3>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:20px">
+
+  <!-- Flespi -->
+  <div style="background:var(--bg2);border-radius:12px;padding:20px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <div style="width:40px;height:40px;background:#0066ff;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px">F</div>
+      <div>
+        <h4 style="margin:0;font-size:15px">Flespi IoT Hub</h4>
+        <p style="margin:0;font-size:11px;color:var(--text3)">Obsługuje: Teltonika FMC640/650, Ruptela FMtco4 i inne</p>
+      </div>
+    </div>
+
+    <div id="flespi-status" style="margin-bottom:14px;font-size:12px;color:var(--text3)">
+      <i class="ti ti-loader"></i> Sprawdzanie konfiguracji...
+    </div>
+
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;color:var(--text3)">Token Flespi (Bearer Token)</label><br>
+      <input type="password" id="flespi-token" class="sel" style="width:100%;max-width:380px;margin-top:4px" placeholder="eyJhbGciOi... lub FlespiToken XXXX">
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;color:var(--text3)">ID urządzeń (opcjonalne — przecinek-oddzielone, puste = wszystkie)</label><br>
+      <input type="text" id="flespi-devices" class="sel" style="width:100%;max-width:380px;margin-top:4px" placeholder="123456,789012">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn" onclick="window.TachographModule._saveFlespiConfig()"><i class="ti ti-device-floppy"></i> Zapisz konfigurację</button>
+      <button class="btn btn-primary" id="flespi-sync-btn" onclick="window.TachographModule._runFlespiSync()"><i class="ti ti-refresh"></i> Synchronizuj teraz</button>
+    </div>
+    <div id="flespi-result" style="margin-top:12px;font-size:12px"></div>
+  </div>
+
+  <!-- Teltonika TachoSync -->
+  <div style="background:var(--bg2);border-radius:12px;padding:20px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <div style="width:40px;height:40px;background:#ff6900;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px">T</div>
+      <div>
+        <h4 style="margin:0;font-size:15px">Teltonika TachoSync</h4>
+        <p style="margin:0;font-size:11px;color:var(--text3)">Urządzenia FMC640, FMM640, FMB630 z modułem tachografu</p>
+      </div>
+    </div>
+    <div style="padding:12px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--text3);margin-bottom:14px">
+      <strong>Integracja TachoSync API</strong> wymaga konta partnerskiego Teltonika oraz urządzeń FMC640/FMM650 z podpiętym kablem tachografu.
+      Po uzyskaniu poświadczeń API skonfiguruj integrację tutaj.
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;color:var(--text3)">Server URL TachoSync API</label><br>
+      <input type="text" id="tacho-sync-url" class="sel" style="width:100%;max-width:380px;margin-top:4px" placeholder="https://api.tacho.teltonika.lt">
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;color:var(--text3)">Token API (Bearer)</label><br>
+      <input type="password" id="tacho-sync-token" class="sel" style="width:100%;max-width:380px;margin-top:4px" placeholder="...">
+    </div>
+    <button class="btn" onclick="window.TachographModule._saveTeltonika()" style="margin-right:8px"><i class="ti ti-device-floppy"></i> Zapisz</button>
+    <div id="teltonika-result" style="margin-top:10px;font-size:12px"></div>
+  </div>
+
+</div>
+
+<div style="margin-top:20px;padding:14px;background:var(--bg2);border-radius:8px;font-size:12px;color:var(--text3)">
+  <strong><i class="ti ti-info-circle"></i> Jak skonfigurować Flespi?</strong><br>
+  1. Utwórz konto na <strong>flespi.com</strong> (plan Free lub Commercial od 130 EUR/mies.)<br>
+  2. Pobierz i uruchom <strong>Tacho Bridge Application</strong> na komputerze z czytnikiem tachografu lub w pojeździe z modułem Teltonika/Ruptela<br>
+  3. Wygeneruj token w panelu Flespi (sekcja <em>Tokens</em>) i wklej go powyżej<br>
+  4. Kliknij "Synchronizuj teraz" — system automatycznie pobierze i przeanalizuje nowe pliki DDD<br>
+  5. Synchronizacja odbywa się też automatycznie co noc (cron 03:00)
+</div>`;
+  }
+
+  async function _loadFlespiStatus() {
+    const el = document.getElementById('flespi-status');
+    if (!el) return;
+    try {
+      const r = await _api('flespi-config');
+      if (!r.ok) { el.innerHTML = '<span style="color:var(--text3)">Nie skonfigurowano</span>'; return; }
+      const cfg = await r.json();
+      if (!cfg.configured) {
+        el.innerHTML = '<span style="color:var(--text3)"><i class="ti ti-circle-x"></i> Nie skonfigurowano</span>';
+        return;
+      }
+      document.getElementById('flespi-devices').value = (cfg.device_ids||[]).join(',');
+      const syncInfo = cfg.last_sync ? `Ost. sync: ${new Date(cfg.last_sync).toLocaleString('pl-PL')} · Pliki: ${cfg.files_synced||0}` : 'Nigdy nie synchronizowano';
+      el.innerHTML = `<span style="color:#16a34a"><i class="ti ti-check"></i> Skonfigurowano · Token: ••••</span><br>
+        <span style="color:var(--text3)">${e(syncInfo)}</span>
+        ${cfg.sync_error ? `<br><span style="color:#dc2626">Ostatni błąd: ${e(cfg.sync_error)}</span>` : ''}`;
+    } catch { el.innerHTML = '<span style="color:var(--text3)">Błąd pobierania statusu</span>'; }
+  }
+
+  async function _saveFlespiConfig() {
+    const token    = document.getElementById('flespi-token')?.value?.trim();
+    const devStr   = document.getElementById('flespi-devices')?.value?.trim();
+    const device_ids = devStr ? devStr.split(',').map(s=>s.trim()).filter(Boolean) : [];
+    if (!token) { alert('Wpisz token Flespi'); return; }
+    try {
+      const r = await fetch(`${API()}/api/tacho-ddd/flespi-config?company=${encodeURIComponent(Co())}`, {
+        method:'PUT', headers:{...H(),'Content-Type':'application/json'},
+        body: JSON.stringify({ token, device_ids })
+      });
+      const res = document.getElementById('flespi-result');
+      if (r.ok) {
+        if (res) res.innerHTML = '<span style="color:#16a34a"><i class="ti ti-check"></i> Konfiguracja zapisana</span>';
+        await _loadFlespiStatus();
+      } else {
+        if (res) res.innerHTML = '<span style="color:#dc2626">Błąd zapisu</span>';
+      }
+    } catch (ex) {
+      const res = document.getElementById('flespi-result');
+      if (res) res.innerHTML = `<span style="color:#dc2626">${e(ex.message)}</span>`;
+    }
+  }
+
+  async function _runFlespiSync() {
+    const btn = document.getElementById('flespi-sync-btn');
+    const res = document.getElementById('flespi-result');
+    if (btn) btn.disabled = true;
+    if (res) res.innerHTML = '<i class="ti ti-loader"></i> Synchronizowanie z Flespi...';
+    try {
+      const r = await fetch(`${API()}/api/tacho-ddd/flespi-sync?company=${encodeURIComponent(Co())}`, {
+        method:'POST', headers: H()
+      });
+      const data = r.ok ? await r.json() : { ok:false, error: r.status };
+      if (res) {
+        if (data.ok) {
+          res.innerHTML = `<span style="color:#16a34a"><i class="ti ti-check"></i> Zsynchronizowano: ${data.files} nowych plików (${data.devices_checked} urządzeń)</span>`;
+          await _loadAll();
+        } else {
+          res.innerHTML = `<span style="color:#dc2626">Błąd: ${e(JSON.stringify(data))}</span>`;
+        }
+      }
+    } catch (ex) {
+      if (res) res.innerHTML = `<span style="color:#dc2626">${e(ex.message)}</span>`;
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function _saveTeltonika() {
+    const url   = document.getElementById('tacho-sync-url')?.value?.trim();
+    const token = document.getElementById('tacho-sync-token')?.value?.trim();
+    const res   = document.getElementById('teltonika-result');
+    if (!url || !token) { alert('Wpisz URL serwera i token'); return; }
+    try {
+      const r = await fetch(`${API()}/api/tacho-ddd/flespi-config?company=${encodeURIComponent(Co())}`, {
+        method:'PUT', headers:{...H(),'Content-Type':'application/json'},
+        body: JSON.stringify({ token, server_url: url, _provider: 'teltonika_tacho' })
+      });
+      if (res) res.innerHTML = r.ok ? '<span style="color:#16a34a">Zapisano konfigurację Teltonika</span>' : '<span style="color:#dc2626">Błąd zapisu</span>';
+    } catch (ex) {
+      if (res) res.innerHTML = `<span style="color:#dc2626">${e(ex.message)}</span>`;
+    }
+  }
+
+  // ── INSPEKCJA DROGOWA (KONTROLA ITD) ─────────────────────────────────────
+
+  async function _showInspectorView(driverKey, driverName) {
+    const [sn, fn] = decodeURIComponent(driverKey).split('|');
+    _showModal('<div style="padding:20px;text-align:center"><i class="ti ti-loader"></i> Ładowanie danych do kontroli...</div>');
+    try {
+      // Pobierz ostatnie 28 dni aktywności
+      const dt = new Date().toISOString().slice(0,10);
+      const df = new Date(Date.now()-28*86400000).toISOString().slice(0,10);
+      const [calR, violR, remR] = await Promise.all([
+        _api(`driver-analysis/${encodeURIComponent(driverKey)}&date_from=${df}&date_to=${dt}`),
+        _api(`violations&date_from=${df}&date_to=${dt}`),
+        _api(`remaining/${encodeURIComponent(driverKey)}`),
+      ]);
+
+      const analysis = calR.ok ? await calR.json() : { summary:{}, violations:[] };
+      const allViols = violR.ok ? (await violR.json()).filter(v => {
+        const ds = (v.driver_surname||'').toLowerCase(), df2 = (v.driver_firstname||'').toLowerCase();
+        return ds.includes((sn||'').toLowerCase()) || df2.includes((fn||'').toLowerCase());
+      }) : [];
+      const rem = remR.ok ? await remR.json() : null;
+
+      const today = new Date().toLocaleDateString('pl-PL');
+      const s = analysis.summary || {};
+
+      _showModal(`
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+  <h3 style="margin:0;font-size:15px"><i class="ti ti-car-crash"></i> Widok do kontroli ITD/policji</h3>
+  <div style="display:flex;gap:8px">
+    <button class="btn btn-sm" onclick="window.print()"><i class="ti ti-printer"></i> Drukuj</button>
+    <button onclick="window.TachographModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  </div>
+</div>
+<div style="font-size:10px;color:var(--text3);margin-bottom:12px">
+  Art. 34 ust. 3 Rozp. 165/2014 WE · Wygenerowano: ${today} · Okres: ostatnie 28 dni
+</div>
+
+<table style="width:100%;border-collapse:collapse;margin-bottom:14px;font-size:12px">
+  <tr><td style="padding:4px 8px;border:1px solid var(--border);background:var(--bg2);font-weight:600;width:40%">Kierowca</td><td style="padding:4px 8px;border:1px solid var(--border)">${e(driverName)}</td></tr>
+  <tr><td style="padding:4px 8px;border:1px solid var(--border);background:var(--bg2);font-weight:600">Łączny czas jazdy (28 dni)</td><td style="padding:4px 8px;border:1px solid var(--border)">${_fmtMin(s.driving_total??0)}</td></tr>
+  <tr><td style="padding:4px 8px;border:1px solid var(--border);background:var(--bg2);font-weight:600">Czas pracy (28 dni)</td><td style="padding:4px 8px;border:1px solid var(--border)">${_fmtMin((s.driving_total??0)+(s.work_total??0))}</td></tr>
+  <tr><td style="padding:4px 8px;border:1px solid var(--border);background:var(--bg2);font-weight:600">Naruszenia (28 dni)</td><td style="padding:4px 8px;border:1px solid var(--border);color:${(s.violations_total??0)>0?'#dc2626':'#16a34a'};font-weight:700">${s.violations_total??0} ${(s.penalty_total??0)>0?'('+s.penalty_total+' PLN kary)':''}</td></tr>
+  ${rem?.data_available ? `
+  <tr><td style="padding:4px 8px;border:1px solid var(--border);background:var(--bg2);font-weight:600">Jazda dziś</td><td style="padding:4px 8px;border:1px solid var(--border)">${_fmtMin(rem.driving_today)} / ${_fmtMin(rem.daily_limit)} (pozostało: ${_fmtMin(rem.remaining_daily)})</td></tr>
+  <tr><td style="padding:4px 8px;border:1px solid var(--border);background:var(--bg2);font-weight:600">Status przerwy</td><td style="padding:4px 8px;border:1px solid var(--border);color:${rem.needs_break_now?'#dc2626':'#16a34a'}">${rem.needs_break_now?'⚠ PRZERWA WYMAGANA TERAZ':'Przerwa za '+_fmtMin(rem.break_needed_in)}</td></tr>
+  ` : ''}
+</table>
+
+${allViols.length>0 ? `
+<h4 style="font-size:12px;color:#dc2626;margin:0 0 8px"><i class="ti ti-alert-triangle"></i> Naruszenia w ostatnich 28 dniach</h4>
+<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px">
+  <thead><tr style="background:var(--bg2)">
+    <th style="padding:4px 8px;border:1px solid var(--border)">Data</th>
+    <th style="padding:4px 8px;border:1px solid var(--border)">Naruszenie</th>
+    <th style="padding:4px 8px;border:1px solid var(--border)">Waga</th>
+    <th style="padding:4px 8px;border:1px solid var(--border)">Kara</th>
+  </tr></thead>
+  <tbody>
+    ${allViols.slice(0,20).map(v=>`<tr>
+      <td style="padding:4px 8px;border:1px solid var(--border)">${_fmtDate(v.violation_date)}</td>
+      <td style="padding:4px 8px;border:1px solid var(--border)">${e(v.description||v.violation_type)}</td>
+      <td style="padding:4px 8px;border:1px solid var(--border)">${_sevChip(v.severity)}</td>
+      <td style="padding:4px 8px;border:1px solid var(--border)">${(v.penalty_pln||0)>0?v.penalty_pln+' PLN':'—'}</td>
+    </tr>`).join('')}
+  </tbody>
+</table>` : '<p style="color:#16a34a;font-size:12px"><i class="ti ti-check"></i> Brak naruszeń w ostatnich 28 dniach</p>'}
+
+<div style="display:flex;justify-content:space-between;margin-top:20px">
+  <div style="text-align:center"><div style="width:180px;border-top:1px solid #333;padding-top:6px;font-size:10px;color:var(--text3)">Podpis kierowcy</div></div>
+  <div style="text-align:center"><div style="width:180px;border-top:1px solid #333;padding-top:6px;font-size:10px;color:var(--text3)">Podpis inspektora</div></div>
+</div>`);
+    } catch (ex) { _closeModal(); alert('Błąd: ' + ex.message); }
   }
 
   // ── TREND ─────────────────────────────────────────────────────────────────
@@ -1338,5 +1849,8 @@ ${f.vehicles?.length > 0 ? `
     _runComparison, _generatePDF, _exportCSV,
     _showLinkModal, _saveLinkDriver,
     _showDriverStatement, _showStatementFromFile,
+    _reloadCompliance, _exportCompliancePDF,
+    _saveFlespiConfig, _runFlespiSync, _saveTeltonika,
+    _showInspectorView,
   };
 })();
