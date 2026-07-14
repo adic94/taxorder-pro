@@ -26,9 +26,11 @@
   let _violData  = [];
   let _driversData = [];
   let _vehiclesData = [];
+  let _trendData = [];
   let _uploadResults = [];
   let _selectedFileId = null;
   let _driverFilter = '';
+  let _driversList = []; // kierowcy z kartoteki do powiązania
 
   // ── utils ──────────────────────────────────────────────────────────────────
 
@@ -72,14 +74,15 @@
 
   async function _loadAll() {
     try {
-      const [sR, fR, cR, dR, vhR] = await Promise.all([
-        _api('stats'), _api('files'), _api('calendar'), _api('drivers'), _api('vehicles')
+      const [sR, fR, cR, dR, vhR, tR] = await Promise.all([
+        _api('stats'), _api('files'), _api('calendar'), _api('drivers'), _api('vehicles'), _api('trend?months=6')
       ]);
-      if (sR.ok) _statsData    = await sR.json();
-      if (fR.ok) _filesData    = await fR.json();
-      if (cR.ok) _calData      = await cR.json();
-      if (dR.ok) _driversData  = await dR.json();
+      if (sR.ok)  _statsData    = await sR.json();
+      if (fR.ok)  _filesData    = await fR.json();
+      if (cR.ok)  _calData      = await cR.json();
+      if (dR.ok)  _driversData  = await dR.json();
       if (vhR.ok) _vehiclesData = await vhR.json();
+      if (tR.ok)  _trendData    = await tR.json();
     } catch {}
     try {
       const vR = await _api('violations');
@@ -111,12 +114,14 @@
 .tach-ok{background:#f0fdf4;border-left:4px solid #16a34a;padding:10px 14px;border-radius:4px;font-size:13px;margin-bottom:8px}
 .tach-upload-item{display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg2);border-radius:8px;margin-bottom:8px;font-size:13px}
 .tach-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:flex;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto}
-.tach-modal{background:var(--bg);border-radius:14px;width:90%;max-width:860px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.2)}
+.tach-modal{background:var(--bg);border-radius:14px;width:90%;max-width:900px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.2)}
 .day-acts{display:flex;flex-direction:column;gap:2px;margin:4px 0}
 .day-row{display:flex;align-items:center;gap:8px;font-size:12px}
 .day-label{width:80px;color:var(--text3)}
 .day-bar-wrap{flex:1;height:16px;background:var(--bg2);border-radius:4px;overflow:hidden;display:flex}
 .bar-seg{height:100%;transition:.2s}
+.tach-trend-bar{display:inline-block;background:var(--blue);border-radius:3px 3px 0 0;min-height:2px;transition:.3s}
+.tach-comparison-col{background:var(--bg2);border-radius:10px;padding:16px;flex:1}
 </style>
 
 <div class="page-header">
@@ -124,9 +129,9 @@
 </div>
 
 <div class="tach-tabs">
-  ${['dashboard','upload','files','drivers','vehicles','violations','calendar'].map(t => {
-    const labels = {dashboard:'Dashboard',upload:'Wczytaj DDD',files:'Pliki',drivers:'Kierowcy',vehicles:'Pojazdy',violations:'Naruszenia',calendar:'Kalendarz'};
-    const icons  = {dashboard:'ti-dashboard',upload:'ti-upload',files:'ti-folder',drivers:'ti-id-badge',vehicles:'ti-truck',violations:'ti-alert-triangle',calendar:'ti-calendar-week'};
+  ${['dashboard','upload','files','drivers','vehicles','violations','calendar','trend','comparison'].map(t => {
+    const labels = {dashboard:'Dashboard',upload:'Wczytaj DDD',files:'Pliki',drivers:'Kierowcy',vehicles:'Pojazdy',violations:'Naruszenia',calendar:'Kalendarz',trend:'Trend',comparison:'Porównanie'};
+    const icons  = {dashboard:'ti-dashboard',upload:'ti-upload',files:'ti-folder',drivers:'ti-id-badge',vehicles:'ti-truck',violations:'ti-alert-triangle',calendar:'ti-calendar-week',trend:'ti-chart-bar',comparison:'ti-chart-arcs'};
     return `<button class="tach-tab${_activeTab===t?' active':''}" onclick="window.TachographModule._setTab('${t}')">
       <i class="ti ${icons[t]}"></i> ${labels[t]}
     </button>`;
@@ -157,6 +162,8 @@
     if (tab === 'vehicles')   return _renderVehicles();
     if (tab === 'violations') return _renderViolations();
     if (tab === 'calendar')   return _renderCalendar();
+    if (tab === 'trend')      return _renderTrend();
+    if (tab === 'comparison') return _renderComparison();
     return '';
   }
 
@@ -385,6 +392,7 @@ ${recentViols.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń</p>' 
       <th>Ostatnie dane</th>
       <th>Status</th>
       <th>Powiązanie</th>
+      <th></th>
     </tr>
   </thead>
   <tbody>
@@ -422,7 +430,17 @@ ${recentViols.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń</p>' 
         <td>
           ${d.driver_id
             ? `<span style="color:#16a34a;font-size:11px"><i class="ti ti-check"></i> Powiązano</span>`
-            : `<span style="color:var(--text3);font-size:11px"><i class="ti ti-unlink"></i> Brak powiązania</span>`}
+            : `<button class="btn btn-sm" data-dkey="${e(driverKey)}" data-dname="${e(name)}"
+                onclick="window.TachographModule._showLinkModal(this.dataset.dkey,this.dataset.dname)">
+                <i class="ti ti-link"></i> Powiąż
+               </button>`}
+        </td>
+        <td>
+          <button class="btn btn-sm" data-dkey="${e(driverKey)}" data-dname="${e(name)}"
+            onclick="window.TachographModule._showDriverStatement(this.dataset.dkey,this.dataset.dname)"
+            title="Zaświadczenie o aktywności">
+            <i class="ti ti-file-text"></i>
+          </button>
         </td>
       </tr>`;
     }).join('')}
@@ -543,17 +561,27 @@ ${files.length === 0 ? '<p style="color:var(--text3)">Brak plików</p>' : `
   </div>
 </div>
 
-<div style="display:flex;gap:8px;margin-bottom:16px;font-size:12px">
-  ${Object.entries(SEVERITY).filter(([k]) => k !== 'most_serious').map(([k, v]) => {
-    const cnt = _violData.filter(x => x.severity === k).length;
-    return `<span style="background:${v.bg};color:${v.color};padding:4px 12px;border-radius:12px;font-weight:600">${v.label}: ${cnt}</span>`;
-  }).join('')}
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:12px">
+    ${Object.entries(SEVERITY).filter(([k]) => k !== 'most_serious').map(([k, v]) => {
+      const cnt = _violData.filter(x => x.severity === k).length;
+      return `<span style="background:${v.bg};color:${v.color};padding:4px 12px;border-radius:12px;font-weight:600">${v.label}: ${cnt}</span>`;
+    }).join('')}
+    ${_violData.length > 0 ? `<span style="background:var(--bg2);padding:4px 12px;border-radius:12px;font-weight:600">
+      Kary: <strong style="color:#dc2626">${_violData.reduce((s,v)=>s+(v.penalty_pln??0),0).toLocaleString('pl-PL')} PLN</strong>
+    </span>` : ''}
+  </div>
+  <div style="display:flex;gap:8px">
+    <button class="btn btn-sm" onclick="window.TachographModule._exportCSV('violations')"><i class="ti ti-download"></i> CSV naruszeń</button>
+    <button class="btn btn-sm" onclick="window.TachographModule._exportCSV('activities')"><i class="ti ti-download"></i> CSV aktywności</button>
+  </div>
 </div>
 
 ${_violData.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń. Wczytaj pliki DDD aby uruchomić analizę.</p>' : `
+<div style="overflow-x:auto">
 <table class="tach-table">
   <thead>
-    <tr><th>Data</th><th>Kierowca</th><th>Naruszenie</th><th>Szczegóły</th><th>Powaga</th><th>Podstawa prawna</th></tr>
+    <tr><th>Data</th><th>Kierowca</th><th>Naruszenie</th><th>Szczegóły</th><th>Powaga</th><th>Kara PLN</th><th>Podstawa prawna</th></tr>
   </thead>
   <tbody>
     ${_violData.map(v => `<tr>
@@ -564,10 +592,14 @@ ${_violData.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń. Wczyta
         ${v.actual_value && v.limit_value ? `<span style="color:var(--text3)">Fakt: ${_fmtMin(v.actual_value)} / Limit: ${_fmtMin(v.limit_value)}</span>` : ''}
       </td>
       <td>${_sevChip(v.severity)}</td>
+      <td style="font-weight:700;color:${(v.penalty_pln??0)>0?'#dc2626':'var(--text3)'}">
+        ${(v.penalty_pln ?? 0) > 0 ? `${e(String(v.penalty_pln))} PLN` : '—'}
+      </td>
       <td style="font-size:11px;color:var(--text3)">${e(v.regulation || '—')}</td>
     </tr>`).join('')}
   </tbody>
-</table>`}
+</table>
+</div>`}
 
 <div style="margin-top:20px;padding:14px;background:var(--bg2);border-radius:8px;font-size:12px;color:var(--text3)">
   <strong>Klasyfikacja naruszeń (EU 2016/403):</strong>
@@ -579,10 +611,15 @@ ${_violData.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń. Wczyta
 
   function _violTypeLabel(type) {
     const labels = {
-      daily_driving_over_10h:     'Przekroczenie dobowego czasu jazdy > 10h',
-      daily_driving_over_9h:      'Przekroczenie dobowego czasu jazdy > 9h',
-      continuous_driving_over_4h30: 'Ciągły czas jazdy > 4,5h bez przerwy',
-      weekly_driving_over_56h:    'Przekroczenie tygodniowego czasu jazdy > 56h',
+      daily_driving_over_10h:       'Dobowy czas jazdy > 10h (Art.6 ust.1)',
+      daily_driving_over_9h:        'Dobowy czas jazdy > 9h (Art.6 ust.1)',
+      continuous_driving_over_4h30: 'Ciągły czas jazdy > 4,5h bez przerwy (Art.7)',
+      weekly_driving_over_56h:      'Tygodniowy czas jazdy > 56h (Art.6 ust.2)',
+      two_week_driving_over_90h:    'Suma 2 tyg. > 90h (Art.6 ust.3)',
+      daily_rest_under_9h:          'Odpoczynek dobowy < 9h (Art.8)',
+      daily_rest_under_11h:         'Odpoczynek dobowy < 11h (Art.8 ust.1)',
+      weekly_rest_under_24h:        'Odpoczynek tygodniowy < 24h (Art.8 ust.6)',
+      weekly_rest_under_45h:        'Odpoczynek tygodniowy < 45h (Art.8 ust.6)',
     };
     return labels[type] || type;
   }
@@ -772,7 +809,18 @@ ${f.vehicles?.length > 0 ? `
 <table class="tach-table"><thead><tr><th>Rejestracja</th><th>Od</th><th>Do</th></tr></thead>
 <tbody>${vehRows}</tbody></table>` : ''}
 
-<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);text-align:right">
+<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+  <div style="display:flex;gap:8px">
+    <button class="btn btn-sm" data-fid="${e(f.id)}"
+      onclick="window.TachographModule._generatePDF(this.dataset.fid)">
+      <i class="ti ti-file-type-pdf"></i> Pobierz raport PDF
+    </button>
+    <button class="btn btn-sm" data-dname="${e([f.driver_surname,f.driver_firstname].filter(Boolean).join(' '))}" data-start="${e(f.period_start||'')}" data-end="${e(f.period_end||'')}"
+      onclick="window.TachographModule._showStatementFromFile(this.dataset.dname,this.dataset.start,this.dataset.end)"
+      title="Zaświadczenie o aktywności kierowcy">
+      <i class="ti ti-file-text"></i> Zaświadczenie
+    </button>
+  </div>
   <button class="btn btn-sm" style="color:#dc2626" data-fid="${e(f.id)}" data-fname="${e(f.file_name)}"
     onclick="window.TachographModule._delFile(this.dataset.fid,this.dataset.fname);window.TachographModule._closeModal()">
     <i class="ti ti-trash"></i> Usuń plik
@@ -811,10 +859,484 @@ ${f.vehicles?.length > 0 ? `
     if (o) o.style.display = 'none';
   }
 
+  // ── TREND ─────────────────────────────────────────────────────────────────
+
+  function _renderTrend() {
+    if (!_trendData.length) {
+      return '<p style="color:var(--text3);padding:20px">Brak danych do wykresu trendu. Wczytaj pliki DDD aby zobaczyć historię naruszeń.</p>';
+    }
+
+    const maxTotal = Math.max(..._trendData.map(m => m.total), 1);
+    const chartH = 200;
+    const barW   = Math.max(30, Math.floor(540 / _trendData.length) - 8);
+
+    const bars = _trendData.map((m, i) => {
+      const x = i * (barW + 8) + 30;
+      const totalH = Math.round((m.total / maxTotal) * chartH);
+      const sH  = Math.round(((m.serious ?? 0) / maxTotal) * chartH);
+      const vsH = Math.round(((m.very_serious ?? 0) / maxTotal) * chartH);
+      const minH = Math.round(((m.minor ?? 0) / maxTotal) * chartH);
+
+      const stackY = chartH;
+      const stackParts = [
+        { h: minH,  color: '#bfdbfe', label: 'Nieznaczne' },
+        { h: sH,    color: '#fcd34d', label: 'Poważne' },
+        { h: vsH,   color: '#f87171', label: 'Bardzo poważne' },
+      ];
+
+      let yOff = stackY;
+      const rects = stackParts.map(p => {
+        if (!p.h) return '';
+        yOff -= p.h;
+        return `<rect x="${x}" y="${yOff}" width="${barW}" height="${p.h}" fill="${p.color}" rx="2"/>`;
+      }).join('');
+
+      const label = m.month.slice(5); // MM
+      const year  = m.month.slice(0, 4).slice(-2); // YY
+      return `${rects}
+        <text x="${x + barW/2}" y="${chartH + 16}" text-anchor="middle" font-size="10" fill="currentColor">${label}/${year}</text>
+        <text x="${x + barW/2}" y="${chartH - totalH - 4}" text-anchor="middle" font-size="10" font-weight="bold" fill="currentColor">${m.total}</text>`;
+    }).join('');
+
+    const svgW = _trendData.length * (barW + 8) + 60;
+
+    return `
+<h3 style="font-size:14px;margin:0 0 16px"><i class="ti ti-chart-bar"></i> Trend naruszeń (ostatnie 6 miesięcy)</h3>
+
+<div style="display:flex;gap:12px;margin-bottom:16px;font-size:12px;flex-wrap:wrap">
+  <span><span style="display:inline-block;width:12px;height:12px;background:#f87171;border-radius:2px;vertical-align:middle"></span> Bardzo poważne</span>
+  <span><span style="display:inline-block;width:12px;height:12px;background:#fcd34d;border-radius:2px;vertical-align:middle"></span> Poważne</span>
+  <span><span style="display:inline-block;width:12px;height:12px;background:#bfdbfe;border-radius:2px;vertical-align:middle"></span> Nieznaczne</span>
+</div>
+
+<div style="overflow-x:auto;background:var(--bg2);padding:20px;border-radius:12px">
+  <svg width="${svgW}" height="${chartH + 40}" style="display:block">
+    <line x1="20" y1="0" x2="20" y2="${chartH}" stroke="currentColor" stroke-opacity=".2" stroke-width="1"/>
+    <line x1="20" y1="${chartH}" x2="${svgW - 10}" y2="${chartH}" stroke="currentColor" stroke-opacity=".2" stroke-width="1"/>
+    ${bars}
+  </svg>
+</div>
+
+<div style="margin-top:16px">
+<table class="tach-table">
+  <thead><tr><th>Miesiąc</th><th>Łącznie</th><th>Bardzo poważne</th><th>Poważne</th><th>Nieznaczne</th></tr></thead>
+  <tbody>
+    ${_trendData.map(m => `<tr>
+      <td style="font-weight:600">${m.month}</td>
+      <td style="font-weight:700;color:${m.total>0?'#dc2626':'#16a34a'}">${m.total}</td>
+      <td>${m.very_serious ?? 0}</td>
+      <td>${m.serious ?? 0}</td>
+      <td>${m.minor ?? 0}</td>
+    </tr>`).join('')}
+    <tr style="background:var(--bg2)">
+      <td style="font-weight:700">SUMA</td>
+      <td style="font-weight:700;color:#dc2626">${_trendData.reduce((s,m)=>s+m.total,0)}</td>
+      <td style="font-weight:700">${_trendData.reduce((s,m)=>s+(m.very_serious??0),0)}</td>
+      <td style="font-weight:700">${_trendData.reduce((s,m)=>s+(m.serious??0),0)}</td>
+      <td style="font-weight:700">${_trendData.reduce((s,m)=>s+(m.minor??0),0)}</td>
+    </tr>
+  </tbody>
+</table>
+</div>`;
+  }
+
+  // ── PORÓWNANIE KIEROWCÓW ────────────────────────────────────────────────────
+
+  function _renderComparison() {
+    const options = _driversData.map(d =>
+      `<option value="${e((d.driver_surname||'')+'|'+(d.driver_firstname||''))}">${e(_driverName(d))}</option>`
+    ).join('');
+
+    return `
+<h3 style="font-size:14px;margin:0 0 16px"><i class="ti ti-chart-arcs"></i> Porównanie kierowców</h3>
+
+<div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap">
+  <div>
+    <label style="font-size:12px;color:var(--text3)">Kierowca 1</label><br>
+    <select id="cmp-d1" class="sel" style="width:200px"><option value="">— wybierz —</option>${options}</select>
+  </div>
+  <div>
+    <label style="font-size:12px;color:var(--text3)">Kierowca 2</label><br>
+    <select id="cmp-d2" class="sel" style="width:200px"><option value="">— wybierz —</option>${options}</select>
+  </div>
+  <div>
+    <label style="font-size:12px;color:var(--text3)">Od daty</label><br>
+    <input type="date" id="cmp-df" class="sel">
+  </div>
+  <div>
+    <label style="font-size:12px;color:var(--text3)">Do daty</label><br>
+    <input type="date" id="cmp-dt" class="sel">
+  </div>
+  <button class="btn" onclick="window.TachographModule._runComparison()"><i class="ti ti-chart-arcs"></i> Porównaj</button>
+</div>
+
+<div id="cmp-result"></div>`;
+  }
+
+  async function _runComparison() {
+    const d1 = document.getElementById('cmp-d1')?.value;
+    const d2 = document.getElementById('cmp-d2')?.value;
+    const df = document.getElementById('cmp-df')?.value;
+    const dt = document.getElementById('cmp-dt')?.value;
+
+    if (!d1 || !d2) { alert('Wybierz dwóch kierowców'); return; }
+    if (d1 === d2)  { alert('Wybierz różnych kierowców'); return; }
+
+    const el = document.getElementById('cmp-result');
+    if (el) el.innerHTML = '<div style="padding:16px;text-align:center"><i class="ti ti-loader"></i> Pobieranie danych...</div>';
+
+    try {
+      let url = `comparison?driver1=${encodeURIComponent(d1)}&driver2=${encodeURIComponent(d2)}`;
+      if (df) url += `&date_from=${df}`;
+      if (dt) url += `&date_to=${dt}`;
+      const r = await _api(url);
+      if (!r.ok) throw new Error('API error');
+      const data = await r.json();
+      if (el) el.innerHTML = _renderCompResult(data.driver1, data.driver2);
+    } catch (ex) {
+      if (el) el.innerHTML = `<p style="color:#dc2626">Błąd: ${e(ex.message)}</p>`;
+    }
+  }
+
+  function _renderCompResult(d1, d2) {
+    function col(d, vs) {
+      const rows = vs.map(([lbl, k, fmt]) => {
+        const v = d[k] ?? 0;
+        return `<tr><td style="font-size:12px;color:var(--text3)">${e(lbl)}</td><td style="font-weight:600">${fmt ? fmt(v) : e(String(v))}</td></tr>`;
+      }).join('');
+      return `
+<div class="tach-comparison-col">
+  <h4 style="margin:0 0 12px;font-size:15px">${e(d.name)}</h4>
+  <table style="width:100%;border-collapse:collapse">${rows}</table>
+</div>`;
+    }
+
+    const fields = [
+      ['Pliki DDD',            'files',               null],
+      ['Czas jazdy łącznie',   'driving_total',        _fmtMin],
+      ['Czas pracy łącznie',   'work_total',           _fmtMin],
+      ['Odpoczynek łącznie',   'rest_total',           _fmtMin],
+      ['Dyspozycja łącznie',   'availability_total',   _fmtMin],
+      ['Liczba naruszeń',      'violations',           null],
+      ['Łączne kary PLN',      'penalty_total',        v => v.toLocaleString('pl-PL') + ' PLN'],
+    ];
+
+    return `
+<div style="display:flex;gap:16px;flex-wrap:wrap">
+  ${col(d1, fields)}
+  <div style="display:flex;align-items:center;font-size:24px;color:var(--text3);padding:0 8px">VS</div>
+  ${col(d2, fields)}
+</div>
+
+<div style="margin-top:16px">
+  <h4 style="font-size:13px;margin:0 0 8px">Podsumowanie</h4>
+  ${_buildCompSummary(d1, d2)}
+</div>`;
+  }
+
+  function _buildCompSummary(d1, d2) {
+    const items = [];
+    if (d1.driving_total > d2.driving_total) items.push(`<strong>${e(d1.name)}</strong> jeździ więcej o ${_fmtMin(d1.driving_total - d2.driving_total)}`);
+    else if (d2.driving_total > d1.driving_total) items.push(`<strong>${e(d2.name)}</strong> jeździ więcej o ${_fmtMin(d2.driving_total - d1.driving_total)}`);
+    if (d1.violations > d2.violations) items.push(`<strong>${e(d1.name)}</strong> ma więcej naruszeń (+${d1.violations - d2.violations})`);
+    else if (d2.violations > d1.violations) items.push(`<strong>${e(d2.name)}</strong> ma więcej naruszeń (+${d2.violations - d1.violations})`);
+    if (!items.length) return '<p style="color:var(--text3);font-size:13px">Wyniki porównywalne.</p>';
+    return '<ul style="font-size:13px;margin:0;padding-left:16px">' + items.map(i => `<li>${i}</li>`).join('') + '</ul>';
+  }
+
+  // ── PDF RAPORT ─────────────────────────────────────────────────────────────
+
+  async function _generatePDF(fileId) {
+    const PDFLib = window.PDFLib;
+    if (!PDFLib?.PDFDocument) { alert('pdf-lib nie jest załadowana'); return; }
+    const { PDFDocument, rgb, StandardFonts } = PDFLib;
+
+    let f;
+    try {
+      const r = await _api(`report-data/${fileId}`);
+      if (!r.ok) throw new Error('API error');
+      f = await r.json();
+    } catch (ex) { alert('Błąd pobierania danych: ' + ex.message); return; }
+
+    const doc   = await PDFDocument.create();
+    const font  = await doc.embedFont(StandardFonts.Helvetica);
+    const fontB = await doc.embedFont(StandardFonts.HelveticaBold);
+
+    const W = 595, H = 842; // A4
+    let page = doc.addPage([W, H]);
+    let y    = H - 50;
+
+    function addPageIfNeeded(needed = 40) {
+      if (y < needed) {
+        page = doc.addPage([W, H]);
+        y = H - 50;
+      }
+    }
+
+    function drawText(text, opts = {}) {
+      const { x = 50, size = 10, bold = false, color } = opts;
+      page.drawText(String(text).slice(0, 200), {
+        x, y, size, font: bold ? fontB : font,
+        color: color || rgb(0, 0, 0),
+      });
+      y -= (opts.lineH || size + 4);
+    }
+
+    const driverName = [f.driver_surname, f.driver_firstname].filter(Boolean).join(' ') || '—';
+    const gray = rgb(0.5, 0.5, 0.5);
+    const red  = rgb(0.75, 0, 0);
+    const blue = rgb(0, 0, 0.5);
+
+    // Nagłówek
+    page.drawRectangle({ x: 0, y: H - 80, width: W, height: 80, color: rgb(0.04, 0.12, 0.25) });
+    page.drawText('RAPORT CZASU PRACY KIEROWCY — EU 561/2006', { x: 50, y: H - 35, size: 13, font: fontB, color: rgb(1,1,1) });
+    page.drawText(`Wygenerowano: ${new Date().toLocaleDateString('pl-PL')} przez TaxOrder Pro`, { x: 50, y: H - 52, size: 8, font, color: rgb(0.7,0.7,0.7) });
+    y = H - 100;
+
+    drawText(driverName, { size: 16, bold: true, lineH: 22 });
+    drawText(`Karta nr: ${f.card_number || '—'}  ·  Okres: ${f.period_start || '—'} — ${f.period_end || '—'}`, { size: 10, color: gray });
+    drawText(`Naruszenia: ${f.violations_count || 0}  ·  Aktywności: ${f.activities_count || 0}  ·  Plik: ${f.file_name || '—'}`, { size: 9, color: gray });
+    y -= 10;
+
+    // Linia
+    page.drawLine({ start: { x: 50, y }, end: { x: W - 50, y }, thickness: 0.5, color: gray });
+    y -= 14;
+
+    // Aktywności dzienne
+    drawText('AKTYWNOŚCI DZIENNE', { size: 11, bold: true, color: blue });
+    y -= 4;
+
+    const byDate = {};
+    for (const a of (f.activities || [])) {
+      if (!byDate[a.activity_date]) byDate[a.activity_date] = {};
+      byDate[a.activity_date][a.activity_type] = (byDate[a.activity_date][a.activity_type] || 0) + (a.duration_min || 0);
+    }
+
+    const COL = [50, 130, 185, 240, 295, 360];
+    const HDR = ['Data', 'Jazda', 'Praca', 'Dyspozycja', 'Odpoczynek', 'Razem'];
+    HDR.forEach((h, i) => { page.drawText(h, { x: COL[i], y, size: 8, font: fontB, color: gray }); });
+    y -= 4;
+    page.drawLine({ start: { x: 50, y }, end: { x: W - 50, y }, thickness: 0.3, color: gray });
+    y -= 12;
+
+    for (const [date, tots] of Object.entries(byDate).sort(([a], [b]) => a.localeCompare(b))) {
+      addPageIfNeeded(20);
+      const total = Object.values(tots).reduce((s, v) => s + v, 0);
+      const row = [
+        new Date(date + 'T00:00:00Z').toLocaleDateString('pl-PL'),
+        _fmtMin(tots.driving), _fmtMin(tots.work), _fmtMin(tots.availability),
+        _fmtMin(tots.rest), _fmtMin(total),
+      ];
+      row.forEach((cell, i) => {
+        if (cell !== '—') page.drawText(cell, { x: COL[i], y, size: 9, font });
+      });
+      y -= 13;
+    }
+
+    // Naruszenia
+    if ((f.violations || []).length > 0) {
+      addPageIfNeeded(60);
+      y -= 8;
+      page.drawLine({ start: { x: 50, y }, end: { x: W - 50, y }, thickness: 0.3, color: gray });
+      y -= 14;
+      drawText('WYKRYTE NARUSZENIA', { size: 11, bold: true, color: red });
+      y -= 4;
+
+      for (const v of f.violations) {
+        addPageIfNeeded(32);
+        const sev = SEVERITY[v.severity] || SEVERITY.minor;
+        drawText(`• ${new Date((v.violation_date||'2000-01-01') + 'T00:00:00Z').toLocaleDateString('pl-PL')} — ${v.description || v.violation_type}`, { size: 9 });
+        y += 2;
+        drawText(`  ${v.regulation || ''}  |  ${sev.label}${(v.penalty_pln||0)>0?' | Kara: '+v.penalty_pln+' PLN':''}`, { size: 8, color: gray, lineH: 16 });
+        y -= 4;
+      }
+    }
+
+    // Podpisy
+    addPageIfNeeded(80);
+    y -= 20;
+    page.drawLine({ start: { x: 50, y }, end: { x: W - 50, y }, thickness: 0.3, color: gray });
+    y -= 30;
+    page.drawLine({ start: { x: 50, y }, end: { x: 220, y }, thickness: 0.5, color: gray });
+    page.drawLine({ start: { x: 300, y }, end: { x: 470, y }, thickness: 0.5, color: gray });
+    y -= 12;
+    page.drawText('Podpis kierowcy', { x: 100, y, size: 8, font, color: gray });
+    page.drawText('Podpis pracodawcy / dysponenta', { x: 300, y, size: 8, font, color: gray });
+
+    const bytes = await doc.save();
+    const blob  = new Blob([bytes], { type: 'application/pdf' });
+    const link  = document.createElement('a');
+    link.href   = URL.createObjectURL(blob);
+    link.download = `tacho_raport_${driverName.replace(/\s+/g,'_')}_${f.period_start || 'brak'}.pdf`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+  // ── CSV EXPORT ─────────────────────────────────────────────────────────────
+
+  function _exportCSV(type) {
+    const df = document.getElementById('viol-df')?.value || '';
+    const dt = document.getElementById('viol-dt')?.value || '';
+    let url = `${API()}/api/tacho-ddd/export-csv?company=${encodeURIComponent(Co())}&type=${type}`;
+    if (df) url += `&date_from=${df}`;
+    if (dt) url += `&date_to=${dt}`;
+
+    const link = document.createElement('a');
+    link.href  = url;
+    // Worker zwróci Content-Disposition: attachment — przeglądarka pobierze plik
+    link.click();
+  }
+
+  // ── RĘCZNE POWIĄZANIE ─────────────────────────────────────────────────────
+
+  async function _showLinkModal(driverKey, driverName) {
+    _showModal('<div style="padding:20px;text-align:center"><i class="ti ti-loader"></i> Ładowanie kierowców...</div>');
+    try {
+      const r = await fetch(`${API()}/api/drivers?company=${encodeURIComponent(Co())}`, { headers: H() });
+      _driversList = r.ok ? (await r.json()).drivers || [] : [];
+    } catch { _driversList = []; }
+
+    const opts = _driversList.map(d =>
+      `<option value="${e(d.id)}">${e(d.name || d.id)}</option>`
+    ).join('');
+
+    _showModal(`
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+  <h3 style="margin:0;font-size:16px"><i class="ti ti-link"></i> Powiąż z kartoteką kierowców</h3>
+  <button onclick="window.TachographModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+</div>
+<p style="font-size:13px;color:var(--text3);margin:0 0 16px">
+  Kierowca w DDD: <strong>${e(driverName)}</strong>
+</p>
+<div style="margin-bottom:16px">
+  <label style="font-size:12px;color:var(--text3)">Powiąż z kierowcą z kartoteki:</label><br><br>
+  <select id="link-driver-select" class="sel" style="width:100%;max-width:400px">
+    <option value="">— brak powiązania —</option>
+    ${opts}
+  </select>
+</div>
+<div style="display:flex;gap:8px;justify-content:flex-end">
+  <button class="btn" onclick="window.TachographModule._closeModal()">Anuluj</button>
+  <button class="btn btn-primary" data-dkey="${e(driverKey)}"
+    onclick="window.TachographModule._saveLinkDriver(this.dataset.dkey)">
+    <i class="ti ti-check"></i> Zapisz powiązanie
+  </button>
+</div>`);
+  }
+
+  async function _saveLinkDriver(driverKey) {
+    const driverId = document.getElementById('link-driver-select')?.value || '';
+    const [surname, firstname] = decodeURIComponent(driverKey).split('|');
+
+    // Pobierz id ostatniego pliku danego kierowcy
+    try {
+      const filesR = await fetch(`${API()}/api/tacho-ddd/driver-files/${driverKey}?company=${encodeURIComponent(Co())}`, { headers: H() });
+      const files = filesR.ok ? await filesR.json() : [];
+      const putPromises = files.map(f =>
+        fetch(`${API()}/api/tacho-ddd/files/${f.id}/link?company=${encodeURIComponent(Co())}`, {
+          method: 'PUT', headers: { ...H(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ driver_id: driverId || null })
+        })
+      );
+      await Promise.all(putPromises);
+      _closeModal();
+      await _loadAll();
+      _setTab('drivers');
+    } catch (ex) { alert('Błąd: ' + ex.message); }
+  }
+
+  // ── ZAŚWIADCZENIE ─────────────────────────────────────────────────────────
+
+  async function _showDriverStatement(driverKey, driverName) {
+    const [sn, fn] = decodeURIComponent(driverKey).split('|');
+    _showModal('<div style="padding:20px;text-align:center"><i class="ti ti-loader"></i> Ładowanie danych...</div>');
+    try {
+      const filesR = await fetch(`${API()}/api/tacho-ddd/driver-files/${driverKey}?company=${encodeURIComponent(Co())}`, { headers: H() });
+      const files = filesR.ok ? await filesR.json() : [];
+      if (!files.length) { _showModal('<div style="padding:20px"><p>Brak plików DDD dla tego kierowcy.</p><button class="btn" onclick="window.TachographModule._closeModal()">Zamknij</button></div>'); return; }
+      const latest = files[0];
+      await _showStatementFromFile(driverName, latest.period_start, latest.period_end, latest.id);
+    } catch (ex) { _closeModal(); alert('Błąd: ' + ex.message); }
+  }
+
+  async function _showStatementFromFile(driverName, periodStart, periodEnd, fileId) {
+    _showModal('<div style="padding:20px;text-align:center"><i class="ti ti-loader"></i> Ładowanie aktywności...</div>');
+    let fileData = null;
+    if (fileId) {
+      try {
+        const r = await _api(`report-data/${fileId}`);
+        if (r.ok) fileData = await r.json();
+      } catch {}
+    }
+
+    const today = new Date().toLocaleDateString('pl-PL');
+    const byDate = {};
+    for (const a of (fileData?.activities || [])) {
+      if (!byDate[a.activity_date]) byDate[a.activity_date] = {};
+      byDate[a.activity_date][a.activity_type] = (byDate[a.activity_date][a.activity_type] || 0) + (a.duration_min || 0);
+    }
+
+    const tableRows = Object.entries(byDate).sort(([a],[b])=>a.localeCompare(b)).map(([date, tots]) => {
+      const total = Object.values(tots).reduce((s,v)=>s+v,0);
+      return `<tr style="font-size:12px">
+        <td style="padding:5px 8px;border:1px solid #ccc">${new Date(date+'T00:00:00Z').toLocaleDateString('pl-PL')}</td>
+        <td style="padding:5px 8px;border:1px solid #ccc;text-align:center">${_fmtMin(tots.driving??0)}</td>
+        <td style="padding:5px 8px;border:1px solid #ccc;text-align:center">${_fmtMin(tots.work??0)}</td>
+        <td style="padding:5px 8px;border:1px solid #ccc;text-align:center">${_fmtMin(tots.availability??0)}</td>
+        <td style="padding:5px 8px;border:1px solid #ccc;text-align:center">${_fmtMin(tots.rest??0)}</td>
+        <td style="padding:5px 8px;border:1px solid #ccc;text-align:center;font-weight:600">${_fmtMin(total)}</td>
+      </tr>`;
+    }).join('');
+
+    _showModal(`
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+  <h3 style="margin:0;font-size:16px"><i class="ti ti-file-text"></i> Zaświadczenie o aktywności kierowcy</h3>
+  <div style="display:flex;gap:8px">
+    <button class="btn btn-sm" onclick="window.print()"><i class="ti ti-printer"></i> Drukuj</button>
+    <button onclick="window.TachographModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  </div>
+</div>
+<div id="tacho-statement-print" style="font-family:Arial,sans-serif;font-size:13px">
+  <div style="text-align:center;margin-bottom:16px">
+    <h2 style="font-size:16px;margin:0 0 4px">ZAŚWIADCZENIE O AKTYWNOŚCI KIEROWCY</h2>
+    <p style="margin:0;font-size:11px;color:#666">Podstawa prawna: Rozporządzenie WE 561/2006 Art. 34 ust. 3</p>
+  </div>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px">
+    <tr><td style="padding:4px 8px;border:1px solid #ccc;width:35%;background:#f5f5f5;font-weight:600">Imię i nazwisko kierowcy</td><td style="padding:4px 8px;border:1px solid #ccc">${e(driverName)}</td></tr>
+    <tr><td style="padding:4px 8px;border:1px solid #ccc;background:#f5f5f5;font-weight:600">Karta kierowcy nr</td><td style="padding:4px 8px;border:1px solid #ccc">${e(fileData?.card_number||'—')}</td></tr>
+    <tr><td style="padding:4px 8px;border:1px solid #ccc;background:#f5f5f5;font-weight:600">Okres</td><td style="padding:4px 8px;border:1px solid #ccc">${e(periodStart||'—')} – ${e(periodEnd||'—')}</td></tr>
+    <tr><td style="padding:4px 8px;border:1px solid #ccc;background:#f5f5f5;font-weight:600">Data wystawienia</td><td style="padding:4px 8px;border:1px solid #ccc">${today}</td></tr>
+  </table>
+  ${tableRows ? `
+  <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+    <thead><tr style="background:#f5f5f5">
+      <th style="padding:6px 8px;border:1px solid #ccc;font-size:11px">Data</th>
+      <th style="padding:6px 8px;border:1px solid #ccc;font-size:11px">Jazda</th>
+      <th style="padding:6px 8px;border:1px solid #ccc;font-size:11px">Praca</th>
+      <th style="padding:6px 8px;border:1px solid #ccc;font-size:11px">Dyspozycja</th>
+      <th style="padding:6px 8px;border:1px solid #ccc;font-size:11px">Odpoczynek</th>
+      <th style="padding:6px 8px;border:1px solid #ccc;font-size:11px">Razem</th>
+    </tr></thead>
+    <tbody>${tableRows}</tbody>
+  </table>` : '<p style="color:#999;font-size:12px">Brak danych aktywności w tym pliku.</p>'}
+  <div style="display:flex;justify-content:space-between;margin-top:30px">
+    <div style="text-align:center">
+      <div style="width:200px;border-top:1px solid #333;padding-top:6px;font-size:11px;color:#666">Podpis kierowcy</div>
+    </div>
+    <div style="text-align:center">
+      <div style="width:200px;border-top:1px solid #333;padding-top:6px;font-size:11px;color:#666">Pieczęć i podpis pracodawcy</div>
+    </div>
+  </div>
+</div>`);
+  }
+
   // ── exports ────────────────────────────────────────────────────────────────
 
   window.TachographModule = {
     renderTachograph, _setTab, _uploadFiles, _clearResults,
-    _showFile, _closeModal, _delFile, _filterViols, _showDriverFiles
+    _showFile, _closeModal, _delFile, _filterViols, _showDriverFiles,
+    _runComparison, _generatePDF, _exportCSV,
+    _showLinkModal, _saveLinkDriver,
+    _showDriverStatement, _showStatementFromFile,
   };
 })();

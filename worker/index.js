@@ -6010,97 +6010,172 @@ function _tachoFmtMin(min) {
 }
 
 // Detekcja naruszeń EU 561/2006 na podstawie sparsowanych aktywności
+// Kary pieniężne PLN za naruszenia wg rozporządzenia o taryfikatorze (Annex 4 do rozp. 2016/403)
+const TACHO_PENALTIES_PLN = {
+  daily_driving_over_10h:          { very_serious: 500,  most_serious: 2000 },
+  daily_driving_over_9h:           { serious: 200 },
+  continuous_driving_over_4h30:    { serious: 300,  very_serious: 500  },
+  weekly_driving_over_56h:         { serious: 300,  very_serious: 1000 },
+  two_week_driving_over_90h:       { serious: 500,  very_serious: 2000 },
+  daily_rest_under_9h:             { serious: 500,  very_serious: 1500 },
+  daily_rest_under_11h:            { minor: 100 },
+  weekly_rest_under_24h:           { very_serious: 1500, most_serious: 3000 },
+  weekly_rest_under_45h:           { serious: 500 },
+};
+
+function _tachoPenalty(type, severity) {
+  return TACHO_PENALTIES_PLN[type]?.[severity] ?? 0;
+}
+
+// Czas zakończenia ostatniej nie-odpoczynkowej aktywności w danym dniu (w minutach od północy)
+function _lastNonRestEnd(acts) {
+  const sorted = [...acts].sort((a, b) => a.timeMin - b.timeMin);
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    if (sorted[i].activity !== 'rest') {
+      return sorted[i + 1] ? sorted[i + 1].timeMin : 1440;
+    }
+  }
+  return null; // cały dzień odpoczynek
+}
+
+// Czas rozpoczęcia pierwszej nie-odpoczynkowej aktywności następnego dnia
+function _firstNonRestStart(acts) {
+  const sorted = [...acts].sort((a, b) => a.timeMin - b.timeMin);
+  for (const a of sorted) {
+    if (a.activity !== 'rest') return a.timeMin;
+  }
+  return null;
+}
+
 function detectViolations561(activitiesByDay) {
   const violations = [];
 
-  // Analiza per dzień
+  // ── Analiza per dzień: czas jazdy i ciągłość ──────────────────────────────
   for (const { date, activities } of activitiesByDay) {
     const sorted = [...activities].sort((a, b) => a.timeMin - b.timeMin);
-    let totalDriving = 0;
-    let continuousDriving = 0;
-    let maxContinuous = 0;
-    let breakAccum = 0;
+    let totalDriving = 0, continuousDriving = 0, maxContinuous = 0, breakAccum = 0;
 
     for (let ai = 0; ai < sorted.length; ai++) {
-      const act  = sorted[ai];
-      const next = sorted[ai + 1];
-      const dur  = Math.max(0, (next ? next.timeMin : 1440) - act.timeMin);
-
+      const act = sorted[ai];
+      const dur = Math.max(0, (sorted[ai + 1] ? sorted[ai + 1].timeMin : 1440) - act.timeMin);
       if (act.activity === 'driving') {
-        totalDriving    += dur;
-        continuousDriving += dur;
-        breakAccum       = 0;
+        totalDriving += dur; continuousDriving += dur; breakAccum = 0;
         if (continuousDriving > maxContinuous) maxContinuous = continuousDriving;
       } else if (act.activity === 'rest') {
         breakAccum += dur;
-        if (breakAccum >= 45) { continuousDriving = 0; } // przerwa >= 45 min resetuje
+        if (breakAccum >= 45) continuousDriving = 0;
       } else {
-        // work / availability: nie liczy się jako przerwa
         breakAccum = 0;
       }
     }
 
-    // Naruszenie: dobowy czas jazdy > 10h (art. 6 ust. 1 - bez możliwości przedłużenia)
     if (totalDriving > 600) {
-      violations.push({
-        violation_date: date,
-        violation_type: 'daily_driving_over_10h',
-        severity: 'very_serious',
+      violations.push({ violation_date: date, violation_type: 'daily_driving_over_10h', severity: 'very_serious',
         description: `Czas jazdy dobowej: ${_tachoFmtMin(totalDriving)} (limit: 10h)`,
-        regulation: '561/2006 Art. 6 ust. 1',
-        actual_value: totalDriving, limit_value: 600
-      });
+        regulation: '561/2006 Art. 6 ust. 1', actual_value: totalDriving, limit_value: 600,
+        penalty_pln: _tachoPenalty('daily_driving_over_10h', 'very_serious') });
     } else if (totalDriving > 540) {
-      violations.push({
-        violation_date: date,
-        violation_type: 'daily_driving_over_9h',
-        severity: 'serious',
-        description: `Czas jazdy dobowej: ${_tachoFmtMin(totalDriving)} (limit standardowy: 9h)`,
-        regulation: '561/2006 Art. 6 ust. 1',
-        actual_value: totalDriving, limit_value: 540
-      });
+      violations.push({ violation_date: date, violation_type: 'daily_driving_over_9h', severity: 'serious',
+        description: `Czas jazdy dobowej: ${_tachoFmtMin(totalDriving)} (limit: 9h)`,
+        regulation: '561/2006 Art. 6 ust. 1', actual_value: totalDriving, limit_value: 540,
+        penalty_pln: _tachoPenalty('daily_driving_over_9h', 'serious') });
     }
 
-    // Naruszenie: ciągły czas jazdy > 4,5h bez 45-min przerwy (art. 7)
     if (maxContinuous > 270) {
-      violations.push({
-        violation_date: date,
-        violation_type: 'continuous_driving_over_4h30',
-        severity: maxContinuous > 360 ? 'very_serious' : 'serious',
-        description: `Ciągły czas jazdy: ${_tachoFmtMin(maxContinuous)} bez wymaganej 45-min przerwy`,
-        regulation: '561/2006 Art. 7',
-        actual_value: maxContinuous, limit_value: 270
-      });
+      const sev = maxContinuous > 360 ? 'very_serious' : 'serious';
+      violations.push({ violation_date: date, violation_type: 'continuous_driving_over_4h30', severity: sev,
+        description: `Ciągły czas jazdy: ${_tachoFmtMin(maxContinuous)} bez 45-min przerwy`,
+        regulation: '561/2006 Art. 7', actual_value: maxContinuous, limit_value: 270,
+        penalty_pln: _tachoPenalty('continuous_driving_over_4h30', sev) });
     }
   }
 
-  // Tygodniowy czas jazdy > 56h (art. 6 ust. 2)
+  // ── Odpoczynek dobowy między kolejnymi dniami ─────────────────────────────
+  const chronDays = [...activitiesByDay].sort((a, b) => a.date.localeCompare(b.date));
+  for (let di = 0; di + 1 < chronDays.length; di++) {
+    const dayA = chronDays[di], dayB = chronDays[di + 1];
+    const diff = Math.round((new Date(dayB.date + 'T00:00:00Z') - new Date(dayA.date + 'T00:00:00Z')) / 86400000);
+    if (diff !== 1) continue;
+    const lastEnd   = _lastNonRestEnd(dayA.activities);
+    const firstStart = _firstNonRestStart(dayB.activities);
+    if (lastEnd === null || firstStart === null) continue;
+    const restMin = (1440 - lastEnd) + firstStart;
+    if (restMin < 540) {
+      const sev = restMin < 360 ? 'very_serious' : 'serious';
+      violations.push({ violation_date: dayA.date, violation_type: 'daily_rest_under_9h', severity: sev,
+        description: `Odpoczynek dobowy: ${_tachoFmtMin(restMin)} (wymagane min. 9h — naruszone!)`,
+        regulation: '561/2006 Art. 8', actual_value: restMin, limit_value: 540,
+        penalty_pln: _tachoPenalty('daily_rest_under_9h', sev) });
+    } else if (restMin < 660) {
+      violations.push({ violation_date: dayA.date, violation_type: 'daily_rest_under_11h', severity: 'minor',
+        description: `Odpoczynek dobowy: ${_tachoFmtMin(restMin)} (poniżej 11h; dopuszcz. skrócony max 3×/tydz.)`,
+        regulation: '561/2006 Art. 8 ust. 1', actual_value: restMin, limit_value: 660,
+        penalty_pln: _tachoPenalty('daily_rest_under_11h', 'minor') });
+    }
+  }
+
+  // ── Tygodniowy czas jazdy > 56h (art. 6 ust. 2) ──────────────────────────
   const byWeek = {};
   for (const { date, activities } of activitiesByDay) {
     const d = new Date(date + 'T00:00:00Z');
-    // ISO tydzień (poniedziałek = 1)
     const dow = d.getUTCDay() || 7;
-    const weekMon = new Date(d);
-    weekMon.setUTCDate(d.getUTCDate() - (dow - 1));
-    const wk = weekMon.toISOString().slice(0, 10);
+    const mon = new Date(d); mon.setUTCDate(d.getUTCDate() - (dow - 1));
+    const wk = mon.toISOString().slice(0, 10);
     if (!byWeek[wk]) byWeek[wk] = 0;
-    const sorted = [...activities].sort((a, b) => a.timeMin - b.timeMin);
-    for (let ai = 0; ai < sorted.length; ai++) {
-      if (sorted[ai].activity !== 'driving') continue;
-      const dur = Math.max(0, (sorted[ai + 1]?.timeMin ?? 1440) - sorted[ai].timeMin);
-      byWeek[wk] += dur;
+    const s = [...activities].sort((a, b) => a.timeMin - b.timeMin);
+    for (let ai = 0; ai < s.length; ai++) {
+      if (s[ai].activity !== 'driving') continue;
+      byWeek[wk] += Math.max(0, (s[ai + 1]?.timeMin ?? 1440) - s[ai].timeMin);
     }
   }
-  for (const [wk, totalMin] of Object.entries(byWeek)) {
-    if (totalMin > 3360) {
-      violations.push({
-        violation_date: wk,
-        violation_type: 'weekly_driving_over_56h',
-        severity: totalMin > 4200 ? 'very_serious' : 'serious',
-        description: `Tygodniowy czas jazdy: ${_tachoFmtMin(totalMin)} (limit: 56h)`,
-        regulation: '561/2006 Art. 6 ust. 2',
-        actual_value: totalMin, limit_value: 3360
-      });
+  const weeks = Object.entries(byWeek).sort(([a], [b]) => a.localeCompare(b));
+  for (const [wk, total] of weeks) {
+    if (total > 3360) {
+      const sev = total > 4200 ? 'very_serious' : 'serious';
+      violations.push({ violation_date: wk, violation_type: 'weekly_driving_over_56h', severity: sev,
+        description: `Tygodniowy czas jazdy: ${_tachoFmtMin(total)} (limit: 56h)`,
+        regulation: '561/2006 Art. 6 ust. 2', actual_value: total, limit_value: 3360,
+        penalty_pln: _tachoPenalty('weekly_driving_over_56h', sev) });
+    }
+  }
+
+  // ── Suma 2 tygodni > 90h (art. 6 ust. 3) ────────────────────────────────
+  for (let wi = 0; wi + 1 < weeks.length; wi++) {
+    const twoWeek = weeks[wi][1] + weeks[wi + 1][1];
+    if (twoWeek > 5400) {
+      const sev = twoWeek > 6000 ? 'very_serious' : 'serious';
+      violations.push({ violation_date: weeks[wi][0], violation_type: 'two_week_driving_over_90h', severity: sev,
+        description: `Suma 2 tygodni od ${weeks[wi][0]}: ${_tachoFmtMin(twoWeek)} (limit: 90h)`,
+        regulation: '561/2006 Art. 6 ust. 3', actual_value: twoWeek, limit_value: 5400,
+        penalty_pln: _tachoPenalty('two_week_driving_over_90h', sev) });
+    }
+  }
+
+  // ── Tygodniowy odpoczynek < 45h (uproszczone: sprawdź sumę odpoczynku w tygodniu) ──
+  const weekRest = {};
+  for (const { date, activities } of activitiesByDay) {
+    const d = new Date(date + 'T00:00:00Z');
+    const dow = d.getUTCDay() || 7;
+    const mon = new Date(d); mon.setUTCDate(d.getUTCDate() - (dow - 1));
+    const wk = mon.toISOString().slice(0, 10);
+    if (!weekRest[wk]) weekRest[wk] = 0;
+    const s = [...activities].sort((a, b) => a.timeMin - b.timeMin);
+    for (let ai = 0; ai < s.length; ai++) {
+      if (s[ai].activity !== 'rest') continue;
+      weekRest[wk] += Math.max(0, (s[ai + 1]?.timeMin ?? 1440) - s[ai].timeMin);
+    }
+  }
+  for (const [wk, restTotal] of Object.entries(weekRest)) {
+    if (restTotal < 1440) { // < 24h odpoczynku tygodniowego
+      violations.push({ violation_date: wk, violation_type: 'weekly_rest_under_24h', severity: 'very_serious',
+        description: `Odpoczynek tygodniowy: ${_tachoFmtMin(restTotal)} (wymagane min. 24h skrócone lub 45h regularne)`,
+        regulation: '561/2006 Art. 8 ust. 6', actual_value: restTotal, limit_value: 1440,
+        penalty_pln: _tachoPenalty('weekly_rest_under_24h', 'very_serious') });
+    } else if (restTotal < 2700) { // < 45h regularnego
+      violations.push({ violation_date: wk, violation_type: 'weekly_rest_under_45h', severity: 'serious',
+        description: `Odpoczynek tygodniowy: ${_tachoFmtMin(restTotal)} (poniżej 45h; skrócony 24h co drugi tydz. z kompensatą)`,
+        regulation: '561/2006 Art. 8 ust. 6', actual_value: restTotal, limit_value: 2700,
+        penalty_pln: _tachoPenalty('weekly_rest_under_45h', 'serious') });
     }
   }
 
@@ -6374,10 +6449,10 @@ async function handleTachoDDD(req, env, user, url, path) {
       }
 
       const violStmts = violations.map(v => env.DB.prepare(
-        `INSERT INTO tachograph_violations (id,file_id,company_id,violation_date,violation_type,severity,description,regulation,actual_value,limit_value)
-         VALUES (?,?,?,?,?,?,?,?,?,?)`
+        `INSERT INTO tachograph_violations (id,file_id,company_id,violation_date,violation_type,severity,description,regulation,actual_value,limit_value,penalty_pln)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?)`
       ).bind(crypto.randomUUID(), fileId, company, v.violation_date, v.violation_type,
-        v.severity, v.description, v.regulation, v.actual_value ?? null, v.limit_value ?? null));
+        v.severity, v.description, v.regulation, v.actual_value ?? null, v.limit_value ?? null, v.penalty_pln ?? 0));
 
       const vehStmts = (parsed.vehiclesUsed || []).map(v => env.DB.prepare(
         `INSERT INTO tachograph_vehicles_used (id,file_id,company_id,vehicle_reg,first_use,last_use)
@@ -6401,7 +6476,217 @@ async function handleTachoDDD(req, env, user, url, path) {
     return json({ ok: true, results: uploadResults });
   }
 
+  // GET /api/tacho-ddd/trend — miesięczne naruszenia (wykres trendu)
+  if (method === 'GET' && sub === 'trend') {
+    const months = parseInt(url.searchParams.get('months') || '6', 10);
+    const rows = (await env.DB.prepare(
+      `SELECT substr(violation_date,1,7) ym, severity, COUNT(*) cnt
+       FROM tachograph_violations WHERE company_id=?
+         AND violation_date >= date('now', '-' || ? || ' months')
+       GROUP BY substr(violation_date,1,7), severity
+       ORDER BY ym ASC`
+    ).bind(company, months).all()).results || [];
+
+    // Aggreguj per miesiąc
+    const monthMap = {};
+    for (const r of rows) {
+      if (!monthMap[r.ym]) monthMap[r.ym] = { month: r.ym, minor: 0, serious: 0, very_serious: 0, most_serious: 0, total: 0 };
+      monthMap[r.ym][r.severity] = (monthMap[r.ym][r.severity] ?? 0) + r.cnt;
+      monthMap[r.ym].total += r.cnt;
+    }
+    return json(Object.values(monthMap).sort((a, b) => a.month.localeCompare(b.month)));
+  }
+
+  // GET /api/tacho-ddd/report-data/:id — pełne dane do generowania PDF w przeglądarce
+  if (method === 'GET' && sub === 'report-data' && itemId) {
+    const file = await env.DB.prepare('SELECT * FROM tachograph_files WHERE id=? AND company_id=?').bind(itemId, company).first();
+    if (!file) return err('Nie znaleziono', 404);
+    const [acts, viols, vehs] = await Promise.all([
+      env.DB.prepare('SELECT * FROM tachograph_activities WHERE file_id=? ORDER BY activity_date, start_time').bind(itemId).all(),
+      env.DB.prepare('SELECT * FROM tachograph_violations WHERE file_id=? ORDER BY violation_date').bind(itemId).all(),
+      env.DB.prepare('SELECT * FROM tachograph_vehicles_used WHERE file_id=?').bind(itemId).all(),
+    ]);
+    return json({ ...file, activities: acts.results || [], violations: viols.results || [], vehicles: vehs.results || [] });
+  }
+
+  // GET /api/tacho-ddd/export-csv — eksport CSV naruszeń lub aktywności
+  if (method === 'GET' && sub === 'export-csv') {
+    const type = url.searchParams.get('type') || 'violations'; // 'violations' | 'activities'
+    const dateFrom = url.searchParams.get('date_from') || '';
+    const dateTo   = url.searchParams.get('date_to')   || '';
+
+    let rows;
+    let csvHeader;
+
+    if (type === 'activities') {
+      let q = `SELECT f.driver_surname, f.driver_firstname, a.activity_date, a.start_time, a.end_time,
+                      a.duration_min, a.activity_type
+               FROM tachograph_activities a JOIN tachograph_files f ON f.id=a.file_id
+               WHERE a.company_id=?`;
+      const p = [company];
+      if (dateFrom) { q += ' AND a.activity_date>=?'; p.push(dateFrom); }
+      if (dateTo)   { q += ' AND a.activity_date<=?'; p.push(dateTo); }
+      q += ' ORDER BY f.driver_surname, a.activity_date, a.start_time LIMIT 50000';
+      rows = (await env.DB.prepare(q).bind(...p).all()).results || [];
+      csvHeader = 'Nazwisko;Imię;Data;Godz. od;Godz. do;Czas (min);Aktywność\n';
+    } else {
+      let q = `SELECT f.driver_surname, f.driver_firstname, v.violation_date, v.violation_type,
+                      v.severity, v.description, v.regulation, v.actual_value, v.limit_value, v.penalty_pln
+               FROM tachograph_violations v JOIN tachograph_files f ON f.id=v.file_id
+               WHERE v.company_id=?`;
+      const p = [company];
+      if (dateFrom) { q += ' AND v.violation_date>=?'; p.push(dateFrom); }
+      if (dateTo)   { q += ' AND v.violation_date<=?'; p.push(dateTo); }
+      q += ' ORDER BY v.violation_date DESC LIMIT 50000';
+      rows = (await env.DB.prepare(q).bind(...p).all()).results || [];
+      csvHeader = 'Nazwisko;Imię;Data;Typ naruszenia;Waga;Opis;Przepis;Faktyczna wartość (min);Limit (min);Kara PLN\n';
+    }
+
+    const csvEsc = v => {
+      if (v == null) return '';
+      const s = String(v);
+      return s.includes(';') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+
+    const csvBody = rows.map(r => Object.values(r).map(csvEsc).join(';')).join('\n');
+    const csv = csvHeader + csvBody;
+    return new Response(csv, {
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="tacho_${type}_${new Date().toISOString().slice(0,10)}.csv"`,
+        'Access-Control-Allow-Origin': '*',
+      }
+    });
+  }
+
+  // PUT /api/tacho-ddd/files/:id/link — ręczne powiązanie kierowcy/pojazdu
+  if (method === 'PUT' && sub === 'files' && itemId && segs[4] === 'link') {
+    let body;
+    try { body = await req.json(); } catch { return err('Nieprawidłowy JSON', 400); }
+    const { driver_id, vehicle_id } = body;
+    // Weryfikacja ownership
+    const file = await env.DB.prepare('SELECT id FROM tachograph_files WHERE id=? AND company_id=?').bind(itemId, company).first();
+    if (!file) return err('Nie znaleziono', 404);
+    const fields = [];
+    const vals   = [];
+    if (driver_id  !== undefined) { fields.push('driver_id=?');  vals.push(driver_id  || null); }
+    if (vehicle_id !== undefined) { fields.push('vehicle_id=?'); vals.push(vehicle_id || null); }
+    if (!fields.length) return err('Brak pól do aktualizacji', 400);
+    vals.push(itemId, company);
+    await env.DB.prepare(`UPDATE tachograph_files SET ${fields.join(',')} WHERE id=? AND company_id=?`)
+      .bind(...vals).run();
+    return json({ ok: true });
+  }
+
+  // GET /api/tacho-ddd/comparison — porównanie dwóch kierowców
+  if (method === 'GET' && sub === 'comparison') {
+    const k1 = url.searchParams.get('driver1') || '';
+    const k2 = url.searchParams.get('driver2') || '';
+    const dateFrom = url.searchParams.get('date_from') || '';
+    const dateTo   = url.searchParams.get('date_to')   || '';
+
+    async function driverStats(key) {
+      const [sn, fn] = key.split('|');
+      let fq = `SELECT id FROM tachograph_files WHERE company_id=? AND LOWER(COALESCE(driver_surname,''))=LOWER(?) AND LOWER(COALESCE(driver_firstname,''))=LOWER(?)`;
+      const fp = [company, sn || '', fn || ''];
+      if (dateFrom) { fq += ' AND period_end>=?'; fp.push(dateFrom); }
+      if (dateTo)   { fq += ' AND period_start<=?'; fp.push(dateTo); }
+      const fileIds = ((await env.DB.prepare(fq).bind(...fp).all()).results || []).map(r => r.id);
+      if (!fileIds.length) return { name: key.replace('|', ' '), files: 0, driving_total: 0, rest_total: 0, violations: 0, penalty_total: 0 };
+
+      const placeholders = fileIds.map(() => '?').join(',');
+      const [acts, viols] = await Promise.all([
+        env.DB.prepare(`SELECT activity_type, SUM(duration_min) tot FROM tachograph_activities WHERE file_id IN (${placeholders}) GROUP BY activity_type`).bind(...fileIds).all(),
+        env.DB.prepare(`SELECT COUNT(*) cnt, COALESCE(SUM(penalty_pln),0) penalty FROM tachograph_violations WHERE file_id IN (${placeholders})`).bind(...fileIds).first(),
+      ]);
+      const actMap = {};
+      for (const r of (acts.results || [])) actMap[r.activity_type] = r.tot;
+      return {
+        name: `${sn} ${fn}`.trim(),
+        files: fileIds.length,
+        driving_total: actMap.driving ?? 0,
+        work_total: actMap.work ?? 0,
+        rest_total: actMap.rest ?? 0,
+        availability_total: actMap.availability ?? 0,
+        violations: viols?.cnt ?? 0,
+        penalty_total: viols?.penalty ?? 0,
+      };
+    }
+
+    const [d1, d2] = await Promise.all([driverStats(k1), driverStats(k2)]);
+    return json({ driver1: d1, driver2: d2 });
+  }
+
   return err('Metoda nieobsługiwana', 405);
+}
+
+// ─── TACHOGRAPH NIGHTLY CHECK ─────────────────────────────────────────────────
+
+async function runNightlyTachoCheck(env) {
+  try {
+    const today    = new Date().toISOString().slice(0, 10);
+    const warn30   = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+    const cutoff28 = new Date(Date.now() - 28 * 86400000).toISOString().slice(0, 10);
+
+    // 1. Karty wygasające w ciągu 30 dni
+    const expiring = (await env.DB.prepare(
+      `SELECT DISTINCT company_id, driver_surname, driver_firstname, card_number, card_expiry
+       FROM tachograph_files WHERE card_expiry IS NOT NULL AND card_expiry>=? AND card_expiry<=?`
+    ).bind(today, warn30).all()).results || [];
+
+    for (const c of expiring) {
+      const days = Math.ceil((new Date(c.card_expiry) - new Date(today)) / 86400000);
+      await _tachoSaveAlert(env, c.company_id, 'card_expiry',
+        `Karta kierowcy wygasa za ${days} dni`,
+        `${c.driver_surname || ''} ${c.driver_firstname || ''} — nr ${c.card_number || '?'}, ważna do ${c.card_expiry}`);
+    }
+
+    // 2. Przeterminowane pobieranie danych (>28 dni)
+    const overdue = (await env.DB.prepare(
+      `SELECT company_id, driver_surname, driver_firstname, card_number, MAX(period_end) last_data
+       FROM tachograph_files WHERE parse_status IN ('ok','partial')
+       GROUP BY company_id, LOWER(COALESCE(driver_surname,'')||COALESCE(driver_firstname,'')||COALESCE(card_number,''))
+       HAVING last_data IS NULL OR last_data<?`
+    ).bind(cutoff28).all()).results || [];
+
+    for (const d of overdue) {
+      const daysAgo = d.last_data
+        ? Math.floor((new Date(today) - new Date(d.last_data)) / 86400000)
+        : null;
+      await _tachoSaveAlert(env, d.company_id, 'overdue_download',
+        `Brak pobierania danych tachografu${daysAgo ? ' (' + daysAgo + ' dni)' : ''}`,
+        `${d.driver_surname || ''} ${d.driver_firstname || ''} — ostatnie dane: ${d.last_data || 'brak'}`);
+    }
+
+    // 3. Miesięczne podsumowanie naruszeń (tylko 1. dnia miesiąca)
+    if (new Date().getUTCDate() === 1) {
+      const prevMonth = new Date(Date.now() - 15 * 86400000).toISOString().slice(0, 7);
+      const summaries = (await env.DB.prepare(
+        `SELECT company_id, COUNT(*) cnt, COALESCE(SUM(penalty_pln),0) penalty
+         FROM tachograph_violations WHERE substr(violation_date,1,7)=? GROUP BY company_id`
+      ).bind(prevMonth).all()).results || [];
+
+      for (const s of summaries) {
+        await _tachoSaveAlert(env, s.company_id, 'monthly_summary',
+          `Podsumowanie naruszeń ${prevMonth}`,
+          `Liczba naruszeń: ${s.cnt} | Łączne kary: ${s.penalty} PLN`);
+      }
+    }
+  } catch (e) {
+    console.error('runNightlyTachoCheck error:', e?.message);
+  }
+}
+
+async function _tachoSaveAlert(env, companyId, type, title, body) {
+  try {
+    // Zapisz do tabeli alert_events jeśli istnieje, inaczej tylko log
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO alert_events (id,company_id,alert_type,title,message,triggered_at,acknowledged)
+       VALUES (?,?,?,?,?,datetime('now'),0)`
+    ).bind(crypto.randomUUID(), companyId, type, title, body).run();
+  } catch {
+    console.log(`[TachoAlert] ${companyId} ${type}: ${title}`);
+  }
 }
 
 // ─── EXTERNAL INTEGRATIONS (Shell, DKV, Navifleet) ───────────────────────────
@@ -7630,6 +7915,7 @@ export default {
       checkInspectionDeadlines(env),
       sendMonthlyReports(env),
       runNightlyIntegrationSync(env),
+      runNightlyTachoCheck(env),
     ]));
   },
 
