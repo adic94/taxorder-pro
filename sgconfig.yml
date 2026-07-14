@@ -1,0 +1,13 @@
+# ast-grep (sg) configuration for TaxOrder Pro
+# Usage: npx sg scan   |   npx sg --help
+# Docs: https://ast-grep.github.io/
+
+language: JavaScript
+ruleDirs:
+  - .ast-grep/rules
+
+# Ignore directories
+ignoreFiles:
+  - node_modules/**
+  - tools/api-explorer/node_modules/**
+  - "**/*.min.js"

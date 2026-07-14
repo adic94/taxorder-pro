@@ -1,0 +1,14 @@
+# Reguła: innerHTML z danymi użytkownika bez esc()
+# Wyłapuje: el.innerHTML = `...${user.xxx}...`  bez opakowania esc()
+id: no-bare-xss-in-innerhtml
+language: JavaScript
+severity: error
+message: "XSS: dane użytkownika w innerHTML bez esc() — użyj esc(${META_VAR})"
+rule:
+  pattern: $EL.innerHTML = $$$
+  not:
+    pattern: $EL.innerHTML = ""
+note: |
+  Każde pole z DB w innerHTML musi być owinięte w esc().
+  OK:  el.innerHTML = `<td>${esc(user.name)}</td>`
+  ZŁE: el.innerHTML = `<td>${user.name}</td>`

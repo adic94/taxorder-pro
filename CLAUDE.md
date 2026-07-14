@@ -147,6 +147,48 @@ npm run test:api   # testy API
 
 ---
 
+## NARZĘDZIA DEWELOPERSKIE (tooling)
+
+### Dostępne MCP w Claude Code (aktywne w tej sesji)
+| MCP | Narzędzia | Kiedy używać |
+|-----|-----------|--------------|
+| **GitHub MCP** | `mcp__claude_ai_gitHub__*` | PR, issues, push plików, review kodu |
+| **Cloudflare MCP** | `mcp__cloudflare__*` | D1 queries, R2, Worker deploy, KV, Queues |
+| **Cloudflare Dev Platform** | `mcp__claude_ai_Cloudflare_Developer_Platform__*` | D1 execute, Workers API |
+| **Google Drive / Gmail** | `mcp__claude_ai_Google_*` | dokumenty, kopie zapasowe przez Drive |
+
+**Przykład — query D1 przez MCP bez terminala:**
+```
+mcp__cloudflare__d1_query (database_id, sql, params)
+```
+
+### Playwright MCP
+Zainstalowany: `@playwright/mcp` — uruchamiany przez Claude Code do automatycznego testowania UI.
+Playwright testy: `npm run test:e2e` | Playwright MCP server: `npx @playwright/mcp`
+
+### ast-grep (AST-aware search)
+Zainstalowany lokalnie: `npx sg`  
+Konfiguracja: `sgconfig.yml` + `.ast-grep/rules/`  
+Używaj do: znajdowania wzorców kodu, refaktoryzacji, audytu XSS (zamiast grep przy złożonych wzorcach)
+```bash
+npx sg scan --rule .ast-grep/rules/no-bare-xss.yml
+npx sg run -p 'el.innerHTML = $X' modules/*.js
+```
+
+### jsconfig.json (typescript-lsp dla JS)
+`jsconfig.json` w roieniu projektu aktywuje pełne IDE IntelliSense dla plików `.js`
+(podpowiedzi typów, navigation, find references) — działa automatycznie w VS Code.
+
+### Audyt własny (tools/autotest/)
+```bash
+npm run audit:all       # syntax + XSS + i18n + SW cache
+npm run xss-audit       # szuka innerHTML bez esc()
+npm run sw-check        # weryfikuje CACHE_NAME po zmianach index.html
+npm run migration-check # sprawdza czy schematy są spójne
+```
+
+---
+
 ## ZNANE PUŁAPKI (wyciągnięte z historii bugów)
 
 1. **`hookId === 'test'` zawsze false** — trasa `POST /api/webhooks/:id/test` to `segs[3]`, nie `segs[2]`

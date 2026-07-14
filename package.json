@@ -29,9 +29,15 @@
     "lint:worker": "eslint worker/index.js",
     "lint:modules": "eslint modules/*.js",
     "lint": "eslint worker/index.js modules/*.js app.js",
-    "changelog": "node tools/generate-changelog.js"
+    "changelog": "node tools/generate-changelog.js",
+    "sg:scan": "sg scan",
+    "sg:xss": "sg run -p '$EL.innerHTML = $X' modules/*.js app.js",
+    "pw:mcp": "playwright-mcp --headless",
+    "lint:all": "eslint worker/index.js modules/*.js app.js && node tools/autotest/xss-audit.js"
   },
   "devDependencies": {
+    "@ast-grep/cli": "^0.44.1",
+    "@playwright/mcp": "^0.0.78",
     "@playwright/test": "^1.61.1",
     "eslint": "^8.57.0",
     "http-server": "^14.1.1",
