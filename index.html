@@ -228,6 +228,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <button class="tnb" id="tnb-route-billing" onclick="showPage('route-billing')"><i class="ti ti-receipt"></i><span>Faktury tras</span></button>
   <button class="tnb" id="tnb-fleet-kpi" onclick="showPage('fleet-kpi')"><i class="ti ti-chart-bar"></i><span>Dashboard KPI</span></button>
   <button class="tnb" id="tnb-zapier-ui" onclick="showPage('zapier-ui')"><i class="ti ti-plug-connected"></i><span>Zapier / Make</span></button>
+  <button class="tnb" id="tnb-access-control" onclick="showPage('access-control')"><i class="ti ti-lock-access"></i><span>Dostęp / Pakiety</span></button>
   <button class="tnb" id="tnb-integrations" onclick="showPage('integrations')"><i class="ti ti-plug"></i><span>Integracje</span></button>
 
   <div class="sidebar-label">Koszty</div>
@@ -4158,6 +4159,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/fleet-reservations.js"></script>
   <script src="modules/epp-vat.js"></script>
   <script src="modules/integrations.js"></script>
+  <script src="modules/access-control.js"></script>
   <script src="modules/tachograph.js"></script>
   <script src="modules/ev-charging.js"></script>
   <script src="modules/insurance.js"></script>
@@ -4220,6 +4222,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 <div class="page" id="page-route-billing"></div>
 <div class="page" id="page-fleet-kpi"></div>
 <div class="page" id="page-zapier-ui"></div>
+<div class="page" id="page-access-control"></div>
 <div class="page" id="page-trip-private"></div>
 <div class="page" id="page-geofencing"></div>
 <div class="page" id="page-driver-wages"></div>

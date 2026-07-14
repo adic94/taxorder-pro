@@ -145,9 +145,17 @@ function showPage(id) {
   if(typeof saveCompanyState === 'function') saveCompanyState();
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tnb').forEach(b => b.classList.remove('active'));
-  document.getElementById('page-'+id)?.classList.add('active');
+  const pageEl = document.getElementById('page-'+id);
+  if (pageEl) pageEl.classList.add('active');
   const tnb = document.getElementById('tnb-'+id);
   if(tnb) tnb.classList.add('active');
+  // Kontrola dostępu — zablokuj moduły poza pakietem firmy
+  if (window.AccessControl && !window.AccessControl.canAccess(id) && id !== 'access-control') {
+    window.AccessControl.showLockedPage(id, pageEl);
+    // Zamknij sidebar na mobile
+    toggleMobileNav?.(true);
+    return;
+  }
   // Zamknij sidebar po wyborze strony na mobile
   toggleMobileNav(true);
   if(id==='pojazdy') renderVeh();
@@ -251,6 +259,7 @@ function showPage(id) {
   if(id==='route-cost')          window.RouteCost?.renderRouteCost();
   if(id==='smart-forms')         window.SmartForms?.renderSmartForms();
   if(id==='gps-integrations')    window.GpsIntegrations?.renderGpsIntegrations();
+  if(id==='access-control')      window.AccessControl?.renderAccessControl();
   document.dispatchEvent(new CustomEvent('taxorder-page-change', { detail: { page: id } }));
   updateCounters();
 }
@@ -2772,6 +2781,7 @@ async function _handlePzHashCallback() {
     document.getElementById('user-name').textContent   = currentUser.name;
     document.getElementById('user-role-lbl').textContent = ROLE_LABELS[currentUser.role] || currentUser.role;
     applyRoleAccess(currentUser.role);
+    window.AccessControl?.init();
     sessionStorage.setItem('dt1_user_email', currentUser.email);
 
     // Badge PZ w topbar
@@ -6715,6 +6725,8 @@ async function doLogin(){
   document.getElementById('user-role-lbl').textContent=ROLE_LABELS[u.role]||u.role;
 
   applyRoleAccess(u.role);
+  // Załaduj uprawnienia pakietu i modułów per użytkownik
+  window.AccessControl?.init();
   sessionStorage.setItem('dt1_user_email',u.email);
 
   if(typeof loadCompanyState==='function'){

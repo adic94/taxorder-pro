@@ -7694,6 +7694,7 @@ async function handleRequest(request, env, url, path) {
   if (path.startsWith('/api/insurance'))          { if (!user) return err('Nieautoryzowany', 401); return handleInsurance(request, env, user, url, path); }
   if (path.startsWith('/api/route-billing'))      { if (!user) return err('Nieautoryzowany', 401); return handleRouteBilling(request, env, user, url, path); }
   if (path === '/api/fleet-kpi' && request.method === 'GET') { if (!user) return err('Nieautoryzowany', 401); return handleFleetKpi(request, env, user, url); }
+  if (path.startsWith('/api/access-control'))   { if (!user) return err('Nieautoryzowany', 401); return handleAccessControl(request, env, user, url, path); }
   // Admin: ręczne wyzwolenie kolejkowania powiadomień (do testów bez crona)
   if (path === '/api/notif-trigger' && request.method === 'POST') {
     if (!user) return err('Nieautoryzowany', 401);
@@ -9284,6 +9285,114 @@ async function handleFleetKpi(req, env, user, url) {
     top_vehicles_cost: topVeh,
     top_violations:    topDrv,
   });
+}
+
+// ── ACCESS CONTROL — pakiety firm i uprawnienia per użytkownik ───────────────
+// Definicja modułów i pakietów (single source of truth w backendzie)
+const AC_PACKAGES = {
+  basic:      ['dash','pojazdy','kierowcy','paliwo','szkody','mandaty','formularze','protokoly','powiadomienia','dt1-historia','faktury'],
+  pro:        ['dash','pojazdy','kierowcy','paliwo','szkody','mandaty','formularze','protokoly','powiadomienia','dt1-historia','faktury',
+                'zlecenia','opony-magazyn','karty','tachograph','transport-orders','kalendarz','fleet-kanban','driver-scoring','driver-performance',
+                'budget','budget-annual','fuel-card-import','delegations','leasing-schedule','vehicle-equipment','vehicle-inventory',
+                'spare-parts','service-contracts','supplier-invoices','approvals','fleet-policies','driver-panel','driver-schedule',
+                'fleet-reservations','alert-dashboard','raporty','pdfexport','impexp','mapa'],
+  enterprise: null, // null = wszystkie moduły bez ograniczeń
+};
+
+async function handleAccessControl(req, env, user, url, path) {
+  const co     = url.searchParams.get('company') || user.company_id;
+  const method = req.method;
+  const segs   = path.split('/').filter(Boolean); // ['api','access-control',sub,...]
+  const sub    = segs[2]; // 'my-permissions' | 'config' | 'users'
+  const isAdmin = ['admin','superadmin','owner'].includes(user.role);
+
+  // ── GET /api/access-control/my-permissions ───────────────────────────────
+  if (method === 'GET' && sub === 'my-permissions') {
+    const pkg = await env.DB.prepare('SELECT * FROM company_packages WHERE company_id=?').bind(co).first().catch(()=>null);
+    const pkgName = pkg?.package_name || 'enterprise';
+    let base = AC_PACKAGES[pkgName]; // null = all
+    if (base !== null) {
+      const add = JSON.parse(pkg?.modules_add || '[]');
+      const rem = JSON.parse(pkg?.modules_remove || '[]');
+      base = [...new Set([...base, ...add])].filter(m => !rem.includes(m));
+    }
+    // User-level overrides
+    const userPerms = await env.DB.prepare('SELECT allowed_modules, denied_modules FROM user_module_permissions WHERE company_id=? AND user_id=?').bind(co, String(user.id)).first().catch(()=>null);
+    let allowed = base; // null = unlimited
+    if (userPerms) {
+      const umpAllowed = userPerms.allowed_modules ? JSON.parse(userPerms.allowed_modules) : null;
+      const umpDenied  = JSON.parse(userPerms.denied_modules || '[]');
+      if (umpAllowed !== null) {
+        // User has explicit allowed list — intersect with company package
+        allowed = base === null ? umpAllowed : umpAllowed.filter(m => base.includes(m));
+      } else {
+        if (base !== null) allowed = base.filter(m => !umpDenied.includes(m));
+      }
+      if (base !== null && umpDenied.length) {
+        allowed = (allowed || base).filter(m => !umpDenied.includes(m));
+      }
+    }
+    return json({ ok: true, package: pkgName, allowed, unlimited: allowed === null });
+  }
+
+  // ── GET /api/access-control/config ──────────────────────────────────────
+  if (method === 'GET' && sub === 'config') {
+    if (!isAdmin) return err('Brak uprawnień', 403);
+    const pkg = await env.DB.prepare('SELECT * FROM company_packages WHERE company_id=?').bind(co).first().catch(()=>null);
+    return json(pkg || { company_id: co, package_name: 'enterprise', modules_add: '[]', modules_remove: '[]', valid_until: null, notes: null });
+  }
+
+  // ── PUT /api/access-control/config ──────────────────────────────────────
+  if (method === 'PUT' && sub === 'config') {
+    if (!isAdmin) return err('Brak uprawnień', 403);
+    const b = await req.json().catch(()=>({}));
+    await env.DB.prepare(`INSERT INTO company_packages(company_id,package_name,modules_add,modules_remove,valid_until,notes,updated_by)
+      VALUES(?,?,?,?,?,?,?)
+      ON CONFLICT(company_id) DO UPDATE SET package_name=excluded.package_name,modules_add=excluded.modules_add,modules_remove=excluded.modules_remove,valid_until=excluded.valid_until,notes=excluded.notes,updated_by=excluded.updated_by,updated_at=datetime('now')`)
+      .bind(co, b.package_name||'enterprise', JSON.stringify(b.modules_add||[]), JSON.stringify(b.modules_remove||[]), b.valid_until||null, b.notes||null, user.email||user.id).run();
+    return json({ ok: true });
+  }
+
+  // ── GET /api/access-control/users ───────────────────────────────────────
+  if (method === 'GET' && sub === 'users') {
+    if (!isAdmin) return err('Brak uprawnień', 403);
+    const usersRows = (await env.DB.prepare('SELECT id, email, name, role, active FROM users WHERE company_id=? ORDER BY name').bind(co).all().catch(()=>({results:[]}))).results || [];
+    const perms = (await env.DB.prepare('SELECT user_id, allowed_modules, denied_modules FROM user_module_permissions WHERE company_id=?').bind(co).all().catch(()=>({results:[]}))).results || [];
+    const permsMap = {};
+    for (const p of perms) permsMap[p.user_id] = p;
+    return json(usersRows.map(u => ({
+      ...u,
+      allowed_modules: permsMap[u.id]?.allowed_modules ?? null,
+      denied_modules:  permsMap[u.id]?.denied_modules  ?? '[]',
+    })));
+  }
+
+  // ── PUT /api/access-control/users/:userId ───────────────────────────────
+  if (method === 'PUT' && sub === 'users') {
+    if (!isAdmin) return err('Brak uprawnień', 403);
+    const targetUserId = segs[3];
+    if (!targetUserId) return err('Brak user_id', 400);
+    const b = await req.json().catch(()=>({}));
+    const allowedJson = b.allowed_modules != null ? JSON.stringify(b.allowed_modules) : null;
+    const deniedJson  = JSON.stringify(b.denied_modules || []);
+    const targetUser  = await env.DB.prepare('SELECT email FROM users WHERE id=? AND company_id=?').bind(targetUserId, co).first().catch(()=>null);
+    await env.DB.prepare(`INSERT INTO user_module_permissions(company_id,user_id,user_email,allowed_modules,denied_modules,updated_by)
+      VALUES(?,?,?,?,?,?)
+      ON CONFLICT(company_id,user_id) DO UPDATE SET allowed_modules=excluded.allowed_modules,denied_modules=excluded.denied_modules,user_email=excluded.user_email,updated_by=excluded.updated_by,updated_at=datetime('now')`)
+      .bind(co, String(targetUserId), targetUser?.email||null, allowedJson, deniedJson, user.email||user.id).run();
+    return json({ ok: true });
+  }
+
+  // ── DELETE /api/access-control/users/:userId — reset do domyślnych ───────
+  if (method === 'DELETE' && sub === 'users') {
+    if (!isAdmin) return err('Brak uprawnień', 403);
+    const targetUserId = segs[3];
+    if (!targetUserId) return err('Brak user_id', 400);
+    await env.DB.prepare('DELETE FROM user_module_permissions WHERE company_id=? AND user_id=?').bind(co, String(targetUserId)).run();
+    return json({ ok: true });
+  }
+
+  return err('Nieznana operacja', 404);
 }
 
 export default {
