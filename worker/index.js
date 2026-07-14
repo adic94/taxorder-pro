@@ -5826,6 +5826,288 @@ async function handleFuelCardImport(request, env, user, url, path) {
   return err('Method Not Allowed', 405);
 }
 
+// ─── EXTERNAL INTEGRATIONS (Shell, DKV, Navifleet) ───────────────────────────
+
+async function handleIntegrations(request, env, user, url, path) {
+  const segs    = path.split('/');          // /api/integrations[/provider[/action]]
+  const company = url.searchParams.get('company') || user.company_id;
+  const provider = segs[3];                // shell | dkv | navifleet | undefined
+  const action   = segs[4];                // sync | log | undefined
+
+  // GET /api/integrations — list all
+  if (request.method === 'GET' && !provider) {
+    const { results } = await env.DB.prepare(
+      'SELECT provider, last_sync, last_sync_count, last_sync_status, updated_at FROM integration_settings WHERE company_id=?'
+    ).bind(company).all();
+    return json(results);
+  }
+
+  // GET /api/integrations/:provider — single (secrets masked)
+  if (request.method === 'GET' && provider && !action) {
+    const row = await env.DB.prepare('SELECT * FROM integration_settings WHERE company_id=? AND provider=?').bind(company, provider).first();
+    if (!row) return json({ provider, config: '{}' });
+    const cfg = JSON.parse(row.config || '{}');
+    const masked = { ...cfg };
+    if (masked.client_secret)    masked.client_secret    = '***';
+    if (masked.api_key)          masked.api_key          = '***';
+    if (masked.subscription_key) masked.subscription_key = '***';
+    return json({ ...row, config: JSON.stringify(masked) });
+  }
+
+  // POST /api/integrations/:provider — upsert config
+  if (request.method === 'POST' && provider && !action) {
+    const body = await request.json().catch(() => ({}));
+    const newCfg = body.config || {};
+    const existing = await env.DB.prepare('SELECT config FROM integration_settings WHERE company_id=? AND provider=?').bind(company, provider).first();
+    let finalCfg = newCfg;
+    if (existing) {
+      const old = JSON.parse(existing.config || '{}');
+      finalCfg = { ...old, ...newCfg };
+      if (newCfg.client_secret    === '***') finalCfg.client_secret    = old.client_secret;
+      if (newCfg.api_key          === '***') finalCfg.api_key          = old.api_key;
+      if (newCfg.subscription_key === '***') finalCfg.subscription_key = old.subscription_key;
+    }
+    const id = crypto.randomUUID().replace(/-/g, '');
+    await env.DB.prepare(
+      `INSERT INTO integration_settings (id,company_id,provider,config,updated_at)
+       VALUES (?,?,?,?,datetime('now'))
+       ON CONFLICT(company_id,provider) DO UPDATE SET config=excluded.config, updated_at=excluded.updated_at`
+    ).bind(id, company, provider, JSON.stringify(finalCfg)).run();
+    return json({ ok: true });
+  }
+
+  // DELETE /api/integrations/:provider
+  if (request.method === 'DELETE' && provider && !action) {
+    await env.DB.prepare('DELETE FROM integration_settings WHERE company_id=? AND provider=?').bind(company, provider).run();
+    return json({ ok: true });
+  }
+
+  // GET /api/integrations/:provider/log
+  if (request.method === 'GET' && action === 'log') {
+    const { results } = await env.DB.prepare(
+      'SELECT * FROM integration_sync_log WHERE company_id=? AND provider=? ORDER BY synced_at DESC LIMIT 20'
+    ).bind(company, provider).all();
+    return json(results);
+  }
+
+  // POST /api/integrations/:provider/sync
+  if (request.method === 'POST' && action === 'sync') {
+    const row = await env.DB.prepare('SELECT config FROM integration_settings WHERE company_id=? AND provider=?').bind(company, provider).first();
+    if (!row) return err('Integracja nie skonfigurowana — zapisz dane dostępowe najpierw', 404);
+    const cfg      = JSON.parse(row.config || '{}');
+    const body     = await request.json().catch(() => ({}));
+    const daysBack = parseInt(body.days_back ?? 7);
+    const testOnly = body.test_only === true;
+
+    let result;
+    try {
+      if (provider === 'shell')     result = await _syncShell(env, company, cfg, daysBack, testOnly);
+      else if (provider === 'dkv')  result = await _syncDkv(env, company, cfg, daysBack, testOnly);
+      else if (provider === 'navifleet') result = await _syncNavifleet(env, company, cfg, daysBack, testOnly);
+      else return err('Nieznany provider', 400);
+    } catch (ex) {
+      result = { imported: 0, skipped: 0, error: ex.message };
+    }
+
+    if (!testOnly) {
+      await env.DB.prepare(
+        `UPDATE integration_settings SET last_sync=datetime('now'), last_sync_count=?, last_sync_status=? WHERE company_id=? AND provider=?`
+      ).bind(result.imported ?? 0, result.error ? 'error' : 'ok', company, provider).run();
+      const lid = crypto.randomUUID().replace(/-/g, '');
+      await env.DB.prepare(
+        `INSERT INTO integration_sync_log (id,company_id,provider,records_imported,records_skipped,status,error_message) VALUES (?,?,?,?,?,?,?)`
+      ).bind(lid, company, provider, result.imported??0, result.skipped??0, result.error?'error':'ok', result.error??null).run().catch(()=>{});
+    }
+    return json(result);
+  }
+
+  return err('Not Found', 404);
+}
+
+// ── Shell Flota sync ──────────────────────────────────────────────────────────
+async function _syncShell(env, company, cfg, daysBack, testOnly) {
+  const { client_id, client_secret, colco_code, payer_number } = cfg;
+  if (!client_id || !client_secret || !payer_number)
+    return { imported:0, skipped:0, error:'Brak client_id, client_secret lub payer_number' };
+
+  // 1. OAuth token
+  const tokRes = await fetch('https://api.shell.com/oauth/v1/mobility/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=client_credentials&client_id=${encodeURIComponent(client_id)}&client_secret=${encodeURIComponent(client_secret)}`,
+  });
+  if (!tokRes.ok) return { imported:0, skipped:0, error: `Błąd tokenu Shell (${tokRes.status}): ${await tokRes.text()}` };
+  const { access_token } = await tokRes.json();
+
+  if (testOnly) return { imported:0, skipped:0, connected:true };
+
+  // 2. Priced transactions
+  const from = new Date(Date.now() - daysBack * 86400000).toISOString().replace('T', ' ').slice(0, 23) + '.000';
+  const to   = new Date().toISOString().replace('T', ' ').slice(0, 23) + '.000';
+  const txRes = await fetch('https://api.shell.com/transaction-data/v1/pricedtransactions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${access_token}`,
+      'RequestId': crypto.randomUUID(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      ColCoCode: colco_code || 'PL',
+      PayerNumber: payer_number,
+      FuelOnly: true,
+      FromDateTime: from,
+      ToDateTime: to,
+      Page: 1,
+      PageSize: 500,
+    }),
+  });
+  if (!txRes.ok) return { imported:0, skipped:0, error: `Błąd transakcji Shell (${txRes.status}): ${await txRes.text()}` };
+  const txData = await txRes.json();
+  if (txData.Status && txData.Status !== 'SUCCESS')
+    return { imported:0, skipped:0, error: `Shell API status: ${txData.Status}` };
+
+  const records = (txData.Data || [])
+    .filter(t => t.VehicleRegistrationNumber)
+    .map(t => ({
+      nr_rej:          (t.VehicleRegistrationNumber || '').toUpperCase().replace(/\s+/g, ''),
+      fill_date:       (t.TransactionDate || t.TransactionDateTime || '').slice(0, 10),
+      liters:          parseFloat(t.FuelVolume) || 0,
+      cost_pln:        parseFloat(t.Amount) || 0,
+      price_per_liter: parseFloat(t.UnitPrice) || null,
+      station:         t.SiteName || null,
+    }))
+    .filter(r => r.nr_rej && r.fill_date);
+
+  return _saveFuelFills(env, company, records);
+}
+
+// ── DKV Mobility sync ─────────────────────────────────────────────────────────
+async function _syncDkv(env, company, cfg, daysBack, testOnly) {
+  const { subscription_key, customer_number } = cfg;
+  if (!subscription_key || !customer_number)
+    return { imported:0, skipped:0, error:'Brak subscription_key lub customer_number DKV' };
+
+  const from = new Date(Date.now() - daysBack * 86400000).toISOString().slice(0, 10);
+  const to   = new Date().toISOString().slice(0, 10);
+
+  const txRes = await fetch(
+    `https://api.dkv-mobility.com/eapi/transaction/v1/transactions?customerNumber=${encodeURIComponent(customer_number)}&dateFrom=${from}&dateTo=${to}`,
+    {
+      method: 'GET',
+      headers: {
+        'Ocp-Apim-Subscription-Key': subscription_key,
+        'Accept': 'application/json',
+      },
+    }
+  );
+  if (!txRes.ok) return { imported:0, skipped:0, error: `Błąd DKV API (${txRes.status}): ${await txRes.text()}` };
+  const data = await txRes.json();
+
+  if (testOnly) return { imported:0, skipped:0, connected:true };
+
+  const list = Array.isArray(data) ? data : (data.transactions || data.data || []);
+  const records = list
+    .map(t => ({
+      nr_rej:   (t.vehicleRegistrationNumber || t.vehicle_registration || t.plateNumber || '').toUpperCase().replace(/\s+/g, ''),
+      fill_date: (t.transactionDate || t.date || t.transactionDateTime || '').slice(0, 10),
+      liters:    parseFloat(t.quantity ?? t.liters ?? t.volume ?? 0),
+      cost_pln:  parseFloat(t.netAmount ?? t.amount ?? t.grossAmount ?? 0),
+      station:   t.locationName || t.merchantName || t.station || null,
+    }))
+    .filter(r => r.nr_rej && r.fill_date);
+
+  return _saveFuelFills(env, company, records);
+}
+
+// ── Navifleet GPS sync ────────────────────────────────────────────────────────
+async function _syncNavifleet(env, company, cfg, daysBack, testOnly) {
+  const { api_key } = cfg;
+  if (!api_key) return { imported:0, skipped:0, error:'Brak api_key Navifleet' };
+
+  const headers = { 'Authorization': `ApiKey ${api_key}`, 'Accept': 'application/json' };
+
+  // Test: GET /vehicles
+  const veRes = await fetch('https://gps.navifleet.pl/api/vehicles', { headers });
+  if (!veRes.ok) return { imported:0, skipped:0, error: `Błąd Navifleet API (${veRes.status}): ${await veRes.text()}` };
+  const veData = await veRes.json();
+  const vehicles = veData.data || veData || [];
+
+  if (testOnly) return { imported:0, skipped:0, connected:true, vehicle_count: vehicles.length };
+
+  const from = new Date(Date.now() - daysBack * 86400000).toISOString().slice(0, 10);
+  const to   = new Date().toISOString().slice(0, 10);
+  const allRecords = [];
+
+  for (const v of vehicles) {
+    const vid   = v.id ?? v.vehicleId;
+    const nrRej = (v.registrationNumber ?? v.plate ?? v.licensePlate ?? '').toUpperCase().replace(/\s+/g, '');
+    if (!vid || !nrRej) continue;
+
+    const fuelRes = await fetch(
+      `https://gps.navifleet.pl/api/vehicles/${vid}/fuel-events?dateFrom=${from}&dateTo=${to}`,
+      { headers }
+    );
+    if (!fuelRes.ok) continue;
+    const fuelData = await fuelRes.json();
+    const events   = fuelData.data || fuelData || [];
+
+    for (const fe of events) {
+      const dt = (fe.date ?? fe.timestamp ?? fe.datetime ?? '').slice(0, 10);
+      if (!dt) continue;
+      allRecords.push({
+        nr_rej:   nrRej,
+        fill_date: dt,
+        liters:    parseFloat(fe.volume ?? fe.liters ?? fe.quantity ?? 0),
+        cost_pln:  parseFloat(fe.cost ?? fe.amount ?? 0),
+        station:   fe.station ?? fe.location ?? null,
+      });
+    }
+  }
+
+  return _saveFuelFills(env, company, allRecords);
+}
+
+// ── shared save helper ────────────────────────────────────────────────────────
+async function _saveFuelFills(env, company, records) {
+  if (!records.length) return { imported:0, skipped:0 };
+  const stmts = records.map(r => env.DB.prepare(
+    'INSERT OR IGNORE INTO fuel_fills (company_id,nr_rej,fill_date,liters,cost_pln,price_per_liter,station) VALUES (?,?,?,?,?,?,?)'
+  ).bind(company, r.nr_rej, r.fill_date, r.liters ?? 0, r.cost_pln ?? 0, r.price_per_liter ?? null, r.station ?? null));
+  const res = await env.DB.batch(stmts);
+  let imported = 0, skipped = 0;
+  for (const r of res) { if ((r.meta?.changes ?? 0) > 0) imported++; else skipped++; }
+  return { imported, skipped };
+}
+
+// ── nightly auto-sync for all configured integrations ─────────────────────────
+async function runNightlyIntegrationSync(env) {
+  try {
+    const { results: configs } = await env.DB.prepare(
+      'SELECT company_id, provider, config FROM integration_settings'
+    ).all();
+    for (const row of configs) {
+      const cfg = JSON.parse(row.config || '{}');
+      const daysBack = parseInt(cfg.days_back ?? 2);
+      let result;
+      try {
+        if (row.provider === 'shell')     result = await _syncShell(env, row.company_id, cfg, daysBack, false);
+        else if (row.provider === 'dkv')  result = await _syncDkv(env, row.company_id, cfg, daysBack, false);
+        else if (row.provider === 'navifleet') result = await _syncNavifleet(env, row.company_id, cfg, daysBack, false);
+        else continue;
+      } catch (ex) {
+        result = { imported:0, skipped:0, error: ex.message };
+      }
+      await env.DB.prepare(
+        `UPDATE integration_settings SET last_sync=datetime('now'), last_sync_count=?, last_sync_status=? WHERE company_id=? AND provider=?`
+      ).bind(result.imported ?? 0, result.error ? 'error' : 'ok', row.company_id, row.provider).run().catch(() => {});
+      const lid = crypto.randomUUID().replace(/-/g, '');
+      await env.DB.prepare(
+        `INSERT INTO integration_sync_log (id,company_id,provider,records_imported,records_skipped,status,error_message) VALUES (?,?,?,?,?,?,?)`
+      ).bind(lid, row.company_id, row.provider, result.imported??0, result.skipped??0, result.error?'error':'ok', result.error??null).run().catch(()=>{});
+    }
+  } catch {}
+}
+
 // ─── APPROVAL LEVELS ──────────────────────────────────────────────────────────
 async function getRequiredApprovalLevel(env, company_id, amount) {
   return env.DB.prepare('SELECT * FROM approval_levels WHERE company_id=? AND min_amount<=? ORDER BY min_amount DESC LIMIT 1').bind(company_id, amount).first();
@@ -6094,6 +6376,7 @@ async function handleRequest(request, env, url, path) {
   if (path.startsWith('/api/audit-log'))          { if (!user) return err('Nieautoryzowany', 401); return handleAuditLog(request, env, user, url, path); }
   if (path.startsWith('/api/budget-annual'))      { if (!user) return err('Nieautoryzowany', 401); return handleBudgetAnnual(request, env, user, url, path); }
   if (path.startsWith('/api/fuel-card-import'))   { if (!user) return err('Nieautoryzowany', 401); return handleFuelCardImport(request, env, user, url, path); }
+  if (path.startsWith('/api/integrations'))       { if (!user) return err('Nieautoryzowany', 401); return handleIntegrations(request, env, user, url, path); }
   if (path.startsWith('/api/approval-levels'))    { if (!user) return err('Nieautoryzowany', 401); return handleApprovalLevels(request, env, user, url, path); }
   if (path.startsWith('/api/gps-positions'))      { if (!user) return err('Nieautoryzowany', 401); return handleGpsPositions(request, env, user, url, path); }
   // Admin: ręczne wyzwolenie kolejkowania powiadomień (do testów bez crona)
@@ -6767,6 +7050,7 @@ export default {
       runNightlyAnalysis(env),
       checkInspectionDeadlines(env),
       sendMonthlyReports(env),
+      runNightlyIntegrationSync(env),
     ]));
   },
 

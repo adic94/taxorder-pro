@@ -238,6 +238,7 @@ function showPage(id) {
   if(id==='vies-validator')      window.ViesValidatorModule?.renderViesValidator();
   if(id==='fleet-reservations')  window.FleetReservationsModule?.renderFleetReservations();
   if(id==='epp-vat')             window.EppVatModule?.renderEppVat();
+  if(id==='integrations')        window.IntegrationsModule?.renderIntegrations();
   document.dispatchEvent(new CustomEvent('taxorder-page-change', { detail: { page: id } }));
   updateCounters();
 }
