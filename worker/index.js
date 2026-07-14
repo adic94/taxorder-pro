@@ -5708,28 +5708,57 @@ async function handleBudgetAnnual(request, env, user, url, path) {
 }
 
 // ─── FUEL CARD IMPORT ─────────────────────────────────────────────────────────
-function parseFuelCsv(csvText) {
+function parseFuelCsv(csvText, separator, colMap) {
+  const sep   = separator || ';';
   const lines = csvText.trim().split(/\r?\n/);
   if (lines.length < 2) return [];
-  const header = lines[0].split(';').map(h => h.trim().toLowerCase());
-  const colIdx = (...cands) => { for (const c of cands) { const i = header.findIndex(h => h.includes(c)); if (i !== -1) return i; } return -1; };
-  const dateIdx   = colIdx('data','date','dzien','dzień');
-  const nrIdx     = colIdx('nr_rej','rejestr','tablica','pojazd','plate','vehicle');
-  const litersIdx = colIdx('liter','ilosc','ilość','quantity','volume','litry');
-  const costIdx   = colIdx('kwota','koszt','cost','amount','wartosc','wartość','brutto','pln');
-  const statIdx   = colIdx('stacja','station','miejsce');
-  const normDate  = d => { if (!d) return null; const s=d.trim(); const m1=s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/); if (m1) return `${m1[3]}-${m1[2]}-${m1[1]}`; return s.slice(0,10)||s; };
+  const header = lines[0].split(sep).map(h => h.trim().toLowerCase());
+  const toIdx  = v => { const n = parseInt(v ?? -1); return isNaN(n) ? -1 : n; };
+
+  let dateIdx, nrIdx, litersIdx, costIdx, statIdx;
+  if (colMap && toIdx(colMap.date) >= 0) {
+    dateIdx   = toIdx(colMap.date);
+    nrIdx     = toIdx(colMap.nrrej   ?? -1);
+    litersIdx = toIdx(colMap.liters  ?? -1);
+    costIdx   = toIdx(colMap.cost    ?? -1);
+    statIdx   = toIdx(colMap.station ?? -1);
+  } else {
+    const ci = (...cands) => { for (const c of cands) { const i = header.findIndex(h => h.includes(c)); if (i !== -1) return i; } return -1; };
+    dateIdx   = ci('data','date','dzien','dzień');
+    nrIdx     = ci('nr_rej','rejestr','tablica','pojazd','plate','vehicle');
+    litersIdx = ci('liter','ilosc','ilość','quantity','volume','litry');
+    costIdx   = ci('kwota','koszt','cost','amount','wartosc','wartość','brutto','pln');
+    statIdx   = ci('stacja','station','miejsce');
+  }
+
+  const normDate = d => {
+    if (!d) return null;
+    const s = d.trim();
+    const m1 = s.match(/^(\d{2})[./](\d{2})[./](\d{4})$/);
+    if (m1) return `${m1[3]}-${m1[2]}-${m1[1]}`;
+    const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m2) return s.slice(0, 10);
+    const m3 = s.match(/^(\d{8})$/);
+    if (m3) return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+    return s.slice(0, 10) || null;
+  };
+  const normNum = v => {
+    const s = String(v ?? '0').trim().replace(/\s/g, '');
+    if (s.includes(',') && s.includes('.')) return parseFloat(s.replace(/\./g, '').replace(',', '.'));
+    return parseFloat(s.replace(',', '.'));
+  };
+
   const records = [];
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(';');
+    const cols = lines[i].split(sep);
     if (cols.length < 2) continue;
-    const nr  = nrIdx !== -1 ? (cols[nrIdx]||'').trim().toUpperCase() : null;
-    const dt  = normDate(dateIdx !== -1 ? (cols[dateIdx]||'') : null);
+    const nr = nrIdx >= 0 ? (cols[nrIdx] || '').trim().toUpperCase().replace(/\s+/g, '') : null;
+    const dt = normDate(dateIdx >= 0 ? (cols[dateIdx] || '') : null);
     if (!nr || !dt) continue;
-    const liters   = litersIdx !== -1 ? parseFloat((cols[litersIdx]||'0').replace(',','.')) : 0;
-    const cost_pln = costIdx   !== -1 ? parseFloat((cols[costIdx]  ||'0').replace(',','.')) : 0;
-    const station  = statIdx   !== -1 ? (cols[statIdx]||'').trim()||null : null;
-    records.push({ nr_rej: nr, fill_date: dt, liters: isNaN(liters)?0:liters, cost_pln: isNaN(cost_pln)?0:cost_pln, station });
+    const liters   = litersIdx >= 0 ? normNum(cols[litersIdx]) : 0;
+    const cost_pln = costIdx   >= 0 ? normNum(cols[costIdx])   : 0;
+    const station  = statIdx   >= 0 ? (cols[statIdx] || '').trim() || null : null;
+    records.push({ nr_rej: nr, fill_date: dt, liters: isNaN(liters) ? 0 : liters, cost_pln: isNaN(cost_pln) ? 0 : cost_pln, station });
   }
   return records;
 }
@@ -5744,20 +5773,37 @@ async function handleFuelCardImport(request, env, user, url, path) {
   }
 
   if (request.method === 'POST' && segs[3] === 'parse') {
-    let csvText, provider;
+    let csvText, provider, separator = ';', col_map = null;
     const ct = request.headers.get('content-type') || '';
     if (ct.includes('multipart/form-data')) {
       const form = await request.formData();
       const file = form.get('file');
-      csvText = file && typeof file !== 'string' ? await file.text() : String(file||'');
-      provider = String(form.get('provider')||'other');
+      csvText   = file && typeof file !== 'string' ? await file.text() : String(file || '');
+      provider  = String(form.get('provider') || 'other');
     } else {
       let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON'); }
-      csvText = body.csv_text; provider = body.provider||'other';
+      csvText   = body.csv_text;
+      provider  = body.provider  || 'other';
+      separator = body.separator || ';';
+      col_map   = body.col_map   || null;
     }
     if (!csvText) return err('csv_text jest wymagany');
-    const records = parseFuelCsv(csvText);
-    return json({ provider, records, count: records.length });
+    const records = parseFuelCsv(csvText, separator, col_map);
+    let unknown_nrrej = [];
+    if (records.length) {
+      const allNr = [...new Set(records.map(r => r.nr_rej).filter(Boolean))];
+      if (allNr.length) {
+        try {
+          const ph = allNr.map(() => '?').join(',');
+          const { results: known } = await env.DB.prepare(
+            `SELECT nr_rej FROM vehicles WHERE company_id=? AND nr_rej IN (${ph})`
+          ).bind(company, ...allNr).all();
+          const knownSet = new Set(known.map(v => v.nr_rej));
+          unknown_nrrej = allNr.filter(nr => !knownSet.has(nr));
+        } catch {}
+      }
+    }
+    return json({ provider, records, count: records.length, unknown_nrrej });
   }
 
   if (request.method === 'POST' && segs[3] === 'confirm') {
