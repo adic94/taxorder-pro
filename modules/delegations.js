@@ -1,7 +1,6 @@
 /**
  * TaxOrder Pro — Moduł Delegacji
- * Zarządza poleceniami wyjazdu i rozliczeniami delegacji.
- * Dane w localStorage (klucz: taxorder_delegations) — synchronizacja z backendem wkrótce.
+ * Dane persystowane w D1 (tabela delegations, schema v38).
  */
 (function () {
   'use strict';
@@ -10,20 +9,29 @@
   const H   = () => window._cfHdrs?.() || {};
   const Co  = () => window._cfCo?.() || window.currentCompanyId || '';
 
-  const LS_KEY = 'taxorder_delegations';
-
   const DIET_RATES = { 'Polska': 45, 'Niemcy': 49, 'Francja': 50, 'Wielka Brytania': 42, 'inne': 40 };
-  const KM_RATE    = { 'do 900 cc': 0.89, 'powyżej 900 cc': 0.89, 'motocykl': 0.69 };
 
   const STATUS_LABEL = { draft: 'Szkic', submitted: 'Złożona', approved: 'Zatwierdzona', paid: 'Wypłacona' };
   const STATUS_PILL  = { draft: 'pill-gray', submitted: 'pill-blue', approved: 'pill-green', paid: 'pill-green' };
 
-  // ── Storage helpers ────────────────────────────────────────────────────────
-  function _load() {
-    try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; }
-  }
-  function _save(arr) { localStorage.setItem(LS_KEY, JSON.stringify(arr)); }
+  // ── In-memory cache (ładowany z API przy renderze) ─────────────────────────
+  let _cache = [];
 
+  // ── API helper ─────────────────────────────────────────────────────────────
+  async function _api(method, path, body) {
+    const url = `${API()}${path}?company=${Co()}`;
+    const opts = { method, headers: { 'Content-Type': 'application/json', ...H() } };
+    if (body) opts.body = JSON.stringify(body);
+    const r = await fetch(url, opts);
+    return r.json().catch(() => ({}));
+  }
+
+  async function _fetchAll() {
+    const data = await _api('GET', '/api/delegations').catch(() => ({ delegations: [] }));
+    _cache = data.delegations || [];
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
   function _fmt(ds) {
     if (!ds) return '—';
     const parts = String(ds).split('-');
@@ -31,10 +39,10 @@
   }
 
   function _calcTotal(d) {
-    return ((d.kmDriven ?? 0) * (d.kmRate ?? 0.89))
-         + ((d.dietDays ?? 0) * (d.dietRate ?? 45))
-         + (d.hotelCost  ?? 0)
-         + (d.otherCosts ?? 0);
+    return ((d.km_driven ?? 0) * (d.km_rate ?? 0.89))
+         + ((d.diet_days ?? 0) * (d.diet_rate ?? 45))
+         + (d.hotel_cost  ?? 0)
+         + (d.other_costs ?? 0);
   }
 
   function _thisMonth() {
@@ -43,14 +51,13 @@
   }
 
   // ── Main page render ───────────────────────────────────────────────────────
-  function renderDelegations() {
+  async function renderDelegations() {
     const pg = document.getElementById('page-delegations');
     if (!pg) return;
 
     pg.innerHTML = `
       <div style="padding:20px 24px 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <h2 style="margin:0;font-size:18px;font-weight:700"><i class="ti ti-road"></i> Delegacje</h2>
-        <span style="font-size:12px;color:var(--text3)">Dane lokalne — synchronizacja z backendem wkrótce</span>
         <button class="btn btn-blue" style="margin-left:auto"
           onclick="DelegationsModule.showDelegationModal(null)">
           <i class="ti ti-plus"></i> Nowa delegacja
@@ -88,7 +95,9 @@
             <th style="text-align:right">Razem (PLN)</th>
             <th>Status</th><th>Akcje</th>
           </tr></thead>
-          <tbody id="del-tbody"></tbody>
+          <tbody id="del-tbody"><tr><td colspan="11" style="text-align:center;padding:2rem;color:var(--text3)">
+            <i class="ti ti-loader" style="font-size:20px"></i> Ładowanie…
+          </td></tr></tbody>
         </table>
       </div>
 
@@ -210,20 +219,19 @@
       </div>
     `;
 
+    await _fetchAll();
     _refreshList();
   }
 
-  // ── KPI + table refresh (called by filters too) ────────────────────────────
+  // ── KPI + table refresh ────────────────────────────────────────────────────
   function _refreshList() {
-    const all     = _load();
     const month   = document.getElementById('del-filter-month')?.value   || _thisMonth();
     const statusF = document.getElementById('del-filter-status')?.value  || '';
     const driverQ = (document.getElementById('del-filter-driver')?.value || '').toLowerCase();
 
-    // KPI row
-    const thisMonth = all.filter(d => (d.dateFrom || '').startsWith(month));
+    const thisMonth = _cache.filter(d => (d.date_from || '').startsWith(month));
     const monthCost = thisMonth.reduce((s, d) => s + _calcTotal(d), 0);
-    const awaiting  = all.filter(d => d.status === 'submitted').length;
+    const awaiting  = _cache.filter(d => d.status === 'submitted').length;
     const kpiEl = document.getElementById('del-kpi-row');
     if (kpiEl) {
       kpiEl.innerHTML = `
@@ -237,11 +245,10 @@
       `;
     }
 
-    // Filter
-    const filtered = all.filter(d => {
-      const mOk = !month   || (d.dateFrom || '').startsWith(month);
+    const filtered = _cache.filter(d => {
+      const mOk = !month   || (d.date_from || '').startsWith(month);
       const sOk = !statusF || d.status === statusF;
-      const dOk = !driverQ || (d.driver  || '').toLowerCase().includes(driverQ);
+      const dOk = !driverQ || (d.driver || '').toLowerCase().includes(driverQ);
       return mOk && sOk && dOk;
     });
 
@@ -259,20 +266,20 @@
 
     tbody.innerHTML = filtered.map(d => {
       const total    = _calcTotal(d);
-      const dietAmt  = (d.dietDays ?? 0) * (d.dietRate ?? 45);
+      const dietAmt  = (d.diet_days ?? 0) * (d.diet_rate ?? 45);
       const pillCls  = STATUS_PILL[d.status]  || 'pill-gray';
       const pillText = STATUS_LABEL[d.status] || esc(d.status);
       const canApprove = d.status === 'draft' || d.status === 'submitted';
       return `<tr>
         <td>${esc(d.driver || '—')}</td>
-        <td><span style="font-family:var(--mono,monospace)">${esc(d.nrRej || '—')}</span></td>
+        <td><span style="font-family:var(--mono,monospace)">${esc(d.nr_rej || '—')}</span></td>
         <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
           ${esc(d.destination || '—')}
         </td>
-        <td style="white-space:nowrap">${_fmt(d.dateFrom)}</td>
-        <td style="white-space:nowrap">${_fmt(d.dateTo)}</td>
+        <td style="white-space:nowrap">${_fmt(d.date_from)}</td>
+        <td style="white-space:nowrap">${_fmt(d.date_to)}</td>
         <td>${esc(d.country || '—')}</td>
-        <td style="text-align:right">${(d.kmDriven ?? 0).toLocaleString('pl-PL')}</td>
+        <td style="text-align:right">${(d.km_driven ?? 0).toLocaleString('pl-PL')}</td>
         <td style="text-align:right">${dietAmt.toFixed(2)}</td>
         <td style="text-align:right;font-weight:600">${total.toFixed(2)}</td>
         <td><span class="pill ${pillCls}">${pillText}</span></td>
@@ -310,7 +317,7 @@
 
   function showDelegationModal(id) {
     _editId = id || null;
-    const d = id ? (_load().find(x => x.id === id) || null) : null;
+    const d = id ? (_cache.find(x => x.id === id) || null) : null;
     const modal = document.getElementById('del-modal');
     if (!modal) return;
 
@@ -318,17 +325,17 @@
       d ? 'Edytuj delegację' : 'Nowa delegacja';
 
     document.getElementById('del-f-driver').value      = d?.driver      || '';
-    document.getElementById('del-f-nrrej').value       = d?.nrRej       || '';
+    document.getElementById('del-f-nrrej').value       = d?.nr_rej      || '';
     document.getElementById('del-f-destination').value = d?.destination  || '';
     document.getElementById('del-f-purpose').value     = d?.purpose      || '';
-    document.getElementById('del-f-date-from').value   = d?.dateFrom     || '';
-    document.getElementById('del-f-date-to').value     = d?.dateTo       || '';
-    document.getElementById('del-f-km').value          = d?.kmDriven     ?? '';
-    document.getElementById('del-f-km-rate').value     = d?.kmRate       ?? 0.89;
-    document.getElementById('del-f-diet-days').value   = d?.dietDays     ?? '';
-    document.getElementById('del-f-diet-rate').value   = d?.dietRate     ?? 45;
-    document.getElementById('del-f-hotel').value       = d?.hotelCost    ?? '';
-    document.getElementById('del-f-other').value       = d?.otherCosts   ?? '';
+    document.getElementById('del-f-date-from').value   = d?.date_from    || '';
+    document.getElementById('del-f-date-to').value     = d?.date_to      || '';
+    document.getElementById('del-f-km').value          = d?.km_driven    ?? '';
+    document.getElementById('del-f-km-rate').value     = d?.km_rate      ?? 0.89;
+    document.getElementById('del-f-diet-days').value   = d?.diet_days    ?? '';
+    document.getElementById('del-f-diet-rate').value   = d?.diet_rate    ?? 45;
+    document.getElementById('del-f-hotel').value       = d?.hotel_cost   ?? '';
+    document.getElementById('del-f-other').value       = d?.other_costs  ?? '';
     document.getElementById('del-f-status').value      = d?.status       || 'draft';
     document.getElementById('del-f-country').value     = d?.country      || 'Polska';
     document.getElementById('del-f-notes').value       = d?.notes        || '';
@@ -379,65 +386,75 @@
   }
 
   // ── Save ───────────────────────────────────────────────────────────────────
-  function saveDelegation() {
-    const driver   = (document.getElementById('del-f-driver')?.value   || '').trim();
-    const dateFrom = document.getElementById('del-f-date-from')?.value || '';
-    if (!driver)   { alert('Podaj imię i nazwisko kierowcy');  return; }
-    if (!dateFrom) { alert('Podaj datę wyjazdu');               return; }
+  async function saveDelegation() {
+    const driver    = (document.getElementById('del-f-driver')?.value   || '').trim();
+    const date_from = document.getElementById('del-f-date-from')?.value || '';
+    if (!driver)    { alert('Podaj imię i nazwisko kierowcy');  return; }
+    if (!date_from) { alert('Podaj datę wyjazdu');               return; }
 
     const record = {
-      id:          _editId || ('del_' + Date.now()),
       driver,
-      nrRej:       (document.getElementById('del-f-nrrej')?.value.trim()        || '').toUpperCase(),
-      destination: document.getElementById('del-f-destination')?.value.trim()    || '',
-      purpose:     document.getElementById('del-f-purpose')?.value.trim()        || '',
-      dateFrom,
-      dateTo:      document.getElementById('del-f-date-to')?.value               || '',
+      nr_rej:      (document.getElementById('del-f-nrrej')?.value.trim()        || '').toUpperCase() || null,
+      destination: document.getElementById('del-f-destination')?.value.trim()    || null,
+      purpose:     document.getElementById('del-f-purpose')?.value.trim()        || null,
+      date_from,
+      date_to:     document.getElementById('del-f-date-to')?.value               || null,
       country:     document.getElementById('del-f-country')?.value               || 'Polska',
-      kmDriven:    parseFloat(document.getElementById('del-f-km')?.value)        || 0,
-      kmRate:      parseFloat(document.getElementById('del-f-km-rate')?.value)   || 0.89,
-      dietDays:    parseFloat(document.getElementById('del-f-diet-days')?.value) || 0,
-      dietRate:    parseFloat(document.getElementById('del-f-diet-rate')?.value) || 45,
-      hotelCost:   parseFloat(document.getElementById('del-f-hotel')?.value)     || 0,
-      otherCosts:  parseFloat(document.getElementById('del-f-other')?.value)     || 0,
+      km_driven:   parseFloat(document.getElementById('del-f-km')?.value)        || 0,
+      km_rate:     parseFloat(document.getElementById('del-f-km-rate')?.value)   || 0.89,
+      diet_days:   parseFloat(document.getElementById('del-f-diet-days')?.value) || 0,
+      diet_rate:   parseFloat(document.getElementById('del-f-diet-rate')?.value) || 45,
+      hotel_cost:  parseFloat(document.getElementById('del-f-hotel')?.value)     || 0,
+      other_costs: parseFloat(document.getElementById('del-f-other')?.value)     || 0,
       status:      document.getElementById('del-f-status')?.value                || 'draft',
-      notes:       document.getElementById('del-f-notes')?.value.trim()          || '',
+      notes:       document.getElementById('del-f-notes')?.value.trim()          || null,
     };
 
-    const all = _load();
-    if (_editId) {
-      const idx = all.findIndex(x => x.id === _editId);
-      if (idx >= 0) all[idx] = record; else all.push(record);
-    } else {
-      all.push(record);
+    const btn = document.querySelector('#del-modal .btn-blue');
+    if (btn) btn.disabled = true;
+    try {
+      if (_editId) {
+        await _api('PUT', `/api/delegations/${_editId}`, record);
+        const idx = _cache.findIndex(x => x.id === _editId);
+        if (idx >= 0) _cache[idx] = { ..._cache[idx], ...record };
+      } else {
+        const res = await _api('POST', '/api/delegations', record);
+        if (res.id) _cache.unshift({ id: res.id, ...record });
+      }
+      closeDelegationModal();
+      _refreshList();
+      window.toast?.('Delegacja zapisana');
+    } catch (e) {
+      alert('Błąd zapisu: ' + e.message);
+    } finally {
+      if (btn) btn.disabled = false;
     }
-    _save(all);
-    closeDelegationModal();
-    _refreshList();
-    if (window.toast) toast('Delegacja zapisana');
   }
 
-  function approveDelegation(id) {
+  async function approveDelegation(id) {
     if (!confirm('Zatwierdzić delegację?')) return;
-    const all = _load();
-    const d   = all.find(x => x.id === id);
-    if (d) { d.status = 'approved'; _save(all); _refreshList(); }
+    const d = _cache.find(x => x.id === id);
+    if (!d) return;
+    await _api('PUT', `/api/delegations/${id}`, { ...d, status: 'approved' });
+    d.status = 'approved';
+    _refreshList();
   }
 
-  function deleteDelegation(id) {
+  async function deleteDelegation(id) {
     if (!confirm('Usunąć delegację? Operacja jest nieodwracalna.')) return;
-    _save(_load().filter(x => x.id !== id));
+    await _api('DELETE', `/api/delegations/${id}`);
+    _cache = _cache.filter(x => x.id !== id);
     _refreshList();
   }
 
   // ── PDF print ──────────────────────────────────────────────────────────────
   function printDelegation(id) {
-    const d = _load().find(x => x.id === id);
+    const d = _cache.find(x => x.id === id);
     if (!d) return;
 
     const total    = _calcTotal(d);
-    const kmCost   = (d.kmDriven ?? 0) * (d.kmRate ?? 0.89);
-    const dietCost = (d.dietDays ?? 0) * (d.dietRate ?? 45);
+    const kmCost   = (d.km_driven ?? 0) * (d.km_rate ?? 0.89);
+    const dietCost = (d.diet_days ?? 0) * (d.diet_rate ?? 45);
     const co       = esc(Co() || '');
 
     const win = window.open('', '_blank', 'width=820,height=960');
@@ -464,11 +481,11 @@
 <table class="info">
   <tr><td>Firma:</td><td><strong>${co}</strong></td></tr>
   <tr><td>Pracownik:</td><td><strong>${esc(d.driver)}</strong></td></tr>
-  <tr><td>Pojazd (nr rej.):</td><td>${esc(d.nrRej || '—')}</td></tr>
+  <tr><td>Pojazd (nr rej.):</td><td>${esc(d.nr_rej || '—')}</td></tr>
   <tr><td>Trasa:</td><td>${esc(d.destination || '—')}</td></tr>
   <tr><td>Cel wyjazdu:</td><td>${esc(d.purpose || '—')}</td></tr>
-  <tr><td>Data wyjazdu:</td><td>${esc(d.dateFrom || '—')}</td></tr>
-  <tr><td>Data powrotu:</td><td>${esc(d.dateTo   || '—')}</td></tr>
+  <tr><td>Data wyjazdu:</td><td>${esc(d.date_from || '—')}</td></tr>
+  <tr><td>Data powrotu:</td><td>${esc(d.date_to   || '—')}</td></tr>
   <tr><td>Kraj:</td><td>${esc(d.country || '—')}</td></tr>
   <tr><td>Status:</td><td>${esc(STATUS_LABEL[d.status] || d.status || '—')}</td></tr>
 </table>
@@ -480,23 +497,23 @@
   <tbody>
     <tr>
       <td>Przejazdy — pojazd prywatny</td>
-      <td>${(d.kmDriven ?? 0).toLocaleString('pl-PL')} km × ${(d.kmRate ?? 0.89).toFixed(2)} zł/km</td>
+      <td>${(d.km_driven ?? 0).toLocaleString('pl-PL')} km × ${(d.km_rate ?? 0.89).toFixed(2)} zł/km</td>
       <td style="text-align:right">${kmCost.toFixed(2)}</td>
     </tr>
     <tr>
       <td>Diety</td>
-      <td>${(d.dietDays ?? 0)} dób × ${(d.dietRate ?? 45).toFixed(2)} zł/dobę</td>
+      <td>${(d.diet_days ?? 0)} dób × ${(d.diet_rate ?? 45).toFixed(2)} zł/dobę</td>
       <td style="text-align:right">${dietCost.toFixed(2)}</td>
     </tr>
     <tr>
       <td>Koszty noclegów</td>
       <td>faktury / rachunki</td>
-      <td style="text-align:right">${(d.hotelCost ?? 0).toFixed(2)}</td>
+      <td style="text-align:right">${(d.hotel_cost ?? 0).toFixed(2)}</td>
     </tr>
     <tr>
       <td>Inne koszty</td>
       <td>—</td>
-      <td style="text-align:right">${(d.otherCosts ?? 0).toFixed(2)}</td>
+      <td style="text-align:right">${(d.other_costs ?? 0).toFixed(2)}</td>
     </tr>
     <tr>
       <td colspan="2" class="total">RAZEM do wypłaty</td>
@@ -527,18 +544,17 @@ ${d.notes ? `<p style="margin-top:10px"><strong>Uwagi:</strong> ${esc(d.notes)}<
   }
 
   function _exportCsv() {
-    const all = _load();
     const hdr = '"ID";"Kierowca";"Pojazd";"Trasa";"Cel";"Data od";"Data do";"Kraj";' +
                 '"Km";"Stawka km";"Diety PLN";"Hotel PLN";"Inne PLN";"Razem PLN";"Status"';
-    const rows = all.map(d => {
-      const dietAmt = (d.dietDays ?? 0) * (d.dietRate ?? 45);
+    const rows = _cache.map(d => {
+      const dietAmt = (d.diet_days ?? 0) * (d.diet_rate ?? 45);
       return [
-        d.id, d.driver, d.nrRej || '', d.destination || '', d.purpose || '',
-        d.dateFrom || '', d.dateTo || '', d.country || '',
-        d.kmDriven ?? 0, d.kmRate ?? 0.89,
+        d.id, d.driver, d.nr_rej || '', d.destination || '', d.purpose || '',
+        d.date_from || '', d.date_to || '', d.country || '',
+        d.km_driven ?? 0, d.km_rate ?? 0.89,
         dietAmt.toFixed(2),
-        d.hotelCost  ?? 0,
-        d.otherCosts ?? 0,
+        d.hotel_cost  ?? 0,
+        d.other_costs ?? 0,
         _calcTotal(d).toFixed(2),
         d.status,
       ].map(_csvCell).join(';');

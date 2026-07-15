@@ -7890,6 +7890,8 @@ async function handleRequest(request, env, url, path) {
   if (path.startsWith('/api/video-telematics'))       { if (!user) return err('Nieautoryzowany', 401); return handleVideoTelematics(request, env, user, url, path); }
   if (path.startsWith('/api/esg-targets'))            { if (!user) return err('Nieautoryzowany', 401); return handleEsgTargets(request, env, user, url, path); }
   if (path.startsWith('/api/driver-worktime'))        { if (!user) return err('Nieautoryzowany', 401); return handleDriverWorktime(request, env, user, url, path); }
+  if (path.startsWith('/api/delegations'))            { if (!user) return err('Nieautoryzowany', 401); return handleDelegations(request, env, user, url, path); }
+  if (path.startsWith('/api/fleet-inventory'))        { if (!user) return err('Nieautoryzowany', 401); return handleFleetInventory(request, env, user, url, path); }
   // Admin: ręczne wyzwolenie kolejkowania powiadomień (do testów bez crona)
   if (path === '/api/notif-trigger' && request.method === 'POST') {
     if (!user) return err('Nieautoryzowany', 401);
@@ -10342,6 +10344,66 @@ async function handleDriverWorktime(req, env, user, url, path) {
   if(method==='POST'&&!id){const b=await req.json().catch(()=>({}));if(!b.driver_name||!b.work_date)return err('Brak wymaganych pól');const rid=crypto.randomUUID();await env.DB.prepare('INSERT INTO driver_work_sessions(id,company_id,driver_id,driver_name,work_date,vehicle_reg,start_time,end_time,work_duration_mins,break_duration_mins,mileage_km,status,route_description,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(rid,co,b.driver_id||null,b.driver_name,b.work_date,b.vehicle_reg||null,b.start_time||null,b.end_time||null,b.work_duration_mins??null,b.break_duration_mins??null,b.mileage_km??null,b.status||'completed',b.route_description||null,b.notes||null).run();return json({ok:true,id:rid});}
   if(method==='PUT'&&id){const b=await req.json().catch(()=>({}));await env.DB.prepare('UPDATE driver_work_sessions SET driver_id=?,driver_name=?,work_date=?,vehicle_reg=?,start_time=?,end_time=?,work_duration_mins=?,break_duration_mins=?,mileage_km=?,status=?,route_description=?,notes=? WHERE id=? AND company_id=?').bind(b.driver_id||null,b.driver_name,b.work_date,b.vehicle_reg||null,b.start_time||null,b.end_time||null,b.work_duration_mins??null,b.break_duration_mins??null,b.mileage_km??null,b.status||'completed',b.route_description||null,b.notes||null,id,co).run();return json({ok:true});}
   if(method==='DELETE'&&id){await env.DB.prepare('DELETE FROM driver_work_sessions WHERE id=? AND company_id=?').bind(id,co).run();return json({ok:true});}
+  return err('Nieznana operacja',404);
+}
+
+async function handleDelegations(req, env, user, url, path) {
+  const co=coOf(url,user);const segs=path.split('/').filter(Boolean);const id=segs[2]||null;const method=req.method;
+  const _total=b=>(b.km_driven??0)*(b.km_rate??0.89)+(b.diet_days??0)*(b.diet_rate??45)+(b.hotel_cost??0)+(b.other_costs??0);
+  if(method==='GET'&&!id){
+    const from=url.searchParams.get('from')||'';const to=url.searchParams.get('to')||'';const status=url.searchParams.get('status')||'';const driver=url.searchParams.get('driver')||'';
+    const where=['company_id=?'];const params=[co];
+    if(from){where.push('date_from>=?');params.push(from);}
+    if(to){where.push('date_from<=?');params.push(to);}
+    if(status){where.push('status=?');params.push(status);}
+    if(driver){where.push('driver LIKE ?');params.push('%'+driver+'%');}
+    const rows=(await env.DB.prepare(`SELECT * FROM delegations WHERE ${where.join(' AND ')} ORDER BY date_from DESC LIMIT 500`).bind(...params).all().catch(()=>({results:[]}))).results||[];
+    return json({delegations:rows});
+  }
+  if(method==='GET'&&id){const r=await env.DB.prepare('SELECT * FROM delegations WHERE id=? AND company_id=?').bind(id,co).first().catch(()=>null);return json({delegation:r});}
+  if(method==='POST'&&!id){
+    const b=await req.json().catch(()=>({}));if(!b.driver||!b.date_from)return err('Brak wymaganych pól');
+    const rid=crypto.randomUUID();
+    await env.DB.prepare('INSERT INTO delegations(id,company_id,driver,nr_rej,destination,purpose,date_from,date_to,country,km_driven,km_rate,diet_days,diet_rate,hotel_cost,other_costs,total_pln,status,notes,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(rid,co,b.driver,b.nr_rej||null,b.destination||null,b.purpose||null,b.date_from,b.date_to||null,b.country||'Polska',b.km_driven??0,b.km_rate??0.89,b.diet_days??0,b.diet_rate??45,b.hotel_cost??0,b.other_costs??0,_total(b),b.status||'draft',b.notes||null,user.id).run();
+    return json({ok:true,id:rid});
+  }
+  if(method==='PUT'&&id){
+    const b=await req.json().catch(()=>({}));
+    await env.DB.prepare('UPDATE delegations SET driver=?,nr_rej=?,destination=?,purpose=?,date_from=?,date_to=?,country=?,km_driven=?,km_rate=?,diet_days=?,diet_rate=?,hotel_cost=?,other_costs=?,total_pln=?,status=?,notes=? WHERE id=? AND company_id=?').bind(b.driver,b.nr_rej||null,b.destination||null,b.purpose||null,b.date_from,b.date_to||null,b.country||'Polska',b.km_driven??0,b.km_rate??0.89,b.diet_days??0,b.diet_rate??45,b.hotel_cost??0,b.other_costs??0,_total(b),b.status||'draft',b.notes||null,id,co).run();
+    return json({ok:true});
+  }
+  if(method==='DELETE'&&id){await env.DB.prepare('DELETE FROM delegations WHERE id=? AND company_id=?').bind(id,co).run();return json({ok:true});}
+  return err('Nieznana operacja',404);
+}
+
+async function handleFleetInventory(req, env, user, url, path) {
+  const co=coOf(url,user);const segs=path.split('/').filter(Boolean);const id=segs[2]||null;const sub=segs[3]||null;const method=req.method;
+  if(method==='GET'&&!id){
+    const status=url.searchParams.get('status')||'';const limit=Math.min(parseInt(url.searchParams.get('limit')||'50'),200);
+    const where=['company_id=?'];const params=[co];
+    if(status){where.push('status=?');params.push(status);}
+    const rows=(await env.DB.prepare(`SELECT * FROM fleet_inventory_sessions WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT ?`).bind(...params,limit).all().catch(()=>({results:[]}))).results||[];
+    return json({sessions:rows});
+  }
+  if(method==='GET'&&id){const r=await env.DB.prepare('SELECT * FROM fleet_inventory_sessions WHERE id=? AND company_id=?').bind(id,co).first().catch(()=>null);return json({session:r});}
+  if(method==='POST'&&!id){
+    const existing=await env.DB.prepare("SELECT id FROM fleet_inventory_sessions WHERE company_id=? AND status='active'").bind(co).first().catch(()=>null);
+    if(existing)return err('Aktywna inwentaryzacja już istnieje. Zakończ lub anuluj poprzednią.',409);
+    const b=await req.json().catch(()=>({}));const rid=crypto.randomUUID();
+    await env.DB.prepare('INSERT INTO fleet_inventory_sessions(id,company_id,session_date,status,checked_vehicles,notes,vehicle_count) VALUES(?,?,?,?,?,?,?)').bind(rid,co,b.date||new Date().toISOString().split('T')[0],'active','[]','{}',b.vehicle_count??0).run();
+    return json({ok:true,id:rid});
+  }
+  if(method==='PUT'&&id&&!sub){
+    const b=await req.json().catch(()=>({}));
+    const cv=JSON.stringify(b.checked_vehicles||[]);const no=JSON.stringify(b.notes||{});
+    await env.DB.prepare('UPDATE fleet_inventory_sessions SET checked_vehicles=?,notes=?,checked_count=?,vehicle_count=? WHERE id=? AND company_id=?').bind(cv,no,(b.checked_vehicles||[]).length,b.vehicle_count??0,id,co).run();
+    return json({ok:true});
+  }
+  if(method==='PUT'&&id&&sub==='complete'){
+    await env.DB.prepare("UPDATE fleet_inventory_sessions SET status='completed',completed_at=datetime('now') WHERE id=? AND company_id=?").bind(id,co).run();
+    return json({ok:true});
+  }
+  if(method==='DELETE'&&id){await env.DB.prepare("UPDATE fleet_inventory_sessions SET status='cancelled' WHERE id=? AND company_id=?").bind(id,co).run();return json({ok:true});}
   return err('Nieznana operacja',404);
 }
 
