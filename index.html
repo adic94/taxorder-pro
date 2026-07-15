@@ -5,12 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
-  script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com;
+  script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://eu-assets.i.posthog.com https://npm.clerk.com;
   style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
   img-src 'self' data: blob: https:;
   font-src 'self' https://cdn.jsdelivr.net data:;
-  connect-src 'self' https://taxorder-pro-api.adamus1000.workers.dev https://wl-api.mf.gov.pl https://unpkg.com;
+  connect-src 'self' https://taxorder-pro-api.adamus1000.workers.dev https://wl-api.mf.gov.pl https://unpkg.com https://eu.i.posthog.com https://*.clerk.accounts.dev https://*.clerk.com;
   worker-src 'self' blob:;
+  frame-src 'self' https://*.clerk.accounts.dev https://*.clerk.com;
   frame-ancestors 'self';
   object-src 'none';
 ">
@@ -61,6 +62,49 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 <script src="modules/companies-auto-render.js"></script>
 <script src="modules/company-create.js"></script>
 <script src="modules/company-access.js"></script>
+<script>
+/* Sentry frontend relay — przechwytuje nieobsłużone błędy JS i wysyła je do Worker → Sentry */
+(function(){
+  var API='https://taxorder-pro-api.adamus1000.workers.dev';
+  function report(msg,stack,type){
+    try{
+      fetch(API+'/api/errors',{
+        method:'POST',keepalive:true,
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          error_msg:String(msg||'').substring(0,500),
+          error_stack:String(stack||'').substring(0,2000),
+          error_type:type||'uncaught',
+          url:location.href,
+          user_agent:navigator.userAgent,
+          company_id:localStorage.getItem('cf_company')||'',
+          app_version:'taxorder-v37'
+        })
+      }).catch(function(){});
+    }catch(e){}
+  }
+  window.addEventListener('error',function(e){
+    if(e.error&&!e.error._reported){e.error._reported=true;report(e.message,e.error.stack,'uncaught');}
+  });
+  window.addEventListener('unhandledrejection',function(e){
+    var r=e.reason;if(!r)return;
+    if(r._reported)return;r._reported=true;
+    report(r.message||String(r),(r.stack||''),'promise');
+  });
+})();
+</script>
+<script>
+/* PostHog — inicjalizowany dynamicznie przez /api/app-config (klucz nie jest hardcoded) */
+(function(){
+  !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split('.');2==o.length&&(t=t[o[0]],e=o[1]);t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement('script')).type='text/javascript',p.crossOrigin='anonymous',p.async=!0,p.src=s.api_host+'/static/array.js',(r=t.getElementsByTagName('script')[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a='posthog',u.people=u.people||[],u.toString=function(t){var e='posthog';return'posthog'!==a&&(e+='.'+a),t||(e+=' (stub)'),e},u.people.toString=function(){return u.toString(1)+' (stub)'},o='capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys getNextSurveyStep onSessionId setPersonPropertiesForFlags'.split(' '),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||(window.posthog=[]));
+  // Klucz jest pobierany z Worker po załadowaniu strony
+  window._initPostHog=function(apiKey,host){
+    if(!apiKey||window._posthogInitialized)return;
+    window._posthogInitialized=true;
+    window.posthog.init(apiKey,{api_host:host||'https://eu.i.posthog.com',person_profiles:'identified_only'});
+  };
+})();
+</script>
 </head>
 <body>
 <!-- ==================== EKRAN LOGOWANIA ==================== -->
@@ -4230,6 +4274,7 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   <script src="modules/video-telematics.js"></script>
   <script src="modules/esg-report.js"></script>
   <script src="modules/driver-worktime.js"></script>
+  <script src="modules/clerk-auth.js"></script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
@@ -4832,6 +4877,15 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
   </div>
 </div>
 
+<script>
+/* PostHog: pobierz klucz z Worker i zainicjuj analitykę */
+(function(){
+  var API='https://taxorder-pro-api.adamus1000.workers.dev';
+  fetch(API+'/api/app-config').then(function(r){return r.ok?r.json():null;}).then(function(cfg){
+    if(cfg&&cfg.posthog_api_key)window._initPostHog(cfg.posthog_api_key,cfg.posthog_host);
+  }).catch(function(){});
+})();
+</script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

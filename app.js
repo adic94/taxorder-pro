@@ -6742,6 +6742,9 @@ async function doLogin(){
   currentUser=u;
   window.currentUserId = u.id || null;
 
+  // PostHog: identyfikuj użytkownika po zalogowaniu
+  try { window.posthog?.identify?.(u.id, { email: u.email, role: u.role }); } catch(e) {}
+
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
   document.getElementById('user-avatar').textContent=u.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();

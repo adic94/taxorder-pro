@@ -10,6 +10,98 @@
  *   wrangler deploy
  */
 
+// ─── SENTRY ───────────────────────────────────────────────────────────────────
+async function captureException(error, env, ctx = {}) {
+  if (!env?.SENTRY_DSN) return;
+  try {
+    const dsn = env.SENTRY_DSN;
+    const m = dsn.match(/^https?:\/\/([^@]+)@([^/]+)\/(.+)$/);
+    if (!m) return;
+    const [, key, host, projectId] = m;
+    const payload = {
+      event_id: crypto.randomUUID().replace(/-/g, ''),
+      platform: 'javascript',
+      level: 'error',
+      server_name: 'cloudflare-worker',
+      timestamp: new Date().toISOString(),
+      environment: 'production',
+      release: 'taxorder-pro@1.0.0',
+      exception: {
+        values: [{
+          type: error?.name || 'Error',
+          value: error?.message || String(error),
+          stacktrace: {
+            frames: (error?.stack || '').split('\n').slice(1).map(l => ({ filename: l.trim() })),
+          },
+        }],
+      },
+      extra: typeof ctx === 'object' ? ctx : {},
+    };
+    await fetch(`https://${host}/api/${projectId}/store/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Sentry-Auth': `Sentry sentry_version=7, sentry_client=taxorder-worker/1.0, sentry_timestamp=${Math.floor(Date.now()/1000)}, sentry_key=${key}`,
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch {}
+}
+
+// ─── POSTHOG AI OBSERVABILITY ─────────────────────────────────────────────────
+async function trackAIEvent(env, userId, companyId, model, inputTokens, outputTokens, latencyMs, success) {
+  if (!env?.POSTHOG_API_KEY) return;
+  try {
+    await fetch('https://eu.i.posthog.com/capture/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: env.POSTHOG_API_KEY,
+        event: '$ai_generation',
+        distinct_id: userId || 'anonymous',
+        properties: {
+          company_id: companyId,
+          '$ai_model': model,
+          '$ai_provider': model.includes('llama') ? 'groq' : 'anthropic',
+          '$ai_input_tokens': inputTokens ?? 0,
+          '$ai_output_tokens': outputTokens ?? 0,
+          '$ai_total_tokens': (inputTokens ?? 0) + (outputTokens ?? 0),
+          '$ai_latency': latencyMs,
+          '$ai_http_status': success ? 200 : 500,
+          timestamp: new Date().toISOString(),
+        },
+      }),
+    });
+  } catch {}
+}
+
+// ─── UPSTASH RATE LIMITING ────────────────────────────────────────────────────
+async function rateLimit(env, key, maxRequests, windowSeconds) {
+  if (!env?.UPSTASH_REDIS_REST_URL || !env?.UPSTASH_REDIS_REST_TOKEN) return { allowed: true };
+  try {
+    const now = Date.now();
+    const windowStart = now - windowSeconds * 1000;
+    const rKey = `rl:${key}`;
+    const pipeline = [
+      ['ZREMRANGEBYSCORE', rKey, '-inf', windowStart],
+      ['ZADD', rKey, now, `${now}:${Math.random().toString(36).slice(2)}`],
+      ['ZCARD', rKey],
+      ['EXPIRE', rKey, windowSeconds * 2],
+    ];
+    const resp = await fetch(`${env.UPSTASH_REDIS_REST_URL}/pipeline`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${env.UPSTASH_REDIS_REST_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(pipeline),
+    });
+    if (!resp.ok) return { allowed: true };
+    const results = await resp.json();
+    const count = results[2]?.result ?? 0;
+    return { allowed: count <= maxRequests, count, limit: maxRequests, remaining: Math.max(0, maxRequests - count) };
+  } catch {
+    return { allowed: true };
+  }
+}
+
 // ─── CORS ────────────────────────────────────────────────────────────────────
 // Dozwolone originy frontendu — uzupełnij jeśli masz własną domenę
 const ALLOWED_ORIGINS = [
@@ -83,11 +175,59 @@ async function sha256Hex(text) {
   return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// ─── CLERK JWT VERIFICATION ───────────────────────────────────────────────────
+async function verifyClerkJWT(token, env) {
+  if (!env?.CLERK_PUBLISHABLE_KEY && !env?.CLERK_JWKS_URL) return null;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const b64dec = s => {
+      const pad = s.length % 4 ? s + '='.repeat(4 - s.length % 4) : s;
+      return atob(pad.replace(/-/g, '+').replace(/_/g, '/'));
+    };
+    const header = JSON.parse(b64dec(parts[0]));
+    if (header.alg !== 'RS256') return null;
+    let jwksUrl = env.CLERK_JWKS_URL;
+    if (!jwksUrl && env.CLERK_PUBLISHABLE_KEY) {
+      const encoded = env.CLERK_PUBLISHABLE_KEY.replace(/^pk_(live|test)_/, '');
+      const domain = b64dec(encoded).replace(/\$$/, '');
+      jwksUrl = `https://${domain}/.well-known/jwks.json`;
+    }
+    const jwksRes = await fetch(jwksUrl, { cf: { cacheTtl: 3600 } });
+    if (!jwksRes.ok) return null;
+    const { keys } = await jwksRes.json();
+    const jwk = keys.find(k => k.kid === header.kid);
+    if (!jwk) return null;
+    const pubKey = await crypto.subtle.importKey(
+      'jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']
+    );
+    const sigInput = new TextEncoder().encode(parts[0] + '.' + parts[1]);
+    const sigBytes = Uint8Array.from(b64dec(parts[2]), c => c.charCodeAt(0));
+    const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', pubKey, sigBytes, sigInput);
+    if (!valid) return null;
+    const payload = JSON.parse(b64dec(parts[1]));
+    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 // ─── AUTH MIDDLEWARE ──────────────────────────────────────────────────────────
 async function getUser(request, env) {
   const auth = (request.headers.get('Authorization') || '').replace('Bearer ', '').trim();
   if (!auth) return null;
   if (auth.startsWith('tord_')) return getApiKeyUser(auth, env);
+  // Clerk JWT: 3 dot-separated parts — try if CLERK_PUBLISHABLE_KEY is configured
+  if (auth.split('.').length === 3 && env?.CLERK_PUBLISHABLE_KEY) {
+    const payload = await verifyClerkJWT(auth, env);
+    if (payload?.sub) {
+      const u = await env.DB.prepare(
+        'SELECT * FROM users WHERE clerk_user_id = ? AND active = 1'
+      ).bind(payload.sub).first().catch(() => null);
+      if (u) return u;
+    }
+  }
   return env.DB.prepare(
     `SELECT u.* FROM sessions s
      JOIN users u ON s.user_id = u.id
@@ -2450,6 +2590,9 @@ Odpowiadaj po polsku, konkretnie i zwięźle.${fleetSummary ? '\n\nFlota użytko
     { role: 'user', content: message },
   ];
 
+  const userId = request.headers.get('X-User-Id') || 'anon';
+  const companyId = new URL(request.url).searchParams.get('company') || '';
+  const t0 = Date.now();
   try {
     const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -2461,12 +2604,16 @@ Odpowiadaj po polsku, konkretnie i zwięźle.${fleetSummary ? '\n\nFlota użytko
     });
     if (!resp.ok) {
       const e = await resp.json().catch(() => ({}));
+      trackAIEvent(env, userId, companyId, 'llama-3.3-70b-versatile', 0, 0, Date.now()-t0, false).catch(()=>{});
       return err('Błąd Groq: ' + (e.error?.message || resp.statusText), 502);
     }
     const data = await resp.json();
+    const usage = data.usage || {};
+    trackAIEvent(env, userId, companyId, 'llama-3.3-70b-versatile', usage.prompt_tokens, usage.completion_tokens, Date.now()-t0, true).catch(()=>{});
     return json({ answer: data.choices[0].message.content });
   } catch (e) {
     console.error('[AI] Groq error:', e?.message);
+    trackAIEvent(env, userId, companyId, 'llama-3.3-70b-versatile', 0, 0, Date.now()-t0, false).catch(()=>{});
     return err('Błąd AI: ' + (e?.message || 'nieznany błąd'), 502);
   }
 }
@@ -3709,6 +3856,9 @@ async function handleErrors(request, env, user, url, path) {
         pushErrorAlert(env, companyId, msg, body.error_type || 'uncaught').catch(() => {});
       }
     }
+    // Forward to Sentry (non-blocking)
+    const synErr = Object.assign(new Error(msg), { name: body.error_type || 'FrontendError', stack: body.error_stack || msg });
+    captureException(synErr, env, { url: body.url, user_id: body.user_id || null, company_id: companyId, source: 'frontend' }).catch(() => {});
     return json({ ok: true, id });
   }
 
@@ -7509,7 +7659,12 @@ async function handleGpsPositions(request, env, user, url, path) {
 // ─── MAIN FETCH ───────────────────────────────────────────────────────────────
 async function handleRequest(request, env, url, path) {
   // Public endpoints (no auth required)
-  if (path === '/api/auth/login'            && request.method === 'POST') return handleLogin(request, env);
+  if (path === '/api/auth/login'            && request.method === 'POST') {
+    const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const rl = await rateLimit(env, `login:${ip}`, 10, 60);
+    if (!rl.allowed) return json({ error: 'Zbyt wiele prób logowania. Poczekaj minutę.' }, 429);
+    return handleLogin(request, env);
+  }
   if (path === '/api/auth/logout'           && request.method === 'POST') return handleLogout(request, env);
   if (path === '/api/auth/pz/start'         && request.method === 'GET')  return handlePzStart(request, env, url);
   if (path === '/api/auth/pz/callback'      && request.method === 'GET')  return handlePzCallback(request, env, url);
@@ -7519,6 +7674,21 @@ async function handleRequest(request, env, url, path) {
   if (path === '/api/push/subscribe'        && request.method === 'DELETE') return handlePushUnsubscribe(request, env);
   // POST /api/errors jest publiczny (bez tokenu) — błędy mogą pojawiać się przed logowaniem
   if (path === '/api/errors' && request.method === 'POST') return handleErrors(request, env, null, url, path);
+  // Publiczna konfiguracja aplikacji (klucz PostHog, Clerk publishable key)
+  if (path === '/api/app-config' && request.method === 'GET') {
+    return json({
+      posthog_api_key: env.POSTHOG_API_KEY || null,
+      posthog_host: 'https://eu.i.posthog.com',
+      clerk_publishable_key: env.CLERK_PUBLISHABLE_KEY || null,
+    });
+  }
+  // Logowanie przez Clerk — wymiana tokenu Clerk na sesję D1
+  if (path === '/api/auth/clerk-signin' && request.method === 'POST') {
+    const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const rl = await rateLimit(env, `clerk-signin:${ip}`, 10, 60);
+    if (!rl.allowed) return json({ error: 'Zbyt wiele prób. Poczekaj minutę.' }, 429);
+    return handleClerkSignin(request, env);
+  }
 
   // Protected endpoints
   const user = await getUser(request, env);
@@ -7732,7 +7902,7 @@ async function handleRequest(request, env, url, path) {
     await queueNotificationJobs(env);
     return json({ ok: true, msg: 'Kolejkowanie zakończone — sprawdź zakładkę Historia za chwilę' });
   }
-  if (path === '/api/ai/chat')          { if (!user) return err('Nieautoryzowany', 401); return handleAI(request, env); }
+  if (path === '/api/ai/chat')          { if (!user) return err('Nieautoryzowany', 401); const rlAI = await rateLimit(env, `ai:${user.id}`, 30, 60); if (!rlAI.allowed) return json({ error: 'Limit zapytań AI wyczerpany (30/min). Poczekaj chwilę.' }, 429); return handleAI(request, env); }
   if (path === '/api/ai/ocr' && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleAIOCR(request, env); }
   if (path === '/api/aztec'  && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleAztec(request); }
 
@@ -10065,14 +10235,14 @@ async function handleJpk(req, env, user, url, path) {
     const xmlContent=xmlLines.join('\n');
     const fileSize=new TextEncoder().encode(xmlContent).length;
     const r2Key=`jpk/${co}/${rid}.xml`;
-    if(env.R2){await env.R2.put(r2Key,xmlContent,{httpMetadata:{contentType:'application/xml'}}).catch(()=>{});}
+    if(env.DOCS){await env.DOCS.put(r2Key,xmlContent,{httpMetadata:{contentType:'application/xml'}}).catch(()=>{});}
     await env.DB.prepare(`INSERT INTO ${TABLE}(id,company_id,jpk_type,year,month,quarter,period_label,status,r2_key,file_size_bytes,row_count) VALUES(?,?,?,?,?,?,?,?,?,?,?)`).bind(rid,co,b.jpk_type,b.year,b.month??null,b.quarter??null,period,'ready',r2Key,fileSize,rows.length).run();
     return json({ok:true,id:rid,size:fileSize,rows:rows.length});
   }
   if(method==='GET'&&id&&sub==='download'){
     const rec=await env.DB.prepare(`SELECT * FROM ${TABLE} WHERE id=? AND company_id=?`).bind(id,co).first().catch(()=>null);
     if(!rec)return err('Nie znaleziono',404);
-    if(env.R2&&rec.r2_key){const obj=await env.R2.get(rec.r2_key).catch(()=>null);if(obj)return new Response(obj.body,{headers:{'Content-Type':'application/xml','Content-Disposition':`attachment; filename="JPK_${rec.jpk_type}_${rec.period_label}.xml"`}});}
+    if(env.DOCS&&rec.r2_key){const obj=await env.DOCS.get(rec.r2_key).catch(()=>null);if(obj)return new Response(obj.body,{headers:{'Content-Type':'application/xml','Content-Disposition':`attachment; filename="JPK_${rec.jpk_type}_${rec.period_label}.xml"`}});}
     return err('Plik niedostępny',404);
   }
   if(method==='POST'&&id&&sub==='submit'){await env.DB.prepare(`UPDATE ${TABLE} SET status='submitted' WHERE id=? AND company_id=?`).bind(id,co).run();return json({ok:true});}
@@ -10175,6 +10345,39 @@ async function handleDriverWorktime(req, env, user, url, path) {
   return err('Nieznana operacja',404);
 }
 
+async function handleClerkSignin(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const clerkToken = String(body.clerk_token || '').trim();
+  if (!clerkToken) return err('Brak clerk_token');
+  const payload = await verifyClerkJWT(clerkToken, env);
+  if (!payload?.sub) return err('Nieprawidłowy token Clerk', 401);
+  // Szukaj po clerk_user_id
+  let user = await env.DB.prepare(
+    'SELECT * FROM users WHERE clerk_user_id = ? AND active = 1'
+  ).bind(payload.sub).first().catch(() => null);
+  // Auto-link po e-mailu jeśli konto Clerk nie jest jeszcze powiązane
+  if (!user && payload.email) {
+    user = await env.DB.prepare(
+      'SELECT * FROM users WHERE email = ? AND active = 1'
+    ).bind(payload.email).first().catch(() => null);
+    if (user) {
+      env.DB.prepare('UPDATE users SET clerk_user_id = ? WHERE id = ?').bind(payload.sub, user.id).run().catch(() => {});
+    }
+  }
+  if (!user) return err('Konto Clerk nie jest powiązane z żadnym użytkownikiem. Skontaktuj się z administratorem.', 403);
+  // Utwórz sesję D1 (taka sama jak przy normalnym logowaniu)
+  const token = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  await env.DB.prepare(
+    'INSERT INTO sessions (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)'
+  ).bind(crypto.randomUUID(), user.id, token, expiresAt).run();
+  return json({
+    ok: true,
+    token,
+    user: { id: user.id, email: user.email, role: user.role, company_id: user.company_id, name: user.name },
+  });
+}
+
 export default {
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') {
@@ -10189,6 +10392,7 @@ export default {
       resp = await handleRequest(request, env, url, path);
     } catch (e) {
       console.error('[Worker error]', e?.stack || e?.message);
+      captureException(e, env, { path, method: request.method }).catch(() => {});
       resp = json({ error: 'Błąd serwera: ' + (e?.message || 'unknown') }, 500);
     }
 
