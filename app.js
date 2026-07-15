@@ -244,6 +244,7 @@ function showPage(id) {
   if(id==='vehicle-value')       window.VehicleValueModule?.renderVehicleValue();
   if(id==='gus-regon')           window.GusRegonModule?.renderGusRegon();
   if(id==='vies-validator')      window.ViesValidatorModule?.renderViesValidator();
+  if(id==='feature-config')      window.FeatureConfig?.renderPage();
   if(id==='fleet-reservations')  window.FleetReservationsModule?.renderFleetReservations();
   if(id==='epp-vat')             window.EppVatModule?.renderEppVat();
   if(id==='integrations')        window.IntegrationsModule?.renderIntegrations();
@@ -2807,6 +2808,7 @@ async function _handlePzHashCallback() {
     applyRoleAccess(currentUser.role);
     window.AccessControl?.init();
     sessionStorage.setItem('dt1_user_email', currentUser.email);
+    window.FeatureConfig?.loadFlags();
 
     // Badge PZ w topbar
     const uname = document.getElementById('user-name');
@@ -6755,6 +6757,7 @@ async function doLogin(){
   // Załaduj uprawnienia pakietu i modułów per użytkownik
   window.AccessControl?.init();
   sessionStorage.setItem('dt1_user_email',u.email);
+  window.FeatureConfig?.loadFlags();
 
   if(typeof loadCompanyState==='function'){
     loadCompanyState(currentCompanyId);
@@ -8556,6 +8559,7 @@ window.addEventListener('load', async () => {
       document.getElementById('user-name').textContent=u.name;
       document.getElementById('user-role-lbl').textContent=ROLE_LABELS[u.role]||u.role;
       applyRoleAccess(u.role);
+      window.FeatureConfig?.loadFlags();
     }
   }
   renderDash();

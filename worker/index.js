@@ -7893,6 +7893,7 @@ async function handleRequest(request, env, url, path) {
   if (path.startsWith('/api/delegations'))            { if (!user) return err('Nieautoryzowany', 401); return handleDelegations(request, env, user, url, path); }
   if (path.startsWith('/api/fleet-inventory'))        { if (!user) return err('Nieautoryzowany', 401); return handleFleetInventory(request, env, user, url, path); }
   if (path.startsWith('/api/budget-plans'))           { if (!user) return err('Nieautoryzowany', 401); return handleBudgetPlans(request, env, user, url, path); }
+  if (path === '/api/feature-flags')                  { if (!user) return err('Nieautoryzowany', 401); return handleFeatureFlags(request, env, user, url); }
   // Admin: ręczne wyzwolenie kolejkowania powiadomień (do testów bez crona)
   if (path === '/api/notif-trigger' && request.method === 'POST') {
     if (!user) return err('Nieautoryzowany', 401);
@@ -10420,6 +10421,26 @@ async function handleBudgetPlans(req, env, user, url) {
     return json({ok:true});
   }
   return err('Nieznana operacja',404);
+}
+
+async function handleFeatureFlags(req, env, user, url) {
+  const co  = coOf(url, user);
+  const key = `feature-flags:${co}`;
+  if (req.method === 'GET') {
+    const raw  = await env.PREFS.get(key).catch(() => null);
+    const data = raw ? JSON.parse(raw) : { nav: {}, dash: null };
+    return json(data);
+  }
+  if (req.method === 'PUT') {
+    const body    = await req.json().catch(() => ({}));
+    const current = await env.PREFS.get(key).then(r => r ? JSON.parse(r) : {}).catch(() => ({}));
+    const merged  = { ...current };
+    if (body.nav  !== undefined) merged.nav  = body.nav;
+    if (body.dash !== undefined) merged.dash = body.dash;
+    await env.PREFS.put(key, JSON.stringify(merged));
+    return json({ ok: true });
+  }
+  return err('Nieznana operacja', 404);
 }
 
 async function handleClerkSignin(request, env) {
