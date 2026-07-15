@@ -62,7 +62,7 @@ ${sorted.length ? sorted.map(v => {
   return `<tr class="${cls}">
   <td>${e(v.nr_rej)}</td>
   <td>${e((v.marka||'')+' '+(v.model||'')).trim()||'—'}</td>
-  <td>${v.rok||'—'}</td>
+  <td>${e(v.rok||'—')}</td>
   <td>${fmtN(v.service_cost)} PLN</td>
   <td>${fmtN(v.fuel_cost)} PLN</td>
   <td>${fmtN(v.fine_cost)} PLN</td>

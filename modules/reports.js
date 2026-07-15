@@ -239,7 +239,7 @@ window.FleetReports = (function () {
               const w = (r.total/maxTotal*100).toFixed(1);
               return `<tr>
                 <td style="font-weight:700;font-family:var(--mono)">${esc(r.v.nrRej)}</td>
-                <td style="font-size:11px">${esc(r.v.marka)} ${esc(r.v.model)} <span style="color:var(--text3)">${r.v.rok||''}</span></td>
+                <td style="font-size:11px">${esc(r.v.marka)} ${esc(r.v.model)} <span style="color:var(--text3)">${esc(r.v.rok||'')}</span></td>
                 <td style="text-align:right;font-family:var(--mono);color:var(--orange)">${r.fuel?fmt(r.fuel):'—'}</td>
                 <td style="text-align:right;font-family:var(--mono);color:var(--red)">${r.svc?fmt(r.svc):'—'}</td>
                 <td style="text-align:right;font-family:var(--mono);color:var(--green)">${r.ins?fmt(r.ins):'—'}</td>
@@ -652,7 +652,7 @@ window.FleetReports = (function () {
             <tr style="cursor:pointer" onclick="TaxOrderVehicleDetail.open(${r.v.id})">
               <td style="font-family:var(--mono);font-weight:700">${esc(r.v.nrRej)}</td>
               <td>${esc(r.v.marka)} ${esc(r.v.model)}</td>
-              <td style="font-family:var(--mono)">${r.v.rok||'—'}</td>
+              <td style="font-family:var(--mono)">${esc(r.v.rok||'—')}</td>
               <td style="text-align:right;font-family:var(--mono)">${r.fuel?_fmt2(r.fuel):'-'}</td>
               <td style="text-align:right;font-family:var(--mono)">${r.fuelL?r.fuelL.toFixed(1):'-'}</td>
               <td style="text-align:right;font-family:var(--mono);color:${r.avgEff!=null?(r.v.normaSpalania&&r.avgEff>r.v.normaSpalania*1.15?'var(--red)':'var(--blue)'):'var(--text3)'}">${r.avgEff!=null?r.avgEff.toFixed(1):'-'}</td>

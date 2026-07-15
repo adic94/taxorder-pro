@@ -141,7 +141,7 @@ window.ZsiaImporter = (() => {
           <tbody>${newVehs.slice(0,30).map(v => `<tr>
             <td><strong style="font-family:var(--mono)">${esc(v.nrRej)}</strong></td>
             <td>${esc(v.marka)} ${esc(v.model)}</td>
-            <td>${v.rok||'—'}</td>
+            <td>${esc(v.rok||'—')}</td>
             <td style="font-family:var(--mono);font-size:11px">${esc(v.vin||'—')}</td>
             <td><span class="pill pill-blue" style="font-size:10px">${esc(v._companyId||'?')}</span></td>
             <td style="font-size:11px">${esc(v.ocEnd||'—')}</td>

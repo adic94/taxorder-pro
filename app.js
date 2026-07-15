@@ -648,7 +648,7 @@ function renderKalkulator() {
   if(warn) warn.classList.add('hidden');
   tbody.innerHTML = selT.map(v => `<tr>
     <td><strong style="font-family:var(--mono)">${esc(v.nrRej)}</strong></td>
-    <td>${esc(v.marka)} ${esc(v.model)} <span style="font-size:11px;color:var(--text2)">${v.rok||''}</span></td>
+    <td>${esc(v.marka)} ${esc(v.model)} <span style="font-size:11px;color:var(--text2)">${esc(v.rok||'')}</span></td>
     <td>${v.cat?`<span class="pill ${CAT_COLORS[v.cat]||'pill-gray'}">${esc(v.cat)}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
     <td style="text-align:center">${v.miesiacePodatku||12}</td>
     <td style="text-align:right;font-family:var(--mono);color:var(--text2)">${v.rate?v.rate.toLocaleString('pl-PL')+' zł':'—'}</td>
@@ -1602,9 +1602,9 @@ const _FLEET_COL_FI = {
 // ── Renderery komórek danych ─────────────────────────────────────────
 // ctx = { t, isNew, needsDmcZ, isTrailerV }
 const _FLEET_COL_TD = {
-  rok:        (v,c)=>`<td data-col="rok">${v.rok||'—'}${c.isNew?'<span class="pill pill-new" style="margin-left:6px;font-size:9px">§2</span>':''}</td>`,
+  rok:        (v,c)=>`<td data-col="rok">${esc(v.rok||'—')}${c.isNew?'<span class="pill pill-new" style="margin-left:6px;font-size:9px">§2</span>':''}</td>`,
   typ:        (v)  =>`<td data-col="typ"><span class="pill pill-gray">${esc(v.typ)}</span></td>`,
-  dmc:        (v)  =>`<td data-col="dmc" style="font-family:var(--mono);font-size:12px">${(v.dmc||v.dmcMax||0).toLocaleString('pl-PL')}</td>`,
+  dmc:        (v)  =>`<td data-col="dmc" style="font-family:var(--mono);font-size:12px">${(v.dmc??v.dmcMax??0).toLocaleString('pl-PL')}</td>`,
   osie:       (v)  =>`<td data-col="osie" onclick="event.stopPropagation()"><select class="isel" onchange="setV(${v.id},'osie',parseInt(this.value))">${[1,2,3,4,5].map(n=>`<option ${v.osie===n?'selected':''}>${n}</option>`).join('')}</select></td>`,
   zawieszenie:(v)  =>`<td data-col="zawieszenie" onclick="event.stopPropagation()"><select class="isel" style="width:120px" onchange="setV(${v.id},'zawieszenie',this.value)"><option ${v.zawieszenie==='pneumatyczne'?'selected':''}>pneumatyczne</option><option ${v.zawieszenie==='równoważne'?'selected':''}>równoważne</option><option ${v.zawieszenie==='inne'?'selected':''}>inne</option></select></td>`,
   dmczesp:    (v,c)=>`<td data-col="dmczesp" onclick="event.stopPropagation()">${c.isTrailerV?`<input class="inum" style="width:70px" type="number" step="0.001" min="0" max="100" value="${((v.dmcZespolu||0)/1000).toFixed(1)}" onchange="setV(${v.id},'dmcZespolu',parseFloat(this.value)*1000||0)" title="DMC zesp. w tonach">${c.needsDmcZ?'<span style="color:var(--amber);font-size:11px"> ⚠</span>':''}` : '<span style="color:var(--text3)">—</span>'}</td>`,
@@ -2063,7 +2063,7 @@ function _renderCards(list) {
         <span class="pill ${statusCls}" style="font-size:10px">${esc(v.status||'—')}</span>
       </div>
       <div class="fc-brand">${esc(v.marka)} ${esc(v.model)}</div>
-      <div class="fc-meta">${v.rok||'—'} · ${esc(v.typ||'—')}${v.euro?' · '+esc(v.euro):''}</div>
+      <div class="fc-meta">${esc(v.rok||'—')} · ${esc(v.typ||'—')}${v.euro?' · '+esc(v.euro):''}</div>
       <div class="fc-row"><span class="fc-icon">👤</span><span style="${!v.kierowca?'color:var(--text3);font-style:italic':''}">${esc(v.kierowca||'brak kierowcy')}</span></div>
       ${v.stanKilometrow != null ? `<div class="fc-row"><span class="fc-icon">🛣</span><span style="font-family:var(--mono)">${v.stanKilometrow.toLocaleString('pl-PL')} km</span>${_gpsIndicator(v)}</div>` : ''}
       <div class="fc-dates">
@@ -3902,7 +3902,7 @@ function renderFormularze() {
       <tr>
         <td style="border:0.5px solid #000;border-top:none;padding:2px 4px;width:25%">
           <div style="font-size:5.5pt;font-weight:bold">3. Data pierwszej rejestracji na terytorium RP</div>
-          <div style="margin-top:2px">${v.dataRejestracji||v.dataRej||'—'}</div>
+          <div style="margin-top:2px">${esc(v.dataRejestracji||v.dataRej||'—')}</div>
         </td>
         <td colspan="5" style="border:0.5px solid #000;border-left:none;border-top:none;padding:2px 4px">
           <div style="font-size:5.5pt;font-weight:bold">4. Numer rejestracyjny pojazdu</div>
@@ -3922,15 +3922,15 @@ function renderFormularze() {
       <tr>
         <td style="border:0.5px solid #000;border-top:none;padding:2px 4px;width:14%">
           <div style="font-size:5.5pt;font-weight:bold">7. Rok produkcji</div>
-          <div style="font-weight:bold">${v.rok||'—'}</div>
+          <div style="font-weight:bold">${esc(v.rok||'—')}</div>
         </td>
         <td style="border:0.5px solid #000;border-left:none;border-top:none;padding:2px 4px;width:22%">
           <div style="font-size:5.5pt;font-weight:bold">8. Data nabycia</div>
-          <div>${v.dataNabycia||'—'}</div>
+          <div>${esc(v.dataNabycia||'—')}</div>
         </td>
         <td style="border:0.5px solid #000;border-left:none;border-top:none;padding:2px 4px;width:22%">
           <div style="font-size:5.5pt;font-weight:bold">9. Data zbycia</div>
-          <div>${v.dataZbycia||'—'}</div>
+          <div>${esc(v.dataZbycia||'—')}</div>
         </td>
         <td style="border:0.5px solid #000;border-left:none;border-top:none;padding:2px 4px;width:21%">
           <div style="font-size:5.5pt;font-weight:bold">10. Data cz. wycofania z ruchu</div>
@@ -4102,7 +4102,7 @@ function exportPD() {
   const hdrs=['Rodzaj środka transportu','Nr rejestracyjny','VIN','Dopuszczalna masa całkowita pojazdu','Masa własna ciągnika siodłowego','Dopuszczalna masa całkowita zespołu pojazdów','Marka/model/typ','Rok produkcji','Liczba osi pojazdu','Rodzaj zawieszenia','Opis rodzaju zawieszenia','Wpływ na środowisko naturalne','Poziom emisji spalin','Liczba miejsc do siedzenia','Wybierz zdarzenie opisujące pojazd','Data pierwszej rejestracji na terytorium RP','Data Nabycia','Środek transportowy był czasowo wycofany z ruchu od','Środek transportowy był czasowo wycofany z ruchu do','Data sprzedaży/wyrejestrowania','Data zdarzenia powodującego powstanie ostatniego obowiązku podatkowego','Kwota podatku zapłaconego'];
   const rows = taxable.map(v=>{
     const isCiagnik=(v.typ||'').toLowerCase().includes('ciagnik')||(v.typ||'').toLowerCase().includes('ciągnik');
-    const _dmc=v.dmc||v.dmcMax||0;
+    const _dmc=v.dmc??v.dmcMax??0;
     return [pdTyp(v.typ),v.nrRej.toUpperCase(),(v.vin||'').toUpperCase(),_dmc/1000,isCiagnik?_dmc/1000:null,v.dmcZespolu>0?v.dmcZespolu/1000:null,`${v.marka.toUpperCase()}/${v.model.toUpperCase()}`,String(v.rok),parseInt(v.osie||v.liczbaOsi)||2,pdZaw(v.zawieszenie),null,pdEuroW(v.euro),pdEuroL(v.euro),null,'BRAK ZDARZEN',null,null,null,null,null,null,Math.round(v.amount*100)/100];
   });
   const ws3 = XLSX.utils.aoa_to_sheet([hdrs,...rows]);
@@ -4856,9 +4856,9 @@ function renderRaporty() {
       return `<tr>
         <td><strong style="font-family:var(--mono)">${esc(v.nrRej)}</strong></td>
         <td>${esc(v.marka)} ${esc(v.model)} ${isNew?'<span class="pill pill-new" style="font-size:9px">§2</span>':''}</td>
-        <td>${v.rok||'—'}</td>
+        <td>${esc(v.rok||'—')}</td>
         <td><span class="pill pill-gray" style="font-size:10px">${esc(v.typ)}</span></td>
-        <td style="font-family:var(--mono);font-size:12px">${(v.dmc||v.dmcMax||0).toLocaleString('pl-PL')}</td>
+        <td style="font-family:var(--mono);font-size:12px">${(v.dmc??v.dmcMax??0).toLocaleString('pl-PL')}</td>
         <td><span class="pill ${STAT_LABELS[v.status]||'pill-gray'}">${esc(v.status)}</span></td>
         <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis">${esc(v.wlasciciel||'—')}</td>
         <td>${v.cat?`<span class="pill ${CAT_COLORS[v.cat]||'pill-gray'}">${esc(v.cat)}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
@@ -6587,9 +6587,9 @@ function showImpPreview(rows,source) {
     <thead><tr><th>Nr rej.</th><th>Marka</th><th>Model</th><th>Rok</th><th>Typ</th><th>DMC (kg)</th><th>Status</th><th>EURO</th></tr></thead>
     <tbody>${sample.map(v=>`<tr>
       <td><strong style="font-family:var(--mono)">${esc(v.nrRej||'—')}</strong></td>
-      <td>${esc(v.marka||'—')}</td><td>${esc(v.model||'—')}</td><td>${v.rok||'—'}</td>
+      <td>${esc(v.marka||'—')}</td><td>${esc(v.model||'—')}</td><td>${esc(v.rok||'—')}</td>
       <td><span class="pill pill-gray">${esc(v.typ||'—')}</span></td>
-      <td style="font-family:var(--mono)">${(v.dmc||v.dmcMax||0).toLocaleString('pl-PL')}</td>
+      <td style="font-family:var(--mono)">${(v.dmc??v.dmcMax??0).toLocaleString('pl-PL')}</td>
       <td><span class="pill ${STAT_LABELS[v.status]||'pill-gray'}">${esc(v.status||'—')}</span></td>
       <td style="font-size:11px">${esc(v.euro||'—')}</td>
     </tr>`).join('')}
@@ -8196,9 +8196,9 @@ function renderSingleResult(nr, cepikData, veh, container) {
       return `<div style="display:grid;grid-template-columns:160px 1fr 1fr;border-bottom:0.5px solid var(--border);align-items:center;${diff?'background:var(--amber-light)':''}">
         <div style="padding:7px 12px;font-size:11px;font-weight:500;color:var(--text2)">${label}</div>
         <div style="padding:7px 12px;font-size:12px;font-family:var(--mono);font-weight:${cv?'600':'400'};color:${cv?'var(--text)':'var(--text3)'}">
-          ${cv||'—'}${diff?'<span class="diff-badge" style="background:var(--amber)">RÓŻNICA</span>':''}
+          ${esc(cv||'—')}${diff?'<span class="diff-badge" style="background:var(--amber)">RÓŻNICA</span>':''}
         </div>
-        <div style="padding:7px 12px;font-size:12px;font-family:var(--mono);color:var(--text2)">${bv!==undefined&&bv!==''&&bv!==null?bv:'—'}</div>
+        <div style="padding:7px 12px;font-size:12px;font-family:var(--mono);color:var(--text2)">${esc(bv!==undefined&&bv!==''&&bv!==null?bv:'—')}</div>
       </div>`;
     }).join('')}
   </div>`;
@@ -8321,13 +8321,13 @@ function renderBatchResults(results) {
       <tbody>${diffs.map(({v,diffs:ds,cepikData})=>`<tr>
         <td><strong style="font-family:var(--mono)">${esc(v.nrRej)}</strong></td>
         <td style="font-size:12px">${esc(v.marka)} ${esc(v.model)}</td>
-        <td style="text-align:center">${v.rok||'—'}</td>
+        <td style="text-align:center">${esc(v.rok||'—')}</td>
         <td>${ds.map(d=>`<div style="font-size:10px;margin-bottom:2px"><span style="color:var(--amber);font-weight:500">${esc(d.label)}:</span> <span style="font-family:var(--mono)">${esc(d.baza||'—')}</span> <i class="ti ti-arrow-right" style="font-size:9px"></i> <span style="font-family:var(--mono);font-weight:600;color:var(--blue)">${esc(d.cepik)}</span></div>`).join('')}</td>
-        <td><button class="btn btn-blue" style="font-size:11px;padding:5px 10px" onclick='cepikApplyToVeh(${v.id},${JSON.stringify(cepikData||{})})'>
+        <td><button class="btn btn-blue" style="font-size:11px;padding:5px 10px" onclick="cepikApplyToVeh(${v.id},${JSON.stringify(cepikData||{}).replace(/"/g,'&quot;')})">
           <i class="ti ti-database-import"></i>Aktualizuj
         </button></td>
       </tr>`).join('')}</tbody></table></div>
-    <button class="btn btn-amber" onclick='cepikApplyAll(${JSON.stringify(diffs.map(r=>({id:r.v.id,data:r.cepikData||{}})))})'>
+    <button class="btn btn-amber" onclick="cepikApplyAll(${JSON.stringify(diffs.map(r=>({id:r.v.id,data:r.cepikData||{}}))).replace(/"/g,'&quot;')})">
       <i class="ti ti-database-import"></i>Zaktualizuj wszystkie ${diffs.length} pojazdy z rozbieżnościami
     </button>`;
   }
