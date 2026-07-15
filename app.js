@@ -6957,11 +6957,31 @@ if (window.supabaseClient) {
 
 function doLogout(){
   currentUser=null;
+  closeUserMenu();
   sessionStorage.removeItem('dt1_user_email');
   document.getElementById('app').style.display='none';
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('login-pass').value='';
   document.getElementById('login-err').style.display='none';
+}
+
+function toggleUserMenu(){
+  const dd=document.getElementById('user-menu');
+  if(!dd)return;
+  if(dd.style.display!=='none'){closeUserMenu();return;}
+  const nm=document.getElementById('user-menu-name');
+  const rl=document.getElementById('user-menu-role');
+  if(nm)nm.textContent=currentUser?.name||document.getElementById('user-name')?.textContent||'—';
+  if(rl)rl.textContent=currentUser?.email||'';
+  dd.style.display='block';
+  setTimeout(()=>document.addEventListener('click',_closeUserMenuOutside,{once:true}),10);
+}
+function _closeUserMenuOutside(e){
+  if(!document.getElementById('user-card')?.contains(e.target))closeUserMenu();
+}
+function closeUserMenu(){
+  const dd=document.getElementById('user-menu');
+  if(dd)dd.style.display='none';
 }
 
 function applyRoleAccess(role){

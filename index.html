@@ -112,7 +112,7 @@ window._initPostHog=function(apiKey,host){
       <div style="font-size:20px;font-weight:600;margin-top:10px">TaxOrder Pro</div>
       <div style="font-size:13px;color:var(--text2);margin-top:4px">System DT-1 — mToilet Sp. z o.o.</div>
     </div>
-    <div id="login-err" style="display:none;background:var(--red-light);border:1px solid #F09595;color:#791F1F;border-radius:var(--radius);padding:10px 14px;font-size:13px;margin-bottom:14px;display:flex;align-items:center;gap:8px"></div>
+    <div id="login-err" style="display:none;background:var(--red-light);border:1px solid #F09595;color:#791F1F;border-radius:var(--radius);padding:10px 14px;font-size:13px;margin-bottom:14px;align-items:center;gap:8px"></div>
     <div style="margin-bottom:14px">
       <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:5px;font-weight:500">Adres e-mail</label>
       <input type="email" id="login-email" class="fi" placeholder="np. admin@mtoilet.pl" onkeydown="if(event.key==='Enter')doLogin()">
@@ -130,19 +130,7 @@ window._initPostHog=function(apiKey,host){
     <button onclick="resetPasswordFlow()" type="button" class="btn btn-gray" style="width:100%;justify-content:center;padding:12px;font-size:14px;margin-top:10px">
       <i class="ti ti-key"></i>Reset hasla
     </button>
-    <div style="position:relative;text-align:center;margin:14px 0 10px">
-      <div style="position:absolute;top:50%;left:0;right:0;height:1px;background:var(--border)"></div>
-      <span style="position:relative;background:var(--bg2);padding:0 10px;font-size:11px;color:var(--text3)">lub</span>
-    </div>
-    <button onclick="loginWithPZ()" type="button" id="pz-login-btn" class="btn" style="width:100%;justify-content:center;padding:12px;font-size:14px;border:1.5px solid #003566;color:#003566;background:transparent;gap:10px">
-      <svg width="18" height="18" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="6" fill="#003566"/><path d="M20 8C14.477 8 10 12.477 10 18c0 4.418 2.865 8.166 6.857 9.48L20 32l3.143-4.52C27.135 26.166 30 22.418 30 18c0-5.523-4.477-10-10-10z" fill="#fff"/><circle cx="20" cy="18" r="4" fill="#003566"/></svg>
-      Zaloguj Profilem Zaufanym
-    </button>
     <div id="pz-login-info" style="display:none;font-size:11px;color:var(--text2);text-align:center;margin-top:8px;line-height:1.5"></div>
-
-    <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:14px;line-height:1.6">
-      Domyślnie: admin@mtoilet.pl / admin123<br>Zarządzanie użytkownikami → zakładka Użytkownicy
-    </div>
   </div>
 </div>
 <div class="app" id="app" style="display:none">
@@ -167,10 +155,8 @@ window._initPostHog=function(apiKey,host){
     </select>
   </div>
   <span id="company-badge" style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;background:#E6F1FB;color:#185FA5;border:1px solid #B5D4F4;white-space:nowrap;cursor:pointer" onclick="showPage('firmy')">mToilet</span>
-  <div class="yr-wrap" style="display:flex;align-items:center;gap:8px;margin-left:auto">
-    <label style="font-size:12px;color:var(--text2)">Rok:</label>
-    <input id="taxYear" type="number" min="2020" max="2035" value="2026" list="taxYear-list" class="yr-sel" onchange="refreshAll()" oninput="if(this.value.length===4&&parseInt(this.value)>=2020)refreshAll()" style="width:68px;text-align:center;font-size:12px;font-weight:600;padding:4px 6px;border-radius:var(--radius);border:1px solid var(--border)"><datalist id="taxYear-list"><option value="2024"><option value="2025"><option value="2026"><option value="2027"></datalist>
-  </div>
+  <div style="margin-left:auto"></div>
+  <input type="hidden" id="taxYear" value="2026">
   <!-- Globalna wyszukiwarka -->
   <div id="gs-wrap" style="position:relative;display:flex;align-items:center">
     <div style="position:relative">
@@ -197,13 +183,31 @@ window._initPostHog=function(apiKey,host){
     <i class="ti ti-bell"></i>
     <span id="notif-badge" style="display:none;position:absolute;top:2px;right:2px;background:var(--red);color:#fff;border-radius:9px;font-size:9px;font-weight:700;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 3px">0</span>
   </button>
-  <div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:var(--radius);padding:6px 12px">
-    <div id="user-avatar" style="width:28px;height:28px;border-radius:50%;background:var(--blue-light);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">?</div>
-    <div>
-      <div id="user-name" style="font-size:12px;font-weight:600">—</div>
-      <div id="user-role-lbl" style="font-size:10px;color:var(--text2)">—</div>
+  <div style="position:relative">
+    <div id="user-card" onclick="toggleUserMenu()" style="display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:var(--radius);padding:6px 12px;cursor:pointer;user-select:none">
+      <div id="user-avatar" style="width:28px;height:28px;border-radius:50%;background:var(--blue-light);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">?</div>
+      <div>
+        <div id="user-name" style="font-size:12px;font-weight:600">—</div>
+        <div id="user-role-lbl" style="font-size:10px;color:var(--text2)">—</div>
+      </div>
+      <i class="ti ti-chevron-down" style="font-size:12px;color:var(--text3);margin-left:2px"></i>
     </div>
-    <button onclick="doLogout()" title="Wyloguj" style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:17px;padding:4px;border-radius:var(--radius-sm)"><i class="ti ti-logout"></i></button>
+    <div id="user-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:210px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:9999;overflow:hidden">
+      <div style="padding:12px 14px;border-bottom:1px solid var(--border)">
+        <div id="user-menu-name" style="font-size:13px;font-weight:600">—</div>
+        <div id="user-menu-role" style="font-size:10px;color:var(--text2);margin-top:1px">—</div>
+      </div>
+      <div style="padding:4px 0">
+        <button class="user-mitem" onclick="showPage('feature-config');closeUserMenu()"><i class="ti ti-layout-sidebar"></i>Konfiguracja modułów</button>
+        <button class="user-mitem" onclick="showPage('uzytkownicy');closeUserMenu()"><i class="ti ti-users"></i>Użytkownicy</button>
+        <button class="user-mitem" onclick="showPage('api-klucze');closeUserMenu()"><i class="ti ti-key"></i>Klucze API</button>
+        <button class="user-mitem" onclick="showPage('firmy');closeUserMenu()"><i class="ti ti-building-community"></i>Firmy</button>
+        <div style="height:1px;background:var(--border);margin:4px 0"></div>
+        <button class="user-mitem" onclick="toggleDarkMode();closeUserMenu()"><i class="ti ti-moon"></i>Zmień motyw</button>
+        <div style="height:1px;background:var(--border);margin:4px 0"></div>
+        <button class="user-mitem" style="color:var(--red)" onclick="doLogout()"><i class="ti ti-logout"></i>Wyloguj</button>
+      </div>
+    </div>
   </div>
 </div>
 

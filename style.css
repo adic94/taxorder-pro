@@ -622,3 +622,8 @@ td{transition:background .1s}
 
 /* --- Keyboard shortcut badge --- */
 kbd{background:var(--bg2);border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;padding:2px 7px;font-size:11px;font-family:var(--mono);font-weight:700;color:var(--text)}
+
+/* --- User card dropdown menu --- */
+.user-mitem{display:flex;align-items:center;gap:9px;width:100%;padding:8px 14px;background:none;border:none;cursor:pointer;font-size:13px;color:var(--text);text-align:left;transition:background .1s;font-family:var(--font)}
+.user-mitem:hover{background:var(--bg3)}
+.user-mitem .ti{font-size:15px;color:var(--text2);flex-shrink:0}
