@@ -7892,6 +7892,7 @@ async function handleRequest(request, env, url, path) {
   if (path.startsWith('/api/driver-worktime'))        { if (!user) return err('Nieautoryzowany', 401); return handleDriverWorktime(request, env, user, url, path); }
   if (path.startsWith('/api/delegations'))            { if (!user) return err('Nieautoryzowany', 401); return handleDelegations(request, env, user, url, path); }
   if (path.startsWith('/api/fleet-inventory'))        { if (!user) return err('Nieautoryzowany', 401); return handleFleetInventory(request, env, user, url, path); }
+  if (path.startsWith('/api/budget-plans'))           { if (!user) return err('Nieautoryzowany', 401); return handleBudgetPlans(request, env, user, url, path); }
   // Admin: ręczne wyzwolenie kolejkowania powiadomień (do testów bez crona)
   if (path === '/api/notif-trigger' && request.method === 'POST') {
     if (!user) return err('Nieautoryzowany', 401);
@@ -10404,6 +10405,20 @@ async function handleFleetInventory(req, env, user, url, path) {
     return json({ok:true});
   }
   if(method==='DELETE'&&id){await env.DB.prepare("UPDATE fleet_inventory_sessions SET status='cancelled' WHERE id=? AND company_id=?").bind(id,co).run();return json({ok:true});}
+  return err('Nieznana operacja',404);
+}
+
+async function handleBudgetPlans(req, env, user, url) {
+  const co=coOf(url,user);const yr=parseInt(url.searchParams.get('year')||new Date().getFullYear());const method=req.method;
+  if(method==='GET'){
+    const r=await env.DB.prepare('SELECT fuel,service,insur,tax,fines FROM budget_plans WHERE company_id=? AND year=?').bind(co,yr).first().catch(()=>null);
+    return json({plan:r||{}});
+  }
+  if(method==='PUT'){
+    const b=await req.json().catch(()=>({}));const year=parseInt(b.year||yr);
+    await env.DB.prepare(`INSERT INTO budget_plans(id,company_id,year,fuel,service,insur,tax,fines) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(company_id,year) DO UPDATE SET fuel=excluded.fuel,service=excluded.service,insur=excluded.insur,tax=excluded.tax,fines=excluded.fines,updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now')`).bind(crypto.randomUUID(),co,year,b.fuel??0,b.service??0,b.insur??0,b.tax??0,b.fines??0).run();
+    return json({ok:true});
+  }
   return err('Nieznana operacja',404);
 }
 
