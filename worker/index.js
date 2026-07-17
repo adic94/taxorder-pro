@@ -6149,6 +6149,81 @@ function parseDDDBuffer(arrayBuffer) {
     } catch (ex) { result.parseErrors.push('vehicles:' + ex.message); }
   }
 
+  // Krok 7: VU/SMRDT — pattern-scan gdy typ nie-karta (format Continental DTCO)
+  if (result.fileType !== 'card') {
+    try {
+      const td = new TextDecoder('latin1');
+      // Wykryj SMRDT header
+      const smrdtMark = [0x53,0x4D,0x52,0x44,0x54]; // "SMRDT"
+      let isSmrdt = false;
+      for (let i = 0; i < Math.min(bytes.length - 5, 300); i++) {
+        if (smrdtMark.every((b, j) => bytes[i+j] === b)) { isSmrdt = true; break; }
+      }
+      if (isSmrdt) result.fileType = 'vu';
+
+      if (result.fileType === 'vu') {
+        // Skan po nazwisku/imieniu: wzorzec 0x02 + 35 bajtów z literami (EU CardHolderName)
+        const foundNames = [];
+        for (let i = 0; i + 36 < bytes.length; i++) {
+          if (bytes[i] !== 0x02) continue;
+          const raw = td.decode(bytes.slice(i + 1, i + 36)).replace(/\x00/g, '').trimEnd();
+          if (raw.length >= 2 && raw.length <= 25 && /^[A-ZŁŚÓŻŹĆĄĘa-ząęłśćóźżńÄÖÜäöü\- ]+$/.test(raw)
+              && /[A-ZŁŚÓŻŹĆĄĘa-ząęłśćóźżń]/.test(raw[0])) {
+            // odrzuć duplikaty z poprzedniego bajtu
+            const prev = i > 0 ? td.decode(bytes.slice(i, i + 35)).replace(/\x00/g, '').trimEnd() : '';
+            if (prev !== raw) foundNames.push(raw);
+          }
+        }
+        // Odróżnij nazwisko (przed imionami) od imienia (z wieloma słowami lub małe litery)
+        const surnames = foundNames.filter(n => !/\s/.test(n) && /^[A-ZŁŚÓŻŹĆĄĘ]/.test(n));
+        const firsts   = foundNames.filter(n => n !== surnames[0]);
+        if (surnames.length > 0 && !result.driver) {
+          result.driver = { surname: surnames[0], firstName: firsts[0] || null, birthDate: null };
+        }
+
+        // Skan po numerze karty: 0x01 + 0x28 (Poland) + 16 cyfr
+        if (!result.cardNumber) {
+          for (let i = 0; i + 18 < bytes.length; i++) {
+            if (bytes[i] === 0x01 && bytes[i+1] === 0x28) {
+              const num = td.decode(bytes.slice(i + 2, i + 18));
+              if (/^\d{16}$/.test(num)) { result.cardNumber = 'PL' + num; break; }
+            }
+          }
+        }
+
+        // Skan po nr rej pojazdu: 2-3 litery + spacja + 4-6 alfanumerycznych (polskie tablice)
+        // Tylko czyste ASCII (0x20–0x7E) — bez binary
+        if (!result.vehiclesUsed.length) {
+          const seen = new Set();
+          for (let i = 0; i + 14 < bytes.length; i++) {
+            // Sprawdź że bajty to czyste ASCII
+            let clean = true;
+            for (let k = i; k < i + 14; k++) { if (bytes[k] < 0x20 || bytes[k] > 0x7E) { clean = false; break; } }
+            if (!clean) continue;
+            const chunk = td.decode(bytes.slice(i, i + 14));
+            const m = chunk.match(/^([A-Z]{2,3}) ([A-Z0-9]{4,6})\s/);
+            if (m) {
+              const reg = (m[1] + ' ' + m[2]).trim();
+              if (reg.length >= 6 && /\d/.test(reg) && !seen.has(reg)) {
+                seen.add(reg);
+                result.vehiclesUsed.push({ vehicle_reg: reg, first_use: null, last_use: null });
+              }
+            }
+          }
+        }
+
+        // Filtruj warsztaty z listy kierowców (wielkie litery / nazwy firm / cyfry / słowa kluczowe)
+        if (result.driver?.surname) {
+          const s = result.driver.surname;
+          const WORKSHOP_TERMS = /tacho|calibr|serwis|service|tech|tronic|electronic|warsztat|werkstatt|calibration|dtco|vdo|straz|diagnos/i;
+          if (/^[A-Z0-9\- ]+$/.test(s) || /\d/.test(s) || s.length > 20 || / /.test(s) || WORKSHOP_TERMS.test(s)) {
+            result.driver = null; // to karta warsztatu, nie kierowcy
+          }
+        }
+      }
+    } catch (ex) { result.parseErrors.push('vu_scan:' + ex.message); }
+  }
+
   return result;
 }
 
@@ -6709,10 +6784,39 @@ async function handleTachoDDD(req, env, user, url, path) {
         continue;
       }
 
+      // Dla VU (M_DATE_TIME_PLATE_VIN.DDD): wyodrębnij metadane z nazwy pliku
+      if (parsed.fileType === 'vu') {
+        const vuMatch = fileName.match(/^M_(\d{8})_(\d{4})_(.+?)_([A-Z0-9]{17})\.DDD$/i);
+        if (vuMatch) {
+          const [, dateStr, timeStr, plateRaw, vinFromName] = vuMatch;
+          const downloadDate = `${dateStr.slice(0,4)}-${dateStr.slice(4,6)}-${dateStr.slice(6,8)}`;
+          const plateFromName = plateRaw.trim().replace(/\s+/g, ' ');
+          // Ustaw datę pobrania jako period jeśli brak aktywności
+          if (!parsed.activitiesByDay.length) {
+            parsed._downloadDate = downloadDate;
+            parsed._vinFromFile  = vinFromName;
+          }
+          // Uzupełnij nr rej z nazwy pliku jeśli brak
+          if (!parsed.vehiclesUsed.length && plateFromName) {
+            parsed.vehiclesUsed = [{ vehicle_reg: plateFromName, first_use: downloadDate, last_use: downloadDate }];
+          }
+          // Dopasuj pojazd po VIN
+          if (!parsed.vehiclesUsed.find(v => v.vehicle_id)) {
+            const vByVin = await env.DB.prepare(
+              'SELECT id FROM vehicles WHERE company_id=? AND vin=? LIMIT 1'
+            ).bind(company, vinFromName).first();
+            if (vByVin) {
+              parsed.vehiclesUsed = parsed.vehiclesUsed.map(v => ({ ...v, vehicle_id: vByVin.id }));
+            }
+          }
+        }
+      }
+
       const days        = parsed.activitiesByDay || [];
       const dates       = days.map(d => d.date).sort();
-      const periodStart = dates[0] || null;
-      const periodEnd   = dates[dates.length - 1] || null;
+      const vuDate      = parsed._downloadDate || null;
+      const periodStart = dates[0] || vuDate || null;
+      const periodEnd   = dates[dates.length - 1] || vuDate || null;
       const violations  = [...detectViolations561(days), ...detectViolationsWTD(days)];
 
       // ── Auto-dopasowanie kierowcy z kartoteki ────────────────────────────
