@@ -349,7 +349,7 @@ ${recentViols.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń</p>' 
   <tbody>
     ${_filesData.map(f => {
       const statusColor = f.parse_status === 'ok' ? '#16a34a' : f.parse_status === 'partial' ? '#b45309' : '#dc2626';
-      const statusLabel = { ok: 'OK', partial: 'Częściowy', error: 'Błąd', pending: 'Oczekuje' }[f.parse_status] || f.parse_status;
+      const statusLabel = { ok: 'OK', partial: 'Częściowy', error: 'Błąd', pending: 'Oczekuje' }[f.parse_status] || e(f.parse_status);
       const uploadDate  = f.uploaded_at ? new Date(f.uploaded_at).toLocaleDateString('pl-PL') : '—';
       return `<tr>
         <td>
@@ -429,7 +429,7 @@ ${recentViols.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń</p>' 
 
       return `<tr>
         <td>
-          <strong style="cursor:pointer;color:var(--blue)" onclick="window.TachographModule._showDriverFiles('${e(driverKey)}','${e(name)}')">${e(name)}</strong>
+          <strong style="cursor:pointer;color:var(--blue)" data-dkey="${e(driverKey)}" data-dname="${e(name)}" onclick="window.TachographModule._showDriverFiles(this.dataset.dkey,this.dataset.dname)">${e(name)}</strong>
           <br><span style="font-size:11px;color:var(--text3)">${e(d.driver_birth_date ? 'Ur. ' + _fmtDate(d.driver_birth_date) : '')}</span>
         </td>
         <td style="font-size:12px;font-family:monospace">${e(d.card_number || '—')}</td>
@@ -1790,7 +1790,7 @@ ${allViols.length>0 ? `
     <div style="font-size:12px;color:var(--text3);margin-top:2px">Analiza wieloplikowa · Okres: ${e(df)} – ${e(dt)}</div>
   </div>
   <div style="display:flex;gap:8px;align-items:center">
-    <button class="btn btn-sm" onclick="window.TachographModule._showInspectorView('${e(driverKey)}','${e(driverName)}')" title="Widok do kontroli ITD" style="background:#fff3cd;color:#856404"><i class="ti ti-car-crash"></i> Kontrola ITD</button>
+    <button class="btn btn-sm" data-dkey="${e(driverKey)}" data-dname="${e(driverName)}" onclick="window.TachographModule._showInspectorView(this.dataset.dkey,this.dataset.dname)" title="Widok do kontroli ITD" style="background:#fff3cd;color:#856404"><i class="ti ti-car-crash"></i> Kontrola ITD</button>
     <button onclick="window.TachographModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
   </div>
 </div>

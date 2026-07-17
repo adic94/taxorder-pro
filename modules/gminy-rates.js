@@ -245,11 +245,11 @@ window.GminyRates = (function () {
     const gminyRows = gminy.map(g => `
       <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
         <i class="ti ti-map-pin" style="color:var(--blue);font-size:14px"></i>
-        <span style="flex:1;font-weight:600;font-size:13px">${g}</span>
+        <span style="flex:1;font-weight:600;font-size:13px">${esc(g)}</span>
         ${g === 'Warszawa'
           ? '<span style="font-size:11px;color:var(--text3)">wbudowane (max MF 2026)</span>'
-          : `<button class="btn btn-gray" style="font-size:11px" onclick="GminyRates.openModal('${g}')"><i class="ti ti-pencil"></i>${t('btn.edit')}</button>
-             <button class="btn btn-red" style="font-size:11px" onclick="GminyRates._del('${g}')"><i class="ti ti-trash"></i></button>`
+          : `<button class="btn btn-gray" style="font-size:11px" data-gmina="${esc(g)}" onclick="GminyRates.openModal(this.dataset.gmina)"><i class="ti ti-pencil"></i>${t('btn.edit')}</button>
+             <button class="btn btn-red" style="font-size:11px" data-gmina="${esc(g)}" onclick="GminyRates._del(this.dataset.gmina)"><i class="ti ti-trash"></i></button>`
         }
       </div>`).join('');
 
@@ -282,7 +282,7 @@ window.GminyRates = (function () {
         ${editing ? `
           <div style="max-height:65vh;overflow-y:auto;padding-right:6px">${rateEditor}</div>
           <div style="display:flex;gap:8px;margin-top:16px">
-            <button class="btn btn-green" onclick="GminyRates._save('${editGmina}')" style="flex:1;justify-content:center"><i class="ti ti-check"></i>${t('btn.save')} — ${editGmina}</button>
+            <button class="btn btn-green" data-gmina="${esc(editGmina)}" onclick="GminyRates._save(this.dataset.gmina)" style="flex:1;justify-content:center"><i class="ti ti-check"></i>${t('btn.save')} — ${esc(editGmina)}</button>
             <button class="btn btn-gray" onclick="GminyRates.openModal()"><i class="ti ti-list"></i>${t('gminy.title')}</button>
           </div>
         ` : `

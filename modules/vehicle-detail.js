@@ -2464,7 +2464,7 @@ td:last-child{font-weight:600;color:#1e293b}
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
           <button class="btn btn-gray" onclick="document.getElementById('change-nrrej-modal').remove()">Anuluj</button>
-          <button class="btn btn-blue" onclick="TaxOrderVehicleDetail._doChangeNrRej(${vehId},'${oldNrRej}')">
+          <button class="btn btn-blue" data-vid="${vehId}" data-nrrej="${esc(oldNrRej)}" onclick="TaxOrderVehicleDetail._doChangeNrRej(+this.dataset.vid,this.dataset.nrrej)">
             <i class="ti ti-arrows-exchange"></i>Zmień
           </button>
         </div>
