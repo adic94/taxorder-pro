@@ -96,7 +96,7 @@
     const parts = _safeJson(t.participants, []);
     title.textContent = id ? 'Edytuj przejazd' : 'Nowy przejazd carpooling';
     body.innerHTML = `
-      <form id="cp-form" onsubmit="window.CarpoolingModule._save(event,'${esc(id||'')}')">
+      <form id="cp-form" data-id="${esc(id||'')}" onsubmit="window.CarpoolingModule._save(event,this.dataset.id)">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="form-row"><label>Kierowca *</label><input name="driver_name" class="form-control" required value="${esc(t.driver_name||'')}"></div>
           <div class="form-row"><label>Nr rejestracyjny</label><input name="vehicle_reg" class="form-control" value="${esc(t.vehicle_reg||'')}"></div>

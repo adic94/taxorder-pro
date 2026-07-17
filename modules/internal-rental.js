@@ -90,7 +90,7 @@
     if (id) { const d = await api(`/${id}`); r = d.rental || {}; }
     title.textContent = id ? 'Edytuj wynajem wewnętrzny' : 'Nowy wynajem wewnętrzny';
     body.innerHTML = `
-      <form id="irent-form" onsubmit="window.InternalRental._save(event,'${esc(id||'')}')">
+      <form id="irent-form" data-id="${esc(id||'')}" onsubmit="window.InternalRental._save(event,this.dataset.id)">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="form-row"><label>Nr rejestracyjny</label><input name="vehicle_reg" class="form-control" value="${esc(r.vehicle_reg||'')}"></div>
           <div class="form-row"><label>Dział *</label><input name="renter_department" class="form-control" required value="${esc(r.renter_department||'')}"></div>

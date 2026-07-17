@@ -67,7 +67,7 @@
     document.getElementById('supp-modal-title').textContent = id ? 'Edytuj dostawcę' : 'Nowy dostawca';
     let s = {};
     if (id) { const d = await api(`/${id}`); s = d.supplier || {}; }
-    body.innerHTML = `<form id="supp-form" onsubmit="window.SuppliersModule._save(event,'${esc(id||'')}')">
+    body.innerHTML = `<form id="supp-form" data-id="${esc(id||'')}" onsubmit="window.SuppliersModule._save(event,this.dataset.id)">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="form-row" style="grid-column:1/-1"><label>Nazwa *</label><input name="name" class="form-control" required value="${esc(s.name||'')}"></div>
         <div class="form-row"><label>Kategoria</label>

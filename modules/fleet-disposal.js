@@ -91,7 +91,7 @@
     document.getElementById('disp-modal-title').textContent = id ? 'Edytuj likwidację' : 'Nowa likwidacja/sprzedaż pojazdu';
     let d = {};
     if (id) { const data = await api(`/${id}`); d = data.disposal || {}; }
-    body.innerHTML = `<form id="disp-form" onsubmit="window.FleetDisposal._save(event,'${esc(id||'')}')">
+    body.innerHTML = `<form id="disp-form" data-id="${esc(id||'')}" onsubmit="window.FleetDisposal._save(event,this.dataset.id)">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="form-row"><label>Nr rej. *</label><input name="vehicle_reg" class="form-control" required value="${esc(d.vehicle_reg||'')}"></div>
         <div class="form-row"><label>Powód *</label>

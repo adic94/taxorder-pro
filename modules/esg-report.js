@@ -110,7 +110,7 @@
     document.getElementById('esg-modal-title').textContent = id ? 'Edytuj cel ESG' : 'Nowy cel ESG';
     let t = { year: +year, lower_is_better: 1 };
     if (id) { const d = await api(`/targets/${id}`); t = d.target || t; }
-    body.innerHTML = `<form id="esg-form" onsubmit="window.EsgReport._saveTarget(event,'${esc(id||'')}')">
+    body.innerHTML = `<form id="esg-form" data-id="${esc(id||'')}" onsubmit="window.EsgReport._saveTarget(event,this.dataset.id)">
       <div class="form-row"><label>Wskaźnik *</label>
         <select name="metric_key" class="form-control" required>
           ${Object.entries(METRIC_LBL).map(([v,l])=>`<option value="${v}" ${t.metric_key===v?'selected':''}>${esc(l)}</option>`).join('')}

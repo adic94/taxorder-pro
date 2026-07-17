@@ -141,6 +141,40 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+function toggleSidebarSection(label) {
+  const isCollapsed = label.classList.toggle('collapsed');
+  const key = label.dataset.section;
+  let el = label.nextElementSibling;
+  while (el && !el.classList.contains('sidebar-label')) {
+    el.style.display = isCollapsed ? 'none' : '';
+    el = el.nextElementSibling;
+  }
+  try {
+    const state = JSON.parse(localStorage.getItem('sidebarCollapse') || '{}');
+    state[key] = isCollapsed;
+    localStorage.setItem('sidebarCollapse', JSON.stringify(state));
+  } catch(e) {}
+}
+
+function initSidebarCollapse() {
+  try {
+    const state = JSON.parse(localStorage.getItem('sidebarCollapse') || '{}');
+    document.querySelectorAll('.sidebar-label-toggle').forEach(label => {
+      const key = label.dataset.section;
+      const defaultCollapsed = label.dataset.defaultCollapsed === 'true';
+      const shouldCollapse = key in state ? state[key] : defaultCollapsed;
+      if (shouldCollapse) {
+        label.classList.add('collapsed');
+        let el = label.nextElementSibling;
+        while (el && !el.classList.contains('sidebar-label')) {
+          el.style.display = 'none';
+          el = el.nextElementSibling;
+        }
+      }
+    });
+  } catch(e) {}
+}
+
 function showPage(id) {
   if(typeof saveCompanyState === 'function') saveCompanyState();
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -3563,7 +3597,7 @@ function renderFormularze() {
   selT.forEach(v=>{ if(!v.cat)return; if(!cats[v.cat])cats[v.cat]={count:0,amount:0}; cats[v.cat].count++;cats[v.cat].amount+=v.amount; });
   const groups = [];
   for(let i=0;i<taxable.length;i+=3) groups.push(taxable.slice(i,i+3));
-  const yr = document.getElementById('taxYear').value;
+  const yr = (document.getElementById('taxYearDT1') || document.getElementById('taxYear') || {value:'2026'}).value;
   const today = new Date().toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit',year:'numeric'});
 
   const info = document.getElementById('form-info');
@@ -4086,7 +4120,7 @@ function exportPD() {
   const wb = XLSX.utils.book_new();
   const nip = tp('tp-nip');
   const nazwa = tp('tp-nazwa');
-  const yr = document.getElementById('taxYear').value;
+  const yr = (document.getElementById('taxYearDT1') || document.getElementById('taxYear') || {value:'2026'}).value;
   const cel = tp('tp-cel');
 
   const ws1 = XLSX.utils.aoa_to_sheet([
@@ -6784,6 +6818,7 @@ async function doLogin(){
     console.log('[FleetCloud] Automatycznie zaladowano pojazdy po zalogowaniu');
   }
 
+  initSidebarCollapse();
   renderDash();
   renderVeh();
   updateCounters();

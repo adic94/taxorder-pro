@@ -103,7 +103,7 @@
     if (id) { const d = await api(`/${id}`); r = d.record || {}; }
     title.textContent = id ? 'Edytuj rekord RODO' : 'Nowy rekord RODO';
     body.innerHTML = `
-      <form id="gdpr-form" onsubmit="window.GdprModule._save(event,'${esc(id||'')}')">
+      <form id="gdpr-form" data-id="${esc(id||'')}" onsubmit="window.GdprModule._save(event,this.dataset.id)">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="form-row"><label>Typ rekordu *</label>
             <select name="record_type" class="form-control" required>

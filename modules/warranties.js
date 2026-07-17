@@ -85,7 +85,7 @@
     document.getElementById('warr-modal-title').textContent = id ? 'Edytuj rekord' : 'Nowa gwarancja / kampania serwisowa';
     let r = {};
     if (id) { const d = await api(`/${id}`); r = d.record || {}; }
-    body.innerHTML = `<form id="warr-form" onsubmit="window.WarrantiesModule._save(event,'${esc(id||'')}')">
+    body.innerHTML = `<form id="warr-form" data-id="${esc(id||'')}" onsubmit="window.WarrantiesModule._save(event,this.dataset.id)">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="form-row"><label>Nr rej. *</label><input name="vehicle_reg" class="form-control" required value="${esc(r.vehicle_reg||'')}"></div>
         <div class="form-row"><label>Typ *</label>

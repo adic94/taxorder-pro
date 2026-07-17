@@ -87,7 +87,7 @@
     document.getElementById('pm-modal-title').textContent = id ? 'Edytuj alert' : 'Nowy alert serwisowy';
     let a = { trigger_type:'mileage' };
     if (id) { const d = await api(`/${id}`); a = d.alert || a; }
-    body.innerHTML = `<form id="pm-form" onsubmit="window.PredictiveMaintenance._save(event,'${esc(id||'')}')">
+    body.innerHTML = `<form id="pm-form" data-id="${esc(id||'')}" onsubmit="window.PredictiveMaintenance._save(event,this.dataset.id)">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="form-row"><label>Nr rej. *</label><input name="vehicle_reg" class="form-control" required value="${esc(a.vehicle_reg||'')}"></div>
         <div class="form-row"><label>Typ serwisu *</label>

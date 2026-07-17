@@ -97,7 +97,7 @@
     document.getElementById('vt-modal-title').textContent = id ? 'Edytuj zdarzenie' : 'Nowe zdarzenie ADAS';
     let e = { severity:'medium', event_at: new Date().toISOString().slice(0,16) };
     if (id) { const d = await api(`/${id}`); e = d.event || e; }
-    body.innerHTML = `<form id="vt-form" onsubmit="window.VideoTelematics._save(event,'${esc(id||'')}')">
+    body.innerHTML = `<form id="vt-form" data-id="${esc(id||'')}" onsubmit="window.VideoTelematics._save(event,this.dataset.id)">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="form-row"><label>Nr rej. *</label><input name="vehicle_reg" class="form-control" required value="${esc(e.vehicle_reg||'')}"></div>
         <div class="form-row"><label>Kierowca</label><input name="driver_name" class="form-control" value="${esc(e.driver_name||'')}"></div>

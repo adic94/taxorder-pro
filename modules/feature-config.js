@@ -31,47 +31,57 @@
       { key: 'szkody',           label: 'Szkody',               icon: 'ti-alert-triangle' },
       { key: 'mandaty',          label: 'Mandaty',              icon: 'ti-ticket' },
     ]},
-    { label: 'Manager', items: [
-      { key: 'exec-dashboard',   label: 'Dashboard managera',   icon: 'ti-layout-dashboard' },
+    { label: 'Zarządzanie', items: [
+      { key: 'exec-dashboard',   label: 'Dashboard exec.',      icon: 'ti-layout-dashboard' },
+      { key: 'fleet-kpi',        label: 'Dashboard KPI',        icon: 'ti-chart-bar' },
       { key: 'approvals',        label: 'Zatwierdzenia',        icon: 'ti-checks' },
+      { key: 'approval-levels',  label: 'Poziomy zatwierdzeń',  icon: 'ti-list-check' },
+      { key: 'audit-log',        label: 'Historia zmian',       icon: 'ti-history' },
+      { key: 'access-control',   label: 'Dostęp / Pakiety',     icon: 'ti-lock-access' },
+    ]},
+    { label: 'Kierowcy — Zarządzanie', items: [
       { key: 'driver-profiles',  label: 'Profile kierowców',    icon: 'ti-id-badge' },
       { key: 'driver-performance',label:'Wydajność kierowców',  icon: 'ti-chart-infographic' },
+      { key: 'driver-scoring',   label: 'Scoring kierowców',    icon: 'ti-award' },
+      { key: 'driver-wages',     label: 'Wynagrodzenia',        icon: 'ti-cash' },
+      { key: 'driver-schedule',  label: 'Grafik kierowców',     icon: 'ti-calendar-week' },
+      { key: 'driver-panel',     label: 'Panel kierowcy',       icon: 'ti-steering-wheel' },
       { key: 'reservations',     label: 'Rezerwacje',           icon: 'ti-calendar-event' },
+    ]},
+    { label: 'Flota — Operacje', items: [
+      { key: 'fleet-reservations',label:'Rezerwacje pojazdów',  icon: 'ti-calendar-event' },
       { key: 'fleet-policies',   label: 'Polityki flotowe',     icon: 'ti-settings-2' },
       { key: 'spare-parts',      label: 'Magazyn części',       icon: 'ti-package' },
       { key: 'service-contracts',label: 'Kontrakty serwisów',   icon: 'ti-contract' },
       { key: 'supplier-invoices',label: 'Faktury dostawców',    icon: 'ti-receipt' },
       { key: 'transport-orders', label: 'Zlecenia transportowe',icon: 'ti-truck' },
-      { key: 'driver-schedule',  label: 'Grafik kierowców',     icon: 'ti-calendar-week' },
-      { key: 'driver-scoring',   label: 'Scoring kierowców',    icon: 'ti-award' },
+      { key: 'fuel-card-import', label: 'Import kart paliwowych',icon: 'ti-credit-card' },
+      { key: 'tachograph',       label: 'Tachografy DDD',       icon: 'ti-device-tablet-search' },
+    ]},
+    { label: 'Logistyka & TCO', items: [
+      { key: 'vehicle-inventory',label: 'Inwentaryzacja',       icon: 'ti-list-check' },
+      { key: 'delegations',      label: 'Delegacje',            icon: 'ti-briefcase' },
       { key: 'tco',              label: 'TCO pojazdów',         icon: 'ti-calculator' },
       { key: 'co2-report',       label: 'Raport CO₂',          icon: 'ti-leaf' },
       { key: 'budget-annual',    label: 'Budżet roczny',        icon: 'ti-report-money' },
-      { key: 'fuel-card-import', label: 'Import kart paliwowych',icon: 'ti-credit-card' },
-      { key: 'tachograph',       label: 'Tachografy DDD',       icon: 'ti-device-tablet-search' },
-      { key: 'approval-levels',  label: 'Poziomy zatwierdzeń',  icon: 'ti-list-check' },
-      { key: 'audit-log',        label: 'Historia zmian',       icon: 'ti-history' },
-      { key: 'driver-panel',     label: 'Panel kierowcy',       icon: 'ti-steering-wheel' },
-      { key: 'vehicle-inventory',label: 'Inwentaryzacja',       icon: 'ti-list-check' },
-      { key: 'delegations',      label: 'Delegacje',            icon: 'ti-briefcase' },
-      { key: 'fleet-reservations',label:'Rezerwacje pojazdów',  icon: 'ti-calendar-event' },
       { key: 'epp-vat',          label: 'EPP / VAT',            icon: 'ti-file-certificate' },
+    ]},
+    { label: 'Compliance & Finanse', items: [
       { key: 'trip-private',     label: 'Prywatna / Służbowa',  icon: 'ti-car-suv' },
-      { key: 'geofencing',       label: 'Geofencing',           icon: 'ti-map-pin-check' },
-      { key: 'driver-wages',     label: 'Wynagrodzenia',        icon: 'ti-cash' },
       { key: 'route-cost',       label: 'Koszty tras',          icon: 'ti-calculator' },
-      { key: 'smart-forms',      label: 'Smart Forms',          icon: 'ti-forms' },
-      { key: 'gps-integrations', label: 'GPS Integracje',       icon: 'ti-satellite' },
-      { key: 'ev-charging',      label: 'Ładowanie EV',         icon: 'ti-bolt' },
-      { key: 'insurance',        label: 'Ubezpieczenia',        icon: 'ti-shield-check' },
       { key: 'route-billing',    label: 'Faktury tras',         icon: 'ti-receipt' },
-      { key: 'fleet-kpi',        label: 'Dashboard KPI',        icon: 'ti-chart-bar' },
-      { key: 'zapier-ui',        label: 'Zapier / Make',        icon: 'ti-plug-connected' },
-      { key: 'access-control',   label: 'Dostęp / Pakiety',     icon: 'ti-lock-access' },
-      { key: 'integrations',     label: 'Integracje zewnętrzne',icon: 'ti-plug' },
+      { key: 'insurance',        label: 'Ubezpieczenia',        icon: 'ti-shield-check' },
       { key: 'ksef',             label: 'KSeF / e-Faktury',     icon: 'ti-file-invoice' },
       { key: 'gdpr',             label: 'RODO / ADO',           icon: 'ti-shield-lock' },
+      { key: 'ev-charging',      label: 'Ładowanie EV',         icon: 'ti-bolt' },
       { key: 'currency',         label: 'Waluty',               icon: 'ti-currency-zloty' },
+    ]},
+    { label: 'Integracje & Tech', items: [
+      { key: 'geofencing',       label: 'Geofencing',           icon: 'ti-map-pin-check' },
+      { key: 'gps-integrations', label: 'GPS Integracje',       icon: 'ti-satellite' },
+      { key: 'smart-forms',      label: 'Smart Forms',          icon: 'ti-forms' },
+      { key: 'integrations',     label: 'Integracje zewnętrzne',icon: 'ti-plug' },
+      { key: 'zapier-ui',        label: 'Zapier / Make',        icon: 'ti-plug-connected' },
     ]},
     { label: 'Pojazdy — inspekcje', items: [
       { key: 'vehicle-inspections',label:'Inspekcje pojazdów',  icon: 'ti-clipboard-check' },
@@ -79,7 +89,7 @@
       { key: 'fleet-limits',     label: 'Limity km / paliwa',   icon: 'ti-gauge' },
       { key: 'parking',          label: 'Miejsca parkingowe',   icon: 'ti-parking' },
     ]},
-    { label: 'Kierowcy — rozwój', items: [
+    { label: 'Kierowcy — Rozwój', items: [
       { key: 'driver-training',  label: 'Szkolenia / Badania',  icon: 'ti-school' },
       { key: 'carpooling',       label: 'Carpooling',           icon: 'ti-users' },
       { key: 'internal-rental',  label: 'Wynajem wewnętrzny',   icon: 'ti-building-warehouse' },
@@ -120,6 +130,8 @@
       { key: 'impexp',           label: 'Import / Eksport',     icon: 'ti-arrows-exchange' },
       { key: 'ocr',              label: 'OCR Dowodów',          icon: 'ti-scan' },
       { key: 'pdfexport',        label: 'Eksport PDF',          icon: 'ti-file-type-pdf' },
+    ]},
+    { label: 'Raporty & Analityka', items: [
       { key: 'raporty',          label: 'Raporty',              icon: 'ti-chart-line' },
       { key: 'budzet',           label: 'Budżet / TCO',         icon: 'ti-wallet' },
       { key: 'fuel-db',          label: 'Ewidencja paliwa',     icon: 'ti-droplet' },
@@ -158,6 +170,7 @@
       { key: 'cepik',            label: 'CEPiK',                icon: 'ti-database' },
       { key: 'gus-regon',        label: 'GUS / REGON',          icon: 'ti-building-community' },
       { key: 'vies-validator',   label: 'Walidator VIES',       icon: 'ti-world-check' },
+      { key: 'feature-config',   label: 'Konfiguracja modułów', icon: 'ti-layout-sidebar' },
     ]},
     { label: 'AI', items: [
       { key: 'ai',               label: 'Asystent AI',          icon: 'ti-robot' },
@@ -210,20 +223,22 @@
     const nav   = document.getElementById('main-sidebar');
     if (!nav) return;
 
-    let currentLabel = null;
-    let hasVisible   = false;
+    let currentLabel    = null;
+    let sectionCollapsed = false;
+    let hasVisible      = false;
 
     Array.from(nav.children).forEach(el => {
       if (el.classList.contains('sidebar-label')) {
-        // Zakończ poprzednią sekcję
         if (currentLabel) currentLabel.style.display = hasVisible ? '' : 'none';
-        currentLabel = el;
+        currentLabel     = el;
         currentLabel.style.display = '';
-        hasVisible = false;
+        sectionCollapsed = el.classList.contains('collapsed');
+        hasVisible       = false;
       } else if (el.classList.contains('tnb')) {
         const key     = (el.id || '').replace('tnb-', '');
-        const enabled = flags[key] !== false;  // brak wpisu = widoczny
-        el.style.display = enabled ? '' : 'none';
+        const enabled = flags[key] !== false;
+        // gdy sekcja jest zwinięta, przycisk pozostaje ukryty niezależnie od flagi
+        el.style.display = (enabled && !sectionCollapsed) ? '' : 'none';
         if (enabled) hasVisible = true;
       }
     });
