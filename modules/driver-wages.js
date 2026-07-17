@@ -257,7 +257,7 @@ ${_wages.length === 0 ? `<div style="padding:40px;text-align:center;background:v
 </div>
 ${_rates.length?`<table class="tach-table">
   <thead><tr><th>Kierowca</th><th>PLN/h</th><th>Dieta</th><th>Nadgodz.</th><th>PIT</th></tr></thead>
-  <tbody>${_rates.map(r=>`<tr><td>${e(r.driver_name)}</td><td>${fmtN(r.hourly_rate,2)}</td><td>${fmtN(r.daily_allowance,0)}</td><td>${fmtN(r.overtime_rate_mult,1)}×</td><td>${Math.round((r.tax_rate||0.12)*100)}%</td></tr>`).join('')}</tbody>
+  <tbody>${_rates.map(r=>`<tr><td>${e(r.driver_name)}</td><td>${fmtN(r.hourly_rate,2)}</td><td>${fmtN(r.daily_allowance,0)}</td><td>${fmtN(r.overtime_rate_mult,1)}×</td><td>${Math.round((r.tax_rate??0.12)*100)}%</td></tr>`).join('')}</tbody>
 </table>`:'<p style="color:var(--text3);font-size:12px">Brak zapisanych stawek.</p>'}`;
     m.style.display = 'flex';
   }

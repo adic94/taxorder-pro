@@ -52,8 +52,8 @@
       <td>${esc(s.nip||'—')}</td>
       <td>${esc(s.city||'—')}</td>
       <td>${s.contact_name?esc(s.contact_name):'—'}${s.contact_phone?`<br><small>${esc(s.contact_phone)}</small>`:''}</td>
-      <td>${'⭐'.repeat(Math.min(5,Math.max(0,s.rating||0)))} (${s.rating||0}/5)</td>
-      <td>${s.payment_terms_days||30} dni</td>
+      <td>${'⭐'.repeat(Math.min(5,Math.max(0,s.rating??0)))} (${s.rating??0}/5)</td>
+      <td>${s.payment_terms_days??30} dni</td>
       <td>
         <button class="btn-icon" data-id="${esc(s.id)}" onclick="window.SuppliersModule._openModal(this.dataset.id)"><i class="ti ti-edit"></i></button>
         <button class="btn-icon danger" data-id="${esc(s.id)}" onclick="window.SuppliersModule._delete(this.dataset.id)"><i class="ti ti-trash"></i></button>
@@ -83,7 +83,7 @@
         <div class="form-row"><label>Email kontaktowy</label><input name="contact_email" type="email" class="form-control" value="${esc(s.contact_email||'')}"></div>
         <div class="form-row"><label>Ocena (1-5)</label>
           <select name="rating" class="form-control">
-            ${[1,2,3,4,5].map(n=>`<option value="${n}" ${(s.rating||3)===n?'selected':''}>${'⭐'.repeat(n)} ${n}/5</option>`).join('')}
+            ${[1,2,3,4,5].map(n=>`<option value="${n}" ${(s.rating??3)===n?'selected':''}>${'⭐'.repeat(n)} ${n}/5</option>`).join('')}
           </select>
         </div>
         <div class="form-row"><label>Termin płatności (dni)</label><input name="payment_terms_days" type="number" class="form-control" value="${s.payment_terms_days??30}"></div>

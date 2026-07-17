@@ -121,8 +121,8 @@
   async function _save(ev, id) {
     ev.preventDefault();
     const body = Object.fromEntries(new FormData(ev.target).entries());
-    if (body.trigger_type === 'mileage') { body.interval_km = +body.interval_km||null; body.interval_days = null; }
-    else { body.interval_days = +body.interval_km||null; body.interval_km = null; }
+    if (body.trigger_type === 'mileage') { body.interval_km = body.interval_km !== '' ? +body.interval_km : null; body.interval_days = null; }
+    else { body.interval_days = body.interval_days !== '' ? +body.interval_days : null; body.interval_km = null; }
     await api(id?`/${id}`:'', { method: id?'PUT':'POST', body: JSON.stringify(body) });
     _closeModal(); _load();
   }

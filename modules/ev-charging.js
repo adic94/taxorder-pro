@@ -31,10 +31,10 @@
   function _render() {
     const el = document.getElementById('page-ev-charging');
     if (!el) return;
-    const total_kwh  = _stats?.total_kwh  ?? _sessions.reduce((s, x) => s + (x.energy_kwh || 0), 0);
-    const total_cost = _stats?.total_cost ?? _sessions.reduce((s, x) => s + (x.cost_pln || 0), 0);
+    const total_kwh  = _stats?.total_kwh  ?? _sessions.reduce((s, x) => s + (x.energy_kwh ?? 0), 0);
+    const total_cost = _stats?.total_cost ?? _sessions.reduce((s, x) => s + (x.cost_pln ?? 0), 0);
     const avg_kwh    = _stats?.avg_cost_per_kwh ?? (total_kwh > 0 ? total_cost / total_kwh : 0);
-    const home_kwh   = _sessions.filter(s => s.home_charging).reduce((a, x) => a + (x.energy_kwh || 0), 0);
+    const home_kwh   = _sessions.filter(s => s.home_charging).reduce((a, x) => a + (x.energy_kwh ?? 0), 0);
 
     el.innerHTML = `
 <div class="page-header">
@@ -62,11 +62,11 @@ ${_sessions.length ? _sessions.map(s => `<tr>
   <td><strong>${e(s.vehicle_reg || '—')}</strong></td>
   <td>
     ${s.charged_from_pct != null ? `<div style="display:flex;align-items:center;gap:6px">
-      <span style="font-size:11px;color:var(--text3)">${s.charged_from_pct}%</span>
+      <span style="font-size:11px;color:var(--text3)">${e(String(s.charged_from_pct))}%</span>
       <div style="flex:1;height:6px;background:var(--border);border-radius:3px;min-width:60px">
-        <div style="height:6px;border-radius:3px;background:var(--blue);width:${Math.min(s.charged_to_pct||0,100)}%"></div>
+        <div style="height:6px;border-radius:3px;background:var(--blue);width:${Math.min(s.charged_to_pct??0,100)}%"></div>
       </div>
-      <span style="font-size:11px">${s.charged_to_pct ?? '?'}%</span>
+      <span style="font-size:11px">${e(String(s.charged_to_pct ?? '?'))}%</span>
     </div>` : '—'}
   </td>
   <td><strong>${fmtN(s.energy_kwh, 1)} kWh</strong></td>

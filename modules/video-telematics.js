@@ -72,7 +72,7 @@
       <td>${esc(EVENT_LBL[e.event_type]||e.event_type||'—')}</td>
       <td><span class="pill" style="background:${SEV_CLR[e.severity]||'#999'}20;color:${SEV_CLR[e.severity]||'#999'}">${esc(SEV_LBL[e.severity]||e.severity||'—')}</span></td>
       <td style="font-size:.85em">${esc(e.location||'—')}</td>
-      <td>${e.clip_url?`<a href="${e.clip_url.startsWith('https://')?e.clip_url:'#'}" target="_blank" rel="noopener noreferrer" class="btn-icon" title="Otwórz klip"><i class="ti ti-player-play"></i></a>`:'—'}</td>
+      <td>${e.clip_url && e.clip_url.startsWith('https://')?`<a href="${esc(e.clip_url)}" target="_blank" rel="noopener noreferrer" class="btn-icon" title="Otwórz klip"><i class="ti ti-player-play"></i></a>`:'—'}</td>
       <td>
         <button class="btn-icon" data-id="${esc(e.id)}" onclick="window.VideoTelematics._openModal(this.dataset.id)"><i class="ti ti-edit"></i></button>
         <button class="btn-icon danger" data-id="${esc(e.id)}" onclick="window.VideoTelematics._delete(this.dataset.id)"><i class="ti ti-trash"></i></button>
