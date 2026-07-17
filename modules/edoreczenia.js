@@ -65,7 +65,7 @@
         <td>${esc(e.sender_name||e.receiver_name||'—')}</td>
         <td>${esc(e.title||'—')}</td>
         <td>${esc(e.sent_date?.slice(0,10)||'—')}</td>
-        <td style="${overdue?'color:#ef4444;font-weight:600':''}">${e.deadline_date?esc(e.deadline_date.slice(0,10))+'${overdue?' ⚠️':''}':'—'}</td>
+        <td style="${overdue?'color:#ef4444;font-weight:600':''}">${e.deadline_date?esc(e.deadline_date.slice(0,10))+(overdue?' ⚠️':''):'—'}</td>
         <td><span class="pill" style="background:${STATUS_CLR[e.status]||'#999'}20;color:${STATUS_CLR[e.status]||'#999'}">${esc(STATUS_LBL[e.status]||e.status)}</span></td>
         <td>
           <button class="btn-icon" data-id="${esc(e.id)}" onclick="window.EdoreczeniaModule._openModal(this.dataset.id)"><i class="ti ti-edit"></i></button>

@@ -82,7 +82,7 @@ function calcTax(v) {
   // fallback gdy tax-engine.js nie załadowany
   const cat = getCat(v); if(!cat) return {cat:null,amount:0,rate:0};
   const rate = getRate(v)||0;
-  const m = Math.min(Math.max(parseInt(v.miesiacePodatku)||12, 1), 12);
+  const m = Math.min(Math.max(parseInt(v.miesiacePodatku ?? 12) || 1, 1), 12);
   return {cat, amount: Math.round((rate*m)/12*100)/100, rate, months:m, isNew: (parseInt(v.rok)||0)>=2024};
 }
 
@@ -7684,7 +7684,7 @@ function loadCompanyState(companyId){
       if(companyId==='nwkinvest')return w.includes('nwk');
       if(companyId==='wolund')return w.includes('wolund');
       return false;
-    }).map((v,i)=>({...v,id:i,osie:v.osie||2,zawieszenie:v.zawieszenie||'pneumatyczne',dmcZespolu:v.dmcZespolu||0,miesiacePodatku:v.miesiacePodatku||12}));
+    }).map((v,i)=>({...v,id:i,osie:v.osie||2,zawieszenie:v.zawieszenie||'pneumatyczne',dmcZespolu:v.dmcZespolu||0,miesiacePodatku:v.miesiacePodatku??12}));
     vehs.splice(0,vehs.length,...base);
   }
   selected.clear();

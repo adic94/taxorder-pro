@@ -87,7 +87,7 @@ ${_policies.length ? _policies.map(p => {
   <td><strong>${e(p.vehicle_reg || '—')}</strong></td>
   <td><span class="pill ${TYPE_CLS[p.policy_type]||''}">${TYPE_LBL[p.policy_type]||e(p.policy_type)}</span></td>
   <td>${e(p.insurer || '—')}</td>
-  <td><span style="${expCls}">${fmtD(p.end_date)} ${diff !== null ? `(${diff < 0 ? Math.abs(diff)+'d temu' : diff+'d')` : ''}</span></td>
+  <td><span style="${expCls}">${fmtD(p.end_date)} ${diff !== null ? `(${diff < 0 ? Math.abs(diff)+'d temu' : diff+'d'})` : ''}</span></td>
   <td>${fmtN(p.premium_pln, 2)}</td>
   <td><span class="pill ${p.status==='active'?'ok':p.status==='expired'?'danger':''}">${STAT_LBL[p.status]||e(p.status)}</span></td>
   <td style="display:flex;gap:4px">

@@ -6269,26 +6269,6 @@ function _getRestBlocks(activities) {
   return blocks;
 }
 
-// Czas zakończenia ostatniej nie-odpoczynkowej aktywności w danym dniu (w minutach od północy)
-function _lastNonRestEnd(acts) {
-  const sorted = [...acts].sort((a, b) => a.timeMin - b.timeMin);
-  for (let i = sorted.length - 1; i >= 0; i--) {
-    if (sorted[i].activity !== 'rest') {
-      return sorted[i + 1] ? sorted[i + 1].timeMin : 1440;
-    }
-  }
-  return null; // cały dzień odpoczynek
-}
-
-// Czas rozpoczęcia pierwszej nie-odpoczynkowej aktywności następnego dnia
-function _firstNonRestStart(acts) {
-  const sorted = [...acts].sort((a, b) => a.timeMin - b.timeMin);
-  for (const a of sorted) {
-    if (a.activity !== 'rest') return a.timeMin;
-  }
-  return null;
-}
-
 function detectViolations561(activitiesByDay) {
   const violations = [];
 
@@ -9700,7 +9680,12 @@ async function handleAccessControl(req, env, user, url, path) {
 
 // ─── BATCH 7: KSeF, Inspekcje, Wymiana floty, Szkolenia, Limity, Parking, Wynajem wewn., Carpooling, RODO, Waluty ───
 
-function coOf(url, user) { return url.searchParams.get('company') || user.company_id; }
+function coOf(url, user) {
+  const req = url.searchParams.get('company') || user.company_id;
+  // Non-admin nie może czytać/pisać danych innej firmy
+  if (user.role !== 'admin' && req !== user.company_id) return user.company_id;
+  return req;
+}
 function idSeg(path, n) { return path.split('/').filter(Boolean)[n] || null; }
 
 async function handleKsef(req, env, user, url, path) {

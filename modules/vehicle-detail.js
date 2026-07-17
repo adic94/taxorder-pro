@@ -1826,7 +1826,7 @@ window.TaxOrderVehicleDetail = {
     const v = vehs.find(x => x.id === vehId);
     if (!v) return '';
     const gmina = document.getElementById('vd-gmina')?.value || v.gmina || 'Warszawa';
-    const m = parseInt(document.getElementById('vd-miesiacePodatku')?.value) || v.miesiacePodatku || 12;
+    const m = parseInt(document.getElementById('vd-miesiacePodatku')?.value ?? v.miesiacePodatku ?? 12) || 1;
     const vProxy = { ...v, gmina, miesiacePodatku: m };
     const tax = window.calcTax ? calcTax(vProxy) : null;
     if (!tax || !tax.cat) {
