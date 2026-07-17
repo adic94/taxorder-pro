@@ -6395,31 +6395,69 @@ function detectViolations561(activitiesByDay) {
     }
   }
 
-  // ── Tygodniowy odpoczynek < 45h (uproszczone: sprawdź sumę odpoczynku w tygodniu) ──
-  const weekRest = {};
-  for (const { date, activities } of activitiesByDay) {
-    const d = new Date(date + 'T00:00:00Z');
-    const dow = d.getUTCDay() || 7;
-    const mon = new Date(d); mon.setUTCDate(d.getUTCDate() - (dow - 1));
-    const wk = mon.toISOString().slice(0, 10);
-    if (!weekRest[wk]) weekRest[wk] = 0;
-    const s = [...activities].sort((a, b) => a.timeMin - b.timeMin);
-    for (let ai = 0; ai < s.length; ai++) {
-      if (s[ai].activity !== 'rest') continue;
-      weekRest[wk] += Math.max(0, (s[ai + 1]?.timeMin ?? 1440) - s[ai].timeMin);
+  // ── Tygodniowy odpoczynek (EU 561/2006 Art. 8 ust. 6) ─────────────────────
+  // EU wymaga CIĄGŁEGO bloku ≥45h (regularny) lub ≥24h (skrócony).
+  // Algorytm: konwertuj aktywności na absolutne bloki czasowe → scal przez-północne
+  // → max ciągły blok per tydzień.
+  {
+    const epoch = new Date('2000-01-01T00:00:00Z');
+    const weekMaxRest = {};
+
+    // Inicjalizuj 0 dla wszystkich tygodni z danych (flaga brakujących tygodni)
+    for (const { date } of activitiesByDay) {
+      const d = new Date(date + 'T00:00:00Z');
+      const dow = d.getUTCDay() || 7;
+      const mon = new Date(d); mon.setUTCDate(d.getUTCDate() - (dow - 1));
+      const wk = mon.toISOString().slice(0, 10);
+      if (weekMaxRest[wk] === undefined) weekMaxRest[wk] = 0;
     }
-  }
-  for (const [wk, restTotal] of Object.entries(weekRest)) {
-    if (restTotal < 1440) { // < 24h odpoczynku tygodniowego
-      violations.push({ violation_date: wk, violation_type: 'weekly_rest_under_24h', severity: 'very_serious',
-        description: `Odpoczynek tygodniowy: ${_tachoFmtMin(restTotal)} (wymagane min. 24h skrócone lub 45h regularne)`,
-        regulation: '561/2006 Art. 8 ust. 6', actual_value: restTotal, limit_value: 1440,
-        penalty_pln: _tachoPenalty('weekly_rest_under_24h', 'very_serious') });
-    } else if (restTotal < 2700) { // < 45h regularnego
-      violations.push({ violation_date: wk, violation_type: 'weekly_rest_under_45h', severity: 'serious',
-        description: `Odpoczynek tygodniowy: ${_tachoFmtMin(restTotal)} (poniżej 45h; skrócony 24h co drugi tydz. z kompensatą)`,
-        regulation: '561/2006 Art. 8 ust. 6', actual_value: restTotal, limit_value: 2700,
-        penalty_pln: _tachoPenalty('weekly_rest_under_45h', 'serious') });
+
+    // Krok 1: surowe bloki odpoczynku w minutach absolutnych od epoch
+    const rawBlocks = [];
+    for (const { date, activities } of [...activitiesByDay].sort((a, b) => a.date.localeCompare(b.date))) {
+      const off = Math.round((new Date(date + 'T00:00:00Z') - epoch) / 60000);
+      const s = [...activities].sort((a, b) => a.timeMin - b.timeMin);
+      for (let ai = 0; ai < s.length; ai++) {
+        if (s[ai].activity !== 'rest') continue;
+        rawBlocks.push({ start: off + s[ai].timeMin, end: off + (s[ai + 1]?.timeMin ?? 1440) });
+      }
+    }
+
+    // Krok 2: scal nakładające się / sąsiednie bloki (odpoczynek przez północ)
+    rawBlocks.sort((a, b) => a.start - b.start);
+    const merged = [];
+    for (const blk of rawBlocks) {
+      if (merged.length && blk.start <= merged[merged.length - 1].end) {
+        merged[merged.length - 1].end = Math.max(merged[merged.length - 1].end, blk.end);
+      } else {
+        merged.push({ ...blk });
+      }
+    }
+
+    // Krok 3: dla każdego bloku → tydzień startu → aktualizuj max ciągły odpoczynek
+    for (const blk of merged) {
+      const dur = blk.end - blk.start;
+      const blkDate = new Date(epoch.getTime() + blk.start * 60000).toISOString().slice(0, 10);
+      const bd = new Date(blkDate + 'T00:00:00Z');
+      const bdow = bd.getUTCDay() || 7;
+      const bmon = new Date(bd); bmon.setUTCDate(bd.getUTCDate() - (bdow - 1));
+      const wk = bmon.toISOString().slice(0, 10);
+      if (weekMaxRest[wk] !== undefined) weekMaxRest[wk] = Math.max(weekMaxRest[wk], dur);
+    }
+
+    // Krok 4: zgłoś naruszenia
+    for (const [wk, maxRest] of Object.entries(weekMaxRest)) {
+      if (maxRest < 1440) {
+        violations.push({ violation_date: wk, violation_type: 'weekly_rest_under_24h', severity: 'very_serious',
+          description: `Odpoczynek tygodniowy: ${_tachoFmtMin(maxRest)} ciągłego (wymagane min. 24h skrócone lub 45h regularne)`,
+          regulation: '561/2006 Art. 8 ust. 6', actual_value: maxRest, limit_value: 1440,
+          penalty_pln: _tachoPenalty('weekly_rest_under_24h', 'very_serious') });
+      } else if (maxRest < 2700) {
+        violations.push({ violation_date: wk, violation_type: 'weekly_rest_under_45h', severity: 'serious',
+          description: `Odpoczynek tygodniowy: ${_tachoFmtMin(maxRest)} ciągłego (poniżej 45h; skrócony 24h dopuszczalny co drugi tydz. z kompensatą)`,
+          regulation: '561/2006 Art. 8 ust. 6', actual_value: maxRest, limit_value: 2700,
+          penalty_pln: _tachoPenalty('weekly_rest_under_45h', 'serious') });
+      }
     }
   }
 
