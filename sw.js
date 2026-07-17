@@ -3,7 +3,7 @@
  * Cache-first dla assetów, network-first dla danych
  * Obsługuje: install, activate, fetch, push, notificationclick
  */
-const CACHE_NAME = 'taxorder-v39';
+const CACHE_NAME = 'taxorder-v40';
 const STATIC_ASSETS = [
   '/',
   '/app.js',
@@ -122,6 +122,33 @@ const STATIC_ASSETS = [
   '/modules/esg-report.js',
   '/modules/driver-worktime.js',
   '/modules/clerk-auth.js',
+  '/modules/document-manager.js',
+  '/modules/fuel-card-import.js',
+  '/modules/supplier-invoices.js',
+  '/modules/transport-orders.js',
+  '/modules/co2-report.js',
+  '/modules/driver-profiles.js',
+  '/modules/tco.js',
+  '/modules/approvals.js',
+  '/modules/driver-shifts.js',
+  '/modules/vehicle-reservations.js',
+  '/modules/budgets.js',
+  '/modules/budget-annual.js',
+  '/modules/driver-schedule.js',
+  '/modules/faults.js',
+  '/modules/service-contracts.js',
+  '/modules/spare-parts.js',
+  '/modules/fk-export.js',
+  '/modules/tacho.js',
+  '/modules/fleet-policies.js',
+  '/modules/driver-scoring.js',
+  '/modules/driver-performance.js',
+  '/modules/executive-dashboard.js',
+  '/modules/benchmark.js',
+  '/modules/driver-panel.js',
+  '/modules/audit-log.js',
+  '/modules/onboarding.js',
+  '/modules/fuel-db.js',
 ];
 
 self.addEventListener('install', e => {

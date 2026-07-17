@@ -2039,7 +2039,7 @@ function _renderKpiCards({ oc=0, oc_expired=0, oc_7=0, insp=0, insp_expired=0, f
       <div class="fkpi-lab">bez przypisanego kierowcy</div>
     </div>
     ${drivers_exp > 0 ? `
-    <div class="fkpi-card fkpi-amber" onclick="showPage('kierowcy')" style="cursor:pointer" title="Kierowcy z wygasającym prawem jazdy">
+    <div class="fkpi-card fkpi-amber" onclick="window.TaxOrderDrivers?.open?.()" style="cursor:pointer" title="Kierowcy z wygasającym prawem jazdy">
       <div class="fkpi-val">${drivers_exp}</div>
       <div class="fkpi-lab">prawa jazdy ≤ 30 dni</div>
     </div>` : ''}`;

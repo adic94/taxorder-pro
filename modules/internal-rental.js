@@ -1,17 +1,15 @@
 (function () {
   'use strict';
 
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window._cfApi?.() || window.WORKER_URL;
+  const H   = () => window._cfHdrs?.() || {};
+  const Co  = () => window._cfCo?.()   || '';
 
   const STATUS_CLR   = { active: '#3b82f6', returned: '#22c55e', invoiced: '#8b5cf6' };
   const STATUS_LABEL = { active: 'Aktywny', returned: 'Zwrócony', invoiced: 'Zafakturowany' };
 
   async function api(path, opts = {}) {
-    const r = await fetch(`${API}/api/internal-rentals${path}?company=${co()}`, {
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
-      ...opts,
-    });
+    const r = await fetch(`${API()}/api/internal-rentals${path}?company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
     return r.json();
   }
 

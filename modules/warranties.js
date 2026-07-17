@@ -1,13 +1,14 @@
 (function () {
   'use strict';
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window._cfApi?.() || window.WORKER_URL;
+  const H   = () => window._cfHdrs?.() || {};
+  const Co  = () => window._cfCo?.()   || '';
   const TYPE_LBL  = { warranty:'Gwarancja', recall:'Kampania serwisowa (recall)', extended_warranty:'Gwarancja rozszerzona' };
   const TYPE_CLR  = { warranty:'#22c55e', recall:'#ef4444', extended_warranty:'#8b5cf6' };
   const RECALL_CLR = { open:'#ef4444', scheduled:'#f59e0b', completed:'#22c55e' };
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API}/api/warranties${path}?company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('authToken')}`}, ...opts });
+    const r = await fetch(`${API()}/api/warranties${path}?company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
     return r.json();
   }
 

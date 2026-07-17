@@ -1,13 +1,14 @@
 (function () {
   'use strict';
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window._cfApi?.() || window.WORKER_URL;
+  const H   = () => window._cfHdrs?.() || {};
+  const Co  = () => window._cfCo?.()   || '';
   const REASON_LBL = { sale:'Sprzedaż', scrap:'Kasacja', transfer:'Przekazanie', lease_end:'Koniec leasingu', accident_total_loss:'Szkoda całkowita' };
   const STATUS_CLR = { in_progress:'#f59e0b', completed:'#22c55e', cancelled:'#94a3b8' };
   const STATUS_LBL = { in_progress:'W trakcie', completed:'Zakończona', cancelled:'Anulowana' };
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API}/api/fleet-disposal${path}?company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('authToken')}`}, ...opts });
+    const r = await fetch(`${API()}/api/fleet-disposal${path}?company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
     return r.json();
   }
 

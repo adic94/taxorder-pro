@@ -1,7 +1,8 @@
 (function () {
   'use strict';
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window._cfApi?.() || window.WORKER_URL;
+  const H   = () => window._cfHdrs?.() || {};
+  const Co  = () => window._cfCo?.()   || '';
   const EVENT_LBL = {
     harsh_brake:'Gwałtowne hamowanie', harsh_accel:'Gwałtowne przyspieszenie',
     sharp_turn:'Gwałtowny skręt', lane_departure:'Zmiana pasa', collision:'Kolizja',
@@ -12,7 +13,7 @@
   const SEV_LBL = { low:'Niskie', medium:'Średnie', high:'Wysokie', critical:'Krytyczne' };
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API}/api/video-telematics${path}?company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('authToken')}`}, ...opts });
+    const r = await fetch(`${API()}/api/video-telematics${path}?company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
     return r.json();
   }
 

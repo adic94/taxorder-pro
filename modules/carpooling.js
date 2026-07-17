@@ -1,17 +1,15 @@
 (function () {
   'use strict';
 
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window._cfApi?.() || window.WORKER_URL;
+  const H   = () => window._cfHdrs?.() || {};
+  const Co  = () => window._cfCo?.()   || '';
 
   const STATUS_CLR   = { open: '#22c55e', full: '#f59e0b', completed: '#3b82f6', cancelled: '#94a3b8' };
   const STATUS_LABEL = { open: 'Otwarty', full: 'Komplet', completed: 'Zakończony', cancelled: 'Anulowany' };
 
   async function api(path, opts = {}) {
-    const r = await fetch(`${API}/api/carpooling${path}?company=${co()}`, {
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
-      ...opts,
-    });
+    const r = await fetch(`${API()}/api/carpooling${path}?company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
     return r.json();
   }
 

@@ -1,7 +1,8 @@
 (function () {
   'use strict';
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window._cfApi?.() || window.WORKER_URL;
+  const H   = () => window._cfHdrs?.() || {};
+  const Co  = () => window._cfCo?.()   || '';
   const METRIC_LBL = {
     co2_total_tonnes: 'Emisja CO₂ łączna (t)',
     co2_per_km: 'CO₂ na km (g/km)',
@@ -15,7 +16,7 @@
   };
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API}/api/esg-targets${path}?company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('authToken')}`}, ...opts });
+    const r = await fetch(`${API()}/api/esg-targets${path}?company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
     return r.json();
   }
 

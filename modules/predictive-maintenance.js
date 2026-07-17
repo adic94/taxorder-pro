@@ -1,13 +1,14 @@
 (function () {
   'use strict';
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window._cfApi?.() || window.WORKER_URL;
+  const H   = () => window._cfHdrs?.() || {};
+  const Co  = () => window._cfCo?.()   || '';
   const TYPES = { oil_change:'Wymiana oleju', tires:'Wymiana opon', brake_fluid:'Płyn hamulcowy', inspection:'Przegląd tech.', belt:'Pasek rozrządu', coolant:'Płyn chłodniczy', battery:'Akumulator', custom:'Niestandardowy' };
   const STATUS_CLR = { ok:'#22c55e', soon:'#f59e0b', overdue:'#ef4444' };
   const STATUS_LBL = { ok:'✅ OK', soon:'⚠️ Wkrótce', overdue:'🚨 Zaległy' };
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API}/api/predictive-maintenance${path}?company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('authToken')}`}, ...opts });
+    const r = await fetch(`${API()}/api/predictive-maintenance${path}?company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
     return r.json();
   }
 

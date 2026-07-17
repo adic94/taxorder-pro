@@ -1,8 +1,9 @@
 (function () {
   'use strict';
 
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window._cfApi?.() || window.WORKER_URL;
+  const H   = () => window._cfHdrs?.() || {};
+  const Co  = () => window._cfCo?.()   || '';
 
   const TYPE_LABEL  = { consent: 'Zgoda', request: 'Wniosek', deletion: 'Usunięcie danych', export: 'Eksport danych', breach: 'Naruszenie' };
   const TYPE_ICON   = { consent: '✅', request: '📋', deletion: '🗑️', export: '📤', breach: '🚨' };
@@ -11,10 +12,7 @@
   const STATUS_LABEL= { active: 'Aktywny', fulfilled: 'Zrealizowany', deleted: 'Usunięty', expired: 'Wygasły' };
 
   async function api(path, opts = {}) {
-    const r = await fetch(`${API}/api/gdpr${path}?company=${co()}`, {
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
-      ...opts,
-    });
+    const r = await fetch(`${API()}/api/gdpr${path}?company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
     return r.json();
   }
 

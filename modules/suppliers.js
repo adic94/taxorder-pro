@@ -1,11 +1,12 @@
 (function () {
   'use strict';
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window._cfApi?.() || window.WORKER_URL;
+  const H   = () => window._cfHdrs?.() || {};
+  const Co  = () => window._cfCo?.()   || '';
   const CAT_LBL = { fuel:'Paliwo', service:'Serwis', insurance:'Ubezpieczenie', tires:'Opony', parts:'Części zamienne', leasing:'Leasing', rental:'Wynajem', other:'Inny' };
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API}/api/suppliers${path}?company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('authToken')}`}, ...opts });
+    const r = await fetch(`${API()}/api/suppliers${path}?company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
     return r.json();
   }
 

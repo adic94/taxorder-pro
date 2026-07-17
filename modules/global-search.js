@@ -42,7 +42,7 @@ window.TaxOrderSearch = (function () {
           type: 'driver',
           label: esc(d.name || d.login || '—'),
           sub: d.phone ? esc(d.phone) : '',
-          action: () => { if (window.showPage) showPage('kierowcy'); _hide(); },
+          action: () => { window.TaxOrderDrivers?.open?.(); _hide(); },
         });
       }
     });
