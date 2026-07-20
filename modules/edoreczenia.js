@@ -7,7 +7,7 @@
   const STATUS_CLR = { pending:'#f59e0b', sent:'#3b82f6', delivered:'#8b5cf6', read:'#22c55e', rejected:'#ef4444' };
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API}/api/edoreczenia${path}?company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('authToken')}`}, ...opts });
+    const r = await fetch(`${API}/api/edoreczenia${path}${path.includes('?') ? '&' : '?'}company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('authToken')}`}, ...opts });
     return r.json();
   }
 
@@ -81,7 +81,7 @@
     document.getElementById('edo-modal-title').textContent = id ? 'Edytuj e-doręczenie' : 'Nowe e-doręczenie';
     let e = { direction:'incoming', status:'pending', sent_date: new Date().toISOString().slice(0,10) };
     if (id) { const d = await api(`/${id}`); e = d.item || e; }
-    body.innerHTML = `<form id="edo-form" onsubmit="window.EdoreczeniaModule._save(event,'${esc(id||'')}')">
+    body.innerHTML = `<form id="edo-form" data-id="${esc(id||'')}" onsubmit="window.EdoreczeniaModule._save(event,this.dataset.id)">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="form-row"><label>Kierunek *</label>
           <select name="direction" class="form-control" required>

@@ -474,7 +474,7 @@ window.TaxOrderVehicleDetail = {
               </label>
               <div style="display:flex;gap:6px;align-items:center">
                 <input type="number" id="vd-miesiacePodatku" class="fi" min="1" max="12"
-                  value="${v.miesiacePodatku||12}" style="flex:1"
+                  value="${v.miesiacePodatku??12}" style="flex:1"
                   onchange="document.getElementById('vd-dt1-box').innerHTML=TaxOrderVehicleDetail._renderDt1BoxFromForm(${v.id})">
                 <button type="button" class="btn btn-gray" style="padding:4px 8px;font-size:11px;white-space:nowrap"
                   title="Oblicz automatycznie z dat nabycia, zbycia i wycofania z ruchu"
@@ -505,7 +505,7 @@ window.TaxOrderVehicleDetail = {
           <button class="btn btn-gray" style="font-size:11px" onclick="window.open('https://www.ufg.pl/inf_o_ubezpieczeniu/','_blank')" title="Sprawdź ubezpieczenie OC w UFG">
             <i class="ti ti-external-link" style="color:#059669"></i>Weryfikuj OC w UFG
           </button>
-          <span style="font-size:10px;color:var(--text3);margin-left:8px">Otwiera portal UFG — wpisz nr rej: <strong style="font-family:var(--mono)">${v.nrRej||''}</strong></span>
+          <span style="font-size:10px;color:var(--text3);margin-left:8px">Otwiera portal UFG — wpisz nr rej: <strong style="font-family:var(--mono)">${esc(v.nrRej||'')}</strong></span>
         </div>
         <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
           <i class="ti ti-shield-half"></i> AC / Casco — Ubezpieczenie dobrowolne
@@ -1031,7 +1031,7 @@ window.TaxOrderVehicleDetail = {
       <!-- TCO (Total Cost of Ownership) YTD -->
       ${(() => {
         const yr = String(new Date().getFullYear());
-        const svcCostY = (v.serviceHistory||[]).filter(h=>(h.date||'').startsWith(yr)).reduce((s,h)=>s+(+h.cost||0),0);
+        const svcCostY = (v.serviceHistory||[]).filter(h=>(h.date||'').startsWith(yr)).reduce((s,h)=>s+(h.cost??0),0);
         const insCostY = (+(v.ocPremium)||0) + (+(v.acPremium)||0) + (+(v.assistPremium)||0);
         const tcoTotal = totalCostY + svcCostY + insCostY;
         if (!tcoTotal) return '';
@@ -1515,8 +1515,8 @@ window.TaxOrderVehicleDetail = {
           ${kmDue !== null ? `<div style="color:${kmDue<0?'var(--red)':'var(--text2)'}${kmDue<500&&kmDue>=0?';color:var(--amber)':''}">za ${kmDue} km</div>` : ''}
         </div>
         <div style="display:flex;gap:4px;flex-shrink:0">
-          <button class="tbtn" onclick="TaxOrderVehicleDetail._editMaintItem(${v.id},'${item.id}')" title="Edytuj"><i class="ti ti-pencil"></i></button>
-          <button class="tbtn" style="color:var(--red)" onclick="TaxOrderVehicleDetail._deleteMaintItem(${v.id},'${item.id}')" title="Usuń"><i class="ti ti-trash"></i></button>
+          <button class="tbtn" data-vid="${v.id}" data-iid="${esc(item.id)}" onclick="TaxOrderVehicleDetail._editMaintItem(+this.dataset.vid,this.dataset.iid)" title="Edytuj"><i class="ti ti-pencil"></i></button>
+          <button class="tbtn" style="color:var(--red)" data-vid="${v.id}" data-iid="${esc(item.id)}" onclick="TaxOrderVehicleDetail._deleteMaintItem(+this.dataset.vid,this.dataset.iid)" title="Usuń"><i class="ti ti-trash"></i></button>
         </div>
       </div>`;
     }).join('');
@@ -1548,7 +1548,7 @@ window.TaxOrderVehicleDetail = {
         </div>
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
           <button class="btn btn-gray" onclick="document.getElementById('maint-modal').remove()">Anuluj</button>
-          <button class="btn btn-blue" onclick="TaxOrderVehicleDetail._saveMaintItem(${vId},'${item?.id||''}')"><i class="ti ti-check"></i>Zapisz</button>
+          <button class="btn btn-blue" data-vid="${vId}" data-iid="${esc(item?.id||'')}" onclick="TaxOrderVehicleDetail._saveMaintItem(+this.dataset.vid,this.dataset.iid)"><i class="ti ti-check"></i>Zapisz</button>
         </div>
       </div>
     </div>`;
@@ -1804,7 +1804,7 @@ window.TaxOrderVehicleDetail = {
               ].map(([code, label, val]) => `<div style="display:flex;gap:4px;align-items:baseline">
                 <span style="font-size:8px;font-weight:700;color:#7a6a55;min-width:24px">${code}</span>
                 <span style="min-width:52px">${label}:</span>
-                <span style="font-weight:600;color:${val ? 'var(--text)' : 'var(--text3)'}">${val || '—'}</span>
+                <span style="font-weight:600;color:${val ? 'var(--text)' : 'var(--text3)'}">${val ? esc(String(val)) : '—'}</span>
               </div>`).join('')}
             </div>
           </div>
@@ -1851,7 +1851,7 @@ window.TaxOrderVehicleDetail = {
       ${chip('Rok prod.', tax.isNew ? '≥2024 ✓' : '<2024', tax.isNew ? 'var(--green)' : 'var(--text2)')}
     </div>
     <div style="margin-top:6px;font-size:11px;color:var(--text3)">
-      <i class="ti ti-map-pin" style="font-size:10px"></i> Gmina: <b>${gmina}</b> · ${v.miesiacePodatku||12} miesięcy
+      <i class="ti ti-map-pin" style="font-size:10px"></i> Gmina: <b>${esc(gmina)}</b> · ${v.miesiacePodatku??12} miesięcy
       ${gmina !== 'Warszawa' ? '<span style="color:var(--amber)"> · stawki własnej gminy</span>' : ''}
     </div>`;
   },
@@ -1988,8 +1988,8 @@ window.TaxOrderVehicleDetail = {
 </table>` : '';
     // TCO summary
     const yr = String(new Date().getFullYear());
-    const fuelCost = (v.fuelHistory||[]).filter(h=>(h.date||'').startsWith(yr)).reduce((s,h)=>s+(+h.totalCost||0),0);
-    const svcCost  = (v.serviceHistory||[]).filter(h=>(h.date||'').startsWith(yr)).reduce((s,h)=>s+(+h.cost||0),0);
+    const fuelCost = (v.fuelHistory||[]).filter(h=>(h.date||'').startsWith(yr)).reduce((s,h)=>s+(h.totalCost??0),0);
+    const svcCost  = (v.serviceHistory||[]).filter(h=>(h.date||'').startsWith(yr)).reduce((s,h)=>s+(h.cost??0),0);
     const insCost  = (v.ocPremium||0) + (v.acPremium||0) + (v.assistPremium||0);
     const tcoTotal = fuelCost + svcCost + insCost;
     const kmPts    = (v.fuelHistory||[]).filter(h=>(h.date||'').startsWith(yr)&&h.km>0).sort((a,b)=>a.km-b.km);

@@ -107,7 +107,7 @@ window.TaxOrderImportExport = {
             row.osie = 2;
             row.zawieszenie = 'pneumatyczne';
             row.miesiacePodatku = 12;
-            row.status = row.wlasciciel ? 'Własny' : 'Własny';
+            row.status = row.wlasciciel ? 'Własny' : 'Obcy';
             rows.push(row);
           }
           resolve({ ok: true, rows, source: 'mycar' });

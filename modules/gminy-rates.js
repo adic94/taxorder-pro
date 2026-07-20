@@ -400,7 +400,7 @@ window.GminyRates = (function () {
               <td style="padding:8px 12px;color:var(--text3);font-size:11px">${i + 1}</td>
               <td style="padding:8px 12px;font-weight:${isBest ? '700' : '400'};color:${isBest ? '#166534' : 'var(--text)'}">
                 ${isBest ? '<span style="font-size:10px;background:#bbf7d0;color:#166534;padding:2px 6px;border-radius:99px;margin-right:6px">✓ najtańsza</span>' : ''}
-                ${r.name}
+                ${esc(r.name)}
               </td>
               <td style="padding:8px 12px;text-align:right;font-family:var(--mono);font-weight:700;color:${isBest ? '#166534' : 'var(--text)'}">
                 ${fmt(r.total)} zł

@@ -172,7 +172,7 @@ window.ServiceModule = (function () {
                 <td><span style="color:${t.color}"><i class="ti ${t.icon}"></i> ${t.label}</span></td>
                 <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.description || '—')}</td>
                 <td style="font-family:var(--mono);text-align:right">${s.km ? s.km.toLocaleString('pl-PL') : '—'}</td>
-                <td style="font-family:var(--mono);font-weight:600">${s.cost ? s.cost.toFixed(2)+' zł' : '—'}</td>
+                <td style="font-family:var(--mono);font-weight:600">${s.cost != null ? s.cost.toFixed(2)+' zł' : '—'}</td>
                 <td>${esc(s.workshop || '—')}</td>
               </tr>`;
             }).join('')}
@@ -329,10 +329,10 @@ window.ServiceModule = (function () {
           </div>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
-          ${ex && canEdit ? `<button class="btn btn-gray" style="color:var(--red);margin-right:auto" onclick="ServiceModule.removeService(${vehId},'${ex.id}',this)">
+          ${ex && canEdit ? `<button class="btn btn-gray" style="color:var(--red);margin-right:auto" data-vid="${vehId}" data-sid="${esc(ex.id)}" onclick="ServiceModule.removeService(this.dataset.vid,this.dataset.sid,this)">
             <i class="ti ti-trash"></i>Usuń</button>` : ''}
           <button class="btn btn-gray" onclick="this.closest('[style*=fixed]').remove()">Anuluj</button>
-          <button class="btn btn-blue" onclick="ServiceModule.saveService(${vehId},'${ex ? ex.id : ''}',this)">
+          <button class="btn btn-blue" data-vid="${vehId}" data-sid="${esc(ex ? ex.id : '')}" onclick="ServiceModule.saveService(this.dataset.vid,this.dataset.sid,this)">
             <i class="ti ti-check"></i>Zapisz serwis
           </button>
         </div>
@@ -390,7 +390,7 @@ window.ServiceModule = (function () {
       nextServiceKm:  gi('_svc-nextkm'),
       notes:          g('_svc-notes'),
       createdBy:      window.currentUser?.id,
-      createdAt:      ex?.createdAt || new Date().toISOString(),
+      createdAt:      v.serviceHistory?.find(s => s.id == serviceId)?.createdAt ?? new Date().toISOString(),
     };
 
     if (!Array.isArray(v.serviceHistory)) v.serviceHistory = [];
@@ -516,7 +516,7 @@ window.ServiceModule = (function () {
                   <td><span style="color:${t.color}"><i class="ti ${t.icon}"></i> ${t.label}</span></td>
                   <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s.description||'')}">${esc(s.description||'—')}</td>
                   <td style="font-family:var(--mono);text-align:right">${s.km ? s.km.toLocaleString('pl-PL') : '—'}</td>
-                  <td style="font-family:var(--mono);font-weight:600;text-align:right;white-space:nowrap">${s.cost ? s.cost.toFixed(2)+' '+curr : '—'}</td>
+                  <td style="font-family:var(--mono);font-weight:600;text-align:right;white-space:nowrap">${s.cost != null ? s.cost.toFixed(2)+' '+curr : '—'}</td>
                   <td style="font-family:var(--mono);text-align:right;white-space:nowrap">${s.costNet ? s.costNet.toFixed(2)+' '+curr : '—'}</td>
                   <td style="font-size:10px;color:var(--text3)">${s.vatRate != null ? s.vatRate+'%' : '—'}</td>
                   <td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s.workshop||'')}">${esc(s.workshop||'—')}</td>

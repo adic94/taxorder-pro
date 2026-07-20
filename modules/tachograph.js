@@ -805,7 +805,7 @@ ${_violData.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń. Wczyta
       }
       const summary = Object.entries(totals).map(([k, v]) => {
         const c = ACTIVITY_COLOR[k] || { bg: '#666', label: k };
-        return `<span style="color:${c.bg};font-size:11px">${c.label}: ${_fmtMin(v)}</span>`;
+        return `<span style="color:${c.bg};font-size:11px">${e(c.label)}: ${_fmtMin(v)}</span>`;
       }).join(' · ');
 
       return `<div class="day-row">
@@ -1046,10 +1046,10 @@ ${f.vehicles?.length > 0 ? `
         <td><strong>${e([d.driver_surname,d.driver_firstname].filter(Boolean).join(' ')||'—')}</strong></td>
         <td style="font-size:11px;font-family:monospace">${e(d.card_number||'—')}</td>
         <td style="text-align:center">${e(d.file_count??0)}</td>
-        <td style="text-align:center;font-weight:700;color:${(d.violation_count??d.total_violations??0)>0?'#dc2626':'#16a34a'}">${d.violation_count??d.total_violations??0}</td>
-        <td style="text-align:center;color:#b91c1c">${d.very_serious??0}</td>
-        <td style="text-align:center;color:#b45309">${d.serious??0}</td>
-        <td style="text-align:center;color:#0369a1">${d.minor??0}</td>
+        <td style="text-align:center;font-weight:700;color:${(d.violation_count??d.total_violations??0)>0?'#dc2626':'#16a34a'}">${e(String(d.violation_count??d.total_violations??0))}</td>
+        <td style="text-align:center;color:#b91c1c">${e(String(d.very_serious??0))}</td>
+        <td style="text-align:center;color:#b45309">${e(String(d.serious??0))}</td>
+        <td style="text-align:center;color:#0369a1">${e(String(d.minor??0))}</td>
         <td style="text-align:right;font-weight:700;color:${(d.penalty_total||0)>0?'#dc2626':'inherit'}">${(d.penalty_total||0)>0?(d.penalty_total).toLocaleString('pl-PL')+' PLN':'—'}</td>
         <td>
           ${ok
@@ -1063,7 +1063,7 @@ ${f.vehicles?.length > 0 ? `
 </div>
 
 <div style="margin-top:12px;padding:12px;background:var(--bg2);border-radius:8px;font-size:11px;color:var(--text3)">
-  Okres: ${e(data.date_from)} – ${e(data.date_to)} · Łącznie kierowców: ${data.total_drivers}
+  Okres: ${e(data.date_from)} – ${e(data.date_to)} · Łącznie kierowców: ${e(String(data.total_drivers??0))}
   · Eksport CSV: <button class="btn btn-sm" onclick="window.TachographModule._exportCSV('violations')">Naruszenia</button>
 </div>`;
   }

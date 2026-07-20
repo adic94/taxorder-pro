@@ -382,7 +382,7 @@ window.TaxOrderRateReader = {
       </tbody>
     </table></div>
     <div style="font-size:11px;color:var(--text3);margin-top:6px">
-      <i class="ti ti-info-circle"></i> Uchwała: ${r.resolution_no || '—'} | Rok: ${r.tax_year}
+      <i class="ti ti-info-circle"></i> Uchwała: ${esc(r.resolution_no || '—')} | Rok: ${r.tax_year}
     </div>`;
   },
 
