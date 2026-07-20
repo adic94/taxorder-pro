@@ -36,12 +36,12 @@ window.TaxOrderRateReader = {
     const rates = await this.loadRates(mun, parseInt(yr));
     if (!rates) return null;
 
-    const dmc      = parseInt(v.dmc) || 0;
+    const dmc      = parseInt(v.dmc ?? v.dmcMax) || 0;
     const dmcTeam  = parseInt(v.dmcZespolu) || 0;
     const osie     = parseInt(v.osie) || 2;
     const typ      = (v.typ || '').toLowerCase();
     const isNew    = (parseInt(v.rok) || 0) >= 2024; // §2
-    const miesiace = parseInt(v.miesiacePodatku) || 12;
+    const miesiace = Math.min(Math.max(parseInt(v.miesiacePodatku ?? 12) || 1, 1), 12);
 
     let cat = null, baseRate = null;
 

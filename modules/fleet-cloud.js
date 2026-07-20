@@ -93,7 +93,7 @@ window.TaxOrderFleetCloud = {
       axles_count:      parseInt(v.osie)            || 2,
       suspension_type:  v.zawieszenie               || "pneumatyczne",
       dmc_team_kg:      parseInt(v.dmcZespolu)       || 0,
-      taxable_months:   parseInt(v.miesiacePodatku)  || 12,
+      taxable_months:   parseInt(v.miesiacePodatku ?? 12) || 1,
       dt1_category:     tax.cat    || v.cat          || null,
       dt1_tax_amount:   tax.amount != null ? tax.amount : (v.amount ?? null),
       raw_data:         raw

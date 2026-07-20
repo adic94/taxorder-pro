@@ -130,7 +130,7 @@
         axles_count:      parseInt(v.osie)           || 2,
         suspension_type:  v.zawieszenie              || 'pneumatyczne',
         dmc_zespolu:      parseInt(v.dmcZespolu)      || 0,
-        miesiace_podatku: parseInt(v.miesiacePodatku) || 12,
+        miesiace_podatku: parseInt(v.miesiacePodatku ?? 12) || 1,
         dt1_category:     tax.cat   || v.cat           || null,
         dt1_tax_amount:   tax.amount != null ? tax.amount : (v.amount ?? null),
         branch_id:        v.branch_id ?? null,

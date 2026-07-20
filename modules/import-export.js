@@ -148,7 +148,7 @@ window.TaxOrderImportExport = {
             row.rok = parseInt(row.rok) || null;
             row.dmc = parseInt(row.dmc) || 0;
             row.osie = parseInt(row.osie) || 2;
-            row.miesiacePodatku = parseInt(row.miesiacePodatku) || 12;
+            row.miesiacePodatku = parseInt(row.miesiacePodatku ?? 12) || 1;
             row.zawieszenie = row.zawieszenie || 'pneumatyczne';
             rows.push(row);
           }
@@ -192,7 +192,7 @@ window.TaxOrderImportExport = {
             row.rok = parseInt(row.rok) || null;
             row.dmc = parseInt(row.dmc) || 0;
             row.osie = parseInt(row.osie) || 2;
-            row.miesiacePodatku = parseInt(row.miesiacePodatku) || 12;
+            row.miesiacePodatku = parseInt(row.miesiacePodatku ?? 12) || 1;
             row.zawieszenie = row.zawieszenie || 'pneumatyczne';
             return row;
           }).filter(Boolean);
@@ -238,7 +238,7 @@ window.TaxOrderImportExport = {
       return [
         v.nrRej, v.vin, v.marka, v.model, v.rok, v.typ,
         v.dmc, v.dmcZespolu || 0, v.euro, v.status, v.wlasciciel,
-        v.osie, v.zawieszenie, v.miesiacePodatku || 12,
+        v.osie, v.zawieszenie, v.miesiacePodatku ?? 12,
         tax.cat || '', tax.rate || 0,
         Math.round((tax.amount || 0) * 100) / 100,
         (parseInt(v.rok) || 0) >= 2024 ? 'TAK' : 'NIE',

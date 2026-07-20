@@ -141,7 +141,7 @@ window.DT1XML = (function () {
       const cat    = typeof getCat === 'function' ? getCat(v) : (window.TaxEngine?.getCat(v) ?? null);
       const taxR   = window.TaxEngine?.calcTax(v) ?? {};
       const rate   = taxR.rate ?? (typeof getRate === 'function' ? getRate(v) : 0) ?? 0;
-      const months = Math.min(Math.max(parseInt(v.miesiacePodatku) || 12, 1), 12);
+      const months = Math.min(Math.max(parseInt(v.miesiacePodatku ?? 12) || 1, 1), 12);
       const amount = cat ? Math.round((rate * months) / 12 * 100) / 100 : 0;
       return { v, cat, rate, amount, months };
     }).filter(x => x.cat);
