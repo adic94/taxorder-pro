@@ -3945,16 +3945,23 @@ async function sendMonthlyReports(env) {
 
 // ─── NIGHTLY ANALYSIS (Claude API + GitHub Issues) ────────────────────────────
 async function runNightlyAnalysis(env) {
-  if (!env.CLAUDE_API_KEY) return;   // sekret nie ustawiony — pomiń cicho
+  if (!env.CLAUDE_API_KEY) return;
 
-  // Pobierz niezanalizowane błędy z ostatnich 24h
+  // Pobierz IDs wierszy które będziemy analizować — snapshot PRZED analizą,
+  // żeby UPDATE nie objął błędów napływających w trakcie (race condition)
+  const idRows = await env.DB.prepare(
+    `SELECT id FROM error_logs WHERE analyzed=0 AND created_at >= datetime('now', '-1 day')`
+  ).all();
+  const ids = (idRows.results || []).map(r => r.id);
+  if (!ids.length) return;
+
+  // Pogrupowany summary dla Claude (top 20 typów)
   const rows = await env.DB.prepare(
     `SELECT error_msg, error_type, error_stack, url, COUNT(*) AS cnt
      FROM error_logs
-     WHERE analyzed = 0 AND created_at >= datetime('now', '-1 day')
+     WHERE analyzed=0 AND created_at >= datetime('now', '-1 day')
      GROUP BY error_msg, error_type
-     ORDER BY cnt DESC
-     LIMIT 20`
+     ORDER BY cnt DESC LIMIT 20`
   ).all();
 
   if (!rows.results?.length) return;
@@ -3989,7 +3996,9 @@ async function runNightlyAnalysis(env) {
     return;
   }
 
-  // Utwórz GitHub Issue jeśli GITHUB_TOKEN i GITHUB_REPO są ustawione
+  // Oznacz tylko te konkretne IDs (nie szeroki zakres dat)
+  const placeholders = ids.map(() => '?').join(',');
+
   if (env.GITHUB_TOKEN && env.GITHUB_REPO) {
     try {
       const issueResp = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/issues`, {
@@ -4008,21 +4017,17 @@ async function runNightlyAnalysis(env) {
       });
       const issue = await issueResp.json();
       if (issue.html_url) {
-        // Oznacz błędy jako zanalizowane i dodaj URL issue
         await env.DB.prepare(
-          `UPDATE error_logs SET analyzed=1, analysis=?, github_issue_url=?
-           WHERE analyzed=0 AND created_at >= datetime('now', '-1 day')`
-        ).bind(analysis.substring(0, 2000), issue.html_url).run();
+          `UPDATE error_logs SET analyzed=1, analysis=?, github_issue_url=? WHERE id IN (${placeholders})`
+        ).bind(analysis.substring(0, 2000), issue.html_url, ...ids).run();
         return;
       }
-    } catch { /* Nie udało się stworzyć issue — pomiń, ale oznacz jako zanalizowane */ }
+    } catch { /* issue creation failed — oznacz bez URL */ }
   }
 
-  // Oznacz jako zanalizowane nawet bez issue
   await env.DB.prepare(
-    `UPDATE error_logs SET analyzed=1, analysis=?
-     WHERE analyzed=0 AND created_at >= datetime('now', '-1 day')`
-  ).bind(analysis.substring(0, 2000)).run();
+    `UPDATE error_logs SET analyzed=1, analysis=? WHERE id IN (${placeholders})`
+  ).bind(analysis.substring(0, 2000), ...ids).run();
 }
 
 // ─── POLISY UBEZPIECZENIOWE (D1) ─────────────────────────────────────────────
