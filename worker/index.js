@@ -793,7 +793,8 @@ async function handleDocs(req, env, user, url, path) {
     const docMeta = await env.DB.prepare(
       'SELECT company_id, name FROM documents WHERE r2_key=?'
     ).bind(r2Key).first();
-    if (docMeta && user.role !== 'admin' && docMeta.company_id !== (url.searchParams.get('company') || user.company_id)) {
+    if (!docMeta) return err('Dokument nie znaleziony', 404);
+    if (user.role !== 'admin' && docMeta.company_id !== (url.searchParams.get('company') || user.company_id)) {
       return err('Brak dostępu', 403);
     }
     const obj = await env.DOCS.get(r2Key);
@@ -891,7 +892,7 @@ async function handleDamages(req, env, user, url, path) {
   // POST /api/damages/:id/photo — upload zdjęcia (FormData)
   if (req.method === 'POST' && segs[2] && segs[3] === 'photo') {
     const damageId = segs[2];
-    const report = await env.DB.prepare('SELECT company_id, nr_rej FROM damage_reports WHERE id=?').bind(damageId).first();
+    const report = await env.DB.prepare('SELECT company_id, nr_rej FROM damage_reports WHERE id=? AND company_id=?').bind(damageId, user.company_id).first();
     if (!report) return err('Zgłoszenie nie znalezione', 404);
     let fd; try { fd = await req.formData(); } catch { return err('Wymagany FormData'); }
     const file = fd.get('file');
@@ -1176,7 +1177,7 @@ async function handleProtocols(req, env, user, url, path) {
   // POST /api/protocols/:id/photo — upload zdjęcia (FormData)
   if (req.method === 'POST' && segs[2] && segs[3] === 'photo') {
     const protocolId = segs[2];
-    const protocol = await env.DB.prepare('SELECT company_id, nr_rej FROM handover_protocols WHERE id=?').bind(protocolId).first();
+    const protocol = await env.DB.prepare('SELECT company_id, nr_rej FROM handover_protocols WHERE id=? AND company_id=?').bind(protocolId, user.company_id).first();
     if (!protocol) return err('Protokół nie znaleziony', 404);
     let fd; try { fd = await req.formData(); } catch { return err('Wymagany FormData'); }
     const file = fd.get('file');
@@ -1819,8 +1820,8 @@ async function handleApiKeys(req, env, user, url, path) {
 
   if (req.method === 'GET' && !keyId) {
     const rows = await env.DB.prepare(
-      'SELECT id,company_id,name,scope,active,created_at,last_used_at FROM api_keys ORDER BY created_at DESC'
-    ).all();
+      'SELECT id,company_id,name,scope,active,created_at,last_used_at FROM api_keys WHERE company_id=? ORDER BY created_at DESC'
+    ).bind(user.company_id).all();
     return json(rows.results || []);
   }
 
@@ -1848,13 +1849,13 @@ async function handleApiKeys(req, env, user, url, path) {
     if (body.scope !== undefined)  { sets.push('scope=?');  vals.push(body.scope === 'read_write' ? 'read_write' : 'read'); }
     if (body.active !== undefined) { sets.push('active=?'); vals.push(body.active ? 1 : 0); }
     if (!sets.length) return err('Brak pól do aktualizacji');
-    vals.push(keyId);
-    await env.DB.prepare(`UPDATE api_keys SET ${sets.join(',')} WHERE id=?`).bind(...vals).run();
+    vals.push(keyId, user.company_id);
+    await env.DB.prepare(`UPDATE api_keys SET ${sets.join(',')} WHERE id=? AND company_id=?`).bind(...vals).run();
     return json({ ok: true });
   }
 
   if (req.method === 'DELETE' && keyId) {
-    await env.DB.prepare('DELETE FROM api_keys WHERE id=?').bind(keyId).run();
+    await env.DB.prepare('DELETE FROM api_keys WHERE id=? AND company_id=?').bind(keyId, user.company_id).run();
     return json({ ok: true });
   }
 
@@ -2468,12 +2469,13 @@ async function sendPushMsg(sub, payload, env) {
   });
 }
 
-// POST /api/push/subscribe — public (no Worker auth, Supabase session is enough)
-async function handlePushSubscribe(req, env) {
+// POST /api/push/subscribe — wymaga sesji (przeniesione za getUser())
+async function handlePushSubscribe(req, env, user) {
   let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
   const { subscription, company_id, label, user_id } = body;
   if (!subscription?.endpoint || !subscription?.keys) return err('Nieprawidłowa subskrypcja');
   if (!company_id) return err('Wymagane company_id');
+  if (user.role !== 'admin' && company_id !== user.company_id) return err('Brak dostępu do tej firmy', 403);
   await env.DB.prepare(`
     INSERT INTO push_subscriptions(company_id,user_id,endpoint,p256dh,auth_key,label,updated_at)
     VALUES(?,?,?,?,?,?,datetime('now'))
@@ -3875,9 +3877,9 @@ async function handleErrors(request, env, user, url, path) {
     const offset = parseInt(url.searchParams.get('offset') || '0');
     const rows = await env.DB.prepare(
       `SELECT id, created_at, url, error_msg, error_type, company_id, user_id, app_version, analyzed, github_issue_url
-       FROM error_logs ORDER BY created_at DESC LIMIT ? OFFSET ?`
-    ).bind(limit, offset).all();
-    const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM error_logs').first('n');
+       FROM error_logs WHERE company_id=? ORDER BY created_at DESC LIMIT ? OFFSET ?`
+    ).bind(user.company_id, limit, offset).all();
+    const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM error_logs WHERE company_id=?').bind(user.company_id).first('n');
     return json({ rows: rows.results, total });
   }
 
@@ -3885,7 +3887,7 @@ async function handleErrors(request, env, user, url, path) {
   if (request.method === 'DELETE' && path.startsWith('/api/errors/')) {
     if (!user || user.role !== 'admin') return err('Brak uprawnień', 403);
     const id = path.split('/').pop();
-    await env.DB.prepare('DELETE FROM error_logs WHERE id=?').bind(id).run();
+    await env.DB.prepare('DELETE FROM error_logs WHERE id=? AND company_id=?').bind(id, user.company_id).run();
     return json({ ok: true });
   }
 
@@ -4282,7 +4284,7 @@ async function handleFuelFills(req, env, user, url, path) {
     let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
     if (!d.nr_rej)    return err('Wymagane: nr_rej', 400);
     if (!d.fill_date) return err('Wymagane: fill_date', 400);
-    if (!d.liters)    return err('Wymagane: liters', 400);
+    if (d.liters == null || !(parseFloat(d.liters) > 0)) return err('Wymagane: liters > 0', 400);
     const bid = await _getVehicleBranchId(env, company, d.nr_rej);
     const totalCost = d.total_cost ?? (d.liters && d.price_per_liter ? parseFloat((d.liters * d.price_per_liter).toFixed(2)) : null);
     const co2 = d.co2_kg ?? (d.liters ? parseFloat((d.liters * 2.64).toFixed(2)) : null); // diesel default
@@ -4358,7 +4360,7 @@ async function handleBudgets(req, env, user, url, path) {
   if (method === 'POST') {
     let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
     if (!d.year || !d.category) return err('Wymagane: year, category', 400);
-    if (!d.amount) return err('Wymagane: amount', 400);
+    if (d.amount == null) return err('Wymagane: amount', 400);
     const result = await env.DB.prepare(
       'INSERT INTO budgets (company_id,branch_id,nr_rej,year,month,category,amount) VALUES (?,?,?,?,?,?,?)'
     ).bind(company, d.branch_id??null, d.nr_rej||null, d.year, d.month??null, d.category, parseFloat(d.amount)).run();
@@ -5635,10 +5637,10 @@ async function handleDriverScoring(request, env, user, url, path) {
   const year    = url.searchParams.get('year') || String(new Date().getFullYear());
 
   const [driversRes, shiftsRes, finesRes, faultsRes, fuelRes] = await env.DB.batch([
-    env.DB.prepare("SELECT id, first_name||' '||last_name AS full_name, email FROM driver_profiles WHERE company_id=? AND active=1").bind(company),
-    env.DB.prepare(`SELECT driver_name, COUNT(*) AS shifts, SUM(overtime_minutes) AS overtime_min, SUM(end_km-start_km) AS driven_km FROM driver_shifts WHERE company_id=? AND strftime('%Y',shift_date)=? GROUP BY driver_name`).bind(company, year),
-    env.DB.prepare(`SELECT driver_name, COUNT(*) AS cnt, SUM(amount) AS total FROM fines WHERE company_id=? AND strftime('%Y',fine_date)=? GROUP BY driver_name`).bind(company, year),
-    env.DB.prepare(`SELECT driver_name, COUNT(*) AS cnt FROM faults WHERE company_id=? AND strftime('%Y',reported_at)=? GROUP BY driver_name`).bind(company, year),
+    env.DB.prepare("SELECT id, first_name||' '||last_name AS full_name, email FROM driver_profiles WHERE company_id=? AND status='active'").bind(company),
+    env.DB.prepare(`SELECT driver_name, COUNT(*) AS shifts, SUM(overtime_minutes) AS overtime_min FROM driver_shifts WHERE company_id=? AND strftime('%Y',shift_date)=? GROUP BY driver_name`).bind(company, year),
+    env.DB.prepare(`SELECT driver_name, COUNT(*) AS cnt, SUM(amount) AS total FROM fines WHERE company_id=? AND strftime('%Y',date)=? GROUP BY driver_name`).bind(company, year),
+    env.DB.prepare(`SELECT driver_name, COUNT(*) AS cnt FROM faults WHERE company_id=? AND strftime('%Y',report_date)=? GROUP BY driver_name`).bind(company, year),
     env.DB.prepare(`SELECT driver_id, SUM(liters) AS liters FROM fuel_fills WHERE company_id=? AND strftime('%Y',fill_date)=? GROUP BY driver_id`).bind(company, year),
   ]);
 
@@ -5653,7 +5655,7 @@ async function handleDriverScoring(request, env, user, url, path) {
     const fines    = finesMap[name]  || {};
     const faults   = faultsMap[name] || {};
     const fuel     = fuelMap[dr.id]  || {};
-    const drivenKm = shifts.driven_km || 0;
+    const drivenKm = 0; // brak kolumny km w driver_shifts — scoring bez przejechanych km
     const liters   = fuel.liters || 0;
     const avgCons  = drivenKm > 100 && liters > 0 ? (liters / drivenKm) * 100 : null;
     let score = 100;
@@ -7798,7 +7800,6 @@ async function handleRequest(request, env, url, path) {
   if (path === '/api/auth/pz/callback'      && request.method === 'GET')  return handlePzCallback(request, env, url);
   if (path === '/api/auth/pz/userinfo'      && request.method === 'GET')  return handlePzUserinfo(request, env);
   if (path === '/api/push/vapid-public-key' && request.method === 'GET')  return handleVapidPublicKey(request, env);
-  if (path === '/api/push/subscribe'        && request.method === 'POST') return handlePushSubscribe(request, env);
   if (path === '/api/push/subscribe'        && request.method === 'DELETE') return handlePushUnsubscribe(request, env);
   // POST /api/errors jest publiczny (bez tokenu) — błędy mogą pojawiać się przed logowaniem
   if (path === '/api/errors' && request.method === 'POST') return handleErrors(request, env, null, url, path);
@@ -7846,6 +7847,11 @@ async function handleRequest(request, env, url, path) {
     if (reqCompany && reqCompany !== user.company_id) {
       return err('Brak dostępu do tej firmy', 403);
     }
+  }
+
+  if (path === '/api/push/subscribe' && request.method === 'POST') {
+    if (!user) return err('Nieautoryzowany', 401);
+    return handlePushSubscribe(request, env, user);
   }
 
   if (path === '/api/dashboard/stats' && request.method === 'GET') {
