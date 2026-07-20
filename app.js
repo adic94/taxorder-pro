@@ -7749,10 +7749,10 @@ function renderCompanyOverview(){
     return `<div onclick="switchCompany('${c.id}')" style="background:${isCurrent?c.color+'11':'var(--bg2)'};border:2px solid ${isCurrent?c.color:'var(--border)'};border-radius:12px;padding:16px;cursor:pointer;transition:all .2s">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <div style="width:12px;height:12px;border-radius:50%;background:${c.color}"></div>
-        <div style="font-weight:600;font-size:14px">${c.shortName}</div>
+        <div style="font-weight:600;font-size:14px">${esc(c.shortName)}</div>
         ${isCurrent?'<span style="font-size:10px;background:'+c.color+';color:#fff;padding:2px 6px;border-radius:4px;margin-left:auto">AKTYWNA</span>':''}
       </div>
-      <div style="font-size:11px;color:var(--text2);margin-bottom:10px">NIP: ${c.nip}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:10px">NIP: ${esc(c.nip)}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
         <div style="background:var(--bg3);border-radius:6px;padding:8px;text-align:center">
           <div style="font-size:18px;font-weight:700;color:${c.color}">${vCount||'—'}</div>
@@ -7782,7 +7782,7 @@ function renderAllCompaniesSummary() {
     grandTotal += tax;
     const isCur = c.id === currentCompanyId;
     rows += `<tr style="${isCur?'background:'+c.color+'11;font-weight:600':''}">
-      <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c.color};margin-right:6px"></span>${c.shortName}</td>
+      <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c.color};margin-right:6px"></span>${esc(c.shortName)}</td>
       <td style="text-align:center">${vList.length}</td>
       <td style="text-align:center">${taxable.length}</td>
       <td style="text-align:right;font-family:var(--mono);color:var(--green)">${tax>0?Math.round(tax).toLocaleString('pl-PL')+' zł':'—'}</td>

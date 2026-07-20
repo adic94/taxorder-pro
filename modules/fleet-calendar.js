@@ -145,7 +145,7 @@ window.FleetCalendar = (function () {
         const isFirst = r.start === ds;
         return `<td style="padding:2px 3px;border-left:0.5px solid var(--border);background:${sc.bg};border-bottom:2px solid ${sc.border}">
           ${isFirst ? `<div style="font-size:10px;font-weight:600;color:${sc.text};white-space:nowrap;overflow:hidden;max-width:76px;text-overflow:ellipsis" title="${esc(r.user_name)}: ${r.start}–${r.end}${r.notes?'\n'+esc(r.notes):''}"
-            onclick="FleetCalendar.editRes('${r.id}')">${esc(r.user_name)}</div>
+            data-rid="${esc(String(r.id))}" onclick="FleetCalendar.editRes(this.dataset.rid)">${esc(r.user_name)}</div>
             ${r.notes ? `<div style="font-size:9px;color:var(--text3);white-space:nowrap;overflow:hidden;max-width:76px;text-overflow:ellipsis">${esc(r.notes)}</div>` : ''}` : ''}
         </td>`;
       }).join('');
@@ -197,7 +197,7 @@ window.FleetCalendar = (function () {
         ${rForDay.slice(0,3).map(r => {
           const sc = STATUS_COLORS[r.status] || STATUS_COLORS.pending;
           return `<div style="font-size:9px;padding:1px 4px;margin-top:2px;border-radius:3px;background:${sc.bg};border-left:2px solid ${sc.border};cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-            onclick="FleetCalendar.editRes('${r.id}')" title="${esc(r.nr_rej)}: ${esc(r.user_name)}">${esc(r.nr_rej)} – ${esc(r.user_name)}</div>`;
+            data-rid="${esc(String(r.id))}" onclick="FleetCalendar.editRes(this.dataset.rid)" title="${esc(r.nr_rej)}: ${esc(r.user_name)}">${esc(r.nr_rej)} – ${esc(r.user_name)}</div>`;
         }).join('')}
         ${rForDay.length > 3 ? `<div style="font-size:9px;color:var(--text3)">${t('cal.more').replace('{0}',rForDay.length-3)}</div>` : ''}
       </td>`;
@@ -334,12 +334,12 @@ window.FleetCalendar = (function () {
           </div>` : ''}
         </div>
         <div style="display:flex;gap:8px;justify-content:space-between">
-          <button class="btn btn-gray" style="color:var(--red)" onclick="FleetCalendar.deleteRes('${resId}',this)">
+          <button class="btn btn-gray" style="color:var(--red)" data-rid="${esc(String(resId))}" onclick="FleetCalendar.deleteRes(this.dataset.rid,this)">
             <i class="ti ti-trash"></i>${t('btn.delete')}
           </button>
           <div style="display:flex;gap:8px">
             <button class="btn btn-gray" onclick="this.closest('[style*=fixed]').remove()">${t('btn.cancel')}</button>
-            <button class="btn btn-blue" onclick="FleetCalendar.updateRes('${resId}',this)">
+            <button class="btn btn-blue" data-rid="${esc(String(resId))}" onclick="FleetCalendar.updateRes(this.dataset.rid,this)">
               <i class="ti ti-check"></i>${t('btn.save')}
             </button>
           </div>

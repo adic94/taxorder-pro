@@ -3833,7 +3833,7 @@ async function checkInspectionDeadlines(env) {
 }
 
 async function handleErrors(request, env, user, url, path) {
-  // POST /api/errors — public (no auth), rate-limited by CF
+  // POST /api/errors — public (no auth), rate-limited at call site (20 req/min/IP)
   if (request.method === 'POST' && path === '/api/errors') {
     let body;
     try { body = await request.json(); } catch { return err('Nieprawidłowy JSON'); }
@@ -7807,7 +7807,12 @@ async function handleRequest(request, env, url, path) {
   if (path === '/api/push/vapid-public-key' && request.method === 'GET')  return handleVapidPublicKey(request, env);
   if (path === '/api/push/subscribe'        && request.method === 'DELETE') return handlePushUnsubscribe(request, env);
   // POST /api/errors jest publiczny (bez tokenu) — błędy mogą pojawiać się przed logowaniem
-  if (path === '/api/errors' && request.method === 'POST') return handleErrors(request, env, null, url, path);
+  if (path === '/api/errors' && request.method === 'POST') {
+    const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const rl = await rateLimit(env, `err:${ip}`, 20, 60);
+    if (!rl.allowed) return json({ error: 'Zbyt wiele zgłoszeń. Poczekaj minutę.' }, 429);
+    return handleErrors(request, env, null, url, path);
+  }
   // Publiczna konfiguracja aplikacji (klucz PostHog, Clerk publishable key)
   if (path === '/api/app-config' && request.method === 'GET') {
     return json({

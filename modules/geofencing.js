@@ -152,7 +152,7 @@
       if (z.zone_type === 'circle' && z.center_lat && z.center_lon) {
         L.circle([z.center_lat, z.center_lon], {
           radius: z.radius_m || 500, color: z.color || '#2563eb', fillOpacity: 0.15
-        }).addTo(_map).bindPopup(`<strong>${z.name}</strong>${z.description?'<br>'+z.description:''}`);
+        }).addTo(_map).bindPopup(`<strong>${e(z.name)}</strong>${z.description?'<br>'+e(z.description):''}`);
       }
     });
   }

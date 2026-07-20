@@ -413,13 +413,13 @@ window.TaxOrderNotifSettings = (function () {
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px">
         <div style="display:flex;align-items:flex-start;gap:10px">
           <div style="flex:1">
-            <div style="font-weight:600;font-size:14px;margin-bottom:2px">${t.name}</div>
-            ${t.description ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px">${t.description}</div>` : ''}
+            <div style="font-weight:600;font-size:14px;margin-bottom:2px">${esc(t.name)}</div>
+            ${t.description ? `<div style="font-size:12px;color:var(--text2);margin-bottom:8px">${esc(t.description)}</div>` : ''}
             <div style="display:flex;flex-wrap:wrap;gap:5px">
               ${(t.items||[]).map(item => {
                 const at = _alertTypes.find(a=>a.id===item.typeId);
                 return `<span style="font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:99px;padding:2px 8px">
-                  <i class="ti ${at?.icon||'ti-tool'}"></i> ${item.label||at?.name||item.typeId}
+                  <i class="ti ${at?.icon||'ti-tool'}"></i> ${esc(item.label||at?.name||item.typeId)}
                   ${item.intervalDays ? `· co ${item.intervalDays} dni` : ''}
                   ${item.intervalKm   ? `· co ${item.intervalKm} km`   : ''}
                 </span>`;
