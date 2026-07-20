@@ -202,6 +202,10 @@
       window._featureFlags = { nav: {}, dash: null };
     }
     applyNavFlags();
+    // Odśwież widok konfiguracji jeśli jest aktywny
+    if (document.getElementById('page-feature-config')?.classList.contains('active')) {
+      renderPage();
+    }
   }
 
   async function saveFlags(navFlags, dashHidden) {
@@ -245,6 +249,11 @@
     if (currentLabel) currentLabel.style.display = hasVisible ? '' : 'none';
   }
 
+  // ── Stan zwinięcia sekcji (localStorage) ─────────────────────────────────
+  const COLLAPSE_KEY = 'fc-collapsed-sections';
+  function _loadCollapsed()  { try { return new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]')); } catch { return new Set(); } }
+  function _saveCollapsed(s) { localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...s])); }
+
   // ── Render strony konfiguracji ─────────────────────────────────────────────
   function renderPage() {
     const el = document.getElementById('page-feature-config');
@@ -252,11 +261,11 @@
 
     const flags      = window._featureFlags?.nav || {};
     const dashHidden = window._featureFlags?.dash || [];
+    const collapsed  = _loadCollapsed();
 
     _pending     = { ...flags };
     _pendingDash = [...dashHidden];
 
-    // Policz ile modułów jest włączonych / wyłączonych
     let totalCount = 0, disabledCount = 0;
     NAV_SECTIONS.forEach(s => s.items.forEach(item => {
       totalCount++;
@@ -278,9 +287,15 @@
           </div>
         </div>
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <span style="font-size:12px;color:var(--text2);padding:4px 10px;background:var(--surface2,#f5f5f5);border-radius:20px">
+          <span style="font-size:12px;color:var(--text2);padding:4px 10px;background:var(--bg3);border-radius:20px">
             Aktywnych: <strong id="fc-count-on">${totalCount - disabledCount}</strong> / ${totalCount}
           </span>
+          <button class="btn" onclick="FeatureConfig._collapseAll()" style="font-size:12px" title="Zwiń wszystkie sekcje">
+            <i class="ti ti-layout-navbar-collapse"></i> Zwiń
+          </button>
+          <button class="btn" onclick="FeatureConfig._expandAll()" style="font-size:12px" title="Rozwiń wszystkie sekcje">
+            <i class="ti ti-layout-navbar-expand"></i> Rozwiń
+          </button>
           <button class="btn" onclick="FeatureConfig._resetAll()" style="font-size:12px">
             <i class="ti ti-refresh"></i> Włącz wszystko
           </button>
@@ -293,30 +308,34 @@
       <!-- Szukajka -->
       <div style="position:relative;margin-bottom:20px">
         <i class="ti ti-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:15px;pointer-events:none"></i>
-        <input id="fc-search" type="text" class="form-input"
+        <input id="fc-search" type="text" class="fi"
           placeholder="Szukaj modułu… (np. delegacje, mapa, OCR)"
-          style="padding-left:36px;font-size:13px"
+          style="padding-left:36px;font-size:13px;width:100%"
           oninput="FeatureConfig._onSearch(this.value)">
       </div>
 
-      <!-- Karty sekcji (menu nawigacji) -->
-      <div style="display:flex;flex-direction:column;gap:16px" id="fc-sections">
-        ${NAV_SECTIONS.map(sec => `
-          <div class="card fc-section" data-section="${esc(sec.label)}" style="overflow:hidden">
-            <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;cursor:pointer"
-              onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none';this.querySelector('.fc-chevron').style.transform=this.nextElementSibling.style.display===''?'':'rotate(-90deg)'">
+      <!-- Karty sekcji -->
+      <div style="display:flex;flex-direction:column;gap:12px" id="fc-sections">
+        ${NAV_SECTIONS.map(sec => {
+          const secKey   = sec.label.replace(/[^a-z0-9]/gi, '');
+          const isCollapsed = collapsed.has(sec.label);
+          return `
+          <div class="card fc-section" data-section="${esc(sec.label)}">
+            <div style="padding:10px 16px;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none"
+              data-sec="${esc(sec.label)}"
+              onclick="FeatureConfig._toggleSection(this)">
               <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">${esc(sec.label)}</span>
-              <span style="font-size:11px;color:var(--text3);margin-left:4px" id="fc-sec-count-${esc(sec.label.replace(/[^a-z]/gi,''))}"></span>
-              <i class="ti ti-chevron-down fc-chevron" style="margin-left:auto;font-size:14px;color:var(--text3);transition:transform .2s"></i>
+              <span style="font-size:11px;color:var(--text3);margin-left:4px" id="fc-sec-count-${secKey}"></span>
+              <i class="ti ti-chevron-down fc-chevron" style="margin-left:auto;font-size:14px;color:var(--text3);transition:transform .2s${isCollapsed ? ';transform:rotate(-90deg)' : ''}"></i>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1px;background:var(--border)">
+            <div class="fc-sec-body" style="display:${isCollapsed ? 'none' : 'grid'};grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1px;background:var(--border)">
               ${sec.items.map(item => {
                 const isCore    = CORE.has(item.key);
                 const isEnabled = flags[item.key] !== false;
                 return `<div class="fc-item" data-key="${esc(item.key)}" data-label="${esc(item.label.toLowerCase())}"
-                  style="background:var(--surface);padding:10px 14px;display:flex;align-items:center;gap:10px">
+                  style="background:var(--bg2);padding:10px 14px;display:flex;align-items:center;gap:10px">
                   <i class="ti ${item.icon}" style="font-size:16px;color:var(--text2);flex-shrink:0;width:18px;text-align:center"></i>
-                  <span style="flex:1;font-size:13px;${isCore?'color:var(--text2)':''}">${esc(item.label)}</span>
+                  <span style="flex:1;font-size:13px;color:var(--text);${isCore ? 'opacity:.65' : ''}">${esc(item.label)}</span>
                   ${isCore
                     ? `<span title="Moduł wymagany" style="font-size:10px;color:var(--text3);flex-shrink:0">
                         <i class="ti ti-lock" style="font-size:11px"></i>
@@ -330,22 +349,24 @@
                 </div>`;
               }).join('')}
             </div>
-          </div>
-        `).join('')}
+          </div>`;
+        }).join('')}
       </div>
 
       <!-- Widgety dashboardu -->
-      <div class="card" style="margin-top:16px;overflow:hidden">
-        <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+      <div class="card" style="margin-top:12px">
+        <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none"
+          onclick="const b=this.nextElementSibling;b.style.display=b.style.display==='none'?'grid':'none';this.querySelector('.fc-chevron').style.transform=b.style.display==='none'?'rotate(-90deg)':''">
           <i class="ti ti-layout-dashboard" style="color:var(--blue)"></i>
           <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">Widgety pulpitu (dashboard)</span>
+          <i class="ti ti-chevron-down fc-chevron" style="margin-left:auto;font-size:14px;color:var(--text3);transition:transform .2s"></i>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1px;background:var(--border)">
           ${DASH_WIDGETS_DEF.map(w => {
             const hidden = dashHidden.includes(w.id);
-            return `<div style="background:var(--surface);padding:10px 14px;display:flex;align-items:center;gap:10px">
+            return `<div style="background:var(--bg2);padding:10px 14px;display:flex;align-items:center;gap:10px">
               <i class="ti ${w.icon}" style="font-size:16px;color:var(--text2);flex-shrink:0;width:18px;text-align:center"></i>
-              <span style="flex:1;font-size:13px">${esc(w.label)}</span>
+              <span style="flex:1;font-size:13px;color:var(--text)">${esc(w.label)}</span>
               <label class="fc-toggle">
                 <input type="checkbox" data-dashid="${esc(w.id)}" ${hidden ? '' : 'checked'}
                   onchange="FeatureConfig._toggleDash(this.dataset.dashid, this.checked)">
@@ -354,16 +375,16 @@
             </div>`;
           }).join('')}
         </div>
-        <div style="padding:10px 16px;font-size:11px;color:var(--text3)">
+        <div style="padding:10px 16px;font-size:11px;color:var(--text3);border-top:1px solid var(--border)">
           <i class="ti ti-info-circle"></i>
           Kolejność widgetów zmieniasz przez Pulpit → przycisk <strong>Dostosuj widżety</strong>.
         </div>
       </div>
 
       <!-- Legenda -->
-      <div style="margin-top:16px;padding:12px 16px;background:var(--surface2,#f5f5f5);border-radius:8px;font-size:12px;color:var(--text2);display:flex;gap:20px;flex-wrap:wrap">
+      <div style="margin-top:16px;padding:12px 16px;background:var(--bg3);border-radius:var(--radius-lg);font-size:12px;color:var(--text2);display:flex;gap:20px;flex-wrap:wrap;border:1px solid var(--border)">
         <span><i class="ti ti-toggle-right" style="color:var(--green)"></i> Włączony — widoczny w menu</span>
-        <span><i class="ti ti-toggle-left" style="color:var(--border)"></i> Wyłączony — ukryty w menu</span>
+        <span><i class="ti ti-toggle-left" style="color:var(--text3)"></i> Wyłączony — ukryty w menu</span>
         <span><i class="ti ti-lock"></i> Zablokowany — wymagany przez system</span>
       </div>
 
@@ -372,12 +393,13 @@
     <style>
       .fc-toggle { position:relative;display:inline-flex;width:36px;height:20px;flex-shrink:0;cursor:pointer }
       .fc-toggle input { opacity:0;width:0;height:0;position:absolute }
-      .fc-toggle-knob { position:absolute;inset:0;background:var(--border,#d1d5db);border-radius:10px;transition:.25s }
+      .fc-toggle-knob { position:absolute;inset:0;background:var(--border);border-radius:10px;transition:.25s }
       .fc-toggle-knob::before { content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.25s;box-shadow:0 1px 3px rgba(0,0,0,.2) }
-      .fc-toggle input:checked + .fc-toggle-knob { background:var(--green,#22c55e) }
+      .fc-toggle input:checked + .fc-toggle-knob { background:var(--green) }
       .fc-toggle input:checked + .fc-toggle-knob::before { transform:translateX(16px) }
       .fc-item { transition:background .1s }
-      .fc-item:hover { background:var(--surface2,#f9f9f9) !important }
+      .fc-item:hover { background:var(--bg3) !important }
+      .fc-section > div:first-child:hover { background:var(--bg3) }
     </style>`;
 
     _updateSectionCounts();
@@ -418,6 +440,43 @@
     } else {
       if (!_pendingDash.includes(id)) _pendingDash.push(id);
     }
+  }
+
+  function _toggleSection(headerEl) {
+    const body    = headerEl.nextElementSibling;
+    const chevron = headerEl.querySelector('.fc-chevron');
+    const secName = headerEl.dataset.sec;
+    const collapsed = _loadCollapsed();
+    if (body.style.display === 'none') {
+      body.style.display = 'grid';
+      chevron.style.transform = '';
+      collapsed.delete(secName);
+    } else {
+      body.style.display = 'none';
+      chevron.style.transform = 'rotate(-90deg)';
+      collapsed.add(secName);
+    }
+    _saveCollapsed(collapsed);
+  }
+
+  function _collapseAll() {
+    const collapsed = new Set();
+    document.querySelectorAll('.fc-sec-body').forEach(b => { b.style.display = 'none'; });
+    document.querySelectorAll('.fc-section [data-sec]').forEach(h => {
+      const ch = h.querySelector('.fc-chevron');
+      if (ch) ch.style.transform = 'rotate(-90deg)';
+      collapsed.add(h.dataset.sec);
+    });
+    _saveCollapsed(collapsed);
+  }
+
+  function _expandAll() {
+    document.querySelectorAll('.fc-sec-body').forEach(b => { b.style.display = 'grid'; });
+    document.querySelectorAll('.fc-section [data-sec]').forEach(h => {
+      const ch = h.querySelector('.fc-chevron');
+      if (ch) ch.style.transform = '';
+    });
+    _saveCollapsed(new Set());
   }
 
   function _resetAll() {
@@ -465,6 +524,9 @@
     renderPage,
     _toggle,
     _toggleDash,
+    _toggleSection,
+    _collapseAll,
+    _expandAll,
     _resetAll,
     _onSearch,
     _save,
