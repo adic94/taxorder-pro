@@ -2299,7 +2299,7 @@ async function lookupNip() {
 
   try {
     const today = new Date().toISOString().split('T')[0];
-    const r = await fetch(`https://wl-api.mf.gov.pl/api/check/nip/${nip}?date=${today}`);
+    const r = await fetch(`https://wl-api.mf.gov.pl/api/check/nip/${nip}?date=${today}`, { signal: AbortSignal.timeout(10000) });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const data = await r.json();
     const s = data?.result?.subject;
