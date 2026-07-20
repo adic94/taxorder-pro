@@ -2038,7 +2038,7 @@ ${brandingHtml}
 <div style="font-size:10px;color:#9ca3af;margin-bottom:14px">Wygenerowano: ${new Date().toLocaleDateString('pl-PL')} | TaxOrder Pro</div>
 <h2>Identyfikacja</h2>
 <table>${rowH('VIN',`<span style="font-family:monospace">${esc(v.vin||'—')}</span>`)}
-${row('DMC',(v.dmc||v.dmcMax||0).toLocaleString('pl-PL')+' kg')}${row('EURO',v.euro)}
+${row('DMC',(v.dmc??v.dmcMax??0).toLocaleString('pl-PL')+' kg')}${row('EURO',v.euro)}
 ${row('Status własności',v.status)}${row('Właściciel',v.wlasciciel)}
 ${row('Kierowca',v.kierowca)}${row('Stan licznika',v.stanKilometrow!=null?v.stanKilometrow.toLocaleString('pl-PL')+' km':null)}</table>
 <h2>Ubezpieczenia</h2>

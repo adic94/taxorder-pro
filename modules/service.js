@@ -257,7 +257,7 @@ window.ServiceModule = (function () {
           </div>
           <div class="vdf">
             <label class="vdl">Przebieg przy serwisie (km)</label>
-            <input id="_svc-km" type="number" class="fi" value="${ex?.km || v.stanKilometrow || ''}">
+            <input id="_svc-km" type="number" class="fi" value="${ex?.km ?? v.stanKilometrow ?? ''}">
           </div>
 
           <!-- Waluta i VAT -->
@@ -288,12 +288,12 @@ window.ServiceModule = (function () {
 
           <div class="vdf">
             <label class="vdl">Koszt brutto (<span id="_svc-curr-lbl">${defCurr}</span>)</label>
-            <input id="_svc-cost" type="number" step="0.01" class="fi" value="${ex?.cost || ''}"
+            <input id="_svc-cost" type="number" step="0.01" class="fi" value="${ex?.cost ?? ''}"
               oninput="ServiceModule._calcNetto(this)" placeholder="0.00">
           </div>
           <div class="vdf">
             <label class="vdl">Koszt netto (<span id="_svc-curr-lbl2">${defCurr}</span>)</label>
-            <input id="_svc-costn" type="number" step="0.01" class="fi" value="${ex?.costNet || ''}"
+            <input id="_svc-costn" type="number" step="0.01" class="fi" value="${ex?.costNet ?? ''}"
               oninput="ServiceModule._calcBrutto(this)" placeholder="0.00">
           </div>
 

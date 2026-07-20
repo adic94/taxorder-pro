@@ -323,7 +323,7 @@ window.GminyRates = (function () {
     const rates = {};
     SCHEMA.forEach(s => {
       const el = document.getElementById('gr-' + s.key);
-      if (el) rates[s.key] = parseFloat(el.value) || s.default;
+      if (el) { const r = parseFloat(el.value); rates[s.key] = isNaN(r) ? s.default : r; }
     });
     saveGminaRates(name, rates);
     if (typeof toast === 'function') toast(t('gminy.toast.saved').replace('{0}', name));

@@ -64,7 +64,7 @@ window.TaxOrderSearch = (function () {
       if (_q(f.nrRej).includes(query) || _q(f.place).includes(query) || _q(f.notes).includes(query)) {
         results.push({
           type: 'fine',
-          label: esc(f.nrRej || '—') + (f.amount ? ' · ' + f.amount + ' zł' : ''),
+          label: esc(f.nrRej || '—') + (f.amount ? ' · ' + esc(String(f.amount)) + ' zł' : ''),
           sub: f.place ? esc(f.place) : '',
           action: () => { if (window.showPage) showPage('mandaty'); _hide(); },
         });

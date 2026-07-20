@@ -1591,7 +1591,7 @@ async function handleDrivers(req, env, user, url, path) {
     sets.push("updated_at=datetime('now')");
     vals.push(driverId);
     try {
-      await env.DB.prepare(`UPDATE drivers SET ${sets.join(',')} WHERE id=?`).bind(...vals).run();
+      await env.DB.prepare(`UPDATE drivers SET ${sets.join(',')} WHERE id=? AND company_id=?`).bind(...vals, company).run();
     } catch (e) {
       if (e.message?.includes('UNIQUE')) return err('Kierowca o tej nazwie już istnieje', 409);
       throw e;
@@ -1603,7 +1603,7 @@ async function handleDrivers(req, env, user, url, path) {
     const existing = await env.DB.prepare('SELECT company_id FROM drivers WHERE id=?').bind(driverId).first();
     if (!existing) return err('Kierowca nie istnieje', 404);
     if (existing.company_id !== company) return err('Brak dostępu', 403);
-    await env.DB.prepare('DELETE FROM drivers WHERE id=?').bind(driverId).run();
+    await env.DB.prepare('DELETE FROM drivers WHERE id=? AND company_id=?').bind(driverId, company).run();
     return json({ ok: true });
   }
 
@@ -1664,7 +1664,7 @@ async function handleFines(req, env, user, url, path) {
     if (!sets.length) return err('Brak pól do aktualizacji');
     sets.push("updated_at=datetime('now')");
     vals.push(fineId);
-    await env.DB.prepare(`UPDATE fines SET ${sets.join(',')} WHERE id=?`).bind(...vals).run();
+    await env.DB.prepare(`UPDATE fines SET ${sets.join(',')} WHERE id=? AND company_id=?`).bind(...vals, company).run();
     return json({ ok: true });
   }
 
@@ -1672,7 +1672,7 @@ async function handleFines(req, env, user, url, path) {
     const existing = await env.DB.prepare('SELECT company_id FROM fines WHERE id=?').bind(fineId).first();
     if (!existing) return err('Mandat nie istnieje', 404);
     if (existing.company_id !== company) return err('Brak dostępu', 403);
-    await env.DB.prepare('DELETE FROM fines WHERE id=?').bind(fineId).run();
+    await env.DB.prepare('DELETE FROM fines WHERE id=? AND company_id=?').bind(fineId, company).run();
     return json({ ok: true });
   }
 
@@ -1732,7 +1732,7 @@ async function handleReservations(req, env, user, url, path) {
     if (!sets.length) return err('Brak pól do aktualizacji');
     sets.push("updated_at=datetime('now')");
     vals.push(resId);
-    await env.DB.prepare(`UPDATE reservations SET ${sets.join(',')} WHERE id=?`).bind(...vals).run();
+    await env.DB.prepare(`UPDATE reservations SET ${sets.join(',')} WHERE id=? AND company_id=?`).bind(...vals, company).run();
     return json({ ok: true });
   }
 
@@ -1740,7 +1740,7 @@ async function handleReservations(req, env, user, url, path) {
     const existing = await env.DB.prepare('SELECT company_id FROM reservations WHERE id=?').bind(resId).first();
     if (!existing) return err('Rezerwacja nie istnieje', 404);
     if (existing.company_id !== company) return err('Brak dostępu', 403);
-    await env.DB.prepare('DELETE FROM reservations WHERE id=?').bind(resId).run();
+    await env.DB.prepare('DELETE FROM reservations WHERE id=? AND company_id=?').bind(resId, company).run();
     return json({ ok: true });
   }
 
@@ -1796,7 +1796,7 @@ async function handleFleetCards(req, env, user, url, path) {
     if (!sets.length) return err('Brak pól do aktualizacji');
     sets.push("updated_at=datetime('now')");
     vals.push(cardId);
-    await env.DB.prepare(`UPDATE fleet_cards SET ${sets.join(',')} WHERE id=?`).bind(...vals).run();
+    await env.DB.prepare(`UPDATE fleet_cards SET ${sets.join(',')} WHERE id=? AND company_id=?`).bind(...vals, company).run();
     return json({ ok: true });
   }
 
@@ -1804,7 +1804,7 @@ async function handleFleetCards(req, env, user, url, path) {
     const existing = await env.DB.prepare('SELECT company_id FROM fleet_cards WHERE id=?').bind(cardId).first();
     if (!existing) return err('Karta nie istnieje', 404);
     if (existing.company_id !== company) return err('Brak dostępu', 403);
-    await env.DB.prepare('DELETE FROM fleet_cards WHERE id=?').bind(cardId).run();
+    await env.DB.prepare('DELETE FROM fleet_cards WHERE id=? AND company_id=?').bind(cardId, company).run();
     return json({ ok: true });
   }
 
@@ -3536,7 +3536,7 @@ async function handleAlertTypes(req, env, user, url, path) {
     if (!existing) return err('Typ alertu nie istnieje', 404);
     if (existing.company_id === null) return err('Nie można usunąć wbudowanego typu alertu', 403);
     if (user.role !== 'admin' && existing.company_id !== company) return err('Brak dostępu', 403);
-    await env.DB.prepare('UPDATE alert_types SET active=0 WHERE id=? AND company_id IS NOT NULL').bind(segs[2]).run();
+    await env.DB.prepare('UPDATE alert_types SET active=0 WHERE id=? AND company_id=?').bind(segs[2], company).run();
     return json({ ok: true });
   }
   return err('Metoda niedozwolona', 405);
@@ -3724,12 +3724,18 @@ async function handleUserPermissions(req, env, user, url, path) {
   if (!canManage) return err('Brak uprawnień', 403);
 
   if (req.method === 'GET') {
-    const row = await env.DB.prepare('SELECT id,name,role,extra_permissions FROM users WHERE id=?').bind(targetId).first();
+    const row = await env.DB.prepare('SELECT id,name,role,extra_permissions,company_id FROM users WHERE id=?').bind(targetId).first();
     if (!row) return err('Użytkownik nie istnieje', 404);
+    // IDOR: non-admin może zarządzać uprawnieniami tylko w obrębie własnej firmy
+    if (user.role !== 'admin' && row.company_id !== user.company_id) return err('Brak dostępu do tego użytkownika', 403);
     return json({ ...row, extra_permissions: JSON.parse(row.extra_permissions || '[]') });
   }
   if (req.method === 'PUT') {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    // IDOR: zweryfikuj że cel należy do tej samej firmy
+    const targetRow = await env.DB.prepare('SELECT company_id FROM users WHERE id=?').bind(targetId).first();
+    if (!targetRow) return err('Użytkownik nie istnieje', 404);
+    if (user.role !== 'admin' && targetRow.company_id !== user.company_id) return err('Brak dostępu do tego użytkownika', 403);
     const allowed = ['manage_alert_types','manage_templates','manage_notifications','manage_roles'];
     const perms = (body.extra_permissions || body.permissions || []).filter(p => allowed.includes(p));
     // Użytkownik bez manage_roles nie może nadawać manage_roles

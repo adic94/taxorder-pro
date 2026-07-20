@@ -246,7 +246,7 @@ ${recentViols.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń</p>' 
               ${r.parseErrors?.length ? `· <span style="color:#b45309">Ostrzeżenia parsera: ${e(r.parseErrors.join(', '))}</span>` : ''}
             </div>` : `<div style="font-size:12px;color:#dc2626">${e(r.error || 'Błąd')}</div>`}
         </div>
-        ${r.ok ? `<button class="btn btn-sm" onclick="window.TachographModule._showFile('${e(r.id)}')">Podgląd</button>` : ''}
+        ${r.ok ? `<button class="btn btn-sm" data-fid="${e(r.id)}" onclick="window.TachographModule._showFile(this.dataset.fid)">Podgląd</button>` : ''}
       </div>`).join('');
 
     return `
@@ -368,7 +368,7 @@ ${recentViols.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń</p>' 
         <td><span style="color:${statusColor};font-weight:600;font-size:12px">${statusLabel}</span></td>
         <td style="font-size:12px;color:var(--text3)">${uploadDate}</td>
         <td style="white-space:nowrap">
-          <button class="btn btn-sm" onclick="window.TachographModule._showFile('${e(f.id)}')"><i class="ti ti-eye"></i></button>
+          <button class="btn btn-sm" data-fid="${e(f.id)}" onclick="window.TachographModule._showFile(this.dataset.fid)"><i class="ti ti-eye"></i></button>
           <button class="btn btn-sm" style="color:#dc2626;margin-left:4px"
             data-fid="${e(f.id)}" data-fname="${e(f.file_name)}" onclick="window.TachographModule._delFile(this.dataset.fid,this.dataset.fname)">
             <i class="ti ti-trash"></i>
@@ -424,7 +424,7 @@ ${recentViols.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń</p>' 
         const cpcColor = daysLeft < 0 ? '#dc2626' : daysLeft < 60 ? '#d97706' : '#16a34a';
         cpcHtml = `<span style="font-size:11px;color:${cpcColor};font-weight:600">${_fmtDate(d.cpc_expiry_date)}</span>
           <br><span style="font-size:10px;color:${cpcColor}">${daysLeft < 0 ? 'WYGASŁA' : daysLeft < 60 ? 'za '+daysLeft+'d' : 'ważna'}</span>
-          ${d.cpc_training_hours ? `<br><span style="font-size:10px;color:var(--text3)">${d.cpc_training_hours}/35h</span>` : ''}`;
+          ${d.cpc_training_hours ? `<br><span style="font-size:10px;color:var(--text3)">${e(String(d.cpc_training_hours))}/35h</span>` : ''}`;
       }
 
       return `<tr>
@@ -509,7 +509,7 @@ ${files.length === 0 ? '<p style="color:var(--text3)">Brak plików</p>' : `
       <td style="text-align:center">${f.violations_count > 0 ? `<span style="color:#dc2626;font-weight:700">${f.violations_count}</span>` : '0'}</td>
       <td style="text-align:center">${e(f.activities_count ?? '—')}</td>
       <td style="font-size:11px">${f.parse_status === 'ok' ? '<span style="color:#16a34a">OK</span>' : e(f.parse_status)}</td>
-      <td><button class="btn btn-sm" onclick="window.TachographModule._closeModal();setTimeout(()=>window.TachographModule._showFile('${e(f.id)}'),50)"><i class="ti ti-eye"></i></button></td>
+      <td><button class="btn btn-sm" data-fid="${e(f.id)}" onclick="window.TachographModule._closeModal();setTimeout(()=>window.TachographModule._showFile(this.dataset.fid),50)"><i class="ti ti-eye"></i></button></td>
     </tr>`).join('')}
   </tbody>
 </table>`}`);
@@ -617,8 +617,9 @@ ${files.length === 0 ? '<p style="color:var(--text3)">Brak plików</p>' : `
 
 <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px;flex-wrap:wrap">
   <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:12px">
-    ${Object.entries(SEVERITY).filter(([k]) => k !== 'most_serious').map(([k, v]) => {
-      const cnt = _violData.filter(x => x.severity === k).length;
+    ${Object.entries(SEVERITY).map(([k, v]) => {
+      const cnt = _violData.filter(x => x.severity === k || (k === 'very_serious' && x.severity === 'most_serious')).length;
+      if (k === 'most_serious') return '';
       return `<span style="background:${v.bg};color:${v.color};padding:4px 12px;border-radius:12px;font-weight:600">${v.label}: ${cnt}</span>`;
     }).join('')}
     ${_violData.length > 0 ? `<span style="background:var(--bg2);padding:4px 12px;border-radius:12px;font-weight:600">
@@ -1363,7 +1364,7 @@ ${allViols.length>0 ? `
       <td style="padding:4px 8px;border:1px solid var(--border)">${_fmtDate(v.violation_date)}</td>
       <td style="padding:4px 8px;border:1px solid var(--border)">${e(v.description||v.violation_type)}</td>
       <td style="padding:4px 8px;border:1px solid var(--border)">${_sevChip(v.severity)}</td>
-      <td style="padding:4px 8px;border:1px solid var(--border)">${(v.penalty_pln||0)>0?v.penalty_pln+' PLN':'—'}</td>
+      <td style="padding:4px 8px;border:1px solid var(--border)">${(v.penalty_pln??0)>0?e(String(v.penalty_pln))+' PLN':'—'}</td>
     </tr>`).join('')}
   </tbody>
 </table>` : '<p style="color:#16a34a;font-size:12px"><i class="ti ti-check"></i> Brak naruszeń w ostatnich 28 dniach</p>'}
@@ -1850,7 +1851,7 @@ ${Object.keys(violsBySev).length>0?`<div style="margin-bottom:16px;display:flex;
         <div style="text-align:right">
           ${(f.violations_count||0)>0?`<span style="color:#dc2626;font-weight:700">${f.violations_count} nar.</span>`:'<span style="color:#16a34a;font-size:11px">Brak</span>'}
           <br><button class="btn btn-sm" style="font-size:10px;padding:2px 6px;margin-top:2px"
-            onclick="window.TachographModule._closeModal();setTimeout(()=>window.TachographModule._showFile('${e(f.id)}'),50)">
+            data-fid="${e(f.id)}" onclick="window.TachographModule._closeModal();setTimeout(()=>window.TachographModule._showFile(this.dataset.fid),50)">
             <i class="ti ti-eye"></i>
           </button>
         </div>
@@ -1885,7 +1886,7 @@ ${viols.length>0?`
       <td style="font-size:11px">${_fmtDate(v.violation_date)}</td>
       <td style="font-size:11px">${e(v.description||v.violation_type)}</td>
       <td>${_sevChip(v.severity)}</td>
-      <td style="text-align:right;font-size:11px">${(v.penalty_pln||0)>0?v.penalty_pln+' PLN':'—'}</td>
+      <td style="text-align:right;font-size:11px">${(v.penalty_pln??0)>0?e(String(v.penalty_pln))+' PLN':'—'}</td>
     </tr>`).join('')}
   </tbody>
 </table>
