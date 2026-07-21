@@ -389,13 +389,13 @@ window.TaxOrderVehicleDetail = {
         <div id="vd-dr-dropzone"
           ondragover="event.preventDefault();this.style.borderColor='var(--blue)';this.style.background='var(--blue-light,#eff6ff)'"
           ondragleave="this.style.borderColor='var(--border2)';this.style.background=''"
-          ondrop="event.preventDefault();this.style.borderColor='var(--border2)';this.style.background='';AztecScanner._vehId=${v.id};AztecScanner._ensureModal();AztecScanner._handleFile(event.dataTransfer.files[0]).then(()=>{if(AztecScanner._parsed)document.getElementById('aztec-modal').style.display='flex';TaxOrderVehicleDetail._refreshDrView(${v.id})})"
+          ondrop="event.preventDefault();this.style.borderColor='var(--border2)';this.style.background='';(function(f,vid){AztecScanner.open(vid);if(f)AztecScanner._handleFile(f).then(()=>TaxOrderVehicleDetail._refreshDrView(vid))})(event.dataTransfer.files[0],${v.id})"
           style="border:1.5px dashed var(--border2);border-radius:var(--radius-lg,10px);padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .15s;font-size:12px;color:var(--text2)"
           onclick="document.getElementById('vd-dr-file-${v.id}').click()">
           <i class="ti ti-file-upload" style="font-size:18px;flex-shrink:0;color:var(--text3)"></i>
           <span>Przeciągnij PDF dowodu rejestracyjnego lub <u style="color:var(--blue);cursor:pointer">kliknij aby wybrać</u></span>
           <input type="file" id="vd-dr-file-${v.id}" accept="image/*,application/pdf,.pdf" style="display:none"
-            onchange="AztecScanner._vehId=${v.id};AztecScanner._ensureModal();AztecScanner._handleFile(this.files[0]).then(()=>{if(AztecScanner._parsed)document.getElementById('aztec-modal').style.display='flex';TaxOrderVehicleDetail._refreshDrView(${v.id})})">
+            onchange="(function(f,vid){AztecScanner.open(vid);if(f)AztecScanner._handleFile(f).then(()=>TaxOrderVehicleDetail._refreshDrView(vid))})(this.files[0],${v.id})">
         </div>
         <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Identyfikacja pojazdu</div>
         <div class="vdfg" style="margin-bottom:18px">
@@ -1779,7 +1779,7 @@ window.TaxOrderVehicleDetail = {
           <i class="ti ti-file-upload"></i> Importuj PDF
           <input type="file" accept="image/*,application/pdf,.pdf"
             style="position:absolute;opacity:0;inset:0;cursor:pointer"
-            onchange="AztecScanner._vehId=${v.id};AztecScanner._ensureModal();AztecScanner._handleFile(this.files[0]).then(()=>{if(AztecScanner._parsed)document.getElementById('aztec-modal').style.display='flex'})">
+            onchange="(function(f,vid){AztecScanner.open(vid);if(f)AztecScanner._handleFile(f)})(this.files[0],${v.id})">
         </label>
       </div>
       ${window.AztecScanner?._lastScanDataUrl ? `

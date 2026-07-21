@@ -8,7 +8,8 @@ window.AztecScanner = {
   _vehId: undefined,
   _parsed: null,
   _rawText: '',
-  _lastScanDataUrl: null,   // ostatni skan — używany w Wariancie B (side-by-side)
+  _lastScanDataUrl: null,   // ostatni skan — podgląd (zwykle ostatnia strona PDF)
+  _firstPageDataUrl: null,  // strona 1 PDF — dane pojazdu dla OCR fallback
 
   // ── Punkt wejścia ─────────────────────────────────────────────────────────
   open(vehId) {
@@ -102,6 +103,7 @@ window.AztecScanner = {
   // ── Obsługa pliku ─────────────────────────────────────────────────────────
   async _handleFile(file) {
     if (!file) return;
+    this._firstPageDataUrl = null;
     const isPdf = file.type === 'application/pdf' || file.name?.toLowerCase().endsWith('.pdf');
 
     const previewImg = document.getElementById('aztec-preview-img');
@@ -178,13 +180,15 @@ window.AztecScanner = {
         canvas.height = viewport.height;
         await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
 
-        // Zapamiętaj ostatnią stronę jako podgląd (skala 2.5)
-        if (scale === 2.5 && pageNum === numPages) {
-          this._lastScanDataUrl = canvas.toDataURL('image/jpeg', 0.92);
-          const previewImg = document.getElementById('aztec-preview-img');
-          if (previewImg) {
-            previewImg.style.display = 'block';
-            previewImg.src = this._lastScanDataUrl;
+        if (scale === 2.5) {
+          const jpg = canvas.toDataURL('image/jpeg', 0.88);
+          // Strona 1 — dane pojazdu (niezbędne dla OCR starego "Dowód Stały")
+          if (pageNum === 1) this._firstPageDataUrl = jpg;
+          // Ostatnia strona — podgląd w modal + nowe DR mogą mieć AZTEC właśnie tu
+          if (pageNum === numPages) {
+            this._lastScanDataUrl = jpg;
+            const previewImg = document.getElementById('aztec-preview-img');
+            if (previewImg) { previewImg.style.display = 'block'; previewImg.src = jpg; }
           }
         }
 
@@ -425,37 +429,37 @@ window.AztecScanner = {
     document.getElementById('aztec-result').style.display = 'block';
   },
 
-  // ── OCR fallback — wysyła skan do Worker który odpytuje Claude Vision ────
+  // ── OCR fallback — /api/ai/ocr (PaddleOCR → CF AI → Groq) ──────────────
   async _ocrFallback() {
-    const dataUrl = this._lastScanDataUrl;
-    if (!dataUrl) throw new Error('Brak obrazu do OCR');
-
-    const semiIdx = dataUrl.indexOf(';');
-    const mimeType = dataUrl.slice(5, semiIdx);
-    const imageBase64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+    // Dla PDF: strona 1 ma dane pojazdu (też w starym "Dowód Stały")
+    // Dla zdjęć: użyj ostatniego skanu
+    const pages = [this._firstPageDataUrl, this._lastScanDataUrl].filter(Boolean);
+    if (!pages.length) throw new Error('Brak obrazu do OCR');
 
     const token = localStorage.getItem('cf_token') || '';
     const workerUrl = window.CF_WORKER_URL || '';
 
-    let resp, result;
-    try {
-      resp = await fetch(`${workerUrl}/api/dr-ocr`, {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64, mimeType }),
-        signal: AbortSignal.timeout(35000),
-      });
-      result = await resp.json();
-    } catch (e) {
-      throw new Error('Błąd połączenia OCR: ' + e.message);
+    for (const dataUrl of pages) {
+      const semiIdx = dataUrl.indexOf(';');
+      const mimeType = dataUrl.slice(5, semiIdx) || 'image/jpeg';
+      const imageBase64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+      try {
+        const resp = await fetch(`${workerUrl}/api/ai/ocr`, {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64, mimeType }),
+          signal: AbortSignal.timeout(35000),
+        });
+        if (!resp.ok) continue;
+        const result = await resp.json();
+        if (result.ok && result.fields) {
+          const f = result.fields;
+          // Sprawdź czy znaleziono cokolwiek użytecznego
+          if (f.nrRej || f.vin || f.marka || f.dmcKg) return f;
+        }
+      } catch { /* spróbuj kolejnej strony */ }
     }
-
-    if (result.noKey) {
-      const e = Object.assign(new Error(result.msg || 'Brak CLAUDE_API_KEY'), { noKey: true });
-      throw e;
-    }
-    if (!result.ok) throw new Error(result.error || `OCR błąd HTTP ${resp.status}`);
-    return result.data;
+    throw new Error('OCR nie odnalazł danych w dokumencie');
   },
 
   // ── Wyświetlanie wyników OCR — ten sam układ co AZTEC ale inne etykiety ─
