@@ -462,11 +462,12 @@ window.TaxOrderVehicleDetail = {
           <div id="vd-dt1-box">${this._renderDt1Box(v)}</div>
           <div class="vdfg" style="margin-top:8px">
             <div class="vdf">
-              <label class="vdl">Gmina (stawki)</label>
-              <select id="vd-gmina" class="fi"
+              <label class="vdl">Gmina (stawki) <span style="font-weight:400;font-size:10px;color:var(--text3)">— zacznij pisać</span></label>
+              <input type="text" id="vd-gmina" class="fi" autocomplete="off"
+                value="${esc(v.gmina||'Warszawa')}"
+                placeholder="Wpisz nazwę gminy…"
+                onfocus="TaxOrderVehicleDetail._attachTerytGmina(this,${v.id})"
                 onchange="document.getElementById('vd-dt1-box').innerHTML=TaxOrderVehicleDetail._renderDt1BoxFromForm(${v.id})">
-                ${(window.GminyRates ? GminyRates.listGminy() : ['Warszawa']).map(gn => `<option ${(v.gmina||'Warszawa')===gn?'selected':''}>${gn}</option>`).join('')}
-              </select>
             </div>
             <div class="vdf">
               <label class="vdl">Miesiące podatkowe
@@ -1810,6 +1811,16 @@ window.TaxOrderVehicleDetail = {
           </div>
         </div>
       </div>` : ''}`;
+  },
+
+  _attachTerytGmina(el, vehId) {
+    if (!window.TerytAutocomplete) return;
+    TerytAutocomplete.attach(el, {
+      onSelect: () => {
+        const box = document.getElementById('vd-dt1-box');
+        if (box) box.innerHTML = TaxOrderVehicleDetail._renderDt1BoxFromForm(vehId);
+      },
+    });
   },
 
   _renderDt1Box(v) {

@@ -5684,6 +5684,112 @@ async function handleDriverScoring(request, env, user, url, path) {
   return json(scored);
 }
 
+// ─── TERYT — GUS rejestr jednostek terytorialnych ────────────────────────────
+
+const _TERYT_KV = 'teryt_gminy_v2';
+const _TERYT_KIND = new Set(['1', '2', '3']); // miejska, wiejska, miejsko-wiejska
+
+async function _fetchAndCacheGminy(env) {
+  const PAGE_SIZE = 100;
+  let all = [];
+
+  // Strona 0 — poznaj totalRecords
+  let first;
+  try {
+    const r = await fetch(
+      `https://bdl.stat.gov.pl/api/v1/units?level=6&page-size=${PAGE_SIZE}&page=0&format=json`,
+      { signal: AbortSignal.timeout(10000) }
+    );
+    if (!r.ok) return [];
+    first = await r.json();
+  } catch (e) { console.error('[TERYT] fetch p0:', e.message); return []; }
+
+  for (const u of (first.results || [])) {
+    if (_TERYT_KIND.has(String(u.kind))) all.push({ n: u.name, k: u.kind });
+  }
+
+  const totalPages = Math.ceil((first.totalRecords || 0) / PAGE_SIZE);
+
+  // Pozostałe strony — porcjami po 8 równolegle
+  const BATCH = 8;
+  for (let s = 1; s < Math.min(totalPages, 50); s += BATCH) {
+    const pages = [];
+    for (let p = s; p < Math.min(s + BATCH, totalPages, 50); p++) pages.push(p);
+    const settled = await Promise.allSettled(pages.map(p =>
+      fetch(`https://bdl.stat.gov.pl/api/v1/units?level=6&page-size=${PAGE_SIZE}&page=${p}&format=json`,
+        { signal: AbortSignal.timeout(10000) })
+        .then(r => r.ok ? r.json() : null).catch(() => null)
+    ));
+    for (const s2 of settled) {
+      if (s2.status === 'fulfilled' && s2.value?.results) {
+        for (const u of s2.value.results) {
+          if (_TERYT_KIND.has(String(u.kind))) all.push({ n: u.name, k: u.kind });
+        }
+      }
+    }
+  }
+
+  if (all.length < 200) return [];
+
+  // Deduplikacja po nazwie: preferuj kind=1 (miejska) > kind=3 (m.-w.) > kind=2 (wiejska)
+  const PRIO = { '1': 0, '3': 1, '2': 2 };
+  const byName = {};
+  for (const g of all) {
+    if (!byName[g.n] || PRIO[g.k] < PRIO[byName[g.n].k]) byName[g.n] = g;
+  }
+  const deduped = Object.values(byName).sort((a, b) => a.n.localeCompare(b.n, 'pl'));
+
+  try {
+    await env.PREFS.put(_TERYT_KV, JSON.stringify(deduped), { expirationTtl: 30 * 24 * 3600 });
+    console.log(`[TERYT] Zapisano ${deduped.length} gmin do KV`);
+  } catch (e) { console.error('[TERYT] KV put:', e.message); }
+
+  return deduped;
+}
+
+async function handleTeryt(request, env, user, url, path) {
+  const segs = path.split('/').filter(Boolean);
+  const action = segs[2]; // 'search' | 'refresh' | 'status'
+
+  if (action === 'refresh') {
+    if (user.role !== 'admin') return err('Brak uprawnień', 403);
+    await env.PREFS.delete(_TERYT_KV);
+    const gminy = await _fetchAndCacheGminy(env);
+    return json({ ok: true, count: gminy.length });
+  }
+
+  if (action === 'status') {
+    const cached = await env.PREFS.get(_TERYT_KV);
+    if (!cached) return json({ ready: false, count: 0 });
+    try {
+      const d = JSON.parse(cached);
+      return json({ ready: true, count: d.length });
+    } catch { return json({ ready: false, count: 0 }); }
+  }
+
+  // GET /api/teryt/search?q=xxx
+  const q = (url.searchParams.get('q') || '').trim();
+  if (q.length < 2) return json({ results: [], total: 0 });
+
+  const cached = await env.PREFS.get(_TERYT_KV);
+  if (!cached) return json({ results: [], total: 0, loading: true });
+
+  let gminy;
+  try { gminy = JSON.parse(cached); } catch { return json({ results: [], total: 0 }); }
+
+  const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const qn = norm(q);
+
+  const starts = [], contains = [];
+  for (const g of gminy) {
+    const gn = norm(g.n);
+    if (gn.startsWith(qn)) starts.push(g.n);
+    else if (gn.includes(qn)) contains.push(g.n);
+  }
+
+  return json({ results: [...starts, ...contains].slice(0, 12), total: gminy.length });
+}
+
 // ─── TCO ──────────────────────────────────────────────────────────────────────
 async function handleTCO(request, env, user, url, path) {
   const segs = path.split('/');
@@ -8070,6 +8176,9 @@ async function handleRequest(request, env, url, path) {
   if (path === '/api/cepik/token'   && request.method === 'POST') return handleCepikToken(request);
   if (path === '/api/cepik/pojazdy' && request.method === 'GET')  return handleCepikPojazdy(request, url);
   if (path === '/api/cepik/kierowca' && request.method === 'GET') return handleCepikKierowca(request, url);
+
+  // TERYT — GUS rejestr jednostek terytorialnych (BDL API proxy + KV cache)
+  if (path.startsWith('/api/teryt')) { if (!user) return err('Nieautoryzowany', 401); return handleTeryt(request, env, user, url, path); }
 
   // GUS BIR1 proxy — requires GUS_BIR_KEY secret in Worker env
   if (path === '/api/gus-regon' && request.method === 'GET') {
@@ -10670,6 +10779,7 @@ export default {
       sendMonthlyReports(env),
       runNightlyIntegrationSync(env),
       runNightlyTachoCheck(env),
+      _fetchAndCacheGminy(env).catch(e => console.error('[TERYT cron]', e.message)),
     ]));
   },
 
