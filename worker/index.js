@@ -5790,6 +5790,85 @@ async function handleTeryt(request, env, user, url, path) {
   return json({ results: [...starts, ...contains].slice(0, 12), total: gminy.length });
 }
 
+// ─── DR OCR — AI ekstrakcja pól dowodu rejestracyjnego (Claude Vision) ────────
+
+async function handleDrOcr(request, env) {
+  if (request.method !== 'POST') return err('Method Not Allowed', 405);
+  if (!env.CLAUDE_API_KEY) {
+    return json({ ok: false, noKey: true, msg: 'Skonfiguruj CLAUDE_API_KEY — wrangler secret put CLAUDE_API_KEY' });
+  }
+
+  let body;
+  try { body = await request.json(); } catch { return err('Nieprawidłowe JSON', 400); }
+
+  const { imageBase64, mimeType } = body || {};
+  if (!imageBase64) return err('Brak imageBase64', 400);
+
+  const mt = mimeType || 'image/jpeg';
+  const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (!allowed.includes(mt)) return err('Nieobsługiwany typ obrazu', 400);
+
+  const prompt = `Przeanalizuj ten skan strony polskiego dowodu rejestracyjnego pojazdu i wyodrębnij dane. Zwróć TYLKO obiekt JSON (bez markdown, bez komentarzy):
+{
+  "nrRej": null,
+  "vin": null,
+  "marka": null,
+  "typ": null,
+  "model": null,
+  "rokProd": null,
+  "kategoria": null,
+  "dmcKg": null,
+  "dmcZespolu": null,
+  "masaWlKg": null,
+  "pojSilnika": null,
+  "mocKW": null,
+  "paliwo": null,
+  "miejscaSied": null,
+  "liczbaOsi": null,
+  "dataRej": null
+}
+Opis pól: nrRej=pole A (nr rejestracyjny), vin=pole E (VIN, 17 znaków), marka=pole D.1, typ=pole D.2, model=pole D.3 lub D.8, rokProd=rok z daty pola B (format RRRR np. "2015"), kategoria=pole J (np. N2 M1), dmcKg=pole F.1 w kg (liczba), dmcZespolu=pole F.2 lub F.3 w kg (liczba), masaWlKg=pole G w kg (liczba), pojSilnika=pole P.1 w cm3 (liczba), mocKW=pole P.2 w kW (liczba), paliwo=pole P.3 (diesel/benzyna/lpg/elektryczny), miejscaSied=pole S.1 liczba miejsc (liczba), liczbaOsi=pole L (liczba), dataRej=pole B data pierwszej rejestracji (format DD.MM.RRRR). Jeśli pole nieczytelne — null. Odpowiedź: TYLKO JSON.`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': env.CLAUDE_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 512,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mt, data: imageBase64 } },
+            { type: 'text', text: prompt },
+          ],
+        }],
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!resp.ok) {
+      const t = await resp.text();
+      return err('Claude API: ' + t.slice(0, 300), 502);
+    }
+    const msg = await resp.json();
+    const raw = msg.content?.[0]?.text || '';
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return err('Brak JSON w odpowiedzi OCR', 502);
+    let data;
+    try { data = JSON.parse(jsonMatch[0]); } catch { return err('Błąd parsowania JSON OCR', 502); }
+    // Usuń pola null
+    Object.keys(data).forEach(k => { if (data[k] === null || data[k] === undefined) delete data[k]; });
+    return json({ ok: true, data, source: 'claude-vision' });
+  } catch (e) {
+    return err('OCR błąd: ' + e.message, 502);
+  }
+}
+
 // ─── TCO ──────────────────────────────────────────────────────────────────────
 async function handleTCO(request, env, user, url, path) {
   const segs = path.split('/');
@@ -8179,6 +8258,9 @@ async function handleRequest(request, env, url, path) {
 
   // TERYT — GUS rejestr jednostek terytorialnych (BDL API proxy + KV cache)
   if (path.startsWith('/api/teryt')) { if (!user) return err('Nieautoryzowany', 401); return handleTeryt(request, env, user, url, path); }
+
+  // DR OCR — AI ekstrakcja pól dowodu rejestracyjnego (Claude Vision)
+  if (path === '/api/dr-ocr') { if (!user) return err('Nieautoryzowany', 401); return handleDrOcr(request, env); }
 
   // GUS BIR1 proxy — requires GUS_BIR_KEY secret in Worker env
   if (path === '/api/gus-regon' && request.method === 'GET') {
