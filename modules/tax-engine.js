@@ -163,7 +163,34 @@ const TaxEngine = {
     return S.ciezar_ge12_4os_ge29;
   },
 
+  _autoMonths(v, yr) {
+    // Leasing zakończony w bieżącym roku → firma przejęła od następnego miesiąca (art. 9 ust. 4)
+    if (v.leasingCompany?.trim() && v.leasingEnd) {
+      const end = new Date(v.leasingEnd);
+      if (!isNaN(end) && end.getFullYear() === yr) return Math.max(0, 11 - end.getMonth());
+    }
+    // Sprzedaż w bieżącym roku → podatek do końca miesiąca sprzedaży (art. 9 ust. 5)
+    if (v.saleDate) {
+      const sale = new Date(v.saleDate);
+      if (!isNaN(sale) && sale.getFullYear() === yr) return Math.max(0, Math.min(12, sale.getMonth() + 1));
+    }
+    // Wycofanie z ruchu w bieżącym roku
+    if (v.dataWycofania) {
+      const wycof = new Date(v.dataWycofania);
+      if (!isNaN(wycof) && wycof.getFullYear() === yr) return Math.max(0, Math.min(12, wycof.getMonth() + 1));
+    }
+    return Math.min(Math.max(parseInt(v.miesiacePodatku ?? 12) || 1, 1), 12);
+  },
+
   getCat(v) {
+    // Leasing aktywny → podatek po stronie leasingodawcy, nie firmy (poza rokiem zakończenia)
+    if (v.leasingCompany?.trim()) {
+      const yr = v._taxYear || new Date().getFullYear();
+      const leasEnd = v.leasingEnd ? new Date(v.leasingEnd) : null;
+      if (!leasEnd || leasEnd >= new Date(yr + 1, 0, 1)) return null;
+      // Leasing zakończony w bieżącym roku lub wcześniej → firma jest właścicielem → naliczaj
+    }
+
     if (v.dmc == null && v.dmcMax == null) return null;
     const dT = (v.dmc ?? v.dmcMax ?? 0) / 1000;
     const dzT = (v.dmcZespolu || 0) / 1000;
@@ -197,10 +224,11 @@ const TaxEngine = {
 
   calcTax(v) {
     const cat = this.getCat(v);
-    if (!cat) return { cat: null, amount: 0, rate: 0 };
+    if (!cat) return { cat: null, amount: 0, rate: 0, leasingExcluded: !!v.leasingCompany?.trim() };
 
     const rate = this.getRate(v) || 0;
-    const months = Math.min(Math.max(parseInt(v.miesiacePodatku ?? 12) || 1, 1), 12);
+    const yr = v._taxYear || new Date().getFullYear();
+    const months = this._autoMonths(v, yr);
 
     return {
       cat,

@@ -633,8 +633,10 @@ function renderVeh() {
   if(!tbody) return;
   const isTrailerV = v => (v.typ||'').toLowerCase().includes('przy')||(v.typ||'').toLowerCase().includes('nacz');
   const colOrder = _getColOrder();
+  const _taxYrV = parseInt((document.getElementById('taxYearDT1') || {}).value || new Date().getFullYear());
   tbody.innerHTML = pageList.map(v => {
-    const t = calcTax(v);
+    const vm = { ...v, _taxYear: _taxYrV };
+    const t = calcTax(vm);
     const isSel = selected.has(v.id);
     const isNew = (parseInt(v.rok)||0)>=2024;
     const needsDmcZ = isTrailerV(v) && !v.dmcZespolu;
@@ -671,7 +673,10 @@ function setV(id,k,val) { const v=vehs.find(x=>x.id===id); if(v){v[k]=val; windo
 
 // ==================== KALKULATOR ====================
 function getSel() { return vehs.filter(v=>selected.has(v.id)); }
-function getSelTax() { return getSel().map(v=>({...v,...calcTax(v)})); }
+function getSelTax() {
+  const yr = parseInt((document.getElementById('taxYearDT1') || {}).value || new Date().getFullYear());
+  return getSel().map(v => { const vm = { ...v, _taxYear: yr }; return { ...vm, ...calcTax(vm) }; });
+}
 function totalTax() { return getSelTax().reduce((s,v)=>s+(v.amount||0),0); }
 
 function renderKalkulator() {
@@ -1260,6 +1265,8 @@ function _vinCell(v) {
 // ==================== DT-1 COMPLETENESS ====================
 // Zwraca { score:0-100, missing:['VIN',...], ok:bool }
 function _dt1Completeness(v) {
+  const yr = parseInt((document.getElementById('taxYearDT1') || {}).value || new Date().getFullYear());
+  const vm = { ...v, _taxYear: yr };
   const fields = [
     { key: 'vin',             label: 'VIN',           check: v => v.vin && v.vin.length >= 5 },
     { key: 'dmc',             label: 'DMC',           check: v => (v.dmc||v.dmcMax||0) > 0 },
@@ -1271,14 +1278,17 @@ function _dt1Completeness(v) {
     { key: 'wlasciciel',      label: 'Właściciel',    check: v => !!v.wlasciciel },
     { key: 'miesiacePodatku', label: 'Miesiące',      check: v => (v.miesiacePodatku||0) > 0 },
   ];
-  const missing = fields.filter(f => !f.check(v)).map(f => f.label);
+  const missing = fields.filter(f => !f.check(vm)).map(f => f.label);
   const score   = Math.round((fields.length - missing.length) / fields.length * 100);
-  const cat     = calcTax(v).cat;
-  return { score, missing, ok: missing.length === 0 && !!cat, hasCat: !!cat };
+  const taxResult = calcTax(vm);
+  const cat = taxResult.cat;
+  const leasingExcluded = taxResult.leasingExcluded || false;
+  return { score, missing, ok: missing.length === 0 && !!cat, hasCat: !!cat, leasingExcluded };
 }
 
 function _dt1CompletenessCell(v) {
-  const { score, missing, ok, hasCat } = _dt1Completeness(v);
+  const { score, missing, ok, hasCat, leasingExcluded } = _dt1Completeness(v);
+  if (leasingExcluded) return `<span title="Pojazd w leasingu — podatek po stronie leasingodawcy" style="color:var(--amber);font-size:11px;font-weight:700;padding:2px 4px;border:1px solid var(--amber);border-radius:3px">L</span>`;
   if (ok) return `<span title="Kompletne dane DT-1" style="color:var(--green);font-size:16px">✓</span>`;
   const color = score >= 80 ? 'var(--amber)' : 'var(--red)';
   const tip   = missing.length ? `Brakuje: ${missing.join(', ')}${!hasCat?' + brak kategorii':''}` : 'Brak kategorii DT-1';
@@ -1643,7 +1653,13 @@ const _FLEET_COL_TD = {
   osie:       (v)  =>`<td data-col="osie" onclick="event.stopPropagation()"><select class="isel" onchange="setV(${v.id},'osie',parseInt(this.value))">${[1,2,3,4,5].map(n=>`<option ${v.osie===n?'selected':''}>${n}</option>`).join('')}</select></td>`,
   zawieszenie:(v)  =>`<td data-col="zawieszenie" onclick="event.stopPropagation()"><select class="isel" style="width:120px" onchange="setV(${v.id},'zawieszenie',this.value)"><option ${v.zawieszenie==='pneumatyczne'?'selected':''}>pneumatyczne</option><option ${v.zawieszenie==='równoważne'?'selected':''}>równoważne</option><option ${v.zawieszenie==='inne'?'selected':''}>inne</option></select></td>`,
   dmczesp:    (v,c)=>`<td data-col="dmczesp" onclick="event.stopPropagation()">${c.isTrailerV?`<input class="inum" style="width:70px" type="number" step="0.001" min="0" max="100" value="${((v.dmcZespolu||0)/1000).toFixed(1)}" onchange="setV(${v.id},'dmcZespolu',parseFloat(this.value)*1000||0)" title="DMC zesp. w tonach">${c.needsDmcZ?'<span style="color:var(--amber);font-size:11px"> ⚠</span>':''}` : '<span style="color:var(--text3)">—</span>'}</td>`,
-  mies:       (v)  =>`<td data-col="mies" onclick="event.stopPropagation()" title="Miesiące obowiązku podatkowego (1–12). Dla nabycia: 13 minus miesiąc. Dla zbycia: numer miesiąca."><div style="display:flex;align-items:center;gap:3px"><input class="inum" type="number" min="1" max="12" value="${v.miesiacePodatku??12}" onchange="setV(${v.id},'miesiacePodatku',parseInt(this.value)||12)" style="width:36px;text-align:center"><button style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--text3);padding:0 2px" title="Oblicz z daty" onclick="event.stopPropagation();_pickMiesiace(${v.id})">📅</button></div></td>`,
+  mies:       (v,c)=>{
+    const stored = v.miesiacePodatku??12;
+    const auto = c?.t?.months;
+    const autoActive = auto != null && auto !== stored && (v.saleDate || v.leasingEnd || v.dataWycofania);
+    const autoTip = autoActive ? ` | Auto: ${auto} mies. (${v.saleDate?'sprzedaż':v.leasingEnd?'leasing':'wycofanie'})` : '';
+    return `<td data-col="mies" onclick="event.stopPropagation()" title="Miesiące obowiązku podatkowego (1–12)${autoTip}"><div style="display:flex;align-items:center;gap:3px"><input class="inum" type="number" min="1" max="12" value="${stored}" onchange="setV(${v.id},'miesiacePodatku',parseInt(this.value)||12)" style="width:36px;text-align:center">${autoActive?`<span style="font-size:9px;font-weight:700;color:var(--green)" title="Auto: ${auto} mies.">${auto}A</span>`:''}<button style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--text3);padding:0 2px" title="Oblicz z daty" onclick="event.stopPropagation();_pickMiesiace(${v.id})">📅</button></div></td>`;
+  },
   status:     (v)  =>`<td data-col="status"><span class="pill ${STAT_LABELS[v.status]||'pill-gray'}">${esc(v.status)}</span></td>`,
   oc:         (v)  =>`<td data-col="oc">${_datePill(v.ocEnd)}</td>`,
   ac:         (v)  =>`<td data-col="ac">${_datePill(v.acEnd)}</td>`,
@@ -3591,9 +3607,10 @@ function renderFormularze() {
   try {
   let selT = getSelTax();
   const gminaFilter = (document.getElementById('dt1-gmina-filter') || {}).value?.trim();
+  const companyGmina = (document.getElementById('tp-gmina') || {}).value?.trim() || '';
   if (gminaFilter) {
     const gF = gminaFilter.toLowerCase();
-    selT = selT.filter(v => (v.gmina || 'Warszawa').toLowerCase().includes(gF));
+    selT = selT.filter(v => (v.gmina?.trim() || companyGmina || 'Warszawa').toLowerCase().includes(gF));
   }
   const taxable = selT.filter(v=>v.cat);
   const total = totalTax();
@@ -7818,8 +7835,9 @@ function renderAllCompaniesSummary() {
 
 
 function selectAllTaxable() {
+  const yr = parseInt((document.getElementById('taxYearDT1') || {}).value || new Date().getFullYear());
   let count=0;
-  vehs.forEach(v=>{const t=calcTax(v);if(t&&t.cat){selected.add(v.id);count++;}});
+  vehs.forEach(v=>{const t=calcTax({...v,_taxYear:yr});if(t&&t.cat){selected.add(v.id);count++;}});
   renderVeh&&renderVeh();updateCounters&&updateCounters();renderFormularze&&renderFormularze();
   toast('✅ Zaznaczono '+count+' pojazdów opodatkowanych (DT-1)');
 }
