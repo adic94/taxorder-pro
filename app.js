@@ -3589,7 +3589,12 @@ function tp(id) { return (document.getElementById(id)||{}).value||''; }
 
 function renderFormularze() {
   try {
-  const selT = getSelTax();
+  let selT = getSelTax();
+  const gminaFilter = (document.getElementById('dt1-gmina-filter') || {}).value?.trim();
+  if (gminaFilter) {
+    const gF = gminaFilter.toLowerCase();
+    selT = selT.filter(v => (v.gmina || 'Warszawa').toLowerCase().includes(gF));
+  }
   const taxable = selT.filter(v=>v.cat);
   const total = totalTax();
   const r1 = Math.round(total/2), r2 = Math.round(total)-r1;
