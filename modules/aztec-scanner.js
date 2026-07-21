@@ -154,41 +154,46 @@ window.AztecScanner = {
     const order = [];
     for (let i = numPages; i >= 1; i--) order.push(i);
 
-    for (const pageNum of order) {
-      const page = await pdf.getPage(pageNum);
-      const viewport = page.getViewport({ scale: 2.5 });
-      const canvas = document.createElement('canvas');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    const hints = new Map();
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.AZTEC]);
 
-      // Zapamiętaj ostatnią stronę jako skan (zwykle ta z Aztec)
-      if (pageNum === numPages) {
-        this._lastScanDataUrl = canvas.toDataURL('image/jpeg', 0.92);
-        const previewImg = document.getElementById('aztec-preview-img');
-        if (previewImg) {
-          previewImg.style.display = 'block';
-          previewImg.src = this._lastScanDataUrl;
-        }
-      }
+    // Próbuj przy dwóch różnych skalach: 2.5× i 3.5×
+    for (const scale of [2.5, 3.5]) {
+      for (const pageNum of order) {
+        const page = await pdf.getPage(pageNum);
+        const viewport = page.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
 
-      // Spróbuj zdekodować AZTEC ze wszystkich rotacji
-      const hints = new Map();
-      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.AZTEC]);
-      for (let rot = 0; rot < 4; rot++) {
-        const c = rot === 0 ? canvas : this._rotateCanvas(canvas, rot * 90);
-        try {
-          const lum = new ZXing.HTMLCanvasElementLuminanceSource(c);
-          const rdr = new ZXing.MultiFormatReader();
-          rdr.setHints(hints);
-          const result = rdr.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum)));
-          // Znaleziono — aktualizuj podgląd na właściwą stronę
+        // Zapamiętaj ostatnią stronę jako podgląd (skala 2.5)
+        if (scale === 2.5 && pageNum === numPages) {
           this._lastScanDataUrl = canvas.toDataURL('image/jpeg', 0.92);
           const previewImg = document.getElementById('aztec-preview-img');
-          if (previewImg) { previewImg.style.display = 'block'; previewImg.src = this._lastScanDataUrl; }
-          return result.getText();
-        } catch { /* następna rotacja / strona */ }
+          if (previewImg) {
+            previewImg.style.display = 'block';
+            previewImg.src = this._lastScanDataUrl;
+          }
+        }
+
+        // Spróbuj zdekodować AZTEC ze wszystkich rotacji + dwa binarizery
+        for (let rot = 0; rot < 4; rot++) {
+          const c = rot === 0 ? canvas : this._rotateCanvas(canvas, rot * 90);
+          const lum = new ZXing.HTMLCanvasElementLuminanceSource(c);
+          for (const Binarizer of [ZXing.HybridBinarizer, ZXing.GlobalHistogramBinarizer]) {
+            try {
+              const rdr = new ZXing.MultiFormatReader();
+              rdr.setHints(hints);
+              const result = rdr.decode(new ZXing.BinaryBitmap(new Binarizer(lum)));
+              this._lastScanDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+              const previewImg = document.getElementById('aztec-preview-img');
+              if (previewImg) { previewImg.style.display = 'block'; previewImg.src = this._lastScanDataUrl; }
+              return result.getText();
+            } catch { /* następna kombinacja */ }
+          }
+        }
       }
     }
     throw new Error(`Nie znaleziono kodu AZTEC w ${numPages}-stronicowym PDF`);
