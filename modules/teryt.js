@@ -4,7 +4,7 @@
 
 window.TerytAutocomplete = (function () {
   const API = () => window.CF_WORKER_URL || '';
-  function _tok() { return localStorage.getItem('taxorder_token') || ''; }
+  function _tok() { return localStorage.getItem('cf_token') || ''; }
 
   // Polish-aware normalization for accent-insensitive search
   function _norm(s) {
