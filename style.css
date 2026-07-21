@@ -7,9 +7,13 @@
   --green:#3B6D11;--green-light:#EAF3DE;
   --amber:#BA7517;--amber-light:#FAEEDA;
   --red:#A32D2D;--red-light:#FCEBEB;
+  --orange:#c2590a;--orange-light:#FEF0E7;
   --radius:8px;--radius-sm:5px;--radius-lg:12px;
   --font:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
   --mono:'Consolas','Monaco',monospace;
+  /* Aliasy — używane przez moduły */
+  --bg-card:var(--bg2);--surface:var(--bg2);--surface2:var(--bg3);
+  --text1:var(--text);--text-muted:var(--text3);--accent:var(--blue);
 }
 
 /* ==================== CIEMNY MOTYW ==================== */
@@ -21,6 +25,7 @@
   --green:#5fb336;--green-light:#1a3010;
   --amber:#d4920a;--amber-light:#3a2800;
   --red:#d44a4a;--red-light:#3a1010;
+  --orange:#fb923c;--orange-light:#3a1500;
 }
 [data-theme="dark"] .tbl-wrap,[data-theme="dark"] .stat,
 [data-theme="dark"] .panel-right,[data-theme="dark"] .sidebar,
@@ -549,6 +554,17 @@ td{transition:background .1s}
 /* --- Animacja przejść między stronami --- */
 @keyframes page-enter{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 .page.active{animation:page-enter .15s ease-out}
+
+/* Vehicle detail form grid — baza (media queries nadpisują w src/style.css poniżej) */
+.vdfg{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 16px}
+.vdf{min-width:0;display:flex;flex-direction:column;gap:3px}
+.vdl{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em}
+/* Aliasy klas formularzy — używane w modułach pisanych na Bootstrap-podobne konwencje */
+.form-row{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.form-row label,.vdf label{font-size:11px;font-weight:600;color:var(--text3)}
+.form-control,.form-input{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:var(--font);background:var(--bg2);color:var(--text);outline:none;transition:border-color .15s}
+.form-control:focus,.form-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(24,95,165,.1)}
+[data-theme="dark"] .form-control,[data-theme="dark"] .form-input{background:var(--bg3);color:var(--text);border-color:var(--border)}
 
 /* ==================== MOBILE RESPONSIVENESS ==================== */
 /* Telefony ≤ 480px */

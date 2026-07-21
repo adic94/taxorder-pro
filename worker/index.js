@@ -1868,7 +1868,7 @@ async function handleDt1Declarations(req, env, user, url, path) {
   const company = url.searchParams.get('company') || user.company_id;
   const declId  = segs[2] || null;
 
-  if (req.method === 'GET') {
+  if (req.method === 'GET' && !declId) {
     const rows = await env.DB.prepare(
       'SELECT id,company_id,rok,total_tax,vehicle_count,gmina,created_by,created_at,notes FROM dt1_declarations WHERE company_id=? ORDER BY rok DESC,created_at DESC'
     ).bind(company).all();
@@ -4056,7 +4056,7 @@ async function handlePoliciesDB(req, env, user, url, path) {
   }
 
   if (method === 'POST') {
-    const d = await req.json();
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON', 400); }
     const pid = crypto.randomUUID();
     const _branchIdPol = await _getVehicleBranchId(env, company, d.nr_rej);
     await env.DB.prepare(
@@ -4069,7 +4069,7 @@ async function handlePoliciesDB(req, env, user, url, path) {
   }
 
   if (method === 'PUT' && id) {
-    const d = await req.json();
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON', 400); }
     await env.DB.prepare(
       `UPDATE policies SET nr_rej=?,vin=?,type=?,policy_number=?,insurer=?,premium=?,installments=?,start_date=?,end_date=?,notes=?,doc_id=?,updated_at=datetime('now')
        WHERE id=? AND company_id=?`
@@ -4117,7 +4117,7 @@ async function handleServiceSchedules(req, env, user, url, path) {
   }
 
   if (method === 'POST') {
-    const d = await req.json();
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON', 400); }
     if (!d.nr_rej) return err('Wymagane: nr_rej', 400);
     if (!d.name)   return err('Wymagane: name', 400);
     const sid = crypto.randomUUID();
@@ -4132,7 +4132,7 @@ async function handleServiceSchedules(req, env, user, url, path) {
   }
 
   if (method === 'PUT' && id) {
-    const d = await req.json();
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON', 400); }
     const nextKm   = (d.last_km   != null && d.interval_km)     ? (d.last_km + d.interval_km)         : null;
     const nextDate = (d.last_date && d.interval_months)          ? _addMonths(d.last_date, d.interval_months) : null;
     await env.DB.prepare(
@@ -4182,7 +4182,7 @@ async function handleMileageClaims(req, env, user, url, path) {
   }
 
   if (method === 'POST') {
-    const d = await req.json();
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON', 400); }
     if (!d.claim_date) return err('Wymagane: claim_date', 400);
     if (!d.driver_name) return err('Wymagane: driver_name', 400);
     const cid = crypto.randomUUID();
@@ -4199,7 +4199,7 @@ async function handleMileageClaims(req, env, user, url, path) {
   }
 
   if (method === 'PUT' && id && !action) {
-    const d = await req.json();
+    let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON', 400); }
     const kmTotal = (d.km_start != null && d.km_end != null) ? Math.max(0, d.km_end - d.km_start) : (d.km_total ?? 0);
     const rate   = d.rate ?? 0.89;
     const amount = parseFloat((kmTotal * rate).toFixed(2));
@@ -5646,20 +5646,20 @@ async function handleDriverScoring(request, env, user, url, path) {
     env.DB.prepare(`SELECT driver_name, COUNT(*) AS shifts, SUM(overtime_minutes) AS overtime_min FROM driver_shifts WHERE company_id=? AND strftime('%Y',shift_date)=? GROUP BY driver_name`).bind(company, year),
     env.DB.prepare(`SELECT driver_name, COUNT(*) AS cnt, SUM(amount) AS total FROM fines WHERE company_id=? AND strftime('%Y',date)=? GROUP BY driver_name`).bind(company, year),
     env.DB.prepare(`SELECT driver_name, COUNT(*) AS cnt FROM faults WHERE company_id=? AND strftime('%Y',report_date)=? GROUP BY driver_name`).bind(company, year),
-    env.DB.prepare(`SELECT driver_id, SUM(liters) AS liters FROM fuel_fills WHERE company_id=? AND strftime('%Y',fill_date)=? GROUP BY driver_id`).bind(company, year),
+    env.DB.prepare(`SELECT driver_name, SUM(liters) AS liters FROM fuel_fills WHERE company_id=? AND strftime('%Y',fill_date)=? GROUP BY driver_name`).bind(company, year),
   ]);
 
   const shiftsMap = {}; for (const r of shiftsRes.results) shiftsMap[r.driver_name] = r;
   const finesMap  = {}; for (const r of finesRes.results)  finesMap[r.driver_name]  = r;
   const faultsMap = {}; for (const r of faultsRes.results) faultsMap[r.driver_name] = r;
-  const fuelMap   = {}; for (const r of fuelRes.results)   fuelMap[r.driver_id]    = r;
+  const fuelMap   = {}; for (const r of fuelRes.results)   fuelMap[r.driver_name]  = r;
 
   const scored = driversRes.results.map(dr => {
     const name     = dr.full_name;
     const shifts   = shiftsMap[name] || {};
     const fines    = finesMap[name]  || {};
     const faults   = faultsMap[name] || {};
-    const fuel     = fuelMap[dr.id]  || {};
+    const fuel     = fuelMap[name]   || {};
     const drivenKm = 0; // brak kolumny km w driver_shifts — scoring bez przejechanych km
     const liters   = fuel.liters || 0;
     const avgCons  = drivenKm > 100 && liters > 0 ? (liters / drivenKm) * 100 : null;
@@ -5697,26 +5697,26 @@ async function handleTCO(request, env, user, url, path) {
     const { results: configs } = await env.DB.prepare(sql).bind(...binds).all();
     if (!configs.length) return json([]);
 
-    const ids = configs.map(c => c.vehicle_id);
-    const ph  = ids.map(() => '?').join(',');
+    const nrRejes = configs.map(c => c.nr_rej).filter(Boolean);
+    const ph  = nrRejes.length ? nrRejes.map(() => '?').join(',') : "'__none__'";
     const cutoff = new Date(); cutoff.setFullYear(cutoff.getFullYear() - 1);
     const since = cutoff.toISOString().slice(0, 10);
     const [fuelRes, svcRes, insRes] = await env.DB.batch([
-      env.DB.prepare(`SELECT vehicle_id, SUM(cost_pln) AS total FROM fuel_fills WHERE company_id=? AND vehicle_id IN (${ph}) AND fill_date>=? GROUP BY vehicle_id`).bind(company, ...ids, since),
-      env.DB.prepare(`SELECT vehicle_id, SUM(cost_total) AS total FROM service_orders WHERE company_id=? AND vehicle_id IN (${ph}) AND order_date>=? GROUP BY vehicle_id`).bind(company, ...ids, since),
-      env.DB.prepare(`SELECT vehicle_id, SUM(premium_pln) AS total FROM policies WHERE company_id=? AND vehicle_id IN (${ph}) AND start_date>=? GROUP BY vehicle_id`).bind(company, ...ids, since),
+      env.DB.prepare(`SELECT nr_rej, SUM(total_cost) AS total FROM fuel_fills WHERE company_id=? AND nr_rej IN (${ph}) AND fill_date>=? GROUP BY nr_rej`).bind(company, ...nrRejes, since),
+      env.DB.prepare(`SELECT nr_rej, SUM(koszt_rzeczywisty) AS total FROM service_orders WHERE company_id=? AND nr_rej IN (${ph}) AND data_realizacji>=? GROUP BY nr_rej`).bind(company, ...nrRejes, since),
+      env.DB.prepare(`SELECT nr_rej, SUM(premium) AS total FROM policies WHERE company_id=? AND nr_rej IN (${ph}) AND start_date>=? GROUP BY nr_rej`).bind(company, ...nrRejes, since),
     ]);
-    const fuelMap = {}; for (const r of fuelRes.results) fuelMap[r.vehicle_id] = r.total;
-    const svcMap  = {}; for (const r of svcRes.results)  svcMap[r.vehicle_id]  = r.total;
-    const insMap  = {}; for (const r of insRes.results)  insMap[r.vehicle_id]  = r.total;
+    const fuelMap = {}; for (const r of fuelRes.results) fuelMap[r.nr_rej] = r.total;
+    const svcMap  = {}; for (const r of svcRes.results)  svcMap[r.nr_rej]  = r.total;
+    const insMap  = {}; for (const r of insRes.results)  insMap[r.nr_rej]  = r.total;
 
     const result = configs.map(c => {
       const deprMon = c.purchase_price > 0
         ? ((c.purchase_price - (c.residual_value ?? 0)) / ((c.expected_life_years || 5) * 12))
         : 0;
-      const fuelMon  = (fuelMap[c.vehicle_id] ?? 0) / 12;
-      const svcMon   = (svcMap[c.vehicle_id]  ?? 0) / 12;
-      const insMon   = (insMap[c.vehicle_id]  ?? 0) / 12;
+      const fuelMon  = (fuelMap[c.nr_rej] ?? 0) / 12;
+      const svcMon   = (svcMap[c.nr_rej]  ?? 0) / 12;
+      const insMon   = (insMap[c.nr_rej]  ?? 0) / 12;
       const leasMon  = c.monthly_leasing ?? 0;
       const tcoMon   = deprMon + leasMon + fuelMon + svcMon + insMon;
       return { ...c, costs: { fuel_12m: fuelMap[c.vehicle_id] ?? 0, service_12m: svcMap[c.vehicle_id] ?? 0, insurance_12m: insMap[c.vehicle_id] ?? 0, depreciation_monthly: Math.round(deprMon * 100) / 100, tco_monthly: Math.round(tcoMon * 100) / 100, tco_annual: Math.round(tcoMon * 12 * 100) / 100 } };
@@ -5758,18 +5758,18 @@ async function handleCO2Report(request, env, user, url, path) {
   const month   = url.searchParams.get('month');
 
   const EMISSION = { diesel: 2.65, petrol: 2.31, pb: 2.31, gasoline: 2.31, lpg: 1.63, hybrid: 2.0, electric: 0, default: 2.5 };
-  let sql = `SELECT f.vehicle_id, f.nr_rej, f.fuel_type, SUM(f.liters) AS liters, SUM(f.cost_pln) AS cost,
+  let sql = `SELECT f.nr_rej, f.fuel_type, SUM(f.liters) AS liters, SUM(f.total_cost) AS cost,
              strftime('%Y-%m', f.fill_date) AS ym
              FROM fuel_fills f WHERE f.company_id=? AND strftime('%Y',f.fill_date)=?`;
   const binds = [company, year];
   if (month) { sql += ' AND strftime(\'%m\',f.fill_date)=?'; binds.push(month.padStart(2, '0')); }
-  sql += ' GROUP BY f.vehicle_id, f.nr_rej, f.fuel_type, ym ORDER BY ym';
+  sql += ' GROUP BY f.nr_rej, f.fuel_type, ym ORDER BY ym';
 
   const { results } = await env.DB.prepare(sql).bind(...binds).all();
   const { results: tcoConfigs } = await env.DB.prepare(
-    'SELECT vehicle_id, co2_g_per_km FROM tco_config WHERE company_id=? AND co2_g_per_km IS NOT NULL'
+    'SELECT nr_rej, co2_g_per_km FROM tco_config WHERE company_id=? AND co2_g_per_km IS NOT NULL'
   ).bind(company).all();
-  const co2Map = {}; for (const c of tcoConfigs) co2Map[c.vehicle_id] = c.co2_g_per_km;
+  const co2Map = {}; for (const c of tcoConfigs) co2Map[c.nr_rej] = c.co2_g_per_km;
 
   let totalKg = 0;
   const byVehicle = {}; const byMonth = {};
@@ -5777,9 +5777,9 @@ async function handleCO2Report(request, env, user, url, path) {
     const factor = EMISSION[(r.fuel_type||'').toLowerCase()] ?? EMISSION.default;
     const kg = r.liters * factor;
     totalKg += kg;
-    if (!byVehicle[r.vehicle_id]) byVehicle[r.vehicle_id] = { vehicle_id: r.vehicle_id, nr_rej: r.nr_rej, fuel_type: r.fuel_type, liters: 0, kg: 0 };
-    byVehicle[r.vehicle_id].liters += r.liters;
-    byVehicle[r.vehicle_id].kg += kg;
+    if (!byVehicle[r.nr_rej]) byVehicle[r.nr_rej] = { nr_rej: r.nr_rej, fuel_type: r.fuel_type, liters: 0, kg: 0 };
+    byVehicle[r.nr_rej].liters += r.liters;
+    byVehicle[r.nr_rej].kg += kg;
     if (!byMonth[r.ym]) byMonth[r.ym] = { month: r.ym, kg: 0, liters: 0 };
     byMonth[r.ym].kg += kg; byMonth[r.ym].liters += r.liters;
   }
@@ -5798,7 +5798,7 @@ async function logAudit(env, { company_id, user_id, user_email, action, entity_t
     await env.DB.prepare(
       'INSERT INTO audit_logs (company_id,user_id,user_email,action,entity_type,entity_id,details,ip) VALUES (?,?,?,?,?,?,?,?)'
     ).bind(company_id, user_id, user_email, action, entity_type, entity_id??null, details?JSON.stringify(details):null, ip||null).run();
-  } catch {}
+  } catch (e) { console.error('[logAudit]', e.message); }
 }
 
 async function handleAuditLog(request, env, user, url, path) {
@@ -5837,10 +5837,10 @@ async function handleBudgetAnnual(request, env, user, url, path) {
     const year = url.searchParams.get('year') || String(new Date().getFullYear());
     const [budgetRes, fuelRes, svcRes, insRes, finesRes] = await env.DB.batch([
       env.DB.prepare('SELECT category,planned_amount,notes FROM budget_annual WHERE company_id=? AND year=?').bind(company, year),
-      env.DB.prepare(`SELECT SUM(cost_pln) AS total FROM fuel_fills WHERE company_id=? AND strftime('%Y',fill_date)=?`).bind(company, String(year)),
-      env.DB.prepare(`SELECT SUM(cost_total) AS total FROM service_orders WHERE company_id=? AND strftime('%Y',order_date)=?`).bind(company, String(year)),
-      env.DB.prepare(`SELECT SUM(premium_pln) AS total FROM policies WHERE company_id=? AND strftime('%Y',start_date)=?`).bind(company, String(year)),
-      env.DB.prepare(`SELECT SUM(amount) AS total FROM fines WHERE company_id=? AND strftime('%Y',fine_date)=?`).bind(company, String(year)),
+      env.DB.prepare(`SELECT SUM(total_cost) AS total FROM fuel_fills WHERE company_id=? AND strftime('%Y',fill_date)=?`).bind(company, String(year)),
+      env.DB.prepare(`SELECT SUM(koszt_rzeczywisty) AS total FROM service_orders WHERE company_id=? AND strftime('%Y',data_realizacji)=?`).bind(company, String(year)),
+      env.DB.prepare(`SELECT SUM(premium) AS total FROM policies WHERE company_id=? AND strftime('%Y',start_date)=?`).bind(company, String(year)),
+      env.DB.prepare(`SELECT SUM(amount) AS total FROM fines WHERE company_id=? AND strftime('%Y',date)=?`).bind(company, String(year)),
     ]);
     const actuals = { fuel: fuelRes.results[0]?.total??0, service: svcRes.results[0]?.total??0, insurance: insRes.results[0]?.total??0, fines: finesRes.results[0]?.total??0 };
     const plannedMap = {}; const notesMap = {};
@@ -5974,7 +5974,7 @@ async function handleFuelCardImport(request, env, user, url, path) {
     const { provider, filename, records } = body;
     if (!Array.isArray(records) || !records.length) return err('Brak rekordów do importu');
     const stmts = records.map(r => env.DB.prepare(
-      'INSERT OR IGNORE INTO fuel_fills (company_id,nr_rej,fill_date,liters,cost_pln,price_per_liter,station) VALUES (?,?,?,?,?,?,?)'
+      'INSERT OR IGNORE INTO fuel_fills (company_id,nr_rej,fill_date,liters,total_cost,price_per_liter,station) VALUES (?,?,?,?,?,?,?)'
     ).bind(company, r.nr_rej, r.fill_date, r.liters??0, r.cost_pln??0,
       (r.liters > 0 && r.cost_pln > 0) ? Math.round(r.cost_pln/r.liters*100)/100 : null, r.station??null));
     const batchRes = await env.DB.batch(stmts);
@@ -7658,7 +7658,7 @@ async function _syncNavifleet(env, company, cfg, daysBack, testOnly) {
 async function _saveFuelFills(env, company, records) {
   if (!records.length) return { imported:0, skipped:0 };
   const stmts = records.map(r => env.DB.prepare(
-    'INSERT OR IGNORE INTO fuel_fills (company_id,nr_rej,fill_date,liters,cost_pln,price_per_liter,station) VALUES (?,?,?,?,?,?,?)'
+    'INSERT OR IGNORE INTO fuel_fills (company_id,nr_rej,fill_date,liters,total_cost,price_per_liter,station) VALUES (?,?,?,?,?,?,?)'
   ).bind(company, r.nr_rej, r.fill_date, r.liters ?? 0, r.cost_pln ?? 0, r.price_per_liter ?? null, r.station ?? null));
   const res = await env.DB.batch(stmts);
   let imported = 0, skipped = 0;
