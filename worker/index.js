@@ -5790,12 +5790,15 @@ async function handleTeryt(request, env, user, url, path) {
   return json({ results: [...starts, ...contains].slice(0, 12), total: gminy.length });
 }
 
-// ─── DR OCR — AI ekstrakcja pól dowodu rejestracyjnego (Claude Vision) ────────
+// ─── DR OCR — AI ekstrakcja pól dowodu rejestracyjnego (Groq Vision / Claude) ─
 
 async function handleDrOcr(request, env) {
   if (request.method !== 'POST') return err('Method Not Allowed', 405);
-  if (!env.CLAUDE_API_KEY) {
-    return json({ ok: false, noKey: true, msg: 'Skonfiguruj CLAUDE_API_KEY — wrangler secret put CLAUDE_API_KEY' });
+
+  const hasGroq   = !!env.GROQ_API_KEY;
+  const hasClaude = !!env.CLAUDE_API_KEY;
+  if (!hasGroq && !hasClaude) {
+    return json({ ok: false, noKey: true });
   }
 
   let body;
@@ -5808,65 +5811,69 @@ async function handleDrOcr(request, env) {
   const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
   if (!allowed.includes(mt)) return err('Nieobsługiwany typ obrazu', 400);
 
-  const prompt = `Przeanalizuj ten skan strony polskiego dowodu rejestracyjnego pojazdu i wyodrębnij dane. Zwróć TYLKO obiekt JSON (bez markdown, bez komentarzy):
-{
-  "nrRej": null,
-  "vin": null,
-  "marka": null,
-  "typ": null,
-  "model": null,
-  "rokProd": null,
-  "kategoria": null,
-  "dmcKg": null,
-  "dmcZespolu": null,
-  "masaWlKg": null,
-  "pojSilnika": null,
-  "mocKW": null,
-  "paliwo": null,
-  "miejscaSied": null,
-  "liczbaOsi": null,
-  "dataRej": null
-}
-Opis pól: nrRej=pole A (nr rejestracyjny), vin=pole E (VIN, 17 znaków), marka=pole D.1, typ=pole D.2, model=pole D.3 lub D.8, rokProd=rok z daty pola B (format RRRR np. "2015"), kategoria=pole J (np. N2 M1), dmcKg=pole F.1 w kg (liczba), dmcZespolu=pole F.2 lub F.3 w kg (liczba), masaWlKg=pole G w kg (liczba), pojSilnika=pole P.1 w cm3 (liczba), mocKW=pole P.2 w kW (liczba), paliwo=pole P.3 (diesel/benzyna/lpg/elektryczny), miejscaSied=pole S.1 liczba miejsc (liczba), liczbaOsi=pole L (liczba), dataRej=pole B data pierwszej rejestracji (format DD.MM.RRRR). Jeśli pole nieczytelne — null. Odpowiedź: TYLKO JSON.`;
+  const prompt = `Przeanalizuj skan polskiego dowodu rejestracyjnego i wyodrębnij dane. Zwróć TYLKO obiekt JSON:
+{"nrRej":null,"vin":null,"marka":null,"typ":null,"model":null,"rokProd":null,"kategoria":null,"dmcKg":null,"dmcZespolu":null,"masaWlKg":null,"pojSilnika":null,"mocKW":null,"paliwo":null,"miejscaSied":null,"liczbaOsi":null,"dataRej":null}
+Pola: nrRej=A, vin=E(17 znaków), marka=D.1, typ=D.2, model=D.3/D.8, rokProd=rok z B(RRRR), kategoria=J(np.N2), dmcKg=F.1 w kg, dmcZespolu=F.2/F.3 w kg, masaWlKg=G w kg, pojSilnika=P.1 w cm3, mocKW=P.2 w kW, paliwo=P.3(diesel/benzyna/lpg/elektryczny), miejscaSied=S.1, liczbaOsi=L, dataRej=B(DD.MM.RRRR). Nieczytelne=null. TYLKO JSON.`;
 
-  try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': env.CLAUDE_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 512,
-        messages: [{
-          role: 'user',
-          content: [
+  function _parseOcrJson(raw) {
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    try {
+      const d = JSON.parse(m[0]);
+      Object.keys(d).forEach(k => { if (d[k] === null || d[k] === undefined) delete d[k]; });
+      return d;
+    } catch { return null; }
+  }
+
+  // Próba 1: Groq Vision (llama-4-scout)
+  if (hasGroq) {
+    try {
+      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + env.GROQ_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+          max_tokens: 512,
+          messages: [{ role: 'user', content: [
+            { type: 'image_url', image_url: { url: `data:${mt};base64,${imageBase64}` } },
+            { type: 'text', text: prompt },
+          ]}],
+        }),
+        signal: AbortSignal.timeout(30000),
+      });
+      if (resp.ok) {
+        const msg = await resp.json();
+        const data = _parseOcrJson(msg.choices?.[0]?.message?.content || '');
+        if (data) return json({ ok: true, data, source: 'groq-vision' });
+      }
+    } catch (e) { console.error('[DR OCR Groq]', e.message); }
+  }
+
+  // Próba 2: Claude Vision (fallback)
+  if (hasClaude) {
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'x-api-key': env.CLAUDE_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 512,
+          messages: [{ role: 'user', content: [
             { type: 'image', source: { type: 'base64', media_type: mt, data: imageBase64 } },
             { type: 'text', text: prompt },
-          ],
-        }],
-      }),
-      signal: AbortSignal.timeout(30000),
-    });
-
-    if (!resp.ok) {
-      const t = await resp.text();
-      return err('Claude API: ' + t.slice(0, 300), 502);
-    }
-    const msg = await resp.json();
-    const raw = msg.content?.[0]?.text || '';
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return err('Brak JSON w odpowiedzi OCR', 502);
-    let data;
-    try { data = JSON.parse(jsonMatch[0]); } catch { return err('Błąd parsowania JSON OCR', 502); }
-    // Usuń pola null
-    Object.keys(data).forEach(k => { if (data[k] === null || data[k] === undefined) delete data[k]; });
-    return json({ ok: true, data, source: 'claude-vision' });
-  } catch (e) {
-    return err('OCR błąd: ' + e.message, 502);
+          ]}],
+        }),
+        signal: AbortSignal.timeout(30000),
+      });
+      if (resp.ok) {
+        const msg = await resp.json();
+        const data = _parseOcrJson(msg.content?.[0]?.text || '');
+        if (data) return json({ ok: true, data, source: 'claude-vision' });
+      }
+    } catch (e) { console.error('[DR OCR Claude]', e.message); }
   }
+
+  return err('Nie udało się odczytać danych z dokumentu', 502);
 }
 
 // ─── TCO ──────────────────────────────────────────────────────────────────────

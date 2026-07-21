@@ -136,7 +136,7 @@ window.AztecScanner = {
       // Automatyczny fallback: OCR przez AI gdy AZTEC nieczytelny
       if (this._lastScanDataUrl) {
         try {
-          this._setStatus('loading', 'Kod AZTEC nieczytelny — uruchamiam OCR przez AI…');
+          this._setStatus('loading', 'Szukam danych przez AI OCR…');
           const d = await this._ocrFallback();
           this._parsed = d;
           this._rawText = '';
@@ -145,18 +145,9 @@ window.AztecScanner = {
           return;
         } catch (ocrErr) {
           console.error('[OCR fallback]', ocrErr.message);
-          const noKey = ocrErr.noKey;
-          this._setStatus('warn', noKey
-            ? 'Kod AZTEC nieczytelny, a OCR AI wymaga konfiguracji CLAUDE_API_KEY w Workerze.'
-            : 'Kod AZTEC nieczytelny, OCR AI też nie powiódł się. AZTEC: ' + e.message + ' | OCR: ' + ocrErr.message);
-          return;
         }
       }
-      this._setStatus('warn',
-        (isPdf
-          ? 'Nie znaleziono kodu AZTEC w pliku PDF. Upewnij się że to właściwy dokument DR. '
-          : 'Nie znaleziono kodu AZTEC. Upewnij się że zdjęcie pokazuje <strong>ostatnią stronę DR</strong>. ') +
-        'Szczegół: ' + e.message);
+      this._setStatus('warn', 'Nie udało się odczytać danych z dowodu rejestracyjnego. Upewnij się że wgrywasz właściwy plik i spróbuj ponownie.');
     }
   },
 
