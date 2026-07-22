@@ -1,11 +1,11 @@
 (function () {
   'use strict';
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window.CF_WORKER_URL || '';
+  const co  = () => window.currentCompanyId || localStorage.getItem('currentCompany') || '';
   let _pollingTimer = null;
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API}/api/messages${path}?company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('authToken')}`}, ...opts });
+    const r = await fetch(`${API()}/api/messages${path}?company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('cf_token')}`}, ...opts });
     return r.json();
   }
 

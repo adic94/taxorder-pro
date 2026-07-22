@@ -314,6 +314,7 @@ function showPage(id) {
   if(id==='sent')                window.SentModule?.renderSent();
   if(id==='messenger')           window.MessengerModule?.renderMessenger();
   if(id==='vehicle-qr')          window.VehicleQrModule?.renderVehicleQr();
+  if(id==='approval-levels')     window.ApprovalLevelsModule?.renderApprovalLevels();
   if(id==='jpk')                 window.JpkModule?.renderJpk();
   if(id==='edoreczenia')         window.EdoreczeniaModule?.renderEdoreczenia();
   if(id==='video-telematics')    window.VideoTelematics?.renderVideoTelematics();

@@ -1,15 +1,15 @@
 (function () {
   'use strict';
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window.CF_WORKER_URL || '';
+  const co  = () => window.currentCompanyId || localStorage.getItem('currentCompany') || '';
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API}/api/vehicle-qr${path}?company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('authToken')}`}, ...opts });
+    const r = await fetch(`${API()}/api/vehicle-qr${path}?company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('cf_token')}`}, ...opts });
     return r.json();
   }
 
   function _qrUrl(vehicleId) {
-    return `${API}/api/vehicle-qr/scan/${vehicleId}?company=${co()}`;
+    return `${API()}/api/vehicle-qr/scan/${vehicleId}?company=${co()}`;
   }
 
   function _googleChartQr(text) {
