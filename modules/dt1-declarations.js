@@ -7,11 +7,12 @@ window.Dt1Declarations = (function () {
 
   // ── Ładowanie z API ────────────────────────────────────────────────────────
   async function load() {
-    if (!window.TaxOrderFleetCloud?.apiBase) return;
+    const apiBase = window.CF_WORKER_URL || '';
+    if (!apiBase) { renderPage(); return; }
     try {
-      const company = window.TaxOrderFleetCloud.getCompanyId?.() || 'mtoilet';
+      const company = window.currentCompanyId || 'mtoilet';
       const token   = localStorage.getItem('cf_token') || '';
-      const r = await fetch(`${window.TaxOrderFleetCloud.apiBase}/api/dt1-declarations?company=${encodeURIComponent(company)}`,
+      const r = await fetch(`${apiBase}/api/dt1-declarations?company=${encodeURIComponent(company)}`,
         { headers: { Authorization: 'Bearer ' + token } });
       if (r.ok) _decls = await r.json();
     } catch {}
@@ -20,11 +21,12 @@ window.Dt1Declarations = (function () {
 
   // ── Zapisz deklarację (wywoływane przy generowaniu PDF DT-1) ───────────────
   async function saveDeclaration({ rok, total_tax, vehicle_count, gmina, vehicles, notes }) {
-    if (!window.TaxOrderFleetCloud?.apiBase) return null;
+    const apiBase = window.CF_WORKER_URL || '';
+    if (!apiBase) return null;
     try {
-      const company = window.TaxOrderFleetCloud.getCompanyId?.() || 'mtoilet';
+      const company = window.currentCompanyId || 'mtoilet';
       const token   = localStorage.getItem('cf_token') || '';
-      const r = await fetch(`${window.TaxOrderFleetCloud.apiBase}/api/dt1-declarations?company=${encodeURIComponent(company)}`, {
+      const r = await fetch(`${apiBase}/api/dt1-declarations?company=${encodeURIComponent(company)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({ rok, total_tax, vehicle_count, gmina, vehicles, notes }),
@@ -41,10 +43,11 @@ window.Dt1Declarations = (function () {
   // ── Usuń ──────────────────────────────────────────────────────────────────
   async function deleteDecl(id) {
     if (!confirm('Usunąć tę deklarację z archiwum?')) return;
-    if (!window.TaxOrderFleetCloud?.apiBase) return;
-    const company = window.TaxOrderFleetCloud.getCompanyId?.() || 'mtoilet';
+    const apiBase = window.CF_WORKER_URL || '';
+    if (!apiBase) return;
+    const company = window.currentCompanyId || 'mtoilet';
     const token   = localStorage.getItem('cf_token') || '';
-    await fetch(`${window.TaxOrderFleetCloud.apiBase}/api/dt1-declarations/${id}?company=${encodeURIComponent(company)}`, {
+    await fetch(`${apiBase}/api/dt1-declarations/${id}?company=${encodeURIComponent(company)}`, {
       method: 'DELETE',
       headers: { Authorization: 'Bearer ' + token },
     });
@@ -53,12 +56,13 @@ window.Dt1Declarations = (function () {
 
   // ── Szczegóły — modal z listą pojazdów ────────────────────────────────────
   async function showDetail(id) {
-    if (!window.TaxOrderFleetCloud?.apiBase) return;
-    const company = window.TaxOrderFleetCloud.getCompanyId?.() || 'mtoilet';
+    const apiBase = window.CF_WORKER_URL || '';
+    if (!apiBase) return;
+    const company = window.currentCompanyId || 'mtoilet';
     const token   = localStorage.getItem('cf_token') || '';
     let decl;
     try {
-      const r = await fetch(`${window.TaxOrderFleetCloud.apiBase}/api/dt1-declarations/${id}?company=${encodeURIComponent(company)}`,
+      const r = await fetch(`${apiBase}/api/dt1-declarations/${id}?company=${encodeURIComponent(company)}`,
         { headers: { Authorization: 'Bearer ' + token } });
       if (!r.ok) { if (typeof toast === 'function') toast('Błąd pobierania danych'); return; }
       decl = await r.json();

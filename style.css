@@ -553,7 +553,7 @@ td{transition:background .1s}
 
 /* --- Animacja przejść między stronami --- */
 @keyframes page-enter{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
-.page.active{animation:page-enter .15s ease-out}
+.page.active{animation:page-enter .15s ease-out forwards}
 
 /* Vehicle detail form grid — baza (media queries nadpisują w src/style.css poniżej) */
 .vdfg{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 16px}
