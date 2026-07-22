@@ -6853,7 +6853,11 @@ async function doLogin(){
     const authResult = await window.TaxOrderAuth.login(email, pass);
 
     if(!authResult.ok){
-      showLoginErr('Błąd logowania: ' + (authResult.error?.message || 'brak sesji'));
+      const msg = authResult.error?.message || 'brak sesji';
+      const isRateLimit = msg.includes('429') || msg.toLowerCase().includes('too many') || msg.toLowerCase().includes('zbyt wiele');
+      showLoginErr(isRateLimit
+        ? 'Zbyt wiele prób logowania — poczekaj chwilę i spróbuj ponownie.'
+        : 'Błąd logowania: ' + msg);
       return;
     }
 
