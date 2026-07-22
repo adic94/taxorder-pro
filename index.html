@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
@@ -4108,6 +4108,67 @@ window._initPostHog=function(apiKey,host){
   </div>
 </div>
 
+<div class="page" id="page-fleet-kanban"></div>
+<div class="page" id="page-ev-fleet"></div>
+<div class="page" id="page-vehicle-equipment"></div>
+<div class="page" id="page-vehicle-inventory"></div>
+<div class="page" id="page-delegations"></div>
+<div class="page" id="page-leasing-schedule"></div>
+<div class="page" id="page-vehicle-value"></div>
+<div class="page" id="page-gus-regon"></div>
+<div class="page" id="page-vies-validator"></div>
+<div class="page" id="page-feature-config"></div>
+<div class="page" id="page-fleet-reservations"></div>
+<div class="page" id="page-epp-vat"></div>
+<div class="page" id="page-integrations"></div>
+<div class="page" id="page-tachograph"></div>
+<div class="page" id="page-ev-charging"></div>
+<div class="page" id="page-insurance"></div>
+<div class="page" id="page-route-billing"></div>
+<div class="page" id="page-fleet-kpi"></div>
+<div class="page" id="page-zapier-ui"></div>
+<div class="page" id="page-access-control"></div>
+<div class="page" id="page-trip-private"></div>
+<div class="page" id="page-geofencing"></div>
+<div class="page" id="page-driver-wages"></div>
+<div class="page" id="page-route-cost"></div>
+<div class="page" id="page-smart-forms"></div>
+<div class="page" id="page-gps-integrations"></div>
+<div class="page" id="page-ksef"></div>
+<div class="page" id="page-vehicle-inspections"></div>
+<div class="page" id="page-fleet-renewal"></div>
+<div class="page" id="page-driver-training"></div>
+<div class="page" id="page-fleet-limits"></div>
+<div class="page" id="page-parking"></div>
+<div class="page" id="page-internal-rental"></div>
+<div class="page" id="page-carpooling"></div>
+<div class="page" id="page-gdpr"></div>
+<div class="page" id="page-currency"></div>
+<div class="page" id="page-predictive-maintenance"></div>
+<div class="page" id="page-warranties"></div>
+<div class="page" id="page-suppliers"></div>
+<div class="page" id="page-fleet-disposal"></div>
+<div class="page" id="page-report-builder"></div>
+<div class="page" id="page-cmr"></div>
+<div class="page" id="page-sent"></div>
+<div class="page" id="page-messenger"></div>
+<div class="page" id="page-vehicle-qr"></div>
+<div class="page" id="page-jpk"></div>
+<div class="page" id="page-edoreczenia"></div>
+<div class="page" id="page-video-telematics"></div>
+<div class="page" id="page-esg-report"></div>
+<div class="page" id="page-driver-worktime"></div>
+
+<!-- PAGE: KALENDARZ (placeholder — otwiera modal fleet-cal-modal) -->
+<div class="page" id="page-kalendarz">
+  <div class="pg-title"><i class="ti ti-calendar"></i>Kalendarz floty</div>
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;gap:16px">
+    <button class="btn btn-blue" style="font-size:15px;padding:14px 32px" onclick="FleetCalendar.open()">
+      <i class="ti ti-calendar-event"></i>Otwórz kalendarz floty
+    </button>
+    <div style="font-size:13px;color:var(--text3)">Rezerwacje i harmonogram pojazdów</div>
+  </div>
+</div>
 </div><!-- /content -->
 </div><!-- /app-body -->
 </div><!-- /app -->
@@ -4329,67 +4390,6 @@ window._initPostHog=function(apiKey,host){
   </div>
 </div>
 
-<div class="page" id="page-fleet-kanban"></div>
-<div class="page" id="page-ev-fleet"></div>
-<div class="page" id="page-vehicle-equipment"></div>
-<div class="page" id="page-vehicle-inventory"></div>
-<div class="page" id="page-delegations"></div>
-<div class="page" id="page-leasing-schedule"></div>
-<div class="page" id="page-vehicle-value"></div>
-<div class="page" id="page-gus-regon"></div>
-<div class="page" id="page-vies-validator"></div>
-<div class="page" id="page-feature-config"></div>
-<div class="page" id="page-fleet-reservations"></div>
-<div class="page" id="page-epp-vat"></div>
-<div class="page" id="page-integrations"></div>
-<div class="page" id="page-tachograph"></div>
-<div class="page" id="page-ev-charging"></div>
-<div class="page" id="page-insurance"></div>
-<div class="page" id="page-route-billing"></div>
-<div class="page" id="page-fleet-kpi"></div>
-<div class="page" id="page-zapier-ui"></div>
-<div class="page" id="page-access-control"></div>
-<div class="page" id="page-trip-private"></div>
-<div class="page" id="page-geofencing"></div>
-<div class="page" id="page-driver-wages"></div>
-<div class="page" id="page-route-cost"></div>
-<div class="page" id="page-smart-forms"></div>
-<div class="page" id="page-gps-integrations"></div>
-<div class="page" id="page-ksef"></div>
-<div class="page" id="page-vehicle-inspections"></div>
-<div class="page" id="page-fleet-renewal"></div>
-<div class="page" id="page-driver-training"></div>
-<div class="page" id="page-fleet-limits"></div>
-<div class="page" id="page-parking"></div>
-<div class="page" id="page-internal-rental"></div>
-<div class="page" id="page-carpooling"></div>
-<div class="page" id="page-gdpr"></div>
-<div class="page" id="page-currency"></div>
-<div class="page" id="page-predictive-maintenance"></div>
-<div class="page" id="page-warranties"></div>
-<div class="page" id="page-suppliers"></div>
-<div class="page" id="page-fleet-disposal"></div>
-<div class="page" id="page-report-builder"></div>
-<div class="page" id="page-cmr"></div>
-<div class="page" id="page-sent"></div>
-<div class="page" id="page-messenger"></div>
-<div class="page" id="page-vehicle-qr"></div>
-<div class="page" id="page-jpk"></div>
-<div class="page" id="page-edoreczenia"></div>
-<div class="page" id="page-video-telematics"></div>
-<div class="page" id="page-esg-report"></div>
-<div class="page" id="page-driver-worktime"></div>
-
-<!-- PAGE: KALENDARZ (placeholder — otwiera modal fleet-cal-modal) -->
-<div class="page" id="page-kalendarz">
-  <div class="pg-title"><i class="ti ti-calendar"></i>Kalendarz floty</div>
-  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;gap:16px">
-    <button class="btn btn-blue" style="font-size:15px;padding:14px 32px" onclick="FleetCalendar.open()">
-      <i class="ti ti-calendar-event"></i>Otwórz kalendarz floty
-    </button>
-    <div style="font-size:13px;color:var(--text3)">Rezerwacje i harmonogram pojazdów</div>
-  </div>
-</div>
 
 <!-- MODAL: KALENDARZ FLOTY -->
 <div id="fleet-cal-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem">
