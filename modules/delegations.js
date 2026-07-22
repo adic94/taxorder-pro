@@ -103,7 +103,7 @@
 
       <!-- Modal -->
       <div id="del-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
-           z-index:1000;align-items:flex-start;justify-content:center;overflow-y:auto;padding:30px 16px">
+           z-index:9200;align-items:flex-start;justify-content:center;overflow-y:auto;padding:30px 16px" onclick="if(event.target===this)this.style.display='none'">
         <div style="background:var(--surface);border-radius:12px;width:min(700px,95vw);
              padding:28px;margin:auto;position:relative">
           <div style="display:flex;align-items:center;margin-bottom:20px">

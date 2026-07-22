@@ -64,7 +64,7 @@ ${expiringSoon.length ? `<div style="background:#fef3c7;border:1px solid #f59e0b
   <button class="tab-btn ${_tab==='claims'?'active':''}" onclick="window.InsuranceModule._setTab('claims')">Roszczenia (${_claims.length})</button>
 </div>
 <div id="ins-tab-content"></div>
-<div id="ins-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center">
+<div id="ins-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9200;align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
   <div id="ins-modal-inner" style="background:var(--bg);border-radius:12px;padding:24px;width:min(600px,96vw);max-height:92vh;overflow-y:auto"></div>
 </div>`;
     _renderTab();

@@ -139,6 +139,60 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('main-sidebar')?.addEventListener('click', e => {
     if (e.target.closest('.tnb')) setTimeout(() => toggleMobileNav(true), 80);
   });
+
+  // Globalny ESC — zamyka aktywny modal (modal-bg, display:flex, lub dedykowane close-fn)
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    // 1. Klasa .modal-bg (nie hidden)
+    const mbg = document.querySelector('.modal-bg:not(.hidden)');
+    if (mbg) { mbg.classList.add('hidden'); return; }
+    // 2. Modale z display:flex — lista od najwyższego z-index
+    const MODAL_CLOSE = [
+      // id elementu         → funkcja zamknięcia (lub null = ustawiamy display:none)
+      ['branch-report-modal',    null],
+      ['branch-modal',           null],
+      ['pm-modal',               null],
+      ['ss-modal',               null],
+      ['mc-modal',               null],
+      ['dm-upload-modal',        null],
+      ['dm-global-upload-modal', null],
+      ['driver-profile-modal',   null],
+      ['reservation-modal',      null],
+      ['spare-part-modal',       null],
+      ['stock-modal',            null],
+      ['service-contract-modal', null],
+      ['supplier-invoice-modal', null],
+      ['transport-order-modal',  null],
+      ['driver-schedule-modal',  null],
+      ['tco-modal',              null],
+      ['modal-vd-tabs-cfg',      null],
+      ['fuel-modal',             null],
+      ['budget-modal',           null],
+      ['fault-modal',            null],
+      ['shift-modal',            null],
+      ['tacho-modal',            null],
+      ['modal-dash-customize',   () => closeDashCustomize()],
+      ['fleet-cal-modal',        null],
+      ['drivers-modal',          null],
+      ['fuel-import-modal',      null],
+      ['cepik-xml-modal',        null],
+      ['tekom-modal',            null],
+      ['fines-modal',            null],
+      ['service-modal',          null],
+      ['csv-import-modal',       null],
+      ['vd-modal',               null],
+      ['modal-epuap',            () => closeEpuapModal()],
+      ['pwd-reset-modal',        () => document.getElementById('pwd-reset-modal').style.display = 'none'],
+      ['bulk-edit-modal',        null],
+    ];
+    for (const [id, closeFn] of MODAL_CLOSE) {
+      const el = document.getElementById(id);
+      if (el && el.style.display === 'flex') {
+        if (closeFn) closeFn(); else el.style.display = 'none';
+        return;
+      }
+    }
+  });
 });
 
 function toggleSidebarSection(label) {

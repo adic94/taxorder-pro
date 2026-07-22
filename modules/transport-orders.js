@@ -160,7 +160,7 @@ ${_orders.length ? _orders.map((o, i) => `<tr>
     if (!el) return;
     const modal = document.createElement('div');
     modal.id = 'e2o-overlay';
-    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;display:flex;align-items:center;justify-content:center';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9200;display:flex;align-items:center;justify-content:center';
     modal.innerHTML = `<div style="background:var(--bg);border-radius:12px;padding:24px;width:min(620px,96vw);max-height:90vh;overflow-y:auto">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
   <h3 style="margin:0"><i class="ti ti-mail-forward"></i> Email2Zlecenie — AI</h3>

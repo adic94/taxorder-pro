@@ -80,7 +80,7 @@ ${_invoices.length ? _invoices.map(inv => {
   </td>
 </tr>`;}).join('') : '<tr><td colspan="11" class="empty">Brak faktur</td></tr>'}
 </tbody></table></div>
-<div id="rb-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center">
+<div id="rb-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9200;align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
   <div id="rb-modal-inner" style="background:var(--bg);border-radius:12px;padding:24px;width:min(620px,96vw);max-height:92vh;overflow-y:auto"></div>
 </div>`;
   }

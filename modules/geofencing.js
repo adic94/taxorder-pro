@@ -44,7 +44,7 @@
 <div id="geo-tab-content">${_renderTab()}</div>
 
 <!-- Modal -->
-<div id="geo-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center">
+<div id="geo-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9200;align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
   <div id="geo-modal-inner" style="background:var(--bg);border-radius:12px;padding:24px;width:min(520px,96vw);max-height:90vh;overflow-y:auto"></div>
 </div>`;
   }

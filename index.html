@@ -1736,7 +1736,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- MODAL: upload pojazd-specific -->
-<div id="dm-upload-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9400;align-items:center;justify-content:center;padding:1rem">
+<div id="dm-upload-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9400;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg);border-radius:var(--radius-lg);width:480px;max-width:98vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.25)">
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
       <i class="ti ti-upload" style="color:var(--blue);font-size:18px"></i>
@@ -1798,7 +1798,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- MODAL: globalny upload z auto-detekcją VIN -->
-<div id="dm-global-upload-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9400;align-items:center;justify-content:center;padding:1rem">
+<div id="dm-global-upload-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9410;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg);border-radius:var(--radius-lg);width:520px;max-width:98vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.25)">
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
       <i class="ti ti-files" style="color:var(--blue);font-size:18px"></i>
@@ -1912,7 +1912,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== MODAL: ODDZIAŁ CRUD ==================== -->
-<div id="branch-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9500;align-items:center;justify-content:center;padding:1rem">
+<div id="branch-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9500;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:460px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <h3 id="bm-title" style="font-size:16px;font-weight:700">Nowy oddział</h3>
@@ -1935,7 +1935,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== MODAL: RAPORT ODDZIAŁU ==================== -->
-<div id="branch-report-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9500;align-items:center;justify-content:center;padding:1rem">
+<div id="branch-report-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9510;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:880px;max-height:92vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <h3 id="brm-title" style="font-size:16px;font-weight:700">Raport kosztowy</h3>
@@ -1946,7 +1946,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== MODAL: KIEROWCA ==================== -->
-<div id="driver-profile-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem">
+<div id="driver-profile-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:680px;max-height:92vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <strong style="font-size:16px"><i class="ti ti-id-badge"></i> Kierowca</strong>
@@ -1979,7 +1979,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== MODAL: REZERWACJA ==================== -->
-<div id="reservation-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem">
+<div id="reservation-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:540px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <strong style="font-size:16px"><i class="ti ti-calendar-event"></i> Rezerwacja pojazdu</strong>
@@ -2004,7 +2004,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== MODAL: CZĘŚĆ ZAMIENNA ==================== -->
-<div id="spare-part-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem">
+<div id="spare-part-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:560px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <strong style="font-size:16px"><i class="ti ti-package"></i> Część zamienna</strong>
@@ -2033,7 +2033,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== MODAL: STAN MAGAZYNOWY ==================== -->
-<div id="stock-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9360;align-items:center;justify-content:center;padding:1rem">
+<div id="stock-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9360;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:400px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <strong id="stk-title" style="font-size:16px">Przyjęcie/Wydanie</strong>
@@ -2052,7 +2052,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== MODAL: KONTRAKT SERWISOWY ==================== -->
-<div id="service-contract-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem">
+<div id="service-contract-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:680px;max-height:92vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <strong style="font-size:16px"><i class="ti ti-contract"></i> Kontrakt serwisowy</strong>
@@ -2097,7 +2097,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== MODAL: FAKTURA DOSTAWCY ==================== -->
-<div id="supplier-invoice-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem">
+<div id="supplier-invoice-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:720px;max-height:92vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <strong style="font-size:16px"><i class="ti ti-receipt"></i> Faktura od dostawcy</strong>
@@ -2134,7 +2134,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== MODAL: TANKOWANIE ==================== -->
-<div id="fuel-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;align-items:center;justify-content:center;padding:1rem">
+<div id="fuel-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <strong style="font-size:16px"><i class="ti ti-droplet"></i> Tankowanie</strong>
@@ -2165,7 +2165,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== MODAL: BUDŻET ==================== -->
-<div id="budget-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;align-items:center;justify-content:center;padding:1rem">
+<div id="budget-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:480px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <strong style="font-size:16px"><i class="ti ti-target"></i> Budżet</strong>
@@ -2193,7 +2193,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== MODAL: ZLECENIE TRANSPORTOWE ==================== -->
-<div id="transport-order-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem">
+<div id="transport-order-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:660px;max-height:92vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <strong style="font-size:16px"><i class="ti ti-truck"></i> Zlecenie transportowe</strong>
@@ -2227,7 +2227,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== MODAL: GRAFIK KIEROWCY ==================== -->
-<div id="driver-schedule-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem">
+<div id="driver-schedule-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:500px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <strong style="font-size:16px"><i class="ti ti-calendar-week"></i> Wpis grafiku</strong>
@@ -2254,7 +2254,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== MODAL: TCO ==================== -->
-<div id="tco-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem">
+<div id="tco-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9350;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:540px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <strong style="font-size:16px"><i class="ti ti-calculator"></i> Konfiguracja TCO</strong>
@@ -2283,7 +2283,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== MODAL: USTERKA ==================== -->
-<div id="fault-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;align-items:center;justify-content:center;padding:1rem">
+<div id="fault-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:580px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <strong style="font-size:16px"><i class="ti ti-alert-triangle"></i> Usterka</strong>
@@ -2312,7 +2312,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== MODAL: ZMIANA KIEROWCY ==================== -->
-<div id="shift-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;align-items:center;justify-content:center;padding:1rem">
+<div id="shift-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:560px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <strong style="font-size:16px"><i class="ti ti-clock"></i> Zmiana robocza</strong>
@@ -2339,7 +2339,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== MODAL: TACHOGRAF ==================== -->
-<div id="tacho-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;align-items:center;justify-content:center;padding:1rem">
+<div id="tacho-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:520px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <strong style="font-size:16px"><i class="ti ti-device-desktop"></i> Pobranie tachografu</strong>
@@ -2363,7 +2363,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== MODAL: POLISA ==================== -->
-<div id="pm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9400;align-items:center;justify-content:center;padding:1rem">
+<div id="pm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9400;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <strong id="pm-modal-title" style="font-size:16px">Polisa</strong>
@@ -2417,7 +2417,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== MODAL: HARMONOGRAM SERWISOWY ==================== -->
-<div id="ss-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9400;align-items:center;justify-content:center;padding:1rem">
+<div id="ss-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9402;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <strong id="ss-modal-title" style="font-size:16px">Pozycja harmonogramu</strong>
@@ -2459,7 +2459,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== MODAL: ROZLICZENIE KM ==================== -->
-<div id="mc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9400;align-items:center;justify-content:center;padding:1rem">
+<div id="mc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9403;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <strong id="mc-modal-title" style="font-size:16px">Rozliczenie km</strong>
@@ -4188,7 +4188,7 @@ window._initPostHog=function(apiKey,host){
   <button class="btn" style="background:transparent;color:rgba(255,255,255,.75);border-color:rgba(255,255,255,.3);font-size:12px;flex-shrink:0" onclick="deselAll()"><i class="ti ti-x"></i>Odznacz wszystko</button>
 </div>
 <!-- Modal masowej edycji pola -->
-<div id="bulk-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:5000;align-items:center;justify-content:center">
+<div id="bulk-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:5000;align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg);border-radius:var(--radius-lg);width:min(420px,95%);box-shadow:0 8px 40px rgba(0,0,0,.3);overflow:hidden">
     <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border)">
       <i class="ti ti-pencil" style="font-size:18px;color:var(--blue)"></i>
@@ -4368,6 +4368,7 @@ window._initPostHog=function(apiKey,host){
         <div style="font-size:16px;font-weight:700">Ustaw nowe haslo</div>
         <div style="font-size:12px;color:var(--text2)">Wpisz nowe haslo do swojego konta</div>
       </div>
+      <button onclick="document.getElementById('pwd-reset-modal').style.display='none'" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);padding:0 2px;line-height:1" title="Zamknij">&times;</button>
     </div>
     <div id="pwd-reset-err" style="display:none;background:var(--red-light);color:var(--red);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;align-items:center;gap:8px"></div>
     <div class="f" style="margin-bottom:12px">
@@ -4392,7 +4393,7 @@ window._initPostHog=function(apiKey,host){
 
 
 <!-- MODAL: KALENDARZ FLOTY -->
-<div id="fleet-cal-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem">
+<div id="fleet-cal-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:1100px;max-width:98vw;max-height:94vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);display:flex;flex-direction:column">
     <!-- Nagłówek -->
     <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg2);z-index:1;flex-wrap:wrap">
@@ -4434,7 +4435,7 @@ window._initPostHog=function(apiKey,host){
 <datalist id="drivers-datalist"></datalist>
 
 <!-- MODAL: KARTOTEKA KIEROWCÓW -->
-<div id="drivers-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem">
+<div id="drivers-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:800px;max-width:98vw;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);display:flex;flex-direction:column">
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg2);z-index:1">
       <i class="ti ti-users" style="color:var(--blue);font-size:20px"></i>
@@ -4512,7 +4513,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- MODAL: IMPORT TANKOWAŃ -->
-<div id="fuel-import-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem">
+<div id="fuel-import-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:900px;max-width:98vw;max-height:94vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);display:flex;flex-direction:column">
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg2);z-index:1">
       <i class="ti ti-gas-station" style="color:var(--amber);font-size:20px"></i>
@@ -4594,7 +4595,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- MODAL: IMPORT XML CEPiK -->
-<div id="cepik-xml-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem">
+<div id="cepik-xml-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:860px;max-width:98vw;max-height:94vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);display:flex;flex-direction:column">
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg2);z-index:1">
       <i class="ti ti-file-type-xml" style="color:var(--green);font-size:20px"></i>
@@ -4653,7 +4654,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- MODAL: TEKOM GPS IMPORT -->
-<div id="tekom-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem">
+<div id="tekom-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:860px;max-width:98vw;max-height:94vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);display:flex;flex-direction:column">
     <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg2);z-index:1">
       <i class="ti ti-map-pin" style="color:var(--blue);font-size:20px"></i>
@@ -4671,7 +4672,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- MODAL: MANDATY I NARUSZENIA -->
-<div id="fines-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem">
+<div id="fines-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:1040px;max-width:98vw;max-height:94vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);display:flex;flex-direction:column">
     <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg2);z-index:1">
       <i class="ti ti-alert-triangle" style="color:var(--red);font-size:20px"></i>
@@ -4686,7 +4687,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- MODAL: SERWIS FLOTY -->
-<div id="service-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem">
+<div id="service-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:1000px;max-width:98vw;max-height:94vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);display:flex;flex-direction:column">
     <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg2);z-index:1">
       <i class="ti ti-tools" style="color:var(--blue);font-size:20px"></i>
@@ -4703,7 +4704,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- MODAL: IMPORT CSV -->
-<div id="csv-import-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem">
+<div id="csv-import-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:860px;max-width:98vw;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);display:flex;flex-direction:column">
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg2);z-index:1">
       <i class="ti ti-file-upload" style="color:var(--blue);font-size:20px"></i>
@@ -4732,7 +4733,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- MODAL KARTY POJAZDU -->
-<div id="vd-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;align-items:center;justify-content:center;padding:1rem">
+<div id="vd-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:720px;max-width:98vw;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);display:flex;flex-direction:column">
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg2);z-index:1">
       <i class="ti ti-truck" style="color:var(--blue);font-size:20px"></i>
@@ -4747,7 +4748,7 @@ window._initPostHog=function(apiKey,host){
   </div>
 </div>
 <!-- MODAL: DOSTOSUJ ZAKŁADKI KARTY POJAZDU -->
-<div id="modal-vd-tabs-cfg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;align-items:center;justify-content:center;padding:1rem">
+<div id="modal-vd-tabs-cfg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9300;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:400px;max-width:98vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.25)">
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
       <i class="ti ti-settings" style="color:var(--blue);font-size:18px"></i>
@@ -4881,7 +4882,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- MODAL: DOSTOSUJ KOKPIT -->
-<div id="modal-dash-customize" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9200;align-items:center;justify-content:center;padding:1rem">
+<div id="modal-dash-customize" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9200;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)closeDashCustomize()">
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:420px;max-width:98vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.25)">
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
       <i class="ti ti-layout-columns" style="color:var(--blue);font-size:18px"></i>

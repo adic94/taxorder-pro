@@ -113,7 +113,7 @@
 .tach-overdue{background:#fef2f2;border-left:4px solid #dc2626;padding:10px 14px;border-radius:4px;font-size:13px;margin-bottom:8px}
 .tach-ok{background:#f0fdf4;border-left:4px solid #16a34a;padding:10px 14px;border-radius:4px;font-size:13px;margin-bottom:8px}
 .tach-upload-item{display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg2);border-radius:8px;margin-bottom:8px;font-size:13px}
-.tach-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:flex;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto}
+.tach-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9200;display:flex;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto}
 .tach-modal{background:var(--bg);border-radius:14px;width:90%;max-width:900px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.2)}
 .day-acts{display:flex;flex-direction:column;gap:2px;margin:4px 0}
 .day-row{display:flex;align-items:center;gap:8px;font-size:12px}

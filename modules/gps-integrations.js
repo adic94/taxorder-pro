@@ -89,7 +89,7 @@
 </div>
 
 <!-- Config modal -->
-<div id="gps-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center">
+<div id="gps-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9200;align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
   <div id="gps-modal-inner" style="background:var(--bg);border-radius:12px;padding:24px;width:min(500px,96vw)"></div>
 </div>`;
   }
