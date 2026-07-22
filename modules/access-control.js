@@ -395,7 +395,7 @@ ${_users.length ? _users.map(u => {
     <h3 style="margin:0">${e(_editUser.name||_editUser.email)}</h3>
     <span style="font-size:12px;color:var(--text3)">${ROLE_LBL[_editUser.role]||e(_editUser.role)} · ${e(_editUser.email)}</span>
   </div>
-  <button onclick="window.AccessControl._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  <button onclick="window.AccessControl._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
 </div>
 <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border-radius:8px;margin-bottom:14px">
   <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">

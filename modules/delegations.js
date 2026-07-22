@@ -110,7 +110,7 @@
             <h3 id="del-modal-title" style="margin:0;font-size:16px;font-weight:700">Nowa delegacja</h3>
             <button onclick="DelegationsModule.closeDelegationModal()"
               style="margin-left:auto;background:none;border:none;font-size:26px;
-                     cursor:pointer;color:var(--text3);line-height:1">&times;</button>
+                     cursor:pointer;color:var(--text3);line-height:1" aria-label="Zamknij">&times;</button>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
             <div style="grid-column:1/-1">

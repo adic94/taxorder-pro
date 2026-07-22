@@ -125,7 +125,7 @@ ${_claims.length ? _claims.map(c => `<tr>
     inner.innerHTML = `
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
   <h3 style="margin:0"><i class="ti ti-shield"></i> ${p ? 'Edytuj polisę' : 'Nowa polisa'}</h3>
-  <button onclick="window.InsuranceModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  <button onclick="window.InsuranceModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
 </div>
 <input type="hidden" id="ins-pid" value="${e(p?.id||'')}">
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
@@ -205,7 +205,7 @@ ${_claims.length ? _claims.map(c => `<tr>
     inner.innerHTML = `
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
   <h3 style="margin:0"><i class="ti ti-alert-triangle"></i> ${c ? 'Edytuj roszczenie' : 'Nowe roszczenie'}</h3>
-  <button onclick="window.InsuranceModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  <button onclick="window.InsuranceModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
 </div>
 <input type="hidden" id="ins-cid" value="${e(c?.id||'')}">
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">

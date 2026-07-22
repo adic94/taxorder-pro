@@ -1098,7 +1098,7 @@ window.TaxOrderVehicleDetail = {
                   <td style="padding:5px 8px;color:var(--text2);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(h.station||'')}">${esc(h.station||'—')}</td>
                   <td style="padding:5px 8px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text2)">${h.km!=null?h.km.toLocaleString('pl-PL'):'—'}</td>
                   <td style="padding:5px 8px;text-align:center">
-                    <button onclick="FuelImport.removeFuel(${v.id},${h.id})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 4px" title="Usuń">&times;</button>
+                    <button onclick="FuelImport.removeFuel(${v.id},${h.id})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 4px" title="Usuń" aria-label="Zamknij">&times;</button>
                   </td>
                 </tr>`).join('')}
             </tbody>
@@ -1135,7 +1135,7 @@ window.TaxOrderVehicleDetail = {
             ${ins.notes ? `<div style="font-size:11px;color:var(--text2)">${esc(ins.notes)}</div>` : ''}
             ${ins.addedBy ? `<div style="font-size:10px;color:var(--text3)">Dodał: ${esc(ins.addedBy)}</div>` : ''}
           </div>
-          <button onclick="TaxOrderVehicleDetail._removeInspection(${v.id},${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px" title="Usuń wpis">&times;</button>
+          <button onclick="TaxOrderVehicleDetail._removeInspection(${v.id},${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px" title="Usuń wpis" aria-label="Zamknij">&times;</button>
         </div>`;
       }).join('');
   },
@@ -1261,7 +1261,7 @@ window.TaxOrderVehicleDetail = {
           ${e.notes?`<div style="font-size:11px;color:var(--text2)">${esc(e.notes)}</div>`:''}
           ${e.addedBy?`<div style="font-size:10px;color:var(--text3)">Dodał: ${esc(e.addedBy)}</div>`:''}
         </div>
-        <button onclick="TaxOrderVehicleDetail._removeUdtEntry(${v.id},${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px">&times;</button>
+        <button onclick="TaxOrderVehicleDetail._removeUdtEntry(${v.id},${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px" aria-label="Zamknij">&times;</button>
       </div>`).join('');
   },
 
@@ -1388,7 +1388,7 @@ window.TaxOrderVehicleDetail = {
           ${e.notes?`<div style="font-size:11px;color:var(--text2)">${esc(e.notes)}</div>`:''}
           ${e.addedBy?`<div style="font-size:10px;color:var(--text3)">Dodał: ${esc(e.addedBy)}</div>`:''}
         </div>
-        <button onclick="TaxOrderVehicleDetail._removeTachoEntry(${v.id},${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px">&times;</button>
+        <button onclick="TaxOrderVehicleDetail._removeTachoEntry(${v.id},${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px" aria-label="Zamknij">&times;</button>
       </div>`).join('');
   },
 
@@ -1614,7 +1614,7 @@ window.TaxOrderVehicleDetail = {
           ${c.provider?`<div style="font-size:11px;color:var(--text2);margin-top:2px"><i class="ti ti-building" style="font-size:10px"></i> ${esc(c.provider)}</div>`:''}
           ${c.notes?`<div style="font-size:11px;color:var(--text3)">${esc(c.notes)}</div>`:''}
         </div>
-        <button data-nrrej="${esc(v.nrRej)}" data-cardid="${c.id}" onclick="TaxOrderVehicleDetail._removeCard(this.dataset.nrrej, this.dataset.cardid)" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px" title="Usuń kartę">&times;</button>
+        <button data-nrrej="${esc(v.nrRej)}" data-cardid="${c.id}" onclick="TaxOrderVehicleDetail._removeCard(this.dataset.nrrej, this.dataset.cardid)" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:14px" title="Usuń kartę" aria-label="Zamknij">&times;</button>
       </div>`).join('');
   },
 
@@ -2454,7 +2454,7 @@ td:last-child{font-weight:600;color:#1e293b}
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
           <i class="ti ti-arrows-exchange" style="font-size:20px;color:var(--blue)"></i>
           <strong style="font-size:16px">Zmiana numeru rejestracyjnego</strong>
-          <button onclick="document.getElementById('change-nrrej-modal').remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+          <button onclick="document.getElementById('change-nrrej-modal').remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)" aria-label="Zamknij">×</button>
         </div>
         <div class="f" style="margin-bottom:12px">
           <label style="font-size:12px;color:var(--text2)">Obecny numer</label>

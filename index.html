@@ -1541,7 +1541,7 @@ window._initPostHog=function(apiKey,host){
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:0;width:620px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto">
     <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg2);z-index:1">
       <div style="font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px"><i class="ti ti-git-diff" style="color:var(--blue)"></i>Porównanie danych — zatwierdź zmiany</div>
-      <button onclick="document.getElementById('ocr-modal').classList.add('hidden')" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+      <button onclick="document.getElementById('ocr-modal').classList.add('hidden')" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)" aria-label="Zamknij">×</button>
     </div>
     <div id="ocr-modal-body" style="padding:20px 24px"></div>
     <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;position:sticky;bottom:0;background:var(--bg2)">
@@ -1747,7 +1747,7 @@ window._initPostHog=function(apiKey,host){
           <span id="dm-upload-vin-label" style="font-family:monospace;margin-left:8px;color:var(--text3)"></span>
         </div>
       </div>
-      <button onclick="DocumentsModule._closeUpload()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);line-height:1">&times;</button>
+      <button onclick="DocumentsModule._closeUpload()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);line-height:1" aria-label="Zamknij">&times;</button>
     </div>
     <div style="padding:16px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:12px">
       <div class="f">
@@ -1807,7 +1807,7 @@ window._initPostHog=function(apiKey,host){
         <div style="font-size:11px;color:var(--text2)">System odczyta VIN z pliku i przypisze do właściwego pojazdu</div>
       </div>
       <button onclick="document.getElementById('dm-global-upload-modal').style.display='none'"
-        style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);line-height:1">&times;</button>
+        style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);line-height:1" aria-label="Zamknij">&times;</button>
     </div>
     <div style="padding:16px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:12px">
       <div class="f">
@@ -1916,7 +1916,7 @@ window._initPostHog=function(apiKey,host){
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:460px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <h3 id="bm-title" style="font-size:16px;font-weight:700">Nowy oddział</h3>
-      <button class="btn btn-gray" onclick="closeBranchModal()" style="font-size:16px;padding:4px 10px">&times;</button>
+      <button class="btn btn-gray" onclick="closeBranchModal()" style="font-size:16px;padding:4px 10px" aria-label="Zamknij">&times;</button>
     </div>
     <input type="hidden" id="bm-id">
     <div class="vdf" style="margin-bottom:12px">
@@ -1939,7 +1939,7 @@ window._initPostHog=function(apiKey,host){
   <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:24px;width:100%;max-width:880px;max-height:92vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <h3 id="brm-title" style="font-size:16px;font-weight:700">Raport kosztowy</h3>
-      <button class="btn btn-gray" onclick="closeBranchReport()" style="font-size:16px;padding:4px 10px">&times;</button>
+      <button class="btn btn-gray" onclick="closeBranchReport()" style="font-size:16px;padding:4px 10px" aria-label="Zamknij">&times;</button>
     </div>
     <div id="brm-body"><div style="text-align:center;padding:2rem">Ładowanie...</div></div>
   </div>
@@ -3036,7 +3036,7 @@ window._initPostHog=function(apiKey,host){
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:460px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.2)">
     <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:15px;font-weight:600">Nowy klucz API</div>
-      <button onclick="TaxOrderApiKeys.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+      <button onclick="TaxOrderApiKeys.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)" aria-label="Zamknij">×</button>
     </div>
     <div style="padding:20px 22px" id="apikm-form">
       <div class="fg" style="gap:12px">
@@ -3067,7 +3067,7 @@ window._initPostHog=function(apiKey,host){
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:500px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.2)">
     <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:15px;font-weight:600" id="km-title">Dodaj kartę flotową</div>
-      <button onclick="document.getElementById('karta-modal').classList.add('hidden')" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+      <button onclick="document.getElementById('karta-modal').classList.add('hidden')" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)" aria-label="Zamknij">×</button>
     </div>
     <div style="padding:20px 22px">
       <div class="fg" style="gap:12px">
@@ -3110,7 +3110,7 @@ window._initPostHog=function(apiKey,host){
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:540px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2)">
     <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:15px;font-weight:600" id="szm-title">Zgłoś szkodę</div>
-      <button onclick="TaxOrderDamages.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+      <button onclick="TaxOrderDamages.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)" aria-label="Zamknij">×</button>
     </div>
     <div style="padding:20px 22px">
       <div class="fg" style="gap:12px">
@@ -3151,7 +3151,7 @@ window._initPostHog=function(apiKey,host){
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:480px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.2)">
     <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:15px;font-weight:600" id="opm-title">Dodaj oponę do magazynu</div>
-      <button onclick="TaxOrderTires.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+      <button onclick="TaxOrderTires.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)" aria-label="Zamknij">×</button>
     </div>
     <div style="padding:20px 22px">
       <div class="fg" style="gap:12px">
@@ -3184,7 +3184,7 @@ window._initPostHog=function(apiKey,host){
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:420px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.2)">
     <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:15px;font-weight:600">Zamontuj oponę</div>
-      <button onclick="TaxOrderTires.closeMountModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+      <button onclick="TaxOrderTires.closeMountModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)" aria-label="Zamknij">×</button>
     </div>
     <div style="padding:20px 22px">
       <div class="fg" style="gap:12px">
@@ -3217,7 +3217,7 @@ window._initPostHog=function(apiKey,host){
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:420px;max-width:95vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2)">
     <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:15px;font-weight:600">Historia opony</div>
-      <button onclick="TaxOrderTires.closeHistory()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+      <button onclick="TaxOrderTires.closeHistory()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)" aria-label="Zamknij">×</button>
     </div>
     <div style="padding:14px 22px" id="opona-history-body"></div>
   </div>
@@ -3228,7 +3228,7 @@ window._initPostHog=function(apiKey,host){
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:500px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2)">
     <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:15px;font-weight:600">Zgłoś potrzebę serwisową</div>
-      <button onclick="TaxOrderServiceOrders.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+      <button onclick="TaxOrderServiceOrders.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)" aria-label="Zamknij">×</button>
     </div>
     <div style="padding:20px 22px">
       <div class="fg" style="gap:12px">
@@ -3255,7 +3255,7 @@ window._initPostHog=function(apiKey,host){
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:420px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.2)">
     <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:15px;font-weight:600">Zrealizuj zlecenie</div>
-      <button onclick="TaxOrderServiceOrders.closeRealizeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+      <button onclick="TaxOrderServiceOrders.closeRealizeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)" aria-label="Zamknij">×</button>
     </div>
     <div style="padding:20px 22px">
       <div class="fg" style="gap:12px">
@@ -3278,7 +3278,7 @@ window._initPostHog=function(apiKey,host){
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:620px;max-width:95vw;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2)">
     <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:15px;font-weight:600" id="prm-title">Nowy protokół zdawczo-odbiorczy</div>
-      <button onclick="TaxOrderHandoverProtocol.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+      <button onclick="TaxOrderHandoverProtocol.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)" aria-label="Zamknij">×</button>
     </div>
     <div style="padding:20px 22px">
       <div class="fg" style="gap:12px">
@@ -3340,7 +3340,7 @@ window._initPostHog=function(apiKey,host){
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2)">
     <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:15px;font-weight:600" id="cfmkm-title">Nowy klient zewnętrzny</div>
-      <button onclick="TaxOrderCfmClients.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+      <button onclick="TaxOrderCfmClients.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)" aria-label="Zamknij">×</button>
     </div>
     <div style="padding:20px 22px">
       <div class="fg" style="gap:12px">
@@ -3368,7 +3368,7 @@ window._initPostHog=function(apiKey,host){
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2)">
     <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:15px;font-weight:600" id="cfmum-title">Nowy kontrakt CFM</div>
-      <button onclick="TaxOrderCfmContracts.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+      <button onclick="TaxOrderCfmContracts.closeModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)" aria-label="Zamknij">×</button>
     </div>
     <div style="padding:20px 22px">
       <div class="fg" style="gap:12px">
@@ -3410,7 +3410,7 @@ window._initPostHog=function(apiKey,host){
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:420px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.2)">
     <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:15px;font-weight:600">Generuj fakturę CFM</div>
-      <button onclick="TaxOrderCfmInvoices.closeGenerateModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+      <button onclick="TaxOrderCfmInvoices.closeGenerateModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)" aria-label="Zamknij">×</button>
     </div>
     <div style="padding:20px 22px">
       <div class="fg" style="gap:12px">
@@ -3438,7 +3438,7 @@ window._initPostHog=function(apiKey,host){
   <div style="background:var(--bg2);border-radius:var(--radius-lg);width:460px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.2)">
     <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:15px;font-weight:600" id="um-title">Dodaj użytkownika</div>
-      <button onclick="document.getElementById('user-modal').classList.add('hidden')" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)">×</button>
+      <button onclick="document.getElementById('user-modal').classList.add('hidden')" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2)" aria-label="Zamknij">×</button>
     </div>
     <div style="padding:20px 22px">
       <div class="fg" style="gap:12px">
@@ -3475,7 +3475,7 @@ window._initPostHog=function(apiKey,host){
         <div style="font-size:11px;color:var(--text2)" id="doc-modal-sub"></div>
       </div>
       <button class="btn btn-gray" style="font-size:11px" onclick="triggerDocUpload(currentDocNrRej)"><i class="ti ti-upload"></i>Dodaj kolejny</button>
-      <button onclick="document.getElementById('doc-modal').classList.add('hidden')" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2)">×</button>
+      <button onclick="document.getElementById('doc-modal').classList.add('hidden')" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2)" aria-label="Zamknij">×</button>
     </div>
     <div style="flex:1;overflow-y:auto;padding:16px">
       <div id="doc-modal-body" style="min-height:300px"></div>
@@ -4193,7 +4193,7 @@ window._initPostHog=function(apiKey,host){
     <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border)">
       <i class="ti ti-pencil" style="font-size:18px;color:var(--blue)"></i>
       <strong>Edytuj pole dla <span id="bulk-edit-count">0</span> pojazdów</strong>
-      <button onclick="document.getElementById('bulk-edit-modal').style.display='none'" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2);line-height:1">×</button>
+      <button onclick="document.getElementById('bulk-edit-modal').style.display='none'" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2);line-height:1" aria-label="Zamknij">×</button>
     </div>
     <div style="padding:18px;display:flex;flex-direction:column;gap:12px">
       <div>
@@ -4368,7 +4368,7 @@ window._initPostHog=function(apiKey,host){
         <div style="font-size:16px;font-weight:700">Ustaw nowe haslo</div>
         <div style="font-size:12px;color:var(--text2)">Wpisz nowe haslo do swojego konta</div>
       </div>
-      <button onclick="document.getElementById('pwd-reset-modal').style.display='none'" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);padding:0 2px;line-height:1" title="Zamknij">&times;</button>
+      <button onclick="document.getElementById('pwd-reset-modal').style.display='none'" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);padding:0 2px;line-height:1" title="Zamknij" aria-label="Zamknij">&times;</button>
     </div>
     <div id="pwd-reset-err" style="display:none;background:var(--red-light);color:var(--red);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;align-items:center;gap:8px"></div>
     <div class="f" style="margin-bottom:12px">
@@ -4411,7 +4411,7 @@ window._initPostHog=function(apiKey,host){
         <button class="btn btn-gray" style="font-size:11px;padding:4px 10px" onclick="FleetCalendar.setView('week')">Tydzień</button>
         <button class="btn btn-gray" style="font-size:11px;padding:4px 10px" onclick="FleetCalendar.setView('month')">Miesiąc</button>
       </div>
-      <button onclick="FleetCalendar.close()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">&times;</button>
+      <button onclick="FleetCalendar.close()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1" aria-label="Zamknij">&times;</button>
     </div>
     <!-- Legenda -->
     <div style="padding:8px 20px;border-bottom:0.5px solid var(--border);display:flex;gap:8px;align-items:center">
@@ -4447,7 +4447,7 @@ window._initPostHog=function(apiKey,host){
         <button class="btn btn-blue" style="font-size:11px" onclick="TaxOrderDrivers.newDriver()">
           <i class="ti ti-plus"></i>Nowy kierowca
         </button>
-        <button onclick="TaxOrderDrivers.close()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">&times;</button>
+        <button onclick="TaxOrderDrivers.close()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1" aria-label="Zamknij">&times;</button>
       </div>
     </div>
     <div style="padding:20px;flex:1">
@@ -4521,7 +4521,7 @@ window._initPostHog=function(apiKey,host){
         <div style="font-weight:700;font-size:15px">Import tankowań z kart paliwowych</div>
         <div style="font-size:11px;color:var(--text2)">Obsługiwane formaty: ORLEN Flota, DKV, BP Fleet, Shell Fleet, Lotos, Circle K i inne CSV</div>
       </div>
-      <button onclick="FuelImport.close()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">&times;</button>
+      <button onclick="FuelImport.close()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1" aria-label="Zamknij">&times;</button>
     </div>
     <div style="padding:20px;flex:1">
 
@@ -4603,7 +4603,7 @@ window._initPostHog=function(apiKey,host){
         <div style="font-weight:700;font-size:15px">Import XML z CEPiK / Dowodu rejestracyjnego</div>
         <div style="font-size:11px;color:var(--text2)">Wczytaj dane pojazdów z pliku XML — aktualizacja lub dodanie do bazy</div>
       </div>
-      <button onclick="CepikXML.close()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">&times;</button>
+      <button onclick="CepikXML.close()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1" aria-label="Zamknij">&times;</button>
     </div>
     <div style="padding:20px;flex:1">
 
@@ -4662,7 +4662,7 @@ window._initPostHog=function(apiKey,host){
         <div style="font-weight:700;font-size:15px">Import GPS / TEKOM / MyCar</div>
         <div style="font-size:11px;color:var(--text3)">Aktualizacja stanu licznika i historii tras z pliku CSV systemu GPS</div>
       </div>
-      <button onclick="TekomImport.close()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">&times;</button>
+      <button onclick="TekomImport.close()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1" aria-label="Zamknij">&times;</button>
     </div>
     <div style="padding:20px;flex:1">
       <div id="tekom-step1-body"></div>
@@ -4680,7 +4680,7 @@ window._initPostHog=function(apiKey,host){
         <div style="font-weight:700;font-size:15px">Mandaty i Naruszenia</div>
         <div style="font-size:11px;color:var(--text3)">Rejestr mandatów drogowych i naruszeń ITD</div>
       </div>
-      <button onclick="FinesModule.close()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">&times;</button>
+      <button onclick="FinesModule.close()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1" aria-label="Zamknij">&times;</button>
     </div>
     <div style="padding:20px;flex:1" id="fines-modal-body"></div>
   </div>
@@ -4695,7 +4695,7 @@ window._initPostHog=function(apiKey,host){
         <div style="font-weight:700;font-size:15px">Serwis floty — historia i planowane</div>
         <div style="font-size:11px;color:var(--text2)">Zarządzaj historią napraw i planowanymi serwisami dla całej floty</div>
       </div>
-      <button onclick="ServiceModule.close()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">&times;</button>
+      <button onclick="ServiceModule.close()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1" aria-label="Zamknij">&times;</button>
     </div>
     <div style="padding:20px;flex:1" id="service-modal-body">
       <div style="text-align:center;padding:40px;color:var(--text3)">Ładowanie danych serwisowych...</div>
@@ -4709,7 +4709,7 @@ window._initPostHog=function(apiKey,host){
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--bg2);z-index:1">
       <i class="ti ti-file-upload" style="color:var(--blue);font-size:20px"></i>
       <div style="font-size:15px;font-weight:600;flex:1">Import danych z CSV — ubezpieczenia i przeglądy</div>
-      <button onclick="CSVImport.close()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);padding:0 4px">&times;</button>
+      <button onclick="CSVImport.close()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);padding:0 4px" aria-label="Zamknij">&times;</button>
     </div>
     <div style="padding:20px">
       <div class="ibox" style="margin-bottom:16px">
@@ -4742,7 +4742,7 @@ window._initPostHog=function(apiKey,host){
       <button class="btn btn-gray" style="font-size:12px" onclick="TaxOrderVehicleDetail.printCard()" data-i18n-title="btn.print" title="Drukuj kartę pojazdu"><i class="ti ti-printer"></i></button>
       <button class="btn btn-gray" style="font-size:12px" id="vd-ocr-btn" title="Zaczytaj dane z dowodu rejestracyjnego (zdjęcie / PDF)"><i class="ti ti-scan"></i>Skan DR</button>
       <button onclick="TaxOrderVehicleDetail.deleteVehicle()" class="btn btn-gray" style="font-size:12px;color:var(--red)" title="Usuń pojazd z floty"><i class="ti ti-trash"></i></button>
-      <button onclick="TaxOrderVehicleDetail.close()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);padding:0 4px">&times;</button>
+      <button onclick="TaxOrderVehicleDetail.close()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);padding:0 4px" aria-label="Zamknij">&times;</button>
     </div>
     <div id="vd-modal-body" style="padding:20px;flex:1"></div>
   </div>
@@ -4753,7 +4753,7 @@ window._initPostHog=function(apiKey,host){
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
       <i class="ti ti-settings" style="color:var(--blue);font-size:18px"></i>
       <span style="font-size:15px;font-weight:600;flex:1">Dostosuj zakładki karty pojazdu</span>
-      <button onclick="TaxOrderVehicleDetail.closeVdTabsCfg()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);padding:0 4px;line-height:1">&times;</button>
+      <button onclick="TaxOrderVehicleDetail.closeVdTabsCfg()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);padding:0 4px;line-height:1" aria-label="Zamknij">&times;</button>
     </div>
     <div style="padding:12px 20px;border-bottom:1px solid var(--border)">
       <p style="font-size:12px;color:var(--text3);margin:0">Przeciągnij zakładki, aby zmienić kolejność. Odznacz, aby ukryć wybraną zakładkę.</p>
@@ -4773,7 +4773,7 @@ window._initPostHog=function(apiKey,host){
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
       <i class="ti ti-send" style="color:var(--green);font-size:18px"></i>
       <span style="font-size:15px;font-weight:600;flex:1">Wyślij DT-1 przez ePUAP / Profil Zaufany</span>
-      <button onclick="closeEpuapModal()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);padding:0 4px;line-height:1">&times;</button>
+      <button onclick="closeEpuapModal()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);padding:0 4px;line-height:1" aria-label="Zamknij">&times;</button>
     </div>
     <div style="overflow-y:auto;padding:20px;flex:1">
 
@@ -4887,7 +4887,7 @@ window._initPostHog=function(apiKey,host){
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
       <i class="ti ti-layout-columns" style="color:var(--blue);font-size:18px"></i>
       <span style="font-size:15px;font-weight:600;flex:1">Dostosuj kokpit</span>
-      <button onclick="closeDashCustomize()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);padding:0 4px;line-height:1">&times;</button>
+      <button onclick="closeDashCustomize()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);padding:0 4px;line-height:1" aria-label="Zamknij">&times;</button>
     </div>
     <div style="padding:14px 20px;border-bottom:1px solid var(--border)">
       <p style="font-size:12px;color:var(--text3);margin:0">

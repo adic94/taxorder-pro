@@ -136,6 +136,31 @@ function json(data, status = 200) {
 }
 function err(msg, status = 400) { return json({ error: msg }, status); }
 
+// ─── INPUT VALIDATION ─────────────────────────────────────────────────────────
+const VALID_ROLES = new Set(['admin', 'kierownik', 'dyspozytor', 'viewer', 'kierowca']);
+const EMAIL_RE    = /^[^\s@]{1,64}@[^\s@]{1,255}$/;
+
+function validateEmail(email) {
+  if (!email || typeof email !== 'string') return 'Email wymagany';
+  const e = email.trim().toLowerCase();
+  if (!EMAIL_RE.test(e)) return 'Nieprawidłowy format email';
+  if (e.length > 320) return 'Email zbyt długi (max 320 znaków)';
+  return null;
+}
+
+function validateStr(val, fieldName, { required = false, maxLen = 500 } = {}) {
+  if (required && (!val || !String(val).trim())) return `${fieldName} jest wymagane`;
+  if (val !== undefined && val !== null && String(val).length > maxLen) {
+    return `${fieldName} zbyt długie (max ${maxLen} znaków)`;
+  }
+  return null;
+}
+
+function validateRole(role) {
+  if (role && !VALID_ROLES.has(role)) return `Nieprawidłowa rola: ${role}. Dozwolone: ${[...VALID_ROLES].join(', ')}`;
+  return null;
+}
+
 // ─── CRYPTO ──────────────────────────────────────────────────────────────────
 // DEPRECATED: Stała sól używana przed schemą v5 (przed 2026-01-01).
 // Używana wyłącznie do weryfikacji starych hashy przy logowaniu — leniwa migracja usuwa ją po 1. logowaniu.
@@ -268,8 +293,10 @@ async function handleLogin(req, env) {
   try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
   const { email, password } = body;
   if (!email || !password) return err('Podaj email i hasło');
+  if (typeof email !== 'string' || email.length > 320) return err('Nieprawidłowy email');
+  if (typeof password !== 'string' || password.length > 256) return err('Nieprawidłowe hasło');
 
-  const emailLc = email.toLowerCase();
+  const emailLc = email.trim().toLowerCase();
   const ip = req.headers.get('CF-Connecting-IP') || 'unknown';
   const rlKey = `loginfail:${ip}:${emailLc}`;
   let attempts = 0;
@@ -519,6 +546,7 @@ async function handleVehicles(req, env, user, url, path) {
     try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
     const { vehicles } = body;
     if (!Array.isArray(vehicles) || !vehicles.length) return err('Brak pojazdów');
+    if (vehicles.length > 500) return err('Zbyt wiele pojazdów naraz (max 500)');
 
     const UPSERT = `
       INSERT INTO vehicles(company_id,nr_rej,axles_count,suspension_type,
@@ -545,6 +573,10 @@ async function handleVehicles(req, env, user, url, path) {
   if (req.method === 'PUT' && segs[2]) {
     let body;
     try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!body.nr_rej || String(body.nr_rej).trim().length === 0) return err('nr_rej wymagany');
+    if (String(body.nr_rej).length > 20) return err('nr_rej zbyt długi (max 20 znaków)');
+    const dataStr = typeof body.data === 'string' ? body.data : JSON.stringify(body.data ?? {});
+    if (dataStr.length > 65536) return err('Dane pojazdu zbyt duże (max 64 KB)');
     const putCompany = url.searchParams.get('company') || user.company_id || 'mtoilet';
     await env.DB.prepare(`
       INSERT INTO vehicles(company_id,nr_rej,axles_count,suspension_type,
@@ -1505,13 +1537,20 @@ async function handleUsers(req, env, user, url, path) {
     let body;
     try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
     const { email, name, password, role, company_id } = body;
-    if (!email || !password) return err('Email i hasło wymagane');
+    const emailErr = validateEmail(email);
+    if (emailErr) return err(emailErr);
+    if (!password || String(password).length < 6) return err('Hasło wymagane (min 6 znaków)');
+    if (String(password).length > 128) return err('Hasło zbyt długie (max 128 znaków)');
+    const nameErr = validateStr(name, 'Imię i nazwisko', { maxLen: 200 });
+    if (nameErr) return err(nameErr);
+    const roleErr = validateRole(role);
+    if (roleErr) return err(roleErr);
     const salt = genSalt();
     const hash = await hashPwd(password, salt);
     try {
       const res = await env.DB.prepare(
         'INSERT INTO users(email,name,password_hash,salt,role,company_id) VALUES(?,?,?,?,?,?)'
-      ).bind(email.toLowerCase(), name || email, hash, salt, role || 'viewer', company_id || null).run();
+      ).bind(email.trim().toLowerCase(), (name || email).trim(), hash, salt, role || 'viewer', company_id || null).run();
       return json({ ok: true, id: res.meta.last_row_id });
     } catch (e) {
       if (e.message.includes('UNIQUE')) return err('Email już istnieje', 409);
@@ -1522,8 +1561,14 @@ async function handleUsers(req, env, user, url, path) {
   if (req.method === 'PUT' && userId) {
     let body;
     try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const roleErr = validateRole(body.role);
+    if (roleErr) return err(roleErr);
+    const nameErr = validateStr(body.name, 'Imię i nazwisko', { maxLen: 200 });
+    if (nameErr) return err(nameErr);
+    if (body.password && String(body.password).length < 6) return err('Hasło zbyt krótkie (min 6 znaków)');
+    if (body.password && String(body.password).length > 128) return err('Hasło zbyt długie (max 128 znaków)');
     const sets = [], vals = [];
-    if (body.name)              { sets.push('name=?');          vals.push(body.name); }
+    if (body.name)              { sets.push('name=?');          vals.push(body.name.trim()); }
     if (body.role)              { sets.push('role=?');          vals.push(body.role); }
     if (body.active !== undefined) { sets.push('active=?');     vals.push(body.active ? 1 : 0); }
     if (body.company_id !== undefined) { sets.push('company_id=?'); vals.push(body.company_id || null); }
@@ -1919,7 +1964,9 @@ async function handleWebhooks(req, env, user, url, path) {
   if (req.method === 'POST' && !hookId) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
     if (!body.name) return err('Brak nazwy webhooka', 400);
+    if (String(body.name).length > 100) return err('Nazwa webhooka zbyt długa (max 100 znaków)', 400);
     if (!body.url || !/^https:\/\//.test(body.url)) return err('URL musi zaczynać się od https://', 400);
+    if (body.url.length > 2048) return err('URL webhooka zbyt długi (max 2048 znaków)', 400);
     const id = crypto.randomUUID();
     await env.DB.prepare(
       'INSERT INTO webhooks(id,company_id,name,url,events,secret,active) VALUES(?,?,?,?,?,?,1)'
@@ -2554,6 +2601,7 @@ async function cleanSessions(env) {
 async function handleChangeMyPassword(req, env, user) {
   let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
   if (!body.password || body.password.length < 6) return err('Hasło musi mieć minimum 6 znaków');
+  if (body.password.length > 128) return err('Hasło zbyt długie (max 128 znaków)');
   const salt = genSalt();
   const hash = await hashPwd(body.password, salt);
   await env.DB.prepare('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?').bind(hash, salt, user.id).run();
@@ -8029,6 +8077,12 @@ async function handleRequest(request, env, url, path) {
 
   // Protected endpoints
   const user = await getUser(request, env);
+
+  // Globalny limit API: 300 req/min per użytkownik (zapobiega abuse tokenem; Upstash opcjonalny)
+  if (user) {
+    const rlApi = await rateLimit(env, `api:${user.id}`, 300, 60);
+    if (!rlApi.allowed) return json({ error: 'Zbyt wiele zapytań. Poczekaj chwilę.' }, 429);
+  }
 
   // Klucze API są związane z JEDNĄ firmą — w przeciwieństwie do sesji ludzkich (które mogą przełączać firmy w UI),
   // każde żądanie kluczem API musi dotyczyć dokładnie tej firmy, do której klucz został wydany.

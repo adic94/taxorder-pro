@@ -497,7 +497,7 @@ ${recentViols.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń</p>' 
       _showModal(`
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
   <h2 style="margin:0;font-size:18px"><i class="ti ti-id-badge"></i> ${e(name)} — historia plików DDD</h2>
-  <button onclick="window.TachographModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  <button onclick="window.TachographModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
 </div>
 ${files.length === 0 ? '<p style="color:var(--text3)">Brak plików</p>' : `
 <table class="tach-table">
@@ -843,7 +843,7 @@ ${_violData.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń. Wczyta
       · Naruszenia: <span style="color:${(f.violations_count||0)>0?'#dc2626':'inherit'};font-weight:700">${f.violations_count || 0}</span>
     </div>
   </div>
-  <button onclick="window.TachographModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text3)">✕</button>
+  <button onclick="window.TachographModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text3)" aria-label="Zamknij">✕</button>
 </div>
 
 ${Object.keys(byDate).length > 0 ? `
@@ -1332,7 +1332,7 @@ ${f.vehicles?.length > 0 ? `
   <h3 style="margin:0;font-size:15px"><i class="ti ti-car-crash"></i> Widok do kontroli ITD/policji</h3>
   <div style="display:flex;gap:8px">
     <button class="btn btn-sm" onclick="window.print()"><i class="ti ti-printer"></i> Drukuj</button>
-    <button onclick="window.TachographModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+    <button onclick="window.TachographModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
   </div>
 </div>
 <div style="font-size:10px;color:var(--text3);margin-bottom:12px">
@@ -1720,7 +1720,7 @@ ${allViols.length>0 ? `
     _showModal(`
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
   <h3 style="margin:0;font-size:16px"><i class="ti ti-link"></i> Powiąż z kartoteką kierowców</h3>
-  <button onclick="window.TachographModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  <button onclick="window.TachographModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
 </div>
 <p style="font-size:13px;color:var(--text3);margin:0 0 16px">
   Kierowca w DDD: <strong>${e(driverName)}</strong>
@@ -1792,7 +1792,7 @@ ${allViols.length>0 ? `
   </div>
   <div style="display:flex;gap:8px;align-items:center">
     <button class="btn btn-sm" data-dkey="${e(driverKey)}" data-dname="${e(driverName)}" onclick="window.TachographModule._showInspectorView(this.dataset.dkey,this.dataset.dname)" title="Widok do kontroli ITD" style="background:#fff3cd;color:#856404"><i class="ti ti-car-crash"></i> Kontrola ITD</button>
-    <button onclick="window.TachographModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+    <button onclick="window.TachographModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
   </div>
 </div>
 
@@ -1949,7 +1949,7 @@ ${viols.length>50?`<div style="font-size:11px;color:var(--text3);padding:6px">Po
   <h3 style="margin:0;font-size:16px"><i class="ti ti-file-text"></i> Zaświadczenie o aktywności kierowcy</h3>
   <div style="display:flex;gap:8px">
     <button class="btn btn-sm" onclick="window.print()"><i class="ti ti-printer"></i> Drukuj</button>
-    <button onclick="window.TachographModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+    <button onclick="window.TachographModule._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
   </div>
 </div>
 <div id="tacho-statement-print" style="font-family:Arial,sans-serif;font-size:13px">

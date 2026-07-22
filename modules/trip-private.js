@@ -150,7 +150,7 @@
     inner.innerHTML = `
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
   <h3 style="margin:0">${trip ? 'Edytuj przejazd' : 'Nowy przejazd'}</h3>
-  <button onclick="window.TripPrivate._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  <button onclick="window.TripPrivate._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
 </div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
   <div><label style="font-size:12px;color:var(--text3)">Data *</label><br><input type="date" id="tp-f-date" class="sel" value="${trip?.trip_date||new Date().toISOString().slice(0,10)}" required></div>
@@ -234,7 +234,7 @@
       el.innerHTML = `
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
   <h3 style="margin:0"><i class="ti ti-receipt-tax"></i> Raport VAT — ${year}</h3>
-  <button onclick="window.TripPrivate._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  <button onclick="window.TripPrivate._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
 </div>
 <div style="display:flex;gap:10px;margin-bottom:16px">
   <div style="background:#dcfce7;border-radius:8px;padding:12px;flex:1;text-align:center">

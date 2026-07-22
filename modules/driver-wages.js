@@ -131,7 +131,7 @@ ${_wages.length === 0 ? `<div style="padding:40px;text-align:center;background:v
     inner.innerHTML = `
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
   <h3 style="margin:0"><i class="ti ti-calculator"></i> Oblicz wynagrodzenie</h3>
-  <button onclick="window.DriverWages._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  <button onclick="window.DriverWages._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
 </div>
 <div style="margin-bottom:12px">
   <label style="font-size:12px;color:var(--text3)">Kierowca (Nazwisko Imię)</label><br>
@@ -207,7 +207,7 @@ ${_wages.length === 0 ? `<div style="padding:40px;text-align:center;background:v
     inner.innerHTML = `
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
   <h3 style="margin:0">${e(w.driver_name)} · ${e(w.period_month)}</h3>
-  <button onclick="window.DriverWages._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  <button onclick="window.DriverWages._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
 </div>
 <table style="width:100%;font-size:13px;border-collapse:collapse">
   ${[
@@ -237,7 +237,7 @@ ${_wages.length === 0 ? `<div style="padding:40px;text-align:center;background:v
     inner.innerHTML = `
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
   <h3 style="margin:0"><i class="ti ti-settings"></i> Stawki wynagrodzeń</h3>
-  <button onclick="window.DriverWages._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  <button onclick="window.DriverWages._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
 </div>
 <div style="margin-bottom:14px">
   <h4 style="font-size:13px;margin:0 0 8px">Dodaj / aktualizuj stawkę</h4>

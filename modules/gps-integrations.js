@@ -108,7 +108,7 @@
     inner.innerHTML = `
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
   <h3 style="margin:0;color:${prov.color}">${prov.label} — konfiguracja</h3>
-  <button onclick="window.GpsIntegrations._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  <button onclick="window.GpsIntegrations._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
 </div>
 <div style="margin-bottom:12px">
   <label style="font-size:12px;color:var(--text3)">Token / Klucz API *</label><br>

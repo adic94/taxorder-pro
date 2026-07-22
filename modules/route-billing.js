@@ -93,7 +93,7 @@ ${_invoices.length ? _invoices.map(inv => {
     inner.innerHTML = `
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
   <h3 style="margin:0"><i class="ti ti-receipt"></i> ${inv ? 'Edytuj fakturę' : 'Nowa faktura'}</h3>
-  <button onclick="window.RouteBilling._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  <button onclick="window.RouteBilling._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
 </div>
 <input type="hidden" id="rb-id" value="${e(inv?.id||'')}">
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">

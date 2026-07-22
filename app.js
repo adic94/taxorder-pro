@@ -8699,6 +8699,14 @@ document.addEventListener('i18nChanged', () => {
   if (window.I18n) I18n.renderSelector();
 });
 
+// ── OFFLINE / ONLINE TOAST ─────────────────────────────────────────────────────
+window.addEventListener('offline', () => {
+  if (typeof toast === 'function') toast('⚠ Brak połączenia z internetem');
+});
+window.addEventListener('online', () => {
+  if (typeof toast === 'function') toast('✅ Połączenie przywrócone');
+});
+
 // ==================== INIT ====================
 
 window.addEventListener('load', async () => {

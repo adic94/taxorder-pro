@@ -85,6 +85,16 @@ for (const rel of SCAN_FILES) {
   // t('klucz') lub window.t('klucz') lub t("klucz")
   for (const m of src.matchAll(/\bt\(['"]([a-zA-Z0-9_.]+)['"]\)/g)) usedKeys.add(m[1]);
   for (const m of src.matchAll(/window\.t\(['"]([a-zA-Z0-9_.]+)['"]\)/g)) usedKeys.add(m[1]);
+
+  // i18n: 'klucz'  — obiekty z polem i18n (np. definicje tabów, kolumn)
+  for (const m of src.matchAll(/i18n:\s*['"]([a-zA-Z0-9_.]+)['"]/g)) usedKeys.add(m[1]);
+
+  // Dynamiczne prefixes — t(`prefix.${var}`) → oznacz cały prefix jako używany
+  // Wyodrębnij stałe prefiksy z template literals: t(`cal.month.${...}`)
+  for (const m of src.matchAll(/\bt\(`([a-zA-Z0-9_.]+)\.\$\{/g)) {
+    // Klucze z tym prefiksem są używane dynamicznie — dodaj marker
+    usedKeys.add('__dynamic__' + m[1]);
+  }
 }
 
 // ── 3. Analiza ────────────────────────────────────────────────────────────────
@@ -99,11 +109,20 @@ for (const lang of LANG_CODES) {
   totalIssues += missing.length;
 }
 
-// Klucze używane w kodzie ale niezdefiniowane w PL
-const undefinedUsed = [...usedKeys].filter(k => !BASE_KEYS.has(k));
+// Klucze używane w kodzie ale niezdefiniowane w PL (pomiń markery dynamiczne __dynamic__*)
+const undefinedUsed = [...usedKeys].filter(k => !k.startsWith('__dynamic__') && !BASE_KEYS.has(k));
 
 // Klucze zdefiniowane w PL ale nieużywane w kodzie (ostrzeżenie, nie błąd)
-const unusedInCode = [...BASE_KEYS].filter(k => !usedKeys.has(k));
+// Uwzględnij dynamiczne prefiksy — klucze z prefiksem oznaczonym __dynamic__prefix są używane
+const dynamicPrefixes = [...usedKeys].filter(k => k.startsWith('__dynamic__')).map(k => k.slice(11));
+const unusedInCode = [...BASE_KEYS].filter(k => {
+  if (usedKeys.has(k)) return false;
+  // Klucz pasuje do dynamicznego prefiksu — np. 'cal.month.1' pasuje do prefix 'cal.month'
+  for (const prefix of dynamicPrefixes) {
+    if (k.startsWith(prefix + '.')) return false;
+  }
+  return true;
+});
 
 // ── 4. Raport ────────────────────────────────────────────────────────────────
 

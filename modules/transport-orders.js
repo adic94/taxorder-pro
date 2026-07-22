@@ -164,7 +164,7 @@ ${_orders.length ? _orders.map((o, i) => `<tr>
     modal.innerHTML = `<div style="background:var(--bg);border-radius:12px;padding:24px;width:min(620px,96vw);max-height:90vh;overflow-y:auto">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
   <h3 style="margin:0"><i class="ti ti-mail-forward"></i> Email2Zlecenie — AI</h3>
-  <button onclick="document.getElementById('e2o-overlay').remove()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  <button onclick="document.getElementById('e2o-overlay').remove()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
 </div>
 <label style="font-size:12px;color:var(--text3)">Temat e-maila (opcjonalnie)</label><br>
 <input type="text" id="e2o-subject" class="sel" style="margin-bottom:8px" placeholder="np. Zlecenie transportu WA-2025/06/123"><br>

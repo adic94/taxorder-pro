@@ -143,7 +143,7 @@
     inner.innerHTML = `
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
   <h3 style="margin:0">${tmpl?'Edytuj formularz':'Nowy formularz'}</h3>
-  <button onclick="window.SmartForms._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  <button onclick="window.SmartForms._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
 </div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
   <div style="grid-column:1/-1">
@@ -195,7 +195,7 @@
         </label>
         ${f.type==='select'?`<div style="grid-column:1/-1"><input type="text" class="sel" style="font-size:12px" placeholder="Opcje oddzielone przecinkiem" value="${e((f.options||[]).join(','))}" onchange="window.SmartForms._updateField(${i},'options',this.value.split(',').map(s=>s.trim()))"></div>`:''}
       </div>
-      <button onclick="window.SmartForms._removeField(${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:16px">✕</button>
+      <button onclick="window.SmartForms._removeField(${i})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:16px" aria-label="Zamknij">✕</button>
     </div>`;
   }
 
@@ -252,7 +252,7 @@
     inner.innerHTML = `
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
   <h3 style="margin:0"><i class="ti ${CAT_ICON[tmpl.category]||'ti-forms'}"></i> ${e(tmpl.name)}</h3>
-  <button onclick="window.SmartForms._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  <button onclick="window.SmartForms._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
 </div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
   <div><label style="font-size:12px;color:var(--text3)">Pojazd (nr rej.)</label><br><input type="text" id="fill-veh" class="sel" placeholder="WA 12345"></div>
@@ -311,7 +311,7 @@ ${fieldsHtml}
       inner.innerHTML = `
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
   <h3 style="margin:0">Historia — ${e(tmpl?.name||'Formularz')}</h3>
-  <button onclick="window.SmartForms._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  <button onclick="window.SmartForms._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
 </div>
 ${subs.length===0?'<p style="color:var(--text3)">Brak wypełnień.</p>':`
 <table class="tach-table">
@@ -339,7 +339,7 @@ ${subs.length===0?'<p style="color:var(--text3)">Brak wypełnień.</p>':`
     inner.innerHTML = `
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
   <h3 style="margin:0">${e(sub.template_name||'Formularz')}</h3>
-  <button onclick="window.SmartForms._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  <button onclick="window.SmartForms._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
 </div>
 <div style="font-size:12px;color:var(--text3);margin-bottom:12px">${fmtDT(sub.submitted_at)} · ${e(sub.driver_name||'—')} · ${e(sub.vehicle_reg||'—')}</div>
 <div style="background:var(--bg2);border-radius:8px;padding:12px;font-size:13px">

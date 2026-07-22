@@ -94,7 +94,7 @@ ${_sessions.length ? _sessions.map(s => `<tr>
     inner.innerHTML = `
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
   <h3 style="margin:0"><i class="ti ti-bolt"></i> ${s ? 'Edytuj sesję' : 'Nowa sesja ładowania'}</h3>
-  <button onclick="window.EvCharging._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer">✕</button>
+  <button onclick="window.EvCharging._closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer" aria-label="Zamknij">✕</button>
 </div>
 <input type="hidden" id="evc-id" value="${e(s?.id||'')}">
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
