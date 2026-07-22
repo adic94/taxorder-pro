@@ -4,7 +4,8 @@
   const co  = () => window.currentCompanyId || localStorage.getItem('currentCompany') || '';
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API()}/api/vehicle-qr${path}?company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('cf_token')}`}, ...opts });
+    const sep = path.includes('?') ? '&' : '?';
+    const r = await fetch(`${API()}/api/vehicle-qr${path}${sep}company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('cf_token')}`}, ...opts });
     return r.json();
   }
 
