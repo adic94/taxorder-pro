@@ -393,7 +393,7 @@ window._initPostHog=function(apiKey,host){
       <button class="btn btn-gray" style="font-size:11px;padding:4px 10px" onclick="renderDash()" title="Odśwież dane pulpitu">
         <i class="ti ti-refresh"></i>Odśwież
       </button>
-      <button class="btn btn-gray" style="font-size:11px;padding:4px 10px" onclick="openDashCustomize()">
+      <button class="btn btn-blue" style="font-size:11px;padding:4px 12px" onclick="openDashCustomize()" title="Zmień kolejność, ukryj lub ustaw szerokość widgetów">
         <i class="ti ti-layout-columns"></i>Dostosuj kokpit
       </button>
     </div>
@@ -411,7 +411,7 @@ window._initPostHog=function(apiKey,host){
     <button class="btn btn-gray" style="font-size:12px" onclick="showPage('dr-import')"><i class="ti ti-scan"></i>Skan DR</button>
   </div>
 
-  <div id="dash-layout" style="display:flex;flex-direction:column">
+  <div id="dash-layout">
 
     <!-- Widget: KPI -->
     <div class="dash-widget" data-wid="kpi">
@@ -4889,7 +4889,11 @@ window._initPostHog=function(apiKey,host){
       <button onclick="closeDashCustomize()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);padding:0 4px;line-height:1">&times;</button>
     </div>
     <div style="padding:14px 20px;border-bottom:1px solid var(--border)">
-      <p style="font-size:12px;color:var(--text3);margin:0">Przeciągnij sekcje, aby zmienić kolejność. Odznacz, aby ukryć wybraną sekcję.</p>
+      <p style="font-size:12px;color:var(--text3);margin:0">
+        <i class="ti ti-grip-vertical" style="font-size:11px"></i> Przeciągnij aby zmienić kolejność &nbsp;·&nbsp;
+        <i class="ti ti-checkbox" style="font-size:11px"></i> Odznacz aby ukryć &nbsp;·&nbsp;
+        <i class="ti ti-layout-columns" style="font-size:11px"></i> <b>½</b> / <b>↔</b> — szerokość (pół / pełna)
+      </p>
     </div>
     <ul id="dash-customize-list" style="list-style:none;padding:8px 0;margin:0;overflow-y:auto;flex:1"></ul>
     <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px">

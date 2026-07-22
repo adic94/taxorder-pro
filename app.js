@@ -2718,13 +2718,13 @@ function renderPaliwoPage() {
 
 // ==================== MODULARNY KOKPIT ====================
 const DASH_WIDGETS = [
-  { id: 'kpi',              label: 'Wskaźniki KPI floty',             icon: 'ti-chart-bar' },
-  { id: 'notifs',           label: 'Mandaty / Kierowcy / Karty',      icon: 'ti-bell' },
-  { id: 'alerts',           label: 'Alerty terminów',                 icon: 'ti-bell-ringing' },
-  { id: 'service_fuel',     label: 'Serwis + Paliwo',                 icon: 'ti-tools' },
-  { id: 'activity',         label: 'Aktywność floty',                 icon: 'ti-activity' },
-  { id: 'policies_claims',  label: 'Polisy wygasajace + Rozliczenia', icon: 'ti-shield-check' },
-  { id: 'structure',        label: 'Struktura floty + DT-1',          icon: 'ti-chart-pie' },
+  { id: 'kpi',              label: 'Wskaźniki KPI floty',             icon: 'ti-chart-bar',    cols: 2 },
+  { id: 'notifs',           label: 'Mandaty / Kierowcy / Karty',      icon: 'ti-bell',         cols: 2 },
+  { id: 'alerts',           label: 'Alerty terminów',                 icon: 'ti-bell-ringing', cols: 2 },
+  { id: 'service_fuel',     label: 'Serwis + Paliwo',                 icon: 'ti-tools',        cols: 2 },
+  { id: 'activity',         label: 'Aktywność floty',                 icon: 'ti-activity',     cols: 2 },
+  { id: 'policies_claims',  label: 'Polisy wygasające + Rozliczenia', icon: 'ti-shield-check', cols: 2 },
+  { id: 'structure',        label: 'Struktura floty + DT-1',          icon: 'ti-chart-pie',    cols: 2 },
 ];
 
 const _DASH_LS_KEY = 'taxorder-dash-config';
@@ -2738,23 +2738,28 @@ function _getDashConfig() {
     const known = new Set(cfg.order || []);
     DASH_WIDGETS.forEach(w => { if (!known.has(w.id)) cfg.order.push(w.id); });
     cfg.hidden = cfg.hidden || [];
+    cfg.widths = cfg.widths || {};
     return cfg;
   } catch { return _dashDefaultConfig(); }
 }
 
 function _dashDefaultConfig() {
-  return { order: DASH_WIDGETS.map(w => w.id), hidden: [] };
+  return { order: DASH_WIDGETS.map(w => w.id), hidden: [], widths: {} };
 }
 
 function _applyDashConfig() {
   const cfg = _getDashConfig();
   const layout = document.getElementById('dash-layout');
   if (!layout) return;
+  // Przełącz na siatkę 2-kolumnową (zamiast flex-column z inline style)
+  layout.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:12px';
   cfg.order.forEach((id, idx) => {
     const el = layout.querySelector(`[data-wid="${id}"]`);
     if (!el) return;
     el.style.order = idx;
     el.style.display = cfg.hidden.includes(id) ? 'none' : '';
+    // Szerokość: half=1 kolumna, full(domyślnie)=2 kolumny
+    el.classList.toggle('dash-widget-half', cfg.widths[id] === 'half');
   });
 }
 
@@ -2769,13 +2774,19 @@ function openDashCustomize() {
     const w = DASH_WIDGETS.find(x => x.id === id);
     if (!w) return '';
     const hidden = cfg.hidden.includes(id);
-    return `<li class="dash-widget-row" data-wid="${id}" draggable="true"
+    const isHalf = cfg.widths[id] === 'half';
+    return `<li class="dash-widget-row" data-wid="${id}" data-width="${isHalf ? 'half' : 'full'}" draggable="true"
       style="display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--border);cursor:grab;user-select:none">
       <i class="ti ti-grip-vertical" style="color:var(--text3);font-size:17px;flex-shrink:0;pointer-events:none"></i>
       <input type="checkbox" id="dw-chk-${id}" ${hidden ? '' : 'checked'} style="width:15px;height:15px;cursor:pointer;flex-shrink:0">
       <label for="dw-chk-${id}" style="flex:1;cursor:pointer;display:flex;align-items:center;gap:7px;font-size:13px;pointer-events:none">
         <i class="ti ${w.icon}" style="color:var(--text2);font-size:15px"></i>${w.label}
       </label>
+      <button type="button" class="btn btn-gray dw-width-btn" style="font-size:11px;padding:3px 8px;flex-shrink:0;pointer-events:all"
+        title="${isHalf ? 'Pół szerokości — kliknij aby pełna' : 'Pełna szerokość — kliknij aby pół'}">
+        <i class="ti ${isHalf ? 'ti-layout-columns' : 'ti-layout-sidebar-right'}" style="font-size:12px"></i>
+        <span>${isHalf ? '½' : '↔'}</span>
+      </button>
     </li>`;
   }).join('');
   _initDashDnd(list);
@@ -3014,9 +3025,12 @@ function copyWarsawData() {
 function saveDashCustomize() {
   const list = document.getElementById('dash-customize-list');
   const items = [...list.querySelectorAll('[data-wid]')];
+  const widths = {};
+  items.forEach(el => { if (el.dataset.width === 'half') widths[el.dataset.wid] = 'half'; });
   const cfg = {
     order: items.map(el => el.dataset.wid),
     hidden: items.filter(el => !el.querySelector('input[type=checkbox]').checked).map(el => el.dataset.wid),
+    widths,
   };
   try { localStorage.setItem(_DASH_LS_KEY, JSON.stringify(cfg)); } catch (e) { console.warn('[Dash] Nie można zapisać konfiguracji:', e); }
   _applyDashConfig();
@@ -3033,6 +3047,19 @@ function resetDashCustomize() {
 
 function _initDashDnd(list) {
   let dragging = null;
+
+  // Toggle szerokości widgetu (half / full)
+  list.addEventListener('click', e => {
+    const btn = e.target.closest('.dw-width-btn');
+    if (!btn) return;
+    const li = btn.closest('li');
+    const isHalf = li.dataset.width === 'half';
+    li.dataset.width = isHalf ? 'full' : 'half';
+    btn.title = isHalf ? 'Pełna szerokość — kliknij aby pół' : 'Pół szerokości — kliknij aby pełna';
+    btn.querySelector('i').className = `ti ${isHalf ? 'ti-layout-sidebar-right' : 'ti-layout-columns'}`;
+    btn.querySelector('span').textContent = isHalf ? '↔' : '½';
+  });
+
   list.addEventListener('dragstart', e => {
     dragging = e.target.closest('[data-wid]');
     if (dragging) { dragging.style.opacity = '0.45'; dragging.style.cursor = 'grabbing'; }

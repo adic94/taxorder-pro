@@ -407,7 +407,13 @@ th.sort-th:hover{color:var(--blue)}
 /* Dash-2col kontenery nie mają marginesu-bottom — mają go karty wewnątrz */
 .dash-2col>.dash-card,.dash-3col>.dash-notif-card{margin-bottom:0}
 
-/* Modularny kokpit — wiersz drag-and-drop */
+/* Modularny kokpit — siatka 2-kolumnowa */
+.dash-widget{grid-column:span 2;min-width:0}
+.dash-widget-half{grid-column:span 1 !important}
+@media(max-width:900px){
+  .dash-widget-half{grid-column:span 2 !important}
+}
+/* Wiersz drag-and-drop w modalu */
 .dash-widget-row:hover{background:var(--bg3,var(--bg2))}
 .dash-widget-row.drag-over{border-top:2px solid var(--blue)}
 
