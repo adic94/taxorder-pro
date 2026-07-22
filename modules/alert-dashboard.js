@@ -157,7 +157,7 @@ window.TaxOrderAlertDashboard = (function () {
       const company = window.currentCompanyId || 'mtoilet';
       const r = await fetch(`${API}/api/vehicles?company=${company}`, { headers:{ Authorization:`Bearer ${token}` } });
       if (r.ok) {
-        const rows = await r.json();
+        const rows = await r.json().catch(() => []);
         vehs = rows.map(row => {
           let data = {};
           try { data = typeof row.data === 'string' ? JSON.parse(row.data) : (row.data || {}); } catch {}

@@ -4358,6 +4358,17 @@ window._initPostHog=function(apiKey,host){
   <script src="modules/esg-report.js"></script>
   <script src="modules/driver-worktime.js"></script>
   <script src="modules/clerk-auth.js"></script>
+<script>
+// Guard: prevents "doLogin is not defined" if app.js is still downloading.
+// The real async function doLogin() in app.js replaces this stub upon load.
+function doLogin() {
+  var e = document.getElementById('login-err');
+  if (e) { e.textContent = 'Aplikacja się wczytuje — spróbuj za chwilę.'; e.style.display = 'flex'; }
+  var btn = document.getElementById('login-btn');
+  if (btn) btn.disabled = true;
+  setTimeout(function() { if (btn) btn.disabled = false; if (e) e.style.display = 'none'; }, 1500);
+}
+</script>
 <script src="app.js"></script>
 <!-- ==================== MODAL RESETOWANIA HASLA ==================== -->
 <div id="pwd-reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">

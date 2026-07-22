@@ -25,25 +25,29 @@ window.TaxOrderNotifSettings = (function () {
   // ── API calls ───────────────────────────────────────────────────────────────
   async function _loadAlertTypes() {
     const r = await fetch(`${API()}/api/alert-types?company=${company()}`, { headers: hdrs() });
-    const d = r.ok ? await r.json() : {};
-    _alertTypes = d.types || d || [];
+    const d = r.ok ? await r.json().catch(() => ({})) : {};
+    const raw = d.types ?? d;
+    _alertTypes = Array.isArray(raw) ? raw : [];
   }
   async function _loadPrefs() {
     const r = await fetch(`${API()}/api/notif-prefs`, { headers: hdrs() });
-    const d = r.ok ? await r.json() : {};
-    const list = d.prefs || d || [];
+    const d = r.ok ? await r.json().catch(() => ({})) : {};
+    const raw = d.prefs ?? d;
+    const list = Array.isArray(raw) ? raw : [];
     _prefs = {};
     list.forEach(p => { _prefs[p.alert_type_id] = p; });
   }
   async function _loadTemplates() {
     const r = await fetch(`${API()}/api/maintenance-templates?company=${company()}`, { headers: hdrs() });
-    const d = r.ok ? await r.json() : {};
-    _templates = d.templates || d || [];
+    const d = r.ok ? await r.json().catch(() => ({})) : {};
+    const raw = d.templates ?? d;
+    _templates = Array.isArray(raw) ? raw : [];
   }
   async function _loadLog() {
     const r = await fetch(`${API()}/api/notif-log?company=${company()}&limit=100`, { headers: hdrs() });
-    const d = r.ok ? await r.json() : {};
-    _log = d.entries || d || [];
+    const d = r.ok ? await r.json().catch(() => ({})) : {};
+    const raw = d.entries ?? d;
+    _log = Array.isArray(raw) ? raw : [];
   }
 
   async function _savePref(typeId, patch) {
