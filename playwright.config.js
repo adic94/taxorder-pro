@@ -13,7 +13,8 @@ module.exports = defineConfig({
   expect: { timeout: 8_000 },
 
   // Uruchom logowanie raz przed całą sesją — wynik zapisany w .auth-state.json
-  globalSetup: process.env.TEST_EMAIL ? './tests/e2e/global-setup.js' : undefined,
+  // Akceptuje TEST_TOKEN (token z localStorage) LUB TEST_EMAIL+TEST_PASS
+  globalSetup: (process.env.TEST_EMAIL || process.env.TEST_TOKEN) ? './tests/e2e/global-setup.js' : undefined,
 
   reporter: [
     ['list'],
@@ -23,7 +24,7 @@ module.exports = defineConfig({
   use: {
     baseURL: process.env.TEST_URL || 'http://localhost:3000',
     // Każdy test startuje z przywróconym stanem logowania (bez ponownego logowania przez API)
-    storageState: process.env.TEST_EMAIL ? AUTH_STATE : undefined,
+    storageState: (process.env.TEST_EMAIL || process.env.TEST_TOKEN) ? AUTH_STATE : undefined,
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     trace: 'on-first-retry',
