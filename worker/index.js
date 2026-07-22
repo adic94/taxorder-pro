@@ -7897,9 +7897,15 @@ async function handleApprovalLevels(request, env, user, url, path) {
   const company = url.searchParams.get('company') || user.company_id;
   const id      = segs[3];
 
+  if (request.method === 'GET' && id) {
+    const level = await env.DB.prepare('SELECT * FROM approval_levels WHERE id=? AND company_id=?').bind(id, company).first();
+    if (!level) return err('Nie znaleziono', 404);
+    return json({ level });
+  }
+
   if (request.method === 'GET') {
     const { results } = await env.DB.prepare('SELECT * FROM approval_levels WHERE company_id=? ORDER BY level').bind(company).all();
-    return json(results);
+    return json({ levels: results });
   }
 
   if (request.method === 'POST') {

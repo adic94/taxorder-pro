@@ -95,8 +95,6 @@
     if (modal) modal.style.display = 'none';
   }
 
-  let _cache = [];
-
   async function _edit(id) {
     try {
       const data = await apiFetch(`/${id}`);
