@@ -1,15 +1,15 @@
-(function () {
+﻿(function () {
   'use strict';
 
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window.CF_WORKER_URL || '';
+  const co  = () => window.currentCompanyId || localStorage.getItem('currentCompany') || '';
 
   const STATUS_LABEL = { pending: 'Oczekuje', sent: 'Wysłana', accepted: 'Zaakceptowana', rejected: 'Odrzucona' };
   const STATUS_CLR   = { pending: '#f59e0b', sent: '#3b82f6', accepted: '#22c55e', rejected: '#ef4444' };
 
   async function api(path, opts = {}) {
-    const r = await fetch(`${API}/api/ksef${path}?company=${co()}`, {
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+    const r = await fetch(`${API()}/api/ksef${path}${path.includes('?')?'&':'?'}company=${co()}`, {
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('cf_token')}` },
       ...opts,
     });
     return r.json();
@@ -154,3 +154,5 @@
 
   window.KsefModule = { renderKsef, _load, _openModal, _save, _send, _delete, _syncNbp, _closeModal };
 })();
+
+

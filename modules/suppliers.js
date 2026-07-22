@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
   const API = () => window._cfApi?.() || window.WORKER_URL;
   const H   = () => window._cfHdrs?.() || {};
@@ -6,7 +6,7 @@
   const CAT_LBL = { fuel:'Paliwo', service:'Serwis', insurance:'Ubezpieczenie', tires:'Opony', parts:'Części zamienne', leasing:'Leasing', rental:'Wynajem', other:'Inny' };
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API()}/api/suppliers${path}?company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
+    const r = await fetch(`${API()}/api/suppliers${path}${path.includes('?')?'&':'?'}company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
     return r.json();
   }
 
@@ -116,3 +116,4 @@
   function _closeModal() { const m=document.getElementById('supp-modal'); if(m) m.style.display='none'; }
   window.SuppliersModule = { renderSuppliers, _load, _openModal, _save, _delete, _closeModal };
 })();
+

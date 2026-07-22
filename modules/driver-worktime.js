@@ -1,12 +1,12 @@
-(function () {
+﻿(function () {
   'use strict';
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window.CF_WORKER_URL || '';
+  const co  = () => window.currentCompanyId || localStorage.getItem('currentCompany') || '';
   const STATUS_LBL = { active:'W pracy', break:'Przerwa', completed:'Zakończona', rest:'Odpoczynek' };
   const STATUS_CLR = { active:'#22c55e', break:'#f59e0b', completed:'#3b82f6', rest:'#94a3b8' };
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API}/api/driver-worktime${path}?company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('authToken')}`}, ...opts });
+    const r = await fetch(`${API()}/api/driver-worktime${path}${path.includes('?')?'&':'?'}company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('cf_token')}`}, ...opts });
     return r.json();
   }
 
@@ -135,3 +135,5 @@
   function _closeModal() { const m=document.getElementById('dwt-modal'); if(m) m.style.display='none'; }
   window.DriverWorktime = { renderDriverWorktime, _load, _openModal, _save, _delete, _closeModal };
 })();
+
+

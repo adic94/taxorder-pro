@@ -1,12 +1,12 @@
-(function () {
+﻿(function () {
   'use strict';
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window.CF_WORKER_URL || '';
+  const co  = () => window.currentCompanyId || localStorage.getItem('currentCompany') || '';
   const STATUS_LBL = { draft:'Szkic', sent:'Wysłany', delivered:'Dostarczony', cancelled:'Anulowany' };
   const STATUS_CLR = { draft:'#94a3b8', sent:'#3b82f6', delivered:'#22c55e', cancelled:'#ef4444' };
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API}/api/cmr${path}?company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('authToken')}`}, ...opts });
+    const r = await fetch(`${API()}/api/cmr${path}${path.includes('?')?'&':'?'}company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('cf_token')}`}, ...opts });
     return r.json();
   }
 
@@ -153,3 +153,5 @@
   function _closeModal() { const m=document.getElementById('cmr-modal'); if(m) m.style.display='none'; }
   window.CmrModule = { renderCmr, _load, _openModal, _save, _print, _delete, _closeModal };
 })();
+
+

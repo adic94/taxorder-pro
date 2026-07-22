@@ -1,13 +1,13 @@
-(function () {
+﻿(function () {
   'use strict';
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window.CF_WORKER_URL || '';
+  const co  = () => window.currentCompanyId || localStorage.getItem('currentCompany') || '';
   const TYPE_LBL   = { incoming:'Przychodzące', outgoing:'Wychodzące' };
   const STATUS_LBL = { pending:'Oczekuje', sent:'Wysłane', delivered:'Dostarczone', read:'Odczytane', rejected:'Odrzucone' };
   const STATUS_CLR = { pending:'#f59e0b', sent:'#3b82f6', delivered:'#8b5cf6', read:'#22c55e', rejected:'#ef4444' };
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API}/api/edoreczenia${path}${path.includes('?') ? '&' : '?'}company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('authToken')}`}, ...opts });
+    const r = await fetch(`${API()}/api/edoreczenia${path}${path.includes('?') ? '&' : '?'}company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('cf_token')}`}, ...opts });
     return r.json();
   }
 
@@ -125,3 +125,4 @@
   function _closeModal() { const m=document.getElementById('edo-modal'); if(m) m.style.display='none'; }
   window.EdoreczeniaModule = { renderEdoreczenia, _load, _openModal, _save, _delete, _closeModal };
 })();
+

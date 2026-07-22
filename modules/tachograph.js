@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
 
   const API = () => window._cfApi?.() || window.WORKER_URL;
@@ -35,7 +35,7 @@
   // ── utils ──────────────────────────────────────────────────────────────────
 
   function _api(path, opts) {
-    const url = `${API()}/api/tacho-ddd/${path}?company=${encodeURIComponent(Co())}`;
+    const url = `${API()}/api/tacho-ddd/${path}${path.includes('?')?'&':'?'}company=${encodeURIComponent(Co())}`;
     return fetch(url, { headers: H(), ...opts });
   }
 
@@ -1999,3 +1999,4 @@ ${viols.length>50?`<div style="font-size:11px;color:var(--text3);padding:6px">Po
     _showInspectorView, _showDriverAnalysis,
   };
 })();
+

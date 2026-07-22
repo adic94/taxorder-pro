@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
   const API = () => window._cfApi?.() || window.WORKER_URL;
   const H   = () => window._cfHdrs?.() || {};
@@ -8,7 +8,7 @@
   const STATUS_LBL = { ok:'✅ OK', soon:'⚠️ Wkrótce', overdue:'🚨 Zaległy' };
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API()}/api/predictive-maintenance${path}?company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
+    const r = await fetch(`${API()}/api/predictive-maintenance${path}${path.includes('?')?'&':'?'}company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
     return r.json();
   }
 
@@ -150,3 +150,4 @@
   function _closeModal() { const m=document.getElementById('pm-modal'); if(m) m.style.display='none'; }
   window.PredictiveMaintenance = { renderPredictiveMaintenance, _load, _openModal, _save, _markDone, _recalculate, _delete, _closeModal };
 })();
+

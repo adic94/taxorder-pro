@@ -1,7 +1,7 @@
-(function () {
+﻿(function () {
   'use strict';
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window.CF_WORKER_URL || '';
+  const co  = () => window.currentCompanyId || localStorage.getItem('currentCompany') || '';
   const JPK_TYPES = {
     JPK_V7M: { lbl:'JPK_V7M (miesięczny VAT)', freq:'month' },
     JPK_V7K: { lbl:'JPK_V7K (kwartalny VAT)', freq:'quarter' },
@@ -14,7 +14,7 @@
   const STATUS_LBL = { generating:'Generowanie…', ready:'Gotowy', error:'Błąd', submitted:'Wysłany do MF' };
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API}/api/jpk${path}?company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('authToken')}`}, ...opts });
+    const r = await fetch(`${API()}/api/jpk${path}${path.includes('?')?'&':'?'}company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('cf_token')}`}, ...opts });
     return r.json();
   }
 
@@ -103,7 +103,7 @@
   }
 
   async function _download(id) {
-    const r = await fetch(`${API}/api/jpk/${id}/download?company=${co()}`, { headers:{'Authorization':`Bearer ${localStorage.getItem('authToken')}`} });
+    const r = await fetch(`${API()}/api/jpk/${id}/download?company=${co()}`, { headers:{'Authorization':`Bearer ${localStorage.getItem('cf_token')}`} });
     if (!r.ok) { alert('Błąd pobierania pliku.'); return; }
     const blob = await r.blob();
     const url = URL.createObjectURL(blob);
@@ -126,3 +126,5 @@
 
   window.JpkModule = { renderJpk, _load, _openGenerate, _closeGenerate, _generate, _download, _markSubmitted, _delete };
 })();
+
+

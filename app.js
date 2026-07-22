@@ -7331,6 +7331,9 @@ function _cfHdrs(extra) {
   return { 'Content-Type': 'application/json', ...(t ? { Authorization: 'Bearer ' + t } : {}), ...(extra || {}) };
 }
 function _cfCo() { return window.currentCompanyId || 'mtoilet'; }
+window._cfApi  = _cfApi;
+window._cfHdrs = _cfHdrs;
+window._cfCo   = _cfCo;
 
 async function _migrateKartyLocalStorage() {
   const raw = localStorage.getItem('dt1_karty');

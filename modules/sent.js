@@ -1,13 +1,13 @@
-(function () {
+﻿(function () {
   'use strict';
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window.CF_WORKER_URL || '';
+  const co  = () => window.currentCompanyId || localStorage.getItem('currentCompany') || '';
   const TYPE_LBL   = { road:'Drogowy', rail:'Kolejowy', other:'Inny' };
   const STATUS_LBL = { draft:'Szkic', registered:'Zarejestrowany', transit:'W tranzycie', completed:'Zakończony', cancelled:'Anulowany' };
   const STATUS_CLR = { draft:'#94a3b8', registered:'#3b82f6', transit:'#f59e0b', completed:'#22c55e', cancelled:'#ef4444' };
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API}/api/sent${path}?company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('authToken')}`}, ...opts });
+    const r = await fetch(`${API()}/api/sent${path}${path.includes('?')?'&':'?'}company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('cf_token')}`}, ...opts });
     return r.json();
   }
 
@@ -122,3 +122,5 @@
   function _closeModal() { const m=document.getElementById('sent-modal'); if(m) m.style.display='none'; }
   window.SentModule = { renderSent, _load, _openModal, _save, _delete, _closeModal };
 })();
+
+

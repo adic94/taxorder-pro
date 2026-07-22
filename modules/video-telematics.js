@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
   const API = () => window._cfApi?.() || window.WORKER_URL;
   const H   = () => window._cfHdrs?.() || {};
@@ -13,7 +13,7 @@
   const SEV_LBL = { low:'Niskie', medium:'Średnie', high:'Wysokie', critical:'Krytyczne' };
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API()}/api/video-telematics${path}?company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
+    const r = await fetch(`${API()}/api/video-telematics${path}${path.includes('?')?'&':'?'}company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
     return r.json();
   }
 
@@ -141,3 +141,4 @@
   function _closeModal() { const m=document.getElementById('vt-modal'); if(m) m.style.display='none'; }
   window.VideoTelematics = { renderVideoTelematics, _load, _openModal, _save, _delete, _closeModal };
 })();
+

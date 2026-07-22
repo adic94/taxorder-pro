@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
 
   const API = () => window._cfApi?.() || window.WORKER_URL;
@@ -12,7 +12,7 @@
   const STATUS_LABEL= { active: 'Aktywny', fulfilled: 'Zrealizowany', deleted: 'Usunięty', expired: 'Wygasły' };
 
   async function api(path, opts = {}) {
-    const r = await fetch(`${API()}/api/gdpr${path}?company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
+    const r = await fetch(`${API()}/api/gdpr${path}${path.includes('?')?'&':'?'}company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
     return r.json();
   }
 
@@ -156,3 +156,4 @@
 
   window.GdprModule = { renderGdpr, _load, _openModal, _save, _delete, _closeModal };
 })();
+

@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
 
   const API = () => window._cfApi?.() || window.WORKER_URL;
@@ -9,7 +9,7 @@
   const STATUS_LABEL = { open: 'Otwarty', full: 'Komplet', completed: 'Zakończony', cancelled: 'Anulowany' };
 
   async function api(path, opts = {}) {
-    const r = await fetch(`${API()}/api/carpooling${path}?company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
+    const r = await fetch(`${API()}/api/carpooling${path}${path.includes('?')?'&':'?'}company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
     return r.json();
   }
 
@@ -155,3 +155,4 @@
 
   window.CarpoolingModule = { renderCarpooling, _load, _openModal, _save, _addParticipant, _delete, _closeModal };
 })();
+

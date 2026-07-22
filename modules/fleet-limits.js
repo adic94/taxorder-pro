@@ -1,14 +1,14 @@
-(function () {
+﻿(function () {
   'use strict';
 
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window.CF_WORKER_URL || '';
+  const co  = () => window.currentCompanyId || localStorage.getItem('currentCompany') || '';
 
   const PERIOD_LABEL = { daily: 'Dzienny', weekly: 'Tygodniowy', monthly: 'Miesięczny', annual: 'Roczny' };
 
   async function api(path, opts = {}) {
-    const r = await fetch(`${API}/api/fleet-limits${path}?company=${co()}`, {
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+    const r = await fetch(`${API()}/api/fleet-limits${path}${path.includes('?')?'&':'?'}company=${co()}`, {
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('cf_token')}` },
       ...opts,
     });
     return r.json();
@@ -132,3 +132,5 @@
 
   window.FleetLimits = { renderFleetLimits, _load, _openModal, _save, _delete, _closeModal };
 })();
+
+

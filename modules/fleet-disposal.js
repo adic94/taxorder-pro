@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
   const API = () => window._cfApi?.() || window.WORKER_URL;
   const H   = () => window._cfHdrs?.() || {};
@@ -8,7 +8,7 @@
   const STATUS_LBL = { in_progress:'W trakcie', completed:'Zakończona', cancelled:'Anulowana' };
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API()}/api/fleet-disposal${path}?company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
+    const r = await fetch(`${API()}/api/fleet-disposal${path}${path.includes('?')?'&':'?'}company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
     return r.json();
   }
 
@@ -153,3 +153,4 @@
   function _closeModal() { const m=document.getElementById('disp-modal'); if(m) m.style.display='none'; }
   window.FleetDisposal = { renderFleetDisposal, _load, _openModal, _save, _print, _delete, _closeModal };
 })();
+

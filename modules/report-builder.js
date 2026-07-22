@@ -1,7 +1,7 @@
-(function () {
+﻿(function () {
   'use strict';
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window.CF_WORKER_URL || '';
+  const co  = () => window.currentCompanyId || localStorage.getItem('currentCompany') || '';
 
   const SOURCES = {
     vehicles: { lbl:'Pojazdy', cols:['reg','brand','model','year','fuel_type','dmc','status','driver','department'] },
@@ -15,7 +15,7 @@
   };
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API}/api/report-builder${path}?company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('authToken')}`}, ...opts });
+    const r = await fetch(`${API()}/api/report-builder${path}${path.includes('?')?'&':'?'}company=${co()}`, { headers:{'Content-Type':'application/json','Authorization':`Bearer ${localStorage.getItem('cf_token')}`}, ...opts });
     return r.json();
   }
 
@@ -187,3 +187,5 @@
   function _closeSaved() { const m=document.getElementById('rb-saved-modal'); if(m) m.style.display='none'; }
   window.ReportBuilder = { renderReportBuilder, _updateCols, _runReport, _exportCsv, _saveReport, _openSaved, _loadConfig, _deleteConfig, _closeSaved };
 })();
+
+

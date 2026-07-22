@@ -1,8 +1,8 @@
-(function () {
+﻿(function () {
   'use strict';
 
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window.CF_WORKER_URL || '';
+  const co  = () => window.currentCompanyId || localStorage.getItem('currentCompany') || '';
 
   const STATUS_ICON = { ok: '✅', warning: '⚠️', fail: '❌' };
   const STATUS_CLR  = { ok: '#22c55e', warning: '#f59e0b', fail: '#ef4444' };
@@ -15,8 +15,8 @@
   ];
 
   async function api(path, opts = {}) {
-    const r = await fetch(`${API}/api/vehicle-inspections${path}?company=${co()}`, {
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+    const r = await fetch(`${API()}/api/vehicle-inspections${path}${path.includes('?')?'&':'?'}company=${co()}`, {
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('cf_token')}` },
       ...opts,
     });
     return r.json();
@@ -187,3 +187,5 @@
 
   window.VehicleInspections = { renderVehicleInspections, _load, _openModal, _save, _print, _delete, _closeModal };
 })();
+
+

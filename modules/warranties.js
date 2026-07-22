@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
   const API = () => window._cfApi?.() || window.WORKER_URL;
   const H   = () => window._cfHdrs?.() || {};
@@ -8,7 +8,7 @@
   const RECALL_CLR = { open:'#ef4444', scheduled:'#f59e0b', completed:'#22c55e' };
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API()}/api/warranties${path}?company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
+    const r = await fetch(`${API()}/api/warranties${path}${path.includes('?')?'&':'?'}company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
     return r.json();
   }
 
@@ -131,3 +131,4 @@
   function _closeModal() { const m=document.getElementById('warr-modal'); if(m) m.style.display='none'; }
   window.WarrantiesModule = { renderWarranties, _load, _openModal, _save, _delete, _closeModal };
 })();
+

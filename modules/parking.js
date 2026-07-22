@@ -1,15 +1,15 @@
-(function () {
+﻿(function () {
   'use strict';
 
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window.CF_WORKER_URL || '';
+  const co  = () => window.currentCompanyId || localStorage.getItem('currentCompany') || '';
 
   const TYPE_ICON  = { standard: '🅿️', ev: '⚡', bus: '🚌', disabled: '♿', reserved: '🔒' };
   const TYPE_LABEL = { standard: 'Standardowe', ev: 'Ładowarka EV', bus: 'Dla busów', disabled: 'Niepełnosprawni', reserved: 'Zarezerwowane' };
 
   async function api(path, opts = {}) {
-    const r = await fetch(`${API}/api/parking${path}?company=${co()}`, {
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+    const r = await fetch(`${API()}/api/parking${path}${path.includes('?')?'&':'?'}company=${co()}`, {
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('cf_token')}` },
       ...opts,
     });
     return r.json();
@@ -165,3 +165,5 @@
 
   window.ParkingModule = { renderParking, _setView, _load, _openModal, _save, _release, _delete, _closeModal };
 })();
+
+

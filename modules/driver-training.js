@@ -1,16 +1,16 @@
-(function () {
+﻿(function () {
   'use strict';
 
-  const API = window.WORKER_URL || '';
-  const co  = () => localStorage.getItem('currentCompany') || '';
+  const API = () => window.CF_WORKER_URL || '';
+  const co  = () => window.currentCompanyId || localStorage.getItem('currentCompany') || '';
 
   const TYPE_LABEL = { training: 'Szkolenie', medical: 'Badanie lekarskie', psycho: 'Badanie psychol.', license_renewal: 'Odnowienie kat.' };
   const TYPE_ICON  = { training: 'ti-school', medical: 'ti-stethoscope', psycho: 'ti-brain', license_renewal: 'ti-id-badge-2' };
   const RESULT_CLR = { passed: '#22c55e', failed: '#ef4444', pending: '#f59e0b' };
 
   async function api(path, opts = {}) {
-    const r = await fetch(`${API}/api/driver-training${path}?company=${co()}`, {
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+    const r = await fetch(`${API()}/api/driver-training${path}${path.includes('?')?'&':'?'}company=${co()}`, {
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('cf_token')}` },
       ...opts,
     });
     return r.json();
@@ -149,3 +149,5 @@
 
   window.DriverTraining = { renderDriverTraining, _load, _openModal, _save, _delete, _closeModal };
 })();
+
+

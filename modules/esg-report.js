@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
   const API = () => window._cfApi?.() || window.WORKER_URL;
   const H   = () => window._cfHdrs?.() || {};
@@ -16,7 +16,7 @@
   };
 
   async function api(path, opts={}) {
-    const r = await fetch(`${API()}/api/esg-targets${path}?company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
+    const r = await fetch(`${API()}/api/esg-targets${path}${path.includes('?')?'&':'?'}company=${encodeURIComponent(Co())}`, { headers: H(), ...opts });
     return r.json();
   }
 
@@ -174,3 +174,4 @@
   function _closeModal() { const m=document.getElementById('esg-modal'); if(m) m.style.display='none'; }
   window.EsgReport = { renderEsgReport, _load, _openSetTarget, _saveTarget, _deleteTarget, _generateReport, _closeModal };
 })();
+
