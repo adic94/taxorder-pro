@@ -531,12 +531,14 @@ async function handlePzUserinfo(request, env) {
 async function handleVehicles(req, env, user, url, path) {
   const segs = path.split('/').filter(Boolean); // ['api','vehicles',...]
 
-  // GET /api/vehicles?company=mtoilet
+  // GET /api/vehicles?company=mtoilet[&limit=N&offset=N]
   if (req.method === 'GET') {
     const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
+    const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '2000'), 5000);
+    const offset = Math.max(parseInt(url.searchParams.get('offset') || '0'),    0);
     const rows = await env.DB.prepare(
-      'SELECT * FROM vehicles WHERE company_id = ? ORDER BY nr_rej'
-    ).bind(company).all();
+      'SELECT * FROM vehicles WHERE company_id = ? ORDER BY nr_rej LIMIT ? OFFSET ?'
+    ).bind(company, limit, offset).all();
     return json(rows.results || []);
   }
 
@@ -882,13 +884,15 @@ async function handleDocs(req, env, user, url, path) {
 async function handleDamages(req, env, user, url, path) {
   const segs = path.split('/').filter(Boolean); // ['api','damages',...]
 
-  // GET /api/damages?company=&nrRej= — lista (cała flota lub jeden pojazd)
+  // GET /api/damages?company=&nrRej=[&limit=N&offset=N]
   if (req.method === 'GET' && segs.length === 2) {
     const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     const nrRej   = url.searchParams.get('nrRej');
+    const limit   = Math.min(parseInt(url.searchParams.get('limit')  || '500'), 2000);
+    const offset  = Math.max(parseInt(url.searchParams.get('offset') || '0'),   0);
     const rows = nrRej
-      ? await env.DB.prepare('SELECT * FROM damage_reports WHERE company_id=? AND nr_rej=? ORDER BY data_zdarzenia DESC, created_at DESC').bind(company, nrRej).all()
-      : await env.DB.prepare('SELECT * FROM damage_reports WHERE company_id=? ORDER BY data_zdarzenia DESC, created_at DESC').bind(company).all();
+      ? await env.DB.prepare('SELECT * FROM damage_reports WHERE company_id=? AND nr_rej=? ORDER BY data_zdarzenia DESC, created_at DESC LIMIT ? OFFSET ?').bind(company, nrRej, limit, offset).all()
+      : await env.DB.prepare('SELECT * FROM damage_reports WHERE company_id=? ORDER BY data_zdarzenia DESC, created_at DESC LIMIT ? OFFSET ?').bind(company, limit, offset).all();
     const reports = rows.results || [];
     if (reports.length) {
       const ids = reports.map(r => r.id);
@@ -995,11 +999,14 @@ async function handleTires(req, env, user, url, path) {
     const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     const status  = url.searchParams.get('status');
     const nrRej   = url.searchParams.get('nrRej');
+    const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '2000'), 5000);
+    const offset = Math.max(parseInt(url.searchParams.get('offset') || '0'),    0);
     let sql = 'SELECT * FROM tires WHERE company_id=?';
     const params = [company];
     if (status) { sql += ' AND status=?'; params.push(status); }
     if (nrRej)  { sql += ' AND nr_rej=?';  params.push(nrRej); }
-    sql += ' ORDER BY updated_at DESC';
+    sql += ' ORDER BY updated_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
     const rows = await env.DB.prepare(sql).bind(...params).all();
     return json((rows.results || []).map(r => ({ ...r, historia: JSON.parse(r.historia || '[]') })));
   }
@@ -1083,11 +1090,14 @@ async function handleServiceOrders(req, env, user, url, path) {
     const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     const nrRej   = url.searchParams.get('nrRej');
     const status  = url.searchParams.get('status');
+    const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '2000'), 5000);
+    const offset = Math.max(parseInt(url.searchParams.get('offset') || '0'),    0);
     let sql = 'SELECT * FROM service_orders WHERE company_id=?';
     const params = [company];
     if (nrRej)  { sql += ' AND nr_rej=?'; params.push(nrRej); }
     if (status) { sql += ' AND status=?'; params.push(status); }
-    sql += ' ORDER BY created_at DESC';
+    sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
     const rows = await env.DB.prepare(sql).bind(...params).all();
     return json(rows.results || []);
   }
@@ -1165,13 +1175,15 @@ async function handleServiceOrders(req, env, user, url, path) {
 async function handleProtocols(req, env, user, url, path) {
   const segs = path.split('/').filter(Boolean); // ['api','protocols',...]
 
-  // GET /api/protocols?company=&nrRej=
+  // GET /api/protocols?company=&nrRej=[&limit=N&offset=N]
   if (req.method === 'GET' && segs.length === 2) {
     const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     const nrRej   = url.searchParams.get('nrRej');
+    const limit   = Math.min(parseInt(url.searchParams.get('limit')  || '500'), 2000);
+    const offset  = Math.max(parseInt(url.searchParams.get('offset') || '0'),   0);
     const rows = nrRej
-      ? await env.DB.prepare('SELECT * FROM handover_protocols WHERE company_id=? AND nr_rej=? ORDER BY data DESC').bind(company, nrRej).all()
-      : await env.DB.prepare('SELECT * FROM handover_protocols WHERE company_id=? ORDER BY data DESC').bind(company).all();
+      ? await env.DB.prepare('SELECT * FROM handover_protocols WHERE company_id=? AND nr_rej=? ORDER BY data DESC LIMIT ? OFFSET ?').bind(company, nrRej, limit, offset).all()
+      : await env.DB.prepare('SELECT * FROM handover_protocols WHERE company_id=? ORDER BY data DESC LIMIT ? OFFSET ?').bind(company, limit, offset).all();
     const protocols = rows.results || [];
     if (protocols.length) {
       const ids = protocols.map(p => p.id);
@@ -1269,7 +1281,9 @@ async function handleCfmClients(req, env, user, url, path) {
 
   if (req.method === 'GET' && segs.length === 2) {
     const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
-    const rows = await env.DB.prepare('SELECT * FROM cfm_clients WHERE company_id=? ORDER BY nazwa').bind(company).all();
+    const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '2000'), 5000);
+    const offset = Math.max(parseInt(url.searchParams.get('offset') || '0'),    0);
+    const rows = await env.DB.prepare('SELECT * FROM cfm_clients WHERE company_id=? ORDER BY nazwa LIMIT ? OFFSET ?').bind(company, limit, offset).all();
     return json(rows.results || []);
   }
 
@@ -1324,13 +1338,16 @@ async function handleCfmContracts(req, env, user, url, path) {
     const clientRef  = url.searchParams.get('clientRef');
     const nrRej      = url.searchParams.get('nrRej');
     const status     = url.searchParams.get('status');
+    const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '1000'), 5000);
+    const offset = Math.max(parseInt(url.searchParams.get('offset') || '0'),    0);
     let sql = 'SELECT * FROM cfm_contracts WHERE company_id=?';
     const params = [company];
     if (clientType) { sql += ' AND client_type=?'; params.push(clientType); }
     if (clientRef)  { sql += ' AND client_ref=?';  params.push(clientRef); }
     if (nrRej)      { sql += ' AND nr_rej=?';      params.push(nrRej); }
     if (status)     { sql += ' AND status=?';      params.push(status); }
-    sql += ' ORDER BY created_at DESC';
+    sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
     const rows = await env.DB.prepare(sql).bind(...params).all();
     return json(rows.results || []);
   }
@@ -1395,12 +1412,15 @@ async function handleCfmInvoices(req, env, user, url, path) {
     const clientType = url.searchParams.get('clientType');
     const clientRef  = url.searchParams.get('clientRef');
     const okres      = url.searchParams.get('okres');
+    const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '2000'), 5000);
+    const offset = Math.max(parseInt(url.searchParams.get('offset') || '0'),    0);
     let sql = 'SELECT * FROM cfm_invoices WHERE company_id=?';
     const params = [company];
     if (clientType) { sql += ' AND client_type=?'; params.push(clientType); }
     if (clientRef)  { sql += ' AND client_ref=?';  params.push(clientRef); }
     if (okres)      { sql += ' AND okres=?';       params.push(okres); }
-    sql += ' ORDER BY created_at DESC';
+    sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
     const rows = await env.DB.prepare(sql).bind(...params).all();
     return json((rows.results || []).map(r => ({ ...r, pozycje: JSON.parse(r.pozycje || '[]') })));
   }
@@ -1667,14 +1687,15 @@ async function handleFines(req, env, user, url, path) {
   if (req.method === 'GET') {
     const nrRej  = url.searchParams.get('nr_rej');
     const paid   = url.searchParams.get('paid');
-    const limit  = Math.min(parseInt(url.searchParams.get('limit') || '500'), 1000);
+    const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '500'), 2000);
+    const offset = Math.max(parseInt(url.searchParams.get('offset') || '0'),   0);
     let q = 'SELECT * FROM fines WHERE company_id=?';
     const p = [company];
     if (nrRej) { q += ' AND nr_rej=?'; p.push(nrRej); }
     if (paid === '0') q += ' AND paid=0';
     if (paid === '1') q += ' AND paid=1';
-    q += ' ORDER BY date DESC LIMIT ?';
-    p.push(limit);
+    q += ' ORDER BY date DESC LIMIT ? OFFSET ?';
+    p.push(limit, offset);
     const rows = await env.DB.prepare(q).bind(...p).all();
     return json({ ok: true, fines: rows.results || [] });
   }
@@ -2068,9 +2089,9 @@ async function handleDashboardStats(env, company) {
   const fmt   = d => d.toISOString().slice(0,10);
 
   const [vehRes, fineRes, drvRes] = await Promise.all([
-    env.DB.prepare('SELECT data FROM vehicles WHERE company_id=? AND (json_extract(data,\'$.isArchived\') IS NULL OR json_extract(data,\'$.isArchived\')!=1)').bind(company).all(),
-    env.DB.prepare('SELECT deadline FROM fines WHERE company_id=? AND paid=0').bind(company).all().catch(() => ({ results: [] })),
-    env.DB.prepare('SELECT license_expiry FROM drivers WHERE company_id=?').bind(company).all().catch(() => ({ results: [] })),
+    env.DB.prepare('SELECT data FROM vehicles WHERE company_id=? AND (json_extract(data,\'$.isArchived\') IS NULL OR json_extract(data,\'$.isArchived\')!=1) LIMIT 5000').bind(company).all(),
+    env.DB.prepare('SELECT deadline FROM fines WHERE company_id=? AND paid=0 LIMIT 2000').bind(company).all().catch(() => ({ results: [] })),
+    env.DB.prepare('SELECT license_expiry FROM drivers WHERE company_id=? LIMIT 2000').bind(company).all().catch(() => ({ results: [] })),
   ]);
 
   const todayStr = fmt(today);
@@ -2206,7 +2227,7 @@ async function handleTekomIntegration(req, env, user, url, path) {
       const tekomVehs = await tekomGetVehicles(token);
 
       // Pobierz pojazdy TaxOrder dla tej firmy
-      const dbVehs = await env.DB.prepare('SELECT id, nr_rej, data FROM vehicles WHERE company_id = ?').bind(company).all();
+      const dbVehs = await env.DB.prepare('SELECT id, nr_rej, data FROM vehicles WHERE company_id = ? LIMIT 5000').bind(company).all();
       const vehMap = {};
       for (const v of (dbVehs.results || [])) {
         // Indeksuj po różnych formach nr rej (bez spacji, bez kresek, uppercase)
@@ -2307,7 +2328,7 @@ async function handleTekomIntegration(req, env, user, url, path) {
 }
 
 async function handleExport(env, company) {
-  const vehiclesRes = await env.DB.prepare('SELECT * FROM vehicles WHERE company_id = ? ORDER BY nr_rej').bind(company).all();
+  const vehiclesRes = await env.DB.prepare('SELECT * FROM vehicles WHERE company_id = ? ORDER BY nr_rej LIMIT 10000').bind(company).all();
   const vehicles = (vehiclesRes.results || []).map(v => parseJsonCols(v, ['data']));
 
   const out = { exportedAt: new Date().toISOString(), company_id: company, vehicles };
@@ -3834,7 +3855,7 @@ async function checkInspectionDeadlines(env) {
   ];
   const WARN_DAYS = [30, 7];
 
-  const vehicles = await env.DB.prepare('SELECT nr_rej, company_id, data FROM vehicles').all().catch(() => ({ results: [] }));
+  const vehicles = await env.DB.prepare('SELECT nr_rej, company_id, data FROM vehicles LIMIT 10000').all().catch(() => ({ results: [] }));
   const now = Date.now();
 
   for (const vRow of (vehicles.results || [])) {
@@ -4321,14 +4342,15 @@ async function handleFuelFills(req, env, user, url, path) {
     const nrRej  = url.searchParams.get('nr_rej');
     const month  = url.searchParams.get('month');
     const branch = url.searchParams.get('branch_id');
-    const limit  = Math.min(parseInt(url.searchParams.get('limit') || '500'), 2000);
+    const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '500'), 5000);
+    const offset = Math.max(parseInt(url.searchParams.get('offset') || '0'),   0);
     let q = 'SELECT * FROM fuel_fills WHERE company_id=?';
     const p = [company];
     if (nrRej)  { q += ' AND nr_rej=?';            p.push(nrRej); }
     if (month)  { q += ' AND fill_date LIKE ?';     p.push(`${month}%`); }
     if (branch) { q += ' AND branch_id=?';          p.push(parseInt(branch)); }
-    q += ' ORDER BY fill_date DESC, created_at DESC LIMIT ?';
-    p.push(limit);
+    q += ' ORDER BY fill_date DESC, created_at DESC LIMIT ? OFFSET ?';
+    p.push(limit, offset);
     return json((await env.DB.prepare(q).bind(...p).all()).results || []);
   }
 
@@ -4730,11 +4752,14 @@ async function handleVehicleReservations(req, env, user, url, path) {
   if (method === 'GET') {
     const nrRej  = url.searchParams.get('nr_rej') || '';
     const status = url.searchParams.get('status') || '';
+    const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '1000'), 5000);
+    const offset = Math.max(parseInt(url.searchParams.get('offset') || '0'),    0);
     let q = 'SELECT * FROM vehicle_reservations WHERE company_id=?';
     const p = [company];
     if (nrRej)  { q += ' AND nr_rej=?'; p.push(nrRej); }
     if (status) { q += ' AND status=?'; p.push(status); }
-    q += ' ORDER BY date_from DESC';
+    q += ' ORDER BY date_from DESC LIMIT ? OFFSET ?';
+    p.push(limit, offset);
     const rows = (await env.DB.prepare(q).bind(...p).all()).results || [];
     return json(rows);
   }
@@ -8538,9 +8563,9 @@ async function previewNotificationJobs(env) {
     totalSubs += subs.length;
 
     const [vehRows, drvRows, fineRows] = await Promise.all([
-      env.DB.prepare('SELECT nr_rej, data FROM vehicles WHERE company_id=?').bind(company_id).all(),
-      env.DB.prepare('SELECT name, license_expiry FROM drivers WHERE company_id=?').bind(company_id).all().catch(() => ({ results: [] })),
-      env.DB.prepare('SELECT nr_rej, driver_name, deadline, paid FROM fines WHERE company_id=? AND paid=0').bind(company_id).all().catch(() => ({ results: [] })),
+      env.DB.prepare('SELECT nr_rej, data FROM vehicles WHERE company_id=? LIMIT 5000').bind(company_id).all(),
+      env.DB.prepare('SELECT name, license_expiry FROM drivers WHERE company_id=? LIMIT 2000').bind(company_id).all().catch(() => ({ results: [] })),
+      env.DB.prepare('SELECT nr_rej, driver_name, deadline, paid FROM fines WHERE company_id=? AND paid=0 LIMIT 2000').bind(company_id).all().catch(() => ({ results: [] })),
     ]);
     const allAlerts = [
       ...buildVehicleAlerts(vehRows.results || [], alertTypes),
@@ -8644,9 +8669,9 @@ async function queueNotificationJobs(env) {
     if (!subs.length) continue;
 
     const [vehRows, drvRows, fineRows] = await Promise.all([
-      env.DB.prepare('SELECT nr_rej, data FROM vehicles WHERE company_id=?').bind(company_id).all(),
-      env.DB.prepare('SELECT name, license_expiry FROM drivers WHERE company_id=?').bind(company_id).all().catch(() => ({ results: [] })),
-      env.DB.prepare('SELECT nr_rej, driver_name, deadline, paid FROM fines WHERE company_id=? AND paid=0').bind(company_id).all().catch(() => ({ results: [] })),
+      env.DB.prepare('SELECT nr_rej, data FROM vehicles WHERE company_id=? LIMIT 5000').bind(company_id).all(),
+      env.DB.prepare('SELECT name, license_expiry FROM drivers WHERE company_id=? LIMIT 2000').bind(company_id).all().catch(() => ({ results: [] })),
+      env.DB.prepare('SELECT nr_rej, driver_name, deadline, paid FROM fines WHERE company_id=? AND paid=0 LIMIT 2000').bind(company_id).all().catch(() => ({ results: [] })),
     ]);
     const allAlerts = [
       ...buildVehicleAlerts(vehRows.results || [], alertTypes),
@@ -8923,7 +8948,7 @@ async function _sendNotificationsSync(env) {
     const subRows = await env.DB.prepare('SELECT * FROM push_subscriptions WHERE company_id=?').bind(company_id).all();
     const subs = subRows.results || [];
     if (!subs.length) continue;
-    const vehRows = await env.DB.prepare('SELECT nr_rej, data FROM vehicles WHERE company_id=?').bind(company_id).all();
+    const vehRows = await env.DB.prepare('SELECT nr_rej, data FROM vehicles WHERE company_id=? LIMIT 5000').bind(company_id).all();
     const vehicleAlerts = buildVehicleAlerts(vehRows.results || [], alertTypes);
     if (!vehicleAlerts.length) continue;
     const prefRows = await env.DB.prepare(
@@ -9730,11 +9755,14 @@ async function handleInsurance(req, env, user, url, path) {
     if (method === 'GET') {
       const status = url.searchParams.get('status') || '';
       const vreg   = url.searchParams.get('vehicle_reg') || '';
+    const limit  = Math.min(parseInt(url.searchParams.get('limit')  || '1000'), 5000);
+    const offset = Math.max(parseInt(url.searchParams.get('offset') || '0'),    0);
       let q = 'SELECT * FROM insurance_policies WHERE company_id=?';
       const p = [co];
       if (status) { q += ' AND status=?'; p.push(status); }
       if (vreg)   { q += ' AND vehicle_reg LIKE ?'; p.push('%' + vreg + '%'); }
-      q += ' ORDER BY end_date ASC';
+      q += ' ORDER BY end_date ASC LIMIT ? OFFSET ?';
+      p.push(limit, offset);
       const rows = (await env.DB.prepare(q).bind(...p).all()).results || [];
       return json(rows);
     }
