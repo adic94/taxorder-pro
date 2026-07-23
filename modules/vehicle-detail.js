@@ -113,6 +113,7 @@ window.TaxOrderVehicleDetail = {
       typ:                  g('typ'),
       // === DOWÓD REJESTRACYJNY ===
       dataRejestracji:      g('dataRej'),          // B
+      krajRejestracji:      g('krajRejestracji'),
       docDataWydania:       g('docDataWydania'),   // I
       docWaznyDo:           g('docWaznyDo'),        // H
       katPojazdu:           g('katPojazdu'),        // J
@@ -210,7 +211,22 @@ window.TaxOrderVehicleDetail = {
       kartaPaliwowa:         g('kartaPaliwowa'),
       nrRFID:                g('nrRFID'),
       gpsDeviceSerial:       g('gpsDeviceSerial'),
+      pinUrzadzenia:         g('pinUrzadzenia'),
+      tid:                   g('tid'),
       mpkKonto:              g('mpkKonto'),
+      grupaPojazdow:         g('grupaPojazdow'),
+      podtypPojazdu:         g('podtypPojazdu'),
+      wlascicielPojazdu:     g('wlascicielPojazdu'),
+      opiekun:               g('opiekun'),
+      obszarPojazdu:         g('obszarPojazdu'),
+      pojazdUprzywilejowany: gb('pojazdUprzywilejowany'),
+      pojazdKluczykowy:      gb('pojazdKluczykowy'),
+      autostrady:            gb('autostrady'),
+      uzytekPrywatny:        gb('uzytekPrywatny'),
+      pojazdGPS:             gb('pojazdGPS'),
+      przewozWlasny:         gb('przewozWlasny'),
+      rejestracjaEtoll:      gb('rejestracjaEtoll'),
+      wysylanieEtoll:        gb('wysylanieEtoll'),
       // === SERWISOWANIE OLEJU ===
       lastOilChangeKm:       gi('lastOilChangeKm'),
       oilChangeInterval:     gi('oilChangeInterval'),
@@ -490,6 +506,7 @@ window.TaxOrderVehicleDetail = {
         <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Identyfikacja dokumentu</div>
         <div class="vdfg" style="margin-bottom:18px">
           ${field('dataRej','B — Data 1. rej. w Polsce', v.dataRejestracji,'date')}
+          ${field('krajRejestracji','Kraj rejestracji', v.krajRejestracji,undefined,'np. Polska, Litwa…')}
           ${field('docDataWydania','I — Data wydania DR', v.docDataWydania,'date')}
           ${field('docWaznyDo','H — DR ważny do', v.docWaznyDo,'date')}
           ${field('homologacja','K — Nr homologacji', v.homologacja)}
@@ -889,13 +906,26 @@ window.TaxOrderVehicleDetail = {
           ${field('kartaPaliwowa','Nr karty paliwowej', v.kartaPaliwowa)}
           ${field('nrRFID','Nr RFID pojazdu', v.nrRFID)}
           ${field('mpkKonto','Konto MPK / centrum kosztów', v.mpkKonto)}
+          ${field('grupaPojazdow','Grupa pojazdu (MyCar)', v.grupaPojazdow,undefined,'np. Ciężarowe, Dostawcze…')}
+          ${field('podtypPojazdu','Podtyp pojazdu', v.podtypPojazdu,undefined,'np. Asenizacyjny, Dostawczy…')}
+          ${field('wlascicielPojazdu','Właściciel prawny pojazdu', v.wlascicielPojazdu,undefined,'np. G-CON, SANTANDER Leasing…')}
+          ${field('opiekun','Opiekun pojazdu', v.opiekun)}
+          ${field('obszarPojazdu','Obszar / baza pojazdu', v.obszarPojazdu,undefined,'np. Baza Warszawa…')}
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
           ${[
-            ['viatoll','Viatoll','ti-road','ti-road'],
-            ['odpisVat','Odpis VAT','ti-receipt-tax','ti-receipt-tax'],
-            ['hakHolowniczy','Hak holowniczy','ti-anchor','ti-anchor'],
-            ['daneZTekom','Dane z TEKOM','ti-database','ti-database'],
+            ['viatoll','Viatoll','ti-road'],
+            ['odpisVat','Odpis VAT','ti-receipt-tax'],
+            ['hakHolowniczy','Hak holowniczy','ti-anchor'],
+            ['daneZTekom','Dane z TEKOM','ti-database'],
+            ['pojazdGPS','Opomiarowany GPS','ti-satellite'],
+            ['uzytekPrywatny','Użytek prywatny','ti-home'],
+            ['pojazdUprzywilejowany','Uprzywilejowany','ti-urgent'],
+            ['pojazdKluczykowy','Kluczykowy','ti-key'],
+            ['autostrady','Autostrady','ti-arrows-right'],
+            ['przewozWlasny','Przewóz własny','ti-truck'],
+            ['rejestracjaEtoll','Rejestracja eToll','ti-receipt'],
+            ['wysylanieEtoll','Wysyłanie do eToll','ti-send'],
           ].map(([id, label, icon]) => `
             <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;padding:7px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border);white-space:nowrap">
               <input type="checkbox" id="vd-${id}" ${v[id]?'checked':''}> <i class="ti ${icon}" style="font-size:13px;color:var(--text3)"></i>${label}
@@ -950,6 +980,8 @@ window.TaxOrderVehicleDetail = {
         <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-top:18px;margin-bottom:10px">GPS / Telematyka</div>
         <div class="vdfg" style="margin-bottom:6px">
           ${field('gpsDeviceSerial','Nr seryjny urządzenia GPS (TEKOM)', v.gpsDeviceSerial)}
+          ${field('pinUrzadzenia','PIN urządzenia GPS', v.pinUrzadzenia)}
+          ${field('tid','TID TEKOM (klucz synchronizacji)', v.tid)}
         </div>
 
         <div id="vd-km-history"></div>
@@ -967,6 +999,7 @@ window.TaxOrderVehicleDetail = {
             ['own','Własność własna'],['leasing','Leasing'],['rental','Wynajem'],
             ['leaseback','Leasing zwrotny'],['service_loan','Pojazd zastępczy']
           ], own)}
+          ${field('wlascicielPojazdu','Właściciel prawny pojazdu', v.wlascicielPojazdu,undefined,'np. G-CON Sp. z o.o., SANTANDER Leasing…')}
         </div>
         <div id="vd-leasing-section" style="${isLeasing?'':'display:none'}">
           <div style="font-size:12px;font-weight:600;color:var(--blue);margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
