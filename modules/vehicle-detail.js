@@ -152,7 +152,20 @@ window.TaxOrderVehicleDetail = {
       ocCoversAss:   gb('ocCoversAss'),
       assPolicyNo:   g('assPolicyNo'),
       assInsurer:    g('assInsurer'),
+      assStart:      g('assStart'),
       assEnd:        g('assEnd'),
+      assPremium:    gf('assPremium'),
+      // === GAP ===
+      gapPolicyNo:   g('gapPolicyNo'),
+      gapInsurer:    g('gapInsurer'),
+      gapStart:      g('gapStart'),
+      gapEnd:        g('gapEnd'),
+      gapPremium:    gf('gapPremium'),
+      gapValue:      gf('gapValue'),
+      // === Zielona Karta ===
+      greenCardNo:     g('greenCardNo'),
+      greenCardInsurer:g('greenCardInsurer'),
+      greenCardEnd:    g('greenCardEnd'),
       // === BADANIA — PRZEGLĄDY ===
       nextInspection:    g('nextInspection'),
       inspectionStation: g('inspectionStation'),
@@ -175,18 +188,30 @@ window.TaxOrderVehicleDetail = {
       stanKilometrow: gi('stanKilometrow'),
       kartaOrlen:     g('kartaOrlen'),
       normaSpalania:  gf('normaSpalania'),
+      statusPojazdu:  g('statusPojazdu'),
+      nrFlotowy:      g('nrFlotowy'),
+      euro:           g('euro'),
+      co2:            gi('co2'),
       // === WŁASNOŚĆ ===
       ownership_type:    g('ownershipType'),
-      leasingCompany:    g('leasingCompany'),
-      leasingContractNo: g('leasingContractNo'),
-      leasingStart:      g('leasingStart'),
-      leasingEnd:        g('leasingEnd'),
-      leasingRate:       gf('leasingRate'),
-      leasingBuyout:     gf('leasingBuyout'),
-      leasingKmLimit:    gi('leasingKmLimit'),
-      rentalCompany:     g('rentalCompany'),
-      rentalStart:       g('rentalStart'),
-      rentalEnd:         g('rentalEnd'),
+      leasingCompany:      g('leasingCompany'),
+      leasingUser:         g('leasingUser'),
+      leasingContractNo:   g('leasingContractNo'),
+      leasingType:         g('leasingType'),
+      leasingStart:        g('leasingStart'),
+      leasingEnd:          g('leasingEnd'),
+      leasingRate:         gf('leasingRate'),
+      leasingBuyout:       gf('leasingBuyout'),
+      leasingResidual:     gf('leasingResidual'),
+      leasingKmLimit:      gi('leasingKmLimit'),
+      leasingGapRequired:  gb('leasingGapRequired'),
+      leasingLessorRef:    g('leasingLessorRef'),
+      rentalCompany:       g('rentalCompany'),
+      rentalStart:         g('rentalStart'),
+      rentalEnd:           g('rentalEnd'),
+      rentalRate:          gf('rentalRate'),
+      rentalDeposit:       gf('rentalDeposit'),
+      rentalPolicyNo:      g('rentalPolicyNo'),
       // === ZAKUP / SPRZEDAŻ ===
       purchaseDate:   g('purchaseDate'),
       purchasePrice:  gf('purchasePrice'),
@@ -557,7 +582,32 @@ window.TaxOrderVehicleDetail = {
         <div id="vd-ass-fields" class="vdfg" style="${v.ocCoversAss?'opacity:.5;pointer-events:none':''}">
           ${field('assPolicyNo','Nr polisy Assistance/NNW', v.ocCoversAss ? (v.ocPolicyNo||v.assPolicyNo) : v.assPolicyNo)}
           ${field('assInsurer','Ubezpieczyciel Assistance', v.ocCoversAss ? (v.ocInsurer||v.assInsurer) : v.assInsurer)}
+          ${field('assStart','Początek Assistance', v.ocCoversAss ? (v.ocStart||v.assStart) : v.assStart,'date')}
           ${field('assEnd','Ważność Assistance do', v.ocCoversAss ? (v.ocEnd||v.assEnd) : v.assEnd,'date')}
+          ${field('assPremium','Składka Assistance (zł)', v.assPremium,'number')}
+        </div>
+
+        <div style="font-size:12px;font-weight:600;color:var(--red);margin-top:20px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+          <i class="ti ti-shield-x"></i> GAP — Gwarantowana Różnica Wartości
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Ubezpieczenie GAP pokrywa różnicę między wartością rynkową a wartością kredytu/leasingu w razie szkody całkowitej.</div>
+        <div class="vdfg" style="margin-bottom:18px">
+          ${field('gapPolicyNo','Nr polisy GAP', v.gapPolicyNo)}
+          ${field('gapInsurer','Ubezpieczyciel GAP', v.gapInsurer)}
+          ${field('gapStart','Początek GAP', v.gapStart,'date')}
+          ${field('gapEnd','Koniec GAP', v.gapEnd,'date')}
+          ${field('gapPremium','Składka GAP (zł)', v.gapPremium,'number')}
+          ${field('gapValue','Wartość objęta GAP (zł)', v.gapValue,'number')}
+        </div>
+
+        <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+          <i class="ti ti-world"></i> Zielona Karta — ubezpieczenie zagraniczne
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Dokument potwierdzający posiadanie OC przy wyjazdach za granicę.</div>
+        <div class="vdfg">
+          ${field('greenCardNo','Nr Zielonej Karty', v.greenCardNo)}
+          ${field('greenCardInsurer','Ubezpieczyciel ZK', v.greenCardInsurer)}
+          ${field('greenCardEnd','Ważność Zielonej Karty do', v.greenCardEnd,'date')}
         </div>
       </div>
 
@@ -753,10 +803,31 @@ window.TaxOrderVehicleDetail = {
           ${field('stanKilometrow','Stan licznika (km)', v.stanKilometrow,'number')}
           ${field('kartaOrlen','Nr karty flotowej / paliwa', v.kartaOrlen)}
         </div>
-        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Dane eksploatacyjne</div>
-        <div class="vdfg">
-          ${field('assetCode','Kod wewnętrzny pojazdu', v.assetCode, 'text', '(AssetCode — np. ST000001, zgodny z formatem RTM)')}
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Status i identyfikacja</div>
+        <div class="vdfg" style="margin-bottom:18px">
+          ${sel('statusPojazdu','Status pojazdu',[
+            ['dostepny','✅ Dostępny'],
+            ['w_serwisie','🔧 W serwisie'],
+            ['w_delegacji','🚗 W delegacji / wynajęty'],
+            ['remont','⚠️ Remont / wyłączony'],
+            ['zlomowanie','🗑️ Do złomowania'],
+            ['zatrzymany','🚫 Zatrzymany / zajęty'],
+          ], v.statusPojazdu||'dostepny')}
+          ${field('nrFlotowy','Nr flotowy / wewnętrzny', v.nrFlotowy, 'text', '(własny nr identyf. w flocie, np. F-001)')}
+          ${field('assetCode','Kod środka trwałego (AssetCode)', v.assetCode, 'text', '(np. ST000001)')}
           ${field('normaSpalania','Norma spalania (l/100km)', v.normaSpalania,'number')}
+        </div>
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Emisje i normy</div>
+        <div class="vdfg">
+          ${sel('euro','Norma emisji spalin',[
+            ['','— nie określono —'],
+            ['Euro 1','Euro 1'],['Euro 2','Euro 2'],['Euro 3','Euro 3'],
+            ['Euro 4','Euro 4'],['Euro 5','Euro 5'],['Euro 6','Euro 6'],
+            ['Euro 6d','Euro 6d (najnowsza)'],['EEV','EEV (ciężarowe)'],
+            ['BEV','BEV (elektryczny)'],['HEV','HEV (hybryda)'],
+            ['PHEV','PHEV (hybryda plug-in)'],
+          ], v.euro||'')}
+          ${field('co2','Emisja CO2 (g/km)', v.co2,'number')}
         </div>
         <div id="vd-km-history"></div>
       </div>
@@ -779,14 +850,27 @@ window.TaxOrderVehicleDetail = {
             <i class="ti ti-building-bank"></i> Dane leasingowe
           </div>
           <div class="vdfg">
+            ${sel('leasingType','Typ leasingu',[
+              ['operacyjny','Leasing operacyjny (koszty = rata)'],
+              ['finansowy','Leasing finansowy / kapitałowy'],
+              ['zwrotny','Leasing zwrotny (leaseback)'],
+            ], v.leasingType||'operacyjny')}
             ${field('leasingCompany','Leasingodawca (firma leasingowa)', v.leasingCompany)}
             ${field('leasingUser','Leasingobiorca (użytkownik pojazdu)', v.leasingUser)}
             ${field('leasingContractNo','Nr umowy leasingowej', v.leasingContractNo)}
-            ${field('leasingStart','Data rozpoczęcia', v.leasingStart,'date')}
-            ${field('leasingEnd','Data zakończenia', v.leasingEnd,'date')}
+            ${field('leasingLessorRef','Nr ewidencji u leasingodawcy', v.leasingLessorRef)}
+            ${field('leasingStart','Data rozpoczęcia leasingu', v.leasingStart,'date')}
+            ${field('leasingEnd','Data zakończenia leasingu', v.leasingEnd,'date')}
             ${field('leasingRate','Rata miesięczna (zł netto)', v.leasingRate,'number')}
             ${field('leasingBuyout','Cena wykupu (zł)', v.leasingBuyout,'number')}
-            ${field('leasingKmLimit','Limit km w umowie', v.leasingKmLimit,'number')}
+            ${field('leasingResidual','Wartość rezydualna (zł)', v.leasingResidual,'number')}
+            ${field('leasingKmLimit','Limit km w umowie leasingu', v.leasingKmLimit,'number')}
+            <div class="vdf" style="grid-column:1/-1">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;padding:8px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">
+                <input type="checkbox" id="vd-leasingGapRequired" ${v.leasingGapRequired?'checked':''}>
+                <span>Ubezpieczenie GAP wymagane przez leasingodawcę</span>
+              </label>
+            </div>
           </div>
         </div>
         <div id="vd-rental-section" style="${isRental?'':'display:none'}">
@@ -795,8 +879,11 @@ window.TaxOrderVehicleDetail = {
           </div>
           <div class="vdfg">
             ${field('rentalCompany','Nazwa wynajmującego', v.rentalCompany)}
+            ${field('rentalPolicyNo','Nr umowy najmu', v.rentalPolicyNo)}
             ${field('rentalStart','Wynajem od', v.rentalStart,'date')}
             ${field('rentalEnd','Wynajem do', v.rentalEnd,'date')}
+            ${field('rentalRate','Stawka (zł / dobę lub mies.)', v.rentalRate,'number')}
+            ${field('rentalDeposit','Kaucja (zł)', v.rentalDeposit,'number')}
           </div>
         </div>
       </div>
@@ -2068,13 +2155,17 @@ ${brandingHtml}
 <div style="font-size:10px;color:#9ca3af;margin-bottom:14px">Wygenerowano: ${new Date().toLocaleDateString('pl-PL')} | TaxOrder Pro</div>
 <h2>Identyfikacja</h2>
 <table>${rowH('VIN',`<span style="font-family:monospace">${esc(v.vin||'—')}</span>`)}
-${row('DMC',(v.dmc??v.dmcMax??0).toLocaleString('pl-PL')+' kg')}${row('EURO',v.euro)}
-${row('Status własności',v.status)}${row('Właściciel',v.wlasciciel)}
+${row('DMC',(v.dmc??v.dmcMax??0).toLocaleString('pl-PL')+' kg')}${v.euro?row('Norma Euro',v.euro):''}${v.co2?row('Emisja CO2',v.co2+' g/km'):''}
+${v.nrFlotowy?row('Nr flotowy',v.nrFlotowy):''}
+${row('Status własności',v.ownership_type||v.status)}${row('Właściciel',v.wlasciciel)}
 ${row('Kierowca',v.kierowca)}${row('Stan licznika',v.stanKilometrow!=null?v.stanKilometrow.toLocaleString('pl-PL')+' km':null)}</table>
 <h2>Ubezpieczenia</h2>
 <table>${row('OC ważne do',fd(v.ocEnd))}${row('Ubezpieczyciel OC',v.ocInsurer)}
 ${row('Nr polisy OC',v.ocPolicyNo)}${row('Składka OC',fz(v.ocPremium))}
-${row('AC ważne do',fd(v.acEnd))}${row('Ubezpieczyciel AC',v.acInsurer)}</table>
+${row('AC ważne do',fd(v.acEnd))}${row('Ubezpieczyciel AC',v.acInsurer)}
+${v.gapEnd?row('GAP ważne do',fd(v.gapEnd)):''}${v.gapInsurer?row('Ubezpieczyciel GAP',v.gapInsurer):''}
+${v.greenCardNo?row('Zielona Karta',v.greenCardNo+' (do: '+fd(v.greenCardEnd)+')'):''}
+</table>
 <h2>Badania</h2>
 <table>${row('Następny przegląd',fd(v.nextInspection))}${row('Stacja SKP',v.inspectionStation)}
 ${v.hasUdt?row('Badanie UDT',fd(v.udtNextDate)):''}
@@ -2756,6 +2847,7 @@ td:last-child{font-weight:600;color:#1e293b}
       const g = id => document.getElementById('vd-' + id)?.value || '';
       document.getElementById('vd-assPolicyNo') && (document.getElementById('vd-assPolicyNo').value = g('ocPolicyNo'));
       document.getElementById('vd-assInsurer')  && (document.getElementById('vd-assInsurer').value  = g('ocInsurer'));
+      document.getElementById('vd-assStart')    && (document.getElementById('vd-assStart').value    = g('ocStart'));
       document.getElementById('vd-assEnd')      && (document.getElementById('vd-assEnd').value      = g('ocEnd'));
     }
   },

@@ -3397,6 +3397,16 @@ function _renderCoTeraz() {
   if (ocExpired.length) items.push({ type:'error', icon:'ti-shield-off',     text:`${ocExpired.length} poj. z wygasłą OC`,            action:"showPage('alert-dashboard')" });
   else if (ocSoon.length) items.push({ type:'warn', icon:'ti-shield',        text:`OC wygasa ≤14 dni: ${ocSoon.length} poj.`,          action:"showPage('alert-dashboard')" });
 
+  const gapExp  = allVehs.filter(v => v.gapEnd && new Date(v.gapEnd) < now);
+  const gapSoon = allVehs.filter(v => v.gapEnd && new Date(v.gapEnd) >= now && (new Date(v.gapEnd) - now) <= 30*86400000);
+  if (gapExp.length) items.push({ type:'warn', icon:'ti-shield-x', text:`GAP wygasł: ${gapExp.length} poj.`, action:"showPage('policies')" });
+  else if (gapSoon.length) items.push({ type:'info', icon:'ti-shield-x', text:`GAP ≤30 dni: ${gapSoon.length} poj.`, action:"showPage('policies')" });
+
+  const zcExp  = allVehs.filter(v => v.greenCardEnd && new Date(v.greenCardEnd) < now);
+  const zcSoon = allVehs.filter(v => v.greenCardEnd && new Date(v.greenCardEnd) >= now && (new Date(v.greenCardEnd) - now) <= 14*86400000);
+  if (zcExp.length) items.push({ type:'warn', icon:'ti-world', text:`Zielona Karta wygasła: ${zcExp.length} poj.`, action:"showPage('policies')" });
+  else if (zcSoon.length) items.push({ type:'info', icon:'ti-world', text:`Zielona Karta ≤14 dni: ${zcSoon.length} poj.`, action:"showPage('policies')" });
+
   const inspExp  = allVehs.filter(v => v.nextInspection && new Date(v.nextInspection) < now);
   const inspSoon = allVehs.filter(v => v.nextInspection && new Date(v.nextInspection) >= now && (new Date(v.nextInspection) - now) <= 14*86400000);
   if (inspExp.length) items.push({ type:'error', icon:'ti-clipboard-off',   text:`${inspExp.length} poj. z przeterminowanym przeglądem`, action:"showPage('vehicle-inspections')" });
@@ -3453,6 +3463,8 @@ function renderDash() {
       if (v.hasUdt && v.udtNextDate) d.push({label:'UDT', date:v.udtNextDate});
       if (v.hasTacho && v.tachoNextCalib) d.push({label:'Tacho', date:v.tachoNextCalib});
       if (v.tireNextChange) d.push({label:'Opony', date:v.tireNextChange});
+      if (v.gapEnd) d.push({label:'GAP', date:v.gapEnd});
+      if (v.greenCardEnd) d.push({label:'ZK', date:v.greenCardEnd});
       (v.serviceHistory||[]).forEach(s => { if (s.nextServiceDate) d.push({label:'Serwis', date:s.nextServiceDate}); });
       return d;
     };
