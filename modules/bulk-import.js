@@ -19,7 +19,11 @@ window.BulkImport = (function () {
   const VISIBLE_ROWS = 16;   // liczba widocznych wierszy (virtual scroll)
 
   // Regex na polskie numery rejestracyjne (WA12345, WGM8720S, itp.)
-  const PLATE_RX = /\b([A-Z]{2,3})[\s.\-_]?([A-Z0-9]{3,6})\b/g;
+  const PLATE_RX    = /\b([A-Z]{2,3})[\s.\-_]?([A-Z0-9]{3,6})\b/g;
+  // Regex na VIN (17 znaków, bez liter I/O/Q wg normy ISO 3779)
+  const VIN_RX      = /\b([A-HJ-NPR-Z0-9]{17})\b/g;
+  // Rozszerzenia Excel/CSV
+  const EXCEL_TYPES = /\.(xlsx|xls|csv|ods|tsv)$/i;
 
   // Klasyfikacja po nazwie pliku
   const TYPE_MAP = [
@@ -30,6 +34,7 @@ window.BulkImport = (function () {
     { type: 'inspection', rx: /przeglad|przegl|inspection|\bskp\b|diagnosta|badanie[\s_]?tech/i },
     { type: 'handover',   rx: /protokol|przekazanie|handover|zdanie|odbioru|protokol[\s_]?zd/i },
     { type: 'service',    rx: /serwis|naprawa|warsztat|service|repair|usterka/i },
+    { type: 'spreadsheet',rx: /\.(xlsx?|csv|ods|tsv)$/i },
     { type: 'other',      rx: /.*/ },
   ];
 
@@ -41,6 +46,7 @@ window.BulkImport = (function () {
     inspection: { label: 'Przegląd SKP',             icon: 'ti-checkup-list',     col: '#d97706' },
     handover:   { label: 'Protokół przekazania',     icon: 'ti-clipboard-check',  col: '#0891b2' },
     service:    { label: 'Serwis/Naprawa',           icon: 'ti-tool',             col: '#dc2626' },
+    spreadsheet:{ label: 'Arkusz/CSV',               icon: 'ti-table',            col: '#166534' },
     other:      { label: 'Inny',                     icon: 'ti-file',             col: '#6b7280' },
   };
 
@@ -66,6 +72,8 @@ window.BulkImport = (function () {
 
   // ── Pomocnicze ─────────────────────────────────────────────────────────────
   function _classifyByName(name) {
+    // Pliki Excel/CSV: rozpoznaj po rozszerzeniu (przed normalizacją)
+    if (EXCEL_TYPES.test(name)) return 'spreadsheet';
     // Normalizuj _ i - do spacji, żeby \bDR\b matchowało DR_WGM...
     const normalized = name.replace(/[_\-]+/g, ' ');
     for (const { type, rx } of TYPE_MAP) if (rx.test(normalized)) return type;
@@ -92,6 +100,38 @@ window.BulkImport = (function () {
   // Backward-compat alias — zwraca pierwszy kandydat (przed dopasowaniem do pojazdu)
   function _plateFromName(name) { return _platesFromName(name)[0] || null; }
 
+  // Wyciąga wszystkie VIN-y z dowolnego tekstu
+  function _vinsFromText(text) {
+    const up = text.toUpperCase();
+    return [...up.matchAll(VIN_RX)].map(m => m[1]);
+  }
+
+  // Dopasowuje pojazd po VIN w window.vehs
+  function _matchByVin(vin) {
+    if (!vin || vin.length !== 17) return null;
+    const up = vin.toUpperCase();
+    return (window.vehs || []).find(v => {
+      const vv = (v.vin || '').toUpperCase().trim();
+      return vv && vv === up;
+    }) || null;
+  }
+
+  // Wyciąga tablice rej. z dowolnego tekstu (dla Excel/CSV)
+  function _platesFromText(text) {
+    const up = text.toUpperCase();
+    const matches = [...up.matchAll(/\b([A-Z]{2,3})[\s.\-_]?([A-Z0-9]{3,6})\b/g)];
+    const result = [];
+    const seen   = new Set();
+    for (const m of matches) {
+      const candidate = (m[1] + m[2]).replace(/\s/g, '');
+      if (candidate.length >= 5 && candidate.length <= 8 && /\d/.test(candidate) && !seen.has(candidate)) {
+        seen.add(candidate);
+        result.push(candidate);
+      }
+    }
+    return result;
+  }
+
   function _matchVehicle(plate) {
     if (!plate) return null;
     const norm = plate.toUpperCase().replace(/[\s\-\.]/g, '');
@@ -101,8 +141,16 @@ window.BulkImport = (function () {
     }) || null;
   }
 
-  // Próbuje wszystkich kandydatów z nazwy pliku — zwraca { veh, plate } dla pierwszego trafienia
+  // Próbuje VIN (najpierw, bo unikalny), potem tablice — zwraca { veh, plate } dla pierwszego trafienia
   function _matchVehicleFromName(name) {
+    const norm = name.replace(/[_\-\.]+/g, ' ');
+    // VIN jest bardziej unikalny niż tablica — szukaj go najpierw
+    const vins = _vinsFromText(norm);
+    for (const vin of vins) {
+      const veh = _matchByVin(vin);
+      if (veh) return { veh, plate: (veh.nrRej || veh.nr_rej || null) };
+    }
+    // Fallback: dopasowanie po tablicy
     const plates = _platesFromName(name);
     for (const plate of plates) {
       const veh = _matchVehicle(plate);
@@ -117,6 +165,26 @@ window.BulkImport = (function () {
       fr.onload  = () => res(fr.result.split(',')[1]);
       fr.onerror = rej;
       fr.readAsDataURL(file);
+    });
+  }
+
+  // Odczytuje zawartość pliku Excel/CSV jako tekst (do wyszukiwania VIN i tablic)
+  async function _extractExcelText(file) {
+    if (!window.XLSX) throw new Error('Biblioteka XLSX niedostępna');
+    return new Promise((res, rej) => {
+      const fr = new FileReader();
+      fr.onload = e => {
+        try {
+          const isCsv = /\.csv$/i.test(file.name);
+          const data  = isCsv ? e.target.result : new Uint8Array(e.target.result);
+          const wb    = window.XLSX.read(data, { type: isCsv ? 'string' : 'array' });
+          const text  = wb.SheetNames.map(n => window.XLSX.utils.sheet_to_csv(wb.Sheets[n])).join('\n');
+          res(text);
+        } catch (err) { rej(err); }
+      };
+      fr.onerror = rej;
+      if (/\.csv$/i.test(file.name)) fr.readAsText(file, 'utf-8');
+      else fr.readAsArrayBuffer(file);
     });
   }
 
@@ -194,10 +262,52 @@ window.BulkImport = (function () {
     // Pozostałe typy: dokument jest już zapisany w /api/docs/upload (tabela documents)
   }
 
+  // ── Przetwarzanie pliku Excel/CSV (bez AI Vision, szukanie VIN/tablic w treści) ────────────────
+  async function _processExcelItem(item) {
+    try {
+      item.status = 'identifying';
+      _renderProgress();
+
+      const text = await _extractExcelText(item.file);
+
+      // VIN (unikalny) ma priorytet
+      let veh = null;
+      for (const vin of _vinsFromText(text)) {
+        veh = _matchByVin(vin);
+        if (veh) { item.plate = (veh.nrRej || veh.nr_rej || null); break; }
+      }
+
+      // Fallback: szukaj tablicy rejestracyjnej w treści pliku
+      if (!veh) {
+        for (const plate of _platesFromText(text)) {
+          veh = _matchVehicle(plate);
+          if (veh) { item.plate = plate; break; }
+        }
+      }
+
+      if (!veh) {
+        item.status = 'unmatched';
+        item.error  = 'Nie znaleziono VIN ani tablicy rejestracyjnej w pliku';
+        return;
+      }
+
+      item.vehicleId = veh.id;
+      item.vehicleNr = (veh.nrRej || veh.nr_rej || '').toUpperCase();
+      item.status    = 'matched';
+    } catch (e) {
+      item.status = 'error';
+      item.error  = e.message;
+    }
+    _renderProgress();
+  }
+
   // ── Przetwarzanie jednego pliku ───────────────────────────────────────────
   async function _processItem(item) {
+    // Pliki Excel/CSV: odczyt tekstu zamiast AI Vision
+    if (EXCEL_TYPES.test(item.name)) return _processExcelItem(item);
+
     try {
-      // Krok 1: klasyfikacja po nazwie + szybkie dopasowanie pojazdu (wszystkie kandydaty tablic)
+      // Krok 1: klasyfikacja po nazwie + szybkie dopasowanie pojazdu (VIN → tablica)
       item.type = _classifyByName(item.name);
       const { veh: vehFromName, plate: plateFromName } = _matchVehicleFromName(item.name);
       item.plate = plateFromName;
@@ -211,7 +321,12 @@ window.BulkImport = (function () {
         if (ai) {
           if (ai.plate) { item.plate = ai.plate; }
           if (ai.type && item.type === 'other') { item.type = ai.type; }
-          veh = _matchVehicle(item.plate);
+          // Próbuj dopasować po VIN zwróconym przez AI (jeśli endpoint go obsługuje)
+          if (ai.vin) {
+            veh = _matchByVin(ai.vin) || null;
+            if (veh) item.plate = (veh.nrRej || veh.nr_rej || item.plate);
+          }
+          if (!veh) veh = _matchVehicle(item.plate);
         }
       }
 
@@ -478,11 +593,11 @@ window.BulkImport = (function () {
           <!-- Wgraj folder -->
           <label class="btn btn-blue" style="cursor:pointer" title="Wybierz folder lub pliki do importu">
             <i class="ti ti-folder-plus"></i>Dodaj pliki / folder
-            <input type="file" id="bi-file-input" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" webkitdirectory style="display:none" onchange="BulkImport._onFileInput(this)">
+            <input type="file" id="bi-file-input" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv,.ods,.tsv" webkitdirectory style="display:none" onchange="BulkImport._onFileInput(this)">
           </label>
           <label class="btn btn-gray" style="cursor:pointer" title="Dodaj pliki bez struktury folderów">
             <i class="ti ti-files"></i>Wybierz pliki
-            <input type="file" id="bi-file-input2" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none" onchange="BulkImport._onFileInput(this)">
+            <input type="file" id="bi-file-input2" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv,.ods,.tsv" style="display:none" onchange="BulkImport._onFileInput(this)">
           </label>
 
           <div style="width:1px;height:24px;background:var(--border)"></div>
@@ -533,7 +648,7 @@ window.BulkImport = (function () {
         <!-- Stopka ze statusem -->
         <div style="padding:8px 20px;border-top:1px solid var(--border);font-size:11px;color:var(--text2);flex-shrink:0">
           <i class="ti ti-info-circle"></i>
-          Identyfikacja: 1. regex w nazwie pliku, 2. AI OCR (Groq Vision) jako fallback.
+          Identyfikacja: 1. VIN/tablica w nazwie pliku, 2. treść pliku (Excel/CSV), 3. AI OCR (Groq Vision).
           Ręczne przypisanie: kliknij <i class="ti ti-hand-finger"></i> przy pozycji "Bez pojazdu".
         </div>
       </div>
@@ -552,8 +667,8 @@ window.BulkImport = (function () {
   // ── Wgrywanie plików ───────────────────────────────────────────────────────
   function _onFileInput(input) {
     const files = Array.from(input.files || [])
-      .filter(f => /\.(pdf|jpg|jpeg|png|webp)$/i.test(f.name));
-    if (!files.length) { window.toast?.('Brak obsługiwanych plików (PDF, JPG, PNG, WEBP)'); return; }
+      .filter(f => /\.(pdf|jpg|jpeg|png|webp|xlsx|xls|csv|ods|tsv)$/i.test(f.name));
+    if (!files.length) { window.toast?.('Brak obsługiwanych plików (PDF, JPG, PNG, WEBP, XLSX, CSV)'); return; }
 
     let added = 0;
     for (const f of files) {
