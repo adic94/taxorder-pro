@@ -136,6 +136,8 @@ window.TaxOrderVehicleDetail = {
       drivetype:            g('driveType'),
       bodyType:             g('bodyType'),
       numerSilnika:         g('numerSilnika'),
+      nrGwarancji:          g('nrGwarancji'),
+      iloscZbiornikow:      gi('iloscZbiornikow'),
       kolorNadwozia:        g('kolorNadwozia'),
       // === UBEZPIECZENIA ===
       ocPolicyNo:    g('ocPolicyNo'),
@@ -204,6 +206,11 @@ window.TaxOrderVehicleDetail = {
       odpisVat:              gb('odpisVat'),
       hakHolowniczy:         gb('hakHolowniczy'),
       daneZTekom:            gb('daneZTekom'),
+      nrEwidencyjny:         g('nrEwidencyjny'),
+      kartaPaliwowa:         g('kartaPaliwowa'),
+      nrRFID:                g('nrRFID'),
+      gpsDeviceSerial:       g('gpsDeviceSerial'),
+      mpkKonto:              g('mpkKonto'),
       // === SERWISOWANIE OLEJU ===
       lastOilChangeKm:       gi('lastOilChangeKm'),
       oilChangeInterval:     gi('oilChangeInterval'),
@@ -214,6 +221,8 @@ window.TaxOrderVehicleDetail = {
       pojemnoscZbiornikaNaScieke: gi('pojemnoscZbiornikaNaScieke'),
       iloscKabin:             gi('iloscKabin'),
       iloscKontenerow:        gi('iloscKontenerow'),
+      obrotJalowy:            gi('obrotJalowy'),
+      predkoscMaks:           gi('predkoscMaks'),
       przewoziKabiny:         gb('przewoziKabiny'),
       przewoziKontenery:      gb('przewoziKontenery'),
       przewoziOgrodzenia:     gb('przewoziOgrodzenia'),
@@ -504,7 +513,9 @@ window.TaxOrderVehicleDetail = {
           ${field('pojSilnika','P.1 — Pojemność silnika (cm³)', v.pojSilnika,'number')}
           ${field('mocKW','P.2 — Moc (kW)', v.mocKW,'number')}
           ${field('paliwo','P.3 — Rodzaj paliwa', v.paliwo)}
+          ${field('iloscZbiornikow','Liczba zbiorników paliwa', v.iloscZbiornikow,'number')}
           ${field('numerSilnika','Nr silnika', v.numerSilnika)}
+          ${field('nrGwarancji','Nr karty gwarancyjnej', v.nrGwarancji)}
           ${field('kolorNadwozia','Kolor nadwozia', v.kolorNadwozia)}
           ${sel('driveType','Rodzaj napędu',[
             ['','— nie określono —'],['2x4','2×4'],['4x4','4×4 (AWD/4WD)'],
@@ -874,6 +885,10 @@ window.TaxOrderVehicleDetail = {
           ${field('idTekom','ID TEKOM', v.idTekom)}
           ${field('depozyt','Depozyt / lokalizacja', v.depozyt)}
           ${field('przyczepaNrRej','Przyczepa (nr rej.)', v.przyczepaNrRej)}
+          ${field('nrEwidencyjny','Nr ewidencyjny (wewnętrzny)', v.nrEwidencyjny)}
+          ${field('kartaPaliwowa','Nr karty paliwowej', v.kartaPaliwowa)}
+          ${field('nrRFID','Nr RFID pojazdu', v.nrRFID)}
+          ${field('mpkKonto','Konto MPK / centrum kosztów', v.mpkKonto)}
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
           ${[
@@ -911,6 +926,8 @@ window.TaxOrderVehicleDetail = {
           ${field('pojemnoscZbiornikaNaScieke','Pojemność zbiornika na ścieki (l)', v.pojemnoscZbiornikaNaScieke,'number')}
           ${field('iloscKabin','Ilość przewożonych kabin', v.iloscKabin,'number')}
           ${field('iloscKontenerow','Ilość przewożonych kontenerów', v.iloscKontenerow,'number')}
+          ${field('obrotJalowy','Obroty biegu jałowego (RPM)', v.obrotJalowy,'number')}
+          ${field('predkoscMaks','Prędkość maks. / ogranicznik (km/h)', v.predkoscMaks,'number')}
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
           ${[
@@ -928,6 +945,11 @@ window.TaxOrderVehicleDetail = {
           ${field('ostatniePotwierdzenieLokal','Ostatnie potwierdzenie lokalizacji', v.ostatniePotwierdzenieLokal,'date')}
           ${field('osobaPotwierdzajaca','Osoba potwierdzająca', v.osobaPotwierdzajaca)}
           ${field('iloscTagow','Ilość tagów RFID przypisanych', v.iloscTagow,'number')}
+        </div>
+
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-top:18px;margin-bottom:10px">GPS / Telematyka</div>
+        <div class="vdfg" style="margin-bottom:6px">
+          ${field('gpsDeviceSerial','Nr seryjny urządzenia GPS (TEKOM)', v.gpsDeviceSerial)}
         </div>
 
         <div id="vd-km-history"></div>
