@@ -3011,6 +3011,91 @@ Zwroc WYLACZNIE JSON bez markdown:
   return err('Błąd AI Vision: ' + lastErr, 502);
 }
 
+// ─── OCR DOC — wieloformatowy OCR (polisa / paliwo / serwis / dr) ─────────────
+async function handleAIOCRDoc(request, env) {
+  if (request.method !== 'POST') return err('Method not allowed', 405);
+  let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON'); }
+  const { imageBase64, mimeType = 'image/jpeg', docType = 'dr' } = body;
+  if (!imageBase64) return err('Brak obrazu (imageBase64)');
+
+  const PROMPTS = {
+    polisa: `Jestes ekspertem od polskich polis ubezpieczeniowych OC/AC/NNW. Wyodrebnij dane z dokumentu ubezpieczeniowego.
+Zwroc WYLACZNIE JSON bez markdown:
+{"nrRej":"numer rejestracyjny pojazdu np WA12345 (puste jesli nie widoczny)","vin":"VIN 17 znakow jesli widoczny","typ":"OC lub AC lub NNW lub Assistance lub inne","nrPolisy":"numer polisy ubezpieczeniowej","towarzystwo":"pelna nazwa firmy ubezpieczeniowej np PZU SA lub Warta SA","dataOd":"data poczatku ochrony DD.MM.RRRR","dataDo":"data konca ochrony DD.MM.RRRR","skladka":"kwota skladki liczba bez jednostki","waluta":"PLN"}`,
+
+    paliwo: `Jestes ekspertem od polskich faktur paliwowych i paragonow za paliwo. Wyodrebnij dane z dokumentu.
+Zwroc WYLACZNIE JSON bez markdown:
+{"nrRej":"numer rejestracyjny pojazdu jesli widoczny np WA12345","dataFaktury":"data tankowania lub faktury DD.MM.RRRR","litry":"liczba litrow jako liczba np 45.20","cenaNetto":"kwota netto PLN liczba","cenaBrutto":"kwota brutto PLN liczba","rodzajPaliwa":"Diesel lub Benzyna lub LPG lub CNG","nrFaktury":"numer faktury lub paragonu","stacja":"nazwa stacji paliw np Orlen lub BP lub Lotos"}`,
+
+    serwis: `Jestes ekspertem od polskich protokolow serwisowych i faktur za naprawe pojazdow. Wyodrebnij dane.
+Zwroc WYLACZNIE JSON bez markdown:
+{"nrRej":"numer rejestracyjny pojazdu np WA12345","dataSerwisu":"data uslug DD.MM.RRRR","rodzajUslugi":"opis uslug np Wymiana oleju, Naprawa hamulcow, Przeglad","kosztNetto":"koszt netto PLN liczba","kosztBrutto":"koszt brutto PLN liczba","przebieg":"przebieg km w momencie serwisu liczba","warsztat":"nazwa warsztatu lub serwisu","nrZlecenia":"numer zlecenia serwisowego"}`,
+
+    dr: null, // DR uses the main /api/ai/ocr endpoint and its dedicated prompt
+  };
+
+  const prompt = PROMPTS[docType];
+  if (!prompt) return err('Nieznany typ dokumentu: ' + docType);
+
+  const messages = [{
+    role: 'user',
+    content: [
+      { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+      { type: 'text', text: prompt },
+    ],
+  }];
+
+  // ── Próba 1: Cloudflare Workers AI ──
+  if (env.AI) {
+    try {
+      const bin = atob(imageBase64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const cfResult = await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
+        prompt,
+        image: [...bytes],
+        max_tokens: 512,
+      });
+      const answer = cfResult?.response || '';
+      const jm = answer.match(/\{[\s\S]*\}/);
+      if (jm) {
+        try {
+          const fields = JSON.parse(jm[0]);
+          if (Object.values(fields).some(v => v && v !== '')) {
+            return json({ ok: true, fields, model: 'cf-workers-ai', docType });
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
+  // ── Próba 2: Groq Vision fallback ──
+  if (!env.GROQ_API_KEY) return err('Brak CF AI i GROQ_API_KEY', 503);
+  const visionModels = [
+    'meta-llama/llama-4-scout-17b-16e-instruct',
+    'llama-3.2-90b-vision-preview',
+    'llama-3.2-11b-vision-preview',
+  ];
+  let lastErr = 'Brak dzialajacego modelu';
+  for (const model of visionModels) {
+    try {
+      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + env.GROQ_API_KEY },
+        body: JSON.stringify({ model, messages, max_tokens: 512, temperature: 0.1 }),
+      });
+      if (!resp.ok) { const e = await resp.json().catch(() => ({})); lastErr = e.error?.message || resp.statusText; continue; }
+      const data = await resp.json();
+      const answer = data.choices?.[0]?.message?.content || '';
+      const jm = answer.match(/\{[\s\S]*\}/);
+      if (!jm) { lastErr = 'AI nie zwrocilo JSON'; continue; }
+      const fields = JSON.parse(jm[0]);
+      return json({ ok: true, fields, model, docType });
+    } catch (e) { lastErr = e?.message; }
+  }
+  return err('Blad AI Vision: ' + lastErr, 502);
+}
+
 // ─── POLISY IMPORT (R2) ──────────────────────────────────────────────────────
 
 async function handlePolisyImport(req, env, user, url, path) {
@@ -8329,6 +8414,7 @@ async function handleRequest(request, env, url, path) {
   }
   if (path === '/api/ai/chat')          { if (!user) return err('Nieautoryzowany', 401); const rlAI = await rateLimit(env, `ai:${user.id}`, 30, 60); if (!rlAI.allowed) return json({ error: 'Limit zapytań AI wyczerpany (30/min). Poczekaj chwilę.' }, 429); return handleAI(request, env); }
   if (path === '/api/ai/ocr' && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleAIOCR(request, env); }
+  if (path === '/api/ai/ocr-doc' && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleAIOCRDoc(request, env); }
   if (path === '/api/aztec'  && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleAztec(request); }
 
   // Tekom / MyCar API integration

@@ -9071,6 +9071,8 @@ window.addEventListener('load', async () => {
     _loadKarty().then(() => { if (typeof _renderFleetCardsDash === 'function') _renderFleetCardsDash(); });
     // Przypomnienie KOBIZE — co roku w marcu
     _checkKobizeReminder();
+    // Monitor folderów — inicjalizacja (auto-skan jeśli skonfigurowany)
+    window.FolderMonitor?.init();
   }, 3000);
 
   // Badge walidacji

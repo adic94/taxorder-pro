@@ -177,6 +177,12 @@ window._initPostHog=function(apiKey,host){
     style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:19px;padding:6px 8px;border-radius:var(--radius-sm);display:flex;align-items:center;flex-shrink:0">
     <i class="ti ti-moon" id="dark-mode-icon"></i>
   </button>
+  <!-- Monitor folderów — ikona folderu z badge -->
+  <button id="fm-btn" onclick="window.FolderMonitor?.openQueue()" title="Monitor folderów — kolejka importu"
+    style="position:relative;background:none;border:none;cursor:pointer;color:var(--text2);font-size:20px;padding:6px 8px;border-radius:var(--radius-sm);display:flex;align-items:center;flex-shrink:0">
+    <i class="ti ti-folder-check"></i>
+    <span id="fm-badge" style="display:none;position:absolute;top:2px;right:2px;background:var(--blue);color:#fff;border-radius:9px;font-size:9px;font-weight:700;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 3px">0</span>
+  </button>
   <!-- Centrum Powiadomień — dzwonek -->
   <button id="notif-bell" onclick="window.TaxOrderNotifications?.openCenter()" title="Centrum powiadomień"
     style="position:relative;background:none;border:none;cursor:pointer;color:var(--text2);font-size:20px;padding:6px 8px;border-radius:var(--radius-sm);display:flex;align-items:center;flex-shrink:0">
@@ -749,6 +755,7 @@ window._initPostHog=function(apiKey,host){
     <button class="btn btn-gray" onclick="deselAll()"><i class="ti ti-square"></i><span data-i18n="btn.sel.none">Odznacz</span></button>
     <button class="btn btn-green" onclick="showPage('kalkulator')"><i class="ti ti-calculator"></i>Kalkulator (<span id="btn-sel-cnt">0</span>)</button>
     <button class="btn btn-blue" onclick="openQuickAddVehicle()" title="Dodaj nowy pojazd ręcznie"><i class="ti ti-plus"></i>Dodaj pojazd</button>
+    <button class="btn btn-gray" onclick="window.FolderMonitor?.openSettings()" title="Skonfiguruj auto-import z folderu"><i class="ti ti-folder-check"></i>Monitor folderów</button>
   </div>
 
   <!-- Szybkie filtry preset — jednoklilkowe filtry alertów -->
@@ -4261,6 +4268,7 @@ window._initPostHog=function(apiKey,host){
   <script src="modules/notification-settings.js"></script>
   <script src="modules/policy-ocr.js"></script>
   <script src="modules/dr-import.js"></script>
+  <script src="modules/folder-monitor.js"></script>
   <script src="modules/diagnostics.js"></script>
   <script src="modules/tekom-import.js"></script>
   <script src="modules/dt1-generator.js"></script>
@@ -4741,6 +4749,38 @@ function doLogin() {
         <div style="color:var(--text3);font-size:13px;text-align:center;padding:24px">Wgraj plik CSV aby zobaczyć podgląd</div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: FOLDER MONITOR — USTAWIENIA -->
+<div id="fm-settings-modal" class="modal-bg hidden" onclick="if(event.target===this)window.FolderMonitor?._closeSettings?.()">
+  <div class="modal-box" style="width:600px;max-width:98vw;max-height:92vh;display:flex;flex-direction:column;overflow:hidden">
+    <div class="modal-hdr">
+      <span><i class="ti ti-folder-check"></i> Monitor folderów — ustawienia</span>
+      <button class="modal-close" onclick="window.FolderMonitor?._closeSettings?.()">&times;</button>
+    </div>
+    <div id="fm-settings-body" style="overflow-y:auto;flex:1;padding:20px"></div>
+    <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;background:var(--bg2)">
+      <button class="btn btn-gray" onclick="window.FolderMonitor?.scan()"><i class="ti ti-refresh"></i> Skanuj teraz</button>
+      <button class="btn btn-green" onclick="window.FolderMonitor?._saveSettingsFromModal()"><i class="ti ti-check"></i> Zapisz ustawienia</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: FOLDER MONITOR — KOLEJKA -->
+<div id="fm-queue-modal" class="modal-bg hidden" onclick="if(event.target===this)window.FolderMonitor?._closeQueue?.()">
+  <div class="modal-box" style="width:720px;max-width:98vw;max-height:92vh;display:flex;flex-direction:column;overflow:hidden">
+    <div class="modal-hdr">
+      <span><i class="ti ti-inbox"></i> Kolejka importu <span id="fm-queue-count" style="color:var(--text3);font-weight:400"></span></span>
+      <div style="display:flex;gap:6px;margin-right:8px">
+        <button id="fm-btn-analyze" class="btn btn-blue btn-sm" style="display:none" onclick="window.FolderMonitor?._analyzeAll()"><i class="ti ti-eye"></i> Analizuj wszystkie</button>
+        <button id="fm-btn-import" class="btn btn-green btn-sm" style="display:none" onclick="window.FolderMonitor?._importAll()"><i class="ti ti-download"></i> Importuj gotowe</button>
+        <button class="btn btn-gray btn-sm" onclick="window.FolderMonitor?.scan()"><i class="ti ti-refresh"></i> Odśwież</button>
+        <button class="btn btn-gray btn-sm" onclick="window.FolderMonitor?.openSettings()"><i class="ti ti-settings"></i> Ustawienia</button>
+      </div>
+      <button class="modal-close" onclick="window.FolderMonitor?._closeQueue?.()">&times;</button>
+    </div>
+    <div id="fm-queue-list" style="overflow-y:auto;flex:1"></div>
   </div>
 </div>
 
