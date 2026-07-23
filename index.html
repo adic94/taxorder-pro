@@ -4746,74 +4746,134 @@ function doLogin() {
 
 <!-- MODAL SZYBKIEGO DODAWANIA POJAZDU -->
 <div id="quick-add-veh-modal" class="modal-bg hidden" onclick="if(event.target===this)closeQuickAddVehicle()">
-  <div class="modal-box" style="width:540px;max-width:98vw">
+  <div class="modal-box" style="width:680px;max-width:98vw;max-height:94vh;display:flex;flex-direction:column;overflow:hidden">
     <div class="modal-hdr">
       <span><i class="ti ti-plus"></i> Dodaj pojazd</span>
       <button class="modal-close" onclick="closeQuickAddVehicle()">&times;</button>
     </div>
-    <div style="padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <label style="grid-column:1/-1">
-        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Nr rejestracyjny *</div>
-        <input id="qav-nrRej" class="fi" style="width:100%;text-transform:uppercase" placeholder="np. WA12345">
-      </label>
-      <label>
-        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Marka *</div>
-        <input id="qav-marka" class="fi" style="width:100%;text-transform:uppercase" placeholder="np. MERCEDES">
-      </label>
-      <label>
-        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Model</div>
-        <input id="qav-model" class="fi" style="width:100%" placeholder="np. Actros 1845">
-      </label>
-      <label>
-        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Typ pojazdu</div>
-        <select id="qav-typ" class="fi" style="width:100%">
-          <option value="Ciężarowy">Ciężarowy</option>
-          <option value="Ciągnik siodłowy">Ciągnik siodłowy</option>
-          <option value="Przyczepa">Przyczepa</option>
-          <option value="Naczepa">Naczepa</option>
-          <option value="Autobus">Autobus</option>
-          <option value="Dostawczy">Dostawczy</option>
-        </select>
-      </label>
-      <label>
-        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Rok produkcji</div>
-        <input id="qav-rok" class="fi" type="number" style="width:100%" placeholder="np. 2022" min="1900" max="2050">
-      </label>
-      <label>
-        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">DMC max (kg)</div>
-        <input id="qav-dmc" class="fi" type="number" style="width:100%" placeholder="np. 18000" min="0">
-      </label>
-      <label>
-        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Rodzaj paliwa</div>
-        <select id="qav-paliwo" class="fi" style="width:100%">
-          <option value="">— wybierz —</option>
-          <option value="Diesel">Diesel</option>
-          <option value="Benzyna">Benzyna</option>
-          <option value="Elektryczny">Elektryczny</option>
-          <option value="Hybryda">Hybryda</option>
-          <option value="CNG">CNG</option>
-          <option value="LPG">LPG</option>
-          <option value="Wodór">Wodór</option>
-        </select>
-      </label>
-      <label>
-        <div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:4px"><i class="ti ti-gas-station"></i> Norma spalania (l/100km)</div>
-        <input id="qav-norma" class="fi" type="number" step="0.1" style="width:100%;border-color:var(--blue)" placeholder="np. 28.5" min="0" max="200">
-      </label>
-      <label>
-        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">VIN</div>
-        <input id="qav-vin" class="fi" style="width:100%;font-family:var(--mono)" placeholder="17 znaków">
-      </label>
-      <label>
-        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Status</div>
-        <select id="qav-status" class="fi" style="width:100%">
-          <option value="Własny">Własny</option>
-          <option value="Leasing">Leasing</option>
-          <option value="Wynajęty">Wynajęty</option>
-        </select>
-      </label>
+    <div style="overflow-y:auto;flex:1;padding:20px">
+
+      <!-- ZAKŁADKI ŹRÓDŁA -->
+      <div style="display:flex;gap:6px;margin-bottom:16px">
+        <button id="qav-tab-scan" class="btn btn-blue btn-sm" onclick="_qavTab('scan')"><i class="ti ti-file-scan"></i> Skanuj DR</button>
+        <button id="qav-tab-cepik" class="btn btn-gray btn-sm" onclick="_qavTab('cepik')"><i class="ti ti-database-search"></i> CEPiK</button>
+        <button id="qav-tab-manual" class="btn btn-gray btn-sm" onclick="_qavTab('manual')"><i class="ti ti-keyboard"></i> Ręcznie</button>
+      </div>
+
+      <!-- PANEL: SKANUJ DR -->
+      <div id="qav-panel-scan">
+        <div id="qav-drop-zone" onclick="document.getElementById('qav-dr-file').click()" ondragover="event.preventDefault()" ondrop="_qavDropFile(event)"
+          style="border:2px dashed var(--border);border-radius:var(--radius);padding:24px;text-align:center;cursor:pointer;background:var(--bg3);transition:background .15s"
+          onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='var(--bg3)'">
+          <i class="ti ti-file-upload" style="font-size:28px;color:var(--text3)"></i>
+          <div style="margin-top:6px;font-size:13px;color:var(--text2)">Przeciągnij dowód rejestracyjny (PDF, JPG, PNG) lub kliknij</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">AZTEC barcode + AI OCR (PaddleOCR / CF AI / Groq)</div>
+        </div>
+        <input type="file" id="qav-dr-file" accept="image/*,.pdf" style="display:none" onchange="_qavScanFile(this.files[0])">
+        <div id="qav-scan-status" style="display:none;margin-top:10px;padding:8px 12px;border-radius:var(--radius);background:var(--bg3);font-size:12px"></div>
+      </div>
+
+      <!-- PANEL: CEPIK -->
+      <div id="qav-panel-cepik" style="display:none">
+        <div style="display:flex;gap:8px;align-items:flex-end">
+          <label style="flex:1">
+            <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Nr rejestracyjny</div>
+            <input id="qav-cepik-nr" class="fi" style="width:100%;text-transform:uppercase" placeholder="np. WA12345" onkeydown="if(event.key==='Enter')_qavCepikLookup()">
+          </label>
+          <button class="btn btn-blue" onclick="_qavCepikLookup()" style="height:36px"><i class="ti ti-search"></i> Szukaj</button>
+        </div>
+        <div id="qav-cepik-status" style="margin-top:10px;font-size:12px;min-height:18px"></div>
+      </div>
+
+      <!-- PANEL: RĘCZNIE -->
+      <div id="qav-panel-manual" style="display:none">
+        <div style="font-size:12px;color:var(--text3);padding:4px 0 8px">Wypełnij pola poniżej i kliknij „Dodaj pojazd".</div>
+      </div>
+
+      <!-- DANE POJAZDU (zawsze widoczne) -->
+      <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">Dane pojazdu</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label style="grid-column:1/-1">
+            <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Nr rejestracyjny *</div>
+            <input id="qav-nrRej" class="fi" style="width:100%;text-transform:uppercase" placeholder="np. WA12345" oninput="_qavNrChange(this.value)">
+          </label>
+          <label>
+            <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Marka *</div>
+            <input id="qav-marka" class="fi" style="width:100%;text-transform:uppercase" placeholder="np. MERCEDES">
+          </label>
+          <label>
+            <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Model</div>
+            <input id="qav-model" class="fi" style="width:100%" placeholder="np. Actros 1845">
+          </label>
+          <label>
+            <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Typ pojazdu</div>
+            <select id="qav-typ" class="fi" style="width:100%">
+              <option value="Ciężarowy">Ciężarowy</option>
+              <option value="Ciągnik siodłowy">Ciągnik siodłowy</option>
+              <option value="Przyczepa">Przyczepa</option>
+              <option value="Naczepa">Naczepa</option>
+              <option value="Autobus">Autobus</option>
+              <option value="Dostawczy">Dostawczy</option>
+            </select>
+          </label>
+          <label>
+            <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Rok produkcji</div>
+            <input id="qav-rok" class="fi" type="number" style="width:100%" placeholder="np. 2022" min="1900" max="2050">
+          </label>
+          <label>
+            <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">DMC max (kg)</div>
+            <input id="qav-dmc" class="fi" type="number" style="width:100%" placeholder="np. 18000" min="0">
+          </label>
+          <label>
+            <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Rodzaj paliwa</div>
+            <select id="qav-paliwo" class="fi" style="width:100%">
+              <option value="">— wybierz —</option>
+              <option value="Diesel">Diesel</option>
+              <option value="Benzyna">Benzyna</option>
+              <option value="Elektryczny">Elektryczny</option>
+              <option value="Hybryda">Hybryda</option>
+              <option value="CNG">CNG</option>
+              <option value="LPG">LPG</option>
+              <option value="Wodór">Wodór</option>
+            </select>
+          </label>
+          <label>
+            <div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:4px"><i class="ti ti-gas-station"></i> Norma spalania (l/100km)</div>
+            <input id="qav-norma" class="fi" type="number" step="0.1" style="width:100%;border-color:var(--blue)" placeholder="np. 28.5" min="0" max="200">
+          </label>
+          <label>
+            <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">VIN</div>
+            <input id="qav-vin" class="fi" style="width:100%;font-family:var(--mono)" placeholder="17 znaków" oninput="_qavVinChange(this.value)">
+          </label>
+          <label>
+            <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Status</div>
+            <select id="qav-status" class="fi" style="width:100%">
+              <option value="Własny">Własny</option>
+              <option value="Leasing">Leasing</option>
+              <option value="Wynajęty">Wynajęty</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <!-- POLISA UBEZPIECZENIOWA -->
+      <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">
+          <i class="ti ti-shield-check" style="color:var(--blue)"></i> Polisa ubezpieczeniowa
+        </div>
+        <div id="qav-insurance-found" style="margin-bottom:10px"></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="btn btn-gray btn-sm" onclick="document.getElementById('qav-ins-file').click()">
+            <i class="ti ti-file-upload"></i> Import polisy z PDF/zdjęcia
+          </button>
+          <input type="file" id="qav-ins-file" accept="image/*,.pdf" style="display:none" onchange="_qavInsuranceScan(this.files[0])">
+          <span id="qav-ins-scan-status" style="font-size:11px;color:var(--text3)"></span>
+        </div>
+      </div>
+
     </div>
-    <div style="padding:0 20px 20px;display:flex;gap:10px;justify-content:flex-end">
+    <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;background:var(--bg2)">
       <button class="btn btn-gray" onclick="closeQuickAddVehicle()"><i class="ti ti-x"></i>Anuluj</button>
       <button class="btn btn-green" onclick="saveQuickAddVehicle()"><i class="ti ti-check"></i>Dodaj pojazd</button>
     </div>

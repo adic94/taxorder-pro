@@ -6284,59 +6284,305 @@ function addNewFromOCR(d){
   renderVeh();updateCounters();showPage('pojazdy');
 }
 
-function openQuickAddVehicle(){
-  ['nrRej','marka','model','rok','dmc','vin','norma'].forEach(id=>{
-    const el=document.getElementById('qav-'+id);
-    if(el) el.value='';
-  });
-  document.getElementById('qav-typ').value='Ciężarowy';
-  document.getElementById('qav-paliwo').value='Diesel';
-  document.getElementById('qav-status').value='Własny';
+// ─── Quick Add Vehicle Modal ─────────────────────────────────────────────────
+let _qavMatchedPolicies = [];
+let _qavNrDebounce = null;
+let _qavVinDebounce = null;
+
+function openQuickAddVehicle() {
+  _qavTab('scan');
+  _qavClearForm();
   document.getElementById('quick-add-veh-modal').classList.remove('hidden');
-  setTimeout(()=>document.getElementById('qav-nrRej')?.focus(),50);
+  document.getElementById('qav-scan-status').style.display = 'none';
+  document.getElementById('qav-cepik-status').innerHTML = '';
+  document.getElementById('qav-insurance-found').innerHTML = '';
+  document.getElementById('qav-ins-scan-status').textContent = '';
+  _qavMatchedPolicies = [];
 }
 
-function closeQuickAddVehicle(){
+function closeQuickAddVehicle() {
   document.getElementById('quick-add-veh-modal').classList.add('hidden');
 }
 
-function saveQuickAddVehicle(){
-  const g=id=>(document.getElementById('qav-'+id)?.value?.trim()||'');
-  const gf=id=>{const v=g(id);return v?parseFloat(v):null;};
-  const gi=id=>{const v=g(id);return v?parseInt(v):null;};
+function _qavTab(tab) {
+  ['scan', 'cepik', 'manual'].forEach(t => {
+    document.getElementById('qav-panel-' + t).style.display = t === tab ? '' : 'none';
+    const btn = document.getElementById('qav-tab-' + t);
+    if (!btn) return;
+    // Toggle active color without breaking other classes
+    if (t === tab) {
+      btn.className = btn.className.replace('btn-gray', 'btn-blue');
+    } else {
+      btn.className = btn.className.replace('btn-blue', 'btn-gray');
+    }
+  });
+  if (tab === 'manual') setTimeout(() => document.getElementById('qav-nrRej')?.focus(), 50);
+  if (tab === 'cepik')  setTimeout(() => document.getElementById('qav-cepik-nr')?.focus(), 50);
+}
 
-  const nrRej=g('nrRej').toUpperCase().replace(/\s/g,'');
-  const marka=g('marka').toUpperCase();
-  if(!nrRej){toast('⚠ Nr rejestracyjny jest wymagany');return;}
-  if(!marka){toast('⚠ Marka jest wymagana');return;}
+function _qavClearForm() {
+  ['nrRej', 'marka', 'model', 'rok', 'dmc', 'vin', 'norma'].forEach(id => {
+    const el = document.getElementById('qav-' + id);
+    if (el) el.value = '';
+  });
+  document.getElementById('qav-typ').value    = 'Ciężarowy';
+  document.getElementById('qav-paliwo').value = 'Diesel';
+  document.getElementById('qav-status').value = 'Własny';
+  ['qav-dr-file', 'qav-ins-file'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+}
 
-  if(vehs.find(v=>v.nrRej===nrRej)){
-    toast('⚠ Pojazd o nr rej. '+nrRej+' już istnieje w bazie');return;
+function _qavDropFile(ev) {
+  ev.preventDefault();
+  const file = ev.dataTransfer?.files?.[0];
+  if (file) _qavScanFile(file);
+}
+
+async function _qavScanFile(file) {
+  if (!file) return;
+  const statusEl = document.getElementById('qav-scan-status');
+  statusEl.style.display = 'block';
+  statusEl.innerHTML = '<i class="ti ti-loader ti-spin"></i> Analizuję dowód rejestracyjny...';
+  try {
+    if (!window.TaxOrderDrImport?._extractFromBlob) {
+      statusEl.innerHTML = '<span style="color:var(--red)"><i class="ti ti-alert-circle"></i> Moduł OCR niedostępny — sprawdź połączenie</span>';
+      return;
+    }
+    const result = await window.TaxOrderDrImport._extractFromBlob(file, file.type);
+    if (!result?.fields) {
+      statusEl.innerHTML = '<span style="color:var(--red)"><i class="ti ti-alert-circle"></i> Nie udało się odczytać DR — spróbuj wyraźniejsze zdjęcie</span>';
+      return;
+    }
+    _qavFillForm(result.fields);
+    statusEl.innerHTML = `<span style="color:var(--green)"><i class="ti ti-check"></i> Odczytano (${esc(result.method || 'OCR')}) — sprawdź i uzupełnij brakujące pola</span>`;
+    const nrRej = (result.fields.nrRej || '').replace(/\s/g, '').toUpperCase();
+    if (nrRej || result.fields.vin) _qavAutoInsurance(nrRej, result.fields.vin || '');
+  } catch (e) {
+    statusEl.innerHTML = `<span style="color:var(--red)"><i class="ti ti-alert-circle"></i> Błąd OCR: ${esc(e.message)}</span>`;
+  }
+}
+
+async function _qavCepikLookup() {
+  const nr = (document.getElementById('qav-cepik-nr')?.value?.trim() || '').toUpperCase().replace(/\s/g, '');
+  if (!nr) { toast('⚠ Podaj numer rejestracyjny'); return; }
+  const statusEl = document.getElementById('qav-cepik-status');
+  statusEl.innerHTML = '<i class="ti ti-loader ti-spin"></i> Szukam w CEPiK...';
+  try {
+    const API_BASE = (window.CF_API_URL || '').replace(/\/$/, '');
+    const token = localStorage.getItem('cf_token');
+    const headers = {};
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 12000);
+    const r = await fetch(`${API_BASE}/api/cepik/pojazdy?nr=${encodeURIComponent(nr)}`, { headers, signal: ctrl.signal });
+    if (!r.ok) {
+      const msg = r.status === 404 ? 'Pojazd nie znaleziony w CEPiK' :
+                  r.status === 401 ? 'Brak dostępu do CEPiK (token wygasł)' :
+                  `CEPiK błąd ${r.status}`;
+      statusEl.innerHTML = `<span style="color:var(--amber)"><i class="ti ti-info-circle"></i> ${esc(msg)} — wypełnij dane ręcznie</span>`;
+      return;
+    }
+    const data = await r.json().catch(() => null);
+    const fields = _qavParseCepik(data);
+    if (!fields) {
+      statusEl.innerHTML = '<span style="color:var(--amber)"><i class="ti ti-info-circle"></i> Brak danych CEPiK — wypełnij ręcznie</span>';
+      return;
+    }
+    fields.nrRej = nr;
+    _qavFillForm(fields);
+    statusEl.innerHTML = `<span style="color:var(--green)"><i class="ti ti-check"></i> Pobrano z CEPiK — sprawdź i uzupełnij brakujące pola</span>`;
+    _qavAutoInsurance(nr, fields.vin || '');
+  } catch (e) {
+    const msg = e.name === 'AbortError' ? 'Timeout — CEPiK nie odpowiada' : e.message;
+    statusEl.innerHTML = `<span style="color:var(--red)"><i class="ti ti-alert-circle"></i> ${esc(msg)}</span>`;
+  }
+}
+
+function _qavParseCepik(data) {
+  if (!data) return null;
+  const attrs = data?.data?.attributes
+    || (Array.isArray(data?.data) ? data.data[0]?.attributes : null)
+    || data?.attributes
+    || (typeof data === 'object' && !Array.isArray(data) ? data : null);
+  if (!attrs || typeof attrs !== 'object') return null;
+  const paliwoMap = {
+    'D':'Diesel','OLEJ NAPEDOWY':'Diesel','DIESEL':'Diesel',
+    'B':'Benzyna','BENZYNA':'Benzyna','PB':'Benzyna',
+    'G':'LPG','LPG':'LPG','CNG':'CNG','LNG':'CNG',
+    'E':'Elektryczny','ELEKTRYCZNY':'Elektryczny',
+    'H':'Hybryda','HYBRYDA':'Hybryda',
+  };
+  const rawPaliwo = (attrs['rodzaj-paliwa'] || attrs['fuel-type'] || attrs['P3'] || '').toUpperCase();
+  return {
+    marka:     (attrs['marka'] || attrs['D1'] || '').toUpperCase(),
+    model:     attrs['model']  || attrs['D2']  || '',
+    vin:       attrs['vin']    || attrs['E']   || '',
+    rok:       attrs['rok-produkcji'] || attrs['B'] || '',
+    dmc:       attrs['dopuszczalna-masa-calkowita'] || attrs['F1'] || '',
+    paliwo:    paliwoMap[rawPaliwo] || '',
+    kategoria: attrs['kategoria'] || attrs['J'] || '',
+  };
+}
+
+function _qavFillForm(fields) {
+  const set = (id, val) => {
+    const el = document.getElementById('qav-' + id);
+    if (el && val != null && val !== '') el.value = val;
+  };
+  set('nrRej', (fields.nrRej || '').toUpperCase().replace(/\s/g, ''));
+  set('marka',  (fields.marka || '').toUpperCase());
+  set('model',  fields.model || fields.typ || '');
+  set('rok',    fields.rokProd ?? fields.rok ?? '');
+  set('dmc',    fields.dmcKg ?? fields.dmc ?? '');
+  set('vin',    fields.vin || '');
+  if (fields.paliwo) {
+    const sel = document.getElementById('qav-paliwo');
+    if (sel && [...sel.options].some(o => o.value === fields.paliwo)) sel.value = fields.paliwo;
+  }
+  const kat = (fields.kategoria || fields.katPojazdu || '').toUpperCase();
+  if (kat) {
+    const typSel = document.getElementById('qav-typ');
+    if (typSel) {
+      if (['O1','O2','O3','O4'].some(x => kat.startsWith(x)))      typSel.value = 'Przyczepa';
+      else if (['M2','M3'].some(x => kat.startsWith(x)))           typSel.value = 'Autobus';
+      else if (['N1'].some(x => kat.startsWith(x)))                typSel.value = 'Dostawczy';
+      else if (['N2','N3'].some(x => kat.startsWith(x)))           typSel.value = 'Ciężarowy';
+    }
+  }
+}
+
+function _qavNrChange(val) {
+  clearTimeout(_qavNrDebounce);
+  _qavNrDebounce = setTimeout(() => {
+    const nr = (val || '').replace(/\s/g, '').toUpperCase();
+    if (nr.length >= 5) _qavAutoInsurance(nr, document.getElementById('qav-vin')?.value?.trim() || '');
+  }, 700);
+}
+
+function _qavVinChange(val) {
+  clearTimeout(_qavVinDebounce);
+  _qavVinDebounce = setTimeout(() => {
+    const vin = (val || '').trim().toUpperCase();
+    if (vin.length >= 10) _qavAutoInsurance(document.getElementById('qav-nrRej')?.value?.replace(/\s/g,'')?.toUpperCase() || '', vin);
+  }, 700);
+}
+
+async function _qavAutoInsurance(nrRej, vin) {
+  const foundEl = document.getElementById('qav-insurance-found');
+  if (!foundEl) return;
+  if (!nrRej && !vin) { foundEl.innerHTML = ''; return; }
+  foundEl.innerHTML = '<span style="color:var(--text3);font-size:11px"><i class="ti ti-loader ti-spin"></i> Szukam polis w bazie...</span>';
+  try {
+    const API_BASE = (window.CF_API_URL || '').replace(/\/$/, '');
+    const company  = window.currentCompanyId || 'mtoilet';
+    const token    = localStorage.getItem('cf_token');
+    const headers  = {};
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    let policies = [];
+    if (nrRej) {
+      const r = await fetch(`${API_BASE}/api/policies-db?nrRej=${encodeURIComponent(nrRej)}&company=${encodeURIComponent(company)}`, { headers });
+      if (r.ok) policies = await r.json().catch(() => []);
+    }
+    if (!policies.length && vin) {
+      const r = await fetch(`${API_BASE}/api/policies-db?vin=${encodeURIComponent(vin)}&company=${encodeURIComponent(company)}`, { headers });
+      if (r.ok) policies = await r.json().catch(() => []);
+    }
+    if (!Array.isArray(policies)) policies = [];
+    _qavMatchedPolicies = policies;
+    if (!policies.length) {
+      foundEl.innerHTML = '<span style="color:var(--text3);font-size:11px">Brak polis w bazie dla tego pojazdu</span>';
+      return;
+    }
+    foundEl.innerHTML = policies.map(p => `
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg3);border-radius:var(--radius);margin-bottom:4px;font-size:12px">
+        <i class="ti ti-shield-check" style="color:var(--green)"></i>
+        <strong>${esc(String(p.type||'OC').toUpperCase())}</strong>
+        <span>${esc(p.insurer||'')} — ${esc(p.policy_number||'')}</span>
+        <span style="color:var(--text3);font-size:11px">${esc(p.start_date||'')}–${esc(p.end_date||'')}</span>
+        <span style="background:var(--green);color:#fff;padding:1px 7px;border-radius:99px;font-size:10px;margin-left:auto">auto-assign</span>
+      </div>`).join('');
+  } catch (_) {
+    foundEl.innerHTML = '<span style="color:var(--text3);font-size:11px">Nie udało się sprawdzić polis</span>';
+  }
+}
+
+async function _qavInsuranceScan(file) {
+  if (!file) return;
+  const statusEl = document.getElementById('qav-ins-scan-status');
+  statusEl.innerHTML = '<i class="ti ti-loader ti-spin"></i> Skanuję polisę...';
+  try {
+    const base64 = await new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload = e => res(e.target.result.split(',')[1]);
+      reader.onerror = rej;
+      reader.readAsDataURL(file);
+    });
+    const API_BASE = (window.CF_API_URL || '').replace(/\/$/, '');
+    const token    = localStorage.getItem('cf_token');
+    const headers  = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const r = await fetch(`${API_BASE}/api/ai/ocr`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ imageBase64: base64, mimeType: file.type }),
+    });
+    const d = await r.json().catch(() => ({}));
+    const nrRej = (d.fields?.nrRej || '').replace(/\s/g, '').toUpperCase();
+    const vinV  = (d.fields?.vin || '').trim().toUpperCase();
+    if (nrRej) {
+      const el = document.getElementById('qav-nrRej');
+      if (el && !el.value) el.value = nrRej;
+      statusEl.innerHTML = `<span style="color:var(--green)"><i class="ti ti-check"></i> Znaleziono nr rej.: ${esc(nrRej)}</span>`;
+      _qavAutoInsurance(nrRej, vinV);
+    } else if (vinV) {
+      const el = document.getElementById('qav-vin');
+      if (el && !el.value) el.value = vinV;
+      statusEl.innerHTML = `<span style="color:var(--green)"><i class="ti ti-check"></i> Znaleziono VIN: ${esc(vinV)}</span>`;
+      _qavAutoInsurance('', vinV);
+    } else {
+      statusEl.innerHTML = '<span style="color:var(--amber)">Nie rozpoznano nr rej. ani VIN — dodaj polisę ręcznie w karcie pojazdu</span>';
+    }
+  } catch (e) {
+    statusEl.innerHTML = `<span style="color:var(--red)">Błąd: ${esc(e.message)}</span>`;
+  }
+}
+
+function saveQuickAddVehicle() {
+  const g  = id => (document.getElementById('qav-' + id)?.value?.trim() || '');
+  const gf = id => { const v = g(id); return v ? parseFloat(v) : null; };
+  const gi = id => { const v = g(id); return v ? parseInt(v)   : null; };
+
+  const nrRej = g('nrRej').toUpperCase().replace(/\s/g, '');
+  const marka = g('marka').toUpperCase();
+  if (!nrRej) { toast('⚠ Nr rejestracyjny jest wymagany'); return; }
+  if (!marka) { toast('⚠ Marka jest wymagana'); return; }
+  if (vehs.find(v => v.nrRej === nrRej)) {
+    toast('⚠ Pojazd ' + nrRej + ' już istnieje w bazie'); return;
   }
 
-  const dmc=gf('dmc')??0;
-  const norma=gf('norma');
+  const dmc   = gf('dmc') ?? 0;
+  const norma = gf('norma');
 
-  const newVeh={
+  const newVeh = {
     id: Date.now(),
-    nrRej,
-    marka,
-    model:       g('model')||'—',
-    typ:         g('typ')||'Ciężarowy',
-    rok:         gi('rok')??0,
+    nrRej, marka,
+    model:           g('model') || '—',
+    typ:             g('typ')   || 'Ciężarowy',
+    rok:             gi('rok')  ?? 0,
     dmc,
-    dmcMax:      dmc,
-    paliwo:      g('paliwo'),
-    vin:         g('vin'),
-    status:      g('status')||'Własny',
-    wlasciciel:  'mToilet',
+    dmcMax:          dmc,
+    paliwo:          g('paliwo'),
+    vin:             g('vin'),
+    status:          g('status') || 'Własny',
+    wlasciciel:      'mToilet',
     miesiacePodatku: 12,
-    normaSpalania: norma,
-    euro:'', osie:2, zawieszenie:'pneumatyczne',
-    dmcZespolu:0, dmcKg2:null, masaWlasna:null,
-    ladownosc:null, pojSilnika:null, mocKW:null,
-    miejscaSied:null, katPojazdu:'', przeznaczenie:'',
-    dataRejestracji:'',
+    normaSpalania:   norma,
+    euro: '', osie: 2, zawieszenie: 'pneumatyczne',
+    dmcZespolu: 0, dmcKg2: null, masaWlasna: null,
+    ladownosc: null, pojSilnika: null, mocKW: null,
+    miejscaSied: null, katPojazdu: '', przeznaczenie: '',
+    dataRejestracji: '',
   };
 
   vehs.push(newVeh);
@@ -6344,7 +6590,11 @@ function saveQuickAddVehicle(){
   window.TaxOrderFleetCloud?.saveVehicle(newVeh);
   renderVeh(); updateCounters();
   closeQuickAddVehicle();
-  toast(`✓ Dodano ${newVeh.nrRej} — ${newVeh.marka} ${newVeh.model}${norma?' (norma: '+norma+' l/100km)':''}`);
+
+  const normaInfo = norma ? ` (norma: ${norma} l/100km)` : '';
+  const polisInfo = _qavMatchedPolicies.length
+    ? `, przypisano ${_qavMatchedPolicies.length} polis${_qavMatchedPolicies.length === 1 ? 'ę' : 'y'}` : '';
+  toast(`✓ Dodano ${newVeh.nrRej} — ${newVeh.marka} ${newVeh.model}${normaInfo}${polisInfo}`);
 }
 
 function mapKatToTyp(kat){
