@@ -3,6 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+// Redirect z Cloudflare Pages preview URLs (*.taxorder-pro.pages.dev) na produkcję
+(function(){
+  var h = location.hostname;
+  if (h !== 'taxorder-pro.pages.dev' && h.endsWith('.taxorder-pro.pages.dev')) {
+    location.replace('https://taxorder-pro.pages.dev' + location.pathname + location.search + location.hash);
+  }
+})();
+</script>
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
   script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://eu-assets.i.posthog.com https://npm.clerk.com;
