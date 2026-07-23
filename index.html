@@ -789,38 +789,54 @@ window._initPostHog=function(apiKey,host){
     <button class="btn btn-gray" style="font-size:11px;padding:4px 10px;margin-left:4px" onclick="clearDateFilters()"><i class="ti ti-filter-off"></i>Wyczyść</button>
   </div>
 
-  <!-- Pasek narzędziowy tabeli: Import / Export / Kolumny -->
+  <!-- Pasek narzędziowy tabeli -->
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
-    <button class="btn btn-gray" onclick="CSVImport.open()">
-      <i class="ti ti-file-upload"></i><span data-i18n="btn.import.csv">Import CSV</span>
+    <!-- Tryb widoku: slim toggle -->
+    <button id="slim-table-btn" class="btn btn-gray" onclick="toggleSlimTable()" title="Przełącz widok zwięzły / pełny">
+      <i class="ti ti-layout-list"></i><span>Zwięzły</span>
     </button>
-    <button class="btn btn-gray" onclick="exportFleetCSV()">
-      <i class="ti ti-file-download"></i><span data-i18n="btn.export.csv">Eksport CSV</span>
-    </button>
-    <button class="btn btn-gray" onclick="exportVehicleListPdf()" title="Eksportuj widoczną listę pojazdów do PDF">
-      <i class="ti ti-file-type-pdf"></i><span>Eksport PDF</span>
-    </button>
-    <button class="btn btn-gray" onclick="exportServiceHistoryCsv()" title="Eksportuj historię serwisową wszystkich pojazdów do CSV">
-      <i class="ti ti-tools"></i><span>Historia serwisów CSV</span>
-    </button>
-    <button class="btn btn-gray" onclick="exportTcoCsv()" title="Raport TCO: paliwo + serwis + ubezpieczenia + leasing per pojazd (bieżący rok)">
-      <i class="ti ti-report-analytics"></i><span>Raport TCO CSV</span>
-    </button>
-    <button class="btn btn-gray" onclick="showFuelByDriver()" title="Ranking kierowców wg zużycia paliwa">
-      <i class="ti ti-chart-bar"></i><span>Spalanie/kierowca</span>
-    </button>
-    <button class="btn btn-amber" onclick="FuelImport.open()" title="Import tankowań z kart paliwowych (ORLEN, DKV, BP, Shell)">
-      <i class="ti ti-gas-station"></i><span data-i18n="btn.import.fuel">Import tankowań</span>
-    </button>
-    <button class="btn btn-gray" onclick="autoAssignCategories()" title="Automatycznie przypisz kategorie DT-1 (D1–D15) pojazdom bez kategorii na podstawie DMC, osi i zawieszenia">
-      <i class="ti ti-wand"></i><span data-i18n="btn.auto.cat">Auto-kategoria DT-1</span>
-    </button>
-    <button class="btn btn-gray" onclick="VehicleImport.openModal()" title="Importuj pojazdy z arkusza Excel">
-      <i class="ti ti-table-import"></i><span data-i18n="btn.import.excel">Import Excel</span>
-    </button>
-    <button class="btn btn-gray" onclick="FleetBackup.openModal()" title="Eksport/import kopii zapasowej danych floty">
-      <i class="ti ti-database-export"></i><span data-i18n="btn.backup">Backup</span>
-    </button>
+
+    <!-- Dropdown "Narzędzia" — Import/Export/Raporty -->
+    <div style="position:relative" id="tools-dropdown-wrap">
+      <button class="btn btn-gray" onclick="toggleToolsDropdown()" title="Import, eksport, raporty">
+        <i class="ti ti-tools"></i><span>Narzędzia</span> <i class="ti ti-chevron-down" style="font-size:10px;margin-left:2px"></i>
+      </button>
+      <div id="tools-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:400;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:6px;min-width:210px;box-shadow:0 4px 24px rgba(0,0,0,.18);flex-direction:column;gap:2px">
+        <button class="btn btn-gray" style="width:100%;justify-content:flex-start;font-size:12px" onclick="CSVImport.open();closeToolsDropdown()">
+          <i class="ti ti-file-upload"></i><span data-i18n="btn.import.csv">Import CSV</span>
+        </button>
+        <button class="btn btn-gray" style="width:100%;justify-content:flex-start;font-size:12px" onclick="exportFleetCSV();closeToolsDropdown()">
+          <i class="ti ti-file-download"></i><span data-i18n="btn.export.csv">Eksport CSV</span>
+        </button>
+        <button class="btn btn-gray" style="width:100%;justify-content:flex-start;font-size:12px" onclick="exportVehicleListPdf();closeToolsDropdown()" title="Eksportuj widoczną listę pojazdów do PDF">
+          <i class="ti ti-file-type-pdf"></i><span>Eksport PDF</span>
+        </button>
+        <button class="btn btn-gray" style="width:100%;justify-content:flex-start;font-size:12px" onclick="VehicleImport.openModal();closeToolsDropdown()" title="Importuj pojazdy z arkusza Excel">
+          <i class="ti ti-table-import"></i><span data-i18n="btn.import.excel">Import Excel</span>
+        </button>
+        <button class="btn btn-amber" style="width:100%;justify-content:flex-start;font-size:12px" onclick="FuelImport.open();closeToolsDropdown()" title="Import tankowań z kart paliwowych">
+          <i class="ti ti-gas-station"></i><span data-i18n="btn.import.fuel">Import tankowań</span>
+        </button>
+        <div style="height:1px;background:var(--border);margin:4px 0"></div>
+        <button class="btn btn-gray" style="width:100%;justify-content:flex-start;font-size:12px" onclick="exportServiceHistoryCsv();closeToolsDropdown()">
+          <i class="ti ti-tools"></i><span>Historia serwisów CSV</span>
+        </button>
+        <button class="btn btn-gray" style="width:100%;justify-content:flex-start;font-size:12px" onclick="exportTcoCsv();closeToolsDropdown()" title="Raport TCO: paliwo + serwis + ubezpieczenia + leasing">
+          <i class="ti ti-report-analytics"></i><span>Raport TCO CSV</span>
+        </button>
+        <button class="btn btn-gray" style="width:100%;justify-content:flex-start;font-size:12px" onclick="showFuelByDriver();closeToolsDropdown()">
+          <i class="ti ti-chart-bar"></i><span>Spalanie/kierowca</span>
+        </button>
+        <div style="height:1px;background:var(--border);margin:4px 0"></div>
+        <button class="btn btn-gray" style="width:100%;justify-content:flex-start;font-size:12px" onclick="autoAssignCategories();closeToolsDropdown()" title="Automatycznie przypisz kategorie DT-1">
+          <i class="ti ti-wand"></i><span data-i18n="btn.auto.cat">Auto-kategoria DT-1</span>
+        </button>
+        <button class="btn btn-gray" style="width:100%;justify-content:flex-start;font-size:12px" onclick="FleetBackup.openModal();closeToolsDropdown()">
+          <i class="ti ti-database-export"></i><span data-i18n="btn.backup">Backup</span>
+        </button>
+      </div>
+    </div>
+
     <div style="width:1px;height:20px;background:var(--border);margin:0 2px"></div>
     <div style="position:relative">
       <button id="col-vis-btn" class="btn btn-gray" onclick="toggleColPanel()">

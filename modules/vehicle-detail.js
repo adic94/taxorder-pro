@@ -24,6 +24,22 @@ const VD_TABS = [
   { id: 'changelog',   label: '🕐 Historia zmian', i18n: 'vd.tab.changelog' },
 ];
 
+// Mapowanie 5 super-zakładek na istniejące zakładki
+const VD_SUPER_TABS = {
+  przeglad:   ['dr', 'insurance', 'badania'],
+  dokumenty:  ['dokumenty', 'polisy'],
+  historia:   ['serwis', 'eksploatacja', 'opony', 'mandaty', 'changelog'],
+  koszty:     ['koszty', 'ownership', 'purchase', 'harmonogram'],
+  ustawienia: ['archive', 'notes', 'gps', 'karty', 'konserwacja'],
+};
+const VD_SUPER_LABELS = {
+  przeglad:   { icon: 'ti-eye',      label: 'Przegląd'   },
+  dokumenty:  { icon: 'ti-files',    label: 'Dokumenty'  },
+  historia:   { icon: 'ti-history',  label: 'Historia'   },
+  koszty:     { icon: 'ti-coins',    label: 'Koszty'     },
+  ustawienia: { icon: 'ti-settings', label: 'Ustawienia' },
+};
+
 window.TaxOrderVehicleDetail = {
 
   open(vehId) {
@@ -32,10 +48,8 @@ window.TaxOrderVehicleDetail = {
     this._currentVehId = vehId;
     this._dirty = false;
     this._render(v);
-    // Aktywuj pierwszą widoczną zakładkę (uwzględnia konfigurację użytkownika)
-    const cfg = this._getVdTabsCfg();
-    const firstVisible = cfg.order.find(id => !cfg.hidden.includes(id)) || cfg.order[0];
-    this._tab(firstVisible);
+    // Aktywuj super-tab (pamięta ostatnio wybrany) i aktywuj pierwszą zakładkę w grupie
+    this._superTab(this._activeSuperTab || 'przeglad');
     document.getElementById('vd-modal').style.display = 'flex';
     setTimeout(() => this._initTabScroll(), 0);
     const nrRej = v.nrRej || v.nr_rej || '';
@@ -328,6 +342,11 @@ window.TaxOrderVehicleDetail = {
             <i class="ti ti-file-signature"></i>Protokół
           </button>
         </div>
+      </div>
+
+      <!-- SUPER-TABS: 5 głównych grup -->
+      <div id="vd-super-tabs" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+        ${this._renderSuperTabs()}
       </div>
 
       <!-- TABS — scrollowane z przyciskami nawigacji -->
@@ -2237,7 +2256,79 @@ td:last-child{font-weight:600;color:#1e293b}
     update();
   },
 
+  // ─── Super-tabs ──────────────────────────────────────────────────────────────
+
+  _activeSuperTab: 'przeglad',
+
+  _renderSuperTabs() {
+    const active = this._activeSuperTab || 'przeglad';
+    return Object.entries(VD_SUPER_LABELS).map(([id, def]) => {
+      const isActive = id === active;
+      return `<button id="vd-st-${id}" onclick="TaxOrderVehicleDetail._superTab('${id}')"
+        style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;
+        border:2px solid ${isActive ? 'var(--blue)' : 'var(--border)'};border-radius:var(--radius);
+        cursor:pointer;font-size:12px;font-weight:${isActive ? '700' : '500'};
+        background:${isActive ? 'var(--blue)' : 'var(--bg)'};color:${isActive ? '#fff' : 'var(--text2)'};
+        transition:all .15s">
+        <i class="ti ${def.icon}" style="font-size:14px"></i>${def.label}
+      </button>`;
+    }).join('');
+  },
+
+  _superTab(group) {
+    this._activeSuperTab = group;
+    const groupTabs = VD_SUPER_TABS[group] || [];
+    const cfg = this._getVdTabsCfg();
+    // Odśwież wygląd przycisków super-tab
+    Object.keys(VD_SUPER_TABS).forEach(id => {
+      const btn = document.getElementById('vd-st-' + id);
+      if (!btn) return;
+      const active = id === group;
+      btn.style.background   = active ? 'var(--blue)' : 'var(--bg)';
+      btn.style.color        = active ? '#fff' : 'var(--text2)';
+      btn.style.borderColor  = active ? 'var(--blue)' : 'var(--border)';
+      btn.style.fontWeight   = active ? '700' : '500';
+    });
+    // Pokaż/ukryj przyciski zakładek
+    VD_TABS.forEach(t => {
+      const btn = document.getElementById('vd-tab-' + t.id);
+      if (!btn) return;
+      const inGroup = groupTabs.includes(t.id);
+      const notHidden = !cfg.hidden.includes(t.id);
+      btn.style.display = (inGroup && notHidden) ? 'inline-flex' : 'none';
+    });
+    // Aktywuj pierwszą widoczną zakładkę w grupie
+    const firstTab = groupTabs.find(id => {
+      const btn = document.getElementById('vd-tab-' + id);
+      return btn && btn.style.display !== 'none';
+    });
+    if (firstTab) this._tab(firstTab);
+  },
+
+  // ─── Zakładki (istniejąca logika + auto-switch super-tab) ─────────────────
+
   _tab(name) {
+    // Auto-switch super-tab jeśli zakładka należy do innej grupy
+    const targetGroup = Object.entries(VD_SUPER_TABS).find(([, tabs]) => tabs.includes(name))?.[0];
+    if (targetGroup && targetGroup !== this._activeSuperTab) {
+      this._activeSuperTab = targetGroup;
+      const groupTabs = VD_SUPER_TABS[targetGroup] || [];
+      const cfg = this._getVdTabsCfg();
+      Object.keys(VD_SUPER_TABS).forEach(id => {
+        const btn = document.getElementById('vd-st-' + id);
+        if (!btn) return;
+        const active = id === targetGroup;
+        btn.style.background  = active ? 'var(--blue)' : 'var(--bg)';
+        btn.style.color       = active ? '#fff' : 'var(--text2)';
+        btn.style.borderColor = active ? 'var(--blue)' : 'var(--border)';
+      });
+      VD_TABS.forEach(t => {
+        const btn = document.getElementById('vd-tab-' + t.id);
+        if (!btn) return;
+        btn.style.display = (groupTabs.includes(t.id) && !cfg.hidden.includes(t.id)) ? 'inline-flex' : 'none';
+      });
+    }
+
     document.querySelectorAll('.vd-tab-content').forEach(el => el.style.display = 'none');
     document.querySelectorAll('[id^="vd-tab-"]').forEach(btn => {
       if (btn.id === 'vd-tabs') return;

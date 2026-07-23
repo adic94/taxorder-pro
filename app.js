@@ -12,6 +12,10 @@ let _branches = [];
 window._branches = _branches;
 var _dateFilters = { ocFrom: '', ocTo: '', acFrom: '', acTo: '', inspFrom: '', inspTo: '' };
 
+// Slim table mode (default: true — minimalistyczny widok)
+let _slimTable = localStorage.getItem('slim_table') !== 'false';
+let _expandedVehId = null;
+
 // ── Konfiguracja API ──────────────────────────────────────────────────────────
 window.CF_WORKER_URL = 'https://taxorder-pro-api.adamus1000.workers.dev';
 
@@ -651,6 +655,7 @@ function vehGoPage(page) {
 
 function renderVeh() {
   if (!_colVis) _initColVis();
+  _updateSlimBtn();
   _renderFleetKpiStrip();
   _renderAlertBanner();
   _syncViewModeButtons();
@@ -682,6 +687,113 @@ function renderVeh() {
   }
   if (tblWrap) tblWrap.style.display = '';
   _renderVehPager(list);
+
+  // ── SLIM MODE ────────────────────────────────────────────────────────────────
+  if (_slimTable && _viewMode === 'table') {
+    const thead = document.getElementById('veh-thead');
+    if (thead) thead.innerHTML = `<tr style="background:var(--bg3)">
+      <th style="width:36px;padding:6px 8px"></th>
+      <th style="padding:6px 8px">Nr rej.</th>
+      <th style="padding:6px 8px">Marka / Model</th>
+      <th style="padding:6px 8px">Status</th>
+      <th style="padding:6px 8px">Alerty</th>
+      <th style="padding:6px 8px;width:80px"></th>
+    </tr>`;
+    const stbody = document.getElementById('veh-tbody');
+    if (!stbody) { updateCounters(); return; }
+    const _nowMs = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
+    const _vDays = ds => { if (!ds) return 9999; const d = new Date(ds+'T00:00:00'); return isNaN(d)?9999:Math.round((d-_nowMs)/86400000); };
+    const _alertIco = (icon, days, tip) => {
+      if (days > 30) return '';
+      const col = days < 0 ? 'var(--red)' : days <= 7 ? 'var(--red)' : 'var(--amber)';
+      const label = days < 0 ? Math.abs(days)+'d temu' : 'za '+days+'d';
+      return `<span title="${tip} (${label})" style="color:${col};margin-right:3px"><i class="ti ${icon}"></i></span>`;
+    };
+    const _fd = ds => { if(!ds) return '—'; const p=ds.split('-'); return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:ds; };
+    const _dCol = d => d<0?'var(--red)':d<=30?'var(--amber)':'var(--text)';
+    stbody.innerHTML = pageList.flatMap(v => {
+      const isSel = selected.has(v.id);
+      const ocD = _vDays(v.ocEnd), inspD = _vDays(v.nextInspection), acD = _vDays(v.acEnd);
+      const minD = Math.min(ocD, inspD, acD);
+      const rowCls = minD < 0 ? 'row-alert-red' : minD <= 7 ? 'row-alert-red' : minD <= 30 ? 'row-alert-amber' : '';
+      const stCls  = STAT_LABELS[v.status] || 'pill-gray';
+      const isExp  = _expandedVehId === v.id;
+      const tax    = calcTax(v);
+      const rows   = [`<tr class="${isSel?'row-sel':''} ${rowCls}" style="cursor:pointer"
+          onclick="toggleExpandVeh(${v.id})"
+          ondblclick="event.stopPropagation();TaxOrderVehicleDetail.open(${v.id})"
+          title="Kliknij = szczegóły · Dwuklik = pełna karta">
+        <td style="padding:6px 8px" onclick="event.stopPropagation()">
+          <input type="checkbox" ${isSel?'checked':''} onchange="toggleRow(${v.id})">
+        </td>
+        <td style="padding:6px 8px"><strong style="font-family:var(--mono)">${esc(v.nrRej)}</strong></td>
+        <td style="padding:6px 8px">
+          <div style="font-weight:500">${esc(v.marka)} ${esc(v.model)}</div>
+          <div style="font-size:10px;color:var(--text3)">${esc(String(v.rok||'—'))} · ${esc(v.typ||'')}</div>
+        </td>
+        <td style="padding:6px 8px"><span class="pill ${stCls}" style="font-size:10px">${esc(v.status||'—')}</span></td>
+        <td style="padding:6px 8px;white-space:nowrap">
+          ${_alertIco('ti-shield-x', ocD, 'OC do '+esc(v.ocEnd||'?'))}
+          ${_alertIco('ti-shield-half', acD, 'AC do '+esc(v.acEnd||'?'))}
+          ${_alertIco('ti-tool', inspD, 'Badanie do '+esc(v.nextInspection||'?'))}
+          ${v.uwagi ? `<span style="color:var(--amber);font-size:12px" title="${esc(v.uwagi.slice(0,200))}"><i class="ti ti-note"></i></span>` : ''}
+        </td>
+        <td style="padding:6px 8px;text-align:right;white-space:nowrap" onclick="event.stopPropagation()">
+          <button class="tbtn" style="padding:3px 7px" onclick="TaxOrderVehicleDetail.open(${v.id})" title="Otwórz kartę pojazdu"><i class="ti ti-id-badge"></i></button>
+          <button class="tbtn" style="padding:3px 7px;color:${isExp?'var(--blue)':'var(--text3)'}" onclick="toggleExpandVeh(${v.id})" title="${isExp?'Zwiń':'Rozwiń'}"><i class="ti ti-chevron-${isExp?'up':'down'}"></i></button>
+        </td>
+      </tr>`];
+      if (isExp) {
+        rows.push(`<tr class="veh-expand-row" style="background:var(--bg3)">
+          <td colspan="6" style="padding:0;border-top:none">
+            <div style="padding:12px 24px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px 20px;border-bottom:2px solid var(--blue)">
+              <div>
+                <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Kierowca</div>
+                <div style="font-size:12px;font-weight:600;${!v.kierowca?'color:var(--text3);font-style:italic':''}">${esc(v.kierowca||'brak')}</div>
+              </div>
+              <div>
+                <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">DMC</div>
+                <div style="font-size:12px;font-weight:600">${v.dmc ? (v.dmc).toLocaleString('pl-PL')+' kg' : '—'}</div>
+              </div>
+              <div>
+                <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">OC do</div>
+                <div style="font-size:12px;font-weight:600;color:${_dCol(ocD)}">${_fd(v.ocEnd)}</div>
+              </div>
+              <div>
+                <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Badanie SKP</div>
+                <div style="font-size:12px;font-weight:600;color:${_dCol(inspD)}">${_fd(v.nextInspection)}</div>
+              </div>
+              ${v.leasingEnd ? `<div>
+                <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Leasing do</div>
+                <div style="font-size:12px;font-weight:600">${_fd(v.leasingEnd)}</div>
+              </div>` : ''}
+              <div>
+                <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Kategoria DT-1</div>
+                <div style="font-size:12px;font-weight:600">${esc(tax.cat||'—')}</div>
+              </div>
+              ${v.normaSpalania ? `<div>
+                <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Norma spalania</div>
+                <div style="font-size:12px;font-weight:600">${v.normaSpalania} l/100km</div>
+              </div>` : ''}
+              ${v.vin ? `<div>
+                <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">VIN</div>
+                <div style="font-size:11px;font-family:var(--mono);color:var(--text2)">${esc(v.vin)}</div>
+              </div>` : ''}
+              <div style="display:flex;align-items:flex-end;gap:6px">
+                <button class="btn btn-blue" style="font-size:11px;padding:5px 10px" onclick="TaxOrderVehicleDetail.open(${v.id})"><i class="ti ti-id-badge"></i>Karta</button>
+                <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" data-nr="${esc(v.nrRej)}" onclick="window.DocViewer?.printVehicleCard(this.dataset.nr)"><i class="ti ti-printer"></i></button>
+              </div>
+            </div>
+          </td>
+        </tr>`);
+      }
+      return rows;
+    }).join('') || `<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Brak wyników</td></tr>`;
+    updateCounters();
+    return;
+  }
+  // ── KONIEC SLIM MODE ─────────────────────────────────────────────────────────
+
   _renderFleetThead();
 
   const tbody = document.getElementById('veh-tbody');
@@ -723,6 +835,62 @@ function renderVeh() {
 function toggleRow(id) {
   if(selected.has(id)) selected.delete(id); else selected.add(id);
   renderVeh(); updateCounters();
+}
+
+// ── Slim table toggle ─────────────────────────────────────────────────────────
+function toggleSlimTable() {
+  _slimTable = !_slimTable;
+  localStorage.setItem('slim_table', String(_slimTable));
+  _expandedVehId = null;
+  _updateSlimBtn();
+  renderVeh();
+}
+
+function toggleExpandVeh(id) {
+  _expandedVehId = (_expandedVehId === id) ? null : id;
+  renderVeh();
+}
+
+// ── Widget picker (KPI strip) ─────────────────────────────────────────────────
+const _WIDGET_DEFS = [
+  { id: 'total',      label: 'Pojazdy w bazie' },
+  { id: 'gps',        label: 'GPS aktywny' },
+  { id: 'oc',         label: 'Alerty OC' },
+  { id: 'insp',       label: 'Alerty przeglądów' },
+  { id: 'fines',      label: 'Mandaty' },
+  { id: 'noDriver',   label: 'Bez kierowcy' },
+  { id: 'driversExp', label: 'Prawa jazdy ≤30 dni' },
+];
+function _getWidgetPrefs() {
+  try { const s = localStorage.getItem('fleet_widgets'); if (s) return JSON.parse(s); } catch(_) {}
+  return ['total', 'oc', 'insp', 'fines', 'noDriver'];
+}
+function _saveWidgetPrefs(ids) { localStorage.setItem('fleet_widgets', JSON.stringify(ids)); }
+function openWidgetPicker() {
+  const prefs = _getWidgetPrefs();
+  const existing = document.getElementById('widget-picker-overlay');
+  if (existing) { existing.remove(); return; }
+  const ov = document.createElement('div');
+  ov.id = 'widget-picker-overlay';
+  ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9500;display:flex;align-items:flex-start;justify-content:flex-end;padding:80px 24px 0';
+  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  ov.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;min-width:220px;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+    <div style="font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+      <i class="ti ti-layout-dashboard" style="color:var(--blue)"></i>Widgety KPI
+    </div>
+    ${_WIDGET_DEFS.map(w => `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:12px">
+      <input type="checkbox" id="wg-${w.id}" ${prefs.includes(w.id)?'checked':''} onchange="_onWidgetToggle()">
+      ${w.label}
+    </label>`).join('')}
+    <button class="btn btn-blue" style="width:100%;margin-top:12px;font-size:12px" onclick="document.getElementById('widget-picker-overlay')?.remove();_renderFleetKpiStrip()">
+      <i class="ti ti-check"></i>Zastosuj
+    </button>
+  </div>`;
+  document.body.appendChild(ov);
+}
+function _onWidgetToggle() {
+  const ids = _WIDGET_DEFS.filter(w => document.getElementById('wg-'+w.id)?.checked).map(w => w.id);
+  _saveWidgetPrefs(ids);
 }
 function toggleAll(chk) { const list=filterVeh(); if(chk.checked) list.forEach(v=>selected.add(v.id)); else list.forEach(v=>selected.delete(v.id)); renderVeh(); updateCounters(); }
 function selAll() { const list=filterVeh(); list.forEach(v=>selected.add(v.id)); renderVeh(); updateCounters(); toast(`☑ Zaznaczono ${list.length} pojazdów`); }
@@ -1974,6 +2142,33 @@ function _initColOrderDnd(list) {
   });
 }
 
+function toggleToolsDropdown() {
+  const d = document.getElementById('tools-dropdown');
+  if (!d) return;
+  const open = d.style.display === 'flex';
+  d.style.display = open ? 'none' : 'flex';
+  if (!open) {
+    // zamknij po kliknięciu poza dropdownem
+    setTimeout(() => document.addEventListener('click', _closeToolsOnOutside, { once: true }), 0);
+  }
+}
+function closeToolsDropdown() {
+  const d = document.getElementById('tools-dropdown');
+  if (d) d.style.display = 'none';
+}
+function _closeToolsOnOutside(e) {
+  const wrap = document.getElementById('tools-dropdown-wrap');
+  if (wrap && !wrap.contains(e.target)) closeToolsDropdown();
+}
+
+function _updateSlimBtn() {
+  const btn = document.getElementById('slim-table-btn');
+  if (!btn) return;
+  btn.style.background = _slimTable ? 'var(--blue)' : '';
+  btn.style.color = _slimTable ? '#fff' : '';
+  btn.title = _slimTable ? 'Widok zwięzły (kliknij aby przełączyć na pełny)' : 'Widok pełny (kliknij aby przełączyć na zwięzły)';
+}
+
 function toggleColPanel() {
   const panel = document.getElementById('col-vis-panel');
   if (!panel) return;
@@ -2113,44 +2308,64 @@ function _kpiGoto(filter) {
 function _renderKpiCards({ oc=0, oc_expired=0, oc_7=0, insp=0, insp_expired=0, fines=0, fines_urgent=0, noDriver=0, total=0, drivers_exp=0 } = {}) {
   const el = document.getElementById('fleet-kpi-strip');
   if (!el) return;
+  const vis = _getWidgetPrefs();
   const now = Date.now();
   const gpsRecent = (vehs||[]).filter(v => {
     const h = Array.isArray(v.gpsHistory) ? v.gpsHistory : [];
     const last = h.filter(x=>x.lat&&x.lon).sort((a,b)=>new Date(b.ts)-new Date(a.ts))[0];
     return last && (now - new Date(last.ts).getTime()) < 24*3600000;
   }).length;
-  el.innerHTML = `
+
+  const cards = [
+    vis.includes('total') ? `
     <div class="fkpi-card" onclick="showPage('pojazdy')" style="cursor:pointer" title="Przejdź do listy pojazdów">
       <div class="fkpi-val">${total}</div>
       <div class="fkpi-lab">pojazdy w bazie</div>
-    </div>
-    ${gpsRecent > 0 ? `
-    <div class="fkpi-card" onclick="showPage('mapa')" style="cursor:pointer" title="Pojazdy z aktywnym sygnałem GPS (< 24h) — kliknij aby otworzyć mapę">
+    </div>` : '',
+
+    vis.includes('gps') && gpsRecent > 0 ? `
+    <div class="fkpi-card" onclick="showPage('mapa')" style="cursor:pointer" title="Pojazdy z aktywnym sygnałem GPS (< 24h)">
       <div class="fkpi-val" style="color:var(--green)">${gpsRecent}</div>
       <div class="fkpi-lab"><i class="ti ti-map-pin" style="font-size:10px"></i> GPS aktywny (24h)</div>
-    </div>` : ''}
-    <div class="fkpi-card ${oc_expired > 0 ? 'fkpi-red' : oc_7 > 0 ? 'fkpi-red' : oc > 0 ? 'fkpi-amber' : ''}" onclick="_kpiGoto('oc')" style="cursor:pointer" title="Pokaż alerty OC">
+    </div>` : '',
+
+    vis.includes('oc') ? `
+    <div class="fkpi-card ${oc_expired>0?'fkpi-red':oc_7>0?'fkpi-red':oc>0?'fkpi-amber':''}" onclick="_kpiGoto('oc')" style="cursor:pointer" title="Pokaż alerty OC">
       <div class="fkpi-val">${oc}</div>
-      <div class="fkpi-lab">OC — wygasłe lub ≤ 30 dni${oc_expired > 0 ? ` <span style="font-size:10px">(${oc_expired} wygasłe)</span>` : ''}</div>
-    </div>
-    <div class="fkpi-card ${insp_expired > 0 ? 'fkpi-red' : insp > 0 ? 'fkpi-amber' : ''}" onclick="_kpiGoto('przeglad')" style="cursor:pointer" title="Pokaż alerty przeglądów">
+      <div class="fkpi-lab">OC — wygasłe lub ≤ 30 dni${oc_expired>0?` <span style="font-size:10px">(${oc_expired} wygasłe)</span>`:''}</div>
+    </div>` : '',
+
+    vis.includes('insp') ? `
+    <div class="fkpi-card ${insp_expired>0?'fkpi-red':insp>0?'fkpi-amber':''}" onclick="_kpiGoto('przeglad')" style="cursor:pointer" title="Pokaż alerty przeglądów">
       <div class="fkpi-val">${insp}</div>
       <div class="fkpi-lab">przeglądy — wygasłe lub ≤ 30 dni</div>
-    </div>
-    ${fines > 0 ? `
-    <div class="fkpi-card ${fines_urgent > 0 ? 'fkpi-red' : 'fkpi-amber'}" onclick="FinesModule.open()" style="cursor:pointer" title="Przejdź do mandatów">
+    </div>` : '',
+
+    vis.includes('fines') && fines > 0 ? `
+    <div class="fkpi-card ${fines_urgent>0?'fkpi-red':'fkpi-amber'}" onclick="FinesModule.open()" style="cursor:pointer" title="Przejdź do mandatów">
       <div class="fkpi-val">${fines}</div>
-      <div class="fkpi-lab">mandaty nieopłacone${fines_urgent > 0 ? ` <span style="font-size:10px">(${fines_urgent} pilne)</span>` : ''}</div>
-    </div>` : ''}
-    <div class="fkpi-card ${noDriver > 0 ? 'fkpi-amber' : ''}" title="Pojazdy bez przypisanego kierowcy">
+      <div class="fkpi-lab">mandaty nieopłacone${fines_urgent>0?` <span style="font-size:10px">(${fines_urgent} pilne)</span>`:''}</div>
+    </div>` : '',
+
+    vis.includes('noDriver') ? `
+    <div class="fkpi-card ${noDriver>0?'fkpi-amber':''}" title="Pojazdy bez przypisanego kierowcy">
       <div class="fkpi-val">${noDriver}</div>
       <div class="fkpi-lab">bez przypisanego kierowcy</div>
-    </div>
-    ${drivers_exp > 0 ? `
+    </div>` : '',
+
+    vis.includes('driversExp') && drivers_exp > 0 ? `
     <div class="fkpi-card fkpi-amber" onclick="window.TaxOrderDrivers?.open?.()" style="cursor:pointer" title="Kierowcy z wygasającym prawem jazdy">
       <div class="fkpi-val">${drivers_exp}</div>
       <div class="fkpi-lab">prawa jazdy ≤ 30 dni</div>
-    </div>` : ''}`;
+    </div>` : '',
+
+    // Przycisk "Dostosuj widgety" — zawsze widoczny jako ostatnia karta
+    `<div class="fkpi-card" onclick="openWidgetPicker()" style="cursor:pointer;opacity:.55;min-width:60px" title="Dostosuj widgety KPI">
+      <div class="fkpi-val" style="font-size:20px">⚙</div>
+      <div class="fkpi-lab">Dostosuj</div>
+    </div>`,
+  ];
+  el.innerHTML = cards.join('');
 }
 
 function _renderCards(list) {
@@ -8062,6 +8277,8 @@ const _origRenderVeh = renderVeh;
 function renderVehWithDocs(){
   // Wywołaj oryginał (renderuje tbody)
   _origRenderVeh();
+  // W slim mode renderVeh obsługuje własny układ kolumn — nie dodajemy extra TD
+  if (_slimTable && (_viewMode === 'table' || !_viewMode)) return;
   // Dodaj kolumnę dokumentów do każdego wiersza
   const tbody=document.getElementById('veh-tbody');
   if(!tbody)return;
