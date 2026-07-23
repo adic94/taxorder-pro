@@ -188,10 +188,39 @@ window.TaxOrderVehicleDetail = {
       stanKilometrow: gi('stanKilometrow'),
       kartaOrlen:     g('kartaOrlen'),
       normaSpalania:  gf('normaSpalania'),
-      statusPojazdu:  g('statusPojazdu'),
-      nrFlotowy:      g('nrFlotowy'),
-      euro:           g('euro'),
-      co2:            gi('co2'),
+      statusPojazdu:    g('statusPojazdu'),
+      statusUzytkowania:g('statusUzytkowania'),
+      nrFlotowy:        g('nrFlotowy'),
+      euro:             g('euro'),
+      co2:              gi('co2'),
+      // === DANE OPERACYJNE (ZSI) ===
+      orlenPin:              g('orlenPin'),
+      nrWypisuLicencji:      g('nrWypisuLicencji'),
+      nrBiznesowy:           g('nrBiznesowy'),
+      idTekom:               g('idTekom'),
+      depozyt:               g('depozyt'),
+      przyczepaNrRej:        g('przyczepaNrRej'),
+      viatoll:               gb('viatoll'),
+      odpisVat:              gb('odpisVat'),
+      hakHolowniczy:         gb('hakHolowniczy'),
+      daneZTekom:            gb('daneZTekom'),
+      // === SERWISOWANIE OLEJU ===
+      lastOilChangeKm:       gi('lastOilChangeKm'),
+      oilChangeInterval:     gi('oilChangeInterval'),
+      oilChangeRemainingKm:  gi('oilChangeRemainingKm'),
+      // === PARAMETRY SPECJALISTYCZNE ===
+      rodzajSamochodu:        g('rodzajSamochodu'),
+      pojemnoscZbiornikaNaWode:   gi('pojemnoscZbiornikaNaWode'),
+      pojemnoscZbiornikaNaScieke: gi('pojemnoscZbiornikaNaScieke'),
+      iloscKabin:             gi('iloscKabin'),
+      iloscKontenerow:        gi('iloscKontenerow'),
+      przewoziKabiny:         gb('przewoziKabiny'),
+      przewoziKontenery:      gb('przewoziKontenery'),
+      przewoziOgrodzenia:     gb('przewoziOgrodzenia'),
+      // === WERYFIKACJA LOKALIZACJI ===
+      ostatniePotwierdzenieLokal: g('ostatniePotwierdzenieLokal'),
+      osobaPotwierdzajaca:        g('osobaPotwierdzajaca'),
+      iloscTagow:                 gi('iloscTagow'),
       // === WŁASNOŚĆ ===
       ownership_type:    g('ownershipType'),
       leasingCompany:      g('leasingCompany'),
@@ -829,6 +858,78 @@ window.TaxOrderVehicleDetail = {
           ], v.euro||'')}
           ${field('co2','Emisja CO2 (g/km)', v.co2,'number')}
         </div>
+
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-top:18px;margin-bottom:10px">Dane operacyjne</div>
+        <div class="vdfg" style="margin-bottom:14px">
+          ${sel('statusUzytkowania','Status użytkowania',[
+            ['na_stale','Na stałe'],
+            ['sezonowy','Sezonowy'],
+            ['rezerwowy','Rezerwowy'],
+            ['do_dyspozycji','Do dyspozycji'],
+            ['w_naprawie','W naprawie'],
+          ], v.statusUzytkowania||'na_stale')}
+          ${field('orlenPin','Orlen PIN (karta paliwowa)', v.orlenPin)}
+          ${field('nrWypisuLicencji','Nr wypisu z licencji transportowej', v.nrWypisuLicencji)}
+          ${field('nrBiznesowy','Nr biznesowy', v.nrBiznesowy)}
+          ${field('idTekom','ID TEKOM', v.idTekom)}
+          ${field('depozyt','Depozyt / lokalizacja', v.depozyt)}
+          ${field('przyczepaNrRej','Przyczepa (nr rej.)', v.przyczepaNrRej)}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
+          ${[
+            ['viatoll','Viatoll','ti-road','ti-road'],
+            ['odpisVat','Odpis VAT','ti-receipt-tax','ti-receipt-tax'],
+            ['hakHolowniczy','Hak holowniczy','ti-anchor','ti-anchor'],
+            ['daneZTekom','Dane z TEKOM','ti-database','ti-database'],
+          ].map(([id, label, icon]) => `
+            <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;padding:7px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border);white-space:nowrap">
+              <input type="checkbox" id="vd-${id}" ${v[id]?'checked':''}> <i class="ti ${icon}" style="font-size:13px;color:var(--text3)"></i>${label}
+            </label>`).join('')}
+        </div>
+
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Serwisowanie — olej silnikowy</div>
+        <div class="vdfg" style="margin-bottom:18px">
+          ${field('lastOilChangeKm','Przebieg przy ostatniej wymianie oleju (km)', v.lastOilChangeKm,'number')}
+          ${field('oilChangeInterval','Częstotliwość wymiany oleju (km)', v.oilChangeInterval,'number')}
+          <div class="vdf">
+            <label class="vdl">Wymiana oleju za (km)</label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input id="vd-oilChangeRemainingKm" type="number" class="fi" value="${v.oilChangeRemainingKm??''}" style="flex:1">
+              <button type="button" class="btn btn-gray" style="padding:4px 8px;font-size:11px;white-space:nowrap"
+                onclick="(function(){ const last=+document.getElementById('vd-lastOilChangeKm').value||0; const int=+document.getElementById('vd-oilChangeInterval').value||0; const km=+document.getElementById('vd-stanKilometrow').value||0; if(last&&int&&km){ const r=last+int-km; document.getElementById('vd-oilChangeRemainingKm').value=r; } })()">
+                <i class="ti ti-calculator"></i>Auto
+              </button>
+            </div>
+            ${(()=>{ const r = v.oilChangeRemainingKm; if(!r) return ''; const cl = r < 0 ? 'var(--red)' : r < 1000 ? 'var(--amber)' : 'var(--green)'; return `<div style="font-size:10px;color:${cl};margin-top:2px">${r < 0 ? `Przekroczone o ${Math.abs(r).toLocaleString('pl-PL')} km` : `Pozostało ${r.toLocaleString('pl-PL')} km`}</div>`; })()}
+          </div>
+        </div>
+
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Parametry specjalistyczne</div>
+        <div class="vdfg" style="margin-bottom:14px">
+          ${field('rodzajSamochodu','Rodzaj samochodu', v.rodzajSamochodu, 'text', '(np. Standard, Ciężarowy, Cysterna...)')}
+          ${field('pojemnoscZbiornikaNaWode','Pojemność zbiornika na wodę (l)', v.pojemnoscZbiornikaNaWode,'number')}
+          ${field('pojemnoscZbiornikaNaScieke','Pojemność zbiornika na ścieki (l)', v.pojemnoscZbiornikaNaScieke,'number')}
+          ${field('iloscKabin','Ilość przewożonych kabin', v.iloscKabin,'number')}
+          ${field('iloscKontenerow','Ilość przewożonych kontenerów', v.iloscKontenerow,'number')}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
+          ${[
+            ['przewoziKabiny','Przewozi kabiny','ti-home'],
+            ['przewoziKontenery','Przewozi kontenery','ti-box'],
+            ['przewoziOgrodzenia','Przewozi ogrodzenia','ti-border-all'],
+          ].map(([id, label, icon]) => `
+            <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;padding:7px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border);white-space:nowrap">
+              <input type="checkbox" id="vd-${id}" ${v[id]?'checked':''}> <i class="ti ${icon}" style="font-size:13px;color:var(--text3)"></i>${label}
+            </label>`).join('')}
+        </div>
+
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Weryfikacja lokalizacji</div>
+        <div class="vdfg" style="margin-bottom:6px">
+          ${field('ostatniePotwierdzenieLokal','Ostatnie potwierdzenie lokalizacji', v.ostatniePotwierdzenieLokal,'date')}
+          ${field('osobaPotwierdzajaca','Osoba potwierdzająca', v.osobaPotwierdzajaca)}
+          ${field('iloscTagow','Ilość tagów RFID przypisanych', v.iloscTagow,'number')}
+        </div>
+
         <div id="vd-km-history"></div>
       </div>
 
