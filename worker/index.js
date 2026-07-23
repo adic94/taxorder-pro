@@ -164,29 +164,47 @@ function validateRole(role) {
 // ─── CRYPTO ──────────────────────────────────────────────────────────────────
 // DEPRECATED: Stała sól używana przed schemą v5 (przed 2026-01-01).
 // Używana wyłącznie do weryfikacji starych hashy przy logowaniu — leniwa migracja usuwa ją po 1. logowaniu.
-// TODO: usunąć LEGACY_SALT i blok `if (!user.salt)` gdy wszyscy użytkownicy zmigrują (docelowo 2027-01-01).
 const LEGACY_SALT = 'taxorder-cf-2025';
+
+// Iteracje PBKDF2:
+//   Stare hasła (bez prefiksu "v2_"): 100 000 — wolne ~500ms na CF Worker
+//   Nowe hasła (prefiks "v2_"):        10 000 — ~50ms, ×10 szybciej przy logowaniu
+// Przy pierwszym logowaniu stare hasło jest weryfikowane (100k), potem re-hashowane (10k)
+// przez ctx.waitUntil — nie blokuje odpowiedzi.
+const PBKDF2_ITERS_V1 = 100_000;
+const PBKDF2_ITERS_V2 =  10_000;
 
 function genSalt() {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   return btoa(String.fromCharCode(...bytes));
 }
 
-async function hashPwd(password, salt) {
-  if (!salt) throw new Error('hashPwd: brak soli');
+async function _pbkdf2(password, salt, iterations) {
   const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']
-  );
+  const key = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
   const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(salt), iterations: 100_000 },
+    { name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(salt), iterations },
     key, 256
   );
   return btoa(String.fromCharCode(...new Uint8Array(bits)));
 }
-// Jeśli `salt` jest puste (konto sprzed wprowadzenia soli per-użytkownik), weryfikuje względem starej stałej soli.
+
+// Generuje nowy hash z prefiksem "v2_" i 10k iteracjami.
+async function hashPwd(password, salt) {
+  if (!salt) throw new Error('hashPwd: brak soli');
+  return 'v2_' + await _pbkdf2(password, salt, PBKDF2_ITERS_V2);
+}
+
+// Weryfikuje hasło bez względu na wersję hasha.
+// Zwraca { ok: boolean, needsMigration: boolean }
 async function verifyPwd(password, storedHash, salt) {
-  return (await hashPwd(password, salt || LEGACY_SALT)) === storedHash;
+  if (storedHash && storedHash.startsWith('v2_')) {
+    const ok = ('v2_' + await _pbkdf2(password, salt || LEGACY_SALT, PBKDF2_ITERS_V2)) === storedHash;
+    return { ok, needsMigration: false };
+  }
+  // Stary hash (v1, 100k iteracji) — weryfikacja wolna, ale tylko raz do migracji
+  const ok = (await _pbkdf2(password, salt || LEGACY_SALT, PBKDF2_ITERS_V1)) === storedHash;
+  return { ok, needsMigration: ok };
 }
 
 // ─── KLUCZE API (uwierzytelnianie maszyna-maszyna) ────────────────────────────
@@ -288,7 +306,7 @@ function safeUser(u) {
 const LOGIN_MAX_ATTEMPTS = 5;
 const LOGIN_LOCKOUT_SECONDS = 15 * 60;
 
-async function handleLogin(req, env) {
+async function handleLogin(req, env, ctx) {
   let body;
   try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
   const { email, password } = body;
@@ -311,7 +329,9 @@ async function handleLogin(req, env) {
     'SELECT * FROM users WHERE email = ? AND active = 1'
   ).bind(emailLc).first();
 
-  if (!user || !(await verifyPwd(password, user.password_hash, user.salt))) {
+  const verify = user ? await verifyPwd(password, user.password_hash, user.salt) : { ok: false, needsMigration: false };
+
+  if (!verify.ok) {
     if (env.PREFS) {
       await env.PREFS.put(rlKey, String(attempts + 1), { expirationTtl: LOGIN_LOCKOUT_SECONDS });
     }
@@ -320,11 +340,21 @@ async function handleLogin(req, env) {
 
   if (env.PREFS) await env.PREFS.delete(rlKey).catch(() => {});
 
-  // Leniwa migracja: konto sprzed wprowadzenia soli per-użytkownik — dorzuć losową sól przy okazji udanego logowania
-  if (!user.salt) {
-    const newSalt = genSalt();
-    const newHash = await hashPwd(password, newSalt);
-    await env.DB.prepare('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?').bind(newHash, newSalt, user.id).run();
+  // Leniwa migracja hash → v2 (10k iteracji) oraz brak soli → per-user salt.
+  // Uruchamiane przez ctx.waitUntil — nie blokuje odpowiedzi logowania.
+  if (!user.salt || verify.needsMigration) {
+    const migrateFn = async () => {
+      try {
+        const newSalt = user.salt || genSalt();
+        const newHash = await hashPwd(password, newSalt);  // v2_ + 10k iteracji
+        await env.DB.prepare('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?')
+          .bind(newHash, newSalt, user.id).run();
+      } catch (e) {
+        console.warn('[Login] Migracja hasha nieudana:', e.message);
+      }
+    };
+    if (ctx?.waitUntil) ctx.waitUntil(migrateFn());
+    else migrateFn().catch(() => {});
   }
 
   const token = crypto.randomUUID();
@@ -8238,13 +8268,13 @@ async function handleGpsPositions(request, env, user, url, path) {
 }
 
 // ─── MAIN FETCH ───────────────────────────────────────────────────────────────
-async function handleRequest(request, env, url, path) {
+async function handleRequest(request, env, url, path, ctx) {
   // Public endpoints (no auth required)
   if (path === '/api/auth/login'            && request.method === 'POST') {
     const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
     const rl = await rateLimit(env, `login:${ip}`, 10, 60);
     if (!rl.allowed) return json({ error: 'Zbyt wiele prób logowania. Poczekaj minutę.' }, 429);
-    return handleLogin(request, env);
+    return handleLogin(request, env, ctx);
   }
   if (path === '/api/auth/logout'           && request.method === 'POST') return handleLogout(request, env);
   if (path === '/api/auth/pz/start'         && request.method === 'GET')  return handlePzStart(request, env, url);
@@ -11115,7 +11145,7 @@ export default {
 
     let resp;
     try {
-      resp = await handleRequest(request, env, url, path);
+      resp = await handleRequest(request, env, url, path, ctx);
     } catch (e) {
       console.error('[Worker error]', e?.stack || e?.message);
       captureException(e, env, { path, method: request.method }).catch(() => {});

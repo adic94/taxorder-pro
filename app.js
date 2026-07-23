@@ -7437,30 +7437,26 @@ async function doLogin(){
     updateCompanyUI();
   }
 
-  if(window.TaxOrderFleetCloud && typeof window.TaxOrderFleetCloud.loadVehicles === 'function'){
-    try {
-      await window.TaxOrderFleetCloud.loadVehicles();
-    } catch(e) {
-      console.warn('[FleetCloud] Błąd ładowania pojazdów po logowaniu — używam lokalnej floty:', e.message);
-    }
-
-    if(typeof refreshAll==='function') refreshAll();
-
-    // Ładuj oddziały po zalogowaniu
-    loadBranches().catch(e => console.warn('[Branches] init:', e.message));
-    // Badge zatwierdzeń
-    _refreshApprovalBadge();
-
-    // Subskrybuj zmiany real-time po zalogowaniu
-    window.TaxOrderFleetCloud?.subscribeRealTime?.(currentCompanyId);
-
-    console.log('[FleetCloud] Automatycznie zaladowano pojazdy po zalogowaniu');
-  }
-
+  // Pokaż UI natychmiast — pojazdy ładują się w tle
   initSidebarCollapse();
   renderDash();
   renderVeh();
   updateCounters();
+
+  if(window.TaxOrderFleetCloud && typeof window.TaxOrderFleetCloud.loadVehicles === 'function'){
+    TaxOrderFleetCloud.loadVehicles().then(result => {
+      if(typeof refreshAll==='function') refreshAll();
+      renderDash();
+      renderVeh();
+      updateCounters();
+      loadBranches().catch(e => console.warn('[Branches] init:', e.message));
+      _refreshApprovalBadge();
+      window.TaxOrderFleetCloud?.subscribeRealTime?.(currentCompanyId);
+      if (result?.ok) console.log('[FleetCloud] Pojazdy załadowane w tle:', result.count);
+    }).catch(e => {
+      console.warn('[FleetCloud] Błąd ładowania pojazdów po logowaniu — używam lokalnej floty:', e.message);
+    });
+  }
 
   setTimeout(() => {
     if (window.TaxOrderNotifications?.requestAndCheck) {
