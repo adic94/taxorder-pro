@@ -8566,6 +8566,11 @@ async function handleRequest(request, env, url, path, ctx) {
   // DR OCR — AI ekstrakcja pól dowodu rejestracyjnego (Claude Vision)
   if (path === '/api/dr-ocr') { if (!user) return err('Nieautoryzowany', 401); return handleDrOcr(request, env); }
 
+  // Masowy import dokumentów flotowych
+  if (path === '/api/bulk/classify'    && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleBulkClassify(request, env, user); }
+  if (path === '/api/bulk/extract'     && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleBulkExtract(request, env, user); }
+  if (path === '/api/bulk/save-policy' && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleBulkSavePolicy(request, env, user, url); }
+
   // GUS BIR1 proxy — requires GUS_BIR_KEY secret in Worker env
   if (path === '/api/gus-regon' && request.method === 'GET') {
     if (!user) return err('Nieautoryzowany', 401);
@@ -11133,6 +11138,140 @@ async function handleClerkSignin(request, env) {
     user: { id: user.id, email: user.email, role: user.role, company_id: user.company_id, name: user.name },
   });
 }
+
+// ─── BULK IMPORT — masowy import dokumentów flotowych ────────────────────────
+
+async function _bulkGroqVision(env, imageBase64, mimeType, prompt, maxTokens = 300) {
+  if (!env.GROQ_API_KEY) throw new Error('Brak GROQ_API_KEY');
+  const visionModels = [
+    'meta-llama/llama-4-scout-17b-16e-instruct',
+    'meta-llama/llama-4-maverick-17b-128e-instruct',
+    'llama-3.2-90b-vision-preview',
+    'llama-3.2-11b-vision-preview',
+  ];
+  const messages = [{
+    role: 'user',
+    content: [
+      { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+      { type: 'text', text: prompt },
+    ],
+  }];
+  let lastErr = 'Brak działającego modelu';
+  for (const model of visionModels) {
+    try {
+      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + env.GROQ_API_KEY },
+        body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.1 }),
+      });
+      if (!resp.ok) { lastErr = model + ': HTTP ' + resp.status; continue; }
+      const d = await resp.json();
+      const text = d.choices?.[0]?.message?.content || '';
+      const jm = text.match(/\{[\s\S]*?\}/);
+      if (!jm) { lastErr = 'Brak JSON: ' + text.slice(0, 80); continue; }
+      return JSON.parse(jm[0]);
+    } catch (e) { lastErr = model + ': ' + (e?.message || e); }
+  }
+  throw new Error('Vision AI: ' + lastErr);
+}
+
+function _bulkNormPlate(raw) {
+  if (!raw) return null;
+  const c = String(raw).toUpperCase().replace(/[\s\-\.]/g, '');
+  return /^[A-Z]{2,3}[A-Z0-9]{3,6}$/.test(c) ? c : null;
+}
+
+function _bulkNormVin(raw) {
+  if (!raw) return null;
+  const c = String(raw).toUpperCase().replace(/[\s\-\.]/g, '');
+  return /^[A-HJ-NPR-Z0-9]{17}$/.test(c) ? c : null;
+}
+
+// POST /api/bulk/classify — AI Groq Vision: określ typ dokumentu + numer rejestracyjny
+async function handleBulkClassify(request, env, user) {
+  let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON'); }
+  const { imageBase64, mimeType = 'image/jpeg', filename = '' } = body;
+  if (!imageBase64) return err('Wymagane: imageBase64');
+  if (!env.GROQ_API_KEY) return err('Brak GROQ_API_KEY — skonfiguruj sekret w Cloudflare', 503);
+
+  const prompt = `Jesteś ekspertem od polskich dokumentów flotowych. Przeanalizuj dokument i odpowiedz TYLKO JSON-em.
+Nazwa pliku: "${filename.replace(/"/g, '').slice(0, 80)}"
+Pola:
+- type: "dr"|"oc"|"ac"|"invoice"|"inspection"|"handover"|"service"|"other"
+- plate: polski numer rejestracyjny (np. "WA12345") lub null
+- vin: numer VIN pojazdu (17 znaków alfanumerycznych, np. "WBAUV510X0A123456") lub null
+- confidence: "high"|"medium"|"low"
+Odpowiedź (tylko JSON, bez komentarzy): {"type":"dr","plate":"WA12345","vin":"WBAUV510X0A123456","confidence":"high"}`;
+
+  try {
+    const r = await _bulkGroqVision(env, imageBase64, mimeType, prompt, 150);
+    const validTypes = ['dr','oc','ac','invoice','inspection','handover','service','other'];
+    return json({
+      type:       validTypes.includes(r.type) ? r.type : 'other',
+      plate:      _bulkNormPlate(r.plate),
+      vin:        _bulkNormVin(r.vin),
+      confidence: r.confidence || 'low',
+    });
+  } catch (e) {
+    return json({ type: 'other', plate: null, vin: null, confidence: 'low', error: e.message });
+  }
+}
+
+// POST /api/bulk/extract — AI Groq Vision: wyciągnij dane strukturalne z dokumentu
+async function handleBulkExtract(request, env, user) {
+  let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON'); }
+  const { imageBase64, mimeType = 'image/jpeg', docType = 'other' } = body;
+  if (!imageBase64) return err('Wymagane: imageBase64');
+  if (!env.GROQ_API_KEY) return err('Brak GROQ_API_KEY', 503);
+
+  const prompts = {
+    dr:         'Wyciągnij dane z polskiego dowodu rejestracyjnego (JSON): {"plate":"WA12345","vin":"WBAUV510X0A123456","marka":"FORD","model":"TRANSIT","rok":2019,"pojemnosc":1996,"moc":130,"paliwo":"ON","dmcKg":3500,"dataWaznosci":"2026-12-31"}',
+    oc:         'Wyciągnij dane z polisy OC (JSON): {"plate":"WA12345","vin":"WBAUV510X0A123456","towarzystwo":"PZU","nrPolisy":"123456789","dataOd":"2025-01-01","dataDo":"2025-12-31","skladka":1200.00}',
+    ac:         'Wyciągnij dane z polisy AC/Casco (JSON): {"plate":"WA12345","vin":"WBAUV510X0A123456","towarzystwo":"Allianz","nrPolisy":"AC123456","dataOd":"2025-01-01","dataDo":"2025-12-31","skladka":2500.00,"sumaUbezpieczenia":85000.00}',
+    invoice:    'Wyciągnij dane z faktury (JSON): {"plate":"WA12345","vin":null,"nrFaktury":"FV/2025/001","data":"2025-01-15","sprzedawca":"Serwis Auto Sp.z o.o.","opis":"Wymiana opon","kwotaNetto":1200.00,"kwotaBrutto":1476.00}',
+    inspection: 'Wyciągnij dane z badania technicznego SKP (JSON): {"plate":"WA12345","vin":"WBAUV510X0A123456","dataBadania":"2025-03-10","wazneDo":"2027-03-10","wynik":"pozytywny","stacja":"SKP Warszawa","przebieg":85000}',
+    handover:   'Wyciągnij dane z protokołu przekazania pojazdu (JSON): {"plate":"WA12345","vin":null,"dataProtokolu":"2025-02-01","zdajacy":"Jan Kowalski","odbierajacy":"Anna Nowak","stanLicznika":45000,"uwagi":""}',
+    service:    'Wyciągnij dane ze zlecenia serwisowego (JSON): {"plate":"WA12345","vin":null,"dataSerwisu":"2025-01-20","warsztat":"Auto Serwis Sp.z o.o.","opis":"Wymiana oleju","kwotaBrutto":450.00,"przebieg":75000}',
+    other:      'Wyciągnij podstawowe informacje z dokumentu flotowego (JSON): {"plate":null,"vin":null,"data":null,"opis":"krótki opis","kwota":null}',
+  };
+
+  try {
+    const result = await _bulkGroqVision(env, imageBase64, mimeType, prompts[docType] || prompts.other, 350);
+    const plate  = _bulkNormPlate(result.plate);
+    const vin    = _bulkNormVin(result.vin);
+    return json({ fields: result, plate, vin });
+  } catch (e) {
+    return json({ fields: {}, plate: null, vin: null, error: e.message });
+  }
+}
+
+// POST /api/bulk/save-policy — zapisz dane polisy OC/AC do tabeli polisy
+async function handleBulkSavePolicy(request, env, user, url) {
+  let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON'); }
+  const { nr_rej, typ, data = {}, r2Key } = body;
+  if (!nr_rej) return err('Wymagane: nr_rej');
+
+  const companyId = url.searchParams.get('company') || user.company_id || 'mtoilet';
+  const veh = await env.DB.prepare('SELECT id FROM vehicles WHERE nr_rej=? AND company_id=?').bind(nr_rej, companyId).first();
+  if (!veh) return err('Pojazd nie znaleziony: ' + nr_rej, 404);
+
+  const policyType = typ || (data.nrPolisy?.startsWith('AC') ? 'AC' : 'OC');
+  await env.DB.prepare(
+    `INSERT OR IGNORE INTO polisy (vehicle_id, company_id, nr_polisy, typ, towarzystwo, data_od, data_do, skladka_brutto, r2_key, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+  ).bind(
+    veh.id, companyId,
+    data.nrPolisy || null, policyType,
+    data.towarzystwo || null,
+    data.dataOd || null, data.dataDo || null,
+    data.skladka ?? data.skladka_brutto ?? null,
+    r2Key || null,
+  ).run().catch(e => console.warn('[BulkSavePolicy] polisy insert:', e.message));
+
+  return json({ ok: true, vehicleId: veh.id, policyType });
+}
+
+// ─── END BULK IMPORT ──────────────────────────────────────────────────────────
 
 export default {
   async fetch(request, env, ctx) {

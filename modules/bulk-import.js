@@ -168,6 +168,24 @@ window.BulkImport = (function () {
     });
   }
 
+  // Wyciąga tekst z PDF bez OCR (dla PDF-ów wygenerowanych elektronicznie, nie skanów)
+  async function _extractPdfText(file) {
+    const buf = await file.arrayBuffer();
+    // Użyj latin-1 aby zachować bajty PDF bez przekształceń
+    const raw = new TextDecoder('latin-1').decode(buf);
+    const pieces = [];
+    // Operator Tj — pojedynczy ciąg: (tekst)Tj
+    const tjRx = /\(([^)\\]{0,200}(?:\\.[^)\\]{0,200})*)\)\s*Tj/g;
+    for (const m of raw.matchAll(tjRx)) pieces.push(m[1]);
+    // Operator TJ — tablica ciągów: [(tekst1)(tekst2)]TJ
+    const tjArrRx = /\[([^\]]{0,500})\]\s*TJ/g;
+    for (const m of raw.matchAll(tjArrRx)) {
+      const strRx = /\(([^)\\]{0,200}(?:\\.[^)\\]{0,200})*)\)/g;
+      for (const s of m[1].matchAll(strRx)) pieces.push(s[1]);
+    }
+    return pieces.join(' ');
+  }
+
   // Odczytuje zawartość pliku Excel/CSV jako tekst (do wyszukiwania VIN i tablic)
   async function _extractExcelText(file) {
     if (!window.XLSX) throw new Error('Biblioteka XLSX niedostępna');
@@ -313,7 +331,26 @@ window.BulkImport = (function () {
       item.plate = plateFromName;
       let veh    = vehFromName;
 
-      // Krok 2: jeśli nie dopasowano → AI OCR dla numeru rej. i klasyfikacji
+      // Krok 1b: dla PDF — próba ekstrakcji tekstu bez OCR (szybciej, bez zużycia API)
+      if (!veh && /\.pdf$/i.test(item.name)) {
+        try {
+          const pdfText = await _extractPdfText(item.file);
+          if (pdfText.length > 20) {
+            for (const vin of _vinsFromText(pdfText)) {
+              veh = _matchByVin(vin);
+              if (veh) { item.plate = (veh.nrRej || veh.nr_rej || item.plate); break; }
+            }
+            if (!veh) {
+              for (const plate of _platesFromText(pdfText)) {
+                veh = _matchVehicle(plate);
+                if (veh) { item.plate = plate; break; }
+              }
+            }
+          }
+        } catch { /* PDF zaszyfrowany lub binarny — idź do AI OCR */ }
+      }
+
+      // Krok 2: jeśli nadal nie dopasowano → AI OCR dla numeru rej. i klasyfikacji
       if (!veh) {
         item.status = 'identifying';
         _renderProgress();
@@ -321,7 +358,7 @@ window.BulkImport = (function () {
         if (ai) {
           if (ai.plate) { item.plate = ai.plate; }
           if (ai.type && item.type === 'other') { item.type = ai.type; }
-          // Próbuj dopasować po VIN zwróconym przez AI (jeśli endpoint go obsługuje)
+          // VIN z AI (dokładniejszy od tablicy)
           if (ai.vin) {
             veh = _matchByVin(ai.vin) || null;
             if (veh) item.plate = (veh.nrRej || veh.nr_rej || item.plate);
@@ -339,11 +376,19 @@ window.BulkImport = (function () {
       item.vehicleId = veh.id;
       item.vehicleNr = (veh.nrRej || veh.nr_rej || '').toUpperCase();
 
-      // Krok 3: wyciąganie danych strukturalnych
+      // Krok 3: wyciąganie danych strukturalnych (AI)
       item.status = 'extracting';
       _renderProgress();
       const extracted = await _apiExtract(item.file, item.type);
       item.data = extracted?.fields || extracted || {};
+      // Jeśli AI znalazł tablicę/VIN w treści i my jeszcze nie mamy — próbuj dopasować
+      if (extracted?.vin && !item.vehicleNr) {
+        const vehByVin = _matchByVin(extracted.vin);
+        if (vehByVin) {
+          item.vehicleId = vehByVin.id;
+          item.vehicleNr = (vehByVin.nrRej || vehByVin.nr_rej || '').toUpperCase();
+        }
+      }
       if (extracted?.plate && !item.plate) item.plate = extracted.plate;
 
       item.status = 'matched';
