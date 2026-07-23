@@ -66,21 +66,31 @@ window.BulkImport = (function () {
 
   // ── Pomocnicze ─────────────────────────────────────────────────────────────
   function _classifyByName(name) {
-    for (const { type, rx } of TYPE_MAP) if (rx.test(name)) return type;
+    // Normalizuj _ i - do spacji, żeby \bDR\b matchowało DR_WGM...
+    const normalized = name.replace(/[_\-]+/g, ' ');
+    for (const { type, rx } of TYPE_MAP) if (rx.test(normalized)) return type;
     return 'other';
   }
 
-  function _plateFromName(name) {
+  function _platesFromName(name) {
     const up = name.toUpperCase().replace(/[_\-\s\.]+/g, ' ');
     const matches = [...up.matchAll(/\b([A-Z]{2,3})[\s]?([A-Z0-9]{3,6})\b/g)];
+    const result = [];
     for (const m of matches) {
       const candidate = (m[1] + m[2]).replace(/\s/g, '');
-      if (candidate.length >= 5 && candidate.length <= 8 && /^[A-Z]{2,3}/.test(candidate)) {
-        return candidate;
+      if (
+        candidate.length >= 5 && candidate.length <= 8 &&
+        /^[A-Z]{2,3}/.test(candidate) &&
+        /\d/.test(candidate)  // polskie tablice ZAWSZE mają cyfry — eliminuje FAKTURA, POLISA itp.
+      ) {
+        result.push(candidate);
       }
     }
-    return null;
+    return result;
   }
+
+  // Backward-compat alias — zwraca pierwszy kandydat (przed dopasowaniem do pojazdu)
+  function _plateFromName(name) { return _platesFromName(name)[0] || null; }
 
   function _matchVehicle(plate) {
     if (!plate) return null;
@@ -89,6 +99,16 @@ window.BulkImport = (function () {
       const vp = ((v.nrRej || v.nr_rej || '')).toUpperCase().replace(/[\s\-\.]/g, '');
       return vp === norm || (norm.length >= 5 && (vp.startsWith(norm) || norm.startsWith(vp)));
     }) || null;
+  }
+
+  // Próbuje wszystkich kandydatów z nazwy pliku — zwraca { veh, plate } dla pierwszego trafienia
+  function _matchVehicleFromName(name) {
+    const plates = _platesFromName(name);
+    for (const plate of plates) {
+      const veh = _matchVehicle(plate);
+      if (veh) return { veh, plate };
+    }
+    return { veh: null, plate: plates[0] || null };
   }
 
   async function _toBase64(file) {
@@ -177,10 +197,11 @@ window.BulkImport = (function () {
   // ── Przetwarzanie jednego pliku ───────────────────────────────────────────
   async function _processItem(item) {
     try {
-      // Krok 1: klasyfikacja po nazwie + szybkie dopasowanie pojazdu
-      item.type  = _classifyByName(item.name);
-      item.plate = _plateFromName(item.name);
-      let veh    = _matchVehicle(item.plate);
+      // Krok 1: klasyfikacja po nazwie + szybkie dopasowanie pojazdu (wszystkie kandydaty tablic)
+      item.type = _classifyByName(item.name);
+      const { veh: vehFromName, plate: plateFromName } = _matchVehicleFromName(item.name);
+      item.plate = plateFromName;
+      let veh    = vehFromName;
 
       // Krok 2: jeśli nie dopasowano → AI OCR dla numeru rej. i klasyfikacji
       if (!veh) {
@@ -544,7 +565,7 @@ window.BulkImport = (function () {
           file:      f,
           name:      f.name,
           type:      _classifyByName(f.name),
-          plate:     _plateFromName(f.name),
+          plate:     _platesFromName(f.name)[0] || null,
           vehicleId: null,
           vehicleNr: null,
           status:    'pending',
@@ -556,9 +577,10 @@ window.BulkImport = (function () {
       }
     }
 
-    // Wstępne dopasowanie pojazdu z nazwy pliku (szybkie, bez API)
-    for (const item of _queue.filter(i => i.status === 'pending' && i.plate)) {
-      const veh = _matchVehicle(item.plate);
+    // Wstępne dopasowanie pojazdu z nazwy pliku (szybkie, bez API) — iteruje przez wszystkich kandydatów
+    for (const item of _queue.filter(i => i.status === 'pending')) {
+      const { veh, plate } = _matchVehicleFromName(item.name);
+      if (plate) item.plate = plate;
       if (veh) {
         item.vehicleId = veh.id;
         item.vehicleNr = (veh.nrRej || veh.nr_rej || '').toUpperCase();
