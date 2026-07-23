@@ -9,7 +9,7 @@
   style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
   img-src 'self' data: blob: https:;
   font-src 'self' https://cdn.jsdelivr.net data:;
-  connect-src 'self' https://taxorder-pro-api.adamus1000.workers.dev https://wl-api.mf.gov.pl https://unpkg.com https://eu.i.posthog.com https://*.clerk.accounts.dev https://*.clerk.com;
+  connect-src 'self' https://taxorder-pro-api.adamus1000.workers.dev https://wl-api.mf.gov.pl https://unpkg.com https://eu.i.posthog.com https://eu-assets.i.posthog.com https://*.clerk.accounts.dev https://*.clerk.com;
   worker-src 'self' blob:;
   frame-src 'self' https://*.clerk.accounts.dev https://*.clerk.com;
   frame-ancestors 'self';
@@ -115,16 +115,16 @@ window._initPostHog=function(apiKey,host){
     <div id="login-err" style="display:none;background:var(--red-light);border:1px solid #F09595;color:#791F1F;border-radius:var(--radius);padding:10px 14px;font-size:13px;margin-bottom:14px;align-items:center;gap:8px"></div>
     <div style="margin-bottom:14px">
       <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:5px;font-weight:500">Adres e-mail</label>
-      <input type="email" id="login-email" class="fi" placeholder="np. admin@mtoilet.pl" onkeydown="if(event.key==='Enter')doLogin()">
+      <input type="email" id="login-email" class="fi" placeholder="np. admin@mtoilet.pl" onkeydown="if(event.key==='Enter')window.doLogin?.()">
     </div>
     <div style="margin-bottom:18px">
       <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:5px;font-weight:500">Hasło</label>
       <div style="position:relative">
-        <input type="password" id="login-pass" class="fi" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()" style="padding-right:40px">
+        <input type="password" id="login-pass" class="fi" placeholder="••••••••" onkeydown="if(event.key==='Enter')window.doLogin?.()" style="padding-right:40px">
         <button type="button" onclick="toggleVis('login-pass','eye-login-pass')" tabindex="-1" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;color:var(--text2)"><i class="ti ti-eye" id="eye-login-pass"></i></button>
       </div>
     </div>
-    <button onclick="doLogin()" id="login-btn" class="btn btn-blue" style="width:100%;justify-content:center;padding:12px;font-size:15px">
+    <button onclick="window.doLogin?.()" id="login-btn" class="btn btn-blue" style="width:100%;justify-content:center;padding:12px;font-size:15px">
       <i class="ti ti-login"></i>Zaloguj się
     </button>
     <button onclick="resetPasswordFlow()" type="button" class="btn btn-gray" style="width:100%;justify-content:center;padding:12px;font-size:14px;margin-top:10px">

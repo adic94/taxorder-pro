@@ -2272,12 +2272,13 @@ async function _renderFleetKpiStrip() {
   const noDriver = (vehs || []).filter(v => !v.kierowca).length;
   el.innerHTML = `<div class="fkpi-card"><div class="fkpi-val" style="font-size:13px;color:var(--text3)">…</div><div class="fkpi-lab">ładowanie KPI</div></div>`;
 
-  // Pobranie KPI z serwera (1 zapytanie zamiast iteracji po wszystkich pojazdach)
+  // Pobranie KPI z serwera — tylko gdy zalogowany (brak tokenu → fallback lokalny, bez 401 flood)
   try {
     const API  = window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
     const tok  = localStorage.getItem('cf_token');
+    if (!tok) throw new Error('no-token');
     const comp = window.currentCompanyId || 'mtoilet';
-    const r    = await fetch(`${API}/api/dashboard/stats?company=${comp}`, { headers: tok ? { Authorization: 'Bearer ' + tok } : {} });
+    const r    = await fetch(`${API}/api/dashboard/stats?company=${comp}`, { headers: { Authorization: 'Bearer ' + tok } });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const s = await r.json();
     window._dashStats = s;

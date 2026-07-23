@@ -30,12 +30,19 @@ window.TaxOrderDrImport = (function () {
   }
 
   async function _uploadFiles(fileList) {
+    if (!token()) throw new Error('Brak sesji — zaloguj się ponownie');
     let ok = 0;
     for (const f of Array.from(fileList)) {
       const fd = new FormData();
       fd.append('file', f);
-      const r = await fetch(`${API()}/api/dr-import?company=${company()}`, { method: 'POST', headers: hdrs(), body: fd });
-      if (r.ok) ok++;
+      try {
+        const r = await fetch(`${API()}/api/dr-import?company=${company()}`, { method: 'POST', headers: hdrs(), body: fd });
+        if (r.ok) ok++;
+        else console.warn('[DRImport] Upload HTTP', r.status, f.name);
+      } catch (e) {
+        console.error('[DRImport] Upload error', f.name, e.message);
+        // Kontynuuj kolejne pliki mimo błędu sieci dla jednego pliku
+      }
     }
     return ok;
   }
@@ -207,11 +214,30 @@ window.TaxOrderDrImport = (function () {
     const files = Array.from(fileList);
     if (!files.length) return;
     const area = document.getElementById('dri-upload-area');
+    const _resetArea = () => {
+      if (area) area.innerHTML = `
+        <i class="ti ti-upload" style="font-size:36px;color:var(--text3);display:block;margin-bottom:8px"></i>
+        <div style="font-size:14px;color:var(--text2)">Kliknij lub przeciągnij skany DR</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">JPG, PNG, WEBP, PDF · Kod Aztec wykrywany automatycznie</div>
+        <input type="file" id="dri-file-input" multiple accept=".jpg,.jpeg,.png,.webp,.pdf" style="display:none"
+          onchange="TaxOrderDrImport._onFiles(this.files)">`;
+    };
     if (area) area.innerHTML = `<i class="ti ti-loader ti-spin" style="font-size:28px;color:var(--blue)"></i><div style="margin-top:8px">Wysyłanie ${files.length} plik(ów)...</div>`;
-    const n = await _uploadFiles(files);
-    window.toast?.(`✓ Wgrano ${n} z ${files.length} pliku(ów) do folderu DR`);
-    await _listFiles();
-    load(); // re-render page
+    try {
+      const n = await _uploadFiles(files);
+      if (n === 0) {
+        window.toast?.('⚠ Nie udało się wgrać plików — sprawdź połączenie lub zaloguj się ponownie');
+        _resetArea();
+        return;
+      }
+      window.toast?.(`✓ Wgrano ${n} z ${files.length} pliku(ów) do folderu DR`);
+      await _listFiles();
+      load();
+    } catch (e) {
+      console.error('[DRImport] _onFiles:', e.message);
+      window.toast?.('⚠ Błąd uploadu: ' + e.message);
+      _resetArea();
+    }
   }
 
   function _onDrop(e) {
