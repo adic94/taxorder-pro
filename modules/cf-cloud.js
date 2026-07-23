@@ -25,20 +25,36 @@
   }
 
   // ─── Bazowy klient API ─────────────────────────────────────────────────────
-  async function cfApi(path, method = 'GET', body = null, isFormData = false) {
+  async function cfApi(path, method = 'GET', body = null, isFormData = false, timeoutMs = 15000) {
     if (!API) throw new Error('CF_API_URL nie skonfigurowany');
     const headers = {};
     const token = _getToken();
     if (token) headers['Authorization'] = 'Bearer ' + token;
     if (!isFormData && body) headers['Content-Type'] = 'application/json';
 
-    const resp = await fetch(API + path, {
-      method,
-      headers,
-      body: isFormData ? body : (body ? JSON.stringify(body) : null),
-    });
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    let resp;
+    try {
+      resp = await fetch(API + path, {
+        method,
+        headers,
+        body: isFormData ? body : (body ? JSON.stringify(body) : null),
+        signal: ctrl.signal,
+      });
+    } catch (e) {
+      clearTimeout(timer);
+      if (e.name === 'AbortError') throw new Error('Timeout — serwer nie odpowiada. Spróbuj ponownie.');
+      throw e;
+    }
+    clearTimeout(timer);
 
     if (resp.status === 204) return {};
+    // Cloudflare challenge/WAF zwraca HTML zamiast JSON — wykryj i zwróć czytelny błąd
+    const ct = resp.headers.get('content-type') || '';
+    if (!ct.includes('application/json') && !resp.ok) {
+      throw new Error('Serwer niedostępny (HTTP ' + resp.status + '). Spróbuj ponownie za chwilę.');
+    }
     const data = await resp.json().catch(() => ({ error: resp.statusText }));
     if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
     return data;
