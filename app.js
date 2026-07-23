@@ -6284,6 +6284,69 @@ function addNewFromOCR(d){
   renderVeh();updateCounters();showPage('pojazdy');
 }
 
+function openQuickAddVehicle(){
+  ['nrRej','marka','model','rok','dmc','vin','norma'].forEach(id=>{
+    const el=document.getElementById('qav-'+id);
+    if(el) el.value='';
+  });
+  document.getElementById('qav-typ').value='Ciężarowy';
+  document.getElementById('qav-paliwo').value='Diesel';
+  document.getElementById('qav-status').value='Własny';
+  document.getElementById('quick-add-veh-modal').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('qav-nrRej')?.focus(),50);
+}
+
+function closeQuickAddVehicle(){
+  document.getElementById('quick-add-veh-modal').classList.add('hidden');
+}
+
+function saveQuickAddVehicle(){
+  const g=id=>(document.getElementById('qav-'+id)?.value?.trim()||'');
+  const gf=id=>{const v=g(id);return v?parseFloat(v):null;};
+  const gi=id=>{const v=g(id);return v?parseInt(v):null;};
+
+  const nrRej=g('nrRej').toUpperCase().replace(/\s/g,'');
+  const marka=g('marka').toUpperCase();
+  if(!nrRej){toast('⚠ Nr rejestracyjny jest wymagany');return;}
+  if(!marka){toast('⚠ Marka jest wymagana');return;}
+
+  if(vehs.find(v=>v.nrRej===nrRej)){
+    toast('⚠ Pojazd o nr rej. '+nrRej+' już istnieje w bazie');return;
+  }
+
+  const dmc=gf('dmc')??0;
+  const norma=gf('norma');
+
+  const newVeh={
+    id: Date.now(),
+    nrRej,
+    marka,
+    model:       g('model')||'—',
+    typ:         g('typ')||'Ciężarowy',
+    rok:         gi('rok')??0,
+    dmc,
+    dmcMax:      dmc,
+    paliwo:      g('paliwo'),
+    vin:         g('vin'),
+    status:      g('status')||'Własny',
+    wlasciciel:  'mToilet',
+    miesiacePodatku: 12,
+    normaSpalania: norma,
+    euro:'', osie:2, zawieszenie:'pneumatyczne',
+    dmcZespolu:0, dmcKg2:null, masaWlasna:null,
+    ladownosc:null, pojSilnika:null, mocKW:null,
+    miejscaSied:null, katPojazdu:'', przeznaczenie:'',
+    dataRejestracji:'',
+  };
+
+  vehs.push(newVeh);
+  selected.add(newVeh.id);
+  window.TaxOrderFleetCloud?.saveVehicle(newVeh);
+  renderVeh(); updateCounters();
+  closeQuickAddVehicle();
+  toast(`✓ Dodano ${newVeh.nrRej} — ${newVeh.marka} ${newVeh.model}${norma?' (norma: '+norma+' l/100km)':''}`);
+}
+
 function mapKatToTyp(kat){
   const k=(kat||'').toUpperCase();
   if(['N2','N3'].includes(k))return 'Ciężarowy';
