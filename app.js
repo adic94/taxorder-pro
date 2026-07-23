@@ -233,6 +233,38 @@ function initSidebarCollapse() {
   } catch(e) {}
 }
 
+function setSidebarMode() {
+  const goBasic = !document.body.classList.contains('sidebar-basic');
+  document.body.classList.toggle('sidebar-basic', goBasic);
+  localStorage.setItem('sidebarMode', goBasic ? 'basic' : 'full');
+  const lbl = document.getElementById('sidebar-mode-label');
+  if (lbl) lbl.textContent = goBasic ? 'Pełny widok' : 'Tryb prosty';
+  _updateSidebarSectionVisibility();
+}
+
+function _updateSidebarSectionVisibility() {
+  const isBasic = document.body.classList.contains('sidebar-basic');
+  document.querySelectorAll('.sidebar-label-toggle').forEach(label => {
+    if (!isBasic) { label.style.display = ''; return; }
+    let el = label.nextElementSibling;
+    let hasBasic = false;
+    while (el && !el.classList.contains('sidebar-label')) {
+      if (el.classList.contains('tnb-basic')) { hasBasic = true; break; }
+      el = el.nextElementSibling;
+    }
+    label.style.display = hasBasic ? '' : 'none';
+  });
+}
+
+function initSidebarMode() {
+  if (localStorage.getItem('sidebarMode') === 'basic') {
+    document.body.classList.add('sidebar-basic');
+    const lbl = document.getElementById('sidebar-mode-label');
+    if (lbl) lbl.textContent = 'Pełny widok';
+  }
+  _updateSidebarSectionVisibility();
+}
+
 function showPage(id) {
   if(typeof saveCompanyState === 'function') saveCompanyState();
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -3352,8 +3384,50 @@ function _initDashDnd(list) {
 }
 
 // ==================== DASH ====================
+
+function _renderCoTeraz() {
+  const el = document.getElementById('dash-co-teraz');
+  if (!el) return;
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const allVehs = window.vehs || [];
+  const items = [];
+
+  const ocExpired = allVehs.filter(v => v.ocEnd && new Date(v.ocEnd) < now);
+  const ocSoon    = allVehs.filter(v => v.ocEnd && new Date(v.ocEnd) >= now && (new Date(v.ocEnd) - now) <= 14*86400000);
+  if (ocExpired.length) items.push({ type:'error', icon:'ti-shield-off',     text:`${ocExpired.length} poj. z wygasłą OC`,            action:"showPage('alert-dashboard')" });
+  else if (ocSoon.length) items.push({ type:'warn', icon:'ti-shield',        text:`OC wygasa ≤14 dni: ${ocSoon.length} poj.`,          action:"showPage('alert-dashboard')" });
+
+  const inspExp  = allVehs.filter(v => v.nextInspection && new Date(v.nextInspection) < now);
+  const inspSoon = allVehs.filter(v => v.nextInspection && new Date(v.nextInspection) >= now && (new Date(v.nextInspection) - now) <= 14*86400000);
+  if (inspExp.length) items.push({ type:'error', icon:'ti-clipboard-off',   text:`${inspExp.length} poj. z przeterminowanym przeglądem`, action:"showPage('vehicle-inspections')" });
+  else if (inspSoon.length) items.push({ type:'warn', icon:'ti-clipboard-check', text:`Przegląd ≤14 dni: ${inspSoon.length} poj.`,      action:"showPage('vehicle-inspections')" });
+
+  const finesUrgent = window.FinesModule?.getUnpaidAlertsSync?.() || [];
+  if (finesUrgent.length) items.push({ type:'error', icon:'ti-ticket',      text:`${finesUrgent.length} mandat(ów) do opłacenia ≤14 dni`, action:"FinesModule.open()" });
+
+  const svcOverdue = (window.ServiceModule?.getUpcomingServices?.(0) || []).filter(x => x.days < 0);
+  if (svcOverdue.length) items.push({ type:'warn', icon:'ti-tools',         text:`${svcOverdue.length} zaległe zlecenia serwisowe`,    action:"showPage('zlecenia')" });
+
+  const dt1Inc = allVehs.filter(v => !_dt1Completeness(v).ok).length;
+  if (dt1Inc) items.push({ type:'info', icon:'ti-calculator',               text:`${dt1Inc} poj. bez danych DT-1`,                     action:"showPage('pojazdy')" });
+
+  if (!items.length) {
+    el.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text3)">
+      <i class="ti ti-circle-check" style="font-size:15px;color:var(--green,#16a34a)"></i>
+      <span style="font-size:11px;font-weight:600">Co teraz? — wszystko w porządku, brak pilnych spraw</span>
+    </div>`;
+    return;
+  }
+  const clr = { error:'var(--red)', warn:'var(--amber,#d97706)', info:'var(--blue)' };
+  el.innerHTML = `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius)">
+    <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">Co teraz?</span>
+    ${items.map(i => `<button onclick="${i.action}" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid ${clr[i.type]}40;background:${clr[i.type]}18;border-radius:var(--radius);font-size:11px;font-weight:600;color:${clr[i.type]};cursor:pointer;white-space:nowrap;font-family:var(--font);transition:opacity .15s" onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'"><i class="ti ${i.icon}" style="font-size:13px"></i>${i.text}</button>`).join('')}
+  </div>`;
+}
+
 function renderDash() {
   _applyDashConfig();
+  _renderCoTeraz();
   const brands = {};
   vehs.forEach(v=>{ if(!brands[v.marka])brands[v.marka]=0; brands[v.marka]++; });
   const el = document.getElementById('dash-brands');
@@ -7440,6 +7514,7 @@ async function doLogin(){
 
   // Pokaż UI natychmiast — pojazdy ładują się w tle
   initSidebarCollapse();
+  initSidebarMode();
   renderDash();
   renderVeh();
   updateCounters();
