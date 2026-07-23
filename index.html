@@ -374,6 +374,7 @@ window._initPostHog=function(apiKey,host){
   <button class="tnb" id="tnb-errors-admin" onclick="showPage('errors-admin')"><i class="ti ti-bug"></i><span>Błędy JS</span></button>
   <button class="tnb" id="tnb-polisy-ocr" onclick="showPage('polisy-ocr')"><i class="ti ti-scan"></i><span>Import polis OCR</span></button>
   <button class="tnb" id="tnb-dr-import" onclick="showPage('dr-import')"><i class="ti ti-id-badge"></i><span>Import DR (Aztec)</span></button>
+  <button class="tnb" id="tnb-bulk-import" onclick="BulkImport.open()"><i class="ti ti-folder-open"></i><span>Masowy import dok.</span></button>
 
   <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="administracja">Administracja <i class="ti ti-chevron-down sidebar-chevron"></i></div>
   <button class="tnb" id="tnb-firmy" onclick="showPage('firmy')"><i class="ti ti-building-community"></i><span data-i18n="nav.firmy">Firmy</span></button>
@@ -415,6 +416,7 @@ window._initPostHog=function(apiKey,host){
     <button class="btn btn-gray" style="font-size:12px" onclick="showPage('raporty')"><i class="ti ti-chart-bar"></i>Raporty</button>
     <button class="btn btn-gray" style="font-size:12px" onclick="showPage('mapa')"><i class="ti ti-map-2"></i>Mapa floty</button>
     <button class="btn btn-gray" style="font-size:12px" onclick="showPage('dr-import')"><i class="ti ti-scan"></i>Skan DR</button>
+    <button class="btn btn-gray" style="font-size:12px" onclick="BulkImport.open()"><i class="ti ti-folder-open"></i>Import masowy</button>
   </div>
 
   <div id="dash-layout">
@@ -4298,6 +4300,7 @@ window._initPostHog=function(apiKey,host){
   <script src="modules/notification-settings.js"></script>
   <script src="modules/policy-ocr.js"></script>
   <script src="modules/dr-import.js"></script>
+  <script src="modules/bulk-import.js"></script>
   <script src="modules/folder-monitor.js"></script>
   <script src="modules/doc-viewer.js"></script>
   <script src="modules/diagnostics.js"></script>
