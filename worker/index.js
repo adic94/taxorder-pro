@@ -3011,6 +3011,96 @@ Zwroc WYLACZNIE JSON bez markdown:
   return err('Błąd AI Vision: ' + lastErr, 502);
 }
 
+// ─── FOLDER MONITOR — agent watcher handlers ──────────────────────────────────
+
+// POST /api/folder-monitor/ingest
+// Przyjmuje plik od lokalnego agenta, uruchamia OCR, zapisuje do kolejki D1
+async function handleFmIngest(request, env, user) {
+  let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON'); }
+  const { filename, docType, fileBase64, mimeType = 'image/jpeg', company, agentName = 'agent' } = body;
+  if (!filename || !docType || !fileBase64) return err('Wymagane: filename, docType, fileBase64');
+
+  // Weryfikacja dostępu do firmy
+  const companyId = company || user.company_id || 'mtoilet';
+  if (user.role !== 'admin') {
+    const row = await env.DB.prepare('SELECT id FROM users WHERE id=? AND company_id=?').bind(user.id, companyId).first();
+    if (!row) return err('Brak dostępu do firmy', 403);
+  }
+
+  // Sprawdź duplikat (ta sama nazwa + firma + typ + 24h)
+  const dup = await env.DB.prepare(
+    "SELECT id FROM folder_monitor_queue WHERE company_id=? AND filename=? AND doc_type=? AND created_at > datetime('now','-24 hours')"
+  ).bind(companyId, filename, docType).first();
+  if (dup) return json({ ok: true, id: dup.id, duplicate: true });
+
+  // Uruchom OCR (async — wynik trafia do kolejki)
+  let ocrResult = null, ocrModel = null, ocrError = null;
+  try {
+    // Wywołaj handleAIOCRDoc inline z tym samym body
+    const mockReq = { method: 'POST', json: async () => ({ imageBase64: fileBase64, mimeType, docType }) };
+    const ocrResp = await handleAIOCRDoc(mockReq, env);
+    if (ocrResp.status === 200) {
+      const d = await ocrResp.json();
+      ocrResult = JSON.stringify(d.fields || {});
+      ocrModel  = d.model || '';
+    } else {
+      ocrError = 'HTTP ' + ocrResp.status;
+    }
+  } catch (e) { ocrError = e.message; }
+
+  const id = crypto.randomUUID();
+  await env.DB.prepare(`
+    INSERT INTO folder_monitor_queue (id, company_id, filename, doc_type, status, ocr_result, ocr_model, error_msg, agent_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    id, companyId, filename, docType,
+    ocrResult ? 'ocr_done' : 'error',
+    ocrResult, ocrModel, ocrError, agentName
+  ).run();
+
+  return json({ ok: true, id, status: ocrResult ? 'ocr_done' : 'error' }, 201);
+}
+
+// GET /api/folder-monitor/queue?company=...&status=...&limit=50
+async function handleFmQueue(request, env, user, url) {
+  const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
+  const status  = url.searchParams.get('status');   // opcjonalny filtr
+  const limit   = Math.min(parseInt(url.searchParams.get('limit') || '100'), 200);
+
+  let query = 'SELECT id, filename, doc_type, status, ocr_result, ocr_model, error_msg, agent_name, created_at FROM folder_monitor_queue WHERE company_id=?';
+  const binds = [company];
+  if (status) { query += ' AND status=?'; binds.push(status); }
+  query += ' ORDER BY created_at DESC LIMIT ?';
+  binds.push(limit);
+
+  const rows = await env.DB.prepare(query).bind(...binds).all();
+  return json((rows.results || []).map(r => ({
+    ...r,
+    ocr_result: r.ocr_result ? JSON.parse(r.ocr_result) : null,
+  })));
+}
+
+// PATCH /api/folder-monitor/queue/:id  { status: 'imported' | 'skipped' }
+// DELETE /api/folder-monitor/queue/:id
+async function handleFmQueueItem(request, env, user, path, method) {
+  const id = path.split('/').pop();
+  if (!id) return err('Brak id');
+
+  if (method === 'DELETE') {
+    await env.DB.prepare('DELETE FROM folder_monitor_queue WHERE id=?').bind(id).run();
+    return json({ ok: true });
+  }
+
+  // PATCH
+  let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON'); }
+  const { status } = body;
+  if (!['imported', 'skipped', 'pending'].includes(status)) return err('Nieprawidłowy status');
+  await env.DB.prepare(
+    "UPDATE folder_monitor_queue SET status=?, processed_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=?"
+  ).bind(status, id).run();
+  return json({ ok: true });
+}
+
 // ─── OCR DOC — wieloformatowy OCR (polisa / paliwo / serwis / dr) ─────────────
 async function handleAIOCRDoc(request, env) {
   if (request.method !== 'POST') return err('Method not allowed', 405);
@@ -8416,6 +8506,12 @@ async function handleRequest(request, env, url, path) {
   if (path === '/api/ai/ocr' && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleAIOCR(request, env); }
   if (path === '/api/ai/ocr-doc' && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleAIOCRDoc(request, env); }
   if (path === '/api/aztec'  && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleAztec(request); }
+
+  // Monitor folderów — agent watcher + kolejka
+  if (path === '/api/folder-monitor/ingest' && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleFmIngest(request, env, user); }
+  if (path === '/api/folder-monitor/queue'  && request.method === 'GET')  { if (!user) return err('Nieautoryzowany', 401); return handleFmQueue(request, env, user, url); }
+  if (path.startsWith('/api/folder-monitor/queue/') && (request.method === 'PATCH' || request.method === 'DELETE')) { if (!user) return err('Nieautoryzowany', 401); return handleFmQueueItem(request, env, user, path, request.method); }
+  if (path === '/api/folder-monitor/heartbeat' && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return json({ ok: true, ts: Date.now() }); }
 
   // Tekom / MyCar API integration
   if (path.startsWith('/api/tekom')) { if (!user) return err('Nieautoryzowany', 401); return handleTekomIntegration(request, env, user, url, path); }

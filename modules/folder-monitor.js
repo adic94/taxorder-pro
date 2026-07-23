@@ -559,24 +559,190 @@
     if (n > 0) openQueue();
   }
 
+  // ─── Detekcja możliwości przeglądarki ──────────────────────────────────────
+  function _hasFsApi() {
+    return typeof window.showDirectoryPicker === 'function';
+  }
+
+  // ─── Tryb agenta — polling kolejki z Workera ────────────────────────────────
+  let _agentPollTimer = null;
+  let _lastAgentPoll  = 0;
+
+  async function _pollAgentQueue() {
+    const API     = (window.CF_API_URL || '').replace(/\/$/, '');
+    const company = window.currentCompanyId || 'mtoilet';
+    const token   = localStorage.getItem('cf_token');
+    if (!token) return;
+    try {
+      const r = await fetch(`${API}/api/folder-monitor/queue?company=${encodeURIComponent(company)}&limit=100`, {
+        headers: { 'Authorization': 'Bearer ' + token },
+      });
+      if (!r.ok) return;
+      const rows = await r.json().catch(() => []);
+      if (!Array.isArray(rows)) return;
+      _lastAgentPoll = Date.now();
+
+      let added = 0;
+      for (const row of rows) {
+        if (_queue.find(q => q.agentId === row.id)) continue;
+        _queue.unshift({
+          id:        Date.now() + Math.random(),
+          agentId:   row.id,
+          filename:  row.filename,
+          type:      row.doc_type,
+          fileKey:   'agent:' + row.id,
+          file:      null,
+          status:    row.status === 'ocr_done' ? 'ready' : row.status === 'error' ? 'error' : 'pending',
+          result:    row.ocr_result || null,
+          ocrModel:  row.ocr_model || '',
+          error:     row.error_msg || null,
+          scannedAt: new Date(row.created_at).getTime(),
+          source:    'agent',
+          agentName: row.agent_name || 'agent',
+        });
+        added++;
+      }
+      if (added > 0) {
+        _saveQueue();
+        _renderQueue();
+        _updateBadge();
+      }
+      // Aktualizuj status w ustawieniach (jeśli otwarty)
+      _updateAgentStatus();
+    } catch (_) {}
+  }
+
+  function _updateAgentStatus() {
+    const el = document.getElementById('fm-agent-status');
+    if (!el) return;
+    const ago = _lastAgentPoll ? Math.round((Date.now() - _lastAgentPoll) / 1000) : null;
+    if (!ago) {
+      el.innerHTML = '<span style="color:var(--text3)">Nie połączono</span>';
+    } else {
+      el.innerHTML = `<span style="color:var(--green)"><i class="ti ti-circle-check"></i> Ostatni odbiór: ${ago < 60 ? ago + 's temu' : Math.round(ago/60) + 'min temu'}</span>`;
+    }
+  }
+
+  function _startAgentPoll() {
+    if (_agentPollTimer) clearInterval(_agentPollTimer);
+    _agentPollTimer = setInterval(_pollAgentQueue, 30_000);
+  }
+
+  // Nadpisz _renderSettings — dodaj sekcję agenta i info o przeglądarce
+  const _renderSettingsOrig = _renderSettings;
+  function _renderSettingsWithAgent() {
+    _renderSettingsOrig();
+    const body = document.getElementById('fm-settings-body');
+    if (!body) return;
+
+    const fsSupported = _hasFsApi();
+    const browserInfo = fsSupported
+      ? `<span style="color:var(--green)"><i class="ti ti-check"></i> Twoja przeglądarka obsługuje bezpośrednie czytanie folderów</span>`
+      : `<span style="color:var(--amber)"><i class="ti ti-info-circle"></i> Twoja przeglądarka (Firefox/Safari) nie obsługuje File System Access API</span>`;
+
+    const agentSection = document.createElement('div');
+    agentSection.style.cssText = 'border-top:1px solid var(--border);margin-top:20px;padding-top:18px';
+    agentSection.innerHTML = `
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">
+        <i class="ti ti-server" style="color:var(--blue)"></i> Tryb agenta lokalnego (Node.js) — każda przeglądarka
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">
+        Lokalny agent Node.js obserwuje foldery i wysyła dokumenty do TaxOrder Pro przez HTTP.
+        Działa w tle jako skrypt — Firefox, Chrome, Edge, Safari.
+      </div>
+      <div style="background:var(--bg3);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:600;margin-bottom:8px">Jak uruchomić:</div>
+        <ol style="font-size:12px;color:var(--text2);margin:0;padding-left:18px;line-height:1.8">
+          <li>Znajdź pliki w: <code style="font-size:11px;background:var(--bg2);padding:1px 5px;border-radius:3px">taxorder-pro/tools/folder-watcher/</code></li>
+          <li>Skopiuj <code style="font-size:11px;background:var(--bg2);padding:1px 5px;border-radius:3px">config.example.json</code> → <code style="font-size:11px;background:var(--bg2);padding:1px 5px;border-radius:3px">config.json</code></li>
+          <li>Wpisz token: <code style="font-size:11px;background:var(--bg2);padding:1px 5px;border-radius:3px">F12 → Console → localStorage.getItem("cf_token")</code></li>
+          <li>Ustaw ścieżki do folderów w config.json</li>
+          <li>Uruchom: <code style="font-size:11px;background:var(--bg2);padding:1px 5px;border-radius:3px">start.bat</code> (Windows) lub <code style="font-size:11px;background:var(--bg2);padding:1px 5px;border-radius:3px">.\start.ps1</code> (PowerShell)</li>
+        </ol>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;font-size:12px">
+        <span>Status agenta:</span>
+        <span id="fm-agent-status"><span style="color:var(--text3)">Sprawdzam...</span></span>
+        <button class="btn btn-gray btn-sm" onclick="window.FolderMonitor._pollAgentQueue()"><i class="ti ti-refresh"></i> Odśwież</button>
+      </div>
+      <div style="margin-top:12px;font-size:12px;padding:6px 10px;border-radius:var(--radius);background:${fsSupported ? 'color-mix(in srgb,var(--green) 10%,transparent)' : 'color-mix(in srgb,var(--amber) 12%,transparent)'}">
+        ${browserInfo}
+      </div>`;
+    body.appendChild(agentSection);
+    // Zaktualizuj status
+    setTimeout(_updateAgentStatus, 200);
+    _pollAgentQueue();
+  }
+
+  // ─── Nadpisz _importItem dla pozycji z agenta ───────────────────────────────
+  const _importItemOrig = _importItem;
+  async function _importItemWithAgent(qItem) {
+    if (qItem.source === 'agent' && qItem.agentId) {
+      // Najpierw importuj dane
+      await _importItemOrig(qItem);
+      // Potem oznacz w DB Workera
+      if (qItem.status === 'imported') {
+        const API   = (window.CF_API_URL || '').replace(/\/$/, '');
+        const token = localStorage.getItem('cf_token');
+        await fetch(`${API}/api/folder-monitor/queue/${encodeURIComponent(qItem.agentId)}`, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token || '') },
+          body:    JSON.stringify({ status: 'imported' }),
+        }).catch(() => {});
+      }
+    } else {
+      await _importItemOrig(qItem);
+    }
+  }
+
   async function init() {
     _loadSettings();
     _loadQueue();
     await _openIdb();
     _updateBadge();
     _startAuto();
+    _startAgentPoll();
+    // Pierwsze odpytanie agenta po 5s
+    setTimeout(_pollAgentQueue, 5000);
     if (_settings.enabled && _settings.mode === 'auto') {
       setTimeout(_runScan, 4000);
     }
-    console.log('[FolderMonitor] Zaladowany | tryb:', _settings.mode, '| enabled:', _settings.enabled);
+    console.log('[FolderMonitor] Zaladowany | tryb:', _settings.mode, '| FsAPI:', _hasFsApi());
   }
 
   window.FolderMonitor = {
-    init, openSettings, openQueue, scan,
+    init,
+    openSettings: () => { _renderSettingsWithAgent(); document.getElementById('fm-settings-modal')?.classList.remove('hidden'); },
+    openQueue, scan,
     _pickFolder, _clearFolder, _saveSettingsFromModal,
-    _processItem, _importItem, _queueAction,
-    _analyzeAll, _importAll,
+    _processItem,
+    _importItem: _importItemWithAgent,
+    _queueAction: async (idx, action) => {
+      const q = _queue[idx];
+      if (!q) return;
+      if (action === 'analyze') await _processItem(q);
+      else if (action === 'import') await _importItemWithAgent(q);
+      else if (action === 'remove') {
+        // Oznacz w workerze jako skipped jeśli z agenta
+        if (q.source === 'agent' && q.agentId) {
+          const API = (window.CF_API_URL || '').replace(/\/$/, '');
+          const tok = localStorage.getItem('cf_token');
+          fetch(`${API}/api/folder-monitor/queue/${encodeURIComponent(q.agentId)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (tok || '') },
+            body: JSON.stringify({ status: 'skipped' }),
+          }).catch(() => {});
+        }
+        _queue.splice(idx, 1);
+        _saveQueue();
+        _renderQueue();
+        _updateBadge();
+      }
+    },
+    _analyzeAll,
+    _importAll: async () => { for (const q of [..._queue]) { if (q.status === 'ready') await _importItemWithAgent(q); } },
     _closeSettings, _closeQueue,
+    _pollAgentQueue,
     get _queue() { return _queue; },
   };
 })();

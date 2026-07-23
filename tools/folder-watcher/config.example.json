@@ -1,0 +1,25 @@
+{
+  "_uwaga": "Skopiuj ten plik jako config.json i uzupełnij swoje dane",
+
+  "apiUrl":      "https://taxorder-pro-api.adamus1000.workers.dev",
+
+  "token":       "WKLEJ_TUTAJ_TOKEN",
+  "_skad_token": "Otwórz TaxOrder Pro w przeglądarce → F12 → Console → wpisz: localStorage.getItem('cf_token')",
+
+  "company":     "mtoilet",
+  "_firmy":      "Dostępne: mtoilet, gcon, grental, kjrsupply, nwkinvest, wolund",
+
+  "intervalSec": 60,
+  "_interval":   "Jak często sprawdzać foldery (w sekundach). Minimum: 30",
+
+  "verbose":     false,
+  "_verbose":    "true = wyświetla każdy sprawdzany plik, false = tylko nowe",
+
+  "folders": {
+    "polisa":  "C:\\Dokumenty\\Polisy",
+    "dr":      "C:\\Dokumenty\\Dowody-Rejestracyjne",
+    "paliwo":  "C:\\Dokumenty\\Faktury-Paliwo",
+    "serwis":  "C:\\Dokumenty\\Serwis"
+  },
+  "_foldery": "Ustaw ścieżki do swoich folderów. Zostaw pusty string aby pominąć typ."
+}
