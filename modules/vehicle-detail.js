@@ -242,6 +242,61 @@ window.TaxOrderVehicleDetail = {
       przewoziKabiny:         gb('przewoziKabiny'),
       przewoziKontenery:      gb('przewoziKontenery'),
       przewoziOgrodzenia:     gb('przewoziOgrodzenia'),
+      // === OZNACZENIA OSI ===
+      konfiguracjaOsi:      g('konfiguracjaOsi'),
+      // === WYPOSAŻENIE POJAZDU ===
+      skrzyniaBiegow:       g('skrzyniaBiegow'),
+      liczbaBiegow:         gi('liczbaBiegow'),
+      klimatyzacja:         g('klimatyzacja'),
+      kameraCofa:           gb('kameraCofa'),
+      czujnikiPark:         g('czujnikiPark'),
+      tempomatTyp:          g('tempomatTyp'),
+      adasSystemy:          g('adasSystemy'),
+      dashcam:              gb('dashcam'),
+      hakNosnosc:           gi('hakNosnosc'),
+      alkolock:             gb('alkolock'),
+      nagrzewnicaPostojowa: gb('nagrzewnicaPostojowa'),
+      nagrzewnicaMarka:     g('nagrzewnicaMarka'),
+      // === ADBLUE / DPF ===
+      pojemnoscAdblue:      gf('pojemnoscAdblue'),
+      adblueOstatniData:    g('adblueOstatniData'),
+      adblueOstatniKm:      gi('adblueOstatniKm'),
+      dpfDataRegeneracji:   g('dpfDataRegeneracji'),
+      dpfDataWymiany:       g('dpfDataWymiany'),
+      dpfKmWymiany:         gi('dpfKmWymiany'),
+      // === ADR / CERTYFIKATY ===
+      hasAdr:                    gb('hasAdr'),
+      adrKlasa:                  g('adrKlasa'),
+      adrNrSwiadectwa:           g('adrNrSwiadectwa'),
+      adrDataWaznosci:           g('adrDataWaznosci'),
+      hasAtpCert:                gb('hasAtpCert'),
+      atpKlasa:                  g('atpKlasa'),
+      atpDataWaznosci:           g('atpDataWaznosci'),
+      certSanitarnyNr:           g('certSanitarnyNr'),
+      certSanitarnyData:         g('certSanitarnyData'),
+      licencjaTransportowaNr:    g('licencjaTransportowaNr'),
+      licencjaTransportowaData:  g('licencjaTransportowaData'),
+      zezwoleniePonadgabarytowe: g('zezwoleniePonadgabarytowe'),
+      // === BEZPIECZEŃSTWO ===
+      gaznicaDataWaznosci:   g('gaznicaDataWaznosci'),
+      apteczkaDataWaznosci:  g('apteczkaDataWaznosci'),
+      trojkatOstrzegawczy:   gb('trojkatOstrzegawczy'),
+      kamizelki:             gi('kamizelki'),
+      kliny:                 gi('kliny'),
+      // === FINANSOWE / WARTOŚĆ ===
+      wartoscRynkowa:        gf('wartoscRynkowa'),
+      wartoscUbezpieczeniowa:gf('wartoscUbezpieczeniowa'),
+      wartoscKsiegowaNetto:  gf('wartoscKsiegowaNetto'),
+      stawkaAmortyzacji:     gf('stawkaAmortyzacji'),
+      szacowanyKosztMies:    gf('szacowanyKosztMies'),
+      nrSrodkaTrwalego:      g('nrSrodkaTrwalego'),
+      // === ZABUDOWA SPECJALISTYCZNA ===
+      markaZabudowy:         g('markaZabudowy'),
+      rokZabudowy:           gi('rokZabudowy'),
+      nrFabrycznyZabudowy:   g('nrFabrycznyZabudowy'),
+      dataOstatnejDezynfekcji: g('dataOstatnejDezynfekcji'),
+      typPompy:              g('typPompy'),
+      strefyObslugi:         g('strefyObslugi'),
       // === WERYFIKACJA LOKALIZACJI ===
       ostatniePotwierdzenieLokal: g('ostatniePotwierdzenieLokal'),
       osobaPotwierdzajaca:        g('osobaPotwierdzajaca'),
@@ -525,6 +580,29 @@ window.TaxOrderVehicleDetail = {
           ${field('masaPrzyczepyBezHam','O.2 — Masa przyczepy bez ham. (kg)', v.masaPrzyczepyBezHam,'number')}
           ${field('rozstawOsi','M.1 — Rozstaw osi (mm)', v.rozstawOsi,'number')}
         </div>
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Konfiguracja osi</div>
+        <div class="vdfg" style="margin-bottom:18px">
+          ${sel('konfiguracjaOsi','Oznaczenie osi (układ napędowy)',[
+            ['','— nie określono —'],
+            ['4x2','4×2 — solówka / ciągnik siodłowy (1 oś napędowa, 1 skrętna)'],
+            ['4x4','4×4 — napęd na 4 koła (PSP, terenowe, lekkie wywrotki)'],
+            ['6x2','6×2 — 3 osie, 1 napędowa, tylna wleczona nieskrętna'],
+            ['6x2*4','6×2*4 — ostatnia oś wleczona SKRĘTNA (śmieciarka, dystrybucja)'],
+            ['6x2/4','6×2/4 — oś pchana przed napędem skrętna (ciągniki UK)'],
+            ['6x4','6×4 — klasyczny budowlany: 2 tylne napędowe (wywrotki, gruszki)'],
+            ['6x6','6×6 — pełny napęd terenowy (wojsko, energetyka)'],
+            ['8x2/4','8×2/4 — 4 osie, 2 przednie skrętne, 1 napędowa, 1 wleczona'],
+            ['8x2*6','8×2*6 — 3 osie skrętne, żurawie HDS miejskie (Scania G500)'],
+            ['8x4','8×4 — standardowa wywrotka 4-osiowa (2 napędowe z tyłu)'],
+            ['8x4/4','8×4/4 — 8×4 z 4 kołami sterowanymi z przodu'],
+            ['8x4*4','8×4*4 — tridem: ostatnia oś wleczona skrętna, dobra zwrotność'],
+            ['8x8','8×8 — pełny napęd, pojazdy pustyniowe / kopalniane'],
+            ['10x4','10×4 — 5 osi, pompy do betonu powyżej 50 m'],
+            ['10x4*6','10×4*6 — ciężkie tridem, ostatnia oś skrętna'],
+            ['10x6*4','10×6*4 — 3 osie napędowe, 2 skrętne'],
+            ['10x6*2','10×6*2 — spec. holenderskie (Ginaf, Terberg), kopalniane'],
+          ], v.konfiguracjaOsi||'')}
+        </div>
         <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Silnik i nadwozie</div>
         <div class="vdfg" style="margin-bottom:18px">
           ${field('pojSilnika','P.1 — Pojemność silnika (cm³)', v.pojSilnika,'number')}
@@ -534,6 +612,15 @@ window.TaxOrderVehicleDetail = {
           ${field('numerSilnika','Nr silnika', v.numerSilnika)}
           ${field('nrGwarancji','Nr karty gwarancyjnej', v.nrGwarancji)}
           ${field('kolorNadwozia','Kolor nadwozia', v.kolorNadwozia)}
+          ${sel('skrzyniaBiegow','Skrzynia biegów',[
+            ['','— nie określono —'],
+            ['manualna','Manualna'],
+            ['automatyczna','Automatyczna (AT)'],
+            ['robotizowana','Zautomatyzowana (AMT/ASG)'],
+            ['cvt','Bezstopniowa (CVT)'],
+            ['dwusprzegłowa','Dwusprzęgłowa (DSG/DCT)'],
+          ], v.skrzyniaBiegow||'')}
+          ${field('liczbaBiegow','Liczba biegów', v.liczbaBiegow,'number')}
           ${sel('driveType','Rodzaj napędu',[
             ['','— nie określono —'],['2x4','2×4'],['4x4','4×4 (AWD/4WD)'],
             ['6x4','6×4'],['6x2','6×2'],['8x4','8×4'],['elektryczny','Elektryczny'],
@@ -755,6 +842,82 @@ window.TaxOrderVehicleDetail = {
           </div>
           <div id="vd-tacho-history">${this._renderTachoHistory(v)}</div>
         </div>
+
+        <!-- ADR -->
+        <div style="font-size:12px;font-weight:600;color:var(--amber);margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+          <i class="ti ti-flame"></i> ADR — Przewóz materiałów niebezpiecznych
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;padding:10px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">
+            <input type="checkbox" id="vd-hasAdr" ${v.hasAdr?'checked':''} onchange="document.getElementById('vd-adr-fields').style.display=this.checked?'':'none'">
+            <span>Pojazd posiada certyfikat ADR</span>
+          </label>
+        </div>
+        <div id="vd-adr-fields" ${v.hasAdr?'':'style="display:none"'}>
+          <div class="vdfg" style="margin-bottom:10px">
+            ${sel('adrKlasa','Klasa ADR',[
+              ['','— wybierz klasę —'],
+              ['1','Klasa 1 — Materiały wybuchowe'],
+              ['2','Klasa 2 — Gazy'],
+              ['3','Klasa 3 — Ciecze zapalne'],
+              ['4.1','Klasa 4.1 — Ciała stałe zapalne'],
+              ['4.2','Klasa 4.2 — Substancje samozapalne'],
+              ['5.1','Klasa 5.1 — Substancje utleniające'],
+              ['6.1','Klasa 6.1 — Substancje toksyczne'],
+              ['6.2','Klasa 6.2 — Substancje zakaźne'],
+              ['7','Klasa 7 — Materiały promieniotwórcze'],
+              ['8','Klasa 8 — Substancje żrące'],
+              ['9','Klasa 9 — Różne substancje niebezpieczne'],
+            ], v.adrKlasa||'')}
+            ${field('adrNrSwiadectwa','Nr świadectwa dopuszczenia ADR', v.adrNrSwiadectwa)}
+            ${field('adrDataWaznosci','Data ważności certyfikatu ADR', v.adrDataWaznosci,'date')}
+          </div>
+        </div>
+
+        <!-- Certyfikaty specjalne -->
+        <div style="font-size:12px;font-weight:600;color:var(--blue);margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+          <i class="ti ti-certificate"></i> Certyfikaty i licencje
+        </div>
+        <div style="margin-bottom:10px">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;padding:10px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">
+            <input type="checkbox" id="vd-hasAtpCert" ${v.hasAtpCert?'checked':''} onchange="document.getElementById('vd-atp-fields').style.display=this.checked?'':'none'">
+            <span>Certyfikat ATP — transport chłodniczy</span>
+          </label>
+        </div>
+        <div id="vd-atp-fields" ${v.hasAtpCert?'':'style="display:none"'}>
+          <div class="vdfg" style="margin-bottom:10px">
+            ${sel('atpKlasa','Klasa ATP',[
+              ['','— wybierz —'],
+              ['FRC','FRC — Izotermiczny mroźny'],
+              ['FNA','FNA — Izotermiczny chłodzony'],
+              ['IRC','IRC — Normalna izotermia'],
+            ], v.atpKlasa||'')}
+            ${field('atpDataWaznosci','Data ważności certyfikatu ATP', v.atpDataWaznosci,'date')}
+          </div>
+        </div>
+        <div class="vdfg" style="margin-bottom:10px">
+          ${field('certSanitarnyNr','Nr certyfikatu sanitarnego', v.certSanitarnyNr)}
+          ${field('certSanitarnyData','Data ważności certyfikatu sanitarnego', v.certSanitarnyData,'date')}
+          ${field('licencjaTransportowaNr','Nr licencji transportowej', v.licencjaTransportowaNr)}
+          ${field('licencjaTransportowaData','Data ważności licencji transportowej', v.licencjaTransportowaData,'date')}
+          ${field('zezwoleniePonadgabarytowe','Zezwolenie na przewóz nienormatywny (kategoria)', v.zezwoleniePonadgabarytowe,undefined,'np. I, II, III, IV…')}
+        </div>
+
+        <!-- Bezpieczeństwo — wyposażenie ratunkowe -->
+        <div style="font-size:12px;font-weight:600;color:var(--red);margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+          <i class="ti ti-first-aid-kit"></i> Wyposażenie ratunkowe i bezpieczeństwo
+        </div>
+        <div class="vdfg" style="margin-bottom:14px">
+          ${field('gaznicaDataWaznosci','Gaśnica — data legalizacji / ważności', v.gaznicaDataWaznosci,'date')}
+          ${field('apteczkaDataWaznosci','Apteczka — data ważności', v.apteczkaDataWaznosci,'date')}
+          ${field('kamizelki','Kamizelki odblaskowe (szt.)', v.kamizelki,'number')}
+          ${field('kliny','Kliny pod koła (szt.)', v.kliny,'number')}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;padding:7px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border);white-space:nowrap">
+            <input type="checkbox" id="vd-trojkatOstrzegawczy" ${v.trojkatOstrzegawczy?'checked':''}> <i class="ti ti-triangle" style="font-size:13px;color:var(--text3)"></i>Trójkąt ostrzegawczy
+          </label>
+        </div>
       </div>
 
       <!-- TAB: SERWIS -->
@@ -949,6 +1112,16 @@ window.TaxOrderVehicleDetail = {
           </div>
         </div>
 
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-top:18px;margin-bottom:10px">AdBlue / filtr DPF</div>
+        <div class="vdfg" style="margin-bottom:18px">
+          ${field('pojemnoscAdblue','Pojemność zbiornika AdBlue (l)', v.pojemnoscAdblue,'number')}
+          ${field('adblueOstatniData','Data ostatniego uzupełnienia AdBlue', v.adblueOstatniData,'date')}
+          ${field('adblueOstatniKm','Przebieg przy uzupełnieniu AdBlue (km)', v.adblueOstatniKm,'number')}
+          ${field('dpfDataRegeneracji','Data ostatniej regeneracji DPF/FAP', v.dpfDataRegeneracji,'date')}
+          ${field('dpfDataWymiany','Data wymiany filtra DPF/FAP', v.dpfDataWymiany,'date')}
+          ${field('dpfKmWymiany','Przebieg przy wymianie DPF (km)', v.dpfKmWymiany,'number')}
+        </div>
+
         <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Parametry specjalistyczne</div>
         <div class="vdfg" style="margin-bottom:14px">
           ${field('rodzajSamochodu','Rodzaj samochodu', v.rodzajSamochodu, 'text', '(np. Standard, Ciężarowy, Cysterna...)')}
@@ -978,10 +1151,55 @@ window.TaxOrderVehicleDetail = {
         </div>
 
         <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-top:18px;margin-bottom:10px">GPS / Telematyka</div>
-        <div class="vdfg" style="margin-bottom:6px">
+        <div class="vdfg" style="margin-bottom:18px">
           ${field('gpsDeviceSerial','Nr seryjny urządzenia GPS (TEKOM)', v.gpsDeviceSerial)}
           ${field('pinUrzadzenia','PIN urządzenia GPS', v.pinUrzadzenia)}
           ${field('tid','TID TEKOM (klucz synchronizacji)', v.tid)}
+        </div>
+
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Wyposażenie pojazdu</div>
+        <div class="vdfg" style="margin-bottom:14px">
+          ${sel('klimatyzacja','Klimatyzacja',[
+            ['','— brak / nie określono —'],
+            ['manualna','Manualna'],
+            ['automatyczna','Automatyczna (AC auto)'],
+            ['dwustrefowa','Dwustrefowa'],
+            ['trojstrefowa','Trójstrefowa'],
+          ], v.klimatyzacja||'')}
+          ${sel('czujnikiPark','Czujniki parkowania',[
+            ['','— brak —'],
+            ['tyl','Tylko tył'],
+            ['przod_tyl','Przód i tył'],
+          ], v.czujnikiPark||'')}
+          ${sel('tempomatTyp','Tempomat',[
+            ['','— brak —'],
+            ['klasyczny','Klasyczny (cruise control)'],
+            ['adaptacyjny','Adaptacyjny (ACC)'],
+          ], v.tempomatTyp||'')}
+          ${field('adasSystemy','Systemy ADAS (aktywne systemy bezp.)', v.adasSystemy,undefined,'np. BSM, LDW, FCWS, AEB…')}
+          ${field('hakNosnosc','Nośność haka holowniczego (kg)', v.hakNosnosc,'number')}
+          ${field('nagrzewnicaMarka','Nagrzewnica postojowa — marka/model', v.nagrzewnicaMarka,undefined,'np. Webasto, Eberspächer…')}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
+          ${[
+            ['kameraCofa','Kamera cofania','ti-camera'],
+            ['dashcam','Kamera dashcam','ti-video'],
+            ['alkolock','Alkolock','ti-flask'],
+            ['nagrzewnicaPostojowa','Nagrzewnica postojowa','ti-flame'],
+          ].map(([id, label, icon]) => `
+            <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;padding:7px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border);white-space:nowrap">
+              <input type="checkbox" id="vd-${id}" ${v[id]?'checked':''}> <i class="ti ${icon}" style="font-size:13px;color:var(--text3)"></i>${label}
+            </label>`).join('')}
+        </div>
+
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Zabudowa specjalistyczna</div>
+        <div class="vdfg" style="margin-bottom:6px">
+          ${field('markaZabudowy','Marka / producent zabudowy', v.markaZabudowy,undefined,'np. Wuko, Hauer, Faun…')}
+          ${field('rokZabudowy','Rok zabudowy', v.rokZabudowy,'number')}
+          ${field('nrFabrycznyZabudowy','Nr fabryczny zabudowy', v.nrFabrycznyZabudowy)}
+          ${field('typPompy','Typ pompy / osprzętu', v.typPompy,undefined,'np. pompa ssąco-tłocząca, HDS…')}
+          ${field('dataOstatnejDezynfekcji','Data ostatniej dezynfekcji / przeglądu sanitarnego', v.dataOstatnejDezynfekcji,'date')}
+          ${field('strefyObslugi','Strefy / gminy obsługi', v.strefyObslugi,undefined,'np. Warszawa, Praga-Płd…')}
         </div>
 
         <div id="vd-km-history"></div>
@@ -1077,6 +1295,17 @@ window.TaxOrderVehicleDetail = {
           ${field('dataWycofania','10. Data czasowego wycofania z ruchu', v.dataWycofania,'date')}
           ${field('dataDopuszczenia','11. Data ponownego dopuszczenia do ruchu', v.dataDopuszczenia,'date')}
           ${field('dataWyrejestrowania','12. Data wyrejestrowania', v.dataWyrejestrowania,'date')}
+        </div>
+        <div style="font-size:12px;font-weight:600;color:var(--text2);margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+          <i class="ti ti-chart-bar"></i> Wartość i finanse
+        </div>
+        <div class="vdfg">
+          ${field('nrSrodkaTrwalego','Nr środka trwałego (FK)', v.nrSrodkaTrwalego)}
+          ${field('wartoscRynkowa','Wartość rynkowa aktualna (zł)', v.wartoscRynkowa,'number')}
+          ${field('wartoscUbezpieczeniowa','Wartość ubezpieczeniowa / suma AC (zł)', v.wartoscUbezpieczeniowa,'number')}
+          ${field('wartoscKsiegowaNetto','Wartość księgowa netto (zł)', v.wartoscKsiegowaNetto,'number')}
+          ${field('stawkaAmortyzacji','Stawka amortyzacji (%)', v.stawkaAmortyzacji,'number')}
+          ${field('szacowanyKosztMies','Szacowany koszt miesięczny / TCO (zł)', v.szacowanyKosztMies,'number')}
         </div>
       </div>
 
