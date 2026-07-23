@@ -416,8 +416,13 @@
           }
         </td>
         <td style="padding:6px 8px;white-space:nowrap">
+          <button data-url="${esc(fileUrl(d.r2_key))}" data-name="${esc(d.name)}" data-mime="${esc(d.mime_type||'')}"
+            onclick="window.DocViewer?.openUrl(this.dataset.url,this.dataset.name,this.dataset.mime)"
+            style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:12px;padding:0 5px" title="Podgląd">
+            <i class="ti ti-eye"></i>
+          </button>
           <a href="${fileUrl(d.r2_key)}" target="_blank" rel="noopener"
-             style="font-size:11px;color:var(--blue);text-decoration:none;margin-right:6px"
+             style="font-size:11px;color:var(--text2);text-decoration:none;margin-right:2px;padding:0 4px"
              title="Otwórz / pobierz"><i class="ti ti-download"></i></a>
           <button data-doc-id="${esc(d.id)}" data-doc-type="${esc(d.doc_type||'inne')}" data-vehicle-id="${v.id}"
             onclick="DocumentsModule._changeType(this.dataset.docId,this.dataset.docType,this.dataset.vehicleId)"
@@ -755,8 +760,13 @@
               : '<span style="font-size:10px;color:var(--text3)">—</span>'}
           </td>
           <td style="padding:8px 12px;white-space:nowrap">
+            <button data-url="${esc(fileUrl(d.r2_key))}" data-name="${esc(d.name)}" data-mime="${esc(d.mime_type||'')}"
+              onclick="window.DocViewer?.openUrl(this.dataset.url,this.dataset.name,this.dataset.mime)"
+              style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:12px;padding:0 5px;margin-right:4px" title="Podgląd">
+              <i class="ti ti-eye"></i>
+            </button>
             <a href="${fileUrl(d.r2_key)}" target="_blank" rel="noopener"
-               style="font-size:11px;color:var(--blue);margin-right:8px;text-decoration:none" title="Pobierz">
+               style="font-size:11px;color:var(--text2);margin-right:4px;text-decoration:none;padding:0 4px" title="Pobierz">
               <i class="ti ti-download"></i>
             </a>
             ${veh ? `<button data-doc-id="${esc(d.id)}" data-doc-type="${esc(d.doc_type||'inne')}" data-vehicle-id="${veh.id}"

@@ -710,6 +710,9 @@ function renderVeh() {
         <button class="btn btn-gray" style="font-size:11px;padding:3px 8px" onclick="TaxOrderVehicleDetail.open(${v.id})" title="Karta pojazdu">
           <i class="ti ti-id-badge"></i>
         </button>
+        <button class="btn btn-gray" style="font-size:11px;padding:3px 8px" data-nr="${esc(v.nrRej)}" onclick="window.DocViewer?.printVehicleCard(this.dataset.nr)" title="Drukuj kartę pojazdu (A4)">
+          <i class="ti ti-printer"></i>
+        </button>
       </td>
     </tr>`;
   }).join('') || `<tr><td colspan="40" style="text-align:center;padding:2rem;color:var(--text3)">Brak wyników</td></tr>`;
@@ -7981,6 +7984,19 @@ function openDocModal(nrRej){
   const v=vehs.find(x=>x.nrRej===nrRej);
   document.getElementById('doc-modal-title').textContent=`Dokumenty: ${nrRej}`;
   document.getElementById('doc-modal-sub').textContent=v?`${v.marka} ${v.model} · ${docs.length} dok.`:`${docs.length} dokumentów`;
+  // Przycisk karta pojazdu (drukuj A4)
+  let _dvBtn = document.getElementById('doc-modal-print-card');
+  if (!_dvBtn) {
+    _dvBtn = document.createElement('button');
+    _dvBtn.id = 'doc-modal-print-card';
+    _dvBtn.className = 'btn btn-gray';
+    _dvBtn.style.cssText = 'font-size:11px;margin-right:6px';
+    _dvBtn.innerHTML = '<i class="ti ti-printer"></i> Karta A4';
+    const addBtn = document.querySelector('#doc-modal .btn.btn-gray[onclick*="triggerDocUpload"]');
+    if (addBtn) addBtn.parentNode.insertBefore(_dvBtn, addBtn);
+  }
+  _dvBtn.dataset.nr = nrRej;
+  _dvBtn.onclick = function() { window.DocViewer?.printVehicleCard(this.dataset.nr); };
 
   if(!docs.length){
     document.getElementById('doc-modal-body').innerHTML=`<div style="text-align:center;padding:3rem;color:var(--text3)">
@@ -7993,11 +8009,14 @@ function openDocModal(nrRej){
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
         ${docs.map(d=>`<div style="border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden">
           ${d.type.startsWith('image/')?
-            `<img src="${d.data}" style="width:100%;max-height:280px;object-fit:contain;background:#f0f0f0;display:block">`:
+            `<div style="cursor:pointer;position:relative" data-idx="${esc(d.id)}" data-nr="${esc(nrRej)}" onclick="(function(el){const d=(docStore[el.dataset.nr]||[]).find(x=>x.id===el.dataset.idx);if(d)window.DocViewer?.openDataUrl(d.data,d.type,d.name)})(this)">
+              <img src="${d.data}" style="width:100%;max-height:280px;object-fit:contain;background:#f0f0f0;display:block">
+              <div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:10px;padding:3px 7px;border-radius:99px"><i class="ti ti-zoom-in"></i> Powiększ</div>
+            </div>`:
             `<div style="background:#f5f5f4;height:200px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px">
               <i class="ti ti-file-type-pdf" style="font-size:48px;color:var(--red)"></i>
               <div style="font-size:12px;color:var(--text2)">${esc(d.name)}</div>
-              <a href="${d.data}" target="_blank" class="btn btn-gray" style="font-size:11px"><i class="ti ti-external-link"></i>Otwórz PDF</a>
+              <button class="btn btn-blue" style="font-size:11px" data-idx="${esc(d.id)}" data-nr="${esc(nrRej)}" onclick="(function(el){const d=(docStore[el.dataset.nr]||[]).find(x=>x.id===el.dataset.idx);if(d)window.DocViewer?.openDataUrl(d.data,d.type,d.name)})(this)"><i class="ti ti-eye"></i>Podgląd PDF</button>
             </div>`}
           <div style="padding:10px 12px">
             <div style="font-weight:500;font-size:12px;margin-bottom:2px">${esc(d.name)}</div>

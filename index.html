@@ -3491,6 +3491,20 @@ window._initPostHog=function(apiKey,host){
   </div>
 </div>
 
+<!-- MODAL podglądu dokumentu (pełny ekran — DocViewer) -->
+<div class="modal-bg hidden" id="doc-viewer-modal" style="padding:0;z-index:9700" onclick="if(event.target===this)DocViewer.close()">
+  <div style="display:flex;flex-direction:column;width:96vw;height:96vh;max-width:1200px;background:var(--bg1);border-radius:var(--radius-lg);overflow:hidden;box-shadow:0 12px 60px rgba(0,0,0,.4)">
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0">
+      <i class="ti ti-file-description" style="color:var(--blue);font-size:18px"></i>
+      <span id="dv-title" style="flex:1;font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Dokument</span>
+      <button class="btn btn-gray btn-sm" onclick="DocViewer.download()" title="Pobierz"><i class="ti ti-download"></i> Pobierz</button>
+      <button class="btn btn-blue btn-sm" onclick="DocViewer.print()" title="Drukuj"><i class="ti ti-printer"></i> Drukuj</button>
+      <button onclick="DocViewer.close()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text2);padding:0 4px;line-height:1" aria-label="Zamknij">&times;</button>
+    </div>
+    <div id="dv-content" style="flex:1;overflow:hidden;min-height:0;background:var(--bg1)"></div>
+  </div>
+</div>
+
 <!-- ==================== CEPiK ==================== -->
 <div class="page" id="page-cepik">
   <div class="pg-title"><i class="ti ti-database"></i>CEPiK — Centralna Ewidencja Pojazdów i Kierowców</div>
@@ -4269,6 +4283,7 @@ window._initPostHog=function(apiKey,host){
   <script src="modules/policy-ocr.js"></script>
   <script src="modules/dr-import.js"></script>
   <script src="modules/folder-monitor.js"></script>
+  <script src="modules/doc-viewer.js"></script>
   <script src="modules/diagnostics.js"></script>
   <script src="modules/tekom-import.js"></script>
   <script src="modules/dt1-generator.js"></script>
