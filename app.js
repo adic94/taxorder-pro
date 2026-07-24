@@ -866,7 +866,27 @@ function renderVeh() {
 
 function toggleRow(id) {
   if(selected.has(id)) selected.delete(id); else selected.add(id);
-  renderVeh(); updateCounters();
+  const isSel = selected.has(id);
+  // Targeted DOM update — no full re-render to prevent table flash
+  const tbody = document.getElementById('veh-tbody');
+  if (tbody) {
+    for (const tr of tbody.rows) {
+      if ((tr.getAttribute('onclick') || '').includes(`toggleRow(${id})`)) {
+        tr.classList.toggle('row-sel', isSel);
+        const chk = tr.querySelector('input[type="checkbox"]');
+        if (chk) chk.checked = isSel;
+        break;
+      }
+    }
+  }
+  const chkAll = document.getElementById('chk-all');
+  if (chkAll) {
+    const list = filterVeh();
+    const allSel = list.length > 0 && list.every(v => selected.has(v.id));
+    chkAll.checked = allSel;
+    chkAll.indeterminate = !allSel && list.some(v => selected.has(v.id));
+  }
+  updateCounters();
 }
 
 // ── Slim table toggle ─────────────────────────────────────────────────────────
@@ -2097,6 +2117,14 @@ function toggleCol(col) {
   _renderColPanel();
 }
 
+function toggleAllCols(show) {
+  if (!_colVis) _initColVis();
+  _getColOrder().forEach(id => { _colVis[id] = show ? 1 : 0; });
+  localStorage.setItem('taxColVis', JSON.stringify(_colVis));
+  renderVeh();
+  _renderColPanel();
+}
+
 function resetColVis() {
   _colVis = {..._COL_DEFAULTS};
   _colOrder = [..._COL_ORDER_DEFAULT];
@@ -2132,8 +2160,12 @@ function _renderColPanel() {
       </div>`).join('')}` : '';
 
   panel.innerHTML = `
-    <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:4px;letter-spacing:.5px">Kolumny — przeciągnij = zmień kolejność</div>
-    <div id="col-order-list" style="max-height:320px;overflow-y:auto;margin-bottom:4px">${listHtml}</div>
+    <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:6px;letter-spacing:.5px">Kolumny — przeciągnij = zmień kolejność</div>
+    <div style="display:flex;gap:4px;margin-bottom:6px">
+      <button class="btn btn-gray" style="flex:1;font-size:11px;justify-content:center;padding:3px 6px" onclick="toggleAllCols(true)"><i class="ti ti-check"></i> Zaznacz wszystkie</button>
+      <button class="btn btn-gray" style="flex:1;font-size:11px;justify-content:center;padding:3px 6px" onclick="toggleAllCols(false)"><i class="ti ti-x"></i> Odznacz wszystkie</button>
+    </div>
+    <div id="col-order-list" style="max-height:300px;overflow-y:auto;margin-bottom:4px">${listHtml}</div>
     ${presetsHtml}
     <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;display:flex;flex-direction:column;gap:5px">
       <div style="display:flex;gap:4px">
@@ -2494,6 +2526,32 @@ function bulkExportSelected() {
   XLSX.utils.book_append_sheet(wb, ws, 'Pojazdy');
   XLSX.writeFile(wb, 'flota-' + new Date().toISOString().slice(0,10) + '.xlsx');
   toast('✓ Wyeksportowano ' + sel.length + ' pojazdów do Excel');
+}
+
+function bulkExportCSV() {
+  const sel = getSel();
+  if (!sel.length) return;
+  const header = ['Nr rej.','Marka','Model','Rok','Typ','DMC (kg)','Status','Kierowca','VIN','Kat. DT-1','Podatek'].join(';');
+  const rows = sel.map(v => [
+    v.nrRej||'', v.marka||'', v.model||'', v.rok||'', v.typ||'',
+    v.dmc??v.dmcMax??'', v.status||'', v.kierowca||'', v.vin||'',
+    v.cat||'', v.amount>0?v.amount:'',
+  ].map(_csvEsc).join(';'));
+  const blob = new Blob(['﻿' + [header, ...rows].join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'flota-' + new Date().toISOString().slice(0,10) + '.csv' });
+  a.click();
+  toast('✓ Wyeksportowano ' + sel.length + ' pojazdów do CSV');
+}
+
+function bulkExportTXT() {
+  const sel = getSel();
+  if (!sel.length) return;
+  const header = 'Nr rej.\tMarka / Model\tRok\tTyp\tKierowca\tStatus';
+  const rows = sel.map(v => `${v.nrRej||'---'}\t${(v.marka||'')+' '+(v.model||'')}\t${v.rok||''}\t${v.typ||''}\t${v.kierowca||''}\t${v.status||''}`);
+  const blob = new Blob([[header, ...rows].join('\r\n')], { type: 'text/plain;charset=utf-8' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'flota-' + new Date().toISOString().slice(0,10) + '.txt' });
+  a.click();
+  toast('✓ Wyeksportowano ' + sel.length + ' pojazdów do TXT');
 }
 
 function bulkAssignCompany() {

@@ -239,34 +239,19 @@ window._initPostHog=function(apiKey,host){
   </button>
   <button class="tnb active" id="tnb-dash" onclick="showPage('dash')"><i class="ti ti-home"></i><span data-i18n="nav.pulpit">Pulpit</span></button>
 
-  <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="flota">Flota <i class="ti ti-chevron-down sidebar-chevron"></i></div>
+  <!-- ═══ 1. FLOTA ═══ -->
+  <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="flota">FLOTA <i class="ti ti-chevron-down sidebar-chevron"></i></div>
   <button class="tnb tnb-basic" id="tnb-pojazdy" onclick="showPage('pojazdy')"><i class="ti ti-truck"></i><span data-i18n="nav.pojazdy">Pojazdy</span> <span class="badge" id="badge-sel">0</span></button>
   <button class="tnb tnb-basic" id="tnb-kierowcy" onclick="TaxOrderDrivers.open()"><i class="ti ti-id-badge"></i><span data-i18n="nav.kierowcy">Kierowcy</span></button>
-  <button class="tnb" id="tnb-kalendarz" onclick="FleetCalendar.open()"><i class="ti ti-calendar"></i><span data-i18n="nav.kalendarz">Kalendarz</span></button>
-  <button class="tnb" id="tnb-protokoly" onclick="showPage('protokoly')"><i class="ti ti-file-signature"></i><span data-i18n="nav.protokoly">Protokoły</span></button>
+  <button class="tnb tnb-basic" id="tnb-protokoly" onclick="showPage('protokoly')"><i class="ti ti-clipboard-text"></i><span data-i18n="nav.protokoly">Protokoły</span></button>
   <button class="tnb" id="tnb-mapa" onclick="showPage('mapa')"><i class="ti ti-map-2"></i><span>Mapa GPS</span></button>
+  <button class="tnb" id="tnb-kalendarz" onclick="FleetCalendar.open()"><i class="ti ti-calendar"></i><span data-i18n="nav.kalendarz">Kalendarz</span></button>
   <button class="tnb" id="tnb-fleet-kanban" onclick="showPage('fleet-kanban')"><i class="ti ti-layout-kanban"></i><span>Kanban floty</span></button>
   <button class="tnb" id="tnb-ev-fleet" onclick="showPage('ev-fleet')"><i class="ti ti-plug"></i><span>Flota EV / Hybrid</span></button>
   <button class="tnb" id="tnb-vehicle-equipment" onclick="showPage('vehicle-equipment')"><i class="ti ti-tool"></i><span>Wyposażenie</span></button>
-
-  <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="serwis">Serwis i eksploatacja <i class="ti ti-chevron-down sidebar-chevron"></i></div>
-  <button class="tnb tnb-basic" id="tnb-zlecenia" onclick="showPage('zlecenia')"><i class="ti ti-clipboard-list"></i><span data-i18n="nav.zlecenia">Serwis / Zlecenia</span></button>
-  <button class="tnb" id="tnb-opony-magazyn" onclick="showPage('opony-magazyn')"><i class="ti ti-circle-dot"></i><span data-i18n="nav.oponyMagazyn">Opony</span></button>
-  <button class="tnb tnb-basic" id="tnb-szkody" onclick="showPage('szkody')"><i class="ti ti-alert-triangle"></i><span data-i18n="nav.szkody">Szkody</span></button>
-  <button class="tnb tnb-basic" id="tnb-mandaty" onclick="FinesModule.open()" style="position:relative"><i class="ti ti-ticket"></i><span data-i18n="nav.mandaty">Mandaty</span><span id="fines-nav-badge" style="display:none;position:absolute;top:4px;right:4px;background:var(--red);color:#fff;border-radius:9px;font-size:9px;font-weight:700;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 4px"></span></button>
-  <button class="tnb" id="tnb-service-schedule" onclick="showPage('service-schedule')"><i class="ti ti-tool"></i><span>Harmonogram serwis.</span></button>
-  <button class="tnb" id="tnb-vehicle-inspections" onclick="showPage('vehicle-inspections')"><i class="ti ti-clipboard-check"></i><span>Inspekcje pojazdów</span></button>
-  <button class="tnb" id="tnb-predictive-maintenance" onclick="showPage('predictive-maintenance')"><i class="ti ti-bulb"></i><span>Serwis predykcyjny</span></button>
-  <button class="tnb" id="tnb-warranties" onclick="showPage('warranties')"><i class="ti ti-certificate"></i><span>Gwarancje / Recall</span></button>
-  <button class="tnb" id="tnb-fleet-renewal" onclick="showPage('fleet-renewal')"><i class="ti ti-refresh-dot"></i><span>Wymiana floty</span></button>
-  <button class="tnb" id="tnb-fleet-limits" onclick="showPage('fleet-limits')"><i class="ti ti-gauge"></i><span>Limity km/paliwa</span></button>
-  <button class="tnb" id="tnb-parking" onclick="showPage('parking')"><i class="ti ti-parking"></i><span>Miejsca parkingowe</span></button>
-
-  <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="kierowcy-mgmt" data-default-collapsed="true">Kierowcy <i class="ti ti-chevron-down sidebar-chevron"></i></div>
   <button class="tnb" id="tnb-driver-profiles" onclick="showPage('driver-profiles')"><i class="ti ti-id-badge"></i><span>Profile kierowców</span></button>
   <button class="tnb" id="tnb-driver-performance" onclick="showPage('driver-performance')"><i class="ti ti-chart-infographic"></i><span>Wydajność kierowców</span></button>
   <button class="tnb" id="tnb-driver-scoring" onclick="showPage('driver-scoring')"><i class="ti ti-award"></i><span>Scoring kierowców</span></button>
-  <button class="tnb" id="tnb-driver-wages" onclick="showPage('driver-wages')"><i class="ti ti-cash"></i><span>Wynagrodzenia</span></button>
   <button class="tnb" id="tnb-driver-schedule" onclick="showPage('driver-schedule')"><i class="ti ti-calendar-week"></i><span>Grafik kierowców</span></button>
   <button class="tnb" id="tnb-driver-panel" onclick="showPage('driver-panel')"><i class="ti ti-steering-wheel"></i><span>Panel kierowcy</span></button>
   <button class="tnb" id="tnb-reservations" onclick="showPage('reservations')"><i class="ti ti-calendar-event"></i><span>Rezerwacje</span></button>
@@ -274,22 +259,40 @@ window._initPostHog=function(apiKey,host){
   <button class="tnb" id="tnb-driver-worktime" onclick="showPage('driver-worktime')"><i class="ti ti-clock"></i><span>Czas pracy kierowcy</span></button>
   <button class="tnb" id="tnb-carpooling" onclick="showPage('carpooling')"><i class="ti ti-users"></i><span>Carpooling</span></button>
   <button class="tnb" id="tnb-internal-rental" onclick="showPage('internal-rental')"><i class="ti ti-building-warehouse"></i><span>Wynajem wewn.</span></button>
+  <button class="tnb" id="tnb-fleet-reservations" onclick="showPage('fleet-reservations')"><i class="ti ti-calendar-event"></i><span>Rezerwacje pojazdów</span></button>
+  <button class="tnb" id="tnb-geofencing" onclick="showPage('geofencing')"><i class="ti ti-map-pin-check"></i><span>Geofencing</span></button>
+  <button class="tnb" id="tnb-gps-integrations" onclick="showPage('gps-integrations')"><i class="ti ti-satellite"></i><span>GPS Integracje</span></button>
 
-  <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="dokumenty">Dokumenty i import <i class="ti ti-chevron-down sidebar-chevron"></i></div>
-  <button class="tnb tnb-basic" id="tnb-dok-smart" onclick="showPage('dok-smart')"><i class="ti ti-files"></i><span>Dokumenty flotowe</span></button>
-  <button class="tnb tnb-basic" id="tnb-policies" onclick="showPage('policies')"><i class="ti ti-shield-check"></i><span>Polisy ubezp.</span></button>
-  <button class="tnb tnb-basic" id="tnb-ocr" onclick="showPage('ocr')"><i class="ti ti-scan"></i><span data-i18n="nav.ocr">OCR Dowodów</span></button>
-  <button class="tnb tnb-basic" id="tnb-dr-import" onclick="showPage('dr-import')"><i class="ti ti-id-badge"></i><span>Import DR (Aztec)</span></button>
-  <button class="tnb tnb-basic" id="tnb-bulk-import" onclick="BulkImport.open()"><i class="ti ti-folder-open"></i><span>Masowy import dok.</span></button>
-  <button class="tnb" id="tnb-polisy-ocr" onclick="showPage('polisy-ocr')"><i class="ti ti-scan"></i><span>Import polis OCR</span></button>
-  <button class="tnb" id="tnb-mileage-claims" onclick="showPage('mileage-claims')"><i class="ti ti-road"></i><span>Rozliczenia km</span></button>
-  <button class="tnb" id="tnb-impexp" onclick="showPage('impexp')"><i class="ti ti-arrows-exchange"></i><span data-i18n="nav.impexp">Import / Eksport</span></button>
-  <button class="tnb" id="tnb-pdfexport" onclick="showPage('pdfexport')"><i class="ti ti-file-type-pdf"></i><span data-i18n="nav.pdfexport">Eksport PDF</span></button>
-  <button class="tnb" id="tnb-oddzialy" onclick="showPage('oddzialy')"><i class="ti ti-building"></i><span>Oddziały</span></button>
+  <!-- ═══ 2. SERWIS ═══ -->
+  <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="serwis">SERWIS <i class="ti ti-chevron-down sidebar-chevron"></i></div>
+  <button class="tnb tnb-basic" id="tnb-zlecenia" onclick="showPage('zlecenia')"><i class="ti ti-clipboard-list"></i><span data-i18n="nav.zlecenia">Serwis / Zlecenia</span></button>
+  <button class="tnb tnb-basic" id="tnb-szkody" onclick="showPage('szkody')"><i class="ti ti-alert-triangle"></i><span data-i18n="nav.szkody">Szkody</span></button>
+  <button class="tnb tnb-basic" id="tnb-mandaty" onclick="FinesModule.open()" style="position:relative"><i class="ti ti-ticket"></i><span data-i18n="nav.mandaty">Mandaty</span><span id="fines-nav-badge" style="display:none;position:absolute;top:4px;right:4px;background:var(--red);color:#fff;border-radius:9px;font-size:9px;font-weight:700;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 4px"></span></button>
+  <button class="tnb tnb-basic" id="tnb-opony-magazyn" onclick="showPage('opony-magazyn')"><i class="ti ti-circle-dot"></i><span data-i18n="nav.oponyMagazyn">Opony</span></button>
+  <button class="tnb" id="tnb-service-schedule" onclick="showPage('service-schedule')"><i class="ti ti-tool"></i><span>Harmonogram serwis.</span></button>
+  <button class="tnb" id="tnb-vehicle-inspections" onclick="showPage('vehicle-inspections')"><i class="ti ti-clipboard-check"></i><span>Inspekcje pojazdów</span></button>
+  <button class="tnb" id="tnb-predictive-maintenance" onclick="showPage('predictive-maintenance')"><i class="ti ti-bulb"></i><span>Serwis predykcyjny</span></button>
+  <button class="tnb" id="tnb-warranties" onclick="showPage('warranties')"><i class="ti ti-certificate"></i><span>Gwarancje / Recall</span></button>
+  <button class="tnb" id="tnb-fleet-renewal" onclick="showPage('fleet-renewal')"><i class="ti ti-refresh-dot"></i><span>Wymiana floty</span></button>
+  <button class="tnb" id="tnb-fleet-limits" onclick="showPage('fleet-limits')"><i class="ti ti-gauge"></i><span>Limity km/paliwa</span></button>
+  <button class="tnb" id="tnb-parking" onclick="showPage('parking')"><i class="ti ti-parking"></i><span>Miejsca parkingowe</span></button>
+  <button class="tnb" id="tnb-spare-parts" onclick="showPage('spare-parts')"><i class="ti ti-package"></i><span>Magazyn części</span></button>
+  <button class="tnb" id="tnb-service-contracts" onclick="showPage('service-contracts')"><i class="ti ti-contract"></i><span>Kontrakty serwisów</span></button>
+  <button class="tnb" id="tnb-tachograph" onclick="showPage('tachograph')"><i class="ti ti-device-tablet-search"></i><span>Tachografy DDD</span></button>
+  <button class="tnb" id="tnb-fleet-disposal" onclick="showPage('fleet-disposal')"><i class="ti ti-car-off"></i><span>Likwidacja pojazdu</span></button>
+  <button class="tnb" id="tnb-faults" onclick="showPage('faults')"><i class="ti ti-alert-triangle"></i><span>Usterki</span></button>
+  <button class="tnb" id="tnb-transport-orders" onclick="showPage('transport-orders')"><i class="ti ti-truck"></i><span>Zlecenia transportowe</span></button>
+  <button class="tnb" id="tnb-cmr" onclick="showPage('cmr')"><i class="ti ti-file-invoice"></i><span>CMR</span></button>
+  <button class="tnb" id="tnb-sent" onclick="showPage('sent')"><i class="ti ti-truck-delivery"></i><span>SENT / PUESC</span></button>
 
-  <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="koszty" data-default-collapsed="true">Koszty i finanse <i class="ti ti-chevron-down sidebar-chevron"></i></div>
+  <!-- ═══ 3. KOSZTY ═══ -->
+  <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="koszty" data-default-collapsed="true">KOSZTY <i class="ti ti-chevron-down sidebar-chevron"></i></div>
   <button class="tnb tnb-basic" id="tnb-paliwo" onclick="showPage('paliwo')"><i class="ti ti-gas-station"></i><span data-i18n="nav.paliwo">Paliwo</span></button>
+  <button class="tnb tnb-basic" id="tnb-raporty" onclick="showPage('raporty')"><i class="ti ti-chart-line"></i><span data-i18n="nav.raporty">Raporty</span></button>
   <button class="tnb" id="tnb-karty" onclick="showPage('karty')"><i class="ti ti-credit-card"></i><span data-i18n="nav.karty">Karty flotowe</span></button>
+  <button class="tnb" id="tnb-faktury" onclick="showPage('faktury')"><i class="ti ti-file-invoice"></i><span data-i18n="nav.faktury">Faktury</span></button>
+  <button class="tnb" id="tnb-fleet-kpi" onclick="showPage('fleet-kpi')"><i class="ti ti-chart-bar"></i><span>Dashboard KPI</span></button>
+  <button class="tnb" id="tnb-exec-dashboard" onclick="showPage('exec-dashboard')"><i class="ti ti-layout-dashboard"></i><span>Dashboard exec.</span> <span id="badge-approvals" class="badge" style="background:var(--red)">0</span></button>
   <button class="tnb" id="tnb-cfm-klienci" onclick="showPage('cfm-klienci')"><i class="ti ti-building-store"></i><span data-i18n="nav.cfmKlienci">Klienci CFM</span></button>
   <button class="tnb" id="tnb-cfm-kontrakty" onclick="showPage('cfm-kontrakty')"><i class="ti ti-file-description"></i><span data-i18n="nav.cfmKontrakty">Kontrakty CFM</span></button>
   <button class="tnb" id="tnb-cfm-faktury" onclick="showPage('cfm-faktury')"><i class="ti ti-file-invoice"></i><span data-i18n="nav.cfmFaktury">Faktury CFM</span></button>
@@ -305,73 +308,58 @@ window._initPostHog=function(apiKey,host){
   <button class="tnb" id="tnb-route-cost" onclick="showPage('route-cost')"><i class="ti ti-calculator"></i><span>Koszty tras</span></button>
   <button class="tnb" id="tnb-route-billing" onclick="showPage('route-billing')"><i class="ti ti-receipt"></i><span>Faktury tras</span></button>
   <button class="tnb" id="tnb-ev-charging" onclick="showPage('ev-charging')"><i class="ti ti-bolt"></i><span>Ładowanie EV</span></button>
-  <button class="tnb" id="tnb-gdpr" onclick="showPage('gdpr')"><i class="ti ti-shield-lock"></i><span>RODO / ADO</span></button>
-  <button class="tnb" id="tnb-currency" onclick="showPage('currency')"><i class="ti ti-currency-zloty"></i><span>Waluty</span></button>
-  <button class="tnb" id="tnb-trip-private" onclick="showPage('trip-private')"><i class="ti ti-car-suv"></i><span>Prywatna/Służbowa</span></button>
-  <button class="tnb" id="tnb-edoreczenia" onclick="showPage('edoreczenia')"><i class="ti ti-mailbox"></i><span>e-Doręczenia</span></button>
-
-  <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="raporty" data-default-collapsed="true">Raporty i analityka <i class="ti ti-chevron-down sidebar-chevron"></i></div>
-  <button class="tnb tnb-basic" id="tnb-raporty" onclick="showPage('raporty')"><i class="ti ti-chart-line"></i><span data-i18n="nav.raporty">Raporty</span></button>
-  <button class="tnb" id="tnb-report-builder" onclick="showPage('report-builder')"><i class="ti ti-table-options"></i><span>Kreator raportów</span></button>
-  <button class="tnb" id="tnb-budzet" onclick="showPage('budzet')"><i class="ti ti-wallet"></i><span>Budżet / TCO</span></button>
+  <button class="tnb" id="tnb-driver-wages" onclick="showPage('driver-wages')"><i class="ti ti-cash"></i><span>Wynagrodzenia</span></button>
+  <button class="tnb" id="tnb-mileage-claims" onclick="showPage('mileage-claims')"><i class="ti ti-road"></i><span>Rozliczenia km</span></button>
+  <button class="tnb" id="tnb-fuel-card-import" onclick="showPage('fuel-card-import')"><i class="ti ti-credit-card"></i><span>Import kart paliw.</span></button>
   <button class="tnb" id="tnb-fuel-db" onclick="showPage('fuel-db')"><i class="ti ti-droplet"></i><span>Ewidencja paliwa</span></button>
+  <button class="tnb" id="tnb-budzet" onclick="showPage('budzet')"><i class="ti ti-wallet"></i><span>Budżet / TCO</span></button>
   <button class="tnb" id="tnb-budgets" onclick="showPage('budgets')"><i class="ti ti-target"></i><span>Budżety</span></button>
-  <button class="tnb" id="tnb-faults" onclick="showPage('faults')"><i class="ti ti-alert-triangle"></i><span>Usterki</span></button>
-  <button class="tnb" id="tnb-driver-shifts" onclick="showPage('driver-shifts')"><i class="ti ti-clock"></i><span>Czas pracy</span></button>
-  <button class="tnb" id="tnb-tacho" onclick="showPage('tacho')"><i class="ti ti-device-desktop"></i><span>Tachograf</span></button>
+  <button class="tnb" id="tnb-leasing-schedule" onclick="showPage('leasing-schedule')"><i class="ti ti-file-dollar"></i><span>Harmonogram leasingu</span></button>
+  <button class="tnb" id="tnb-vehicle-value" onclick="showPage('vehicle-value')"><i class="ti ti-trending-down"></i><span>Wartość pojazdów</span></button>
+  <button class="tnb" id="tnb-report-builder" onclick="showPage('report-builder')"><i class="ti ti-table-options"></i><span>Kreator raportów</span></button>
   <button class="tnb" id="tnb-benchmark" onclick="showPage('benchmark')"><i class="ti ti-chart-bar"></i><span>Benchmark</span></button>
   <button class="tnb" id="tnb-fk-export" onclick="showPage('fk-export')"><i class="ti ti-file-export"></i><span>Eksport FK</span></button>
   <button class="tnb" id="tnb-jpk" onclick="showPage('jpk')"><i class="ti ti-file-type-xml"></i><span>JPK / SAF-T</span></button>
   <button class="tnb" id="tnb-co2-report" onclick="showPage('co2-report')"><i class="ti ti-leaf"></i><span>Raport CO₂</span></button>
   <button class="tnb" id="tnb-esg-report" onclick="showPage('esg-report')"><i class="ti ti-leaf"></i><span>Raport ESG</span></button>
-  <button class="tnb" id="tnb-leasing-schedule" onclick="showPage('leasing-schedule')"><i class="ti ti-file-dollar"></i><span>Harmonogram leasingu</span></button>
-  <button class="tnb" id="tnb-vehicle-value" onclick="showPage('vehicle-value')"><i class="ti ti-trending-down"></i><span>Wartość pojazdów</span></button>
+  <button class="tnb" id="tnb-tacho" onclick="showPage('tacho')"><i class="ti ti-device-desktop"></i><span>Tachograf</span></button>
+  <button class="tnb" id="tnb-driver-shifts" onclick="showPage('driver-shifts')"><i class="ti ti-clock"></i><span>Czas pracy</span></button>
+  <button class="tnb" id="tnb-gdpr" onclick="showPage('gdpr')"><i class="ti ti-shield-lock"></i><span>RODO / ADO</span></button>
+  <button class="tnb" id="tnb-currency" onclick="showPage('currency')"><i class="ti ti-currency-zloty"></i><span>Waluty</span></button>
+  <button class="tnb" id="tnb-trip-private" onclick="showPage('trip-private')"><i class="ti ti-car-suv"></i><span>Prywatna/Służbowa</span></button>
 
-  <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="podatki">Podatki DT-1 <i class="ti ti-chevron-down sidebar-chevron"></i></div>
+  <!-- ═══ 4. PODATKI DT-1 ═══ -->
+  <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="podatki">PODATKI DT-1 <i class="ti ti-chevron-down sidebar-chevron"></i></div>
   <button class="tnb tnb-basic" id="tnb-kalkulator" onclick="showPage('kalkulator')"><i class="ti ti-calculator"></i><span data-i18n="nav.kalkulator">Kalkulator DT-1</span></button>
   <button class="tnb" id="tnb-formularze" onclick="showPage('formularze')"><i class="ti ti-file-text"></i><span data-i18n="nav.formularze">Deklaracja DT-1</span></button>
   <button class="tnb" id="tnb-stawki" onclick="showPage('stawki')"><i class="ti ti-building-bank"></i><span data-i18n="nav.stawki">Stawki 2026</span></button>
   <button class="tnb" id="tnb-podatnik" onclick="showPage('podatnik')"><i class="ti ti-building"></i><span data-i18n="nav.podatnik">Podatnik</span></button>
   <button class="tnb" id="tnb-pd" onclick="showPage('pd')"><i class="ti ti-upload"></i><span data-i18n="nav.pd">Eksport PD</span></button>
   <button class="tnb" id="tnb-walidacja" onclick="showPage('walidacja')"><i class="ti ti-shield-check"></i><span data-i18n="nav.walidacja">Walidacja</span> <span class="badge" id="badge-err" style="background:var(--red)">0</span></button>
-  <button class="tnb" id="tnb-faktury" onclick="showPage('faktury')"><i class="ti ti-file-invoice"></i><span data-i18n="nav.faktury">Faktury</span></button>
   <button class="tnb" id="tnb-dt1-historia" onclick="showPage('dt1-historia')"><i class="ti ti-file-certificate"></i><span>Historia DT-1</span></button>
 
-  <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="alerty">Alerty i narzędzia <i class="ti ti-chevron-down sidebar-chevron"></i></div>
+  <!-- ═══ 5. ZARZĄDZANIE ═══ -->
+  <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="zarzadzanie" data-default-collapsed="true">ZARZĄDZANIE <i class="ti ti-chevron-down sidebar-chevron"></i></div>
   <button class="tnb tnb-basic" id="tnb-alert-dashboard" onclick="showPage('alert-dashboard')"><i class="ti ti-alert-triangle"></i><span>Alerty &amp; Terminy</span></button>
+  <button class="tnb tnb-basic" id="tnb-ai" onclick="showPage('ai')"><i class="ti ti-robot"></i><span data-i18n="nav.ai">Asystent AI</span></button>
+  <button class="tnb tnb-basic" id="tnb-dok-smart" onclick="showPage('dok-smart')"><i class="ti ti-files"></i><span>Dokumenty flotowe</span></button>
+  <button class="tnb tnb-basic" id="tnb-policies" onclick="showPage('policies')"><i class="ti ti-shield-check"></i><span>Polisy ubezp.</span></button>
+  <button class="tnb tnb-basic" id="tnb-ocr" onclick="showPage('ocr')"><i class="ti ti-scan"></i><span data-i18n="nav.ocr">OCR Dowodów</span></button>
+  <button class="tnb tnb-basic" id="tnb-dr-import" onclick="showPage('dr-import')"><i class="ti ti-id-badge"></i><span>Import DR (Aztec)</span></button>
   <button class="tnb" id="tnb-terminarz" onclick="showPage('terminarz')"><i class="ti ti-calendar-check"></i><span data-i18n="nav.terminarz">Terminarz</span></button>
   <button class="tnb" id="tnb-powiadomienia" onclick="showPage('powiadomienia')"><i class="ti ti-bell-cog"></i><span data-i18n="nav.powiadomienia">Powiadomienia</span></button>
-  <button class="tnb" id="tnb-webhooks" onclick="showPage('webhooks')"><i class="ti ti-webhook"></i><span>Webhooki</span></button>
-  <button class="tnb" id="tnb-errors-admin" onclick="showPage('errors-admin')"><i class="ti ti-bug"></i><span>Błędy JS</span></button>
-  <button class="tnb tnb-basic" id="tnb-ai" onclick="showPage('ai')"><i class="ti ti-robot"></i><span data-i18n="nav.ai">Asystent AI</span></button>
-
-  <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="zarzadzanie" data-default-collapsed="true">Zarządzanie <i class="ti ti-chevron-down sidebar-chevron"></i></div>
-  <button class="tnb" id="tnb-exec-dashboard" onclick="showPage('exec-dashboard')"><i class="ti ti-layout-dashboard"></i><span>Dashboard exec.</span> <span id="badge-approvals" class="badge" style="background:var(--red)">0</span></button>
-  <button class="tnb" id="tnb-fleet-kpi" onclick="showPage('fleet-kpi')"><i class="ti ti-chart-bar"></i><span>Dashboard KPI</span></button>
   <button class="tnb" id="tnb-approvals" onclick="showPage('approvals')"><i class="ti ti-checks"></i><span>Zatwierdzenia</span></button>
   <button class="tnb" id="tnb-approval-levels" onclick="showPage('approval-levels')"><i class="ti ti-list-check"></i><span>Poziomy zatwierdzeń</span></button>
   <button class="tnb" id="tnb-audit-log" onclick="showPage('audit-log')"><i class="ti ti-history"></i><span>Historia zmian</span></button>
-  <button class="tnb" id="tnb-access-control" onclick="showPage('access-control')"><i class="ti ti-lock-access"></i><span>Dostęp / Pakiety</span></button>
-  <button class="tnb" id="tnb-fleet-reservations" onclick="showPage('fleet-reservations')"><i class="ti ti-calendar-event"></i><span>Rezerwacje pojazdów</span></button>
   <button class="tnb" id="tnb-fleet-policies" onclick="showPage('fleet-policies')"><i class="ti ti-settings-2"></i><span>Polityki flotowe</span></button>
-  <button class="tnb" id="tnb-spare-parts" onclick="showPage('spare-parts')"><i class="ti ti-package"></i><span>Magazyn części</span></button>
-  <button class="tnb" id="tnb-service-contracts" onclick="showPage('service-contracts')"><i class="ti ti-contract"></i><span>Kontrakty serwisów</span></button>
-  <button class="tnb" id="tnb-transport-orders" onclick="showPage('transport-orders')"><i class="ti ti-truck"></i><span>Zlecenia transportowe</span></button>
-  <button class="tnb" id="tnb-fuel-card-import" onclick="showPage('fuel-card-import')"><i class="ti ti-credit-card"></i><span>Import kart paliw.</span></button>
-  <button class="tnb" id="tnb-tachograph" onclick="showPage('tachograph')"><i class="ti ti-device-tablet-search"></i><span>Tachografy DDD</span></button>
-  <button class="tnb" id="tnb-geofencing" onclick="showPage('geofencing')"><i class="ti ti-map-pin-check"></i><span>Geofencing</span></button>
-  <button class="tnb" id="tnb-gps-integrations" onclick="showPage('gps-integrations')"><i class="ti ti-satellite"></i><span>GPS Integracje</span></button>
-  <button class="tnb" id="tnb-smart-forms" onclick="showPage('smart-forms')"><i class="ti ti-forms"></i><span>Smart Forms</span></button>
-  <button class="tnb" id="tnb-integrations" onclick="showPage('integrations')"><i class="ti ti-plug"></i><span>Integracje</span></button>
-  <button class="tnb" id="tnb-zapier-ui" onclick="showPage('zapier-ui')"><i class="ti ti-plug-connected"></i><span>Zapier / Make</span></button>
-  <button class="tnb" id="tnb-video-telematics" onclick="showPage('video-telematics')"><i class="ti ti-camera"></i><span>Telematyka wideo</span></button>
-  <button class="tnb" id="tnb-vehicle-qr" onclick="showPage('vehicle-qr')"><i class="ti ti-qrcode"></i><span>Kody QR</span></button>
-  <button class="tnb" id="tnb-cmr" onclick="showPage('cmr')"><i class="ti ti-file-invoice"></i><span>CMR</span></button>
-  <button class="tnb" id="tnb-sent" onclick="showPage('sent')"><i class="ti ti-truck-delivery"></i><span>SENT / PUESC</span></button>
-  <button class="tnb" id="tnb-messenger" onclick="showPage('messenger')"><i class="ti ti-message-circle"></i><span>Komunikator</span></button>
-  <button class="tnb" id="tnb-fleet-disposal" onclick="showPage('fleet-disposal')"><i class="ti ti-car-off"></i><span>Likwidacja pojazdu</span></button>
-
-  <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="administracja" data-default-collapsed="true">Administracja <i class="ti ti-chevron-down sidebar-chevron"></i></div>
+  <button class="tnb" id="tnb-bulk-import" onclick="BulkImport.open()"><i class="ti ti-folder-open"></i><span>Masowy import dok.</span></button>
+  <button class="tnb" id="tnb-polisy-ocr" onclick="showPage('polisy-ocr')"><i class="ti ti-scan"></i><span>Import polis OCR</span></button>
+  <button class="tnb" id="tnb-impexp" onclick="showPage('impexp')"><i class="ti ti-arrows-exchange"></i><span data-i18n="nav.impexp">Import / Eksport</span></button>
+  <button class="tnb" id="tnb-pdfexport" onclick="showPage('pdfexport')"><i class="ti ti-file-type-pdf"></i><span data-i18n="nav.pdfexport">Eksport PDF</span></button>
+  <button class="tnb" id="tnb-oddzialy" onclick="showPage('oddzialy')"><i class="ti ti-building"></i><span>Oddziały</span></button>
+  <button class="tnb" id="tnb-webhooks" onclick="showPage('webhooks')"><i class="ti ti-webhook"></i><span>Webhooki</span></button>
+  <button class="tnb" id="tnb-errors-admin" onclick="showPage('errors-admin')"><i class="ti ti-bug"></i><span>Błędy JS</span></button>
+  <button class="tnb" id="tnb-access-control" onclick="showPage('access-control')"><i class="ti ti-lock-access"></i><span>Dostęp / Pakiety</span></button>
   <button class="tnb" id="tnb-firmy" onclick="showPage('firmy')"><i class="ti ti-building-community"></i><span data-i18n="nav.firmy">Firmy</span></button>
   <button class="tnb" id="tnb-uzytkownicy" onclick="showPage('uzytkownicy')"><i class="ti ti-users"></i><span data-i18n="nav.uzytkownicy">Użytkownicy</span></button>
   <button class="tnb" id="tnb-api-klucze" onclick="showPage('api-klucze')"><i class="ti ti-key"></i><span data-i18n="nav.apiKlucze">Klucze API</span></button>
@@ -379,6 +367,13 @@ window._initPostHog=function(apiKey,host){
   <button class="tnb" id="tnb-gus-regon" onclick="showPage('gus-regon')"><i class="ti ti-building-community"></i><span>GUS / REGON</span></button>
   <button class="tnb" id="tnb-vies-validator" onclick="showPage('vies-validator')"><i class="ti ti-world-check"></i><span>Walidator VIES</span></button>
   <button class="tnb" id="tnb-feature-config" onclick="showPage('feature-config')"><i class="ti ti-layout-sidebar"></i><span>Konfiguracja modułów</span></button>
+  <button class="tnb" id="tnb-integrations" onclick="showPage('integrations')"><i class="ti ti-plug"></i><span>Integracje</span></button>
+  <button class="tnb" id="tnb-zapier-ui" onclick="showPage('zapier-ui')"><i class="ti ti-plug-connected"></i><span>Zapier / Make</span></button>
+  <button class="tnb" id="tnb-smart-forms" onclick="showPage('smart-forms')"><i class="ti ti-forms"></i><span>Smart Forms</span></button>
+  <button class="tnb" id="tnb-video-telematics" onclick="showPage('video-telematics')"><i class="ti ti-camera"></i><span>Telematyka wideo</span></button>
+  <button class="tnb" id="tnb-vehicle-qr" onclick="showPage('vehicle-qr')"><i class="ti ti-qrcode"></i><span>Kody QR</span></button>
+  <button class="tnb" id="tnb-messenger" onclick="showPage('messenger')"><i class="ti ti-message-circle"></i><span>Komunikator</span></button>
+  <button class="tnb" id="tnb-edoreczenia" onclick="showPage('edoreczenia')"><i class="ti ti-mailbox"></i><span>e-Doręczenia</span></button>
 </nav>
 
 <div class="content">
@@ -683,8 +678,6 @@ window._initPostHog=function(apiKey,host){
     <button id="view-btn-fleet" class="btn btn-blue view-mode-btn" onclick="switchFleetView('fleet')"><i class="ti ti-layout-list"></i>Widok floty</button>
     <button id="view-btn-cards" class="btn btn-gray view-mode-btn" onclick="switchFleetView('cards')"><i class="ti ti-layout-grid"></i>Karty</button>
     <button id="view-btn-dt1" class="btn btn-gray view-mode-btn" onclick="switchFleetView('dt1')"><i class="ti ti-file-invoice"></i>Widok DT-1</button>
-    <button id="view-btn-driver" class="btn btn-gray view-mode-btn" onclick="switchFleetView('driver')"><i class="ti ti-users"></i>Kierowcy</button>
-    <button id="view-btn-calendar" class="btn btn-gray view-mode-btn" onclick="switchFleetView('calendar')"><i class="ti ti-calendar-event"></i>Kalendarz</button>
     <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
     <button id="veh-filter-btn" class="btn btn-gray" onclick="toggleFilterRow()" title="Wyszukiwanie per kolumna"><i class="ti ti-filter"></i>Filtry</button>
     <button class="btn btn-gray" style="font-size:11px" onclick="clearColFilters()" title="Wyczyść wszystkie filtry"><i class="ti ti-filter-off"></i></button>
@@ -4213,7 +4206,14 @@ window._initPostHog=function(apiKey,host){
   <i class="ti ti-checkbox" style="font-size:18px;flex-shrink:0"></i>
   <span id="bulk-count" style="font-weight:600;font-size:13px;white-space:nowrap;margin-right:4px">0 zaznaczonych</span>
   <div style="flex:1;display:flex;gap:6px;flex-wrap:wrap">
-    <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35);font-size:12px" onclick="bulkExportSelected()"><i class="ti ti-download"></i>Eksportuj Excel</button>
+    <div style="position:relative" id="bulk-export-wrap">
+      <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35);font-size:12px" onclick="document.getElementById('bulk-export-menu').style.display=document.getElementById('bulk-export-menu').style.display==='block'?'none':'block'"><i class="ti ti-download"></i>Eksportuj <i class="ti ti-chevron-up" style="font-size:10px"></i></button>
+      <div id="bulk-export-menu" style="display:none;position:absolute;bottom:calc(100% + 4px);left:0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:4px;min-width:160px;box-shadow:0 -4px 16px rgba(0,0,0,.2);z-index:600">
+        <button class="btn btn-gray" style="width:100%;justify-content:flex-start;font-size:12px;margin-bottom:2px" onclick="bulkExportSelected();document.getElementById('bulk-export-menu').style.display='none'"><i class="ti ti-file-spreadsheet"></i>Excel (.xlsx)</button>
+        <button class="btn btn-gray" style="width:100%;justify-content:flex-start;font-size:12px;margin-bottom:2px" onclick="bulkExportCSV();document.getElementById('bulk-export-menu').style.display='none'"><i class="ti ti-file-type-csv"></i>CSV (.csv)</button>
+        <button class="btn btn-gray" style="width:100%;justify-content:flex-start;font-size:12px" onclick="bulkExportTXT();document.getElementById('bulk-export-menu').style.display='none'"><i class="ti ti-file-text"></i>Tekst (.txt)</button>
+      </div>
+    </div>
     <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35);font-size:12px" onclick="bulkAssignCompany()"><i class="ti ti-building"></i>Przypisz firmę</button>
     <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35);font-size:12px" onclick="bulkSetTaxMonths()"><i class="ti ti-calendar"></i>Miesiące podatku</button>
     <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35);font-size:12px" onclick="bulkChangeStatus()"><i class="ti ti-tag"></i>Zmień status</button>
