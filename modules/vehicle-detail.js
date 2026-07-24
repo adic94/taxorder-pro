@@ -297,6 +297,52 @@ window.TaxOrderVehicleDetail = {
       dataOstatnejDezynfekcji: g('dataOstatnejDezynfekcji'),
       typPompy:              g('typPompy'),
       strefyObslugi:         g('strefyObslugi'),
+      // === POJEMNOŚĆ BAKÓW ===
+      pojemnoscBaku1:        gf('pojemnoscBaku1'),
+      nazwaBaku1:            g('nazwaBaku1'),
+      pojemnoscBaku2:        gf('pojemnoscBaku2'),
+      nazwaBaku2:            g('nazwaBaku2'),
+      // === KLIMATYZACJA — SERWIS ===
+      dataSerwisuKlimy:      g('dataSerwisuKlimy'),
+      rodzajCzynnikalOCH:    g('rodzajCzynnikalOCH'),
+      iloscCzynnikalOCH:     gf('iloscCzynnikalOCH'),
+      // === SERWIS TECHNIKALIA ===
+      roztrzadDataWymiany:   g('roztrzadDataWymiany'),
+      roztrzadKmWymiany:     gi('roztrzadKmWymiany'),
+      sprzegloKmWymiany:     gi('sprzegloKmWymiany'),
+      plynHamDataWymiany:    g('plynHamDataWymiany'),
+      plynChlodDataWymiany:  g('plynChlodDataWymiany'),
+      akumulatorRokWymiany:  gi('akumulatorRokWymiany'),
+      filtrPowietrzaKm:      gi('filtrPowietrzaKm'),
+      filtrKabinyKm:         gi('filtrKabinyKm'),
+      filtrPaliwaKm:         gi('filtrPaliwaKm'),
+      // === EV / HYBRYDA ===
+      pojemnoscBaterii:      gf('pojemnoscBaterii'),
+      zasiegWLTP:            gi('zasiegWLTP'),
+      zlaczeLadowania:       g('zlaczeLadowania'),
+      mocLadowaniaAC:        gf('mocLadowaniaAC'),
+      mocLadowaniaDC:        gf('mocLadowaniaDC'),
+      stanBateriiSoH:        gf('stanBateriiSoH'),
+      dataWymianiBaterii:    g('dataWymianiBaterii'),
+      // === PODWOZIE / HAMULCE ===
+      typZawieszenia:        g('typZawieszenia'),
+      typHamulcow:           g('typHamulcow'),
+      cisnRoboczeZbiornika:  gf('cisnRoboczeZbiornika'),
+      wydajnoscPompy:        gf('wydajnoscPompy'),
+      // === SERWIS — KONTAKT ===
+      serwisNazwa:           g('serwisNazwa'),
+      serwisTelefon:         g('serwisTelefon'),
+      serwisAdres:           g('serwisAdres'),
+      serwisGwarancyjny:     gb('serwisGwarancyjny'),
+      // === KIEROWCA — PRAWO JAZDY / CEPiK ===
+      kierowcaImie:          g('kierowcaImie'),
+      kierowcaNazwisko:      g('kierowcaNazwisko'),
+      kierowcaKategorieJazdy:g('kierowcaKategorieJazdy'),
+      kierowcaNrPrawJazdy:   g('kierowcaNrPrawJazdy'),
+      kierowcaDataWaznPJ:    g('kierowcaDataWaznPJ'),
+      cepikStatus:           v.cepikStatus ?? null,
+      cepikLastCheck:        v.cepikLastCheck ?? null,
+      cepikKategorie:        v.cepikKategorie ?? null,
       // === WERYFIKACJA LOKALIZACJI ===
       ostatniePotwierdzenieLokal: g('ostatniePotwierdzenieLokal'),
       osobaPotwierdzajaca:        g('osobaPotwierdzajaca'),
@@ -609,6 +655,10 @@ window.TaxOrderVehicleDetail = {
           ${field('mocKW','P.2 — Moc (kW)', v.mocKW,'number')}
           ${field('paliwo','P.3 — Rodzaj paliwa', v.paliwo)}
           ${field('iloscZbiornikow','Liczba zbiorników paliwa', v.iloscZbiornikow,'number')}
+          ${field('pojemnoscBaku1','Pojemność baku głównego (l)', v.pojemnoscBaku1,'number')}
+          ${field('nazwaBaku1','Nazwa baku głównego', v.nazwaBaku1,undefined,'np. główny, dieselowy…')}
+          ${field('pojemnoscBaku2','Pojemność baku dodatkowego (l)', v.pojemnoscBaku2,'number')}
+          ${field('nazwaBaku2','Nazwa baku dodatkowego', v.nazwaBaku2,undefined,'np. AdBlue, LPG, zapasowy…')}
           ${field('numerSilnika','Nr silnika', v.numerSilnika)}
           ${field('nrGwarancji','Nr karty gwarancyjnej', v.nrGwarancji)}
           ${field('kolorNadwozia','Kolor nadwozia', v.kolorNadwozia)}
@@ -1037,6 +1087,40 @@ window.TaxOrderVehicleDetail = {
           ${field('assetCode','Kod środka trwałego (AssetCode)', v.assetCode, 'text', '(np. ST000001)')}
           ${field('normaSpalania','Norma spalania (l/100km)', v.normaSpalania,'number')}
         </div>
+
+        <div style="font-size:11px;font-weight:600;color:var(--blue);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">
+          <i class="ti ti-license" style="font-size:13px"></i> Kierowca — prawo jazdy i weryfikacja CEPiK
+        </div>
+        <div class="vdfg" style="margin-bottom:12px">
+          ${field('kierowcaImie','Imię kierowcy', v.kierowcaImie)}
+          ${field('kierowcaNazwisko','Nazwisko kierowcy', v.kierowcaNazwisko)}
+          ${field('kierowcaNrPrawJazdy','Nr blankietu prawa jazdy', v.kierowcaNrPrawJazdy,undefined,'seria + numer, np. PL01/123456')}
+          ${field('kierowcaKategorieJazdy','Kategorie uprawnień', v.kierowcaKategorieJazdy,undefined,'np. B, C, C+E, D…')}
+          ${field('kierowcaDataWaznPJ','Prawo jazdy ważne do', v.kierowcaDataWaznPJ,'date')}
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+          <button type="button" class="btn btn-blue" style="font-size:12px"
+            onclick="TaxOrderVehicleDetail._cepikKierowcaCheck(${v.id})">
+            <i class="ti ti-search"></i>Sprawdź w CEPiK 2.0
+          </button>
+          <div id="vd-cepik-status-${v.id}" style="font-size:12px">
+            ${(()=>{
+              if (!v.cepikStatus) return '<span style="color:var(--text3)">— nie sprawdzano —</span>';
+              const map = {
+                valid:     '<span style="color:var(--green)">✅ Uprawnienia aktywne</span>',
+                suspended: '<span style="color:var(--red)">🚫 Dokument zatrzymany</span>',
+                expired:   '<span style="color:var(--amber)">⚠ Uprawnienia wygasłe</span>',
+                not_found: '<span style="color:var(--amber)">❓ Nie znaleziono w CEPiK</span>',
+                error:     '<span style="color:var(--red)">⛔ Błąd weryfikacji</span>',
+              };
+              const statusHtml = map[v.cepikStatus] || esc(v.cepikStatus);
+              const dateStr = v.cepikLastCheck ? new Date(v.cepikLastCheck).toLocaleString('pl-PL') : '';
+              return statusHtml + (dateStr ? `<span style="color:var(--text3);margin-left:8px;font-size:10px">sprawdzono ${dateStr}</span>` : '');
+            })()}
+          </div>
+          ${v.cepikKategorie ? `<div style="font-size:11px;color:var(--text2);background:var(--bg3);border-radius:4px;padding:4px 10px">Kategorie CEPiK: <strong>${esc(v.cepikKategorie)}</strong></div>` : ''}
+        </div>
+
         <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Emisje i normy</div>
         <div class="vdfg">
           ${sel('euro','Norma emisji spalin',[
@@ -1193,13 +1277,86 @@ window.TaxOrderVehicleDetail = {
         </div>
 
         <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Zabudowa specjalistyczna</div>
-        <div class="vdfg" style="margin-bottom:6px">
+        <div class="vdfg" style="margin-bottom:18px">
           ${field('markaZabudowy','Marka / producent zabudowy', v.markaZabudowy,undefined,'np. Wuko, Hauer, Faun…')}
           ${field('rokZabudowy','Rok zabudowy', v.rokZabudowy,'number')}
           ${field('nrFabrycznyZabudowy','Nr fabryczny zabudowy', v.nrFabrycznyZabudowy)}
           ${field('typPompy','Typ pompy / osprzętu', v.typPompy,undefined,'np. pompa ssąco-tłocząca, HDS…')}
+          ${field('cisnRoboczeZbiornika','Ciśnienie robocze zbiornika (bar)', v.cisnRoboczeZbiornika,'number')}
+          ${field('wydajnoscPompy','Wydajność pompy (l/h lub m³/h)', v.wydajnoscPompy,'number')}
           ${field('dataOstatnejDezynfekcji','Data ostatniej dezynfekcji / przeglądu sanitarnego', v.dataOstatnejDezynfekcji,'date')}
           ${field('strefyObslugi','Strefy / gminy obsługi', v.strefyObslugi,undefined,'np. Warszawa, Praga-Płd…')}
+        </div>
+
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Serwis — interwały techniczne</div>
+        <div class="vdfg" style="margin-bottom:18px">
+          ${field('roztrzadDataWymiany','Rozrząd — data wymiany', v.roztrzadDataWymiany,'date')}
+          ${field('roztrzadKmWymiany','Rozrząd — przebieg wymiany (km)', v.roztrzadKmWymiany,'number')}
+          ${field('sprzegloKmWymiany','Sprzęgło — przebieg wymiany (km)', v.sprzegloKmWymiany,'number')}
+          ${field('plynHamDataWymiany','Płyn hamulcowy — data wymiany', v.plynHamDataWymiany,'date')}
+          ${field('plynChlodDataWymiany','Płyn chłodniczy — data wymiany', v.plynChlodDataWymiany,'date')}
+          ${field('akumulatorRokWymiany','Akumulator — rok wymiany', v.akumulatorRokWymiany,'number')}
+          ${field('filtrPowietrzaKm','Filtr powietrza — ostatnia wymiana (km)', v.filtrPowietrzaKm,'number')}
+          ${field('filtrKabinyKm','Filtr kabiny / pyłkowy — ostatnia wymiana (km)', v.filtrKabinyKm,'number')}
+          ${field('filtrPaliwaKm','Filtr paliwa — ostatnia wymiana (km)', v.filtrPaliwaKm,'number')}
+          ${field('dataSerwisuKlimy','Klimatyzacja — data ostatniego serwisu', v.dataSerwisuKlimy,'date')}
+          ${sel('rodzajCzynnikalOCH','Klimatyzacja — czynnik chłodniczy',[
+            ['','— nie określono —'],
+            ['R134a','R134a (stary standard)'],
+            ['R1234yf','R1234yf (nowy standard Euro 6+)'],
+            ['R744','R744 / CO₂ (elektryczne, premium)'],
+          ], v.rodzajCzynnikalOCH||'')}
+          ${field('iloscCzynnikalOCH','Klimatyzacja — ilość czynnika (g)', v.iloscCzynnikalOCH,'number')}
+        </div>
+
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Podwozie i hamulce</div>
+        <div class="vdfg" style="margin-bottom:18px">
+          ${sel('typZawieszenia','Typ zawieszenia',[
+            ['','— nie określono —'],
+            ['resory','Resory piórowe'],
+            ['sprezyny','Sprężyny + amortyzatory'],
+            ['pneumatyczne','Pneumatyczne (air suspension)'],
+            ['mieszane','Mieszane (przód sprężyny, tył pneumatyczne)'],
+          ], v.typZawieszenia||'')}
+          ${sel('typHamulcow','Typ układu hamulcowego',[
+            ['','— nie określono —'],
+            ['tarczowe','Tarczowe (przód i tył)'],
+            ['bębenkowe','Bębenkowe (przód i tył)'],
+            ['mieszane','Mieszane (przód tarczowe, tył bębenkowe)'],
+            ['ebs','EBS — Electronic Braking System'],
+            ['ebs_abs','EBS + ABS'],
+          ], v.typHamulcow||'')}
+        </div>
+
+        ${(()=>{const ft=(v.paliwo||'').toLowerCase(); if(!ft.includes('elektr')&&!ft.includes('hybryd')&&!ft.includes('bev')&&!ft.includes('hev')) return ''; return `
+        <div style="font-size:11px;font-weight:600;color:var(--green);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">EV / Hybryda — parametry baterii</div>
+        <div class="vdfg" style="margin-bottom:18px">
+          ${field('pojemnoscBaterii','Pojemność baterii (kWh)', v.pojemnoscBaterii,'number')}
+          ${field('zasiegWLTP','Zasięg WLTP (km)', v.zasiegWLTP,'number')}
+          ${sel('zlaczeLadowania','Złącze ładowania',[
+            ['','— nie określono —'],
+            ['Type2','Type 2 / Mennekes (AC)'],
+            ['CCS','CCS Combo 2 (DC)'],
+            ['CHAdeMO','CHAdeMO (DC)'],
+            ['CSS_Type2','CCS + Type 2'],
+          ], v.zlaczeLadowania||'')}
+          ${field('mocLadowaniaAC','Moc ładowania AC (kW)', v.mocLadowaniaAC,'number')}
+          ${field('mocLadowaniaDC','Moc ładowania DC (kW)', v.mocLadowaniaDC,'number')}
+          ${field('stanBateriiSoH','Stan zdrowia baterii SoH (%)', v.stanBateriiSoH,'number')}
+          ${field('dataWymianiBaterii','Data wymiany / planowej wymiany baterii', v.dataWymianiBaterii,'date')}
+        </div>`; })()}
+
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Autoryzowany serwis</div>
+        <div class="vdfg" style="margin-bottom:6px">
+          ${field('serwisNazwa','Nazwa warsztatu / ASO', v.serwisNazwa)}
+          ${field('serwisTelefon','Telefon serwisu', v.serwisTelefon,undefined,'+48…')}
+          ${field('serwisAdres','Adres serwisu', v.serwisAdres)}
+          <div class="vdf" style="grid-column:1/-1">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;padding:8px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border)">
+              <input type="checkbox" id="vd-serwisGwarancyjny" ${v.serwisGwarancyjny?'checked':''}>
+              <span>Pojazd objęty gwarancją producenta</span>
+            </label>
+          </div>
         </div>
 
         <div id="vd-km-history"></div>
@@ -3136,6 +3293,62 @@ td:last-child{font-weight:600;color:#1e293b}
       toast(`✅ CEPiK: uzupełniono ${filled} pól dla ${v.nrRej}`);
     } catch (e) {
       toast(t('vd.toast.cepik.err').replace('{0}', e.message));
+    }
+  },
+
+  async _cepikKierowcaCheck(vehId) {
+    const imie      = (document.getElementById('vd-kierowcaImie')?.value      || '').trim();
+    const nazwisko  = (document.getElementById('vd-kierowcaNazwisko')?.value  || '').trim();
+    const nrBlankietu = (document.getElementById('vd-kierowcaNrPrawJazdy')?.value || '').trim();
+    if (!imie || !nazwisko || !nrBlankietu) {
+      return toast('Wpisz imię, nazwisko i numer blankietu prawa jazdy przed sprawdzeniem');
+    }
+    const statusEl = document.getElementById(`vd-cepik-status-${vehId}`);
+    if (statusEl) statusEl.innerHTML = '<span style="color:var(--text3)">⏳ Sprawdzanie…</span>';
+
+    try {
+      const r = await fetch(`${window.CF_WORKER_URL}/api/cepik/kierowca-check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('cf_token') || '') },
+        body: JSON.stringify({ imie, nazwisko, nrBlankietu, vehId }),
+        signal: AbortSignal.timeout(20000),
+      });
+      const d = await r.json().catch(() => ({ ok: false, message: 'Błąd odpowiedzi serwera' }));
+
+      if (!d.configured) {
+        if (statusEl) statusEl.innerHTML =
+          `<span style="color:var(--warning)">⚠ API CEPiK 2.0 nie skonfigurowane</span><br>
+           <small style="color:var(--text3)">${esc(d.message || '')}</small>`;
+        return;
+      }
+      if (!d.ok) {
+        if (statusEl) statusEl.innerHTML =
+          `<span style="color:var(--danger)">✗ ${esc(d.message || 'Błąd weryfikacji')}</span>`;
+        return;
+      }
+
+      const statusMap = {
+        valid:      '<span style="color:var(--success)">✓ Uprawnienia ważne</span>',
+        suspended:  '<span style="color:var(--danger)">✗ Prawo jazdy zatrzymane</span>',
+        expired:    '<span style="color:var(--warning)">⚠ Prawo jazdy wygasło</span>',
+        not_found:  '<span style="color:var(--text3)">Brak danych w CEPiK</span>',
+      };
+      const statusHtml = statusMap[d.status] ?? `<span>${esc(d.status || 'Nieznany')}</span>`;
+      const katHtml = d.kategorie ? `<br><small>Kat: ${esc(d.kategorie)}</small>` : '';
+      const dataHtml = d.dataWaznosci ? `<br><small>Ważne do: ${esc(d.dataWaznosci)}</small>` : '';
+      const checkDate = new Date().toISOString().slice(0,10);
+
+      if (statusEl) statusEl.innerHTML =
+        `${statusHtml}${katHtml}${dataHtml}<br><small style="color:var(--text3)">Sprawdzono: ${esc(checkDate)}</small>`;
+
+      // Aktualizuj lokalne pole kierowcaKategorieJazdy jeśli CEPiK zwrócił kategorie
+      if (d.kategorie) {
+        const katEl = document.getElementById('vd-kierowcaKategorieJazdy');
+        if (katEl && !katEl.value) katEl.value = d.kategorie;
+      }
+    } catch (e) {
+      if (statusEl) statusEl.innerHTML =
+        `<span style="color:var(--danger)">✗ Błąd: ${esc(e.message)}</span>`;
     }
   },
 

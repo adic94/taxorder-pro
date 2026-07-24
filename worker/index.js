@@ -3538,6 +3538,83 @@ async function handleCepikKierowca(request, url) {
   }
 }
 
+// ─── CEPiK 2.0 KIEROWCA (B2B, luty 2025) ─────────────────────────────────────
+// Nowe API B2B uruchomione 04.02.2025. Wymaga rejestracji: biurocepik2.0@cyfra.gov.pl
+// Wejście: imię + nazwisko + numer blankietu PJ (nie PESEL). Typ tokenu: env.CEPIK_KIEROWCA_TOKEN
+async function handleCepikKierowcaV2(request, env, user) {
+  let body;
+  try { body = await request.json(); } catch { return err('Nieprawidłowy JSON'); }
+  const { imie, nazwisko, nrBlankietu, vehId } = body || {};
+  if (!imie || !nazwisko || !nrBlankietu) {
+    return err('Brak wymaganych pól: imie, nazwisko, nrBlankietu');
+  }
+
+  if (!env.CEPIK_KIEROWCA_TOKEN) {
+    return json({ ok: false, configured: false,
+      message: 'API CEPiK 2.0 nie jest skonfigurowane. Zarejestruj dostęp B2B: biurocepik2.0@cyfra.gov.pl' });
+  }
+
+  try {
+    const resp = await fetch('https://api2.cepik.gov.pl/kierowcy/weryfikacja', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer ' + env.CEPIK_KIEROWCA_TOKEN,
+      },
+      body: JSON.stringify({ imie, nazwisko, numerBlankietu: nrBlankietu }),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (resp.status === 404) {
+      const result = { ok: true, configured: true, status: 'not_found', message: 'Brak danych w CEPiK' };
+      if (vehId && user) await _saveCepikKierowcaResult(env, user, vehId, result);
+      return json(result);
+    }
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => '');
+      return json({ ok: false, configured: true, message: `CEPiK HTTP ${resp.status}: ${txt.slice(0, 200)}` });
+    }
+
+    const data = await resp.json();
+    const attrs = data?.data?.attributes ?? data ?? {};
+    const result = {
+      ok: true,
+      configured: true,
+      status: _mapCepikKierowcaStatus(attrs),
+      kategorie: attrs.kategorie ?? attrs.categories ?? null,
+      dataWaznosci: attrs.dataWaznosci ?? attrs.dataWaznosciPrawaJazdy ?? null,
+      dataZatrzymania: attrs.dataZatrzymania ?? null,
+    };
+
+    if (vehId && user) await _saveCepikKierowcaResult(env, user, vehId, result);
+    return json(result);
+  } catch (e) {
+    return json({ ok: false, configured: true, message: 'Błąd połączenia z CEPiK: ' + e.message });
+  }
+}
+
+function _mapCepikKierowcaStatus(attrs) {
+  if (attrs.zatrzymane || attrs.suspended) return 'suspended';
+  if (attrs.status === 'NIEWAŻNE' || attrs.expired) return 'expired';
+  if (attrs.status === 'WAŻNE' || attrs.valid || attrs.kategorie) return 'valid';
+  return 'not_found';
+}
+
+async function _saveCepikKierowcaResult(env, user, vehId, result) {
+  try {
+    await env.DB.prepare(
+      `UPDATE vehicles SET cepikStatus=?, cepikLastCheck=?, cepikKategorie=? WHERE id=? AND company=?`
+    ).bind(
+      result.status,
+      new Date().toISOString().slice(0, 10),
+      result.kategorie ?? null,
+      vehId,
+      user.company
+    ).run();
+  } catch {}
+}
+
 // ─── GPS WEBHOOK ──────────────────────────────────────────────────────────────
 function _parseTekomCsv(text) {
   const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
@@ -8559,6 +8636,7 @@ async function handleRequest(request, env, url, path, ctx) {
   if (path === '/api/cepik/token'   && request.method === 'POST') return handleCepikToken(request);
   if (path === '/api/cepik/pojazdy' && request.method === 'GET')  return handleCepikPojazdy(request, url);
   if (path === '/api/cepik/kierowca' && request.method === 'GET') return handleCepikKierowca(request, url);
+  if (path === '/api/cepik/kierowca-check' && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleCepikKierowcaV2(request, env, user); }
 
   // TERYT — GUS rejestr jednostek terytorialnych (BDL API proxy + KV cache)
   if (path.startsWith('/api/teryt')) { if (!user) return err('Nieautoryzowany', 401); return handleTeryt(request, env, user, url, path); }
