@@ -2331,10 +2331,15 @@ async function _renderFleetKpiStrip() {
   const el = document.getElementById('fleet-kpi-strip');
   if (!el) return;
 
-  // Szybki render z danych lokalnych (natychmiastowy)
   const now = new Date(); now.setHours(0, 0, 0, 0);
   const noDriver = (vehs || []).filter(v => !v.kierowca).length;
-  el.innerHTML = `<div class="fkpi-card"><div class="fkpi-val" style="font-size:13px;color:var(--text3)">…</div><div class="fkpi-lab">ładowanie KPI</div></div>`;
+
+  // Jeśli mamy już dane z poprzedniego wywołania — renderuj natychmiast bez placeholder
+  if (window._dashStats) {
+    _renderKpiFromStats(window._dashStats, noDriver);
+  } else {
+    el.innerHTML = `<div class="fkpi-card"><div class="fkpi-val" style="font-size:13px;color:var(--text3)">…</div><div class="fkpi-lab">ładowanie KPI</div></div>`;
+  }
 
   // Pobranie KPI z serwera — tylko gdy zalogowany (brak tokenu → fallback lokalny, bez 401 flood)
   try {
