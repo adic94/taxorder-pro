@@ -199,6 +199,94 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+// ─── SECTION TABS (A+C navigation) ────────────────────────────────────────
+
+let _activeSection = 'flota';
+
+function switchSection(name) {
+  _activeSection = name;
+  document.querySelectorAll('.section-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.section === name)
+  );
+  document.querySelectorAll('.sidebar-section-items').forEach(el =>
+    el.classList.toggle('s-hidden', el.dataset.section !== name)
+  );
+  localStorage.setItem('taxSidebarSection', name);
+}
+
+function _syncTabToPage(page) {
+  const btn = document.getElementById('tnb-' + page);
+  if (!btn) return;
+  const group = btn.closest('.sidebar-section-items');
+  if (group && group.dataset.section !== _activeSection) {
+    switchSection(group.dataset.section);
+  }
+}
+
+function toggleSidebarIconOnly() {
+  const sidebar = document.getElementById('main-sidebar');
+  const btn = document.getElementById('sidebar-collapse-btn');
+  const isIconOnly = sidebar.classList.toggle('icon-only');
+  localStorage.setItem('taxSidebarIconOnly', isIconOnly ? '1' : '0');
+  if (btn) {
+    const icon = btn.querySelector('.ti');
+    const lbl = btn.querySelector('span');
+    if (icon) icon.className = `ti ti-layout-sidebar-left-${isIconOnly ? 'expand' : 'collapse'}`;
+    if (lbl) lbl.textContent = isIconOnly ? 'Rozwiń' : 'Zwiń';
+  }
+  if (isIconOnly) _initSidebarTooltip(); else _destroySidebarTooltip();
+}
+
+function _initSidebarTooltip() {
+  if (document.getElementById('sb-tooltip')) return;
+  const tip = document.createElement('div');
+  tip.id = 'sb-tooltip';
+  document.body.appendChild(tip);
+  const sidebar = document.getElementById('main-sidebar');
+  sidebar._tipOver = e => {
+    if (!sidebar.classList.contains('icon-only')) return;
+    const btn = e.target.closest('.tnb');
+    if (!btn) { tip.style.display = 'none'; return; }
+    const span = btn.querySelector('span:not(.badge)');
+    if (!span || !span.textContent.trim()) return;
+    const rect = btn.getBoundingClientRect();
+    tip.textContent = span.textContent.trim();
+    tip.style.display = 'block';
+    tip.style.top = Math.round(rect.top + rect.height / 2 - 14) + 'px';
+    tip.style.left = Math.round(rect.right + 8) + 'px';
+  };
+  sidebar._tipOut = () => { tip.style.display = 'none'; };
+  sidebar.addEventListener('mouseover', sidebar._tipOver);
+  sidebar.addEventListener('mouseleave', sidebar._tipOut);
+}
+
+function _destroySidebarTooltip() {
+  const tip = document.getElementById('sb-tooltip');
+  if (tip) tip.style.display = 'none';
+}
+
+function initSectionTabs() {
+  document.body.classList.add('tabs-mode');
+  const saved = localStorage.getItem('taxSidebarSection') || 'flota';
+  switchSection(saved);
+  if (localStorage.getItem('taxSidebarIconOnly') === '1') {
+    const sidebar = document.getElementById('main-sidebar');
+    if (sidebar) {
+      sidebar.classList.add('icon-only');
+      const btn = document.getElementById('sidebar-collapse-btn');
+      if (btn) {
+        const icon = btn.querySelector('.ti');
+        const lbl = btn.querySelector('span');
+        if (icon) icon.className = 'ti ti-layout-sidebar-left-expand';
+        if (lbl) lbl.textContent = 'Rozwiń';
+      }
+      _initSidebarTooltip();
+    }
+  }
+}
+
+// ─── END SECTION TABS ──────────────────────────────────────────────────────
+
 function toggleSidebarSection(label) {
   const isCollapsed = label.classList.toggle('collapsed');
   const key = label.dataset.section;
@@ -215,6 +303,7 @@ function toggleSidebarSection(label) {
 }
 
 function initSidebarCollapse() {
+  if (document.body.classList.contains('tabs-mode')) return;
   try {
     const state = JSON.parse(localStorage.getItem('sidebarCollapse') || '{}');
     document.querySelectorAll('.sidebar-label-toggle').forEach(label => {
@@ -273,6 +362,7 @@ function showPage(id) {
   if (pageEl) pageEl.classList.add('active');
   const tnb = document.getElementById('tnb-'+id);
   if(tnb) tnb.classList.add('active');
+  _syncTabToPage(id);
   // Kontrola dostępu — zablokuj moduły poza pakietem firmy
   if (window.AccessControl && !window.AccessControl.canAccess(id) && id !== 'access-control') {
     window.AccessControl.showLockedPage(id, pageEl);
@@ -7589,6 +7679,7 @@ async function doLogin(){
 
   // Pokaż UI natychmiast — pojazdy ładują się w tle
   initSidebarCollapse();
+  initSectionTabs();
   initSidebarMode();
   renderDash();
   renderVeh();

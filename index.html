@@ -226,6 +226,15 @@ window._initPostHog=function(apiKey,host){
   </div>
 </div>
 
+<!-- SECTION TABS BAR -->
+<div class="section-tabs-bar" id="section-tabs-bar">
+  <button class="section-tab active" data-section="flota" onclick="switchSection('flota')"><i class="ti ti-truck"></i><span data-i18n="nav.group.flota">Flota</span></button>
+  <button class="section-tab" data-section="serwis" onclick="switchSection('serwis')"><i class="ti ti-tool"></i><span data-i18n="nav.group.serwis">Serwis</span></button>
+  <button class="section-tab" data-section="koszty" onclick="switchSection('koszty')"><i class="ti ti-report-money"></i><span data-i18n="nav.group.koszty">Koszty</span></button>
+  <button class="section-tab" data-section="podatki" onclick="switchSection('podatki')"><i class="ti ti-calculator"></i><span data-i18n="nav.group.podatki">Podatki DT-1</span></button>
+  <button class="section-tab" data-section="zarzadzanie" onclick="switchSection('zarzadzanie')"><i class="ti ti-settings"></i><span data-i18n="nav.group.zarzadzanie">Zarządzanie</span></button>
+</div>
+
 <!-- APP BODY: sidebar + content -->
 <div class="app-body">
 
@@ -234,13 +243,14 @@ window._initPostHog=function(apiKey,host){
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="main-sidebar">
-  <button class="sidebar-mode-toggle" onclick="setSidebarMode()" title="Przełącz widok podstawowy / pełny">
-    <i class="ti ti-layout-sidebar-left-collapse"></i><span id="sidebar-mode-label">Tryb prosty</span>
+  <button class="sidebar-collapse-btn" id="sidebar-collapse-btn" onclick="toggleSidebarIconOnly()" title="Zwiń / rozwiń sidebar">
+    <i class="ti ti-layout-sidebar-left-collapse"></i><span>Zwiń</span>
   </button>
   <button class="tnb active" id="tnb-dash" onclick="showPage('dash')"><i class="ti ti-home"></i><span data-i18n="nav.pulpit">Pulpit</span></button>
 
   <!-- ═══ 1. FLOTA ═══ -->
   <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="flota"><span data-i18n="nav.group.flota">FLOTA</span> <i class="ti ti-chevron-down sidebar-chevron"></i></div>
+<div class="sidebar-section-items" data-section="flota">
   <button class="tnb tnb-basic" id="tnb-pojazdy" onclick="showPage('pojazdy')"><i class="ti ti-truck"></i><span data-i18n="nav.pojazdy">Pojazdy</span> <span class="badge" id="badge-sel">0</span></button>
   <button class="tnb tnb-basic" id="tnb-kierowcy" onclick="TaxOrderDrivers.open()"><i class="ti ti-id-badge"></i><span data-i18n="nav.kierowcy">Kierowcy</span></button>
   <button class="tnb tnb-basic" id="tnb-protokoly" onclick="showPage('protokoly')"><i class="ti ti-clipboard-text"></i><span data-i18n="nav.protokoly">Protokoły</span></button>
@@ -262,9 +272,11 @@ window._initPostHog=function(apiKey,host){
   <button class="tnb" id="tnb-fleet-reservations" onclick="showPage('fleet-reservations')"><i class="ti ti-calendar-event"></i><span data-i18n="nav.rezerwacjePojazdow">Rezerwacje pojazdów</span></button>
   <button class="tnb" id="tnb-geofencing" onclick="showPage('geofencing')"><i class="ti ti-map-pin-check"></i><span data-i18n="nav.geofencing">Geofencing</span></button>
   <button class="tnb" id="tnb-gps-integrations" onclick="showPage('gps-integrations')"><i class="ti ti-satellite"></i><span data-i18n="nav.gpsIntegracje">GPS Integracje</span></button>
+</div><!-- /sidebar-section-items[flota] -->
 
   <!-- ═══ 2. SERWIS ═══ -->
   <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="serwis"><span data-i18n="nav.group.serwis">SERWIS</span> <i class="ti ti-chevron-down sidebar-chevron"></i></div>
+<div class="sidebar-section-items s-hidden" data-section="serwis">
   <button class="tnb tnb-basic" id="tnb-zlecenia" onclick="showPage('zlecenia')"><i class="ti ti-clipboard-list"></i><span data-i18n="nav.zlecenia">Serwis / Zlecenia</span></button>
   <button class="tnb tnb-basic" id="tnb-szkody" onclick="showPage('szkody')"><i class="ti ti-alert-triangle"></i><span data-i18n="nav.szkody">Szkody</span></button>
   <button class="tnb tnb-basic" id="tnb-mandaty" onclick="FinesModule.open()" style="position:relative"><i class="ti ti-ticket"></i><span data-i18n="nav.mandaty">Mandaty</span><span id="fines-nav-badge" style="display:none;position:absolute;top:4px;right:4px;background:var(--red);color:#fff;border-radius:9px;font-size:9px;font-weight:700;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 4px"></span></button>
@@ -284,9 +296,11 @@ window._initPostHog=function(apiKey,host){
   <button class="tnb" id="tnb-transport-orders" onclick="showPage('transport-orders')"><i class="ti ti-truck"></i><span data-i18n="nav.zleceniaTransportowe">Zlecenia transportowe</span></button>
   <button class="tnb" id="tnb-cmr" onclick="showPage('cmr')"><i class="ti ti-file-invoice"></i><span data-i18n="nav.cmr">CMR</span></button>
   <button class="tnb" id="tnb-sent" onclick="showPage('sent')"><i class="ti ti-truck-delivery"></i><span data-i18n="nav.sentPuesc">SENT / PUESC</span></button>
+</div><!-- /sidebar-section-items[serwis] -->
 
   <!-- ═══ 3. KOSZTY ═══ -->
   <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="koszty" data-default-collapsed="true"><span data-i18n="nav.group.koszty">KOSZTY</span> <i class="ti ti-chevron-down sidebar-chevron"></i></div>
+<div class="sidebar-section-items s-hidden" data-section="koszty">
   <button class="tnb tnb-basic" id="tnb-paliwo" onclick="showPage('paliwo')"><i class="ti ti-gas-station"></i><span data-i18n="nav.paliwo">Paliwo</span></button>
   <button class="tnb tnb-basic" id="tnb-raporty" onclick="showPage('raporty')"><i class="ti ti-chart-line"></i><span data-i18n="nav.raporty">Raporty</span></button>
   <button class="tnb" id="tnb-karty" onclick="showPage('karty')"><i class="ti ti-credit-card"></i><span data-i18n="nav.karty">Karty flotowe</span></button>
@@ -327,9 +341,11 @@ window._initPostHog=function(apiKey,host){
   <button class="tnb" id="tnb-gdpr" onclick="showPage('gdpr')"><i class="ti ti-shield-lock"></i><span data-i18n="nav.rodoAdo">RODO / ADO</span></button>
   <button class="tnb" id="tnb-currency" onclick="showPage('currency')"><i class="ti ti-currency-zloty"></i><span data-i18n="nav.waluty">Waluty</span></button>
   <button class="tnb" id="tnb-trip-private" onclick="showPage('trip-private')"><i class="ti ti-car-suv"></i><span data-i18n="nav.prywatnaSluzb">Prywatna/Służbowa</span></button>
+</div><!-- /sidebar-section-items[koszty] -->
 
   <!-- ═══ 4. PODATKI DT-1 ═══ -->
   <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="podatki"><span data-i18n="nav.group.podatki">PODATKI DT-1</span> <i class="ti ti-chevron-down sidebar-chevron"></i></div>
+<div class="sidebar-section-items s-hidden" data-section="podatki">
   <button class="tnb tnb-basic" id="tnb-kalkulator" onclick="showPage('kalkulator')"><i class="ti ti-calculator"></i><span data-i18n="nav.kalkulator">Kalkulator DT-1</span></button>
   <button class="tnb" id="tnb-formularze" onclick="showPage('formularze')"><i class="ti ti-file-text"></i><span data-i18n="nav.formularze">Deklaracja DT-1</span></button>
   <button class="tnb" id="tnb-stawki" onclick="showPage('stawki')"><i class="ti ti-building-bank"></i><span data-i18n="nav.stawki">Stawki 2026</span></button>
@@ -337,9 +353,11 @@ window._initPostHog=function(apiKey,host){
   <button class="tnb" id="tnb-pd" onclick="showPage('pd')"><i class="ti ti-upload"></i><span data-i18n="nav.pd">Eksport PD</span></button>
   <button class="tnb" id="tnb-walidacja" onclick="showPage('walidacja')"><i class="ti ti-shield-check"></i><span data-i18n="nav.walidacja">Walidacja</span> <span class="badge" id="badge-err" style="background:var(--red)">0</span></button>
   <button class="tnb" id="tnb-dt1-historia" onclick="showPage('dt1-historia')"><i class="ti ti-file-certificate"></i><span data-i18n="nav.dt1Historia">Historia DT-1</span></button>
+</div><!-- /sidebar-section-items[podatki] -->
 
   <!-- ═══ 5. ZARZĄDZANIE ═══ -->
   <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="zarzadzanie" data-default-collapsed="true"><span data-i18n="nav.group.zarzadzanie">ZARZĄDZANIE</span> <i class="ti ti-chevron-down sidebar-chevron"></i></div>
+<div class="sidebar-section-items s-hidden" data-section="zarzadzanie">
   <button class="tnb tnb-basic" id="tnb-alert-dashboard" onclick="showPage('alert-dashboard')"><i class="ti ti-alert-triangle"></i><span data-i18n="nav.alertyTerminy">Alerty &amp; Terminy</span></button>
   <button class="tnb tnb-basic" id="tnb-ai" onclick="showPage('ai')"><i class="ti ti-robot"></i><span data-i18n="nav.ai">Asystent AI</span></button>
   <button class="tnb tnb-basic" id="tnb-dok-smart" onclick="showPage('dok-smart')"><i class="ti ti-files"></i><span data-i18n="nav.dokumentyFlotowe">Dokumenty flotowe</span></button>
@@ -374,6 +392,7 @@ window._initPostHog=function(apiKey,host){
   <button class="tnb" id="tnb-vehicle-qr" onclick="showPage('vehicle-qr')"><i class="ti ti-qrcode"></i><span data-i18n="nav.kodyQr">Kody QR</span></button>
   <button class="tnb" id="tnb-messenger" onclick="showPage('messenger')"><i class="ti ti-message-circle"></i><span data-i18n="nav.komunikator">Komunikator</span></button>
   <button class="tnb" id="tnb-edoreczenia" onclick="showPage('edoreczenia')"><i class="ti ti-mailbox"></i><span data-i18n="nav.edoreczenia">e-Doręczenia</span></button>
+</div><!-- /sidebar-section-items[zarzadzanie] -->
 </nav>
 
 <div class="content">

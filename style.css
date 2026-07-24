@@ -687,3 +687,66 @@ kbd{background:var(--bg2);border:1px solid var(--border);border-bottom-width:2px
 .user-mitem{display:flex;align-items:center;gap:9px;width:100%;padding:8px 14px;background:none;border:none;cursor:pointer;font-size:13px;color:var(--text);text-align:left;transition:background .1s;font-family:var(--font)}
 .user-mitem:hover{background:var(--bg3)}
 .user-mitem .ti{font-size:15px;color:var(--text2);flex-shrink:0}
+
+/* ═══════════════ SECTION TABS BAR (A+C) ═══════════════ */
+.section-tabs-bar{
+  position:sticky;top:56px;z-index:91;
+  display:flex;align-items:center;gap:2px;
+  padding:4px 10px;background:var(--bg2);
+  border-bottom:1px solid var(--border);height:44px;
+  flex-shrink:0;overflow-x:auto;
+}
+.section-tab{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 14px;border:none;background:none;
+  border-radius:var(--radius);font-size:12px;font-weight:600;
+  color:var(--text3);cursor:pointer;font-family:var(--font);
+  letter-spacing:.04em;transition:all .15s;white-space:nowrap;
+}
+.section-tab:hover{background:var(--bg3);color:var(--text)}
+.section-tab.active{background:var(--blue-light);color:var(--blue)}
+.section-tab .ti{font-size:14px;flex-shrink:0}
+
+/* ═══════════════ SIDEBAR SECTION GROUPS ═══════════════ */
+.sidebar-section-items{display:contents}
+.sidebar-section-items.s-hidden{display:none}
+
+/* When tabs-mode: hide section label headers (they're in top tabs now) */
+body.tabs-mode .sidebar-label{display:none!important}
+body.tabs-mode .sidebar{top:100px;height:calc(100vh - 100px)}
+
+/* ═══════════════ SIDEBAR ICON-ONLY (zwinięty) ═══════════════ */
+.sidebar.icon-only{width:52px;padding:8px 4px;overflow:visible}
+.sidebar.icon-only .tnb span:not(.badge){display:none}
+.sidebar.icon-only .tnb{padding:9px;justify-content:center}
+.sidebar.icon-only .tnb .ti{font-size:17px}
+.sidebar.icon-only .sidebar-mode-toggle{display:none}
+.sidebar.icon-only .sidebar-collapse-btn span{display:none}
+.sidebar.icon-only .sidebar-collapse-btn{justify-content:center;padding:9px}
+
+.sidebar-collapse-btn{
+  display:flex;align-items:center;gap:7px;width:100%;
+  padding:5px 8px;margin-bottom:4px;
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:var(--radius);font-size:11px;font-weight:600;
+  color:var(--text3);cursor:pointer;transition:all .15s;
+  font-family:var(--font);text-align:left;
+}
+.sidebar-collapse-btn:hover{background:var(--blue-light);color:var(--blue);border-color:var(--blue)}
+.sidebar-collapse-btn .ti{font-size:13px;flex-shrink:0}
+
+/* ═══════════════ SIDEBAR TOOLTIP (JS-managed) ═══════════════ */
+#sb-tooltip{
+  position:fixed;background:var(--text);color:var(--bg);
+  padding:5px 11px;border-radius:var(--radius-sm);
+  font-size:12px;font-weight:500;white-space:nowrap;
+  z-index:9999;pointer-events:none;display:none;
+  box-shadow:0 2px 10px rgba(0,0,0,.25);
+  font-family:var(--font);
+}
+
+/* ═══════════════ MOBILE: ukryj tabs bar ═══════════════ */
+@media(max-width:640px){
+  .section-tabs-bar{display:none}
+  body.tabs-mode .sidebar{top:0;height:100vh}
+}
