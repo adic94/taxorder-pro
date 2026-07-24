@@ -358,6 +358,7 @@ window._initPostHog=function(apiKey,host){
   <!-- ═══ 5. ZARZĄDZANIE ═══ -->
   <div class="sidebar-label sidebar-label-toggle" onclick="toggleSidebarSection(this)" data-section="zarzadzanie" data-default-collapsed="true"><span data-i18n="nav.group.zarzadzanie">ZARZĄDZANIE</span> <i class="ti ti-chevron-down sidebar-chevron"></i></div>
 <div class="sidebar-section-items s-hidden" data-section="zarzadzanie">
+  <button class="tnb tnb-basic" id="tnb-doc-workflow" onclick="showPage('doc-workflow')"><i class="ti ti-arrows-transfer-up"></i><span data-i18n="nav.obiegDokumentow">Obieg dokumentów</span></button>
   <button class="tnb tnb-basic" id="tnb-alert-dashboard" onclick="showPage('alert-dashboard')"><i class="ti ti-alert-triangle"></i><span data-i18n="nav.alertyTerminy">Alerty &amp; Terminy</span></button>
   <button class="tnb tnb-basic" id="tnb-ai" onclick="showPage('ai')"><i class="ti ti-robot"></i><span data-i18n="nav.ai">Asystent AI</span></button>
   <button class="tnb tnb-basic" id="tnb-dok-smart" onclick="showPage('dok-smart')"><i class="ti ti-files"></i><span data-i18n="nav.dokumentyFlotowe">Dokumenty flotowe</span></button>
@@ -2883,6 +2884,7 @@ window._initPostHog=function(apiKey,host){
 </div>
 
 <!-- ==================== DASHBOARD ALERTÓW ==================== -->
+<div class="page" id="page-doc-workflow"></div>
 <div class="page" id="page-alert-dashboard"></div>
 
 <!-- ==================== CENTRUM POWIADOMIEŃ ==================== -->
@@ -4334,6 +4336,7 @@ window._initPostHog=function(apiKey,host){
   <script src="modules/keyboard-shortcuts.js"></script>
   <script src="modules/budget.js"></script>
   <script src="modules/document-manager.js"></script>
+  <script src="modules/doc-workflow.js"></script>
   <script src="modules/policies.js"></script>
   <script src="modules/service-schedule.js"></script>
   <script src="modules/mileage-claims.js"></script>

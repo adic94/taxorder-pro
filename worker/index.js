@@ -8719,7 +8719,100 @@ async function handleRequest(request, env, url, path, ctx) {
   }
   if (path === '/api/push/send' && request.method === 'POST') return handlePushSend(request, env, user);
 
+  if (path.startsWith('/api/doc-workflow'))    { if (!user) return err('Nieautoryzowany', 401); return handleDocWorkflow(request, env, user, url, path); }
+
   return err('Endpoint nie istnieje', 404);
+}
+
+// ─── DOC WORKFLOW — obieg dokumentów ─────────────────────────────────────────
+async function handleDocWorkflow(request, env, user, url, path) {
+  const method = request.method;
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Brak company');
+  if (user.company_id && user.company_id !== company && user.role !== 'superadmin') return err('Brak dostępu', 403);
+
+  const segs = path.replace('/api/doc-workflow', '').split('/').filter(Boolean);
+
+  // ── Statystyki KPI ──────────────────────────────────────────────────────
+  if (segs[0] === 'stats' && method === 'GET') {
+    const [byStatus, hist, urgent] = await Promise.all([
+      env.DB.prepare(`SELECT workflow_status as status, COUNT(*) as cnt FROM documents WHERE company_id=? GROUP BY workflow_status`).bind(company).all().catch(() => ({ results: [] })),
+      env.DB.prepare(`SELECT COUNT(*) as cnt FROM doc_status_history WHERE company_id=? AND created_at>=datetime('now','-7 days')`).bind(company).first().catch(() => null),
+      env.DB.prepare(`SELECT COUNT(*) as cnt FROM documents WHERE company_id=? AND workflow_status NOT IN ('zatwierdzony','archiwum','odrzucony') AND workflow_priority='urgent'`).bind(company).first().catch(() => null),
+    ]);
+    return json({ statuses: byStatus.results || [], changes7d: hist?.cnt ?? 0, urgent: urgent?.cnt ?? 0 });
+  }
+
+  // ── Templates ────────────────────────────────────────────────────────────
+  if (segs[0] === 'templates') {
+    const tplId = segs[1];
+    if (method === 'GET' && !tplId) {
+      const rows = await env.DB.prepare('SELECT * FROM doc_workflow_templates WHERE company_id=? ORDER BY created_at').bind(company).all().catch(() => ({ results: [] }));
+      return json({ templates: rows.results || [] });
+    }
+    if (method === 'POST') {
+      const b = await request.json();
+      const id = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+      await env.DB.prepare(`INSERT INTO doc_workflow_templates(id,company_id,name,doc_types,statuses,is_default,created_by) VALUES(?,?,?,?,?,?,?)`)
+        .bind(id, company, b.name || 'Workflow', JSON.stringify(b.doc_types || []), JSON.stringify(b.statuses || []), b.is_default ? 1 : 0, user.email).run();
+      return json({ ok: true, id });
+    }
+    if (method === 'PUT' && tplId) {
+      const b = await request.json();
+      await env.DB.prepare(`UPDATE doc_workflow_templates SET name=?,doc_types=?,statuses=?,is_default=?,updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=? AND company_id=?`)
+        .bind(b.name, JSON.stringify(b.doc_types || []), JSON.stringify(b.statuses || []), b.is_default ? 1 : 0, tplId, company).run();
+      return json({ ok: true });
+    }
+    if (method === 'DELETE' && tplId) {
+      await env.DB.prepare('DELETE FROM doc_workflow_templates WHERE id=? AND company_id=?').bind(tplId, company).run();
+      return json({ ok: true });
+    }
+    return err('Metoda nieobsługiwana', 405);
+  }
+
+  // ── Lista dokumentów w obiegu ────────────────────────────────────────────
+  if (!segs[0] || segs[0] === 'list') {
+    const status   = url.searchParams.get('status');
+    const assigned = url.searchParams.get('assigned_to');
+    const docType  = url.searchParams.get('doc_type');
+    const priority = url.searchParams.get('priority');
+    const conds = ['d.company_id=?']; const params = [company];
+    if (status)   { conds.push('d.workflow_status=?');       params.push(status); }
+    if (assigned) { conds.push('d.workflow_assigned_to=?');  params.push(assigned); }
+    if (docType)  { conds.push('d.doc_type=?');              params.push(docType); }
+    if (priority) { conds.push('d.workflow_priority=?');     params.push(priority); }
+    const rows = await env.DB.prepare(`
+      SELECT d.id,d.name,d.doc_type,d.nr_rej,d.vin,d.vehicle_id,d.expiry_date,
+             d.workflow_status,d.workflow_assigned_to,d.workflow_assigned_name,
+             d.workflow_due_date,d.workflow_priority,d.workflow_template_id,
+             d.uploaded_at,d.uploaded_by
+      FROM documents d WHERE ${conds.join(' AND ')}
+      ORDER BY CASE d.workflow_priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END,
+               d.uploaded_at DESC LIMIT 500`).bind(...params).all().catch(() => ({ results: [] }));
+    return json({ documents: rows.results || [] });
+  }
+
+  // ── Status update + historia ─────────────────────────────────────────────
+  const docId = segs[0];
+  if (segs[1] === 'status' && method === 'PUT') {
+    const b = await request.json();
+    const doc = await env.DB.prepare('SELECT id,name,doc_type,workflow_status FROM documents WHERE id=? AND company_id=?').bind(docId, company).first().catch(() => null);
+    if (!doc) return err('Dokument nie istnieje', 404);
+    const prevStatus = doc.workflow_status;
+    await env.DB.prepare(`UPDATE documents SET workflow_status=?,workflow_assigned_to=?,workflow_assigned_name=?,workflow_due_date=?,workflow_priority=? WHERE id=? AND company_id=?`)
+      .bind(b.status ?? prevStatus, b.assigned_to ?? null, b.assigned_name ?? null, b.due_date ?? null, b.priority ?? 'normal', docId, company).run();
+    const histId = crypto.randomUUID().replace(/-/g, '').slice(0, 20);
+    await env.DB.prepare(`INSERT INTO doc_status_history(id,company_id,doc_id,doc_name,doc_type,status_from,status_to,assigned_to,assigned_name,comment,changed_by,changed_by_name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(histId, company, docId, doc.name, doc.doc_type, prevStatus, b.status ?? prevStatus, b.assigned_to ?? null, b.assigned_name ?? null, b.comment ?? null, user.email, user.name || user.email).run();
+    return json({ ok: true });
+  }
+
+  if (segs[1] === 'history' && method === 'GET') {
+    const rows = await env.DB.prepare('SELECT * FROM doc_status_history WHERE doc_id=? AND company_id=? ORDER BY created_at DESC LIMIT 50').bind(docId, company).all().catch(() => ({ results: [] }));
+    return json({ history: rows.results || [] });
+  }
+
+  return err('Nie znaleziono zasobu', 404);
 }
 
 // ─── HELPERS dla budowania alertów (push/email/sms używają tego samego) ─────────

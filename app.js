@@ -387,6 +387,7 @@ function showPage(id) {
   if(id==='szkody') window.TaxOrderDamages?.load();
   if(id==='opony-magazyn') window.TaxOrderTires?.load();
   if(id==='zlecenia') window.TaxOrderServiceOrders?.load();
+  if(id==='doc-workflow') window.DocWorkflow?.renderPage();
   if(id==='protokoly') window.TaxOrderHandoverProtocol?.load();
   if(id==='cfm-klienci') window.TaxOrderCfmClients?.load();
   if(id==='cfm-kontrakty') { window.TaxOrderCfmClients?.load(); window.TaxOrderCfmContracts?.load(); }
