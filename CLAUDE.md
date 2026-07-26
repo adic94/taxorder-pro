@@ -83,6 +83,13 @@ Od schema_v44 firmy żyją w tabeli `companies` w D1, nie w kodzie.
 `hydrateCompaniesFromApi()` scala listę z D1 po zalogowaniu. Dodając firmę,
 dopisuj ją do D1 — nie do literału.
 
+**Kill switch** (bez deployu, z konsoli przeglądarki):
+```javascript
+localStorage.setItem('taxorder_companies_source','local'); location.reload();
+```
+Wraca do listy lokalnej. Pełny runbook wycofania: `docs/ROLLBACK_v44.md`.
+Weryfikacja po deployu: `npm run verify:v44`.
+
 ## PODATEK DT-1 — ZASADY DOMENY
 
 ### Przepływ obliczeń (kolejność priorytetu)

@@ -8574,6 +8574,17 @@ function getCurrentCompany(){return COMPANIES[currentCompanyId];}
  * Wolane po zalogowaniu — patrz TaxOrderAuth.login() / bootstrap.
  */
 async function hydrateCompaniesFromApi(){
+  // ── KILL SWITCH ─────────────────────────────────────────────────────────
+  // Wylaczenie bez deployu, z konsoli przegladarki:
+  //     localStorage.setItem('taxorder_companies_source','local'); location.reload()
+  // Powrot:
+  //     localStorage.removeItem('taxorder_companies_source'); location.reload()
+  // Aplikacja wraca wtedy na liste zaszyta w COMPANIES — dokladnie stan sprzed v44.
+  if(localStorage.getItem('taxorder_companies_source') === 'local'){
+    console.warn('[Companies] Zrodlo wymuszone na lokalne (kill switch). Synchronizacja z D1 pominieta.');
+    return false;
+  }
+
   const token = localStorage.getItem('cf_token');
   if(!token) return false;
   const base = window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
@@ -8590,7 +8601,22 @@ async function hydrateCompaniesFromApi(){
     const list = Array.isArray(d.companies) ? d.companies : [];
     if(!list.length){ console.warn('[Companies] API zwrocilo pusta liste — zostaje lista lokalna'); return false; }
 
-    for(const c of list){
+    // Sanity check: odrzuc odpowiedz bez wymaganych pol — lepiej zostac
+    // na liscie lokalnej niz nadpisac ja smieciem.
+    const valid = list.filter(c => c && typeof c.id === 'string' && c.id && (c.short_name || c.name));
+    if(valid.length !== list.length){
+      console.warn('[Companies] Odrzucono ' + (list.length - valid.length) + ' niepoprawnych rekordow z API');
+    }
+    if(!valid.length){
+      console.warn('[Companies] Brak poprawnych rekordow — zostaje lista lokalna');
+      return false;
+    }
+
+    // Snapshot sprzed nadpisania — pozwala cofnac sie bez przeladowania strony:
+    //     window.restoreLocalCompanies()
+    if(!window._companiesSeed) window._companiesSeed = JSON.parse(JSON.stringify(COMPANIES));
+
+    for(const c of valid){
       if(!c || !c.id) continue;
       COMPANIES[c.id] = {
         id:         c.id,
@@ -8625,7 +8651,7 @@ async function hydrateCompaniesFromApi(){
     for(const fn of ['renderCompanyOverview','renderAllCompaniesSummary']){
       if(typeof window[fn] === 'function'){ try{ window[fn](); }catch(_){} }
     }
-    console.log('[Companies] Zsynchronizowano ' + list.length + ' firm z D1');
+    console.log('[Companies] Zsynchronizowano ' + valid.length + ' firm z D1');
     return true;
   }catch(e){
     console.warn('[Companies] Brak synchronizacji (' + e.message + ') — zostaje lista lokalna');
@@ -8633,6 +8659,29 @@ async function hydrateCompaniesFromApi(){
   }
 }
 window.hydrateCompaniesFromApi = hydrateCompaniesFromApi;
+
+/**
+ * Awaryjny powrot do listy firm zaszytej w kodzie — bez przeladowania i bez deployu.
+ * Uzycie z konsoli przegladarki: restoreLocalCompanies()
+ */
+function restoreLocalCompanies(){
+  if(!window._companiesSeed){
+    console.warn('[Companies] Brak snapshotu — lista nie byla jeszcze nadpisana.');
+    return false;
+  }
+  for(const k of Object.keys(COMPANIES)) delete COMPANIES[k];
+  Object.assign(COMPANIES, JSON.parse(JSON.stringify(window._companiesSeed)));
+  if(!COMPANIES[currentCompanyId]){
+    const first = Object.keys(COMPANIES)[0];
+    if(first){ currentCompanyId = first; window.currentCompanyId = first; localStorage.setItem('dt1_current_company', first); }
+  }
+  for(const fn of ['renderCompanyOverview','renderAllCompaniesSummary']){
+    if(typeof window[fn] === 'function'){ try{ window[fn](); }catch(_){} }
+  }
+  console.log('[Companies] Przywrocono liste lokalna (' + Object.keys(COMPANIES).length + ' firm)');
+  return true;
+}
+window.restoreLocalCompanies = restoreLocalCompanies;
 
 function saveCompanyState(){
   const state={vehs:vehs.map(v=>({...v})),selected:[...selected],taxYear:document.getElementById('taxYear')?.value||'2026',taxpayer:{}};

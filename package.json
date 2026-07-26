@@ -25,6 +25,7 @@
     "smoke": "node tools/autotest/api-smoke-test.js",
     "smoke:auth": "node tools/autotest/api-smoke-test.js --auth",
     "migration-check": "node tools/autotest/migration-check.js",
+    "verify:v44": "node tools/autotest/verify-v44.js",
     "audit:all": "node tools/autotest/syntax-check.js && node tools/autotest/xss-audit.js && node tools/autotest/i18n-check.js && node tools/autotest/sw-cache-bump.js --check",
     "lint:worker": "eslint worker/index.js",
     "lint:modules": "eslint modules/*.js",

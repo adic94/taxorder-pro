@@ -3118,8 +3118,9 @@ async function handleFmQueueItem(request, env, user, path, method) {
 
   // Izolacja tenanta: pozycja kolejki musi nalezec do firmy uzytkownika.
   // Bez tego dowolny zalogowany uzytkownik mogl modyfikowac/usuwac wpisy innej firmy (IDOR).
-  const company = user.company_id || user.company;
-  if (!company) return err('Brak firmy uzytkownika', 403);
+  // Fallback 'mtoilet' zgodny z handleFmQueue (GET) i pozostalymi 27 miejscami w pliku —
+  // users.company_id jest nullable (schema_v22), wiec starsi uzytkownicy nie moga stracic dostepu.
+  const company = user.company_id || 'mtoilet';
 
   if (method === 'DELETE') {
     const r = await env.DB.prepare('DELETE FROM folder_monitor_queue WHERE id=? AND company_id=?')
