@@ -3116,8 +3116,15 @@ async function handleFmQueueItem(request, env, user, path, method) {
   const id = path.split('/').pop();
   if (!id) return err('Brak id');
 
+  // Izolacja tenanta: pozycja kolejki musi nalezec do firmy uzytkownika.
+  // Bez tego dowolny zalogowany uzytkownik mogl modyfikowac/usuwac wpisy innej firmy (IDOR).
+  const company = user.company_id || user.company;
+  if (!company) return err('Brak firmy uzytkownika', 403);
+
   if (method === 'DELETE') {
-    await env.DB.prepare('DELETE FROM folder_monitor_queue WHERE id=?').bind(id).run();
+    const r = await env.DB.prepare('DELETE FROM folder_monitor_queue WHERE id=? AND company_id=?')
+      .bind(id, company).run();
+    if (!r.meta || r.meta.changes === 0) return err('Pozycja nie znaleziona', 404);
     return json({ ok: true });
   }
 
@@ -3125,9 +3132,10 @@ async function handleFmQueueItem(request, env, user, path, method) {
   let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON'); }
   const { status } = body;
   if (!['imported', 'skipped', 'pending'].includes(status)) return err('Nieprawidłowy status');
-  await env.DB.prepare(
-    "UPDATE folder_monitor_queue SET status=?, processed_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=?"
-  ).bind(status, id).run();
+  const r = await env.DB.prepare(
+    "UPDATE folder_monitor_queue SET status=?, processed_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=? AND company_id=?"
+  ).bind(status, id, company).run();
+  if (!r.meta || r.meta.changes === 0) return err('Pozycja nie znaleziona', 404);
   return json({ ok: true });
 }
 
