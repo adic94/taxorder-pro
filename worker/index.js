@@ -3139,6 +3139,168 @@ async function handleFmQueueItem(request, env, user, path, method) {
   return json({ ok: true });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// FIRMY (NAJEMCY) — schema_v44
+// Zastępuje martwe moduły Supabase: companies-readonly.js, company-create.js.
+// Firmy były zahardkodowane w app.js — bez tego onboarding nowego najemcy
+// wymagał deployu. Źródłem prawdy jest teraz D1.
+// ═══════════════════════════════════════════════════════════════════════════
+const COMPANY_FIELDS = ['short_name','name','nip','regon','krs','ulica','dom','lokal','kod','miasto','woj','organ','color','wlasciciel'];
+
+function _isCompanyAdmin(user) {
+  return user.role === 'admin' || user.role === 'superadmin';
+}
+
+async function handleCompanies(req, env, user, url, path) {
+  const segs = path.split('/').filter(Boolean);   // ['api','companies',':id']
+  const id   = segs[2] || null;
+
+  // GET /api/companies — lista firm dostępnych dla użytkownika
+  if (req.method === 'GET' && !id) {
+    const rows = await env.DB.prepare(
+      'SELECT * FROM companies WHERE active=1 ORDER BY short_name'
+    ).all().catch(() => ({ results: [] }));
+    let list = rows.results || [];
+
+    // Admin widzi wszystko. Pozostali — tylko firmy z user_company_access
+    // plus własna firma domyślna z users.company_id.
+    if (!_isCompanyAdmin(user)) {
+      const acc = await env.DB.prepare(
+        'SELECT company_id FROM user_company_access WHERE user_id=? AND can_view=1'
+      ).bind(user.id).all().catch(() => ({ results: [] }));
+      const allowed = new Set((acc.results || []).map(r => r.company_id));
+      if (user.company_id) allowed.add(user.company_id);
+      list = list.filter(c => allowed.has(c.id));
+    }
+    return json({ companies: list });
+  }
+
+  // GET /api/companies/:id
+  if (req.method === 'GET' && id) {
+    const row = await env.DB.prepare('SELECT * FROM companies WHERE id=?').bind(id).first();
+    if (!row) return err('Firma nie znaleziona', 404);
+    return json(row);
+  }
+
+  // POST /api/companies — utworzenie nowego najemcy
+  if (req.method === 'POST') {
+    if (!_isCompanyAdmin(user)) return err('Brak uprawnień administratora', 403);
+    let b; try { b = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+
+    const slug = String(b.id || b.slug || '').trim().toLowerCase();
+    if (!/^[a-z0-9][a-z0-9_-]{1,31}$/.test(slug)) {
+      return err('Nieprawidłowy identyfikator: 2-32 znaki, małe litery, cyfry, - lub _');
+    }
+    if (!b.short_name || !b.name) return err('Wymagane: short_name i name');
+    if (String(b.short_name).length > 60 || String(b.name).length > 200) return err('Nazwa za długa');
+    if (b.nip && !/^\d{10}$/.test(String(b.nip).replace(/[\s-]/g, ''))) return err('NIP musi mieć 10 cyfr');
+
+    const exists = await env.DB.prepare('SELECT id FROM companies WHERE id=?').bind(slug).first();
+    if (exists) return err('Firma o tym identyfikatorze już istnieje', 409);
+
+    const vals = COMPANY_FIELDS.map(f => (b[f] != null ? String(b[f]).slice(0, 200) : null));
+    await env.DB.prepare(
+      `INSERT INTO companies (id,${COMPANY_FIELDS.join(',')},created_by)
+       VALUES (?,${COMPANY_FIELDS.map(() => '?').join(',')},?)`
+    ).bind(slug, ...vals, user.email || null).run();
+
+    // Twórca dostaje pełny dostęp do nowej firmy
+    await env.DB.prepare(
+      'INSERT OR IGNORE INTO user_company_access (user_id,company_id,can_view,can_edit,granted_by) VALUES (?,?,1,1,?)'
+    ).bind(user.id, slug, user.email || null).run();
+
+    const row = await env.DB.prepare('SELECT * FROM companies WHERE id=?').bind(slug).first();
+    return json({ ok: true, company: row }, 201);
+  }
+
+  // PUT /api/companies/:id
+  if (req.method === 'PUT' && id) {
+    if (!_isCompanyAdmin(user)) return err('Brak uprawnień administratora', 403);
+    let b; try { b = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const row = await env.DB.prepare('SELECT id FROM companies WHERE id=?').bind(id).first();
+    if (!row) return err('Firma nie znaleziona', 404);
+
+    const sets = [], binds = [];
+    for (const f of COMPANY_FIELDS) {
+      if (b[f] !== undefined) { sets.push(`${f}=?`); binds.push(b[f] != null ? String(b[f]).slice(0, 200) : null); }
+    }
+    if (b.active !== undefined) { sets.push('active=?'); binds.push(b.active ? 1 : 0); }
+    if (!sets.length) return err('Brak pól do aktualizacji');
+    sets.push("updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now')");
+    binds.push(id);
+
+    await env.DB.prepare(`UPDATE companies SET ${sets.join(',')} WHERE id=?`).bind(...binds).run();
+    const upd = await env.DB.prepare('SELECT * FROM companies WHERE id=?').bind(id).first();
+    return json({ ok: true, company: upd });
+  }
+
+  // DELETE /api/companies/:id — dezaktywacja, nie kasowanie (dane pojazdów zostają)
+  if (req.method === 'DELETE' && id) {
+    if (!_isCompanyAdmin(user)) return err('Brak uprawnień administratora', 403);
+    const r = await env.DB.prepare(
+      "UPDATE companies SET active=0, updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=?"
+    ).bind(id).run();
+    if (!r.meta || r.meta.changes === 0) return err('Firma nie znaleziona', 404);
+    return json({ ok: true, deactivated: id });
+  }
+
+  return err('Metoda nieobsługiwana', 405);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DOSTĘPY UŻYTKOWNIK ↔ FIRMA — zastępuje company-access.js na Supabase
+// ═══════════════════════════════════════════════════════════════════════════
+async function handleCompanyAccess(req, env, user, url, path) {
+  if (!_isCompanyAdmin(user)) return err('Brak uprawnień administratora', 403);
+
+  // GET /api/company-access?user_id=123
+  if (req.method === 'GET') {
+    const uid = parseInt(url.searchParams.get('user_id'), 10);
+    if (uid) {
+      const rows = await env.DB.prepare(
+        'SELECT company_id,can_view,can_edit FROM user_company_access WHERE user_id=?'
+      ).bind(uid).all().catch(() => ({ results: [] }));
+      return json({ access: rows.results || [] });
+    }
+    const rows = await env.DB.prepare(
+      `SELECT a.user_id,a.company_id,a.can_view,a.can_edit,u.email,u.name
+       FROM user_company_access a LEFT JOIN users u ON u.id=a.user_id
+       ORDER BY u.email LIMIT 2000`
+    ).all().catch(() => ({ results: [] }));
+    return json({ access: rows.results || [] });
+  }
+
+  // PUT /api/company-access — nadanie/odebranie dostępu
+  if (req.method === 'PUT') {
+    let b; try { b = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const uid = parseInt(b.user_id, 10);
+    const cid = String(b.company_id || '').trim();
+    if (!uid || !cid) return err('Wymagane: user_id i company_id');
+
+    const u = await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(uid).first();
+    if (!u) return err('Użytkownik nie znaleziony', 404);
+    const c = await env.DB.prepare('SELECT id FROM companies WHERE id=?').bind(cid).first();
+    if (!c) return err('Firma nie znaleziona', 404);
+
+    const canView = b.can_view ? 1 : 0;
+    const canEdit = b.can_edit ? 1 : 0;
+
+    if (!canView && !canEdit) {
+      await env.DB.prepare('DELETE FROM user_company_access WHERE user_id=? AND company_id=?')
+        .bind(uid, cid).run();
+      return json({ ok: true, removed: true });
+    }
+    await env.DB.prepare(
+      `INSERT INTO user_company_access (user_id,company_id,can_view,can_edit,granted_by)
+       VALUES (?,?,?,?,?)
+       ON CONFLICT(user_id,company_id) DO UPDATE SET can_view=excluded.can_view, can_edit=excluded.can_edit`
+    ).bind(uid, cid, canView, canEdit, user.email || null).run();
+    return json({ ok: true });
+  }
+
+  return err('Metoda nieobsługiwana', 405);
+}
+
 // ─── OCR DOC — wieloformatowy OCR (polisa / paliwo / serwis / dr) ─────────────
 async function handleAIOCRDoc(request, env) {
   if (request.method !== 'POST') return err('Method not allowed', 405);
@@ -8522,6 +8684,14 @@ async function handleRequest(request, env, url, path, ctx) {
     if (!user) return err('Nieautoryzowany', 401);
     if (path.match(/^\/api\/users\/\d+\/permissions/)) return handleUserPermissions(request, env, user, url, path);
     return handleUsers(request, env, user, url, path);
+  }
+  if (path.startsWith('/api/companies')) {
+    if (!user) return err('Nieautoryzowany', 401);
+    return handleCompanies(request, env, user, url, path);
+  }
+  if (path.startsWith('/api/company-access')) {
+    if (!user) return err('Nieautoryzowany', 401);
+    return handleCompanyAccess(request, env, user, url, path);
   }
   if (path.startsWith('/api/alert-types'))        { if (!user) return err('Nieautoryzowany', 401); return handleAlertTypes(request, env, user, url, path); }
   if (path.startsWith('/api/notif-prefs'))         { if (!user) return err('Nieautoryzowany', 401); return handleNotifPrefs(request, env, user, url); }

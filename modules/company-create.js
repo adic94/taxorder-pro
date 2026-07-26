@@ -1,4 +1,18 @@
-﻿(function(){
+﻿/**
+ * TaxOrder Pro — Dodawanie firmy (najemcy)
+ *
+ * MIGRACJA (26.07.2026): przepisane z Supabase na D1.
+ * Poprzednia wersja wolala window.supabaseClient BEZ guarda — a klient nigdy
+ * nie byl inicjalizowany, wiec zapis konczyl sie TypeError i onboarding
+ * nowej firmy w ogole nie dzialal. Teraz POST /api/companies (schema_v44).
+ */
+(function(){
+  'use strict';
+
+  const API  = () => window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
+  const tok  = () => localStorage.getItem('cf_token') || '';
+  const hdrs = () => ({ Authorization: 'Bearer ' + tok(), 'Content-Type': 'application/json' });
+
   function slugify(text){
     return String(text || '')
       .toLowerCase()
@@ -76,47 +90,62 @@
   }
 
   async function save(){
+    // Nazwy pol zgodne ze schema_v44 (ulica/dom/kod/miasto, nie street/building_no)
     const row = {
-      slug: slugify(val('cc-slug') || val('cc-short-name')),
+      id:         slugify(val('cc-slug') || val('cc-short-name')),
       short_name: val('cc-short-name'),
-      name: val('cc-name'),
-      nip: val('cc-nip').replace(/\D/g, ''),
-      regon: val('cc-regon'),
-      krs: val('cc-krs'),
-      city: val('cc-city'),
-      street: val('cc-street'),
-      building_no: val('cc-building-no'),
-      postal_code: val('cc-postal-code'),
-      woj: val('cc-woj'),
-      organ: val('cc-organ'),
-      color: val('cc-color') || '#185FA5',
-      owner_label: val('cc-owner-label') || val('cc-short-name')
+      name:       val('cc-name'),
+      nip:        val('cc-nip').replace(/\D/g, ''),
+      regon:      val('cc-regon'),
+      krs:        val('cc-krs'),
+      miasto:     val('cc-city'),
+      ulica:      val('cc-street'),
+      dom:        val('cc-building-no'),
+      kod:        val('cc-postal-code'),
+      woj:        val('cc-woj'),
+      organ:      val('cc-organ'),
+      color:      val('cc-color') || '#185FA5',
+      wlasciciel: val('cc-owner-label') || val('cc-short-name')
     };
 
-    if(!row.slug || !row.short_name || !row.name){
-      alert('Uzupełnij nazwę skróconą, slug i pełną nazwę.');
+    if(!row.id || !row.short_name || !row.name){
+      alert('Uzupelnij nazwe skrocona, slug i pelna nazwe.');
+      return;
+    }
+    if(row.nip && row.nip.length !== 10){
+      alert('NIP musi miec dokladnie 10 cyfr.');
+      return;
+    }
+    if(!tok()){
+      alert('Brak sesji — zaloguj sie ponownie.');
       return;
     }
 
-    const result = await window.supabaseClient
-      .from('companies')
-      .insert(row)
-      .select()
-      .single();
+    const btn = document.getElementById('cc-save');
+    if(btn){ btn.disabled = true; btn.textContent = 'Zapisywanie...'; }
 
-    if(result.error){
-      alert('Błąd zapisu: ' + result.error.message);
-      console.error(result.error);
-      return;
+    try {
+      const r = await fetch(API() + '/api/companies', {
+        method: 'POST', headers: hdrs(), body: JSON.stringify(row)
+      });
+      const d = await r.json().catch(() => ({}));
+
+      if(!r.ok){
+        alert('Blad zapisu: ' + (d.error || ('HTTP ' + r.status)));
+        return;
+      }
+
+      close();
+      if(window.TaxOrderCompaniesReadOnly?.loadAndRenderCompanies){
+        await window.TaxOrderCompaniesReadOnly.loadAndRenderCompanies();
+      }
+      if(typeof toast === 'function') toast('✓ Firma dodana');
+      else alert('Firma dodana');
+    } catch(e){
+      alert('Blad sieci: ' + e.message);
+    } finally {
+      if(btn){ btn.disabled = false; btn.textContent = 'Zapisz firme'; }
     }
-
-    close();
-
-    if(window.TaxOrderCompaniesReadOnly?.loadAndRenderCompanies){
-      await window.TaxOrderCompaniesReadOnly.loadAndRenderCompanies();
-    }
-
-    alert('Firma dodana');
   }
 
   function injectButton(){

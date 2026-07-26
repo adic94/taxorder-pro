@@ -4,6 +4,7 @@
 ## Architektura systemu
 
 **Stack:** Cloudflare Pages (SPA) + Worker (backend REST) + D1 (SQLite) + R2 (pliki) + KV (prefs)
+**Supabase:** wycofany. Katalog `supabase/` to relikt — nie dodawaj tam nic nowego.
 **Worker URL produkcja:** `https://taxorder-pro-api.adamus1000.workers.dev`
 **GitHub:** `https://github.com/adic94/taxorder-pro`
 **Język UI:** polski | **Język kodu (zmienne, funkcje):** angielski
@@ -67,6 +68,21 @@ Dotyczy szczególnie: `dmc`, `dmcMax`, `dmcZespolu`, `miesiacePodatku`, `rok`
 
 ---
 
+## FIRMY (NAJEMCY) — ŹRÓDŁO PRAWDY
+
+Od schema_v44 firmy żyją w tabeli `companies` w D1, nie w kodzie.
+
+- `GET /api/companies` — lista firm widocznych dla użytkownika (admin: wszystkie;
+  reszta: `user_company_access` + własna `users.company_id`)
+- `POST/PUT/DELETE /api/companies` — tylko rola `admin` / `superadmin`.
+  DELETE = dezaktywacja (`active=0`), nigdy fizyczne kasowanie — dane pojazdów,
+  dokumentów i deklaracji DT-1 muszą zostać.
+- `GET/PUT /api/company-access` — nadawanie dostępów użytkownik ↔ firma
+
+**Literał `COMPANIES` w `app.js` to seed i fallback offline**, nie źródło prawdy.
+`hydrateCompaniesFromApi()` scala listę z D1 po zalogowaniu. Dodając firmę,
+dopisuj ją do D1 — nie do literału.
+
 ## PODATEK DT-1 — ZASADY DOMENY
 
 ### Przepływ obliczeń (kolejność priorytetu)
@@ -100,7 +116,7 @@ cd "c:\Users\acichocki\Desktop\Program flotowy\taxorder-pro"
 .\node_modules\.bin\wrangler.cmd d1 execute taxorder-pro --remote --file=worker/schema_vN.sql
 ```
 - Schematy: `CREATE TABLE IF NOT EXISTS` — bezpieczne do ponownego uruchomienia
-- **Aktualny schemat: v43** (`doc_workflow_templates`, `doc_status_history`) — 43 pliki migracji
+- **Aktualny schemat: v44** (`companies`, `user_company_access`) — 44 pliki migracji
 - Nowe tabele zawsze w nowym pliku `schema_vN.sql` (N = kolejny numer)
 - Weryfikacja spójności: `npm run migration-check`
 
@@ -215,10 +231,12 @@ npm run migration-check # sprawdza czy schematy są spójne
 4. **`pillLbl[status] || status`** — fallback `|| status` to surowe dane DB → `|| esc(status)`
 5. **`v.rok ?? null`** — rok może być `0` (nieznany) albo `null` — nie używaj `|| null`
 6. **Service Worker** — przy zmianach w `index.html` (nowe `<script>`) zawsze bump `CACHE_NAME`
-7. **`window.supabaseClient` NIE ISTNIEJE** — `modules/supabase-client.js` i SDK Supabase nie są
-   ładowane w `index.html`. Moduły `company-access.js`, `company-create.js`,
-   `companies-readonly.js`, `rate-reader.js` wciąż go wołają → martwy kod / TypeError.
-   **Nie pisz nowego kodu opartego o `supabaseClient`.** Backend to wyłącznie D1 przez `cf-cloud.js`.
+7. **Nie używaj `window.supabaseClient`** — nigdy nie jest inicjalizowany (SDK ani
+   `modules/supabase-client.js` nie są ładowane). Moduły `companies-readonly.js`,
+   `company-create.js`, `company-access.js` zostały przepisane na D1 (26.07.2026).
+   `rate-reader.js` pozostaje niezmigrowany — tabela `tax_rates` istniała tylko
+   w Supabase; stawki gminne obsługuje `window.GminyRates`.
+   **Backend to wyłącznie D1 przez Worker.**
 8. **`ocr-service/` nie jest podłączony** — mikroserwis z kaskadą Aztec+NRV2E istnieje w repo,
    ale żaden plik aplikacji się do niego nie odwołuje. OCR dokumentów idzie przez
    `/api/ai/ocr`, `/api/ai/ocr-doc` i `/api/bulk/*` (Groq Vision). Aztec daje 100% pewności
