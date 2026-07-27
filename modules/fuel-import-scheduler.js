@@ -2,7 +2,7 @@
  * TaxOrder Pro — Harmonogram importu paliw (cykliczny)
  * Import CSV z kart paliwowych: ORLEN, BP, Shell, Lotos, Circle K
  *
- * /* SCHEMA_NEEDED — uruchom worker/schema_v44.sql */
+ * SCHEMA_NEEDED: uruchom worker/schema_v47.sql (fuel_import_schedules)
  */
 window.FuelImportScheduler = (function () {
   'use strict';

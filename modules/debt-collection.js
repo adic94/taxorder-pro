@@ -2,7 +2,7 @@
  * TaxOrder Pro — Windykacja Automatyczna
  * Śledzenie zaległych płatności i automatyczne przypomnienia
  *
- * /* SCHEMA_NEEDED — uruchom worker/schema_v44.sql */
+ * SCHEMA_NEEDED: uruchom worker/schema_v47.sql (debt_collection, debt_reminders)
  */
 window.DebtCollection = (function () {
   'use strict';

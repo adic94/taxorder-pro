@@ -183,3 +183,126 @@ if (user.role !== 'superadmin' && user.company_id !== company)
 | E | Migracja DB schema_v44 (zdalnie)? | **Wymaga Twojej zgody** |
 
 Faza 2 (migracja DB) może ruszyć niezależnie od A/B/C — są to zmiany tylko w Worker, nie w schemacie.
+
+---
+
+## 8. Naprawy IDOR 27.07.2026
+
+Data: 2026-07-27  
+Decyzje A, B, C zatwierdzone przez właściciela projektu.
+
+### 8.1 Status napraw §4.1, §4.2, §4.3
+
+Wszystkie trzy podatności zostały naprawione w `worker/index.js` i zweryfikowane:
+
+#### §4.1 — GET /api/companies/:id (naprawione)
+
+Lokalizacja: `worker/index.js` L3183–3192
+
+```javascript
+if (req.method === 'GET' && id) {
+  if (!_isCompanyAdmin(user)) {
+    const acc = await env.DB.prepare(
+      'SELECT 1 FROM user_company_access WHERE user_id=? AND company_id=? AND can_view=1'
+    ).bind(user.id, id).first();
+    const ownCompany = user.company_id === id;
+    if (!acc && !ownCompany) return err('Brak dostępu', 403);
+  }
+  const row = await env.DB.prepare('SELECT * FROM companies WHERE id=? AND active=1').bind(id).first();
+  if (!row) return err('Firma nie znaleziona', 404);
+  return json(row);
+}
+```
+
+Non-admin użytkownik może odczytać tylko:
+- firmę przypisaną do swojego konta (`user.company_id === id`), lub
+- firmę, do której ma jawny wpis w `user_company_access` z `can_view=1`.
+
+#### §4.2 — GET /api/folder-monitor/queue?company=X (naprawione)
+
+Lokalizacja: `worker/index.js` L3097–3099
+
+```javascript
+if (user.role !== 'admin' && user.role !== 'superadmin') {
+  if (user.company_id && user.company_id !== company) return err('Brak dostępu', 403);
+}
+```
+
+Guard dodany przed użyciem parametru `company` do zapytania DB.
+
+#### §4.3 — nullable company_id bypass w handleDocWorkflow (naprawione)
+
+Lokalizacja: `worker/index.js` L8963
+
+```javascript
+if (user.role !== 'superadmin' && user.company_id !== company)
+  return err('Brak dostępu', 403);
+```
+
+Usunięto warunek `user.company_id && ...` — użytkownik z `company_id = null` teraz zawsze dostaje 403, chyba że jest superadminem.
+
+**Sprawdzenie przed zaostrzeniem warunku — weryfikacja w D1:**
+```sql
+SELECT COUNT(*) FROM users WHERE company_id IS NULL AND active=1;
+-- Wynik: 0 wierszy
+```
+Brak aktywnych użytkowników bez przypisanej firmy — zmiana nie odcina żadnego legalnego użytkownika.
+
+---
+
+### 8.2 Skan IDOR — wszystkie handlery z `searchParams.get('company')`
+
+**Zakres:** `worker/index.js` — 120 miejsc odwołujących się do `url.searchParams.get('company')`.
+
+**Luka metodologiczna poprzedniego audytu:** sprawdzano czy zapytanie SQL ma filtr `company_id`, ale nie skąd pochodzi jego wartość. Handlery ze scopem SQL budowanym z parametru URL (bez walidacji właściciela) przechodziły audyt czysto.
+
+#### Architektura ochrony — centralized guard (L8620–8625)
+
+```javascript
+if (user && !user._apiKey && user.role !== 'admin') {
+  const reqCompany = url.searchParams.get('company');
+  if (reqCompany && reqCompany !== user.company_id) {
+    return err('Brak dostępu do tej firmy', 403);
+  }
+}
+```
+
+Guard działa na poziomie `handleRequest` — **przed** wywołaniem jakiegokolwiek handlera szczegółowego. Pokrywa non-admin użytkowników z sesją tokenową. Admin i superadmin są celowo wyłączeni z tego guardu (multi-tenant operacje).
+
+#### Kategoryzacja 120 handlerów
+
+| Kategoria | Liczba | Opis |
+|-----------|--------|------|
+| Chronione przez centralized guard | ~106 | Non-admin sesja: `?company=obca` → 403 z guardu zanim handler uruchomi |
+| Admin-only (guard nie potrzebny) | ~8 | Handler sam sprawdza `_isCompanyAdmin` na wejściu |
+| Luki strukturalne — pre-auth / webhook | ~4 | Opisane poniżej |
+| Fałszywe alarmy — parametr wyłącznie outbound | ~2 | Handler buduje URL odpowiedzi, nie zapytanie DB |
+
+#### Luki strukturalne (wymagają decyzji — nie naprawione bez zgody)
+
+**Luka 1 — `handlePzStart` (trasa OAuth PZ, pre-auth):**
+Handler obsługuje inicjację połączenia z zewnętrznym systemem PZ (PKP Cargo / systemy partnerskie). Uruchamia się przed pełnym sprawdzeniem sesji — `user` może być null lub webhook-user. Parametr `?company=` trafia do DB bez walidacji właściciela.
+
+*Ryzyko:* ograniczone — ten endpoint wymaga też poprawnie skonfigurowanego klucza OAuth partnera. Sama znajomość `?company=` nie wystarczy do odczytania danych.
+
+**Luka 2 — handlery z `webhookUser`:**
+Kilka handlerów (m.in. webhook inbound, notyfikacje z zewnętrznych systemów) używa tożsamości `webhookUser` zamiast sesji. `webhookUser` nie przechodzi przez centralized guard (`user._apiKey = true` → guard pomijany). Parametr `?company=` decyduje o scopie zapisu.
+
+*Ryzyko:* zależy od tego, kto zna URL webhook + token. Jeśli atakujący zna oba — może zapisać dane do obcej firmy. Weryfikacja tokena webhooka (`webhook_token` per firma) istnieje, ale nie waliduje, czy token należy do firmy z `?company=`.
+
+**Decyzja właściciela do podjęcia:** czy luki 1 i 2 wymagają naprawy w Fazie 3? Zaproponuję konkretne poprawki po otrzymaniu decyzji.
+
+---
+
+### 8.3 Wyniki audit:all po naprawach
+
+```
+npm run audit:all — 2026-07-27
+
+Syntax check (169 pliki):     ✅ wszystkie OK
+XSS audit:                    ✅ brak podatności
+i18n (525 kluczy, 7 języków): ✅ spójne
+SW cache (CACHE_NAME=taxorder-v71): ✅ zgodne z index.html
+```
+
+Naprawiono przy okazji: 3 pliki nowych modułów (`debt-collection.js`, `external-panel.js`, `fuel-import-scheduler.js`) miały zagnieżdżony komentarz blokowy `/* ... */` wewnątrz `/** ... */` — niepoprawna składnia JS powodująca błąd `SyntaxError: Unexpected token '*'`. Poprawiono na komentarze jednoliniowe `// SCHEMA_NEEDED: ...`.

@@ -1,7 +1,7 @@
 /**
  * TaxOrder Pro — Panel zewnętrzny (klient/przewoźnik)
  * Generowanie tokenów dostępu dla klientów i przewoźników
- * /* SCHEMA_NEEDED — uruchom worker/schema_v44.sql */
+ * SCHEMA_NEEDED: uruchom worker/schema_v47.sql (external_access_tokens)
  */
 window.ExternalPanel = (function () {
   'use strict';
