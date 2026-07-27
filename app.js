@@ -501,6 +501,21 @@ function showPage(id) {
   if(id==='video-telematics')    window.VideoTelematics?.renderVideoTelematics();
   if(id==='esg-report')          window.EsgReport?.renderEsgReport();
   if(id==='driver-worktime')     window.DriverWorktime?.renderDriverWorktime();
+  if(id==='driver-pwa')              window.DriverPWA?.renderDashboard();
+  if(id==='fleet-gantt')             window.FleetGantt?.renderPage();
+  if(id==='driver-ranking')          window.DriverRanking?.renderPage();
+  if(id==='fuel-import-scheduler')   window.FuelImportScheduler?.renderPage();
+  if(id==='debt-collection')         window.DebtCollection?.renderPage();
+  if(id==='route-profitability')     window.RouteProfitability?.renderPage();
+  if(id==='fixed-assets')            window.FixedAssets?.renderPage();
+  if(id==='external-panel')          window.ExternalPanel?.renderPage();
+  if(id==='rag-chat')                window.RagManagerChat?.renderPage();
+  if(id==='ocr-fuel')                window.OcrFuelInvoices?.renderPage();
+  if(id==='predictive-maintenance-ai') window.PredictiveMaintenanceAI?.renderPage();
+  if(id==='hr-module')               window.HrModule?.renderPage();
+  if(id==='vignettes')               window.Vignettes?.renderPage();
+  if(id==='carrier-rating')          window.CarrierRating?.renderPage();
+  if(id==='esg-extended')            window.EsgExtended?.renderPage();
   document.dispatchEvent(new CustomEvent('taxorder-page-change', { detail: { page: id } }));
   updateCounters();
 }

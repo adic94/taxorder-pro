@@ -272,6 +272,9 @@ window._initPostHog=function(apiKey,host){
   <button class="tnb" id="tnb-fleet-reservations" onclick="showPage('fleet-reservations')"><i class="ti ti-calendar-event"></i><span data-i18n="nav.rezerwacjePojazdow">Rezerwacje pojazdów</span></button>
   <button class="tnb" id="tnb-geofencing" onclick="showPage('geofencing')"><i class="ti ti-map-pin-check"></i><span data-i18n="nav.geofencing">Geofencing</span></button>
   <button class="tnb" id="tnb-gps-integrations" onclick="showPage('gps-integrations')"><i class="ti ti-satellite"></i><span data-i18n="nav.gpsIntegracje">GPS Integracje</span></button>
+  <button class="tnb" id="tnb-driver-pwa" onclick="showPage('driver-pwa')"><i class="ti ti-steering-wheel"></i><span data-i18n="nav.driverPwa">Aplikacja kierowcy</span></button>
+  <button class="tnb" id="tnb-fleet-gantt" onclick="showPage('fleet-gantt')"><i class="ti ti-chart-gantt"></i><span data-i18n="nav.ganttFloty">Gantt floty</span></button>
+  <button class="tnb" id="tnb-driver-ranking" onclick="showPage('driver-ranking')"><i class="ti ti-trophy"></i><span data-i18n="nav.rankingKierowcow">Ranking kierowców</span></button>
 </div><!-- /sidebar-section-items[flota] -->
 
   <!-- ═══ 2. SERWIS ═══ -->
@@ -296,6 +299,8 @@ window._initPostHog=function(apiKey,host){
   <button class="tnb" id="tnb-transport-orders" onclick="showPage('transport-orders')"><i class="ti ti-truck"></i><span data-i18n="nav.zleceniaTransportowe">Zlecenia transportowe</span></button>
   <button class="tnb" id="tnb-cmr" onclick="showPage('cmr')"><i class="ti ti-file-invoice"></i><span data-i18n="nav.cmr">CMR</span></button>
   <button class="tnb" id="tnb-sent" onclick="showPage('sent')"><i class="ti ti-truck-delivery"></i><span data-i18n="nav.sentPuesc">SENT / PUESC</span></button>
+  <button class="tnb" id="tnb-predictive-maintenance-ai" onclick="showPage('predictive-maintenance-ai')"><i class="ti ti-robot"></i><span data-i18n="nav.serwisPredykcyjnyAi">Serwis AI predykcja</span></button>
+  <button class="tnb" id="tnb-vignettes" onclick="showPage('vignettes')"><i class="ti ti-road"></i><span data-i18n="nav.winieta">Winiety i e-TOLL</span></button>
 </div><!-- /sidebar-section-items[serwis] -->
 
   <!-- ═══ 3. KOSZTY ═══ -->
@@ -341,6 +346,10 @@ window._initPostHog=function(apiKey,host){
   <button class="tnb" id="tnb-gdpr" onclick="showPage('gdpr')"><i class="ti ti-shield-lock"></i><span data-i18n="nav.rodoAdo">RODO / ADO</span></button>
   <button class="tnb" id="tnb-currency" onclick="showPage('currency')"><i class="ti ti-currency-zloty"></i><span data-i18n="nav.waluty">Waluty</span></button>
   <button class="tnb" id="tnb-trip-private" onclick="showPage('trip-private')"><i class="ti ti-car-suv"></i><span data-i18n="nav.prywatnaSluzb">Prywatna/Służbowa</span></button>
+  <button class="tnb" id="tnb-fuel-import-scheduler" onclick="showPage('fuel-import-scheduler')"><i class="ti ti-download"></i><span data-i18n="nav.importCykliczny">Import cykliczny paliw</span></button>
+  <button class="tnb" id="tnb-debt-collection" onclick="showPage('debt-collection')"><i class="ti ti-receipt-2"></i><span data-i18n="nav.windykacja">Windykacja</span></button>
+  <button class="tnb" id="tnb-route-profitability" onclick="showPage('route-profitability')"><i class="ti ti-chart-arrows-vertical"></i><span data-i18n="nav.rentownoscTras">Rentowność tras</span></button>
+  <button class="tnb" id="tnb-fixed-assets" onclick="showPage('fixed-assets')"><i class="ti ti-building-warehouse"></i><span data-i18n="nav.srodkiTrwale">Środki trwałe</span></button>
 </div><!-- /sidebar-section-items[koszty] -->
 
   <!-- ═══ 4. PODATKI DT-1 ═══ -->
@@ -393,6 +402,12 @@ window._initPostHog=function(apiKey,host){
   <button class="tnb" id="tnb-vehicle-qr" onclick="showPage('vehicle-qr')"><i class="ti ti-qrcode"></i><span data-i18n="nav.kodyQr">Kody QR</span></button>
   <button class="tnb" id="tnb-messenger" onclick="showPage('messenger')"><i class="ti ti-message-circle"></i><span data-i18n="nav.komunikator">Komunikator</span></button>
   <button class="tnb" id="tnb-edoreczenia" onclick="showPage('edoreczenia')"><i class="ti ti-mailbox"></i><span data-i18n="nav.edoreczenia">e-Doręczenia</span></button>
+  <button class="tnb" id="tnb-external-panel" onclick="showPage('external-panel')"><i class="ti ti-link"></i><span data-i18n="nav.panelZewnetrzny">Panel zewnętrzny</span></button>
+  <button class="tnb" id="tnb-rag-chat" onclick="showPage('rag-chat')"><i class="ti ti-message-chatbot"></i><span data-i18n="nav.ragChat">Chat AI menedżera</span></button>
+  <button class="tnb" id="tnb-ocr-fuel" onclick="showPage('ocr-fuel')"><i class="ti ti-scan"></i><span data-i18n="nav.ocrFuel">OCR faktur paliw</span></button>
+  <button class="tnb" id="tnb-hr-module" onclick="showPage('hr-module')"><i class="ti ti-users-group"></i><span data-i18n="nav.hrModule">HR — urlopy / badania</span></button>
+  <button class="tnb" id="tnb-carrier-rating" onclick="showPage('carrier-rating')"><i class="ti ti-star"></i><span data-i18n="nav.ratingPrzewoznikow">Rating przewoźników</span></button>
+  <button class="tnb" id="tnb-esg-extended" onclick="showPage('esg-extended')"><i class="ti ti-plant-2"></i><span data-i18n="nav.esgExtended">ESG CSRD rozszerzony</span></button>
 </div><!-- /sidebar-section-items[zarzadzanie] -->
 </nav>
 
@@ -2885,6 +2900,21 @@ window._initPostHog=function(apiKey,host){
 
 <!-- ==================== DASHBOARD ALERTÓW ==================== -->
 <div class="page" id="page-doc-workflow"></div>
+<div class="page" id="page-driver-pwa"></div>
+<div class="page" id="page-fleet-gantt"></div>
+<div class="page" id="page-driver-ranking"></div>
+<div class="page" id="page-fuel-import-scheduler"></div>
+<div class="page" id="page-debt-collection"></div>
+<div class="page" id="page-route-profitability"></div>
+<div class="page" id="page-fixed-assets"></div>
+<div class="page" id="page-external-panel"></div>
+<div class="page" id="page-rag-chat"></div>
+<div class="page" id="page-ocr-fuel"></div>
+<div class="page" id="page-predictive-maintenance-ai"></div>
+<div class="page" id="page-hr-module"></div>
+<div class="page" id="page-vignettes"></div>
+<div class="page" id="page-carrier-rating"></div>
+<div class="page" id="page-esg-extended"></div>
 <div class="page" id="page-alert-dashboard"></div>
 
 <!-- ==================== CENTRUM POWIADOMIEŃ ==================== -->
@@ -4337,6 +4367,21 @@ window._initPostHog=function(apiKey,host){
   <script src="modules/budget.js"></script>
   <script src="modules/document-manager.js"></script>
   <script src="modules/doc-workflow.js"></script>
+  <script src="modules/driver-pwa.js"></script>
+  <script src="modules/fleet-gantt.js"></script>
+  <script src="modules/driver-ranking.js"></script>
+  <script src="modules/fuel-import-scheduler.js"></script>
+  <script src="modules/debt-collection.js"></script>
+  <script src="modules/route-profitability.js"></script>
+  <script src="modules/fixed-assets.js"></script>
+  <script src="modules/external-panel.js"></script>
+  <script src="modules/rag-manager-chat.js"></script>
+  <script src="modules/ocr-fuel-invoices.js"></script>
+  <script src="modules/predictive-maintenance-ai.js"></script>
+  <script src="modules/hr-module.js"></script>
+  <script src="modules/vignettes.js"></script>
+  <script src="modules/carrier-rating.js"></script>
+  <script src="modules/esg-extended.js"></script>
   <script src="modules/policies.js"></script>
   <script src="modules/service-schedule.js"></script>
   <script src="modules/mileage-claims.js"></script>
