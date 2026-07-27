@@ -12037,7 +12037,7 @@ async function _runFuelSchedule(env, schedule) {
     const resp = await fetch(schedule.csv_url, { signal: AbortSignal.timeout(15000) });
     if (!resp.ok) throw new Error(`HTTP ${resp.status} pobierając CSV`);
     const text = await resp.text();
-    const records = _parseFuelCsv(text, schedule.provider);
+    const records = _parseFuelCsvScheduled(text, schedule.provider);
 
     for (const rec of records) {
       if (!rec.nr_rej || !rec.fill_date || !rec.liters) { rowsSkip++; continue; }
@@ -12085,8 +12085,8 @@ async function _saveFuelLog(env, logId, schedule, status, rowsOk, rowsSkip, errM
   ).bind(logId, schedule.company_id, schedule.id, schedule.name, status, rowsOk, rowsSkip, errMsg ?? null).run().catch(() => {});
 }
 
-// Parser CSV paliw — rozpoznaje formaty: orlen, bp/shell, dkv, custom
-function _parseFuelCsv(text, provider) {
+// Parser CSV paliw dla harmonogramu — rozpoznaje formaty: orlen, bp/shell, dkv, custom
+function _parseFuelCsvScheduled(text, provider) {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
   if (lines.length < 2) return [];
 
@@ -13021,6 +13021,7 @@ export default {
       runKsefRetry(env).catch(e => console.error('[KSeF retry cron]', e?.message)),
       runFuelImportJobs(env).catch(e => console.error('[fuel-import-cron]', e?.message)),
       runDebtReminders(env).catch(e => console.error('[debt-reminders-cron]', e?.message)),
+      runSupabaseBackup(env).catch(e => console.error('[supabase-backup]', e?.message)),
     ]));
   },
 
@@ -13029,3 +13030,119 @@ export default {
     await processNotifQueue(batch, env);
   },
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SUPABASE BACKUP — nightly D1 → Supabase sync (Option A fallback)
+// Uruchamiany przez cron 03:00 UTC razem z innymi zadaniami nocnymi.
+// Wymagane sekrety Worker: SUPABASE_URL, SUPABASE_ANON_KEY
+// ═══════════════════════════════════════════════════════════════════════════
+
+const _SB_TABLES = [
+  {
+    name: 'vehicles',
+    sql: 'SELECT id, company_id, nr_rej, marka, model, vin, rok, dmc, dmc_max, typ, przeznaczenie, status, created_at, updated_at FROM vehicles ORDER BY id',
+    full: true,
+  },
+  {
+    name: 'drivers',
+    sql: 'SELECT id, company_id, name, email, phone, license_number, license_expiry, medical_expiry, status, created_at FROM drivers ORDER BY id',
+    full: true,
+  },
+  {
+    name: 'fuel_fills',
+    sql: "SELECT id, company_id, vehicle_id, nr_rej, date, liters, cost_total, cost_netto, fuel_type, station, driver_name, mileage, created_at FROM fuel_fills WHERE created_at > datetime('now','-90 days') ORDER BY created_at DESC",
+    full: false,
+  },
+  {
+    name: 'service_orders',
+    sql: "SELECT id, company_id, vehicle_id, nr_rej, type, description, cost, status, date, mileage, workshop, created_at FROM service_orders WHERE created_at > datetime('now','-180 days') ORDER BY created_at DESC",
+    full: false,
+  },
+  {
+    name: 'insurance_policies',
+    sql: 'SELECT id, company_id, vehicle_id, nr_rej, type, policy_number, insurer, valid_from, valid_to, premium, status, created_at FROM insurance_policies ORDER BY id',
+    full: true,
+  },
+  {
+    name: 'damage_reports',
+    sql: "SELECT id, company_id, vehicle_id, nr_rej, date, description, cost, status, fault, created_at FROM damage_reports WHERE created_at > datetime('now','-365 days') ORDER BY created_at DESC",
+    full: false,
+  },
+  {
+    name: 'documents',
+    sql: "SELECT id, company_id, vehicle_id, name, type, expiry_date, status, r2_key, created_at FROM documents WHERE created_at > datetime('now','-365 days') ORDER BY created_at DESC",
+    full: false,
+  },
+  {
+    name: 'companies',
+    sql: 'SELECT id, short_name, name, nip, regon, krs, miasto, organ, active FROM companies ORDER BY id',
+    full: true,
+  },
+];
+
+async function runSupabaseBackup(env) {
+  const url  = env.SUPABASE_URL;
+  const key  = env.SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    console.warn('[supabase-backup] Brak SUPABASE_URL lub SUPABASE_ANON_KEY — pomijam.');
+    return;
+  }
+
+  const BATCH = 200;
+  const t0 = Date.now();
+  console.log('[supabase-backup] Start backup', new Date().toISOString());
+
+  for (const tbl of _SB_TABLES) {
+    const t1 = Date.now();
+    let total = 0;
+    try {
+      // Pobierz dane z D1 (pełne lub okienkowe — patrz sql w _SB_TABLES)
+      const { results } = await env.DB.prepare(tbl.sql).all();
+      const rows = results || [];
+      if (!rows.length) {
+        await _sbLogSync(url, key, tbl.name, 0, Date.now() - t1, 'ok');
+        continue;
+      }
+      // Wyślij w batchach do Supabase (upsert po id)
+      for (let i = 0; i < rows.length; i += BATCH) {
+        const batch = rows.slice(i, i + BATCH);
+        const r = await fetch(`${url}/rest/v1/${tbl.name}`, {
+          method: 'POST',
+          headers: {
+            'apikey': key,
+            'Authorization': `Bearer ${key}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates',
+          },
+          body: JSON.stringify(batch),
+        });
+        if (!r.ok) {
+          const msg = await r.text().catch(() => r.status);
+          throw new Error(`HTTP ${r.status}: ${String(msg).slice(0, 200)}`);
+        }
+        total += batch.length;
+      }
+      await _sbLogSync(url, key, tbl.name, total, Date.now() - t1, 'ok');
+      console.log(`[supabase-backup] ${tbl.name}: ${total} wierszy (${Date.now() - t1} ms)`);
+    } catch (e) {
+      console.error(`[supabase-backup] ${tbl.name} ERROR:`, e.message);
+      await _sbLogSync(url, key, tbl.name, total, Date.now() - t1, 'error', e.message);
+    }
+  }
+  console.log(`[supabase-backup] Zakończono — łącznie ${Date.now() - t0} ms`);
+}
+
+async function _sbLogSync(url, key, tableName, rows, ms, status, errMsg) {
+  try {
+    await fetch(`${url}/rest/v1/sync_log`, {
+      method: 'POST',
+      headers: {
+        'apikey': key,
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({ table_name: tableName, rows_synced: rows, duration_ms: ms, status, error_msg: errMsg || null }),
+    });
+  } catch { /* log failure is non-fatal */ }
+}
