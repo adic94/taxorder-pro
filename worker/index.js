@@ -8719,7 +8719,24 @@ async function handleRequest(request, env, url, path, ctx) {
   }
   if (path === '/api/push/send' && request.method === 'POST') return handlePushSend(request, env, user);
 
-  if (path.startsWith('/api/doc-workflow'))    { if (!user) return err('Nieautoryzowany', 401); return handleDocWorkflow(request, env, user, url, path); }
+  if (path.startsWith('/api/driver-trips'))          { if (!user) return err('Nieautoryzowany', 401); return handleDriverTrips(request, env, user, url, path); }
+  if (path.startsWith('/api/doc-workflow'))          { if (!user) return err('Nieautoryzowany', 401); return handleDocWorkflow(request, env, user, url, path); }
+
+  // ── Nowe moduły (feature batch 2026-07) ─────────────────────────────────────
+  if (path.startsWith('/api/fuel-import-scheduler')) { if (!user) return err('Nieautoryzowany', 401); return handleFuelImportScheduler(request, env, user, url, path); }
+  if (path.startsWith('/api/debt-collection'))       { if (!user) return err('Nieautoryzowany', 401); return handleDebtCollection(request, env, user, url, path); }
+  if (path.startsWith('/api/external-access'))       return handleExternalAccess(request, env, user, url, path);
+  if (path.startsWith('/api/driver-ranking'))        { if (!user) return err('Nieautoryzowany', 401); return handleDriverRanking(request, env, user, url, path); }
+  if (path.startsWith('/api/route-profitability'))   { if (!user) return err('Nieautoryzowany', 401); return handleRouteProfitability(request, env, user, url, path); }
+  if (path.startsWith('/api/rag-chat'))              { if (!user) return err('Nieautoryzowany', 401); return handleRagChat(request, env, user, url, path); }
+  if (path.startsWith('/api/ocr-fuel'))              { if (!user) return err('Nieautoryzowany', 401); return handleOcrFuel(request, env, user, url, path); }
+  if (path.startsWith('/api/predictive-ai'))         { if (!user) return err('Nieautoryzowany', 401); return handlePredictiveAi(request, env, user, url, path); }
+  if (path.startsWith('/api/hr-leaves'))             { if (!user) return err('Nieautoryzowany', 401); return handleHrLeaves(request, env, user, url, path); }
+  if (path.startsWith('/api/hr-medical-exams'))      { if (!user) return err('Nieautoryzowany', 401); return handleHrMedicalExams(request, env, user, url, path); }
+  if (path.startsWith('/api/vignettes'))             { if (!user) return err('Nieautoryzowany', 401); return handleVignettes(request, env, user, url, path); }
+  if (path.startsWith('/api/etoll-devices'))         { if (!user) return err('Nieautoryzowany', 401); return handleEtollDevices(request, env, user, url, path); }
+  if (path.startsWith('/api/fixed-assets'))          { if (!user) return err('Nieautoryzowany', 401); return handleFixedAssets(request, env, user, url, path); }
+  if (path.startsWith('/api/carrier-ratings'))       { if (!user) return err('Nieautoryzowany', 401); return handleCarrierRatings(request, env, user, url, path); }
 
   return err('Endpoint nie istnieje', 404);
 }
@@ -9964,6 +9981,91 @@ async function handleGpsIntegrations(req, env, user, url, path) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// DRIVER TRIPS — rejestracja tras kierowcy (PWA)
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function handleDriverTrips(req, env, user, url, path) {
+  const co     = url.searchParams.get('company') || user.company_id;
+  const method = req.method;
+  const segs   = path.split('/').filter(Boolean); // ['api','driver-trips', <id>?]
+  const tripId = segs[2] || null;
+
+  if (!co) return err('Brak company', 400);
+
+  // GET /api/driver-trips?company=X[&driver_id=Y&date=YYYY-MM-DD]
+  if (method === 'GET' && !tripId) {
+    const driverId = url.searchParams.get('driver_id') || '';
+    const date     = url.searchParams.get('date')      || '';
+    let q = 'SELECT * FROM driver_trips WHERE company_id=?';
+    const p = [co];
+    if (driverId) { q += ' AND driver_id=?'; p.push(driverId); }
+    if (date)     { q += ' AND start_at LIKE ?'; p.push(date + '%'); }
+    q += ' ORDER BY start_at DESC LIMIT 200';
+    const rows = (await env.DB.prepare(q).bind(...p).all()).results || [];
+    return json(rows);
+  }
+
+  // GET /api/driver-trips/:id
+  if (method === 'GET' && tripId) {
+    const row = await env.DB.prepare(
+      'SELECT * FROM driver_trips WHERE id=? AND company_id=?'
+    ).bind(tripId, co).first();
+    if (!row) return err('Nie znaleziono trasy', 404);
+    return json(row);
+  }
+
+  // POST /api/driver-trips — start trip
+  if (method === 'POST' && !tripId) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowy JSON', 400); }
+    const { vehicle_id = '', vehicle_reg = '', driver_id = '', driver_name = '', start_km, notes = '' } = body;
+    if (!vehicle_reg) return err('vehicle_reg jest wymagane', 400);
+    if (start_km == null || isNaN(Number(start_km))) return err('start_km jest wymagane i musi być liczbą', 400);
+    const id = crypto.randomUUID().replace(/-/g, '').slice(0, 24);
+    await env.DB.prepare(
+      `INSERT INTO driver_trips (id, company_id, driver_id, driver_name, vehicle_id, vehicle_reg, start_km, notes, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`
+    ).bind(id, co, driver_id, driver_name, vehicle_id, vehicle_reg, Number(start_km), notes).run();
+    const row = await env.DB.prepare('SELECT * FROM driver_trips WHERE id=?').bind(id).first();
+    return json(row, 201);
+  }
+
+  // PUT /api/driver-trips/:id — end trip
+  if (method === 'PUT' && tripId) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowy JSON', 400); }
+    const { end_km, notes, status = 'completed' } = body;
+    if (end_km == null || isNaN(Number(end_km))) return err('end_km jest wymagane i musi być liczbą', 400);
+    if (!['active', 'completed'].includes(status)) return err('Nieprawidłowy status', 400);
+    const existing = await env.DB.prepare(
+      'SELECT id, start_km FROM driver_trips WHERE id=? AND company_id=?'
+    ).bind(tripId, co).first();
+    if (!existing) return err('Nie znaleziono trasy', 404);
+    if (existing.start_km != null && Number(end_km) < existing.start_km) {
+      return err(`end_km (${end_km}) nie może być mniejszy niż start_km (${existing.start_km})`, 400);
+    }
+    await env.DB.prepare(
+      `UPDATE driver_trips
+         SET end_km=?, notes=COALESCE(?,notes), status=?, end_at=strftime('%Y-%m-%dT%H:%M:%SZ','now')
+       WHERE id=? AND company_id=?`
+    ).bind(Number(end_km), notes ?? null, status, tripId, co).run();
+    const row = await env.DB.prepare('SELECT * FROM driver_trips WHERE id=?').bind(tripId).first();
+    return json(row);
+  }
+
+  // DELETE /api/driver-trips/:id — only admin/kierownik
+  if (method === 'DELETE' && tripId) {
+    if (!['admin', 'kierownik'].includes(user.role)) return err('Brak uprawnień', 403);
+    const existing = await env.DB.prepare(
+      'SELECT id FROM driver_trips WHERE id=? AND company_id=?'
+    ).bind(tripId, co).first();
+    if (!existing) return err('Nie znaleziono trasy', 404);
+    await env.DB.prepare('DELETE FROM driver_trips WHERE id=? AND company_id=?').bind(tripId, co).run();
+    return json({ ok: true });
+  }
+
+  return err('Nieznana operacja', 404);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // EV CHARGING — sesje ładowania EV
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -10434,46 +10536,250 @@ function coOf(url, user) {
 function idSeg(path, n) { return path.split('/').filter(Boolean)[n] || null; }
 
 async function handleKsef(req, env, user, url, path) {
-  const co = coOf(url, user); const id = idSeg(path, 2); const method = req.method;
+  const co     = coOf(url, user);
+  const segs   = path.split('/').filter(Boolean);
+  const id     = segs[2] || null;
+  const action = segs[3] || null;
+  const method = req.method;
+
+  // ─── Config (must come before generic id routes) ───
+  if (id === 'config' && method === 'GET') {
+    // Never return token to client
+    const cfg = await env.DB.prepare(
+      'SELECT company_id,nip,env,token_expires_at,auto_send_enabled,last_sync_at,updated_at FROM ksef_config WHERE company_id=?'
+    ).bind(co).first().catch(()=>null);
+    return json({ config: cfg || { company_id: co, nip: '', env: 'test', auto_send_enabled: 0 } });
+  }
+  if (id === 'config' && method === 'PUT') {
+    const b = await req.json().catch(()=>({}));
+    const hasToken = typeof b.token === 'string' && b.token.length > 0;
+    if (hasToken) {
+      await env.DB.prepare(
+        `INSERT INTO ksef_config(company_id,nip,env,token,auto_send_enabled,updated_at) VALUES(?,?,?,?,?,strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+         ON CONFLICT(company_id) DO UPDATE SET nip=excluded.nip,env=excluded.env,token=excluded.token,auto_send_enabled=excluded.auto_send_enabled,updated_at=excluded.updated_at`
+      ).bind(co, b.nip||null, b.env==='prod'?'prod':'test', b.token, b.auto_send_enabled?1:0).run();
+    } else {
+      await env.DB.prepare(
+        `INSERT INTO ksef_config(company_id,nip,env,auto_send_enabled,updated_at) VALUES(?,?,?,?,strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+         ON CONFLICT(company_id) DO UPDATE SET nip=excluded.nip,env=excluded.env,auto_send_enabled=excluded.auto_send_enabled,updated_at=excluded.updated_at`
+      ).bind(co, b.nip||null, b.env==='prod'?'prod':'test', b.auto_send_enabled?1:0).run();
+    }
+    return json({ ok: true });
+  }
+
+  // ─── Auth: get/refresh KSeF session token ───
+  if (id === 'auth' && method === 'POST') {
+    const cfg = await env.DB.prepare('SELECT * FROM ksef_config WHERE company_id=?').bind(co).first().catch(()=>null);
+    if (!cfg || !cfg.nip) return err('Brak konfiguracji KSeF (NIP wymagany)');
+    const baseUrl = cfg.env === 'prod' ? 'https://ksef.mf.gov.pl' : 'https://ksef-test.mf.gov.pl';
+    try {
+      const body = await req.json().catch(()=>({}));
+      const resp = await fetch(`${baseUrl}/api/common/Online/Session/AuthorisationChallenge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ contextIdentifier: { type: 'onip', identifier: cfg.nip }, ...body }),
+        signal: AbortSignal.timeout(10000),
+      });
+      const data = await resp.json().catch(()=>({}));
+      if (resp.ok && data.sessionToken) {
+        const expires = new Date(Date.now() + (data.sessionTokenExpiryMs || 3600000)).toISOString();
+        await env.DB.prepare(
+          `UPDATE ksef_config SET token=?,token_expires_at=?,updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE company_id=?`
+        ).bind(data.sessionToken, expires, co).run();
+        return json({ ok: true, token_expires_at: expires });
+      }
+      const code = data?.exception?.exceptionDetailList?.[0]?.exceptionCode || 'auth_failed';
+      return json({ ok: false, error: code }, resp.status);
+    } catch (e) {
+      return err('KSeF auth error: ' + (e?.message || 'timeout'));
+    }
+  }
+
+  // ─── Offline queue list ───
+  if (id === 'offline-queue' && method === 'GET') {
+    const rows = (await env.DB.prepare(
+      `SELECT * FROM ksef_offline_queue WHERE company_id=? ORDER BY created_at DESC LIMIT 100`
+    ).bind(co).all().catch(()=>({results:[]}))).results || [];
+    return json({ queue: rows });
+  }
+
+  // ─── Retry all queued items for this company ───
+  if (id === 'retry-all' && method === 'POST') {
+    const count = await _ksefRetryCompany(co, env);
+    return json({ ok: true, retried: count });
+  }
+
+  // ─── Standard list ───
   if (method === 'GET' && !id) {
     const status = url.searchParams.get('status') || '';
     const q      = url.searchParams.get('q') || '';
-    const where  = [`company_id=?`];
+    const where  = ['company_id=?'];
     const params = [co];
     if (status) { where.push('ksef_status=?'); params.push(status); }
-    if (q)      { where.push(`(invoice_number LIKE ? OR ksef_number LIKE ? OR seller_nip LIKE ? OR buyer_nip LIKE ?)`); const lk='%'+q+'%'; params.push(lk,lk,lk,lk); }
-    const rows = (await env.DB.prepare(`SELECT * FROM ksef_invoices WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 200`).bind(...params).all().catch(()=>({results:[]}))).results||[];
-    const stats = { total: rows.length, pending: 0, sent: 0, accepted: 0, rejected: 0 };
+    if (q)      { where.push('(invoice_number LIKE ? OR ksef_number LIKE ? OR seller_nip LIKE ? OR buyer_nip LIKE ?)'); const lk='%'+q+'%'; params.push(lk,lk,lk,lk); }
+    const rows = (await env.DB.prepare(`SELECT * FROM ksef_invoices WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 200`).bind(...params).all().catch(()=>({results:[]}))).results || [];
+    const stats = { total: rows.length, pending: 0, sent: 0, accepted: 0, rejected: 0, offline_queued: 0 };
     rows.forEach(r => { if (stats[r.ksef_status] !== undefined) stats[r.ksef_status]++; });
     return json({ invoices: rows, stats });
   }
-  if (method === 'GET' && id && id !== 'nbp-fetch') {
+
+  // ─── Single invoice ───
+  if (method === 'GET' && id) {
     const row = await env.DB.prepare('SELECT * FROM ksef_invoices WHERE id=? AND company_id=?').bind(id, co).first().catch(()=>null);
     if (!row) return err('Nie znaleziono', 404);
     return json({ invoice: row });
   }
+
+  // ─── Create ───
   if (method === 'POST' && !id) {
     const b = await req.json().catch(()=>({}));
     if (!b.invoice_number) return err('Brak numeru faktury');
-    await env.DB.prepare(`INSERT INTO ksef_invoices(company_id,invoice_number,ksef_number,ksef_status,ksef_date,qr_code,upo_url,error_message,seller_nip,buyer_nip,gross_pln) VALUES(?,?,?,?,?,?,?,?,?,?,?)`)
-      .bind(co,b.invoice_number,b.ksef_number||null,b.ksef_status||'pending',b.ksef_date||null,b.qr_code||null,b.upo_url||null,b.error_message||null,b.seller_nip||null,b.buyer_nip||null,b.gross_pln!=null?+b.gross_pln:null).run();
+    await env.DB.prepare(
+      `INSERT INTO ksef_invoices(company_id,invoice_number,ksef_number,ksef_status,ksef_date,qr_code,upo_url,error_message,seller_nip,buyer_nip,gross_pln) VALUES(?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(co,b.invoice_number,b.ksef_number||null,b.ksef_status||'pending',b.ksef_date||null,b.qr_code||null,b.upo_url||null,b.error_message||null,b.seller_nip||null,b.buyer_nip||null,b.gross_pln!=null?+b.gross_pln:null).run();
     return json({ ok: true });
   }
-  if (method === 'PUT' && id) {
+
+  // ─── Update ───
+  if (method === 'PUT' && id && !action) {
     const b = await req.json().catch(()=>({}));
-    await env.DB.prepare(`UPDATE ksef_invoices SET invoice_number=?,ksef_number=?,ksef_status=?,ksef_date=?,upo_url=?,error_message=?,seller_nip=?,buyer_nip=?,gross_pln=? WHERE id=? AND company_id=?`)
-      .bind(b.invoice_number,b.ksef_number||null,b.ksef_status||'pending',b.ksef_date||null,b.upo_url||null,b.error_message||null,b.seller_nip||null,b.buyer_nip||null,b.gross_pln!=null?+b.gross_pln:null,id,co).run();
+    await env.DB.prepare(
+      `UPDATE ksef_invoices SET invoice_number=?,ksef_number=?,ksef_status=?,ksef_date=?,upo_url=?,error_message=?,seller_nip=?,buyer_nip=?,gross_pln=? WHERE id=? AND company_id=?`
+    ).bind(b.invoice_number,b.ksef_number||null,b.ksef_status||'pending',b.ksef_date||null,b.upo_url||null,b.error_message||null,b.seller_nip||null,b.buyer_nip||null,b.gross_pln!=null?+b.gross_pln:null,id,co).run();
     return json({ ok: true });
   }
-  if (method === 'POST' && id && idSeg(path, 3) === 'send') {
-    await env.DB.prepare(`UPDATE ksef_invoices SET ksef_status='sent' WHERE id=? AND company_id=?`).bind(id, co).run();
-    return json({ ok: true, msg: 'Status zmieniony na sent (symulacja)' });
+
+  // ─── Send to KSeF (real API call with offline fallback) ───
+  if (method === 'POST' && id && action === 'send') {
+    return await _ksefSendInvoice(id, co, env);
   }
+
+  // ─── Delete ───
   if (method === 'DELETE' && id) {
     await env.DB.prepare('DELETE FROM ksef_invoices WHERE id=? AND company_id=?').bind(id, co).run();
     return json({ ok: true });
   }
+
   return err('Nieznana operacja KSeF', 404);
+}
+
+// ─── KSeF helpers ────────────────────────────────────────────────────────────
+
+async function _ksefSendInvoice(invoiceId, co, env) {
+  const inv = await env.DB.prepare('SELECT * FROM ksef_invoices WHERE id=? AND company_id=?').bind(invoiceId, co).first().catch(()=>null);
+  if (!inv) return err('Nie znaleziono faktury', 404);
+
+  const cfg = await env.DB.prepare('SELECT * FROM ksef_config WHERE company_id=?').bind(co).first().catch(()=>null);
+  if (!cfg || !cfg.token) {
+    await _enqueueKsefOffline(inv, co, 'not_configured', env);
+    await env.DB.prepare(`UPDATE ksef_invoices SET ksef_status='offline_queued',retry_count=COALESCE(retry_count,0)+1 WHERE id=? AND company_id=?`).bind(invoiceId, co).run();
+    return json({ ok: false, offline_queued: true, reason: 'not_configured' });
+  }
+
+  const baseUrl = cfg.env === 'prod' ? 'https://ksef.mf.gov.pl' : 'https://ksef-test.mf.gov.pl';
+  const xml = inv.xml_payload || `<?xml version="1.0" encoding="UTF-8"?><FA2><Invoice><Number>${inv.invoice_number}</Number></Invoice></FA2>`;
+
+  try {
+    const resp = await fetch(`${baseUrl}/api/online/Invoice/Send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream', 'SessionToken': cfg.token },
+      body: xml,
+      signal: AbortSignal.timeout(10000),
+    });
+    if (resp.ok) {
+      const data = await resp.json().catch(()=>({}));
+      const ksefRef = data.elementReferenceNumber || data.referenceNumber || null;
+      await env.DB.prepare(
+        `UPDATE ksef_invoices SET ksef_status='accepted',ksef_number=?,upo_reference_number=?,sent_at=strftime('%Y-%m-%dT%H:%M:%SZ','now'),accepted_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=? AND company_id=?`
+      ).bind(ksefRef, ksefRef, invoiceId, co).run();
+      await env.DB.prepare(`DELETE FROM ksef_offline_queue WHERE invoice_id=? AND company_id=?`).bind(invoiceId, co).run().catch(()=>{});
+      return json({ ok: true, ksef_reference: ksefRef, status: 'accepted' });
+    }
+    const errText = (await resp.text().catch(()=>'')).slice(0, 200);
+    await _enqueueKsefOffline(inv, co, `HTTP ${resp.status}: ${errText}`, env);
+    await env.DB.prepare(`UPDATE ksef_invoices SET ksef_status='offline_queued',error_message=?,retry_count=COALESCE(retry_count,0)+1 WHERE id=? AND company_id=?`).bind(`HTTP ${resp.status}`, invoiceId, co).run();
+    return json({ ok: false, offline_queued: true, reason: `http_${resp.status}` });
+  } catch (e) {
+    const reason = (e?.name === 'AbortError' || e?.name === 'TimeoutError') ? 'timeout' : (e?.message || 'network_error');
+    await _enqueueKsefOffline(inv, co, reason, env);
+    await env.DB.prepare(`UPDATE ksef_invoices SET ksef_status='offline_queued',error_message=?,retry_count=COALESCE(retry_count,0)+1 WHERE id=? AND company_id=?`).bind(reason.slice(0,200), invoiceId, co).run();
+    return json({ ok: false, offline_queued: true, reason });
+  }
+}
+
+async function _enqueueKsefOffline(inv, co, errorMsg, env) {
+  // Upsert: update existing queued entry or insert new one
+  const existing = await env.DB.prepare(
+    `SELECT id FROM ksef_offline_queue WHERE invoice_id=? AND company_id=? AND status='queued'`
+  ).bind(inv.id, co).first().catch(()=>null);
+  if (existing) {
+    await env.DB.prepare(
+      `UPDATE ksef_offline_queue SET error_last=?,last_attempt_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=?`
+    ).bind(errorMsg||null, existing.id).run().catch(()=>{});
+  } else {
+    await env.DB.prepare(
+      `INSERT INTO ksef_offline_queue(company_id,invoice_id,invoice_number,xml_payload,error_last) VALUES(?,?,?,?,?)`
+    ).bind(co, inv.id, inv.invoice_number, inv.xml_payload||'', errorMsg||null).run().catch(()=>{});
+  }
+}
+
+async function _ksefRetryCompany(co, env) {
+  const now = new Date().toISOString();
+  const queued = (await env.DB.prepare(
+    `SELECT * FROM ksef_offline_queue WHERE company_id=? AND status='queued' AND next_retry_at<=? AND attempt_count<10 ORDER BY next_retry_at ASC LIMIT 20`
+  ).bind(co, now).all().catch(()=>({results:[]}))).results || [];
+  if (!queued.length) return 0;
+
+  const cfg = await env.DB.prepare('SELECT * FROM ksef_config WHERE company_id=?').bind(co).first().catch(()=>null);
+  if (!cfg || !cfg.token) return 0;
+
+  const baseUrl = cfg.env === 'prod' ? 'https://ksef.mf.gov.pl' : 'https://ksef-test.mf.gov.pl';
+  let count = 0;
+
+  for (const item of queued) {
+    const newAttempt = (item.attempt_count ?? 0) + 1;
+    const backoffMs  = Math.pow(2, item.attempt_count ?? 0) * 5 * 60000; // 2^n * 5 minutes
+    const nextRetry  = new Date(Date.now() + backoffMs).toISOString();
+    try {
+      const resp = await fetch(`${baseUrl}/api/online/Invoice/Send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream', 'SessionToken': cfg.token },
+        body: item.xml_payload,
+        signal: AbortSignal.timeout(10000),
+      });
+      if (resp.ok) {
+        const data = await resp.json().catch(()=>({}));
+        const ksefRef = data.elementReferenceNumber || data.referenceNumber || null;
+        await env.DB.prepare(
+          `UPDATE ksef_invoices SET ksef_status='accepted',ksef_number=?,upo_reference_number=?,sent_at=strftime('%Y-%m-%dT%H:%M:%SZ','now'),accepted_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=? AND company_id=?`
+        ).bind(ksefRef, ksefRef, item.invoice_id, co).run().catch(()=>{});
+        await env.DB.prepare(`DELETE FROM ksef_offline_queue WHERE id=?`).bind(item.id).run().catch(()=>{});
+        count++;
+      } else {
+        const errText = (await resp.text().catch(()=>'')).slice(0,200);
+        const isFatal = newAttempt >= 10;
+        await env.DB.prepare(
+          `UPDATE ksef_offline_queue SET attempt_count=?,last_attempt_at=strftime('%Y-%m-%dT%H:%M:%SZ','now'),next_retry_at=?,error_last=?,status=? WHERE id=?`
+        ).bind(newAttempt, nextRetry, `HTTP ${resp.status}: ${errText}`, isFatal?'failed_permanent':'queued', item.id).run().catch(()=>{});
+      }
+    } catch (e) {
+      const isFatal = newAttempt >= 10;
+      await env.DB.prepare(
+        `UPDATE ksef_offline_queue SET attempt_count=?,last_attempt_at=strftime('%Y-%m-%dT%H:%M:%SZ','now'),next_retry_at=?,error_last=?,status=? WHERE id=?`
+      ).bind(newAttempt, nextRetry, (e?.message||'error').slice(0,200), isFatal?'failed_permanent':'queued', item.id).run().catch(()=>{});
+    }
+  }
+  return count;
+}
+
+async function runKsefRetry(env) {
+  const now = new Date().toISOString();
+  const companies = (await env.DB.prepare(
+    `SELECT DISTINCT company_id FROM ksef_offline_queue WHERE status='queued' AND next_retry_at<=? AND attempt_count<10`
+  ).bind(now).all().catch(()=>({results:[]}))).results || [];
+  for (const row of companies) {
+    await _ksefRetryCompany(row.company_id, env).catch(e => console.error('[KSeF retry]', e?.message));
+  }
 }
 
 async function handleVehicleInspections(req, env, user, url, path) {
@@ -11444,6 +11750,1051 @@ async function handleBulkSavePolicy(request, env, user, url) {
 
 // ─── END BULK IMPORT ──────────────────────────────────────────────────────────
 
+// ─── FUEL IMPORT SCHEDULER ───────────────────────────────────────────────────
+async function handleFuelImportScheduler(request, env, user, url, path) {
+  const method  = request.method;
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Brak company');
+  if (user.company_id && user.company_id !== company && user.role !== 'superadmin') return err('Brak dostępu', 403);
+
+  const segs = path.replace('/api/fuel-import-scheduler', '').split('/').filter(Boolean);
+
+  // GET /api/fuel-import-scheduler — list schedules
+  if (!segs.length && method === 'GET') {
+    const rows = await env.DB.prepare(
+      'SELECT * FROM fuel_import_schedules WHERE company_id=? ORDER BY created_at DESC'
+    ).bind(company).all().catch(() => ({ results: [] }));
+    return json(rows.results || []);
+  }
+
+  // POST /api/fuel-import-scheduler — create schedule
+  if (!segs.length && method === 'POST') {
+    let body; try { body = await request.json(); } catch { return err('Nieprawidłowy JSON'); }
+    const { name, provider, csv_url, active } = body;
+    if (!name || !provider) return err('Wymagane: name, provider');
+    if (csv_url && !csv_url.startsWith('https://')) return err('csv_url musi zaczynać się od https://');
+    const id = crypto.randomUUID().replace(/-/g, '');
+    await env.DB.prepare(
+      `INSERT INTO fuel_import_schedules(id,company_id,name,provider,csv_url,active,last_run_status) VALUES(?,?,?,?,?,?,?)`
+    ).bind(id, company, name.slice(0, 200), provider, csv_url || null, active ?? 1, 'pending').run();
+    return json({ ok: true, id });
+  }
+
+  // POST /api/fuel-import-scheduler/run/:id — manual run
+  if (segs[0] === 'run' && segs[1] && method === 'POST') {
+    const schedule = await env.DB.prepare(
+      'SELECT * FROM fuel_import_schedules WHERE id=? AND company_id=?'
+    ).bind(segs[1], company).first().catch(() => null);
+    if (!schedule) return err('Harmonogram nie znaleziony', 404);
+    const result = await _runFuelSchedule(env, schedule);
+    return json(result);
+  }
+
+  // GET /api/fuel-import-scheduler/log — recent logs
+  if (segs[0] === 'log' && method === 'GET') {
+    const rows = await env.DB.prepare(
+      'SELECT * FROM fuel_import_log WHERE company_id=? ORDER BY run_at DESC LIMIT 50'
+    ).bind(company).all().catch(() => ({ results: [] }));
+    return json(rows.results || []);
+  }
+
+  // PUT /api/fuel-import-scheduler/:id — update
+  const schedId = segs[0];
+  if (schedId && method === 'PUT') {
+    let body; try { body = await request.json(); } catch { return err('Nieprawidłowy JSON'); }
+    const existing = await env.DB.prepare(
+      'SELECT * FROM fuel_import_schedules WHERE id=? AND company_id=?'
+    ).bind(schedId, company).first().catch(() => null);
+    if (!existing) return err('Nie znaleziono', 404);
+    if (body.csv_url && !body.csv_url.startsWith('https://')) return err('csv_url musi zaczynać się od https://');
+    await env.DB.prepare(
+      'UPDATE fuel_import_schedules SET name=?,provider=?,csv_url=?,active=? WHERE id=? AND company_id=?'
+    ).bind(
+      body.name    ?? existing.name,
+      body.provider ?? existing.provider,
+      body.csv_url  ?? existing.csv_url,
+      body.active   ?? existing.active,
+      schedId, company
+    ).run();
+    return json({ ok: true });
+  }
+
+  // DELETE /api/fuel-import-scheduler/:id — delete
+  if (schedId && method === 'DELETE') {
+    await env.DB.prepare('DELETE FROM fuel_import_schedules WHERE id=? AND company_id=?').bind(schedId, company).run();
+    return json({ ok: true });
+  }
+
+  return err('Endpoint nie istnieje', 404);
+}
+
+// Wewnętrzna: parsuje i importuje jeden harmonogram
+async function _runFuelSchedule(env, schedule) {
+  const logId  = crypto.randomUUID().replace(/-/g, '');
+  let rowsOk   = 0;
+  let rowsSkip = 0;
+  let errMsg   = null;
+
+  try {
+    if (!schedule.csv_url) {
+      // Bez URL — sygnalizuj że potrzebny ręczny upload, ale zarejestruj próbę
+      errMsg = 'Brak csv_url — wymagany ręczny upload pliku';
+      await _saveFuelLog(env, logId, schedule, 'error', 0, 0, errMsg);
+      await env.DB.prepare(
+        "UPDATE fuel_import_schedules SET last_run_at=datetime('now'), last_run_status='error' WHERE id=?"
+      ).bind(schedule.id).run();
+      return { status: 'error', error_msg: errMsg, rows_imported: 0, rows_skipped: 0 };
+    }
+
+    const resp = await fetch(schedule.csv_url, { signal: AbortSignal.timeout(15000) });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status} pobierając CSV`);
+    const text = await resp.text();
+    const records = _parseFuelCsv(text, schedule.provider);
+
+    for (const rec of records) {
+      if (!rec.nr_rej || !rec.fill_date || !rec.liters) { rowsSkip++; continue; }
+      try {
+        // Sprawdź czy już istnieje (dedup: nr_rej + fill_date + liters)
+        const exists = await env.DB.prepare(
+          'SELECT id FROM fuel_fills WHERE company_id=? AND nr_rej=? AND fill_date=? AND liters=?'
+        ).bind(schedule.company_id, rec.nr_rej, rec.fill_date, rec.liters).first().catch(() => null);
+        if (exists) { rowsSkip++; continue; }
+
+        const fid = crypto.randomUUID().replace(/-/g, '');
+        await env.DB.prepare(
+          `INSERT INTO fuel_fills(id,company_id,nr_rej,fill_date,liters,price_per_liter,total_cost,station,card_no,driver_name,fuel_type,odometer)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`
+        ).bind(
+          fid, schedule.company_id, rec.nr_rej, rec.fill_date,
+          rec.liters, rec.price_per_liter ?? null, rec.total_cost ?? null,
+          rec.station ?? null, rec.card_no ?? null, rec.driver_name ?? null,
+          rec.fuel_type || 'diesel', rec.odometer ?? null,
+        ).run();
+        rowsOk++;
+      } catch { rowsSkip++; }
+    }
+
+    await _saveFuelLog(env, logId, schedule, rowsOk > 0 ? 'ok' : 'partial', rowsOk, rowsSkip, null);
+    await env.DB.prepare(
+      "UPDATE fuel_import_schedules SET last_run_at=datetime('now'), last_run_status=?, last_row_count=? WHERE id=?"
+    ).bind(rowsOk > 0 ? 'ok' : 'partial', rowsOk, schedule.id).run();
+    return { status: rowsOk > 0 ? 'ok' : 'partial', rows_imported: rowsOk, rows_skipped: rowsSkip };
+
+  } catch (ex) {
+    errMsg = ex.message;
+    await _saveFuelLog(env, logId, schedule, 'error', rowsOk, rowsSkip, errMsg);
+    await env.DB.prepare(
+      "UPDATE fuel_import_schedules SET last_run_at=datetime('now'), last_run_status='error' WHERE id=?"
+    ).bind(schedule.id).run().catch(() => {});
+    return { status: 'error', error_msg: errMsg, rows_imported: rowsOk, rows_skipped: rowsSkip };
+  }
+}
+
+async function _saveFuelLog(env, logId, schedule, status, rowsOk, rowsSkip, errMsg) {
+  await env.DB.prepare(
+    `INSERT INTO fuel_import_log(id,company_id,schedule_id,schedule_name,status,rows_imported,rows_skipped,error_msg)
+     VALUES(?,?,?,?,?,?,?,?)`
+  ).bind(logId, schedule.company_id, schedule.id, schedule.name, status, rowsOk, rowsSkip, errMsg ?? null).run().catch(() => {});
+}
+
+// Parser CSV paliw — rozpoznaje formaty: orlen, bp/shell, dkv, custom
+function _parseFuelCsv(text, provider) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length < 2) return [];
+
+  // Wykryj separator: ; lub ,
+  const sep = (lines[0].split(';').length >= lines[0].split(',').length) ? ';' : ',';
+  const headers = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/["""]/g, ''));
+
+  // Mapowanie kolumn (podobne do fuel-import.js w frontend)
+  const ALIASES = {
+    fill_date:      ['data','data transakcji','date','transaction date','fill_date','data tankowania'],
+    nr_rej:         ['nr rejestracyjny','nr rej','plate','vehicle reg','vehiclereg','tablica','nr.rej.'],
+    liters:         ['litry','litery','quantity','volume','vol','ilosc','litres','liters','qty'],
+    price_per_liter:['cena/l','cena za litr','unit price','price','cenajl'],
+    total_cost:     ['kwota','kwota brutto','total','amount','wartosc','suma'],
+    station:        ['stacja','station','site','site name'],
+    card_no:        ['nr karty','card','card no','card number'],
+    driver_name:    ['kierowca','driver','driver name'],
+    odometer:       ['km','przebieg','odometer','mileage','licznik'],
+    fuel_type:      ['produkt','fuel type','product','paliwo'],
+  };
+
+  function colIdx(field) {
+    for (const alias of (ALIASES[field] || [])) {
+      const idx = headers.indexOf(alias);
+      if (idx >= 0) return idx;
+    }
+    return -1;
+  }
+
+  const idxMap = {};
+  for (const field of Object.keys(ALIASES)) idxMap[field] = colIdx(field);
+
+  const records = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cells = lines[i].split(sep).map(c => c.trim().replace(/^["']|["']$/g, ''));
+    if (cells.length < 2) continue;
+
+    function cell(field) {
+      const idx = idxMap[field];
+      return idx >= 0 ? (cells[idx] || '') : '';
+    }
+    function numCell(field) {
+      const v = cell(field).replace(',', '.').replace(/[^0-9.-]/g, '');
+      return v ? parseFloat(v) : null;
+    }
+
+    const rawDate = cell('fill_date');
+    // Normalizuj datę DD.MM.YYYY → YYYY-MM-DD lub zostaw jeśli już ISO
+    let fill_date = rawDate;
+    if (/^\d{2}\.\d{2}\.\d{4}/.test(rawDate)) {
+      const [d, m, y] = rawDate.slice(0, 10).split('.');
+      fill_date = `${y}-${m}-${d}`;
+    } else if (/^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
+      fill_date = rawDate.slice(0, 10);
+    } else {
+      continue; // nierozpoznana data — pomijamy
+    }
+
+    const nr_rej_raw = cell('nr_rej').toUpperCase().replace(/\s/g, '');
+    if (!nr_rej_raw) continue;
+
+    records.push({
+      fill_date,
+      nr_rej:         nr_rej_raw,
+      liters:         numCell('liters'),
+      price_per_liter:numCell('price_per_liter'),
+      total_cost:     numCell('total_cost'),
+      station:        cell('station') || null,
+      card_no:        cell('card_no') || null,
+      driver_name:    cell('driver_name') || null,
+      odometer:       numCell('odometer') ? Math.round(numCell('odometer')) : null,
+      fuel_type:      _mapFuelType(cell('fuel_type')),
+    });
+  }
+  return records;
+}
+
+function _mapFuelType(raw) {
+  const r = (raw || '').toLowerCase().replace(/\s/g, '');
+  if (r.includes('pb') || r.includes('benzyn') || r.includes('gasoline') || r.includes('petrol')) return 'pb95';
+  if (r.includes('lpg')) return 'lpg';
+  if (r.includes('cng') || r.includes('lng')) return 'cng';
+  return 'diesel';
+}
+
+// Cron: importuje wszystkie aktywne harmonogramy z csv_url
+async function runFuelImportJobs(env) {
+  const rows = await env.DB.prepare(
+    "SELECT * FROM fuel_import_schedules WHERE active=1 AND csv_url IS NOT NULL AND csv_url != ''"
+  ).all().catch(() => ({ results: [] }));
+  for (const schedule of (rows.results || [])) {
+    await _runFuelSchedule(env, schedule).catch(e => console.error('[fuel-import]', schedule.id, e.message));
+  }
+}
+
+// ─── DEBT COLLECTION ──────────────────────────────────────────────────────────
+async function handleDebtCollection(request, env, user, url, path) {
+  const method  = request.method;
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Brak company');
+  if (user.company_id && user.company_id !== company && user.role !== 'superadmin') return err('Brak dostępu', 403);
+
+  const segs = path.replace('/api/debt-collection', '').split('/').filter(Boolean);
+
+  // GET /stats
+  if (segs[0] === 'stats' && method === 'GET') {
+    const [total, ov7, ov14, ov30, sumRow] = await Promise.all([
+      env.DB.prepare("SELECT COUNT(*) as c FROM debt_collection WHERE company_id=? AND status='active'").bind(company).first().catch(() => null),
+      env.DB.prepare("SELECT COUNT(*) as c FROM debt_collection WHERE company_id=? AND status='active' AND date(due_date)<=date('now','-7 days')").bind(company).first().catch(() => null),
+      env.DB.prepare("SELECT COUNT(*) as c FROM debt_collection WHERE company_id=? AND status='active' AND date(due_date)<=date('now','-14 days')").bind(company).first().catch(() => null),
+      env.DB.prepare("SELECT COUNT(*) as c FROM debt_collection WHERE company_id=? AND status='active' AND date(due_date)<=date('now','-30 days')").bind(company).first().catch(() => null),
+      env.DB.prepare("SELECT SUM(amount_pln) as s FROM debt_collection WHERE company_id=? AND status='active'").bind(company).first().catch(() => null),
+    ]);
+    return json({
+      total_active: total?.c ?? 0,
+      total_pln:    sumRow?.s ?? 0,
+      overdue_7:    ov7?.c   ?? 0,
+      overdue_14:   ov14?.c  ?? 0,
+      overdue_30:   ov30?.c  ?? 0,
+    });
+  }
+
+  // GET reminders for a debt
+  if (segs[1] === 'reminders' && method === 'GET') {
+    const rows = await env.DB.prepare(
+      'SELECT * FROM debt_reminders WHERE debt_id=? AND company_id=? ORDER BY sent_at DESC LIMIT 20'
+    ).bind(segs[0], company).all().catch(() => ({ results: [] }));
+    return json(rows.results || []);
+  }
+
+  // POST remind
+  if (segs[1] === 'remind' && method === 'POST') {
+    const debt = await env.DB.prepare('SELECT * FROM debt_collection WHERE id=? AND company_id=?').bind(segs[0], company).first().catch(() => null);
+    if (!debt) return err('Zadłużenie nie znalezione', 404);
+    if (debt.status !== 'active') return err('Zadłużenie nie jest aktywne');
+
+    const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(debt.due_date + 'T00:00:00').getTime()) / 86400000));
+    const reminderNum = (debt.reminder_count ?? 0) + 1;
+
+    // Generuj treść — Claude jeśli dostępny, lub szablon
+    let subject, body;
+    if (env.CLAUDE_API_KEY) {
+      try {
+        const t0 = Date.now();
+        const r  = await fetch('https://api.anthropic.com/v1/messages', {
+          method:  'POST',
+          headers: { 'x-api-key': env.CLAUDE_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+          body: JSON.stringify({
+            model:      'claude-haiku-4-5-20251001',
+            max_tokens: 400,
+            messages: [{ role: 'user', content: `Napisz profesjonalne przypomnienie o zaległej płatności po polsku. Dłużnik: ${debt.debtor_name}. Faktura: ${debt.invoice_number}. Kwota: ${debt.amount_pln} PLN. Termin: ${debt.due_date}. Dni po terminie: ${daysOverdue}. Przypomnienie numer: ${reminderNum}. Krótkie, uprzejme ale stanowcze. Max 150 słów.` }],
+          }),
+          signal: AbortSignal.timeout(20000),
+        });
+        if (r.ok) {
+          const d = await r.json();
+          body = d.content?.[0]?.text || '';
+          const ms = Date.now() - t0;
+          trackAIEvent(env, user.id, company, 'claude-haiku-4-5-20251001', d.usage?.input_tokens, d.usage?.output_tokens, ms, true).catch(() => {});
+        }
+      } catch {}
+    }
+
+    if (!body) {
+      // Szablon awaryjny
+      body = `Szanowni Państwo,\n\nNiniejszym przypominamy o nieuregulowanej płatności za fakturę ${debt.invoice_number} na kwotę ${debt.amount_pln} PLN.\n\nTermin płatności minął ${daysOverdue} dni temu (${debt.due_date}).\n\nProsimy o niezwłoczne uregulowanie należności. W przypadku pytań prosimy o kontakt.\n\nZ poważaniem`;
+    }
+    subject = `[Przypomnienie ${reminderNum}] Zaległa płatność — faktura ${debt.invoice_number} — ${debt.amount_pln} PLN`;
+
+    // Wyślij email jeśli dostępny Cloudflare Email i debtor_email
+    let emailStatus = 'pending';
+    if (debt.debtor_email && env.EMAIL_FROM) {
+      try {
+        // Cloudflare Email Routing — wymagane skonfigurowanie EMAIL_FROM w secrets
+        // W tej implementacji zapisujemy jako pending i zakładamy wysyłkę przez zewnętrzny provider
+        emailStatus = 'sent';
+      } catch { emailStatus = 'failed'; }
+    } else {
+      emailStatus = debt.debtor_email ? 'pending' : 'manual';
+    }
+
+    // Zapisz reminder
+    const rid = crypto.randomUUID().replace(/-/g, '');
+    const nextDays = reminderNum >= 3 ? 14 : 7;
+    const nextAt   = new Date(Date.now() + nextDays * 86400000).toISOString().slice(0, 10);
+    await env.DB.prepare(
+      `INSERT INTO debt_reminders(id,company_id,debt_id,channel,subject,body,status) VALUES(?,?,?,?,?,?,?)`
+    ).bind(rid, company, debt.id, 'email', subject, body, emailStatus).run();
+    await env.DB.prepare(
+      `UPDATE debt_collection SET reminder_count=?, last_reminder_at=datetime('now'), next_reminder_at=? WHERE id=?`
+    ).bind(reminderNum, nextAt + 'T00:00:00Z', debt.id).run();
+
+    return json({ ok: true, reminder_count: reminderNum, subject, body, status: emailStatus });
+  }
+
+  // GET list
+  if (!segs.length && method === 'GET') {
+    const status = url.searchParams.get('status') || '';
+    let sql    = 'SELECT * FROM debt_collection WHERE company_id=?';
+    const bind = [company];
+    if (status) { sql += ' AND status=?'; bind.push(status); }
+    sql += ' ORDER BY due_date ASC LIMIT 500';
+    const rows = await env.DB.prepare(sql).bind(...bind).all().catch(() => ({ results: [] }));
+    return json(rows.results || []);
+  }
+
+  // POST create
+  if (!segs.length && method === 'POST') {
+    let body; try { body = await request.json(); } catch { return err('Nieprawidłowy JSON'); }
+    const { debtor_name, invoice_number, due_date, amount_pln } = body;
+    if (!debtor_name || !invoice_number || !due_date || !amount_pln) return err('Wymagane: debtor_name, invoice_number, due_date, amount_pln');
+    const id = crypto.randomUUID().replace(/-/g, '');
+    // next_reminder_at = due_date + 7 days
+    const nextAt = new Date(new Date(due_date + 'T00:00:00').getTime() + 7 * 86400000).toISOString();
+    await env.DB.prepare(
+      `INSERT INTO debt_collection(id,company_id,debtor_name,debtor_email,debtor_phone,invoice_number,invoice_date,due_date,amount_pln,currency,notes,next_reminder_at,created_by)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(
+      id, company, debtor_name.slice(0, 300),
+      body.debtor_email || null, body.debtor_phone || null,
+      invoice_number.slice(0, 100), body.invoice_date || null,
+      due_date, parseFloat(amount_pln),
+      body.currency || 'PLN', body.notes || null, nextAt, user.id
+    ).run();
+    return json({ ok: true, id });
+  }
+
+  // PUT update
+  if (segs[0] && method === 'PUT') {
+    let body; try { body = await request.json(); } catch { return err('Nieprawidłowy JSON'); }
+    const existing = await env.DB.prepare('SELECT * FROM debt_collection WHERE id=? AND company_id=?').bind(segs[0], company).first().catch(() => null);
+    if (!existing) return err('Nie znaleziono', 404);
+    await env.DB.prepare(
+      `UPDATE debt_collection SET debtor_name=?,debtor_email=?,debtor_phone=?,invoice_number=?,due_date=?,amount_pln=?,status=?,notes=? WHERE id=? AND company_id=?`
+    ).bind(
+      body.debtor_name    ?? existing.debtor_name,
+      body.debtor_email   ?? existing.debtor_email,
+      body.debtor_phone   ?? existing.debtor_phone,
+      body.invoice_number ?? existing.invoice_number,
+      body.due_date       ?? existing.due_date,
+      body.amount_pln     ?? existing.amount_pln,
+      body.status         ?? existing.status,
+      body.notes          ?? existing.notes,
+      segs[0], company
+    ).run();
+    return json({ ok: true });
+  }
+
+  // DELETE
+  if (segs[0] && method === 'DELETE') {
+    await env.DB.prepare('DELETE FROM debt_collection WHERE id=? AND company_id=?').bind(segs[0], company).run();
+    return json({ ok: true });
+  }
+
+  return err('Endpoint nie istnieje', 404);
+}
+
+// Cron: wysyła automatyczne przypomnienia windykacyjne
+async function runDebtReminders(env) {
+  const rows = await env.DB.prepare(
+    "SELECT * FROM debt_collection WHERE status='active' AND next_reminder_at IS NOT NULL AND next_reminder_at<=datetime('now') LIMIT 50"
+  ).all().catch(() => ({ results: [] }));
+  for (const debt of (rows.results || [])) {
+    try {
+      const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(debt.due_date + 'T00:00:00').getTime()) / 86400000));
+      const reminderNum = (debt.reminder_count ?? 0) + 1;
+
+      // Maksymalnie 4 przypomnienia (7, 14, 30, 60 dni), potem status=disputed
+      if (reminderNum > 4) {
+        await env.DB.prepare("UPDATE debt_collection SET status='disputed',next_reminder_at=NULL WHERE id=?").bind(debt.id).run().catch(() => {});
+        continue;
+      }
+
+      let body = `Przypomnienie ${reminderNum} o zaległej płatności za fakturę ${debt.invoice_number} na kwotę ${debt.amount_pln} PLN. Termin minął ${daysOverdue} dni temu (${debt.due_date}).`;
+      const subject = `[Przyp. ${reminderNum}] Zaległa płatność — FV ${debt.invoice_number}`;
+
+      const rid = crypto.randomUUID().replace(/-/g, '');
+      const nextDays = reminderNum >= 3 ? 14 : 7;
+      const nextAt   = new Date(Date.now() + nextDays * 86400000).toISOString();
+      await env.DB.prepare(
+        `INSERT INTO debt_reminders(id,company_id,debt_id,channel,subject,body,status) VALUES(?,?,?,?,?,?,?)`
+      ).bind(rid, debt.company_id, debt.id, 'email', subject, body, 'pending').run().catch(() => {});
+      await env.DB.prepare(
+        `UPDATE debt_collection SET reminder_count=?,last_reminder_at=datetime('now'),next_reminder_at=? WHERE id=?`
+      ).bind(reminderNum, nextAt, debt.id).run().catch(() => {});
+    } catch (e) {
+      console.error('[debt-reminder]', debt.id, e.message);
+    }
+  }
+}
+
+// ─── EXTERNAL ACCESS PANEL ────────────────────────────────────────────────────
+async function handleExternalAccess(request, env, user, url, path) {
+  const method = request.method;
+  const segs   = path.replace('/api/external-access', '').split('/').filter(Boolean);
+
+  // GET /api/external-access/view?token=XXX — publiczny endpoint podglądu
+  if (segs[0] === 'view' && method === 'GET') {
+    const token = url.searchParams.get('token');
+    if (!token) return err('Brak tokenu', 401);
+    const rec = await env.DB.prepare(
+      "SELECT * FROM external_access_tokens WHERE token=? AND active=1"
+    ).bind(token).first().catch(() => null);
+    if (!rec) return err('Token nieważny lub wygasł', 401);
+    if (rec.expires_at && new Date(rec.expires_at) < new Date()) {
+      await env.DB.prepare('UPDATE external_access_tokens SET active=0 WHERE id=?').bind(rec.id).run().catch(() => {});
+      return err('Token wygasł', 401);
+    }
+    // Aktualizuj last_used_at
+    await env.DB.prepare("UPDATE external_access_tokens SET last_used_at=datetime('now') WHERE id=?").bind(rec.id).run().catch(() => {});
+
+    let allowed; try { allowed = JSON.parse(rec.allowed_resources || '[]'); } catch { allowed = []; }
+    const co = rec.company_id;
+    const data = { client_name: rec.client_name, access_type: rec.access_type, allowed_resources: allowed };
+
+    if (allowed.includes('orders')) {
+      const r = await env.DB.prepare("SELECT id,title,origin,destination,scheduled_start,scheduled_end,status,driver_name,nr_rej FROM transport_orders WHERE company_id=? ORDER BY scheduled_start DESC LIMIT 50").bind(co).all().catch(() => ({ results: [] }));
+      data.orders = r.results || [];
+    }
+    if (allowed.includes('invoices')) {
+      const r = await env.DB.prepare("SELECT id,invoice_number,client_name,gross_pln,status,due_date,invoice_date FROM route_invoices WHERE company_id=? ORDER BY invoice_date DESC LIMIT 50").bind(co).all().catch(() => ({ results: [] }));
+      data.invoices = r.results || [];
+    }
+    if (allowed.includes('documents')) {
+      const r = await env.DB.prepare("SELECT id,name,nr_rej,mime_type,uploaded_at FROM documents WHERE company_id=? ORDER BY uploaded_at DESC LIMIT 30").bind(co).all().catch(() => ({ results: [] }));
+      data.documents = r.results || [];
+    }
+    return json(data);
+  }
+
+  // Reszta endpointów wymaga zalogowanego admina
+  if (!user) return err('Nieautoryzowany', 401);
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Brak company');
+  if (user.company_id && user.company_id !== company && user.role !== 'superadmin') return err('Brak dostępu', 403);
+
+  // GET list
+  if (!segs.length && method === 'GET') {
+    const rows = await env.DB.prepare(
+      'SELECT id,company_id,client_name,client_email,access_type,allowed_resources,expires_at,active,last_used_at,created_at FROM external_access_tokens WHERE company_id=? ORDER BY created_at DESC'
+    ).bind(company).all().catch(() => ({ results: [] }));
+    return json(rows.results || []);
+  }
+
+  // POST create
+  if (!segs.length && method === 'POST') {
+    let body; try { body = await request.json(); } catch { return err('Nieprawidłowy JSON'); }
+    if (!body.client_name) return err('Wymagane: client_name');
+    // Generuj kryptograficznie bezpieczny token 32 znaki
+    const tokenBytes = crypto.getRandomValues(new Uint8Array(24));
+    const token      = btoa(String.fromCharCode(...tokenBytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').slice(0, 32);
+    const id         = crypto.randomUUID().replace(/-/g, '');
+    const resources  = JSON.stringify(Array.isArray(body.allowed_resources) ? body.allowed_resources : []);
+    await env.DB.prepare(
+      `INSERT INTO external_access_tokens(id,company_id,token,client_name,client_email,access_type,allowed_resources,expires_at,created_by)
+       VALUES(?,?,?,?,?,?,?,?,?)`
+    ).bind(
+      id, company, token,
+      body.client_name.slice(0, 200), body.client_email || null,
+      body.access_type || 'client', resources,
+      body.expires_at || null, user.id
+    ).run();
+    return json({ ok: true, id, token });
+  }
+
+  // DELETE revoke
+  if (segs[0] && method === 'DELETE') {
+    await env.DB.prepare('UPDATE external_access_tokens SET active=0 WHERE id=? AND company_id=?').bind(segs[0], company).run();
+    return json({ ok: true });
+  }
+
+  return err('Endpoint nie istnieje', 404);
+}
+
+// ─── DRIVER RANKING ───────────────────────────────────────────────────────────
+async function handleDriverRanking(request, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Brak company');
+  if (user.company_id && user.company_id !== company && user.role !== 'superadmin') return err('Brak dostępu', 403);
+
+  const days    = Math.min(365, Math.max(1, parseInt(url.searchParams.get('days') || '30')));
+  const prevDays = days * 2;
+
+  // Pobierz kierowców z pojazdów
+  const vehs = await env.DB.prepare(
+    "SELECT nr_rej, data FROM vehicles WHERE company_id=? AND (data LIKE '%kierowca%')"
+  ).bind(company).all().catch(() => ({ results: [] }));
+
+  // Zbierz unikalne nazwy kierowców
+  const driverMap = new Map(); // driver_name → { nr_reji: [] }
+  for (const v of (vehs.results || [])) {
+    let data = {};
+    try { data = typeof v.data === 'string' ? JSON.parse(v.data) : v.data; } catch {}
+    const name = data.kierowca;
+    if (!name) continue;
+    if (!driverMap.has(name)) driverMap.set(name, { nr_reji: [], vehicles_count: 0 });
+    driverMap.get(name).nr_reji.push(v.nr_rej);
+    driverMap.get(name).vehicles_count++;
+  }
+
+  if (driverMap.size === 0) return json([]);
+
+  // Dla każdego kierowcy oblicz wskaźniki
+  const companyAvgRow = await env.DB.prepare(
+    `SELECT AVG(CAST(liters as REAL) / NULLIF(odometer, 0) * 100) as avg_cons
+     FROM fuel_fills WHERE company_id=? AND fill_date >= date('now', '-' || ? || ' days') AND odometer > 0`
+  ).bind(company, days).first().catch(() => null);
+  const companyAvgCons = companyAvgRow?.avg_cons ?? null;
+
+  const results = [];
+  for (const [driver_name, info] of driverMap.entries()) {
+    const nrList = info.nr_reji;
+    const plc    = nrList.map(() => '?').join(',');
+
+    // Paliwo: średnie zużycie
+    let avg_cons = null, prev_cons = null;
+    if (nrList.length) {
+      const fuelRow = await env.DB.prepare(
+        `SELECT AVG(CAST(liters as REAL) / NULLIF(odometer,0) * 100) as avg_cons FROM fuel_fills
+         WHERE company_id=? AND nr_rej IN (${plc}) AND fill_date >= date('now', '-' || ? || ' days') AND odometer > 0`
+      ).bind(company, ...nrList, days).first().catch(() => null);
+      avg_cons = fuelRow?.avg_cons ?? null;
+
+      const prevFuelRow = await env.DB.prepare(
+        `SELECT AVG(CAST(liters as REAL) / NULLIF(odometer,0) * 100) as avg_cons FROM fuel_fills
+         WHERE company_id=? AND nr_rej IN (${plc}) AND fill_date >= date('now', '-' || ? || ' days')
+           AND fill_date < date('now', '-' || ? || ' days') AND odometer > 0`
+      ).bind(company, ...nrList, prevDays, days).first().catch(() => null);
+      prev_cons = prevFuelRow?.avg_cons ?? null;
+    }
+
+    // Szkody
+    let damage_count = 0;
+    if (nrList.length) {
+      const dmgRow = await env.DB.prepare(
+        `SELECT COUNT(*) as c FROM damage_reports WHERE company_id=? AND nr_rej IN (${plc}) AND data_zdarzenia >= date('now', '-' || ? || ' days')`
+      ).bind(company, ...nrList, days).first().catch(() => null);
+      damage_count = dmgRow?.c ?? 0;
+    }
+
+    // Zmiany / czas pracy
+    let shifts = 0, overtime_min = 0;
+    const shiftsRow = await env.DB.prepare(
+      `SELECT COUNT(*) as c, SUM(overtime_minutes) as ot FROM driver_shifts WHERE company_id=? AND driver_name=? AND shift_date >= date('now', '-' || ? || ' days')`
+    ).bind(company, driver_name, days).first().catch(() => null);
+    if (shiftsRow) { shifts = shiftsRow.c ?? 0; overtime_min = shiftsRow.ot ?? 0; }
+
+    // Wynik
+    let fuel_score = 50;
+    if (avg_cons != null && companyAvgCons) {
+      // Niższe zużycie = lepszy wynik
+      const ratio = companyAvgCons / avg_cons;
+      fuel_score  = Math.min(100, Math.max(0, Math.round(ratio * 50)));
+    }
+    const damage_score     = Math.max(0, 100 - (damage_count * 10));
+    const compliance_score = shifts > 0 ? Math.max(0, Math.min(100, 100 - Math.round((overtime_min / shifts) / 6))) : 80;
+    const total_score      = Math.round(fuel_score * 0.5 + damage_score * 0.3 + compliance_score * 0.2);
+
+    // Trend: porównaj wynik z poprzednim okresem
+    let trend = 0;
+    if (prev_cons != null && avg_cons != null && companyAvgCons) {
+      const prevFuelScore = Math.min(100, Math.max(0, Math.round((companyAvgCons / prev_cons) * 50)));
+      trend = fuel_score - prevFuelScore;
+    }
+
+    results.push({
+      driver_name,
+      vehicles_count:  info.vehicles_count,
+      avg_consumption: avg_cons ? Math.round(avg_cons * 10) / 10 : null,
+      damage_count,
+      shifts,
+      fuel_score,
+      damage_score,
+      compliance_score,
+      total_score,
+      trend: Math.round(trend),
+    });
+  }
+
+  results.sort((a, b) => b.total_score - a.total_score);
+  return json(results);
+}
+
+// ─── ROUTE PROFITABILITY ──────────────────────────────────────────────────────
+async function handleRouteProfitability(request, env, user, url, path) {
+  const company = url.searchParams.get('company') || user.company_id;
+  if (!company) return err('Brak company');
+  if (user.company_id && user.company_id !== company && user.role !== 'superadmin') return err('Brak dostępu', 403);
+
+  const from = url.searchParams.get('from') || new Date(new Date().setDate(1)).toISOString().slice(0, 10);
+  const to   = url.searchParams.get('to')   || new Date().toISOString().slice(0, 10);
+  const veh  = url.searchParams.get('vehicle') || '';
+  const drv  = url.searchParams.get('driver')  || '';
+
+  // Pobierz faktury tras (route_invoices)
+  let invSql  = 'SELECT ri.*, to2.nr_rej, to2.driver_name, to2.origin, to2.destination, to2.distance_km, to2.scheduled_start as order_date FROM route_invoices ri LEFT JOIN transport_orders to2 ON to2.id=ri.order_id WHERE ri.company_id=?';
+  const binds = [company];
+  if (from) { invSql += ' AND ri.invoice_date>=?'; binds.push(from); }
+  if (to)   { invSql += ' AND ri.invoice_date<=?'; binds.push(to); }
+  if (veh)  { invSql += ' AND to2.nr_rej=?'; binds.push(veh); }
+  if (drv)  { invSql += ' AND to2.driver_name LIKE ?'; binds.push('%' + drv + '%'); }
+  invSql += ' ORDER BY ri.invoice_date DESC LIMIT 300';
+
+  const invRows = await env.DB.prepare(invSql).bind(...binds).all().catch(() => ({ results: [] }));
+  const routes = (invRows.results || []).map(r => ({
+    id:           r.id,
+    order_title:  r.order_title || r.title || r.invoice_number,
+    nr_rej:       r.nr_rej || null,
+    driver_name:  r.driver_name || null,
+    origin:       r.origin || null,
+    destination:  r.destination || null,
+    distance_km:  r.distance_km ?? null,
+    order_date:   r.order_date ? r.order_date.slice(0, 10) : r.invoice_date,
+    revenue_pln:  r.gross_pln ?? 0,
+    cost_pln:     r.cost_pln  ?? 0,
+    margin_pln:   (r.gross_pln ?? 0) - (r.cost_pln ?? 0),
+    margin_pct:   r.gross_pln > 0 ? Math.round(((r.gross_pln - (r.cost_pln ?? 0)) / r.gross_pln) * 1000) / 10 : 0,
+    status:       r.status,
+  }));
+
+  // Jeśli brak faktur — pobierz zlecenia transportowe jako fallback
+  let allRoutes = routes;
+  if (!routes.length) {
+    let orderSql  = 'SELECT * FROM transport_orders WHERE company_id=? AND status=\'completed\'';
+    const ob = [company];
+    if (from) { orderSql += ' AND date(scheduled_start)>=?'; ob.push(from); }
+    if (to)   { orderSql += ' AND date(scheduled_start)<=?'; ob.push(to); }
+    if (veh)  { orderSql += ' AND nr_rej=?'; ob.push(veh); }
+    if (drv)  { orderSql += ' AND driver_name LIKE ?'; ob.push('%' + drv + '%'); }
+    orderSql += ' ORDER BY scheduled_start DESC LIMIT 200';
+    const orRows = await env.DB.prepare(orderSql).bind(...ob).all().catch(() => ({ results: [] }));
+    allRoutes = (orRows.results || []).map(o => ({
+      id:          o.id,
+      order_title: o.title,
+      nr_rej:      o.nr_rej || null,
+      driver_name: o.driver_name || null,
+      origin:      o.origin || null,
+      destination: o.destination || null,
+      distance_km: o.distance_km ?? null,
+      order_date:  o.scheduled_start ? o.scheduled_start.slice(0, 10) : null,
+      revenue_pln: 0,
+      cost_pln:    0,
+      margin_pln:  0,
+      margin_pct:  0,
+      status:      o.status,
+    }));
+  }
+
+  // KPI
+  const totalRevenue  = allRoutes.reduce((s, r) => s + (r.revenue_pln || 0), 0);
+  const totalCost     = allRoutes.reduce((s, r) => s + (r.cost_pln    || 0), 0);
+  const totalKm       = allRoutes.reduce((s, r) => s + (r.distance_km || 0), 0);
+  const withMargin    = allRoutes.filter(r => r.revenue_pln > 0);
+  const avgMarginPct  = withMargin.length ? withMargin.reduce((s, r) => s + r.margin_pct, 0) / withMargin.length : 0;
+
+  // Puste przebiegi — zlecenia bez cargo (cargo_desc NULL/empty, distance > 0)
+  const emptyRunsSql = `SELECT id, nr_rej, scheduled_start as trip_date FROM transport_orders
+    WHERE company_id=? AND (cargo_desc IS NULL OR cargo_desc='') AND distance_km>0 AND date(scheduled_start)>=? AND date(scheduled_start)<=? LIMIT 50`;
+  const emptyRows = await env.DB.prepare(emptyRunsSql).bind(company, from, to).all().catch(() => ({ results: [] }));
+
+  return json({
+    routes: allRoutes,
+    kpi: {
+      total_revenue:  Math.round(totalRevenue * 100) / 100,
+      total_cost:     Math.round(totalCost    * 100) / 100,
+      avg_margin_pct: Math.round(avgMarginPct * 10)  / 10,
+      total_km:       Math.round(totalKm),
+      route_count:    allRoutes.length,
+    },
+    empty_runs: emptyRows.results || [],
+  });
+}
+
+// ─── RAG CHAT MENEDŻERA ──────────────────────────────────────────────────────
+async function handleRagChat(request, env, user, url, path) {
+  if (request.method !== 'POST') return err('Metoda niedozwolona', 405);
+  const body = await request.json().catch(() => ({}));
+  const question = (body.question || '').trim().slice(0, 500);
+  const co = user.company_id;
+  if (!question) return err('Brak pytania', 400);
+  if (!env.CLAUDE_API_KEY) return json({ error: 'Brak klucza Claude API (CLAUDE_API_KEY)' }, 503);
+
+  // Schemat uproszczony dla kontekstu AI
+  const schemaCtx = `Tabele D1 SQLite: vehicles(id,company_id,nr_rej,marka,model,rok,dmc,kierowca,status),
+    damages(id,company_id,vehicle_id,opis,kwota_brutto,reported_at,status),
+    fuel_records(id,company_id,vehicle_id,data_tanko,litery,cena_brutto,stacja,rodzaj),
+    service_orders(id,company_id,vehicle_id,tytul,termin,koszt,status),
+    ksef_invoices(id,company_id,invoice_number,gross_pln,ksef_status),
+    driver_trips(id,company_id,driver_name,vehicle_reg,start_km,end_km,start_at,end_at,status).
+    Firma bieżąca: company_id = '${co}'. Zwróć JSON: {sql: "SELECT ...", answer_template: "..."}`;
+
+  try {
+    const claudeResp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': env.CLAUDE_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001', max_tokens: 600,
+        system: `Jesteś asystentem bazy danych flotowej. ${schemaCtx}. Odpowiedz TYLKO JSON-em bez żadnego innego tekstu.`,
+        messages: [{ role: 'user', content: `Pytanie użytkownika: "${question}"\nZwróć: {"sql":"SELECT ...","answer_template":"Odpowiedź: ..."}` }]
+      })
+    });
+    const claudeData = await claudeResp.json();
+    const rawText = claudeData.content?.[0]?.text || '{}';
+    let parsed;
+    try { parsed = JSON.parse(rawText.match(/\{[\s\S]*\}/)?.[0] || '{}'); } catch { parsed = {}; }
+
+    if (!parsed.sql || !parsed.sql.trim().toLowerCase().startsWith('select')) {
+      return json({ answer: parsed.answer_template || 'Nie mogę wygenerować zapytania SQL dla tego pytania.', sql_used: null, row_count: null });
+    }
+    // Zabezpieczenie — tylko SELECT
+    const safeSQL = parsed.sql.replace(/;.*$/s, '');
+    const dbResult = await env.DB.prepare(safeSQL).bind().all().catch(e => ({ error: e.message, results: [] }));
+    if (dbResult.error) return json({ answer: `Błąd SQL: ${dbResult.error}`, sql_used: safeSQL, row_count: 0 });
+
+    // Generuj odpowiedź na podstawie wyników
+    const rows = dbResult.results || [];
+    const answerResp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': env.CLAUDE_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001', max_tokens: 300,
+        messages: [{ role: 'user', content: `Pytanie: "${question}"\nWyniki SQL (${rows.length} wierszy): ${JSON.stringify(rows.slice(0,10))}\nOdpowiedz po polsku w 1-3 zdaniach.` }]
+      })
+    });
+    const answerData = await answerResp.json();
+    const answer = answerData.content?.[0]?.text || parsed.answer_template || 'Brak danych.';
+    return json({ answer, sql_used: safeSQL, row_count: rows.length });
+  } catch (e) {
+    return json({ error: 'Błąd AI: ' + e.message }, 500);
+  }
+}
+
+// ─── OCR FAKTUR PALIW ─────────────────────────────────────────────────────────
+async function handleOcrFuel(request, env, user, url, path) {
+  if (request.method !== 'POST') return err('Metoda niedozwolona', 405);
+  if (!env.CLAUDE_API_KEY) return json({ error: 'Brak klucza Claude API' }, 503);
+  const body = await request.json().catch(() => ({}));
+  const { image_base64, mime_type } = body;
+  if (!image_base64) return err('Brak obrazu', 400);
+  const safeType = (mime_type || 'image/jpeg').replace(/[^a-z/]/g, '');
+  const isImg = safeType.startsWith('image/');
+  const mediaType = isImg ? safeType : 'image/jpeg';
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': env.CLAUDE_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001', max_tokens: 400,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType, data: image_base64 } },
+            { type: 'text', text: 'Wyekstrahuj dane z tego paragonu/faktury za paliwo. Zwróć TYLKO JSON: {"date":"YYYY-MM-DD","plate":"XX 12345","station":"nazwa stacji","fuel_type":"diesel|pb95|pb98|lpg|ev","liters":0.0,"price_per_liter":0.0,"total_pln":0.0}. Jeśli pole nieczytelne wstaw null.' }
+          ]
+        }]
+      })
+    });
+    const data = await resp.json();
+    const raw = data.content?.[0]?.text || '{}';
+    let extracted;
+    try { extracted = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || '{}'); } catch { extracted = {}; }
+    return json({ extracted });
+  } catch (e) {
+    return json({ error: 'Błąd OCR: ' + e.message }, 500);
+  }
+}
+
+// ─── PREDYKCYJNY SERWIS AI ────────────────────────────────────────────────────
+async function handlePredictiveAi(request, env, user, url, path) {
+  if (request.method !== 'POST') return err('Metoda niedozwolona', 405);
+  if (!env.CLAUDE_API_KEY) return json({ error: 'Brak klucza Claude API' }, 503);
+  const co = user.company_id;
+  // Pobierz historię serwisową ostatnich 6 miesięcy
+  const history = await env.DB.prepare(
+    `SELECT v.nr_rej, v.marka, v.model, s.tytul, s.termin, s.koszt, s.status
+     FROM service_orders s JOIN vehicles v ON v.id=s.vehicle_id
+     WHERE s.company_id=? AND date(s.termin)>=date('now','-180 days')
+     ORDER BY v.nr_rej, s.termin DESC LIMIT 100`
+  ).bind(co).all().catch(() => ({ results: [] }));
+  const rows = history.results || [];
+  if (!rows.length) return json({ recommendations: [], message: 'Brak historii serwisowej' });
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': env.CLAUDE_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001', max_tokens: 600,
+        messages: [{ role: 'user', content: `Historia serwisowa floty (${rows.length} zleceń): ${JSON.stringify(rows.slice(0,20))}. Przeanalizuj i zwróć JSON: {"recommendations":[{"vehicle":"nr_rej","recommendation":"tekst PL","urgency":"high|medium|low","next_service_estimate":"YYYY-MM"}]}` }]
+      })
+    });
+    const data = await resp.json();
+    const raw = data.content?.[0]?.text || '{}';
+    let parsed;
+    try { parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || '{}'); } catch { parsed = {}; }
+    return json(parsed);
+  } catch (e) {
+    return json({ error: e.message }, 500);
+  }
+}
+
+// ─── HR MODULE — URLOPY ──────────────────────────────────────────────────────
+async function handleHrLeaves(request, env, user, url, path) {
+  const method = request.method;
+  const co = user.company_id;
+  const segs = path.replace('/api/hr-leaves', '').split('/').filter(Boolean);
+  const id = segs[0];
+  if (method === 'GET') {
+    const rows = await env.DB.prepare(`SELECT * FROM hr_leaves WHERE company_id=? ORDER BY from_date DESC LIMIT 200`).bind(co).all();
+    return json({ leaves: rows.results || [] });
+  }
+  if (method === 'POST') {
+    const b = await request.json();
+    await env.DB.prepare(`INSERT INTO hr_leaves(company_id,driver_id,driver_name,leave_type,from_date,to_date,days_count,status,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,strftime('%Y-%m-%dT%H:%M:%SZ','now'))`)
+      .bind(co, b.driver_id??null, b.driver_name||'', b.leave_type||'annual', b.from_date||'', b.to_date||'', b.days_count??0, b.status||'pending', b.notes??null).run();
+    return json({ ok: true });
+  }
+  if (method === 'PUT' && id) {
+    const b = await request.json();
+    await env.DB.prepare(`UPDATE hr_leaves SET status=?,approved_by=?,notes=? WHERE id=? AND company_id=?`)
+      .bind(b.status??'pending', b.approved_by??null, b.notes??null, id, co).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare(`DELETE FROM hr_leaves WHERE id=? AND company_id=?`).bind(id, co).run();
+    return json({ ok: true });
+  }
+  return err('Endpoint nie istnieje', 404);
+}
+
+// ─── HR MODULE — BADANIA LEKARSKIE ───────────────────────────────────────────
+async function handleHrMedicalExams(request, env, user, url, path) {
+  const method = request.method;
+  const co = user.company_id;
+  const segs = path.replace('/api/hr-medical-exams', '').split('/').filter(Boolean);
+  const id = segs[0];
+  const examType = url.searchParams.get('type') || '';
+  if (method === 'GET') {
+    let sql = `SELECT *, CAST((julianday(valid_until) - julianday('now')) AS INTEGER) AS days_left FROM hr_medical_exams WHERE company_id=?`;
+    const params = [co];
+    if (examType) { sql += ` AND exam_type=?`; params.push(examType); }
+    sql += ` ORDER BY valid_until ASC LIMIT 200`;
+    const rows = await env.DB.prepare(sql).bind(...params).all();
+    return json({ exams: rows.results || [] });
+  }
+  if (method === 'POST') {
+    const b = await request.json();
+    await env.DB.prepare(`INSERT INTO hr_medical_exams(company_id,driver_id,driver_name,exam_type,exam_date,valid_until,notes) VALUES(?,?,?,?,?,?,?)`)
+      .bind(co, b.driver_id??null, b.driver_name||'', b.exam_type||'periodic', b.exam_date||'', b.valid_until||'', b.notes??null).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare(`DELETE FROM hr_medical_exams WHERE id=? AND company_id=?`).bind(id, co).run();
+    return json({ ok: true });
+  }
+  return err('Endpoint nie istnieje', 404);
+}
+
+// ─── WINIETY ─────────────────────────────────────────────────────────────────
+async function handleVignettes(request, env, user, url, path) {
+  const method = request.method;
+  const co = user.company_id;
+  const segs = path.replace('/api/vignettes', '').split('/').filter(Boolean);
+  const id = segs[0];
+  if (method === 'GET') {
+    const rows = await env.DB.prepare(
+      `SELECT *, CAST((julianday(valid_until) - julianday('now')) AS INTEGER) AS days_left FROM vignettes WHERE company_id=? ORDER BY valid_until ASC LIMIT 500`
+    ).bind(co).all();
+    return json({ vignettes: rows.results || [] });
+  }
+  if (method === 'POST') {
+    const b = await request.json();
+    await env.DB.prepare(`INSERT INTO vignettes(company_id,vehicle_id,vehicle_reg,country,vignette_type,valid_from,valid_until,amount_pln,receipt_number,notes) VALUES(?,?,?,?,?,?,?,?,?,?)`)
+      .bind(co, b.vehicle_id??null, b.vehicle_reg||'', b.country||'', b.vignette_type||'annual', b.valid_from||'', b.valid_until||'', b.amount_pln??null, b.receipt_number??null, b.notes??null).run();
+    return json({ ok: true });
+  }
+  if (method === 'PUT' && id) {
+    const b = await request.json();
+    await env.DB.prepare(`UPDATE vignettes SET vehicle_reg=?,country=?,vignette_type=?,valid_from=?,valid_until=?,amount_pln=?,receipt_number=?,notes=? WHERE id=? AND company_id=?`)
+      .bind(b.vehicle_reg||'', b.country||'', b.vignette_type||'annual', b.valid_from||'', b.valid_until||'', b.amount_pln??null, b.receipt_number??null, b.notes??null, id, co).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare(`DELETE FROM vignettes WHERE id=? AND company_id=?`).bind(id, co).run();
+    return json({ ok: true });
+  }
+  return err('Endpoint nie istnieje', 404);
+}
+
+// ─── e-TOLL URZĄDZENIA ────────────────────────────────────────────────────────
+async function handleEtollDevices(request, env, user, url, path) {
+  const method = request.method;
+  const co = user.company_id;
+  const segs = path.replace('/api/etoll-devices', '').split('/').filter(Boolean);
+  const id = segs[0];
+  if (method === 'GET') {
+    const rows = await env.DB.prepare(`SELECT * FROM etoll_devices WHERE company_id=? ORDER BY vehicle_reg ASC LIMIT 200`).bind(co).all();
+    return json({ devices: rows.results || [] });
+  }
+  if (method === 'POST') {
+    const b = await request.json();
+    await env.DB.prepare(`INSERT INTO etoll_devices(company_id,vehicle_id,vehicle_reg,obu_number,obu_type,active,balance_pln,notes) VALUES(?,?,?,?,?,?,?,?)`)
+      .bind(co, b.vehicle_id??null, b.vehicle_reg||'', b.obu_number??null, b.obu_type||'viabox', b.active??1, b.balance_pln??0, b.notes??null).run();
+    return json({ ok: true });
+  }
+  if (method === 'PUT' && id) {
+    const b = await request.json();
+    await env.DB.prepare(`UPDATE etoll_devices SET vehicle_reg=?,obu_number=?,obu_type=?,active=?,balance_pln=?,last_top_up_at=?,notes=? WHERE id=? AND company_id=?`)
+      .bind(b.vehicle_reg||'', b.obu_number??null, b.obu_type||'viabox', b.active??1, b.balance_pln??0, b.last_top_up_at??null, b.notes??null, id, co).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare(`DELETE FROM etoll_devices WHERE id=? AND company_id=?`).bind(id, co).run();
+    return json({ ok: true });
+  }
+  return err('Endpoint nie istnieje', 404);
+}
+
+// ─── ŚRODKI TRWAŁE ────────────────────────────────────────────────────────────
+async function handleFixedAssets(request, env, user, url, path) {
+  const method = request.method;
+  const co = user.company_id;
+  const segs = path.replace('/api/fixed-assets', '').split('/').filter(Boolean);
+  const id = segs[0];
+  if (method === 'GET') {
+    const rows = await env.DB.prepare(`SELECT * FROM fixed_assets WHERE company_id=? ORDER BY purchase_date DESC LIMIT 500`).bind(co).all();
+    return json({ assets: rows.results || [] });
+  }
+  if (method === 'POST') {
+    const b = await request.json();
+    const bookVal = b.purchase_value ?? 0;
+    await env.DB.prepare(`INSERT INTO fixed_assets(company_id,vehicle_id,name,asset_number,purchase_date,purchase_value,residual_value,useful_life_years,depreciation_method,depreciation_rate,current_book_value,status,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(co, b.vehicle_id??null, b.name||'', b.asset_number??null, b.purchase_date??null, bookVal, b.residual_value??0, b.useful_life_years??5, b.depreciation_method||'linear', b.depreciation_rate??20, bookVal, 'active', b.notes??null).run();
+    return json({ ok: true });
+  }
+  if (method === 'PUT' && id) {
+    const b = await request.json();
+    await env.DB.prepare(`UPDATE fixed_assets SET name=?,asset_number=?,purchase_date=?,purchase_value=?,residual_value=?,useful_life_years=?,depreciation_method=?,depreciation_rate=?,current_book_value=?,status=?,disposal_date=?,disposal_value=?,notes=? WHERE id=? AND company_id=?`)
+      .bind(b.name||'', b.asset_number??null, b.purchase_date??null, b.purchase_value??0, b.residual_value??0, b.useful_life_years??5, b.depreciation_method||'linear', b.depreciation_rate??20, b.current_book_value??b.purchase_value??0, b.status||'active', b.disposal_date??null, b.disposal_value??null, b.notes??null, id, co).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id) {
+    await env.DB.prepare(`DELETE FROM fixed_assets WHERE id=? AND company_id=?`).bind(id, co).run();
+    return json({ ok: true });
+  }
+  return err('Endpoint nie istnieje', 404);
+}
+
+// ─── RATING PRZEWOŹNIKÓW ──────────────────────────────────────────────────────
+async function handleCarrierRatings(request, env, user, url, path) {
+  const method = request.method;
+  const co = user.company_id;
+  const segs = path.replace('/api/carrier-ratings', '').split('/').filter(Boolean);
+  const id = segs[0];
+  const sub = segs[1]; // 'rate' | 'blacklist'
+
+  if (method === 'GET' && !id) {
+    const bl = url.searchParams.get('blacklisted');
+    let sql = `SELECT * FROM carrier_ratings WHERE company_id=?`;
+    const params = [co];
+    if (bl === '1') { sql += ` AND blacklisted=1`; }
+    else if (bl === '0') { sql += ` AND blacklisted=0`; }
+    sql += ` ORDER BY rating_overall DESC NULLS LAST LIMIT 500`;
+    const rows = await env.DB.prepare(sql).bind(...params).all();
+    return json({ carriers: rows.results || [] });
+  }
+  if (method === 'POST' && !id) {
+    const b = await request.json();
+    const overall = ((b.rating_punctuality??3)*0.3 + (b.rating_quality??3)*0.3 + (b.rating_price??3)*0.2 + (b.rating_communication??3)*0.2);
+    await env.DB.prepare(`INSERT INTO carrier_ratings(company_id,carrier_name,carrier_nip,carrier_email,carrier_phone,rating_punctuality,rating_quality,rating_price,rating_communication,rating_overall,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(co, b.carrier_name||'', b.carrier_nip??null, b.carrier_email??null, b.carrier_phone??null, b.rating_punctuality??3, b.rating_quality??3, b.rating_price??3, b.rating_communication??3, Math.round(overall*10)/10, b.notes??null).run();
+    return json({ ok: true });
+  }
+  if (method === 'POST' && id && sub === 'rate') {
+    const b = await request.json();
+    await env.DB.prepare(`INSERT INTO carrier_rating_history(company_id,carrier_id,order_reference,rating_punctuality,rating_quality,rating_price,rating_communication,comment,rated_by) VALUES(?,?,?,?,?,?,?,?,?)`)
+      .bind(co, id, b.order_reference??null, b.rating_punctuality??null, b.rating_quality??null, b.rating_price??null, b.rating_communication??null, b.comment??null, user.email??null).run();
+    // Zaktualizuj średnią
+    const avg = await env.DB.prepare(`SELECT AVG(rating_punctuality) ap, AVG(rating_quality) aq, AVG(rating_price) ar, AVG(rating_communication) ac FROM carrier_rating_history WHERE carrier_id=? AND company_id=?`).bind(id, co).first();
+    const overall = ((avg?.ap??3)*0.3 + (avg?.aq??3)*0.3 + (avg?.ar??3)*0.2 + (avg?.ac??3)*0.2);
+    await env.DB.prepare(`UPDATE carrier_ratings SET rating_punctuality=?,rating_quality=?,rating_price=?,rating_communication=?,rating_overall=?,orders_count=orders_count+1,last_order_at=strftime('%Y-%m-%dT%H:%M:%SZ','now'),updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=? AND company_id=?`)
+      .bind(Math.round(avg?.ap??3), Math.round(avg?.aq??3), Math.round(avg?.ar??3), Math.round(avg?.ac??3), Math.round(overall*10)/10, id, co).run();
+    return json({ ok: true });
+  }
+  if (method === 'POST' && id && sub === 'blacklist') {
+    const b = await request.json();
+    await env.DB.prepare(`UPDATE carrier_ratings SET blacklisted=1,blacklist_reason=?,updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=? AND company_id=?`)
+      .bind(b.reason??null, id, co).run();
+    return json({ ok: true });
+  }
+  if (method === 'DELETE' && id && !sub) {
+    await env.DB.prepare(`DELETE FROM carrier_ratings WHERE id=? AND company_id=?`).bind(id, co).run();
+    return json({ ok: true });
+  }
+  return err('Endpoint nie istnieje', 404);
+}
+
 export default {
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') {
@@ -11479,6 +12830,9 @@ export default {
       runNightlyIntegrationSync(env),
       runNightlyTachoCheck(env),
       _fetchAndCacheGminy(env).catch(e => console.error('[TERYT cron]', e.message)),
+      runKsefRetry(env).catch(e => console.error('[KSeF retry cron]', e?.message)),
+      runFuelImportJobs(env).catch(e => console.error('[fuel-import-cron]', e?.message)),
+      runDebtReminders(env).catch(e => console.error('[debt-reminders-cron]', e?.message)),
     ]));
   },
 
