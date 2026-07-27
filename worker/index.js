@@ -3094,6 +3094,9 @@ async function handleFmIngest(request, env, user) {
 // GET /api/folder-monitor/queue?company=...&status=...&limit=50
 async function handleFmQueue(request, env, user, url) {
   const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
+  if (user.role !== 'admin' && user.role !== 'superadmin') {
+    if (user.company_id && user.company_id !== company) return err('Brak dostępu', 403);
+  }
   const status  = url.searchParams.get('status');   // opcjonalny filtr
   const limit   = Math.min(parseInt(url.searchParams.get('limit') || '100'), 200);
 
@@ -3178,7 +3181,13 @@ async function handleCompanies(req, env, user, url, path) {
 
   // GET /api/companies/:id
   if (req.method === 'GET' && id) {
-    const row = await env.DB.prepare('SELECT * FROM companies WHERE id=?').bind(id).first();
+    if (!_isCompanyAdmin(user)) {
+      const acc = await env.DB.prepare(
+        'SELECT 1 FROM user_company_access WHERE user_id=? AND company_id=? AND can_view=1'
+      ).bind(user.id, id).first();
+      if (!acc && user.company_id !== id) return err('Brak dostępu', 403);
+    }
+    const row = await env.DB.prepare('SELECT * FROM companies WHERE id=? AND active=1').bind(id).first();
     if (!row) return err('Firma nie znaleziona', 404);
     return json(row);
   }
@@ -8908,7 +8917,7 @@ async function handleDocWorkflow(request, env, user, url, path) {
   const method = request.method;
   const company = url.searchParams.get('company') || user.company_id;
   if (!company) return err('Brak company');
-  if (user.company_id && user.company_id !== company && user.role !== 'superadmin') return err('Brak dostępu', 403);
+  if (user.role !== 'superadmin' && user.company_id !== company) return err('Brak dostępu', 403);
 
   const segs = path.replace('/api/doc-workflow', '').split('/').filter(Boolean);
 
