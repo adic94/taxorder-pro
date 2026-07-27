@@ -1,5 +1,5 @@
--- schema_v44: Harmonogram importu paliw, Windykacja, Panel zewnętrzny
--- Uruchom: wrangler d1 execute taxorder-pro --remote --file=worker/schema_v44.sql
+-- schema_v47: Harmonogram importu paliw, Windykacja, Panel zewnętrzny
+-- Uruchom: wrangler d1 execute taxorder-pro --remote --file=worker/schema_v47.sql
 
 -- ─── HARMONOGRAM IMPORTU PALIW ────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS fuel_import_schedules (
