@@ -1,31 +1,49 @@
-﻿(function(){
-  async function loadUsers(){
-    const result = await window.supabaseClient
-      .from('v_users')
-      .select('id,email,full_name,role,active')
-      .order('email');
+﻿/**
+ * TaxOrder Pro — Dostepy uzytkownik <-> firma
+ *
+ * MIGRACJA (26.07.2026): przepisane z Supabase na D1.
+ * Poprzednia wersja wolala window.supabaseClient BEZ guarda — a klient nigdy
+ * nie byl inicjalizowany, wiec panel uprawnien rzucal TypeError przy otwarciu.
+ * Teraz /api/users i /api/company-access (schema_v44).
+ */
+(function(){
+  'use strict';
 
-    if(result.error){
-      console.error('[CompanyAccess] Błąd użytkowników:', result.error);
-      alert('Błąd pobierania użytkowników: ' + result.error.message);
+  const API  = () => window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
+  const tok  = () => localStorage.getItem('cf_token') || '';
+  const hdrs = () => ({ Authorization: 'Bearer ' + tok(), 'Content-Type': 'application/json' });
+
+  async function loadUsers(){
+    if(!tok()){ alert('Brak sesji — zaloguj sie ponownie.'); return []; }
+    try {
+      const r = await fetch(API() + '/api/users', { headers: hdrs() });
+      if(!r.ok){
+        const d = await r.json().catch(() => ({}));
+        alert('Blad pobierania uzytkownikow: ' + (d.error || ('HTTP ' + r.status)));
+        return [];
+      }
+      const d = await r.json().catch(() => []);
+      const list = Array.isArray(d) ? d : (d.users || []);
+      // Normalizacja: worker zwraca 'name', stary kod UI oczekuje 'full_name'
+      return list.map(u => ({ ...u, full_name: u.full_name || u.name || u.email }));
+    } catch(e){
+      console.error('[CompanyAccess] Blad sieci:', e);
+      alert('Blad sieci: ' + e.message);
       return [];
     }
-
-    return result.data || [];
   }
 
   async function loadAccess(userId){
-    const result = await window.supabaseClient
-      .from('user_company_access')
-      .select('company_id,can_view,can_edit')
-      .eq('user_id', userId);
-
-    if(result.error){
-      console.error('[CompanyAccess] Błąd dostępów:', result.error);
+    if(!userId || !tok()) return [];
+    try {
+      const r = await fetch(API() + '/api/company-access?user_id=' + encodeURIComponent(userId), { headers: hdrs() });
+      if(!r.ok){ console.error('[CompanyAccess] HTTP ' + r.status); return []; }
+      const d = await r.json().catch(() => ({}));
+      return Array.isArray(d.access) ? d.access : [];
+    } catch(e){
+      console.error('[CompanyAccess] Blad dostepow:', e);
       return [];
     }
-
-    return result.data || [];
   }
 
   function ensureModal(){
@@ -140,43 +158,33 @@
     }
 
     const companies = window.TaxOrderCompaniesList || [];
+    const btn = document.getElementById('ca-save');
+    if(btn){ btn.disabled = true; btn.textContent = 'Zapisywanie...'; }
 
-    for(const c of companies){
-      const view = document.querySelector('.ca-view[data-company="' + c.id + '"]')?.checked || false;
-      const edit = document.querySelector('.ca-edit[data-company="' + c.id + '"]')?.checked || false;
+    try {
+      for(const c of companies){
+        const view = document.querySelector('.ca-view[data-company="' + c.id + '"]')?.checked || false;
+        const edit = document.querySelector('.ca-edit[data-company="' + c.id + '"]')?.checked || false;
 
-      if(view || edit){
-        const result = await window.supabaseClient
-          .from('user_company_access')
-          .upsert({
-            user_id: userId,
-            company_id: c.id,
-            can_view: view,
-            can_edit: edit
-          }, { onConflict: 'user_id,company_id' });
-
-        if(result.error){
-          alert('Błąd zapisu: ' + result.error.message);
-          console.error(result.error);
-          return;
-        }
-      } else {
-        const result = await window.supabaseClient
-          .from('user_company_access')
-          .delete()
-          .eq('user_id', userId)
-          .eq('company_id', c.id);
-
-        if(result.error){
-          alert('Błąd usuwania dostępu: ' + result.error.message);
-          console.error(result.error);
+        // PUT obsluguje oba przypadki: view/edit = nadanie, brak obu = usuniecie
+        const r = await fetch(API() + '/api/company-access', {
+          method: 'PUT', headers: hdrs(),
+          body: JSON.stringify({ user_id: userId, company_id: c.id, can_view: view, can_edit: edit })
+        });
+        if(!r.ok){
+          const d = await r.json().catch(() => ({}));
+          alert('Blad zapisu dla ' + (c.short_name || c.id) + ': ' + (d.error || ('HTTP ' + r.status)));
           return;
         }
       }
+      if(typeof toast === 'function') toast('✓ Uprawnienia zapisane');
+      else alert('Uprawnienia zapisane');
+      close();
+    } catch(e){
+      alert('Blad sieci: ' + e.message);
+    } finally {
+      if(btn){ btn.disabled = false; btn.textContent = 'Zapisz'; }
     }
-
-    alert('Uprawnienia zapisane');
-    close();
   }
 
   function injectButton(){

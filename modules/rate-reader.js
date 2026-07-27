@@ -11,7 +11,13 @@ window.TaxOrderRateReader = {
   async loadRates(municipality, taxYear) {
     const key = `${municipality}_${taxYear}`;
     if (this._cache[key]) return this._cache[key];
-    if (!window.supabaseClient) return null;
+    if (!window.supabaseClient) {
+      // NIEZMIGROWANE (26.07.2026): tabela `tax_rates` istniala tylko w Supabase,
+      // ktory nie jest juz podpiety. D1 nie ma odpowiednika. Stawki gminne
+      // obsluguje window.GminyRates (modules/gminy-rates.js) — to sciezka robocza.
+      console.warn('[RateReader] Backend stawek niedostepny (tax_rates byla w Supabase). Uzywam GminyRates.');
+      return null;
+    }
 
     const { data, error } = await window.supabaseClient
       .from('tax_rates')
@@ -252,7 +258,10 @@ window.TaxOrderRateReader = {
 
   // ── ZAPIS STAWEK DO SUPABASE ──────────────────────────────────────
   async saveRatesToDb(municipality, taxYear, rates, meta) {
-    if (!window.supabaseClient) return { ok: false };
+    if (!window.supabaseClient) {
+      console.warn('[RateReader] Zapis stawek niedostepny — brak backendu tax_rates w D1.');
+      return { ok: false, error: 'Backend stawek niezmigrowany do D1' };
+    }
 
     const payload = {
       municipality,

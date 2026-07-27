@@ -1,96 +1,109 @@
-﻿(function(){
-  async function loadCompanies(){
-    if(!window.supabaseClient){
-      console.warn('[CompaniesReadOnly] Brak supabaseClient');
+/**
+ * TaxOrder Pro — Lista firm (najemców)
+ *
+ * MIGRACJA (26.07.2026): przepisane z Supabase na D1.
+ * Poprzednia wersja wołała window.supabaseClient, który nigdy nie był
+ * inicjalizowany (SDK ani supabase-client.js nie są ładowane w index.html),
+ * więc panel firm nie działał. Źródłem prawdy jest teraz tabela `companies`
+ * w D1 (schema_v44) przez /api/companies.
+ */
+(function () {
+  'use strict';
+
+  const API  = () => window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
+  const tok  = () => localStorage.getItem('cf_token') || '';
+  const hdrs = () => ({ Authorization: 'Bearer ' + tok(), 'Content-Type': 'application/json' });
+
+  async function loadCompanies() {
+    if (!tok()) {
+      console.warn('[Companies] Brak tokenu — pomijam pobranie firm');
       return [];
     }
-
-    const { data, error } = await window.supabaseClient
-      .from('companies')
-      .select('id, slug, short_name, name, nip, regon, city, street, building_no, postal_code, color, owner_label')
-      .order('short_name');
-
-    if(error){
-      console.error('[CompaniesReadOnly] Błąd:', error);
-      return [];
+    try {
+      const r = await fetch(API() + '/api/companies', { headers: hdrs() });
+      if (!r.ok) {
+        console.error('[Companies] HTTP ' + r.status);
+        return window.TaxOrderCompaniesList || [];
+      }
+      const d = await r.json().catch(() => ({}));
+      window.TaxOrderCompaniesList = Array.isArray(d.companies) ? d.companies : [];
+      return window.TaxOrderCompaniesList;
+    } catch (e) {
+      console.error('[Companies] Blad sieci:', e);
+      return window.TaxOrderCompaniesList || [];
     }
-
-    window.TaxOrderCompaniesList = data || [];
-    console.log('[CompaniesReadOnly] Firmy:', window.TaxOrderCompaniesList);
-    return window.TaxOrderCompaniesList;
   }
 
-  function renderCompaniesPanel(){
+  function renderCompaniesPanel() {
     const el = document.getElementById('companies-grid');
-    if(!el){
-      console.warn('[CompaniesReadOnly] Brak #companies-grid');
+    if (!el) return;
+
+    const list = window.TaxOrderCompaniesList || [];
+    if (!list.length) {
+      el.innerHTML = '<div style="color:var(--text3);padding:16px">Brak firm do wyświetlenia.</div>';
       return;
     }
 
-    const list = window.TaxOrderCompaniesList || [];
-
-    el.innerHTML = list.map(c => `
+    el.innerHTML = list.map(c => {
+      const color = /^#[0-9a-fA-F]{3,6}$/.test(c.color || '') ? c.color : '#185FA5';
+      const adres = [
+        [c.ulica, c.dom].filter(Boolean).join(' '),
+        [c.kod, c.miasto].filter(Boolean).join(' ')
+      ].filter(Boolean).join(', ');
+      return `
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <div style="width:12px;height:12px;border-radius:50%;background:${/^#[0-9a-fA-F]{3,6}$/.test(c.color||'') ? c.color : '#185FA5'}"></div>
-          <strong>${esc(c.short_name || c.slug)}</strong>
+          <div style="width:12px;height:12px;border-radius:50%;background:${color}"></div>
+          <strong>${esc(c.short_name || c.id)}</strong>
         </div>
         <div style="font-size:12px;color:var(--text2);min-height:34px">${esc(c.name || '')}</div>
         <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.6">
           NIP: ${esc(c.nip || '—')}<br>
           REGON: ${esc(c.regon || '—')}<br>
-          ${esc(c.street || '')} ${esc(c.building_no || '')}, ${esc(c.postal_code || '')} ${esc(c.city || '')}
+          ${esc(adres || '—')}
         </div>
         <div style="margin-top:12px;display:flex;gap:8px">
-          <button class="btn btn-red" type="button" data-id="${esc(c.id)}" data-name="${esc(c.short_name || c.slug || '')}" onclick="window.TaxOrderCompaniesReadOnly.deleteCompany(this.dataset.id, this.dataset.name)">
-            Usuń
+          <button class="btn btn-red" type="button"
+                  data-id="${esc(c.id)}" data-name="${esc(c.short_name || c.id)}"
+                  onclick="window.TaxOrderCompaniesReadOnly.deactivateCompany(this.dataset.id, this.dataset.name)">
+            Dezaktywuj
           </button>
         </div>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
   }
 
-  async function loadAndRenderCompanies(){
+  async function loadAndRenderCompanies() {
     await loadCompanies();
     renderCompaniesPanel();
   }
 
-  async function deleteCompany(id, name){
-  if(!id){
-    alert('Brak ID firmy');
-    return;
+  /**
+   * Dezaktywacja zamiast usunięcia — pojazdy, dokumenty i deklaracje DT-1
+   * firmy zostają w bazie (wymogi archiwizacji i kontroli podatkowej).
+   */
+  async function deactivateCompany(id, name) {
+    if (!id) return;
+    if (!confirm('Dezaktywować firmę: ' + (name || id) + '?\n\nDane firmy (pojazdy, dokumenty, deklaracje) zostaną zachowane, ale firma zniknie z listy wyboru.')) return;
+
+    try {
+      const r = await fetch(API() + '/api/companies/' + encodeURIComponent(id), {
+        method: 'DELETE', headers: hdrs()
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { alert('Blad: ' + (d.error || ('HTTP ' + r.status))); return; }
+      if (typeof toast === 'function') toast('✓ Firma dezaktywowana');
+      await loadAndRenderCompanies();
+    } catch (e) {
+      alert('Blad sieci: ' + e.message);
+    }
   }
 
-  if(!confirm('Czy na pewno usunąć firmę: ' + (name || id) + '?')){
-    return;
-  }
-
-  const result = await window.supabaseClient
-    .from('companies')
-    .delete()
-    .eq('id', id);
-
-  if(result.error){
-    console.error('[CompaniesReadOnly] Błąd usuwania:', result.error);
-    alert('Błąd usuwania: ' + result.error.message);
-    return;
-  }
-
-  if(typeof toast === 'function'){
-    toast('✓ Firma usunięta');
-  }
-
-  await loadAndRenderCompanies();
-}
-
-window.TaxOrderCompaniesReadOnly = {
+  window.TaxOrderCompaniesReadOnly = {
     loadCompanies,
     renderCompaniesPanel,
     loadAndRenderCompanies,
-    deleteCompany
+    deactivateCompany,
+    deleteCompany: deactivateCompany   // alias zgodnosci ze starym HTML
   };
 })();
-
-
-
-

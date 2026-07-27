@@ -4,6 +4,7 @@
 ## Architektura systemu
 
 **Stack:** Cloudflare Pages (SPA) + Worker (backend REST) + D1 (SQLite) + R2 (pliki) + KV (prefs)
+**Supabase:** wycofany. Katalog `supabase/` to relikt — nie dodawaj tam nic nowego.
 **Worker URL produkcja:** `https://taxorder-pro-api.adamus1000.workers.dev`
 **GitHub:** `https://github.com/adic94/taxorder-pro`
 **Język UI:** polski | **Język kodu (zmienne, funkcje):** angielski
@@ -11,13 +12,13 @@
 ### Kluczowe pliki
 | Plik | Rola |
 |------|------|
-| `worker/index.js` | Cały backend Worker (~3500 linii) |
-| `app.js` | Główna logika SPA (~7000 linii) |
-| `index.html` | Markup + definicja globalnego `esc()` |
-| `modules/vehicle-detail.js` | Karta pojazdu (~2100 linii) |
+| `worker/index.js` | Cały backend Worker (~11 500 linii) |
+| `app.js` | Główna logika SPA (~9700 linii, 587 KB) |
+| `index.html` | Markup + definicja globalnego `esc()` (~5200 linii, 365 KB) |
+| `modules/vehicle-detail.js` | Karta pojazdu (~3700 linii) |
 | `modules/tax-engine.js` | Silnik podatku DT-1 (stawki, kategorie) |
 | `modules/cf-cloud.js` | Klient Cloudflare D1 API |
-| `modules/i18n.js` | Tłumaczenia PL/EN/DE/UA/RU/CZ/SK (7 języków) |
+| `modules/i18n.js` | Tłumaczenia PL/EN/DE/UK/LV/LT/ET (7 języków) |
 | `modules/gminy-rates.js` | Stawki podatkowe per gmina |
 | `sw.js` | Service Worker (PWA, cache) |
 
@@ -67,6 +68,28 @@ Dotyczy szczególnie: `dmc`, `dmcMax`, `dmcZespolu`, `miesiacePodatku`, `rok`
 
 ---
 
+## FIRMY (NAJEMCY) — ŹRÓDŁO PRAWDY
+
+Od schema_v44 firmy żyją w tabeli `companies` w D1, nie w kodzie.
+
+- `GET /api/companies` — lista firm widocznych dla użytkownika (admin: wszystkie;
+  reszta: `user_company_access` + własna `users.company_id`)
+- `POST/PUT/DELETE /api/companies` — tylko rola `admin` / `superadmin`.
+  DELETE = dezaktywacja (`active=0`), nigdy fizyczne kasowanie — dane pojazdów,
+  dokumentów i deklaracji DT-1 muszą zostać.
+- `GET/PUT /api/company-access` — nadawanie dostępów użytkownik ↔ firma
+
+**Literał `COMPANIES` w `app.js` to seed i fallback offline**, nie źródło prawdy.
+`hydrateCompaniesFromApi()` scala listę z D1 po zalogowaniu. Dodając firmę,
+dopisuj ją do D1 — nie do literału.
+
+**Kill switch** (bez deployu, z konsoli przeglądarki):
+```javascript
+localStorage.setItem('taxorder_companies_source','local'); location.reload();
+```
+Wraca do listy lokalnej. Pełny runbook wycofania: `docs/ROLLBACK_v44.md`.
+Weryfikacja po deployu: `npm run verify:v44`.
+
 ## PODATEK DT-1 — ZASADY DOMENY
 
 ### Przepływ obliczeń (kolejność priorytetu)
@@ -100,8 +123,9 @@ cd "c:\Users\acichocki\Desktop\Program flotowy\taxorder-pro"
 .\node_modules\.bin\wrangler.cmd d1 execute taxorder-pro --remote --file=worker/schema_vN.sql
 ```
 - Schematy: `CREATE TABLE IF NOT EXISTS` — bezpieczne do ponownego uruchomienia
-- Aktualny schemat: v15 (tabela `error_logs`)
+- **Aktualny schemat: v44** (`companies`, `user_company_access`) — 44 pliki migracji
 - Nowe tabele zawsze w nowym pliku `schema_vN.sql` (N = kolejny numer)
+- Weryfikacja spójności: `npm run migration-check`
 
 ### Frontend (Cloudflare Pages)
 - Automatyczny deploy przy `git push origin main`
@@ -119,7 +143,9 @@ cd "c:\Users\acichocki\Desktop\Program flotowy\taxorder-pro"
 ### i18n
 - Klucz tłumaczenia: `window.t('klucz.i18n')` lub `data-i18n="klucz"`
 - Nowy klucz → dodać do **wszystkich 7 języków** w `modules/i18n.js`
-- Wzorzec: `{ pl: '...', en: '...', de: '...', ua: '...', ru: '...', cz: '...', sk: '...' }`
+- Języki: `pl` (bazowy), `en`, `de`, `uk` (ukraiński), `lv` (łotewski), `lt` (litewski), `et` (estoński)
+- Wzorzec: `{ pl: '...', en: '...', de: '...', uk: '...', lv: '...', lt: '...', et: '...' }`
+- Języki bałtyckie wynikają z operacji na rynkach LV/LT/EE — nie usuwać
 
 ### printCard() / renderowanie HTML
 - `row(lbl, val)` — używa `esc()` automatycznie, dla wartości tekstowych
@@ -129,7 +155,22 @@ cd "c:\Users\acichocki\Desktop\Program flotowy\taxorder-pro"
 
 ## CI/CD — GITHUB ACTIONS
 
-Pipeline: `.github/workflows/ci-e2e.yml` → uruchamia się przy `push` do `main`
+### ⚠️ PUSH DO `main` = WDROŻENIE NA PRODUKCJĘ
+- `worker/**`, `wrangler.toml`, `package.json` → **`deploy-worker.yml` automatycznie wdraża Worker**
+- każdy inny plik → Cloudflare Pages przebudowuje frontend
+- Zmiany w backendzie rób przez branch + PR, nie bezpośrednio na `main`
+
+### Workflow (8 plików w `.github/workflows/`)
+| Plik | Wyzwalacz | Rola |
+|------|-----------|------|
+| `ci-e2e.yml` | push main / PR / nightly 02:00 UTC | Playwright E2E + testy API |
+| `ci-js.yml` | push | `node --check` na wszystkich modułach |
+| `ci-ocr-docker.yml` | zmiany w `ocr-service/**` | build obrazu Docker |
+| `deploy-worker.yml` | zmiany w `worker/**` | **auto-deploy Workera** |
+| `health-check.yml` | cron | monitoring produkcji |
+| `nightly-report.yml` | cron | raport nocny |
+| `claude.yml` | — | integracja Claude |
+| `setup-labels.yml` | — | etykiety repo |
 
 **Wymagane sekrety GitHub (Settings → Secrets):**
 - `TEST_EMAIL` — login konta testowego
@@ -197,3 +238,17 @@ npm run migration-check # sprawdza czy schematy są spójne
 4. **`pillLbl[status] || status`** — fallback `|| status` to surowe dane DB → `|| esc(status)`
 5. **`v.rok ?? null`** — rok może być `0` (nieznany) albo `null` — nie używaj `|| null`
 6. **Service Worker** — przy zmianach w `index.html` (nowe `<script>`) zawsze bump `CACHE_NAME`
+7. **Nie używaj `window.supabaseClient`** — nigdy nie jest inicjalizowany (SDK ani
+   `modules/supabase-client.js` nie są ładowane). Moduły `companies-readonly.js`,
+   `company-create.js`, `company-access.js` zostały przepisane na D1 (26.07.2026).
+   `rate-reader.js` pozostaje niezmigrowany — tabela `tax_rates` istniała tylko
+   w Supabase; stawki gminne obsługuje `window.GminyRates`.
+   **Backend to wyłącznie D1 przez Worker.**
+8. **`ocr-service/` nie jest podłączony** — mikroserwis z kaskadą Aztec+NRV2E istnieje w repo,
+   ale żaden plik aplikacji się do niego nie odwołuje. OCR dokumentów idzie przez
+   `/api/ai/ocr`, `/api/ai/ocr-doc` i `/api/bulk/*` (Groq Vision). Aztec daje 100% pewności
+   danych — docelowo powinien być pierwszym krokiem dla dowodów rejestracyjnych.
+9. **Izolacja tenanta** — każde zapytanie do tabeli tenantowej musi mieć `company_id=?`.
+   Wzorzec dla operacji po `id`: najpierw `SELECT ... WHERE id=? AND company_id=?`, przy braku
+   wiersza `404`; albo `WHERE id=? AND company_id=?` bezpośrednio w `UPDATE`/`DELETE`
+   i sprawdzenie `r.meta.changes === 0`. Audyt: 625 zapytań, 99,4% ze scopem.
