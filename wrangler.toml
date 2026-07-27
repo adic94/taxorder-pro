@@ -43,4 +43,10 @@ SUPABASE_URL = "https://opeqckxxdqicszfycolb.supabase.co"
 # npx wrangler secret put OCR_PYTHON_SECRET
 # SUPABASE_ANON_KEY — ustaw jako Cloudflare Secret (szyfrowany):
 # npx wrangler secret put SUPABASE_ANON_KEY
+# CEPIK_KEY — Consumer Key z portalu api-cpa.gov.pl:
+# npx wrangler secret put CEPIK_KEY
+# CEPIK_SECRET — Consumer Secret z portalu api-cpa.gov.pl:
+# npx wrangler secret put CEPIK_SECRET
+# MODULE_ENFORCEMENT — 'off' wyłącza egzekwowanie licencji (kill switch):
+# npx wrangler secret put MODULE_ENFORCEMENT
 

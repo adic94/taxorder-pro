@@ -8896,8 +8896,8 @@ const CEPIK_LABELS = {
 };
 
 // State
-let cepikConsumerKey    = localStorage.getItem('dt1_cepik_key')    || 'P1uJWJ6PQKNAPwd9fdNQeQr0fuIa';
-let cepikConsumerSecret = localStorage.getItem('dt1_cepik_secret') || '5NVf8JnqaIBVvIIPznJWJBFD8ZYa';
+let cepikConsumerKey    = localStorage.getItem('dt1_cepik_key')    || '';
+let cepikConsumerSecret = localStorage.getItem('dt1_cepik_secret') || '';
 let cepikToken          = localStorage.getItem('dt1_cepik_token')||'';
 let cepikTokenExpires   = parseInt(localStorage.getItem('dt1_cepik_token_exp')||'0');
 let cepikProxy          = localStorage.getItem('dt1_cepik_proxy')||'';
@@ -8956,42 +8956,22 @@ function copyToken() {
   if(t) { navigator.clipboard.writeText(t).then(()=>toast('✓ Token skopiowany do schowka')); }
 }
 
-// --- OAuth2 — generowanie tokenu ---
-async function cepikGetToken(key, secret) {
-  const credentials = btoa(key + ':' + secret);
-  // Zawsze używaj CF Worker proxy (rozwiązuje CORS + IP whitelist api-cpa.gov.pl)
+// --- OAuth2 — generowanie tokenu przez Worker (klucze w env.CEPIK_KEY / env.CEPIK_SECRET) ---
+async function cepikGetToken() {
   const workerBase = (window.CF_WORKER_URL||'').replace(/\/$/,'');
-  if(workerBase) {
-    cepikLog('Generuję token OAuth2 przez CF Worker proxy...','info');
-    const resp = await fetch(workerBase + '/api/cepik/token', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Basic ' + credentials,
-        'Content-Type':  'application/x-www-form-urlencoded'
-      },
-      body: 'grant_type=client_credentials'
-    });
-    if(!resp.ok) {
-      const txt = await resp.text().catch(()=>'');
-      throw new Error(`CF proxy token: HTTP ${resp.status} — ${txt.slice(0,120)}`);
-    }
-    const data = await resp.json();
-    if(!data.access_token) throw new Error('Brak access_token w odpowiedzi: '+JSON.stringify(data).slice(0,100));
-    return data;
-  }
-  // Fallback: bezpośrednie połączenie (może być blokowane przez CORS)
-  cepikLog('Generuję token OAuth2 z api-cpa.gov.pl (bez proxy)...','info');
-  const resp = await fetch(CEPIK_TOKEN_URL, {
+  if(!workerBase) throw new Error('Brak Worker URL — skonfiguruj CF_WORKER_URL');
+  cepikLog('Generuję token CEPiK przez Worker proxy...','info');
+  const resp = await fetch(workerBase + '/api/cepik/token', {
     method: 'POST',
     headers: {
-      'Authorization': 'Basic ' + credentials,
+      'Authorization': 'Bearer ' + (localStorage.getItem('cf_token')||''),
       'Content-Type':  'application/x-www-form-urlencoded'
     },
     body: 'grant_type=client_credentials'
   });
   if(!resp.ok) {
     const txt = await resp.text().catch(()=>'');
-    throw new Error(`Token endpoint: HTTP ${resp.status} — ${txt.slice(0,120)}`);
+    throw new Error(`CF proxy token: HTTP ${resp.status} — ${txt.slice(0,120)}`);
   }
   const data = await resp.json();
   if(!data.access_token) throw new Error('Brak access_token w odpowiedzi: '+JSON.stringify(data).slice(0,100));
@@ -9002,26 +8982,23 @@ async function cepikConnect() {
   const key    = document.getElementById('cepik-key')?.value?.trim()||'';
   const secret = document.getElementById('cepik-secret')?.value?.trim()||'';
   const proxy  = document.getElementById('cepik-proxy')?.value?.trim()||'';
-  if(!key||!secret) { toast('⚠ Wpisz Klucz klienta i Klucz sekretny'); return; }
 
   const btn = document.getElementById('cepik-connect-btn');
   if(btn) { btn.disabled=true; btn.innerHTML='<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i>Łączenie...'; }
   updateCepikStatus('testing');
 
   try {
-    const data = await cepikGetToken(key, secret);
+    const data = await cepikGetToken();
     const token  = data.access_token;
     const expIn  = data.expires_in || 3600;
     const expAt  = Date.now() + expIn*1000;
 
-    // Zapisz
-    cepikConsumerKey    = key;
-    cepikConsumerSecret = secret;
+    // Opcjonalnie zapisz credentials użytkownika (nie używane do auth — Worker używa env secrets)
+    if(key) { cepikConsumerKey = key; localStorage.setItem('dt1_cepik_key', key); }
+    if(secret) { cepikConsumerSecret = secret; localStorage.setItem('dt1_cepik_secret', secret); }
     cepikToken          = token;
     cepikTokenExpires   = expAt;
     cepikProxy          = proxy;
-    localStorage.setItem('dt1_cepik_key',    key);
-    localStorage.setItem('dt1_cepik_secret', secret);
     localStorage.setItem('dt1_cepik_token',  token);
     localStorage.setItem('dt1_cepik_token_exp', String(expAt));
     if(proxy) localStorage.setItem('dt1_cepik_proxy', proxy);
@@ -9046,10 +9023,9 @@ async function cepikConnect() {
 }
 
 async function cepikRefreshToken() {
-  if(!cepikConsumerKey||!cepikConsumerSecret) { toast('⚠ Brak kluczy — wpisz Consumer Key i Secret'); return; }
   try {
     cepikLog('Odświeżam token...','info');
-    const data  = await cepikGetToken(cepikConsumerKey, cepikConsumerSecret);
+    const data  = await cepikGetToken();
     cepikToken  = data.access_token;
     cepikTokenExpires = Date.now() + (data.expires_in||3600)*1000;
     localStorage.setItem('dt1_cepik_token',  cepikToken);
@@ -9114,17 +9090,14 @@ function isCepikTokenValid() {
 // --- Fetch z auto-refresh ---
 async function getValidToken() {
   if(isCepikTokenValid()) return cepikToken;
-  if(cepikConsumerKey && cepikConsumerSecret) {
-    cepikLog('Token wygasł — automatyczne odświeżanie...','warn');
-    const data = await cepikGetToken(cepikConsumerKey, cepikConsumerSecret);
-    cepikToken = data.access_token;
-    cepikTokenExpires = Date.now() + (data.expires_in||3600)*1000;
-    localStorage.setItem('dt1_cepik_token',  cepikToken);
-    localStorage.setItem('dt1_cepik_token_exp', String(cepikTokenExpires));
-    scheduleTokenRefresh((data.expires_in||3600) - 300);
-    return cepikToken;
-  }
-  throw new Error('Brak ważnego tokenu i brak kluczy do odświeżenia');
+  cepikLog('Token wygasł — automatyczne odświeżanie przez Worker...','warn');
+  const data = await cepikGetToken();
+  cepikToken = data.access_token;
+  cepikTokenExpires = Date.now() + (data.expires_in||3600)*1000;
+  localStorage.setItem('dt1_cepik_token',  cepikToken);
+  localStorage.setItem('dt1_cepik_token_exp', String(cepikTokenExpires));
+  scheduleTokenRefresh((data.expires_in||3600) - 300);
+  return cepikToken;
 }
 
 // --- Województwo z nr rej ---
@@ -9699,12 +9672,6 @@ window.addEventListener('load', async () => {
   }, 300);
 
   // ===== CEPiK AUTO-CONNECT =====
-  // Zapisz klucze domyślne do localStorage jeśli nie ma
-  if(!localStorage.getItem('dt1_cepik_key')) {
-    localStorage.setItem('dt1_cepik_key',    cepikConsumerKey);
-    localStorage.setItem('dt1_cepik_secret', cepikConsumerSecret);
-  }
-
   // Uruchom auto-połączenie z CEPiK w tle (nie blokuje UI)
   if(false) setTimeout(async () => {
     try {
@@ -9716,9 +9683,9 @@ window.addEventListener('load', async () => {
         updateCepikStatus('ok');
         cepikLog(`✅ Auto-connect: token ważny przez ${Math.floor(remaining/60)} min`, 'ok');
       } else {
-        // Brak tokenu lub wygasł — generuj nowy
+        // Brak tokenu lub wygasł — generuj nowy przez Worker (env secrets)
         console.log('[CEPiK] Generuję nowy token...');
-        const data = await cepikGetToken(cepikConsumerKey, cepikConsumerSecret);
+        const data = await cepikGetToken();
         cepikToken        = data.access_token;
         cepikTokenExpires = Date.now() + (data.expires_in || 3600) * 1000;
         localStorage.setItem('dt1_cepik_token',     cepikToken);

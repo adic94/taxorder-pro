@@ -3633,27 +3633,47 @@ async function handleDrSave(req, env, user, url) {
 // Browser cannot call api.cepik.gov.pl directly (CORS + IP whitelist).
 // These endpoints forward requests server-side from the Worker.
 
-async function handleCepikToken(request) {
-  // POST /api/cepik/token — proxy to api-cpa.gov.pl/token
-  let body;
-  try { body = await request.text(); } catch { return err('Nieprawidłowe ciało żądania'); }
-  const authHeader = request.headers.get('Authorization') || '';
+async function handleCepikToken(request, env) {
+  // POST /api/cepik/token — proxy do api-cpa.gov.pl używając env secrets (nigdy credentials z frontendu)
+  if (!env.CEPIK_KEY || !env.CEPIK_SECRET) {
+    return err('CEPiK nie jest skonfigurowany — skontaktuj się z administratorem', 503);
+  }
+
+  // Cache w KV: token ważny ~60 min, bufor 5 min
+  const cacheKey = 'cepik_token_v1';
+  try {
+    const cached = await env.PREFS.get(cacheKey, { type: 'json' });
+    if (cached?.access_token && cached.expires_at > Date.now() + 300_000) {
+      return json({ access_token: cached.access_token, expires_in: Math.floor((cached.expires_at - Date.now()) / 1000) });
+    }
+  } catch { /* KV miss — kontynuuj */ }
+
+  const credentials = btoa(env.CEPIK_KEY + ':' + env.CEPIK_SECRET);
   try {
     const resp = await fetch('https://api-cpa.gov.pl/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': authHeader,
+        'Authorization': 'Basic ' + credentials,
       },
-      body,
+      body: 'grant_type=client_credentials',
     });
-    const data = await resp.text();
-    return new Response(data, {
-      status: resp.status,
-      headers: { 'Content-Type': 'application/json', ...CORS },
-    });
+    if (!resp.ok) {
+      // Nie ujawniaj szczegółów błędu CEPiK klientowi
+      console.error('[cepik-token] CEPiK HTTP', resp.status);
+      return err('Błąd autoryzacji CEPiK — sprawdź konfigurację', 502);
+    }
+    const data = await resp.json();
+    if (!data.access_token) return err('Nieprawidłowa odpowiedź CEPiK', 502);
+
+    // Zapisz w KV
+    const expiresIn = data.expires_in || 3600;
+    await env.PREFS.put(cacheKey, JSON.stringify({ access_token: data.access_token, expires_at: Date.now() + expiresIn * 1000 }), { expirationTtl: expiresIn });
+
+    return json({ access_token: data.access_token, expires_in: expiresIn });
   } catch (e) {
-    return err('Błąd proxy tokenu CEPiK: ' + e.message, 502);
+    console.error('[cepik-token]', e.message);
+    return err('Błąd proxy tokenu CEPiK', 502);
   }
 }
 
@@ -8571,6 +8591,12 @@ async function handleRequest(request, env, url, path, ctx) {
     if (!rlApi.allowed) return json({ error: 'Zbyt wiele zapytań. Poczekaj chwilę.' }, 429);
   }
 
+  // Egzekwowanie licencji modułów (serwerowo). Kill switch: wrangler secret put MODULE_ENFORCEMENT → off
+  if (user) {
+    const denied = await enforceModuleAccess(env, user, url, path);
+    if (denied) return denied;
+  }
+
   // Klucze API są związane z JEDNĄ firmą — w przeciwieństwie do sesji ludzkich (które mogą przełączać firmy w UI),
   // każde żądanie kluczem API musi dotyczyć dokładnie tej firmy, do której klucz został wydany.
   if (user && user._apiKey) {
@@ -8820,10 +8846,10 @@ async function handleRequest(request, env, url, path, ctx) {
   if (path.startsWith('/api/dr-import')) { if (!user) return err('Nieautoryzowany', 401); return handleDrImport(request, env, user, url); }
   if (path === '/api/dr-save' && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleDrSave(request, env, user, url); }
 
-  // CEPiK proxy — public (token passed in X-Cepik-Token / Authorization header)
-  if (path === '/api/cepik/token'   && request.method === 'POST') return handleCepikToken(request);
-  if (path === '/api/cepik/pojazdy' && request.method === 'GET')  return handleCepikPojazdy(request, url);
-  if (path === '/api/cepik/kierowca' && request.method === 'GET') return handleCepikKierowca(request, url);
+  // CEPiK proxy — wymaga zalogowania; credentials tylko w env secrets (Worker-side)
+  if (path === '/api/cepik/token'    && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleCepikToken(request, env); }
+  if (path === '/api/cepik/pojazdy'  && request.method === 'GET')  { if (!user) return err('Nieautoryzowany', 401); return handleCepikPojazdy(request, url); }
+  if (path === '/api/cepik/kierowca' && request.method === 'GET')  { if (!user) return err('Nieautoryzowany', 401); return handleCepikKierowca(request, url); }
   if (path === '/api/cepik/kierowca-check' && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleCepikKierowcaV2(request, env, user); }
 
   // TERYT — GUS rejestr jednostek terytorialnych (BDL API proxy + KV cache)
@@ -12981,6 +13007,149 @@ async function handleCarrierRatings(request, env, user, url, path) {
     return json({ ok: true });
   }
   return err('Endpoint nie istnieje', 404);
+}
+
+// ─── EGZEKWOWANIE LICENCJI MODUŁÓW ───────────────────────────────────────────
+// Mapa prefiksów ścieżek API → nazwa modułu. Posortowana od najdłuższych.
+// Ścieżki bez wpisu = zawsze dostępne (basic). Ścieżki z null w mapie — pomijamy.
+// Aktualizuj MODULE_ROUTES gdy dodajesz nowe płatne endpointy.
+const MODULE_ROUTES = [
+  ['/api/predictive-maintenance', 'predictive'],
+  ['/api/fuel-import-scheduler',  'fuel_import'],
+  ['/api/supplier-invoices',      'finance'],
+  ['/api/driver-performance',     'driver_pwa'],
+  ['/api/vehicle-reservations',   'rentals'],
+  ['/api/route-profitability',    'route_profitability'],
+  ['/api/external-access',        'external'],
+  ['/api/driver-training',        'hr'],
+  ['/api/driver-schedule',        'driver_pwa'],
+  ['/api/driver-worktime',        'driver_pwa'],
+  ['/api/driver-scoring',         'driver_pwa'],
+  ['/api/driver-ranking',         'driver_pwa'],
+  ['/api/driver-wages',           'driver_pwa'],
+  ['/api/driver-trips',           'driver_pwa'],
+  ['/api/gps-integrations',       'gps'],
+  ['/api/gps-positions',          'gps'],
+  ['/api/report-builder',         'reporting'],
+  ['/api/video-telematics',       'video_telematics'],
+  ['/api/internal-rentals',       'rentals'],
+  ['/api/predictive-ai',          'predictive'],
+  ['/api/esg-targets',            'esg'],
+  ['/api/budget-annual',          'budget'],
+  ['/api/budget-plans',           'budget'],
+  ['/api/approval-levels',        'finance'],
+  ['/api/transport-orders',       'transport'],
+  ['/api/tacho-records',          'tacho'],
+  ['/api/debt-collection',        'debt'],
+  ['/api/carrier-ratings',        'carrier'],
+  ['/api/route-billing',          'transport'],
+  ['/api/fixed-assets',           'fixed_assets'],
+  ['/api/doc-workflow',           'doc_workflow'],
+  ['/api/hr-medical-exams',       'hr'],
+  ['/api/etoll-devices',          'vignettes'],
+  ['/api/cfm-contracts',          'cfm'],
+  ['/api/cfm-invoices',           'cfm'],
+  ['/api/cfm-clients',            'cfm'],
+  ['/api/route-cost',             'route_profitability'],
+  ['/api/smart-forms',            'smart_forms'],
+  ['/api/hr-leaves',              'hr'],
+  ['/api/vignettes',              'vignettes'],
+  ['/api/carpooling',             'carpooling'],
+  ['/api/ocr-fuel',               'ocr'],
+  ['/api/geofences',              'gps'],
+  ['/api/ev-charging',            'ev'],
+  ['/api/rag-chat',               'rag'],
+  ['/api/co2-report',             'esg'],
+  ['/api/tacho-ddd',              'tacho'],
+  ['/api/edoreczenia',            'edoreczenia'],
+  ['/api/benchmark',              'benchmarks'],
+  ['/api/bulk/',                  'ocr'],
+  ['/api/tekom',                  'gps'],
+  ['/api/trips',                  'gps'],
+  ['/api/ksef',                   'ksef'],
+  ['/api/tco',                    'tco'],
+  ['/api/ai/',                    'ai'],
+  ['/api/cmr',                    'transport'],
+  ['/api/jpk',                    'finance'],
+  ['/api/webhooks',               'webhooks'],
+  ['/api/zapier',                 'webhooks'],
+  ['/api/parking',                'parking'],
+  ['/api/cepik/',                 'cepik'],
+].sort((a, b) => b[0].length - a[0].length);
+
+// Ścieżki zawsze dostępne — bez sprawdzania pakietu
+const MODULE_EXEMPT = [
+  '/api/auth/', '/api/login', '/api/logout', '/api/users/me',
+  '/api/access-control', '/api/companies', '/api/company-access',
+  '/api/health', '/api/prefs', '/api/app-config', '/api/feature-flags',
+  '/api/push/', '/api/errors', '/api/export', '/api/import',
+  '/api/gus-regon', '/api/vies-check', '/api/notif', '/api/alert-types',
+  '/api/teryt', '/api/dashboard', '/api/fleet-kpi', '/api/error-log',
+  '/api/report-subs', '/api/currency', '/api/gdpr', '/api/sent',
+];
+
+function _moduleForPath(path) {
+  for (const [prefix, mod] of MODULE_ROUTES) {
+    if (path.startsWith(prefix)) return mod;
+  }
+  return null;
+}
+
+function _packageModules(pkg) {
+  const professional = ['hr', 'driver_pwa', 'route_profitability', 'transport', 'tacho',
+    'vignettes', 'gps', 'ocr', 'doc_workflow', 'debt', 'fuel_import', 'fixed_assets',
+    'carrier', 'budget', 'webhooks', 'finance', 'rentals', 'benchmarks', 'carpooling', 'parking'];
+  const enterprise = [...professional, 'ai', 'tco', 'ksef', 'cfm', 'rag', 'predictive',
+    'esg', 'cepik', 'video_telematics', 'reporting', 'smart_forms', 'ev', 'edoreczenia',
+    'external', 'smart_forms'];
+  const map = { basic: [], professional, enterprise };
+  return map[pkg] || [];
+}
+
+async function resolveModuleAccess(env, companyId) {
+  const cacheKey = `mod_access_v1:${companyId}`;
+  try {
+    const cached = await env.PREFS.get(cacheKey, { type: 'json' });
+    if (cached) return cached;
+  } catch { /* KV miss */ }
+
+  let allowed;
+  try {
+    const row = await env.DB.prepare(
+      'SELECT package_name, modules_add, modules_remove, valid_until FROM company_packages WHERE company_id=? AND active=1'
+    ).bind(companyId).first();
+    if (!row) {
+      allowed = ['*']; // brak wpisu = nieograniczony dostęp (backward compat przed wdrożeniem pakietów)
+    } else {
+      const expired = row.valid_until && new Date(row.valid_until) < new Date();
+      const pkg = expired ? 'basic' : (row.package_name || 'basic');
+      allowed = _packageModules(pkg);
+      const add = JSON.parse(row.modules_add || '[]');
+      const rem = JSON.parse(row.modules_remove || '[]');
+      allowed = [...new Set([...allowed, ...add])].filter(m => !rem.includes(m));
+    }
+  } catch {
+    // Tabela nie istnieje (przed migracją) lub błąd DB — przepuść wszystko
+    allowed = ['*'];
+  }
+
+  try { await env.PREFS.put(cacheKey, JSON.stringify(allowed), { expirationTtl: 60 }); } catch { /* ignore */ }
+  return allowed;
+}
+
+async function enforceModuleAccess(env, user, url, path) {
+  if (env.MODULE_ENFORCEMENT === 'off') return null; // kill switch
+  if (MODULE_EXEMPT.some(p => path.startsWith(p))) return null;
+  const mod = _moduleForPath(path);
+  if (!mod) return null;
+  const companyId = url.searchParams.get('company') || user.company_id || '';
+  const allowed = await resolveModuleAccess(env, companyId);
+  if (allowed.includes('*') || allowed.includes(mod)) return null;
+  return json({ error: 'Moduł nieaktywny w Twoim pakiecie', module: mod, upgrade_required: true }, 402);
+}
+
+async function invalidateModuleAccess(env, companyId) {
+  try { await env.PREFS.delete(`mod_access_v1:${companyId}`); } catch { /* ignore */ }
 }
 
 export default {
