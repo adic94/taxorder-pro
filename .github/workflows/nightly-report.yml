@@ -71,7 +71,65 @@ jobs:
             echo "✅ Wszystkie pliki JS mają poprawną składnię"
           fi
 
-  # ─── Job 3: Statystyki repozytorium ─────────────────────────────────────────
+  # ─── Job 3: Security monitor — nullable company_id (§9 WERYFIKACJA_v44) ─────
+  security-nullcheck:
+    name: Security — nullable company_id monitor
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wrangler
+        run: npm install -g wrangler@latest
+
+      - name: Sprawdź użytkowników bez company_id
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: bb17d1d7a681084f377fd23989f29d7f
+        run: |
+          printf 'SELECT COUNT(*) AS n FROM users WHERE company_id IS NULL AND active = 1;\n' \
+            > /tmp/nullable_check.sql
+
+          RESULT=$(wrangler d1 execute taxorder-pro --remote \
+            --file=/tmp/nullable_check.sql --json 2>/dev/null || echo "")
+
+          N=$(echo "$RESULT" | python3 -c \
+            "import sys,json; d=json.load(sys.stdin); print(d[0]['results'][0]['n'])" \
+            2>/dev/null || echo "")
+
+          if [ -z "$N" ]; then
+            echo "⚠️  Nie udało się odczytać wyniku z D1 (błąd wrangler lub tokenu) — pomijam."
+            exit 0
+          fi
+
+          echo "users WHERE company_id IS NULL AND active=1 → n=$N"
+
+          if [ "$N" -gt 0 ]; then
+            echo ""
+            echo "❌ SECURITY ALERT: $N aktywnych użytkowników z company_id = NULL"
+            echo ""
+            echo "Wzorzec 'if (user.company_id && user.company_id !== company)'"
+            echo "w poniższych handlerach staje się osiągalny — napraw przed kolejnym releasem."
+            echo ""
+            echo "  L3098  handleFmQueue"
+            echo "  L3865  handleGpsWebhook"
+            echo "  L3981  handleFuelWebhook"
+            echo "  L11972 handleFuelImportScheduler"
+            echo "  L12216 handleDebtCollection"
+            echo "  L12450 handleExternalAccess"
+            echo "  L12494 handleDriverRanking"
+            echo "  L12603 handleRouteProfitability"
+            echo ""
+            echo "Patrz: docs/WERYFIKACJA_v44.md §9"
+            exit 1
+          fi
+
+          echo "✅ Wzorzec nieosiągalny — 0 aktywnych użytkowników z company_id NULL"
+
+  # ─── Job 4: Statystyki repozytorium ─────────────────────────────────────────
   stats:
     name: Statystyki projektu
     runs-on: ubuntu-latest

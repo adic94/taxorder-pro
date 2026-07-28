@@ -371,3 +371,7 @@ SELECT COUNT(*) AS n FROM users WHERE company_id IS NULL AND active = 1;
 Wzorzec w 5 nowych handlerach (L11972–L12603) pochodzi z jednego szablonu — skopiowany przy tworzeniu modułów. Logicznie słabszy niż `user.role !== 'superadmin' && user.company_id !== company` (wzorzec po naprawie §4.3), ale bezpieczny przy aktualnym stanie danych.
 
 **Decyzja właściciela (28.07.2026):** nie ujednolicać wzorca — luka nieosiągalna, ryzyko regresu przy masowej zmianie wyższe niż ryzyko podatności. Rewizja przy pierwszym nullowym company_id w users.
+
+**Wzorzec pozostaje świadomie, objęty monitoringiem — naprawa dopiero przy wykryciu użytkownika bez firmy.**
+
+Monitoring wdrożony w `.github/workflows/nightly-report.yml` (job `security-nullcheck`): każdej nocy o 03:30 UTC uruchamia zapytanie `SELECT COUNT(*) AS n FROM users WHERE company_id IS NULL AND active = 1`. Wynik > 0 powoduje niepowodzenie jobu z komunikatem wskazującym na ten paragraf i listę 8 handlerów.
