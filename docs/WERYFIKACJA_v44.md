@@ -306,3 +306,68 @@ SW cache (CACHE_NAME=taxorder-v71): ✅ zgodne z index.html
 ```
 
 Naprawiono przy okazji: 3 pliki nowych modułów (`debt-collection.js`, `external-panel.js`, `fuel-import-scheduler.js`) miały zagnieżdżony komentarz blokowy `/* ... */` wewnątrz `/** ... */` — niepoprawna składnia JS powodująca błąd `SyntaxError: Unexpected token '*'`. Poprawiono na komentarze jednoliniowe `// SCHEMA_NEEDED: ...`.
+
+---
+
+## 9. Zamknięcie Bloku 6 — 28.07.2026
+
+Data: 2026-07-28  
+Weryfikacja na podstawie kodu + zapytań D1. Decyzja właściciela projektu: Blok 6 zamknięty bez zmian.
+
+### 9.1 Fałszywe alarmy z §8
+
+#### handlePzStart — FAŁSZYWY ALARM (zweryfikowany przez właściciela)
+
+Endpoint inicjuje OAuth i **musi** działać bez uwierzytelnienia. Parametr `?company=` nie daje żadnych uprawnień:
+- `handlePzCallback` (L437+) szuka użytkownika po `pz_sub` albo `email`
+- przy braku konta zwraca `no_account` **bez tworzenia sesji**
+- sesja wiązana jest z `dbUser.id` (rekord z DB), nie z parametrem URL
+- allowlist na `app_url` (regex ograniczony do `taxorder-pro.pages.dev` + localhost) — poprawna ochrona przed open redirect
+
+**Wniosek:** brak podatności. Nie ruszać.
+
+#### Handlery GPS i paliwowy (webhook) — FAŁSZYWY ALARM (zweryfikowany przez właściciela)
+
+`handleGpsWebhook` (L3852) i `handleFuelWebhook` (L3968) mają lokalny guard:
+```javascript
+if (user._apiKey && user.company_id && user.company_id !== company)
+  return err('Brak dostępu do tej firmy', 403);
+```
+Parametr `?company=` nie decyduje o scopie bez walidacji. Guard działa dla kluczy API z przypisaną firmą.
+
+---
+
+### 9.2 Weryfikacja D1 — api_keys i users
+
+```sql
+-- Zapytanie 1: klucze API bez company_id
+SELECT id, name, company_id FROM api_keys WHERE company_id IS NULL OR company_id = '';
+-- Wynik: 0 wierszy ✅
+
+-- Zapytanie 2: aktywni użytkownicy bez company_id (kontekst §4.3)
+SELECT COUNT(*) AS n FROM users WHERE company_id IS NULL AND active = 1;
+-- Wynik: n = 0 ✅
+```
+
+**Wniosek:** wzorzec `user.company_id &&` (który pomija kontrolę przy null) jest faktycznie nieosiągalny dla obu ścieżek:
+- `api_keys.company_id` — NOT NULL w definicji tabeli, 0 wierszy null w bazie
+- `users.company_id` — nullable od schema_v22, ale 0 aktywnych userów z wartością null
+
+---
+
+### 9.3 Pełna lista wzorca `user.company_id &&` w worker/index.js
+
+| Linia | Handler | Wzorzec | Uwaga |
+|-------|---------|---------|-------|
+| L3098 | `handleFmQueue` | `if (user.company_id && user.company_id !== company)` | Fix §4.2; wewnątrz bloku `if (role !== 'admin')` |
+| L3865 | `handleGpsWebhook` | `if (user._apiKey && user.company_id && ...)` | Webhook; api_keys.company_id NOT NULL |
+| L3981 | `handleFuelWebhook` | `if (user._apiKey && user.company_id && ...)` | Webhook; api_keys.company_id NOT NULL |
+| L11972 | `handleFuelImportScheduler` | `if (user.company_id && ... && user.role !== 'superadmin')` | Nowy moduł; users null = 0 |
+| L12216 | `handleDebtCollection` | j.w. | Nowy moduł |
+| L12450 | `handleExternalAccess` | j.w. | Nowy moduł |
+| L12494 | `handleDriverRanking` | j.w. | Nowy moduł |
+| L12603 | `handleRouteProfitability` | j.w. | Nowy moduł |
+
+Wzorzec w 5 nowych handlerach (L11972–L12603) pochodzi z jednego szablonu — skopiowany przy tworzeniu modułów. Logicznie słabszy niż `user.role !== 'superadmin' && user.company_id !== company` (wzorzec po naprawie §4.3), ale bezpieczny przy aktualnym stanie danych.
+
+**Decyzja właściciela (28.07.2026):** nie ujednolicać wzorca — luka nieosiągalna, ryzyko regresu przy masowej zmianie wyższe niż ryzyko podatności. Rewizja przy pierwszym nullowym company_id w users.
