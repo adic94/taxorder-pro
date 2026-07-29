@@ -2,13 +2,7 @@
 
 System deklaracji podatku od środków transportowych (DT-1 / DT-1/A) dla 6 firm floty.
 
-## Firmy
-- mToilet Sp. z o.o. (NIP: 5361938486)
-- G-CON Sp. z o.o. (NIP: 5223036167)
-- G-Rental Sp. z o.o. (NIP: 9522192210)
-- KJR Supply Sp. z o.o. (NIP: 5223116423)
-- NWK Invest Sp. z o.o. (NIP: 5361920285)
-- Wolund Synergy Sp. z o.o. (NIP: 5253006751)
+
 
 ## Pliki
 | Plik | Opis |
