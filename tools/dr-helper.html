@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>DR Helper — Aztec Batch Processor</title>
+</head>
+<body>
+<p id="status">Ładowanie bibliotek…</p>
+
+<!-- ZXing — ta sama wersja co w index.html -->
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
+<!-- pdf.js -->
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script>
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  }
+</script>
+<!-- TaxOrder Aztec Detector (lokalny) -->
+<script src="/modules/aztec-detector.js"></script>
+
+<script>
+document.getElementById('status').textContent =
+  'Gotowy. ZXing=' + (!!window.ZXing) + ' pdfjsLib=' + (!!window.pdfjsLib) +
+  ' AztecDetector=' + (!!window.TaxOrderAztecDetector);
+
+// Eksponuj funkcję do wywołania z Node.js przez page.evaluate()
+window.drHelperReady = true;
+
+/**
+ * Renderuje stronę 1 PDF do JPEG i zwraca jako base64.
+ * Używane przez zxing-wasm w Node.js do detekcji Aztec.
+ */
+window.renderPdfToBase64 = async function(b64, scale) {
+  scale = scale || 4.0;
+  const byteStr = atob(b64);
+  const arr = new Uint8Array(byteStr.length);
+  for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+  const blob = new Blob([arr], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  try {
+    const pdf = await pdfjsLib.getDocument({ url }).promise;
+    const pg = await pdf.getPage(1);
+    const vp = pg.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = vp.width; canvas.height = vp.height;
+    await pg.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+    return canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+};
+
+/**
+ * Przetwarza jeden plik (PDF lub obraz) podany jako base64.
+ * Zwraca { bytes: number[], strategy, attempts, timeMs } lub { error: string }.
+ * UWAGA: processDrFile używa starego ZXing.js. Nowy kod używa renderPdfToBase64 + zxing-wasm Node.js.
+ */
+window.processDrFile = async function(b64, mimeType) {
+  try {
+    const byteStr = atob(b64);
+    const arr = new Uint8Array(byteStr.length);
+    for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+    const blob = new Blob([arr], { type: mimeType });
+    const url  = URL.createObjectURL(blob);
+
+    let canvas;
+    try {
+      if (mimeType === 'application/pdf') {
+        const pdf  = await pdfjsLib.getDocument({ url }).promise;
+        const pg   = await pdf.getPage(1);
+        const vp   = pg.getViewport({ scale: 2.0 });
+        canvas = document.createElement('canvas');
+        canvas.width = vp.width; canvas.height = vp.height;
+        await pg.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+      } else {
+        const img = new Image();
+        await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('obraz nie załadowany')); img.src = url; });
+        canvas = document.createElement('canvas');
+        canvas.width  = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+      }
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+
+    if (!canvas || canvas.width < 10) return { error: 'canvas pusty lub za mały' };
+    if (!window.TaxOrderAztecDetector) return { error: 'TaxOrderAztecDetector niezaładowany' };
+
+    const result = await window.TaxOrderAztecDetector.detect(canvas, { budget: 10000 });
+    if (!result) return { error: 'Aztec nie wykryty po wyczerpaniu budżetu' };
+
+    // Konwertuj surowy tekst ZXing (binarny Latin-1) na tablicę bajtów
+    const bytes = Array.from(result.text, c => c.charCodeAt(0));
+    return { bytes, strategy: result.strategy, attempts: result.attempts, timeMs: result.timeMs };
+
+  } catch (e) {
+    return { error: e.message };
+  }
+};
+</script>
+</body>
+</html>
