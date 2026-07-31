@@ -594,6 +594,125 @@ calcTax():
 
 **Wynik: kategoria D14, podatek 1 488 zł/rok.**
 
-Weryfikacja porównawcza: identyczna ścieżka kodu jak dla przyczep gcon (WW117AF: 18t, 3 osie, D15; WW424AP/WW6202Y: 26t, 3 osie, D15). WA995AL ma 2 osie → D14, co jest prawidłowe.
+Weryfikacja porównawcza: identyczna ścieżka kodu jak dla WW117AF (Przyczepa, 18 t, 3 osie → D15). WA995AL ma 2 osie → D14, co jest prawidłowe. WW424AP i WW6202Y to pojazdy `typ=Ciężarowy` (ciągniki), nie przyczepy — ich analiza w §12.9.
 
 Kluczowa uwaga: TaxEngine używa `refZ = dmcZespolu` jeśli > 0, lub `dmc` jako fallback. Ponieważ DR nie zawierał F.3 dla tej przyczepy (co jest normalne — F.3 pochodzi z dowodu ciągnika, nie przyczepy), system poprawnie opiera się na F.1 = 22 t. Wynik jest poprawny podatkowo.
+
+---
+
+### 12.7 Liczba osi — nieosiągalna z checkpointu DR
+
+#### Przyczyna
+
+Wszystkie 17 DR dla pojazdów >= 12 t mają format `new`. W nowym formacie DR pole `liczbaOsi` mapuje na pozycję 44 w pliku tekstowym — jest to jednak pole organu wydającego (np. „WARSZAWA", „KAMPINOS"), a nie liczba osi z pola **L** dowodu rejestracyjnego. Mapowanie `_DR_NEW.liczbaOsi:44` w `worker/index.js:2767` jest błędne dla tego formatu.
+
+#### Wyniki KROK 2 — tabela
+
+| nr_rej | dmc (kg) | axles D1 | osie z DR | zgodne? |
+|---|---|---|---|---|
+| WA1697F | 32 000 | 2 | ? (nowy format) | — |
+| WA2609J | 32 000 | 2 | ? | — |
+| WZ464FY | 32 000 | 2 | ? | — |
+| WZ621FY | 30 000 | 2 | ? | — |
+| WZ899GJ | 28 000 | 2 | ? | — |
+| WA0677L | 27 000 | 3 | ? | — |
+| WA4789F | 27 000 | 2 | ? | — |
+| WA9885J | 26 000 | 2 | ? | — |
+| WW564AJ | 26 000 | 2 | ? | — |
+| WW1659X | 26 000 | 3 | ? | — |
+| WW424AP | 26 000 | 3 | ? | — |
+| WW6202Y | 26 000 | 3 | ? | — |
+| WA995AL | 22 000 | 2 | ? | — |
+| WW117AF | 18 000 | 3 | ? | — |
+| WZ209LJ | 16 200 | 3 | ? | — |
+| WW1670X | 16 000 | 3 | ? | — |
+| WW024AF | 14 000 | 2 | ? | — |
+
+Wniosek: **liczba osi z DR niedostępna dla żadnego z 17 pojazdów** poprzez checkpoint NDJSON.
+
+Dodatkowe obserwacje z checkpointu (pole `dmcKg` dla 17 pojazdów — format new):
+
+| nr_rej | dmc D1 (kg) | dmc DR (kg) |
+|---|---|---|
+| WA1697F | 32 000 | 37 000 |
+| WA2609J | 32 000 | 36 000 |
+| WA4789F | 27 000 | 33 000 |
+| WZ464FY | 32 000 | 28 000 |
+| WW6202Y | 26 000 | 28 500 |
+| WW424AP | 26 000 | 27 000 |
+| WA9885J | 26 000 | 27 000 |
+| WW564AJ | 26 000 | 27 000 |
+| WZ621FY | 30 000 | 30 000 ✓ |
+| WZ899GJ | 28 000 | 28 000 ✓ |
+
+Pierwsze 8 wierszy: rozbieżności DMC zamaskowane przez klasyfikację grupy B (szczegóły w §12.10).
+
+---
+
+### 12.8 KROK 3/4 — Korekta liczby osi z nazwy modelu (oczekuje na decyzję)
+
+Przy braku danych z DR jedynym pewnym źródłem jest nomenklatura modelu zawierająca konfigurację kół:
+
+| nr_rej | model | axles_count D1 | osie z modelu | pewność |
+|---|---|---|---|---|
+| WA1697F | Volvo FMX **8x4** | 2 | **4** | PEWNE — 8 kół, 4 osie |
+| WZ899GJ | Volvo FMX **6x2** | 2 | **3** | PEWNE — 6 kół, 3 osie |
+
+Dla pozostałych pojazdów (FH 540, R580, R520, R490, Actros) model nie zawiera konfiguracji kół — nie można jednoznacznie ustalić liczby osi bez DR.
+
+#### Wpływ na DT-1 po korekcie (hipotetyczny)
+
+| nr_rej | dmc | kat przed | stawka przed | kat po | stawka po | różnica |
+|---|---|---|---|---|---|---|
+| WA1697F | 32 000 kg | D8 (2 osie) | 2 184 zł | D10 (4 osie, ≥ 29 t) | 4 296 zł | **+2 112 zł** |
+| WZ899GJ | 28 000 kg | D8 (2 osie) | 2 184 zł | D9 (3 osie, ≥ 23 t) | 2 760 zł | **+576 zł** |
+| **Łącznie** | | | **4 368 zł** | | **7 056 zł** | **+2 688 zł/rok** |
+
+**Status:** korekta wstrzymana — oczekuje na decyzję. Jeśli akceptujesz korektę z nazw modeli, wykonam Time Travel bookmark i UPDATE dla obu pojazdów (axles_count i data.osie).
+
+---
+
+### 12.9 KROK 5 — WW424AP, WW6202Y, WW1659X: Ciężarowy, nie przyczepy
+
+Pojazdy typ=Ciężarowy z dmcZespolu > 0 to ciągniki siodłowe i pojazdy z żurawiem HDS, nie przyczepy. TaxEngine dla Ciężarowy używa `dT = dmc/1000`, nie `refZ` — dmcZespolu nie wpływa na kategorię ani stawkę.
+
+| nr_rej | model | typ | dmc | axles | dmcZ | dt1_cat | dt1_tax |
+|---|---|---|---|---|---|---|---|
+| WW424AP | Volvo FH 500 HDS | Ciężarowy | 26 000 | 3 | 40 000 | null | null |
+| WW6202Y | Volvo FH-6X2R 420 | Ciężarowy | 26 000 | 3 | 40 000 | null | null |
+| WW1659X | Scania P94 | Ciężarowy | 26 000 | 3 | 0 | null | null |
+
+Wyliczenie TaxEngine (dla każdego z trzech):
+- `dT = 26 t`, osie = 3 → kat D9
+- `dT = 26 ≥ 23` → `ciezar_ge12_3os_ge23` = **2 760 zł/rok**
+
+Zmiana dmcZespolu z 0 na 40 000 (wykonana w §12.4 dla WW424AP i WW6202Y) nie zmienia kategorii — ścieżka Ciężarowy ignoruje `refZ`. **Brak problemu z fallbackiem F.3→F.1 dla tych pojazdów.**
+
+`dt1_cat = null` oznacza, że DT-1 nie zostało obliczone w aplikacji (pojazdy nie miały otwartego widoku DT-1). Brak deklaracji dt1_declarations dla firm gcon — nie wygenerowano rozliczeń.
+
+---
+
+### 12.10 Ukryte rozbieżności DMC — 8 pojazdów (zamaskowane przez grupę B)
+
+#### Przyczyna masowania
+
+Skrypt `dt1-verify.js` klasyfikuje do grupy B pojazdy z brakującym DMC **lub** dmcZespolu. Priorytet: jeśli `dmcZMissing=true`, pojazd ląduje w B — nawet gdy jednocześnie `dmcDiffer=true`. UPDATE grupy B uzupełniał tylko `dmcZespolu` (gdy brakujące); istniejące pole `dmc` pozostało bez zmian, choć różniło się od DR.
+
+#### Lista rozbieżności
+
+| nr_rej | marka | model | dmc D1 | dmc DR | diff |
+|---|---|---|---|---|---|
+| WA4789F | Scania | R540 Wodolejka | 27 000 | 33 000 | +6 000 |
+| WA1697F | Volvo | FMX 8x4 | 32 000 | 37 000 | +5 000 |
+| WA2609J | Volvo | FH 540 Szambiarka | 32 000 | 36 000 | +4 000 |
+| WZ464FY | Volvo | FH 540 Wodolejka | 32 000 | 28 000 | −4 000 |
+| WW6202Y | Volvo | FH-6X2R 420 | 26 000 | 28 500 | +2 500 |
+| WW424AP | Volvo | FH 500 HDS | 26 000 | 27 000 | +1 000 |
+| WA9885J | Mercedes | Actros | 26 000 | 27 000 | +1 000 |
+| WW564AJ | Scania | R520 | 26 000 | 27 000 | +1 000 |
+
+#### Wpływ podatkowy
+
+Dla wszystkich 8 pojazdów: `axles_count = 2` i `dmc ≥ 15 t` → kategoria D8, stawka `ciezar_ge12_2os_ge15 = 2 184 zł`. Po korekcie dmc pozostają w przedziale ≥ 15 t → **stawka bez zmian**. Wyjątek: WA1697F po korekcie osi (§12.8) zmieni kategorię D8→D10 niezależnie od wartości dmc (37 t ≥ 29 t → 4 296 zł).
+
+Rozbieżności DMC wymagają korekty dla dokładności danych, nie dla podatku. Decyzja do weryfikacji z dokumentami pojazdu.
