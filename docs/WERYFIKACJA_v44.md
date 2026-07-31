@@ -447,3 +447,74 @@ Pojazd ID=1 (Fuso Canter, WGM87205) miał `wlasciciel=NULL` i `vin=NULL`. Znalez
 | `data.dmcZespolu` | 0 | 12050 (z DR) |
 
 Operacja: `UPDATE vehicles SET data = json_set(...) WHERE id=1` — changes=1 ✅
+
+---
+
+## 12. Weryfikacja danych DT-1 przeciwko checkpointowi DR — 2026-07-31
+
+### Kontekst
+
+217 pojazdów w D1 porównano z 978 zdekodowanymi dowodami rejestracyjnymi w checkpoincie (`dr-extractor-checkpoint.ndjson`). Klucz dopasowania: VIN (priorytet), nr_rej (zapasowy). Porównywano pola F.1 (DMC) i F.3 (DMC zespołu). Pola `liczbaOsi` i `zawieszenie` pominięte — niereliabilne w nowym formacie DR (pole liczbaOsi zawiera miasto, zawieszenie — wartości numeryczne zamiast opisu).
+
+Time Travel bookmark **przed** UPDATE: `000001bb-00000000-000050b9-17c1beda4c6baae89a059ebd484672dd`
+Time Travel bookmark **po** UPDATE: `000001bb-0000000e-000050b9-e469234286b077418f96641a581cdc1b`
+
+### 12.1 Wyniki dopasowania
+
+| Metoda | Liczba |
+|---|---|
+| Dopasowano po VIN | 183 |
+| Dopasowano po nr_rej | 4 |
+| Bez dopasowania (brak DR w checkpoincie) | 30 |
+| **Łącznie przebadanych** | **187** |
+
+Pojazdy bez dopasowania (30): 12 myjek ciśnieniowych KRANZLE (niestandardowe VIN FF-/CK-/GJ-), Skoda WI820NW, CAN-AM WW187A, kilka Mercedes (NIK276, WWL5...) i Fuso WU6647K — brak tych DR w bazie skanów. Nie wymagają działania.
+
+### 12.2 Grupy
+
+| Grupa | Opis | Liczba |
+|---|---|---|
+| A — ZGODNE | DMC i DMC zespołu zgodne z DR | 14 |
+| B — BRAKUJĄCE w D1 | Pole zerowe w D1, wartość obecna w DR | 171 |
+| C — ROZBIEŻNE | Obie strony mają wartość, ale różną | 2 |
+
+**Szczegóły grupy B (171 pojazdów):** Niemal wszystkie mają poprawne `dmc` w D1, ale brakuje `dmcZespolu` (pole domyślnie = 0). DR dostarcza wartości DMC zespołu z dokumentów F.3. Jeden wyjątek: **WA995AL ANDRE 2152N** — `dmc = 0` w D1, DR = 22 000 kg (kat. N3, >12 t) — brakujące DMC pojazdu, nie tylko zespołu.
+
+**Pliki poza repo:**
+- `dt1-brakujace-B.json` — pełna lista grupy B
+- `dt1-backup-przed-update-B.json` — stan przed UPDATE (rollback)
+- `dt1-rozbieznosci-C.txt` / `.json` — lista grupy C do ręcznej weryfikacji
+
+### 12.3 Wpływ na podatek DT-1
+
+| | Liczba pojazdów |
+|---|---|
+| Zmiana kategorii podatkowej z grupy B | **1** |
+| Zmiana kategorii podatkowej z grupy C | 0 |
+| **ŁĄCZNIE ryzyko zmiany stawki** | **1** |
+
+Pojazd zmieniający kategorię: **WA995AL ANDRE 2152N** (mtoilet, ID=325) — brak DMC w D1 (było 0), DR: 22 000 kg → kat. N3 (>12 t). Po uzupełnieniu pojazd podlega opodatkowaniu DT-1.
+
+Rozkład różnic w grupie C:
+- < 100 kg (prawdop. zabudowa): 1 pojazd (WL2813N: 7500 vs 7490 kg, diff = 10 kg)
+- > 500 kg (błąd wpisu lub inna wersja): 1 pojazd (WA8920J: 10 500 vs 9 500 kg, diff = 1000 kg)
+
+Obie rozbieżności C pozostają bez zmiany — decyzja do weryfikacji z księgowością.
+
+### 12.4 Wykonane UPDATE
+
+Zakres: tylko grupa B (171 pojazdów), pola brakujące (dmc lub dmcZespolu = 0 w D1, > 0 w DR).
+
+```sql
+-- wrangler d1 execute taxorder-pro --remote --file=dt1-update-B.sql
+-- 171 queries processed, 171 rows written, 172 changes
+```
+
+Wynik: ✅ 171/171 zmian. Spot-check:
+
+| ID | nr_rej | dmc po | dmcZespolu po |
+|---|---|---|---|
+| 325 | WA995AL | 22 000 | 0 (brak w DR) |
+| 7 | WGM0065L | 8 800 | 10 000 |
+| 151 | WA0677L | 27 000 | 40 000 |
+| 344 | WGM7656A | 9 500 | 13 000 |
