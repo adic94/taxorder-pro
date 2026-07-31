@@ -518,3 +518,82 @@ Wynik: ✅ 171/171 zmian. Spot-check:
 | 7 | WGM0065L | 8 800 | 10 000 |
 | 151 | WA0677L | 27 000 | 40 000 |
 | 344 | WGM7656A | 9 500 | 13 000 |
+
+---
+
+### 12.5 Pojazdy podlegające DT-1 bez dowodu w archiwum
+
+Z 30 pojazdów niedopasowanych do checkpointu DR — 16 ma dmc ≥ 3 500 kg i potencjalnie podlega DT-1. Brak DR oznacza brak możliwości weryfikacji danych podatkowych.
+
+| nr_rej | marka | model | dmc (kg) | dt1_category | dt1_tax_amount |
+|---|---|---|---|---|---|
+| WZ320KA | MAN | TGM 4X4-G | 11 990 | D3 | 1 344 zł |
+| NIK276 | Mercedes | Atego 2-G | 9 500 | — | — |
+| WWL5358K | Mercedes | Atego 2-G | 9 500 | — | — |
+| WWL5406K | Mercedes | Atego 2-G | 9 500 | — | — |
+| WZ234HW | Mercedes | Atego 2-M | 9 500 | D3 | 1 344 zł |
+| WZ236HW | Mercedes | Atego 2-M | 9 500 | D3 | 1 344 zł |
+| WZ695FE | Mercedes | Atego 2-M | 9 500 | D3 | 1 488 zł |
+| WZ961FF | Mercedes | Atego 2-M | 9 500 | D3 | 1 488 zł |
+| WZ962FF | Mercedes | Atego 2-M | 9 500 | D3 | 1 488 zł |
+| WZ971CS | Mercedes | Atego 2-M | 9 500 | D3 | 1 488 zł |
+| WU6647K | Fuso | Canter 7/15 | 7 500 | D2 | 1 128 zł |
+| WPR7520T | MAN | TGE 6.160 5.5T | 5 500 | D1 | 840 zł |
+| WU6528M | Mercedes | Sprinter 5.5T 2.2 CDI | 5 500 | D1 | 840 zł |
+| WZ846FL | Mercedes | Sprinter 5.5T 2.2 CDI | 5 500 | D1 | 840 zł |
+| WZ931CV | Mercedes | Sprinter 5.5T 2.2 CDI | 5 500 | D1 | 840 zł |
+| WWL5563K | Mercedes | Sprinter 5.5T 3.0 CDI | 5 500 | — | — |
+
+Uwagi:
+- 4 pojazdy (NIK276, WWL5358K, WWL5406K, WWL5563K) mają `dt1_category = null` — dane podatkowe nie zostały jeszcze obliczone w aplikacji.
+- Różnica 1 344 vs 1 488 zł w D3 (9 500 kg): `ciezar_9_12_new` (rok ≥ 2024) vs `ciezar_9_12_old`.
+- Żaden z 30 niedopasowanych nie jest przyczepą/naczepą z dmc ≥ 7 000 kg.
+
+---
+
+### 12.6 WA995AL — ślady rozliczeń i wyliczenie DT-1
+
+#### Ślady w D1
+
+- **dt1_declarations** (mtoilet): 0 wierszy — żadna deklaracja DT-1 nie została dotąd wygenerowana dla tej firmy. Tabela nie ma kolumny `nr_rej`; rozliczenia są zagregowane per spółka i rok.
+- **documents** (nr_rej='WA995AL', vehicle_id=325): 0 dokumentów — pojazd nie ma żadnych plików w systemie.
+
+Wniosek: WA995AL nigdy nie figurował w rozliczeniu DT-1. Zgadza się z faktem, że `dmc=0` przed korektą.
+
+#### Wyliczenie DT-1 (TYLKO DO WGLĄDU — nie zapisano w D1)
+
+Dane wejściowe (`TaxEngine.calcTax(v)`):
+
+| Pole | Wartość |
+|---|---|
+| typ | Przyczepa |
+| dmc (F.1) | 22 000 kg |
+| dmcZespolu (F.3) | 0 (brak w DR) |
+| osie | 2 |
+| zawieszenie | pneumatyczne |
+| rok | 2017 (isNew = false) |
+| miesiacePodatku | 12 |
+
+Logika krok po kroku:
+
+```
+getCat():
+  dT = 22 000/1000 = 22 t
+  dzT = 0/1000 = 0 t
+  refZ = 0 > 0 ? 0 : 22 → refZ = 22 t   ← F.3=0, fallback na F.1
+  typ.includes("przyczepa") → TRUE
+  refZ=22 >= 12 → TRUE; osie=2 → "D14"
+
+getRate():
+  przyczepa, refZ=22 >= 12, osie=2
+  refZ=22 < 28 → S.przyczepa_ge12_2os_lt28 = 1 488 zł/rok
+
+calcTax():
+  amount = round((1 488 × 12) / 12) = 1 488 zł
+```
+
+**Wynik: kategoria D14, podatek 1 488 zł/rok.**
+
+Weryfikacja porównawcza: identyczna ścieżka kodu jak dla przyczep gcon (WW117AF: 18t, 3 osie, D15; WW424AP/WW6202Y: 26t, 3 osie, D15). WA995AL ma 2 osie → D14, co jest prawidłowe.
+
+Kluczowa uwaga: TaxEngine używa `refZ = dmcZespolu` jeśli > 0, lub `dmc` jako fallback. Ponieważ DR nie zawierał F.3 dla tej przyczepy (co jest normalne — F.3 pochodzi z dowodu ciągnika, nie przyczepy), system poprawnie opiera się na F.1 = 22 t. Wynik jest poprawny podatkowo.
