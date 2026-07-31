@@ -375,3 +375,75 @@ Wzorzec w 5 nowych handlerach (L11972–L12603) pochodzi z jednego szablonu — 
 **Wzorzec pozostaje świadomie, objęty monitoringiem — naprawa dopiero przy wykryciu użytkownika bez firmy.**
 
 Monitoring wdrożony w `.github/workflows/nightly-report.yml` (job `security-nullcheck`): każdej nocy o 03:30 UTC uruchamia zapytanie `SELECT COUNT(*) AS n FROM users WHERE company_id IS NULL AND active = 1`. Wynik > 0 powoduje niepowodzenie jobu z komunikatem wskazującym na ten paragraf i listę 8 handlerów.
+
+---
+
+## 11. Test wielopodmiotowości na danych produkcyjnych — 2026-07-31
+
+### Kontekst
+
+Po migracji 24 pojazdów do właściwych firm (gcon 21, kjrsupply 2, nwkinvest 1) i usunięciu 8 pojazdów podwykonawców zewnętrznych baza zawiera po raz pierwszy realne dane w 4 tenantach:
+
+| company_id | pojazdy |
+|---|---|
+| mtoilet | 193 |
+| gcon | 21 |
+| kjrsupply | 2 |
+| nwkinvest | 1 |
+
+Metodologia: tymczasowe konto testowe `izolacja-test@taxorder.pl` (rola `user`, company_id=`gcon`), usunięte po teście.
+
+---
+
+### 11.1 Test izolacji tenantów
+
+| Endpoint | Parametr | Oczekiwane | Faktyczne | Status |
+|---|---|---|---|---|
+| GET /api/vehicles | (brak) | 21 (gcon) | 21 | ✅ |
+| GET /api/vehicles | ?company=mtoilet | 403 | 403 | ✅ |
+| GET /api/vehicles | ?company=gcon | 21 | 21 | ✅ |
+| GET /api/companies | (brak) | tylko gcon | 1 firma (gcon) | ✅ |
+| GET /api/tenants | (brak) | 403 (superadmin) | 404 — brak endpointu | ⚠️ |
+| GET /api/dashboard | ?company=mtoilet | 403 | 403 | ✅ |
+| GET /api/reports | ?company=mtoilet | 403 | 403 | ✅ |
+| GET /api/documents | ?company=mtoilet | 403 | 403 | ✅ |
+| PUT /api/vehicles/WGM87205 | ?company=mtoilet | 403 | 403 | ✅ |
+| PUT /api/vehicles/WGM87205 | (brak) | 200, zapis do gcon | 200, (gcon, WGM87205) | ✅ zapis do własnej firmy |
+| DELETE /api/vehicles/WGM87205 | ?company=mtoilet | 403 | 403 | ✅ |
+
+**Wynik: izolacja działa dla wszystkich przetestowanych endpointów.**
+
+Mechanizm: centralized guard (L8620–8625 w `handleRequest`), dokumentowany w §8.2. Potwierdzone empirycznie na pierwszym zbiorze danych wielu tenantów. Żaden wyciek danych mtoilet do gcon-user nie wystąpił.
+
+Artefakt testu: PUT bez `?company=` stworzył rekord `(gcon, WGM87205)` — izolacja poprawna (zapis tylko do własnej firmy), artefakt usunięty po teście.
+
+---
+
+### 11.2 Panel najemców (`/api/tenants` + `tenant-panel.js`)
+
+| Element | Stan |
+|---|---|
+| `GET /api/tenants` | 404 — endpoint nie istnieje w Worker |
+| `modules/tenant-panel.js` | Plik nie istnieje w repozytorium |
+| Tabela `company_packages` | Istnieje, ale pusta (0 wierszy) |
+| Tabela `subscriptions` | Nie istnieje |
+
+**Wniosek:** moduł tenant-panel i odpowiadający endpoint Worker nie zostały zaimplementowane. Liczba pojazdów per firma dostępna przez `GET /api/companies` (jako admin). Brak pakietów/licencji = wszystkie firmy mają domyślnie pełny dostęp do funkcji.
+
+**Rekomendacja:** task backlog — implementacja `/api/tenants` i `tenant-panel.js` jako kolejny etap roadmapy multi-tenant.
+
+---
+
+### 11.3 Uzupełnienie WGM87205 (ID=1) z danych DR
+
+Pojazd ID=1 (Fuso Canter, WGM87205) miał `wlasciciel=NULL` i `vin=NULL`. Znaleziony w checkpoincie DR (plik: `WGM87205 stały dowód mT.pdf`, seria DR: BAV6328358). Zaktualizowane pola:
+
+| Pole | Przed | Po |
+|---|---|---|
+| `data.vin` | null | `TYBFECX1ELDC03229` |
+| `data.wlasciciel` | null | `mToilet` |
+| `data.dmc` | 8500 | 8550 (z DR) |
+| `data.dmcMax` | (brak) | 8550 |
+| `data.dmcZespolu` | 0 | 12050 (z DR) |
+
+Operacja: `UPDATE vehicles SET data = json_set(...) WHERE id=1` — changes=1 ✅
