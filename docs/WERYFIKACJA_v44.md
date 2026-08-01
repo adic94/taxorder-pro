@@ -716,3 +716,84 @@ Skrypt `dt1-verify.js` klasyfikuje do grupy B pojazdy z brakującym DMC **lub** 
 Dla wszystkich 8 pojazdów: `axles_count = 2` i `dmc ≥ 15 t` → kategoria D8, stawka `ciezar_ge12_2os_ge15 = 2 184 zł`. Po korekcie dmc pozostają w przedziale ≥ 15 t → **stawka bez zmian**. Wyjątek: WA1697F po korekcie osi (§12.8) zmieni kategorię D8→D10 niezależnie od wartości dmc (37 t ≥ 29 t → 4 296 zł).
 
 Rozbieżności DMC wymagają korekty dla dokładności danych, nie dla podatku. Decyzja do weryfikacji z dokumentami pojazdu.
+
+---
+
+### 12.11 Audyt mapowania _DR_NEW — wyniki KROK 1–3 (2026-08-01)
+
+#### KROK 2 — Właściwa pozycja pola L (liczba osi)
+
+Cel: znaleźć pozycję `liczbaOsi` w 67-polowym rekordzie mCEPiK Aztec.
+
+Metoda: zdekodowanie surowych DR z pliku PDF przez pełny pipeline (Playwright pdf.js → JPEG 4×skala → zxing-wasm Node.js → NRV2E → UTF-16LE), wypisanie wszystkich 67 pozycji.
+
+**Wyniki dekodowania:**
+
+| Pojazd | Konfiguracja | Oczekiwane osie | pos 33 (dr-extractor) | **pos 44 (worker)** |
+|---|---|---|---|---|
+| WZ899GJ Volvo FM | 6X2 | 3 | "WARSZAWA" ✗ | **"3" ✓** |
+| WK63469 Scania R420 | 4X2 | 2 | "WARSZAWA" ✗ | **"2" ✓** |
+
+**Wniosek: `liczbaOsi` to pozycja 44, nie 33.**
+
+- Mapowanie w `worker/index.js` → `_DR_NEW.liczbaOsi:44` → **POPRAWNE** (brak zmian)
+- Mapowanie w `tools/dr-extractor.js` → `DR_NEW.liczbaOsi:33` → **BŁĘDNE** (wymaga zmiany na 44)
+
+#### Dodatkowe odkrycia z surowego rekordu
+
+Na podstawie WZ899GJ i WK63469 (obie 67 pól):
+
+| Pozycja | Aktualna etykieta (dr-extractor) | Faktyczna zawartość | Status |
+|---|---|---|---|
+| 31 | `kategoriaDR` | NIP właściciela (9 cyfr, np. 382123092) | Błędna etykieta |
+| 32 | `nadwozie` | Kod pocztowy właściciela (np. "03-226") | Błędna etykieta |
+| 33 | `liczbaOsi` | Miasto właściciela (np. "WARSZAWA") | Błędna pozycja i etykieta |
+| 43 | *(brak mapowania)* | K — numer homologacji (np. "PL\*2770\*06") | Niezamapowane |
+| 44 | *(brak w dr-extractor)* | **L — liczba osi (np. "2", "3", "4")** | Brak w DR_NEW |
+| 54 | `rokProdukcji` | Rodzaj pojazdu (np. "SAMOCHÓD CIĘŻAROWY", "CIĄGNIK SAMOCHODOWY") | Błędna etykieta |
+| 55 | `podrodzaj` | Przeznaczenie (np. "PRZEWÓZ WODY") | Błędna etykieta |
+| 56 | `przeznaczenie` | Rok produkcji (np. "2016", "2008") | Błędna etykieta |
+
+Pozycje 3–6 = organ wydający (urząd rejestracji); 15–37 = dane właściciela (imię/firma, NIP, kod pocztowy, miasto, ulica, numer).
+
+#### KROK 1 — Sanity check 988 wpisów checkpointu
+
+| Pole | Valid | Invalid | %valid | Uwagi |
+|---|---|---|---|---|
+| seriaDr | 988 | 0 | 100% | OK |
+| nrRej | 900 | 88 | 91% | 88 niestandardowych tablic (obcych lub specjalnych) |
+| marka | 988 | 0 | 100% | OK |
+| vin | 985 | 3 | 100% | 3 niestandardowe (stare pojazdy bez VIN) |
+| dmcKg (F.1) | 962 | 11 | 99% | 11 poniżej 750 kg (lekkie przyczepy) |
+| dmcKg2 (F.2) | 961 | 25 | 97% | 25 poniżej 750 kg |
+| dmcZespolu (F.3) | 653 | 0 | 100% | OK (335 bez wartości = pojazdy bez przyczepy) |
+| masaWlKg (G) | 854 | 134 | 86% | 134 poniżej 500 kg — lekkie przyczepy |
+| kategoria (J) | 774 | 102 | 88% | 102 = kategorie specjalne (N1G, R3a, L3e...) |
+| pojSilnika (P.1) | 688 | 0 | 100% | OK |
+| mocKW (P.2) | 687 | 0 | 100% | OK |
+| miejscaSied (S.1) | 687 | 0 | 100% | OK |
+| **liczbaOsi (pos 33)** | **0** | **988** | **0%** | **Wszystkie to miasta — mapowanie BŁĘDNE** |
+| paliwo (pos 50) | — | — | — | Format zmienny: "D" (nowe DR) lub "ON (Olej napędowy)" (stare DR) |
+| dataRej (pos 51) | — | — | — | Format zmienny: "2016-04-04" (ISO) lub "02.05.2019" (PL) |
+
+Relacje logiczne DMC: F.1 ≥ G zawsze (973 par, 0 anomalii) ✓ | F.2 ≤ F.1: 970 OK, **2 anomalie** (F.2 > F.1, niemożliwe — prawdopodobnie błąd w DR konkretnych pojazdów) | F.3 > F.1: 653 ciągników (oczekiwane dla zestawów) ✓
+
+#### KROK 3 — Analiza dmcKg (F.1 vs F.2)
+
+Rozbieżności DMC w §12.10 (w obie strony: +6000, −4000) tłumaczy różnica F.1 / F.2:
+- **F.1 (pos 38)** = technicznie dopuszczalna DMC (wyższa)
+- **F.2 (pos 39)** = operacyjna DMC dopuszczona przez organ rejestrujący (może być niższa)
+
+Jeśli D1 miał zapisaną wartość z F.2 (ograniczoną przez pozwolenie), a checkpoint trzyma F.1 — różnica idzie "w dół". Jeśli D1 miał wartość z innego źródła — różnica może iść "w górę". Mapowanie `dmcKg:38` i `dmcKg2:39` w obu plikach (worker + dr-extractor) jest POPRAWNE.
+
+#### Podsumowanie: co wymaga zmiany
+
+| # | Plik | Zmiana | Priorytet |
+|---|---|---|---|
+| 1 | `tools/dr-extractor.js` | `liczbaOsi: 33` → `liczbaOsi: 44` | Wymagane przed kolejnym checkpointem |
+| 2 | `tools/dr-extractor.js` | Etykiety: `rokProdukcji:56`, `przeznaczenie:55`, nowe `rodzajPojazdu:54` | Wymagane |
+| 3 | `worker/index.js` | Brak zmian — `_DR_NEW.liczbaOsi:44` jest POPRAWNE | — |
+| 4 | D1 `axles_count` | WZ899GJ: 2→3 (potwierdzone z DR pos 44 = "3") | Czeka na decyzję |
+| 5 | D1 `axles_count` | WA1697F: 2→4 (PDF nieodczytany, wynika z konfiguracji 8×4) | Czeka na decyzję |
+
+KROK 4 (przebudowa checkpointu z poprawionym mapowaniem + porównanie 171 pojazdów) — po zatwierdzeniu zmian w dr-extractor.js.

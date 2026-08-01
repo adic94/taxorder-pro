@@ -4,8 +4,9 @@
  *
  * Użycie:
  *   node tools/dr-extractor.js
+ *   node tools/dr-extractor.js --retry-unreadable   (ponawia tylko "Aztec nieodczytany")
  *
- * Dla PDF wymaga lokalnego serwera HTTP na porcie 8787 (serve8787.js).
+ * Samodzielny mini-serwer HTTP dla dr-helper.html (port 8797, bez wranglera).
  * Obrazy (JPG/PNG/TIFF) przetwarzane bezpośrednio przez zxing-wasm w Node.js.
  * Wyjście: ..\flota-dowody.xlsx (POZA repozytorium)
  */
@@ -14,15 +15,57 @@
 
 const path    = require('path');
 const fs      = require('fs');
+const http    = require('http');
 const sharp   = require('sharp');
 const zxing   = require('zxing-wasm');
 const { chromium } = require('playwright');
 const ExcelJS = require('exceljs');
 
 // ── Ścieżki ────────────────────────────────────────────────────────────────────
-const SHARE_PATH  = '\\\\pl005vdcse\\mLogistyka\\Dokumentacja pojazdów';
-const OUTPUT_PATH = path.join(__dirname, '..', '..', 'flota-dowody.xlsx');
-const HELPER_URL  = 'http://localhost:8787/tools/dr-helper.html';  // dla PDF
+const SHARE_PATH       = 'C:\\Users\\acichocki\\Desktop\\Dokumentacja pojazdów';
+const OUTPUT_PATH      = path.join(__dirname, '..', '..', 'flota-dowody.xlsx');
+const CHECKPOINT_PATH  = path.join(__dirname, '..', '..', 'dr-extractor-checkpoint.ndjson');
+const HELPER_PORT      = 8797;
+const HELPER_URL       = `http://localhost:${HELPER_PORT}/tools/dr-helper.html`;
+const PROJECT_DIR      = path.join(__dirname, '..');
+
+// ── Mini HTTP server dla dr-helper.html ────────────────────────────────────────
+function startHelperServer() {
+  const MIME = { '.html': 'text/html', '.js': 'application/javascript' };
+  const server = http.createServer((req, res) => {
+    let filePath;
+    if (req.url === '/tools/dr-helper.html') filePath = path.join(__dirname, 'dr-helper.html');
+    else if (req.url.startsWith('/modules/'))  filePath = path.join(PROJECT_DIR, req.url);
+    else { res.writeHead(404); res.end(); return; }
+    try {
+      const content = fs.readFileSync(filePath);
+      res.writeHead(200, { 'Content-Type': MIME[path.extname(filePath)] || 'text/plain' });
+      res.end(content);
+    } catch { res.writeHead(404); res.end(); }
+  });
+  return new Promise((resolve, reject) => {
+    server.on('error', reject);
+    server.listen(HELPER_PORT, () => resolve(server));
+  });
+}
+
+// ── Checkpoint (NDJSON, append-only) ──────────────────────────────────────────
+// Klucz: pełna ścieżka + mtime + size — zmieniły się → plik przetworzy się ponownie.
+function loadCheckpoint() {
+  if (!fs.existsSync(CHECKPOINT_PATH)) return new Map();
+  const map = new Map();
+  try {
+    for (const line of fs.readFileSync(CHECKPOINT_PATH, 'utf8').split('\n')) {
+      if (!line.trim()) continue;
+      try { const e = JSON.parse(line); if (e.path) map.set(e.path, e); } catch {}
+    }
+  } catch {}
+  return map;
+}
+
+function saveCheckpointEntry(entry) {
+  try { fs.appendFileSync(CHECKPOINT_PATH, JSON.stringify(entry) + '\n', 'utf8'); } catch {}
+}
 
 // Słowa kluczowe w nazwie pliku sugerujące dowód rejestracyjny
 const DR_NAME_KEYWORDS = [
@@ -31,14 +74,31 @@ const DR_NAME_KEYWORDS = [
   ' dr ', 'dr.', '_dr_', '-dr-',
   'registration', 'zulassung',  // angielski, niemiecki
 ];
-// Słowa w nazwie pliku które WYKLUCZAJĄ (nie są DR)
+// Słowa w nazwie pliku które WYKLUCZAJĄ DR (inne dokumenty pojazdu)
 const DR_NAME_EXCLUDE = [
-  'pzu', 'polisa', 'ubezpiecz', 'oc ', 'ac ', 'leasing', 'faktura',
-  'serwis', 'obsług', 'przegląd', 'przeglad', 'warrant', 'cert',
-  'instrukcj', 'harmonogram', 'palnomocnictw', 'pełnomocnictw',
-  'viatoll', 'e-toll', 'raport', 'protokół', 'protokol',
-  'thumbs.db', '.tmp',
+  'leasing', 'faktura', 'serwis', 'obsług', 'przegląd', 'przeglad',
+  'warrant', 'cert', 'instrukcj', 'harmonogram', 'palnomocnictw',
+  'pełnomocnictw', 'viatoll', 'e-toll', 'raport', 'protokół', 'protokol',
+  'thumbs.db', '.tmp', 'decyzja', 'wniosek', 'pokwitowanie', 'zaśw',
 ];
+
+// Heurystyka polis ubezpieczeniowych — dopasowanie → arkusz "Pominięte"
+const INSURANCE_KW = [
+  'polisa', 'ubezpiecz', 'pzu', 'warta', 'ergo', 'hestia',
+  'allianz', 'generali', 'uniqa', 'link4',
+];
+// OC i AC jako samodzielne tokeny (nie jako część numeru rej./VIN)
+const INSURANCE_OC_AC = /(?<![a-z\d])(oc|ac)(?![a-z\d])/;
+
+function insuranceMatch(filename, dirName) {
+  const text = (filename + ' ' + dirName).toLowerCase().replace(/[_\-]/g, ' ');
+  for (const kw of INSURANCE_KW) {
+    if (text.includes(kw)) return kw;
+  }
+  const m = INSURANCE_OC_AC.exec(text);
+  if (m) return m[1].toUpperCase();
+  return null;
+}
 
 function isDrCandidate(filename) {
   const lower = filename.toLowerCase();
@@ -106,29 +166,28 @@ const DR_NEW = {
   wersja:         11,   // D.2 cd.
   model:          12,   // D.3 — model handlowy
   vin:            13,   // E — VIN
-  wlascicielTyp:  14,   // B — czy firma/osoba (P=prawna, F=fizyczna)
-  // 15-37: dane właściciela (POMIJAMY — RODO)
-  rodzajPojazdu:  30,   // rodzaj pojazdu (może być na różnych indeksach)
-  kategoriaDR:    31,   // J — kategoria homologacyjna
-  nadwozie:       32,   // zabudowa
-  liczbaOsi:      33,   // L — liczba osi
+  wlascicielTyp:  14,   // data ostatniej aktualizacji danych (pos 14)
+  // 15-37: dane właściciela i organu wydającego (POMIJAMY — RODO)
+  // pos 31: NIP właściciela, pos 32: kod pocztowy, pos 33: miasto — NIE są to pola pojazdu
   dmcKg:          38,   // F.1 — DMC (kg)
   dmcKg2:         39,   // F.2 — DMC z ładunkiem (kg)
   dmcZespolu:     40,   // F.3 — DMC zespołu (kg)
   masaWlKg:       41,   // G — masa własna (kg)
   kategoria:      42,   // J — kategoria UE
-  zawieszenie:    45,   // zawieszenie (oś napędowa)
+  // pos 43: K — numer homologacji (np. "PL*2770*06")
+  liczbaOsi:      44,   // L — liczba osi (POTWIERDZONE: WZ899GJ=3, WK63469=2)
+  zawieszenie:    45,   // M.1 / zawieszenie
   przyczepaBH:    46,   // O.1 — przyczepa z hamulcem (kg)
   przyczepaBNH:   47,   // O.2 — przyczepa bez hamulca (kg)
   pojSilnika:     48,   // P.1 — pojemność silnika (cm³)
   mocKW:          49,   // P.2 — moc maksymalna (kW)
   paliwo:         50,   // P.3 — rodzaj paliwa
-  dataRej:        51,   // B.1.1 — data pierwszej rejestracji
+  dataRej:        51,   // B — data pierwszej rejestracji
   miejscaSied:    52,   // S.1 — miejsca siedzące
   normaEmisji:    53,   // norma emisji (euro)
-  rokProdukcji:   54,   // rok produkcji (szacowany indeks)
-  podrodzaj:      55,   // podrodzaj pojazdu
-  przeznaczenie:  56,   // przeznaczenie (szacowany indeks)
+  rodzajPojazdu:  54,   // rodzaj pojazdu (np. "SAMOCHÓD CIĘŻAROWY", "CIĄGNIK SAMOCHODOWY")
+  przeznaczenie:  55,   // przeznaczenie (np. "PRZEWÓZ WODY")
+  rokProdukcji:   56,   // rok produkcji
 };
 const DR_OLD = { nrRej:4, marka:5, typ:6, vin:10, dataRej:48 };
 const FUEL = {
@@ -183,57 +242,140 @@ async function _tryDecodeRaw(imgBuf) {
   return (r.length && r[0].isValid) ? r[0].text : null;
 }
 
-async function detectAztecFromImageBuffer(buf) {
+async function detectAztecFromImageBuffer(buf, attemptOffset = 0) {
+  let n = attemptOffset;
+
   // Próba 1: oryginalny obraz (kolor)
   try {
+    n++;
     const t = await _tryDecodeRaw(buf);
-    if (t) return { text: t, strategy: 'img-orig' };
+    if (t) return { text: t, strategy: 'img-orig', attempts: n };
   } catch { /* next */ }
 
   // Próba 2: grayscale + threshold 128
   try {
+    n++;
     const t = await _tryDecodeRaw(await sharp(buf).greyscale().threshold(128).toBuffer());
-    if (t) return { text: t, strategy: 'img-thresh128' };
+    if (t) return { text: t, strategy: 'img-thresh128', attempts: n };
   } catch { /* next */ }
 
   // Próba 3: normalize + threshold 128
   try {
+    n++;
     const t = await _tryDecodeRaw(await sharp(buf).greyscale().normalize().threshold(128).toBuffer());
-    if (t) return { text: t, strategy: 'img-norm-thresh' };
+    if (t) return { text: t, strategy: 'img-norm-thresh', attempts: n };
   } catch { /* next */ }
 
   // Próba 4: 2× upscale (dla skanów gdzie Aztec <800px)
-  // Stosuj gdy krótszy bok < 4000px — przy 2x uzyskuje ~800px dla kodu ~400px
   try {
     const meta = await sharp(buf).metadata();
-    const shortSide = Math.min(meta.width, meta.height);
-    if (shortSide < 4000) {
+    if (Math.min(meta.width, meta.height) < 4000) {
+      n++;
       const scaled = await sharp(buf).resize({ width: meta.width * 2, height: meta.height * 2 }).toBuffer();
       const t = await _tryDecodeRaw(scaled);
-      if (t) return { text: t, strategy: 'img-2x' };
+      if (t) return { text: t, strategy: 'img-2x', attempts: n };
     }
   } catch { /* ignore */ }
 
   return null;
 }
 
-// ── Detekcja Aztec — PDF (render przez Playwright + wasm w Node) ───────────────
-async function detectAztecFromPdf(buf, bPage) {
-  const b64 = buf.toString('base64');
-  for (const scale of [4.0, 8.0]) {
-    let imgB64;
-    try {
-      imgB64 = await bPage.evaluate(
-        ({ b64, scale }) => window.renderPdfToBase64(b64, scale),
-        { b64, scale }
-      );
-    } catch (e) { continue; }
-    if (!imgB64) continue;
+// ── PdfRenderer — zarządza przeglądarką i timeoutami renderowania ─────────────
+// Promise.race z 30s timeoutem; po timeoucie strona jest zamykana i tworzona na nowo.
+// 3 timeouty z rzędu (niekoniecznie ten sam plik) → restart całej przeglądarki.
+class PdfRenderer {
+  constructor() { this.browser = null; this.page = null; this.consecutiveTimeouts = 0; }
 
-    const result = await detectAztecFromImageBuffer(Buffer.from(imgB64, 'base64'));
-    if (result) return { ...result, strategy: `pdf-sc${scale}-${result.strategy}` };
+  async init() {
+    try {
+      this.browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    } catch {
+      this.browser = await chromium.launch({ headless: true, channel: 'chrome', args: ['--no-sandbox'] });
+    }
+    await this._newPage();
   }
-  return null;
+
+  async _newPage() {
+    if (this.page) { try { await this.page.close(); } catch {} }
+    this.page = await this.browser.newPage();
+    this.page.setDefaultTimeout(90000);
+    await this.page.goto(HELPER_URL, { waitUntil: 'networkidle', timeout: 30000 });
+    await this.page.waitForFunction('typeof window.renderPdfPage === "function"', { timeout: 20000 });
+  }
+
+  async _restartBrowser() {
+    process.stdout.write('\n  [RENDERER] Restart przeglądarki (3 timeouty z rzędu)…\n');
+    if (this.browser) { try { await this.browser.close(); } catch {} }
+    try {
+      this.browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    } catch {
+      this.browser = await chromium.launch({ headless: true, channel: 'chrome', args: ['--no-sandbox'] });
+    }
+    await this._newPage();
+    this.consecutiveTimeouts = 0;
+  }
+
+  // Zwraca liczbę stron PDF | null (błąd/timeout)
+  async getPageCountSafe(b64) {
+    try {
+      return await Promise.race([
+        this.page.evaluate(b64 => window.getPdfPageCount(b64), b64),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout pagecount')), 10000)),
+      ]);
+    } catch { return null; }
+  }
+
+  // Zwraca imgB64 (sukces) | '__timeout__' (timeout) | null (inny błąd)
+  async renderPageSafe(b64, pageNum, scale) {
+    try {
+      const imgB64 = await Promise.race([
+        this.page.evaluate(({ b64, pageNum, scale }) => window.renderPdfPage(b64, pageNum, scale), { b64, pageNum, scale }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout renderowania')), 30000)),
+      ]);
+      this.consecutiveTimeouts = 0;
+      return imgB64;
+    } catch (e) {
+      if (e.message === 'timeout renderowania') {
+        this.consecutiveTimeouts++;
+        process.stdout.write(`\n  [RENDERER] Timeout #${this.consecutiveTimeouts} (pg=${pageNum} sc=${scale})…`);
+        if (this.consecutiveTimeouts >= 3) {
+          await this._restartBrowser();
+        } else {
+          try { await this._newPage(); } catch {}
+        }
+        return '__timeout__';
+      }
+      return null;
+    }
+  }
+
+  async close() { if (this.browser) { try { await this.browser.close(); } catch {} } }
+}
+
+const PDF_MAX_PAGES = 6;
+
+async function detectAztecFromPdf(buf, renderer) {
+  const b64 = buf.toString('base64');
+  let hadTimeout = false;
+
+  const nPages = await renderer.getPageCountSafe(b64);
+  const maxPg  = nPages !== null ? Math.min(nPages, PDF_MAX_PAGES) : 1;
+
+  let attemptOffset = 0;
+  for (let pg = 1; pg <= maxPg; pg++) {
+    for (const scale of [4.0, 8.0]) {
+      const imgB64 = await renderer.renderPageSafe(b64, pg, scale);
+      if (!imgB64 || imgB64 === '__timeout__') {
+        if (imgB64 === '__timeout__') hadTimeout = true;
+        attemptOffset += 4;
+        continue;
+      }
+      const result = await detectAztecFromImageBuffer(Buffer.from(imgB64, 'base64'), attemptOffset);
+      if (result) return { ...result, strategy: `pdf-pg${pg}-sc${scale}-${result.strategy}` };
+      attemptOffset += 4;
+    }
+  }
+  return hadTimeout ? { timeout: true } : null;
 }
 
 // ── Walidacja VIN ─────────────────────────────────────────────────────────────
@@ -245,8 +387,63 @@ function validateVin(vin) {
   return { valid: true, vin: v };
 }
 
+// ── Kontrola duplikatów VIN ───────────────────────────────────────────────────
+// Zwraca mapę VIN → lista par (nrRej, dataRej) z nachodzącymi datami.
+// "Nachodzące" = dwie różne tablice mają daty rejestracji w odległości ≤ 30 dni.
+// Prawidłowe przerejestrowanie może nastąpić w 1 dzień; flaga informacyjna,
+// nie twarde odrzucenie — decyzja należy do użytkownika.
+function checkVinConflicts(vehicles) {
+  const conflicts = new Map();  // VIN → [ { plates, dates, gapDays } ]
+  for (const [vin, vdata] of vehicles.entries()) {
+    const dated = vdata.rejestracje.filter(r => r._dateParsed);
+    if (dated.length < 2) continue;
+    const issues = [];
+    for (let i = 1; i < dated.length; i++) {
+      const prev = dated[i - 1];
+      const curr = dated[i];
+      const gapDays = Math.round((curr._dateParsed - prev._dateParsed) / 86400000);
+      if (gapDays <= 30) {
+        issues.push({
+          plates:  [prev.nrRej, curr.nrRej],
+          dates:   [prev.dataRej, curr.dataRej],
+          gapDays,
+        });
+      }
+    }
+    if (issues.length) conflicts.set(vin, issues);
+  }
+  return conflicts;
+}
+
 // ── Lista plików ───────────────────────────────────────────────────────────────
 const DOC_EXTS = new Set(['.pdf', '.jpg', '.jpeg', '.png', '.tif', '.tiff']);
+
+// Skanuje wszystkie pliki z rozszerzeniami dokumentów bez filtrowania nazwy.
+// Zwraca też nazwę katalogu bezpośredniego rodzica (dir) — potrzebna do
+// heurystyki polis (np. katalog "Polisy OC" → wszystkie pliki w nim to polisy).
+function listAllDocFiles(dirPath, maxDepth = 5) {
+  const result = [];
+  const stack = [{ dir: dirPath, depth: 0 }];
+  while (stack.length) {
+    const { dir: cur, depth } = stack.pop();
+    let entries;
+    try { entries = fs.readdirSync(cur, { withFileTypes: true }); } catch (e) {
+      process.stderr.write(`  [SKIP] ${cur}: ${e.message}\n`); continue;
+    }
+    for (const e of entries) {
+      const full = path.join(cur, e.name);
+      if (e.isDirectory()) {
+        if (depth < maxDepth) stack.push({ dir: full, depth: depth + 1 });
+        continue;
+      }
+      const ext = path.extname(e.name).toLowerCase();
+      if (DOC_EXTS.has(ext)) {
+        result.push({ path: full, name: e.name, ext, dir: path.basename(cur) });
+      }
+    }
+  }
+  return result;
+}
 
 function listDocFiles(dirPath, maxDepth = 3) {
   const result = [];
@@ -278,7 +475,7 @@ function parseDate(s) {
 }
 
 // ── Generowanie Excel ──────────────────────────────────────────────────────────
-async function generateExcel(vehicles, docRows, unreadable) {
+async function generateExcel(vehicles, docRows, unreadable, skippedFiles) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'TaxOrder Pro — DR Extractor';
   wb.created = new Date();
@@ -369,6 +566,14 @@ async function generateExcel(vehicles, docRows, unreadable) {
     const uwagi = [];
     if (hasConflictDmc)  uwagi.push(`F.1 różni się: ${allDmc.join(' → ')}`);
     if (hasConflictMasa) uwagi.push(`G różni się: ${allMasa.join(' → ')}`);
+    if (vdata._vinConflict) {
+      for (const issue of vdata._vinConflict) {
+        const info = issue.gapDays === 0
+          ? `Tablice ${issue.plates.join(' i ')} — ta sama data rejestracji ${issue.dates[0]}`
+          : `Tablice ${issue.plates.join(' i ')} — delta ${issue.gapDays} dni (${issue.dates[0]} → ${issue.dates[1]})`;
+        uwagi.push(`⚠ Podejrzany duplikat VIN: ${info}`);
+      }
+    }
 
     // Zbuduj wiersz
     const row = {
@@ -456,11 +661,11 @@ async function generateExcel(vehicles, docRows, unreadable) {
     { header: 'Norma emisji',       key: 'normaEmisji',   width: 12 },
     { header: 'S.1 Miejsca',        key: 'miejscaSied',   width: 10 },
     { header: 'Właściciel typ',     key: 'wlascicielTyp', width: 14 },
-    { header: 'Seria DR',           key: 'seriaDr',       width: 12 },
+    { header: 'Seria DR',            key: 'seriaDr',       width: 12 },
     { header: 'Format Aztec',       key: '_format',       width: 10 },
     { header: 'Plik źródłowy',      key: '_file',         width: 30 },
-    { header: 'Strategia det.',     key: '_strategy',     width: 18 },
-    { header: 'Próby det.',         key: '_attempts',     width: 10 },
+    { header: 'Strategia detekcji', key: '_strategy',     width: 22 },
+    { header: 'Liczba prób',        key: '_attempts',     width: 11 },
     { header: 'Czas det. (ms)',     key: '_timeMs',       width: 12 },
     { header: 'Data mod. pliku',    key: '_fileMtime',    width: 16, style: { numFmt: dateFmt } },
   ];
@@ -501,77 +706,162 @@ async function generateExcel(vehicles, docRows, unreadable) {
   ws3.views = [{ state: 'frozen', ySplit: 1 }];
   for (const u of unreadable) ws3.addRow(u);
 
+  // ── Arkusz 4: Pominięte (polisy ubezpieczeniowe i inne wykluczone) ─────────
+  const ws4 = wb.addWorksheet('Pominięte');
+  const cols4 = [
+    { header: 'Plik',         key: 'file',    width: 45 },
+    { header: 'Katalog',      key: 'dir',     width: 30 },
+    { header: 'Format',       key: 'ext',     width: 8  },
+    { header: 'Powód',        key: 'reason',  width: 28 },
+    { header: 'Wzorzec',      key: 'wzorzec', width: 14 },
+  ];
+  ws4.columns = cols4;
+  ws4.getRow(1).height = 28;
+  cols4.forEach((_, i) => { Object.assign(ws4.getCell(1, i + 1), hdrStyle); });
+  ws4.views = [{ state: 'frozen', ySplit: 1 }];
+  for (const s of (skippedFiles || [])) ws4.addRow(s);
+
   await wb.xlsx.writeFile(OUTPUT_PATH);
   return OUTPUT_PATH;
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
+// Flagi:
+//   --retry-unreadable   ponów próbę dla wszystkich plików "Aztec nieodczytany"
+//                        (pomija only-ok z checkpointu, re-przetwarza unreadable)
+const RETRY_UNREADABLE = process.argv.includes('--retry-unreadable');
+
 async function main() {
   console.log('\n══════════════════════════════════════');
   console.log('  DR Extractor — TaxOrder Pro');
+  if (RETRY_UNREADABLE) console.log('  TRYB: --retry-unreadable (397 plików)');
   console.log('══════════════════════════════════════');
   console.log('Katalog źródłowy:', SHARE_PATH);
   console.log('Plik wyjściowy:  ', OUTPUT_PATH);
   console.log('');
 
-  // 1. Lista plików — skanuj tylko katalogi pojazdów (nie cały udział)
-  const VEHICLE_DIRS = ['Ciężarowe', 'Osobowe', 'Przyczepy'];
-  console.log(`Skanowanie katalogu… (tylko: ${VEHICLE_DIRS.join(', ')})`);
-  let docFiles = [];
-  for (const vd of VEHICLE_DIRS) {
-    const subPath = path.join(SHARE_PATH, vd);
-    try {
-      const files = listDocFiles(subPath, 2);  // max 2 poziomy głębiej = pliki w folderach pojazdu
-      console.log(`  ${vd}: ${files.length} plików DR`);
-      docFiles = docFiles.concat(files);
-    } catch (e) {
-      console.warn(`  [POMINIĘTO] ${vd}: ${e.message}`);
+  // 1. Skan katalogu — wszystkie pliki z rozszerzeniami doc/img, bez filtrowania
+  console.log('Skanowanie katalogu…');
+  const allFiles = listAllDocFiles(SHARE_PATH, 5);
+  console.log(`Znaleziono ${allFiles.length} plików do sprawdzenia.\n`);
+
+  // Kategoryzacja: polisa → Pominięte | DR kandidat → dekoduj | inne → pomiń cicho
+  const docFiles = [];
+  const skippedFiles = [];           // polisy ubezpieczeniowe
+  const insurancePatternCounts = {}; // { wzorzec → count }
+
+  for (const f of allFiles) {
+    const kw = insuranceMatch(f.name, f.dir);
+    if (kw) {
+      insurancePatternCounts[kw] = (insurancePatternCounts[kw] || 0) + 1;
+      skippedFiles.push({ file: f.name, dir: f.dir, ext: f.ext, reason: 'polisa ubezpieczeniowa', wzorzec: kw });
+      continue;
     }
+    if (isDrCandidate(f.name)) {
+      docFiles.push(f);
+    }
+    // else: inne (serwis, faktura, itp.) — pomijamy bez wpisu
   }
-  console.log(`Łącznie plików DR do przetworzenia: ${docFiles.length}`);
-  if (!docFiles.length) { console.log('Brak plików do przetworzenia.'); process.exit(0); }
+
+  console.log(`  Kandydatów DR:          ${docFiles.length}`);
+  console.log(`  Polis ubezpieczeniowych: ${skippedFiles.length}`);
+  console.log(`  Pominiętych (inne):      ${allFiles.length - docFiles.length - skippedFiles.length}`);
+  if (!docFiles.length) { console.log('\nBrak plików DR do przetworzenia.'); process.exit(0); }
+  console.log('');
 
   // 2. Inicjalizacja zxing-wasm
   console.log('\nInicjalizacja zxing-wasm…');
   await zxing.prepareZXingModule();
   console.log('zxing-wasm gotowy.');
 
-  // 3. Lazy-start przeglądarki (tylko dla PDF)
-  const hasPdfs = docFiles.some(f => f.ext === '.pdf');
-  let browser = null, bPage = null;
-  if (hasPdfs) {
-    console.log('Uruchamiam przeglądarkę (dla PDF)…');
-    try {
-      browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-    } catch {
-      browser = await chromium.launch({ headless: true, channel: 'chrome', args: ['--no-sandbox'] });
+  // 2b. Wczytaj checkpoint — pomiń już przetworzone pliki
+  const checkpoint = loadCheckpoint();
+  const docRows    = [];
+  const unreadable = [];
+  const pendingFiles = [];
+  let _chkOk = 0, _chkNok = 0;
+
+  for (const f of docFiles) {
+    const cp = checkpoint.get(f.path);
+    if (cp) {
+      try {
+        const st = fs.statSync(f.path);
+        if (cp.mtime === st.mtimeMs && cp.size === st.size) {
+          if (cp.status === 'ok') {
+            docRows.push(cp.fields);
+            _chkOk++;
+            continue;
+          }
+          // status !== 'ok' — unreadable
+          const isAztecFail = (cp.reason || '') === 'Aztec nieodczytany';
+          if (RETRY_UNREADABLE && isAztecFail) {
+            // Ponów próbę z nowym multi-page
+            pendingFiles.push(f);
+          } else {
+            unreadable.push({
+              file:   cp.name || path.basename(f.path),
+              ext:    cp.ext  || f.ext,
+              size:   cp.size ? Math.round(cp.size / 1024) + 'KB' : '',
+              reason: cp.reason || 'Aztec nieodczytany',
+            });
+            _chkNok++;
+            continue;
+          }
+        }
+      } catch {}
     }
-    bPage = await browser.newPage();
-    bPage.setDefaultTimeout(60000);
-    await bPage.goto(HELPER_URL, { waitUntil: 'networkidle', timeout: 30000 });
-    await bPage.waitForFunction('typeof window.renderPdfToBase64 === "function"', { timeout: 20000 });
+    if (!pendingFiles.includes(f)) pendingFiles.push(f);
+  }
+
+  if (_chkOk + _chkNok > 0) {
+    const retryNote = RETRY_UNREADABLE ? ` (tryb retry: ${pendingFiles.length - (_chkNok === 0 ? 0 : 0)} plików nieodczytanych ponownie)` : '';
+    console.log(`Checkpoint: ${_chkOk} OK, ${_chkNok} nieodczytanych pominięto. Do przetworzenia: ${pendingFiles.length}.${retryNote}`);
+  }
+
+  // 3. Lazy-start serwera + przeglądarki (tylko dla PDF)
+  const hasPdfs = pendingFiles.some(f => f.ext === '.pdf');
+  let helperServer = null;
+  let renderer = null;
+  if (hasPdfs) {
+    console.log('Uruchamiam serwer HTTP dla dr-helper.html…');
+    helperServer = await startHelperServer();
+    console.log(`Serwer HTTP gotowy (port ${HELPER_PORT}).`);
+    console.log('Uruchamiam przeglądarkę (dla PDF)…');
+    renderer = new PdfRenderer();
+    await renderer.init();
     console.log('Przeglądarka gotowa (renderowanie PDF).');
   }
 
-  // 4. Przetwarzaj pliki
-  const docRows    = [];
-  const unreadable = [];
+  // 4. Przetwarzaj pliki — heartbeat co 30s
+  let _hbIdx = 0, _hbLastOk = '';
+  const _hbTimer = setInterval(() => {
+    process.stdout.write(`\n  [żyję — ${_hbIdx}/${pendingFiles.length}, ostatni OK: ${_hbLastOk || 'brak'}]\n`);
+  }, 30000);
 
   console.log('\nPrzetwarzanie plików:\n');
-  for (let i = 0; i < docFiles.length; i++) {
-    const f = docFiles[i];
-    const label = `[${String(i+1).padStart(3,' ')}/${docFiles.length}] ${f.name}`;
+  for (let i = 0; i < pendingFiles.length; i++) {
+    const f = pendingFiles[i];
+    _hbIdx = i + 1;
+    const label = `[${String(i+1).padStart(3,' ')}/${pendingFiles.length}] ${f.name}`;
     process.stdout.write('  ' + label.padEnd(55, '.'));
 
-    // Odczyt pliku
+    // Odczyt pliku z jedną ponowną próbą po 200 ms
     let buf, stat;
     try {
       buf  = fs.readFileSync(f.path);
       stat = fs.statSync(f.path);
-    } catch (e) {
-      unreadable.push({ file: f.name, ext: f.ext, size: '', reason: 'Błąd odczytu: ' + e.message });
-      process.stdout.write(' BŁĄD ODCZYTU\n');
-      continue;
+    } catch {
+      await new Promise(r => setTimeout(r, 200));
+      try {
+        buf  = fs.readFileSync(f.path);
+        stat = fs.statSync(f.path);
+      } catch (e2) {
+        const reason = 'Błąd odczytu: ' + e2.message;
+        unreadable.push({ file: f.name, ext: f.ext, size: '', reason });
+        // Nie zapisujemy do checkpointu — błąd może być przejściowy
+        process.stdout.write(' BŁĄD ODCZYTU\n');
+        continue;
+      }
     }
 
     const sizeKB = Math.round(buf.length / 1024);
@@ -581,19 +871,23 @@ async function main() {
     let detected;
     try {
       if (f.ext === '.pdf') {
-        detected = await detectAztecFromPdf(buf, bPage);
+        detected = await detectAztecFromPdf(buf, renderer);
       } else {
         detected = await detectAztecFromImageBuffer(buf);
       }
     } catch (e) {
-      unreadable.push({ file: f.name, ext: f.ext, size: sizeKB+'KB', reason: 'Błąd detekcji: ' + e.message });
+      const reason = 'Błąd detekcji: ' + e.message;
+      unreadable.push({ file: f.name, ext: f.ext, size: sizeKB+'KB', reason });
+      saveCheckpointEntry({ path: f.path, mtime: stat.mtimeMs, size: stat.size, status: 'unreadable', name: f.name, ext: f.ext, reason });
       process.stdout.write(' BŁĄD DET.\n');
       continue;
     }
 
     if (!detected || !detected.text) {
-      unreadable.push({ file: f.name, ext: f.ext, size: sizeKB+'KB', reason: 'Aztec nieodczytany' });
-      process.stdout.write(' NIEODCZYTANY\n');
+      const reason = detected?.timeout ? 'timeout renderowania PDF' : 'Aztec nieodczytany';
+      unreadable.push({ file: f.name, ext: f.ext, size: sizeKB+'KB', reason });
+      saveCheckpointEntry({ path: f.path, mtime: stat.mtimeMs, size: stat.size, status: 'unreadable', name: f.name, ext: f.ext, reason });
+      process.stdout.write(detected?.timeout ? ' TIMEOUT\n' : ' NIEODCZYTANY\n');
       continue;
     }
 
@@ -602,7 +896,9 @@ async function main() {
     try {
       fields = parseAztecText(detected.text);
     } catch (e) {
-      unreadable.push({ file: f.name, ext: f.ext, size: sizeKB+'KB', reason: 'Błąd parsowania: ' + e.message });
+      const reason = 'Błąd parsowania: ' + e.message;
+      unreadable.push({ file: f.name, ext: f.ext, size: sizeKB+'KB', reason });
+      saveCheckpointEntry({ path: f.path, mtime: stat.mtimeMs, size: stat.size, status: 'unreadable', name: f.name, ext: f.ext, reason });
       process.stdout.write(' BŁĄD PARSOWANIA\n');
       continue;
     }
@@ -614,11 +910,15 @@ async function main() {
     fields._timeMs    = Date.now() - t0;
 
     docRows.push(fields);
-    const vinStr = fields.vin ? fields.vin.slice(0,8) + '…' : '?VIN';
+    _hbLastOk = f.name;
+    saveCheckpointEntry({ path: f.path, mtime: stat.mtimeMs, size: stat.size, status: 'ok', fields });
+    const vinStr = fields.vin ? fields.vin.slice(0,13) + '…' : '?VIN';
     process.stdout.write(` OK [${(detected.strategy || '').slice(0,10)}] ${vinStr}\n`);
   }
 
-  if (browser) await browser.close();
+  clearInterval(_hbTimer);
+  if (renderer) await renderer.close();
+  if (helperServer) helperServer.close();
 
   // 4. Grupuj po VIN
   console.log('\nGroupowanie po VIN…');
@@ -664,23 +964,40 @@ async function main() {
     vdata.latest = vdata.docs[vdata.docs.length - 1];
   }
 
+  // 4b. Kontrola duplikatów VIN — pełne 17 znaków, nachodzące daty
+  const vinConflicts = checkVinConflicts(vehicles);
+  // Oznacz pojazdy z konfliktem uwagą (odczyt w generateExcel)
+  for (const [vin, issues] of vinConflicts.entries()) {
+    const vdata = vehicles.get(vin);
+    if (vdata) vdata._vinConflict = issues;
+  }
+
   // 5. Generuj Excel
   console.log(`\nGeneruję Excel: ${OUTPUT_PATH}`);
   console.log(`  Pojazdów (unikalnych VIN): ${vehicles.size}`);
   console.log(`  Dokumentów (wierszy):      ${docRows.length}`);
   console.log(`  Nieodczytanych:            ${unreadable.length}`);
 
-  const outPath = await generateExcel(vehicles, docRows, unreadable);
+  const outPath = await generateExcel(vehicles, docRows, unreadable, skippedFiles);
   console.log(`\n✓ Zapisano: ${outPath}`);
 
   // 6. Raport liczbowy
   console.log('\n══════════════════════════════════════');
   console.log('  RAPORT');
   console.log('══════════════════════════════════════');
-  console.log(`Przetworzono dokumentów:    ${docFiles.length}`);
+  console.log(`Znalezionych plików:        ${allFiles.length}`);
+  console.log(`  → pominięte (polisy):     ${skippedFiles.length}`);
+  console.log(`  → kandydaci DR:           ${docFiles.length}`);
   console.log(`  → odczytanych Aztec:      ${docRows.length}`);
   console.log(`  → nieodczytanych:         ${unreadable.length}`);
   console.log(`Unikalnych VIN:             ${vehicles.size}`);
+
+  if (Object.keys(insurancePatternCounts).length) {
+    console.log(`\nWzorce ubezpieczeniowe (${skippedFiles.length} plików pominięto):`);
+    for (const [kw, cnt] of Object.entries(insurancePatternCounts).sort((a, b) => b[1] - a[1])) {
+      console.log(`  ${kw.padEnd(18)} ${cnt}`);
+    }
+  }
 
   const rejDist = { 1: 0, 2: 0, 3: 0, '4+': 0 };
   let conflictDmc = 0, conflictMasa = 0;
@@ -705,13 +1022,38 @@ async function main() {
   console.log(`Konflikt DMC (zabudowa):    ${conflictDmc}`);
   console.log(`Konflikt masy własnej:      ${conflictMasa}`);
 
+  // Rozkład strategii detekcji
+  const stratDist = {};
+  for (const d of docRows) {
+    const s = d._strategy || 'unknown';
+    stratDist[s] = (stratDist[s] || 0) + 1;
+  }
+  const stratEntries = Object.entries(stratDist).sort((a, b) => b[1] - a[1]);
+  console.log(`\nRozkład strategii detekcji (${docRows.length} dok.):`);
+  for (const [s, n] of stratEntries) {
+    console.log(`  ${s.padEnd(28)} ${n}`);
+  }
+
+  // Duplikaty VIN z nachodzącymi datami
+  if (vinConflicts.size) {
+    console.log(`\n⚠ PODEJRZANE DUPLIKATY VIN (delta ≤ 30 dni): ${vinConflicts.size}`);
+    for (const [vin, issues] of vinConflicts.entries()) {
+      for (const issue of issues) {
+        const delta = issue.gapDays === 0 ? 'ta sama data' : `delta ${issue.gapDays} dni`;
+        console.log(`  ${vin}  ${issue.plates.join(' / ')}  [${issue.dates.join(' – ')}]  ${delta}`);
+      }
+    }
+  } else {
+    console.log('\n✓ Brak podejrzanych duplikatów VIN (delta ≤ 30 dni).');
+  }
+
   if (unreadable.length) {
     const reasons = {};
     for (const u of unreadable) {
       const k = u.reason.split(':')[0];
       reasons[k] = (reasons[k] || 0) + 1;
     }
-    console.log(`Nieodczytane — przyczyny:`);
+    console.log(`\nNieodczytane — przyczyny:`);
     for (const [k, n] of Object.entries(reasons)) console.log(`  ${k}: ${n}`);
   }
 

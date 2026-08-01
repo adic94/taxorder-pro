@@ -29,11 +29,9 @@ document.getElementById('status').textContent =
 window.drHelperReady = true;
 
 /**
- * Renderuje stronę 1 PDF do JPEG i zwraca jako base64.
- * Używane przez zxing-wasm w Node.js do detekcji Aztec.
+ * Zwraca liczbę stron PDF.
  */
-window.renderPdfToBase64 = async function(b64, scale) {
-  scale = scale || 4.0;
+window.getPdfPageCount = async function(b64) {
   const byteStr = atob(b64);
   const arr = new Uint8Array(byteStr.length);
   for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
@@ -41,7 +39,27 @@ window.renderPdfToBase64 = async function(b64, scale) {
   const url = URL.createObjectURL(blob);
   try {
     const pdf = await pdfjsLib.getDocument({ url }).promise;
-    const pg = await pdf.getPage(1);
+    return pdf.numPages;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+};
+
+/**
+ * Renderuje wskazaną stronę PDF do JPEG i zwraca jako base64.
+ */
+window.renderPdfPage = async function(b64, pageNum, scale) {
+  scale = scale || 4.0;
+  pageNum = pageNum || 1;
+  const byteStr = atob(b64);
+  const arr = new Uint8Array(byteStr.length);
+  for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+  const blob = new Blob([arr], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  try {
+    const pdf = await pdfjsLib.getDocument({ url }).promise;
+    if (pageNum > pdf.numPages) return null;
+    const pg = await pdf.getPage(pageNum);
     const vp = pg.getViewport({ scale });
     const canvas = document.createElement('canvas');
     canvas.width = vp.width; canvas.height = vp.height;
@@ -50,6 +68,13 @@ window.renderPdfToBase64 = async function(b64, scale) {
   } finally {
     URL.revokeObjectURL(url);
   }
+};
+
+/**
+ * Alias wstecznej kompatybilności — renderuje stronę 1.
+ */
+window.renderPdfToBase64 = async function(b64, scale) {
+  return window.renderPdfPage(b64, 1, scale);
 };
 
 /**
