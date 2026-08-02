@@ -1089,3 +1089,47 @@ Suma "przed" obliczona przez odwrócenie korekt z zapisanych stanów i backupów
 - Niezmienny: WA995AL (ograniczenie `dt1_category=null` celowe).
 
 **§12 zamknięty.**
+
+---
+
+### 12.14 Weryfikacja domykająca (2026-08-02)
+
+#### 1. WW1670X — przypisanie firmy
+
+D1 potwierdza: `company_id='kjrsupply'`, `axles_count=2`, `osie_json=2`, D8, 2184 zł, `wlasciciel='KJR Supply'`.
+Stwierdzenie "gcon" z wcześniejszego raportu było błędem w tekście (pomyłka przy omówieniu sekwencji); dane w D1 zawsze były poprawne.
+KJR Supply posiada 2 pojazdy: WW1659X (D9, 2760 zł) i WW1670X (D8, 2184 zł).
+
+#### 2. Status retry Aztec — checkpoint
+
+Stan checkpointu (`dr-extractor-checkpoint.ndjson`, ostatnia modyfikacja 31.07.2026 15:50):
+- **988 OK** / 1518 wpisów (530 unreadable)
+- Brak pola `pageNum` w jakimkolwiek wpisie — batch multi-page retry dla 530 nieodczytanych plików nie był uruchomiony jako zadanie wsadowe (krok4/4b operowały na pojedynczych pojazdach)
+- Checkpoint nie zmienił się od 31 lipca → zadanie zakończone lub przerwane
+- Poprzedni stan: 978 OK / 1384 pliki; wzrost o **+10 odczytów** z naturalnej kontynuacji
+- Skuteczność: **988 / ~1384 unikalnych plików** (≈71,4%)
+
+#### 3. Spójność axles_count w całej bazie
+
+```sql
+SELECT COUNT(*) FROM vehicles
+WHERE axles_count != CAST(json_extract(data,'$.osie') AS INTEGER)
+   OR json_extract(data,'$.osie') IS NULL;
+-- Wynik: 0
+```
+
+**0 rozbieżności.** Wszystkie 217 pojazdów: kolumna `axles_count` = `data.osie` JSON, żaden nie ma null w `$.osie`.
+
+#### 4. TaxEngine — wpływ osi na stawkę dla 3,5–12t
+
+Analiza `modules/tax-engine.js` (`getRate()` linie 134–143):
+
+| Typ | Zakres DMC | Rozgałęzienie na osie? |
+|---|---|---|
+| Ciężarowy | 3,5–12t | ❌ tylko `rok` (new/old) |
+| Ciągnik/balastowy | 3,5–12t | ❌ tylko `rok` |
+| Przyczepa/naczepa | 7–12t | ❌ tylko `rok` |
+
+**Liczba osi wpływa na stawkę dopiero od DMC ≥ 12t** (branching na `osie` w liniach 145–163 dla ciężarowych, 96–113 dla przyczep, 119–130 dla ciągników ≥12t).
+
+Kandydatów do sprawdzenia w drugiej fali: **0**. Nie ma potrzeby audytu osi dla pojazdów 3,5–12t.
