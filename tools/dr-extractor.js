@@ -363,7 +363,7 @@ async function detectAztecFromPdf(buf, renderer) {
 
   let attemptOffset = 0;
   for (let pg = 1; pg <= maxPg; pg++) {
-    for (const scale of [4.0, 8.0]) {
+    for (const scale of [4.0, 6.0, 8.0]) {
       const imgB64 = await renderer.renderPageSafe(b64, pg, scale);
       if (!imgB64 || imgB64 === '__timeout__') {
         if (imgB64 === '__timeout__') hadTimeout = true;
@@ -371,7 +371,7 @@ async function detectAztecFromPdf(buf, renderer) {
         continue;
       }
       const result = await detectAztecFromImageBuffer(Buffer.from(imgB64, 'base64'), attemptOffset);
-      if (result) return { ...result, strategy: `pdf-pg${pg}-sc${scale}-${result.strategy}` };
+      if (result) return { ...result, strategy: `pdf-pg${pg}-sc${scale}-${result.strategy}`, pageNum: pg, scale };
       attemptOffset += 4;
     }
   }
@@ -911,7 +911,9 @@ async function main() {
 
     docRows.push(fields);
     _hbLastOk = f.name;
-    saveCheckpointEntry({ path: f.path, mtime: stat.mtimeMs, size: stat.size, status: 'ok', fields });
+    const _pg = detected.pageNum; const _sc = detected.scale;
+    saveCheckpointEntry({ path: f.path, mtime: stat.mtimeMs, size: stat.size, status: 'ok',
+      ...(_pg != null ? { pageNum: _pg, scale: _sc } : {}), fields });
     const vinStr = fields.vin ? fields.vin.slice(0,13) + '…' : '?VIN';
     process.stdout.write(` OK [${(detected.strategy || '').slice(0,10)}] ${vinStr}\n`);
   }
