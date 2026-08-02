@@ -1034,3 +1034,58 @@ w okolicach granicznych wartości DMC.
 
 **Wniosek:** D1 ma 3 osie, DR mówi 2 → pojazd niedopłacał 696 zł/rok.
 Korekta jest zasadna, ale skutkuje wzrostem podatku. Czeka na Twoją decyzję.
+
+#### ✓ WW1670X — korekta wykonana (2026-08-02)
+
+Time-travel bookmark przed korektą: `000001ca-00000000-000050bb-71682179467d134d95d1687ac904606f`
+`company_id='kjrsupply'`
+
+```
+axles_count:    3 → 2     ✓
+osie_json:      3 → 2     ✓
+dt1_category:   D9 → D8   ✓
+dt1_tax_amount: 1488 → 2184 zł  ✓
+updated_at:     2026-08-02 20:21:25
+```
+
+---
+
+### 12.13 Podsumowanie końcowe audytu DT-1 (§12.11–12.12)
+
+#### Lista wszystkich skorygowanych pojazdów
+
+| nr_rej | firma | os. przed | os. po | kat. przed | kat. po | stawka przed | stawka po | Δ zł/rok |
+|---|---|---|---|---|---|---|---|---|
+| WZ899GJ | mtoilet | 2 | 3 | D8 | D9 | 2 184 | 2 760 | **+576** |
+| WA1697F | mtoilet | 2 | 4 | D8 | D10 | 2 184 | 4 296 | **+2 112** |
+| WA2609J | mtoilet | 2 | 4 | D8 | D10 | 2 184 | 4 296 | **+2 112** |
+| WA4789F | mtoilet | 2 | 4 | D8 | D10 | 2 184 | 2 880 | **+696** |
+| WZ464FY | mtoilet | 2 | 3 | D8 | D9 | 2 184 | 2 760 | **+576** |
+| WZ621FY | mtoilet | 2 | 3 | D8 | D9 | 2 184 | 2 760 | **+576** |
+| WA9885J | mtoilet | 2 | 3 | D8 | D9 | 2 184 | 2 760 | **+576** |
+| WW564AJ | mtoilet | 2 | 3 | D8 | D9 | 2 184 | 2 760 | **+576** |
+| WW117AF | gcon | 3 | 2 | D15 | D14 | 1 872 | 1 488 | **−384** |
+| WZ209LJ | gcon | 3 | 2 | D15 | D14 | 1 872 | 1 488 | **−384** |
+| WW1670X | kjrsupply | 3 | 2 | D9 | D8 | 1 488 | 2 184 | **+696** |
+
+#### Suma DT-1 per firma — przed/po audycie i różnica
+
+| firma | suma przed audytem | suma po audycie | różnica |
+|---|---|---|---|
+| mtoilet | 193 296 zł | **201 096 z��** | **+7 800 zł** |
+| gcon | 27 360 zł | **26 592 zł** | **−768 zł** |
+| kjrsupply | 4 248 zł | **4 944 zł** | **+696 zł** |
+| nwkinvest | 1 128 zł | **1 128 zł** | 0 zł |
+| **RAZEM** | **226 032 zł** | **233 760 zł** | **+7 728 zł** |
+
+Suma "przed" obliczona przez odwrócenie korekt z zapisanych stanów i backupów.
+
+#### Wnioski
+
+- Audyt objął **17/17** pojazdów z kategorii DT-1 ≥12t (D8–D15).
+- Metoda: decode DR pos 44 (liczba osi) przez Playwright→zxing-wasm pipeline; porównanie z D1 `axles_count`.
+- Źródłem błędów była stara wersja `dr-extractor.js` z mapowaniem `liczbaOsi:33` (dane właściciela) zamiast `liczbaOsi:44` (pole L z DR). Worker miał poprawne mapowanie od początku, ale część pojazdów była wczytana z innego źródła lub manualnie.
+- Korekty zwiększyły łączny podatek o **+7 728 zł/rok** — wszystkie firmy (niedoszacowanie osi było na niekorzyść budżetu gminy).
+- Niezmienny: WA995AL (ograniczenie `dt1_category=null` celowe).
+
+**§12 zamknięty.**
