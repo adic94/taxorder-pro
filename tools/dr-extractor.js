@@ -353,17 +353,22 @@ class PdfRenderer {
 }
 
 const PDF_MAX_PAGES = 6;
+// W trybie --retry-unreadable skale 4.0 i 8.0 były już próbowane w pierwszym
+// przebiegu — retry dodaje wyłącznie skalę 6.0 (odkrycie z WA1697F, str. 2).
+const PDF_SCALES_FULL  = [4.0, 6.0, 8.0];
+const PDF_SCALES_RETRY = [6.0];
 
-async function detectAztecFromPdf(buf, renderer) {
+async function detectAztecFromPdf(buf, renderer, retryMode = false) {
   const b64 = buf.toString('base64');
   let hadTimeout = false;
 
   const nPages = await renderer.getPageCountSafe(b64);
   const maxPg  = nPages !== null ? Math.min(nPages, PDF_MAX_PAGES) : 1;
+  const scales = retryMode ? PDF_SCALES_RETRY : PDF_SCALES_FULL;
 
   let attemptOffset = 0;
   for (let pg = 1; pg <= maxPg; pg++) {
-    for (const scale of [4.0, 6.0, 8.0]) {
+    for (const scale of scales) {
       const imgB64 = await renderer.renderPageSafe(b64, pg, scale);
       if (!imgB64 || imgB64 === '__timeout__') {
         if (imgB64 === '__timeout__') hadTimeout = true;
@@ -871,7 +876,7 @@ async function main() {
     let detected;
     try {
       if (f.ext === '.pdf') {
-        detected = await detectAztecFromPdf(buf, renderer);
+        detected = await detectAztecFromPdf(buf, renderer, RETRY_UNREADABLE);
       } else {
         detected = await detectAztecFromImageBuffer(buf);
       }
