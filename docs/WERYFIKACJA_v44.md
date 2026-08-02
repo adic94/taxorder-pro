@@ -984,28 +984,53 @@ Przebadano: **17/17 pojazdów ≥12t**.
 
 | Kategoria | Liczba | Status |
 |---|---|---|
-| ✓ D1 = DR | 8 | WA0677L, WW024AF, WW1659X, WW424AP, WW6202Y, WZ899GJ\*, WA995AL†, WW1659X |
+| ✓ D1 = DR (bez zmian) | 7 | WA0677L, WW024AF, WW1659X, WW424AP, WW6202Y, WA995AL†, WZ899GJ\* |
 | ✓ D1 poprawiony (za mało osi) | 7 | WA1697F, WA2609J, WA4789F, WZ464FY, WZ621FY, WA9885J, WW564AJ |
-| ⚠ D1 do weryfikacji (za dużo osi) | 3 | WW1670X, WW117AF, WZ209LJ |
+| ✓ D1 poprawiony (za dużo osi) | 2 | WW117AF, WZ209LJ |
+| ⚠ Wstrzymany do wyjaśnienia | 1 | WW1670X (anomalia podatkowa — zob. niżej) |
 
-\* WZ899GJ poprawiono w tej samej sesji.
-† WA995AL: match, bez zmian kategorii.
+\* WZ899GJ poprawiono we wcześniejszej sesji.
+† WA995AL: match, bez zmian kategorii per ograniczenie.
 
-**Oczekujące decyzje:**
+#### ✓ WW117AF i WZ209LJ — korekta wykonana (2026-08-02)
 
-```sql
--- WW1670X: 3→2 osie, D9→D8, 1488→2184 zł (+696 zł/rok) — WZROST podatku
-UPDATE vehicles SET axles_count=2, dt1_category='D8', dt1_tax_amount=2184,
-  data=json_set(data,'$.osie',2,'$.dt1_category','D8','$.dt1_tax_amount',2184),
-  updated_at=datetime('now')
-WHERE nr_rej='WW1670X' AND company_id='mtoilet';
+Time-travel bookmark przed korektą: `000001c9-00000000-000050bb-18d43306e84365365b9eda666e4c13c1`
 
--- WW117AF + WZ209LJ: 3→2 osie, D15→D14, 1872→1488 zł (-384 zł/rok każdy) — OBNIŻKA podatku
-UPDATE vehicles SET axles_count=2, dt1_category='D14', dt1_tax_amount=1488,
-  data=json_set(data,'$.osie',2,'$.dt1_category','D14','$.dt1_tax_amount',1488),
-  updated_at=datetime('now')
-WHERE nr_rej IN ('WW117AF','WZ209LJ') AND company_id='mtoilet';
+Oba pojazdy: `company_id='gcon'` (nie mtoilet!).
+
+| nr_rej | axles_count | osie_json | dt1_category | dt1_tax_amount | updated_at |
+|---|---|---|---|---|---|
+| WW117AF | 3 → **2** | 3 → **2** | D15 → **D14** | 1872 → **1488 zł** | 2026-08-02 20:16:41 |
+| WZ209LJ | 3 → **2** | 3 → **2** | D15 → **D14** | 1872 → **1488 zł** | 2026-08-02 20:16:41 |
+
+Zmiana podatku: −384 zł/rok każdy = **−768 zł/rok** łącznie dla gcon.
+
+#### ⚠ WW1670X — wstrzymane, anomalia podatkowa wyjaśniona
+
+WW1670X: `Ciężarowy`, dmc=16 000 kg, aktualnie D9/3 osie/1488 zł.
+
+DR pos 44 = 2 osie → przy 2 osiach podatek wzrósłby do 2 184 zł (+696 zł).
+
+Mechanizm TaxEngine ([modules/tax-engine.js:145-163](../modules/tax-engine.js)):
+
+```
+Ciężarowy ≥12t, 2 osie (D8):
+  dT < 13t → 1 200    dT 13-14t → 1 488    dT 14-15t → 1 680    dT ≥ 15t → 2 184
+
+Ciężarowy ≥12t, 3 osie (D9):
+  dT < 17t → 1 488    17-19t → 1 704    19-21t → 1 872    21-23t → 2 136    ≥23t → 2 760
+
+Ciężarowy ≥12t, 4+ osie (D10):
+  dT < 25t → 1 488    25-27t → 1 824    27-29t → 2 880    ≥29t → 4 296
 ```
 
-Uwaga: WW024AF jest `Przyczepa`, D14, 2 osie — D1 jest poprawne.
-Nie zmieniaj bez decyzji. Wyniki nie zawierają modyfikacji D1.
+WW1670X (dT=16): 2 osie → 16≥15 → **2 184 zł**; 3 osie → 16<17 → **1 488 zł**.
+
+**Tabela nie ma błędu — to jest zgodne z ustawą** (art. 10 ust. 1 pkt 2 u.p.o.l.).
+Prawo różnicuje progi DMC zależnie od liczby osi: 16t na 3 osiach to dolny bracket 3-osiowych
+(lekki pojazd z dobrze rozłożonym naciskiem), ale 16t na 2 osiach to najwyższy bracket 2-osiowych
+(wyższy nacisk na oś = większe niszczenie drogi). Efekt: mniej osi ≠ zawsze niższy podatek
+w okolicach granicznych wartości DMC.
+
+**Wniosek:** D1 ma 3 osie, DR mówi 2 → pojazd niedopłacał 696 zł/rok.
+Korekta jest zasadna, ale skutkuje wzrostem podatku. Czeka na Twoją decyzję.
