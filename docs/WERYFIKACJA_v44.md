@@ -794,9 +794,9 @@ Jeśli D1 miał zapisaną wartość z F.2 (ograniczoną przez pozwolenie), a che
 | 2 | `tools/dr-extractor.js` | Etykiety: `rokProdukcji:56`, `przeznaczenie:55`, nowe `rodzajPojazdu:54` | Wymagane |
 | 3 | `worker/index.js` | Brak zmian — `_DR_NEW.liczbaOsi:44` jest POPRAWNE | — |
 | 4 | D1 `axles_count` | WZ899GJ: 2→3 (potwierdzone z DR pos 44 = "3") | ✓ Wykonane 2026-08-02 |
-| 5 | D1 `axles_count` | WA1697F: 2→4 (DR potwierdzone: pos 44 = "4", VIN YV2JG20G9BA714219) | Czeka na decyzję |
+| 5 | D1 `axles_count` | WA1697F: 2→4 (DR potwierdzone: pos 44 = "4", VIN YV2JG20G9BA714219) | ✓ Wykonane 2026-08-02 |
 
-KROK 4 (przebudowa checkpointu z poprawionym mapowaniem + porównanie 171 pojazdów) — gotowe do wykonania.
+KROK 4 wykonany — zob. §12.12 (kompletny audyt 17 pojazdów ≥12t).
 
 ---
 
@@ -836,21 +836,33 @@ Wszystkie 7 pojazdów ma aktualnie `dt1_category='D8'` (2 osie, ≥12t, 2 184 z�
 
 **Łączna korekta: +8 640 zł/rok** (7 × D8 → D9/D10).
 
-#### Oczekujące korekty D1 (czekają na decyzję)
+#### ✓ Korekty D1 wykonane (2026-08-02)
 
-```sql
-UPDATE vehicles SET axles_count=4, dt1_category='D10', dt1_tax_amount=4296,
-  data=json_set(data,'$.osie',4,'$.dt1_category','D10','$.dt1_tax_amount',4296),
-  updated_at=datetime('now')
-WHERE nr_rej IN ('WA1697F','WA2609J','WA4789F') AND company_id='mtoilet';
+Time-travel bookmark przed korektą: `000001c8-00000000-000050bb-eb157d8907312f478e2fa951773bfbc3`
+Backup stanu: `backup-axles-pre-correction-2026-08-02.json` (poza repo)
 
-UPDATE vehicles SET axles_count=3, dt1_category='D9', dt1_tax_amount=2760,
-  data=json_set(data,'$.osie',3,'$.dt1_category','D9','$.dt1_tax_amount',2760),
-  updated_at=datetime('now')
-WHERE nr_rej IN ('WZ464FY','WZ621FY','WA9885J','WW564AJ') AND company_id='mtoilet';
-```
+| nr_rej | zmiana axles | zmiana kategorii | stara stawka | nowa stawka | diff |
+|---|---|---|---|---|---|
+| WA1697F | 2 → 4 | D8 → D10 | 2 184 zł | 4 296 zł | +2 112 zł |
+| WA2609J | 2 → 4 | D8 → D10 | 2 184 zł | 4 296 zł | +2 112 zł |
+| WA4789F | 2 → 4 | D8 → D10 | 2 184 zł | **2 880 zł** | +696 zł |
+| WZ464FY | 2 → 3 | D8 → D9 | 2 184 zł | 2 760 zł | +576 zł |
+| WZ621FY | 2 → 3 | D8 → D9 | 2 184 zł | 2 760 zł | +576 zł |
+| WA9885J | 2 → 3 | D8 → D9 | 2 184 zł | 2 760 zł | +576 zł |
+| WW564AJ | 2 → 3 | D8 → D9 | 2 184 zł | 2 760 zł | +576 zł |
 
-Uwaga: przed wykonaniem — zweryfikować, że wszystkie 7 pojazdów należy do `company_id='mtoilet'`.
+Uwaga WA4789F: dmc=27 000 kg → `ciezar_ge12_4os_lt29 = 2 880 zł` (nie 4 296 zł jak dla ≥29t).
+
+**Suma korekty mtoilet: +7 224 zł/rok** (razem z WZ899GJ: +7 800 zł/rok).
+
+Suma DT-1 po korekcie per firma:
+
+| company_id | pojazdy | suma DT-1 |
+|---|---|---|
+| mtoilet | 193 | **201 096 zł** |
+| gcon | 21 | 27 360 zł |
+| kjrsupply | 2 | 4 248 zł |
+| nwkinvest | 1 | 1 128 zł |
 
 ---
 
@@ -924,3 +936,76 @@ POS 56: 2011                       (rok produkcji)
 
 Po korekcie: axles_count=4, DMC=37000 → kategoria **D10** (≥12t, ≥4 osie = 4 296 zł, pełny rok).
 Zmiana podatku: 2 184 zł (D8) → 4 296 zł (D10), **różnica +2 112 zł/rok**.
+
+---
+
+### 12.12 Kompletny audyt pojazdów ≥12t — pozostałe 6 (2026-08-02)
+
+Kontynuacja §12.11. Łączna baza: 17 pojazdów z DT-1 ≥12t (D8–D15 + WA995AL bez kategorii).
+W §12.11 zaudytowano 11; tu pozostałe 6.
+
+Metoda: decode DR pos 44, strategia multi-page (max strona 3), skale 4.0 / 6.0 / 8.0.
+
+| nr_rej | typ | D1 kat. | D1 osie | DR osie | Status | Uwagi |
+|---|---|---|---|---|---|---|
+| WW1659X | Ciężarowy | D9 | 3 | 3 | ✓ match | Scania P94, rok=1999 |
+| WW1670X | Ciężarowy | D9 | **3** | **2** | **ROZBIEŻNOŚĆ** | MAN 18.225 LC, rok=2003 |
+| WW024AF | Przyczepa | D14 | 2 | 2 | ✓ match | Gfollner APL 2/4 TL, rok=2015 |
+| WW117AF | Przyczepa | D15 | **3** | **2** | **ROZBIEŻNOŚĆ** | Sonst ANH. Hersteller, rok=2016 |
+| WZ209LJ | Przyczepa | D15 | **3** | **2** | **ROZBIEŻNOŚĆ** | Meprozet PN-1, rok=2025 |
+| WA995AL | Przyczepa | null | 2 | 2 | ✓ match | [NIE ZAPISUJ wyliczenia] |
+
+**3 OK / 3 ROZBIEŻNOŚCI (D1 ma ZA DUŻO osi).**
+
+#### Analiza wpływu podatkowego rozbieżności §12.12
+
+Rozbieżności idą w ODWROTNYM kierunku niż §12.11 — D1 zawyża liczbę osi.
+
+| nr_rej | marka | dmc | D1 osie→DR | Stara kat./stawka | Nowa kat./stawka | Zmiana |
+|---|---|---|---|---|---|---|
+| WW1670X | MAN 18.225 LC | 16 000 kg | 3 → 2 | D9 / 1 488 zł | D8 / **2 184 zł** | **+696 zł** |
+| WW117AF | Sonst ANH. | 18 000 kg | 3 → 2 | D15 / 1 872 zł | D14 / **1 488 zł** | **−384 zł** |
+| WZ209LJ | Meprozet PN-1 | 16 200 kg | 3 → 2 | D15 / 1 872 zł | D14 / **1 488 zł** | **−384 zł** |
+
+Obliczenia TaxEngine (wszystkie `typ='Przyczepa'` lub `'Ciężarowy'`, `miesiace=12`):
+- WW1670X (Ciężarowy, dT=16): D8 → `ciezar_ge12_2os_ge15 = 2 184 zł` (wyższe niż D9@16t=1 488!)
+- WW117AF (Przyczepa, dT=18): D14 → `przyczepa_ge12_2os_lt28 = 1 488 zł`
+- WZ209LJ (Przyczepa, dT=16.2): D14 → `przyczepa_ge12_2os_lt28 = 1 488 zł`
+
+#### WA995AL — wniosek z decode
+
+DR potwierdza: osie=2, rodzaj="PRZYCZEPA CIĘŻAROWA", przeznaczenie="PRZEWÓZ WODY", rok=2017.
+D1 axles_count=2 — poprawne. dt1_category=null — zgodnie z wcześniejszym ograniczeniem, bez zmian.
+Per TaxEngine byłoby D14 (2 osie, dmc=22t < 28t → 1 488 zł), ale wyliczenia nie zapisywać.
+
+#### Podsumowanie całego audytu (§12.11 + §12.12)
+
+Przebadano: **17/17 pojazdów ≥12t**.
+
+| Kategoria | Liczba | Status |
+|---|---|---|
+| ✓ D1 = DR | 8 | WA0677L, WW024AF, WW1659X, WW424AP, WW6202Y, WZ899GJ\*, WA995AL†, WW1659X |
+| ✓ D1 poprawiony (za mało osi) | 7 | WA1697F, WA2609J, WA4789F, WZ464FY, WZ621FY, WA9885J, WW564AJ |
+| ⚠ D1 do weryfikacji (za dużo osi) | 3 | WW1670X, WW117AF, WZ209LJ |
+
+\* WZ899GJ poprawiono w tej samej sesji.
+† WA995AL: match, bez zmian kategorii.
+
+**Oczekujące decyzje:**
+
+```sql
+-- WW1670X: 3→2 osie, D9→D8, 1488→2184 zł (+696 zł/rok) — WZROST podatku
+UPDATE vehicles SET axles_count=2, dt1_category='D8', dt1_tax_amount=2184,
+  data=json_set(data,'$.osie',2,'$.dt1_category','D8','$.dt1_tax_amount',2184),
+  updated_at=datetime('now')
+WHERE nr_rej='WW1670X' AND company_id='mtoilet';
+
+-- WW117AF + WZ209LJ: 3→2 osie, D15→D14, 1872→1488 zł (-384 zł/rok każdy) — OBNIŻKA podatku
+UPDATE vehicles SET axles_count=2, dt1_category='D14', dt1_tax_amount=1488,
+  data=json_set(data,'$.osie',2,'$.dt1_category','D14','$.dt1_tax_amount',1488),
+  updated_at=datetime('now')
+WHERE nr_rej IN ('WW117AF','WZ209LJ') AND company_id='mtoilet';
+```
+
+Uwaga: WW024AF jest `Przyczepa`, D14, 2 osie — D1 jest poprawne.
+Nie zmieniaj bez decyzji. Wyniki nie zawierają modyfikacji D1.
