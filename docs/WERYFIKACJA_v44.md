@@ -793,7 +793,134 @@ Jeśli D1 miał zapisaną wartość z F.2 (ograniczoną przez pozwolenie), a che
 | 1 | `tools/dr-extractor.js` | `liczbaOsi: 33` → `liczbaOsi: 44` | Wymagane przed kolejnym checkpointem |
 | 2 | `tools/dr-extractor.js` | Etykiety: `rokProdukcji:56`, `przeznaczenie:55`, nowe `rodzajPojazdu:54` | Wymagane |
 | 3 | `worker/index.js` | Brak zmian — `_DR_NEW.liczbaOsi:44` jest POPRAWNE | — |
-| 4 | D1 `axles_count` | WZ899GJ: 2→3 (potwierdzone z DR pos 44 = "3") | Czeka na decyzję |
-| 5 | D1 `axles_count` | WA1697F: 2→4 (PDF nieodczytany, wynika z konfiguracji 8×4) | Czeka na decyzję |
+| 4 | D1 `axles_count` | WZ899GJ: 2→3 (potwierdzone z DR pos 44 = "3") | ✓ Wykonane 2026-08-02 |
+| 5 | D1 `axles_count` | WA1697F: 2→4 (DR potwierdzone: pos 44 = "4", VIN YV2JG20G9BA714219) | Czeka na decyzję |
 
-KROK 4 (przebudowa checkpointu z poprawionym mapowaniem + porównanie 171 pojazdów) — po zatwierdzeniu zmian w dr-extractor.js.
+KROK 4 (przebudowa checkpointu z poprawionym mapowaniem + porównanie 171 pojazdów) — gotowe do wykonania.
+
+---
+
+#### KROK 4 — porównanie D1 axles_count vs DR pos 44 (2026-08-02)
+
+Zakres: 11 kluczowych pojazdów z listy D1 (7 suspektów z axles_count=2 i dmc≥18t + 4 sanity-check z axles_count=3). Wszystkie miały pliki PDF w checkpoincie; wszystkie zdekodowane pomyślnie (strategia s4_p1 — skala 4.0, strona 1).
+
+| nr_rej | marka | model | D1 osie | DR pos 44 | Status | Uwagi |
+|---|---|---|---|---|---|---|
+| WZ899GJ | Volvo | FMX 6x2 | 3 | 3 | ✓ match | poprawiono wcześniej w tej sesji |
+| WW6202Y | Volvo | FH-6X2R 420 | 3 | 3 | ✓ match | |
+| WW424AP | Volvo | FH 500 HDS | 3 | 3 | ✓ match | |
+| WA0677L | Scania | R490 Szambiarka | 3 | 3 | ✓ match | |
+| **WA1697F** | Volvo | FMX 8x4 | **2** | **4** | **ROZBIEŻNOŚĆ** | czeka na decyzję |
+| **WA2609J** | Volvo | FH 540 Szambiarka | **2** | **4** | **ROZBIEŻNOŚĆ** | |
+| **WZ464FY** | Volvo | FH 540 Wodolejka | **2** | **3** | **ROZBIEŻNOŚĆ** | |
+| **WZ621FY** | Scania | R580 | **2** | **3** | **ROZBIEŻNOŚĆ** | |
+| **WA4789F** | Scania | R540 Wodolejka | **2** | **4** | **ROZBIEŻNOŚĆ** | |
+| **WA9885J** | Mercedes | Actros | **2** | **3** | **ROZBIEŻNOŚĆ** | |
+| **WW564AJ** | Scania | R520 | **2** | **3** | **ROZBIEŻNOŚĆ** | |
+
+**Wynik: 4 OK / 7 ROZBIEŻNOŚCI / 0 nieodczytanych.**
+
+#### Wpływ podatkowy rozbieżności (pełny rok, miesiace_podatku=12)
+
+Wszystkie 7 pojazdów ma aktualnie `dt1_category='D8'` (2 osie, ≥12t, 2 184 zł).
+
+| nr_rej | DMC | Osie DR | Nowa kat. | Nowa stawka | Zmiana |
+|---|---|---|---|---|---|
+| WA1697F | 32 000 kg | 4 | D10 | 4 296 zł | +2 112 zł |
+| WA2609J | 32 000 kg | 4 | D10 | 4 296 zł | +2 112 zł |
+| WA4789F | 27 000 kg | 4 | D10 | 4 296 zł | +2 112 zł |
+| WZ464FY | 32 000 kg | 3 | D9 | 2 760 zł | +576 zł |
+| WZ621FY | 30 000 kg | 3 | D9 | 2 760 zł | +576 zł |
+| WA9885J | 26 000 kg | 3 | D9 | 2 760 zł | +576 zł |
+| WW564AJ | 26 000 kg | 3 | D9 | 2 760 zł | +576 zł |
+
+**Łączna korekta: +8 640 zł/rok** (7 × D8 → D9/D10).
+
+#### Oczekujące korekty D1 (czekają na decyzję)
+
+```sql
+UPDATE vehicles SET axles_count=4, dt1_category='D10', dt1_tax_amount=4296,
+  data=json_set(data,'$.osie',4,'$.dt1_category','D10','$.dt1_tax_amount',4296),
+  updated_at=datetime('now')
+WHERE nr_rej IN ('WA1697F','WA2609J','WA4789F') AND company_id='mtoilet';
+
+UPDATE vehicles SET axles_count=3, dt1_category='D9', dt1_tax_amount=2760,
+  data=json_set(data,'$.osie',3,'$.dt1_category','D9','$.dt1_tax_amount',2760),
+  updated_at=datetime('now')
+WHERE nr_rej IN ('WZ464FY','WZ621FY','WA9885J','WW564AJ') AND company_id='mtoilet';
+```
+
+Uwaga: przed wykonaniem — zweryfikować, że wszystkie 7 pojazdów należy do `company_id='mtoilet'`.
+
+---
+
+#### Weryfikacja: D1 WZ899GJ po korekcie (2026-08-02)
+
+```
+id=155, company_id='mtoilet', nr_rej='WZ899GJ'
+axles_count:     2 → 3          ✓
+dt1_category:    D8 → D9        ✓
+dt1_tax_amount:  2184 → 2760 zł ✓
+data.osie:       2 → 3          ✓
+updated_at:      2026-08-02 08:39:01
+```
+
+Różnica podatku: **+576 zł/rok** (D8 ciezar_ge12_3os = 2 760 zł).
+
+---
+
+#### Weryfikacja: worker `_DR_NEW` pozycje 54/55/56 (2026-08-02)
+
+Worker `worker/index.js` linii 2766–2768:
+
+```javascript
+const _DR_NEW = { seriaDr:1, nrRej:7, marka:8, typ:9, model:12, vin:13,
+  dmcKg:38, dmcKg2:39, dmcZespolu:40, masaWlKg:41, kategoria:42, liczbaOsi:44,
+  pojSilnika:48, mocKW:49, paliwo:50, dataRej:51, miejscaSied:52 };
+```
+
+**Pozycje 54/55/56 NIE SĄ zmapowane w workerze.** Worker nigdy nie zapisuje `rokProdukcji`, `rodzajPojazdu`, `przeznaczenie` do kolumny `data`.
+
+Weryfikacja D1 (10 najnowszych pojazdów z wypełnionym JSON):
+
+| nr_rej | data.rokProdukcji | data.rodzajPojazdu | data.przeznaczenie |
+|---|---|---|---|
+| WGM89755 | null | null | null |
+| WL3597R | null | null | null |
+| WA5535C | null | null | null |
+| WGM0065L | null | null | null |
+| WZ124HW | null | null | null |
+| WZ122HW | null | null | null |
+| WZ123HW | null | null | null |
+| WZ389HM | null | null | null |
+| WZ390HM | null | null | null |
+| WL7611V | null | null | null |
+
+**Wniosek:** Brak danych w D1 dla tych pól jest poprawny — worker ich nie pobiera z DR. Jeśli te pola mają być zapisywane, należy dodać je do `_DR_NEW` w workerze (poza zakresem bieżącego audytu). Checkpoint `dr-extractor.js` po naprawie etykiet będzie je zapisywał lokalnie.
+
+---
+
+#### WA1697F — wynik retry decode (2026-08-02)
+
+Pipeline: Playwright pdf.js → strona **2** (nie strona 1!) → skala **6.0** (nie 4.0!) → zxing-wasm → NRV2E → 67 pól.
+
+```
+POS  7: WA 1697F                   (nrRej)
+POS 13: YV2JG20G9BA714219          (VIN ✓ — pasuje do oczekiwanego)
+POS 44: 4                          (liczba osi ✓ — 8×4 potwierdzone)
+POS 38: 37000                      (F.1 DMC kg — potwierdza §12.10: D1 ma 32 000)
+POS 39: 32000                      (F.2 DMC kg — to wartość w D1)
+POS 40: 40000                      (F.3 DMC zespołu kg)
+POS 41: 13675                      (G masa własna kg)
+POS 51: 2011-07-11                 (data pierwszej rejestracji)
+POS 54: SAMOCHÓD CIĘŻAROWY         (rodzaj pojazdu)
+POS 55: PRZEWÓZ WODY               (przeznaczenie)
+POS 56: 2011                       (rok produkcji)
+```
+
+**Dlaczego poprzednia próba nie powiodła się:** strona 1 PDF to strona tytułowa bez kodu Aztec; kod Aztec jest na stronie 2. Poprzedni skrypt próbował tylko strony 1 przy skali 4.0.
+
+**Wniosek: axles_count D1 = 2 jest błędem. Korekta WA1697F 2→4 czeka na decyzję.**
+
+Po korekcie: axles_count=4, DMC=37000 → kategoria **D10** (≥12t, ≥4 osie = 4 296 zł, pełny rok).
+Zmiana podatku: 2 184 zł (D8) → 4 296 zł (D10), **różnica +2 112 zł/rok**.
