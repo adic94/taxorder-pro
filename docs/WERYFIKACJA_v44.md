@@ -1133,3 +1133,31 @@ Analiza `modules/tax-engine.js` (`getRate()` linie 134–143):
 **Liczba osi wpływa na stawkę dopiero od DMC ≥ 12t** (branching na `osie` w liniach 145–163 dla ciężarowych, 96–113 dla przyczep, 119–130 dla ciągników ≥12t).
 
 Kandydatów do sprawdzenia w drugiej fali: **0**. Nie ma potrzeby audytu osi dla pojazdów 3,5–12t.
+
+---
+
+## §13 Odczyt dowodów — wnioski końcowe
+
+**WYNIK: 988/1384 = 71,4% skuteczności ścieżki PDF.**
+
+### Rozbicie 396 nieodczytanych
+
+| Liczba | Przyczyna |
+|--------|-----------|
+| ~169 | dokumenty bez kodu Aztec (tymczasowe, miękkie, verte, zagraniczne) |
+| ~50 | rozdzielczość poniżej 1500 px |
+| 8 | odczyt innego kodu niż DR (patrz niżej) |
+| 2 | timeout renderowania |
+| reszta | starsze warianty dokumentu |
+
+### 8 plików „Nieprawidłowa długość: 1073685261" — wyjaśnione
+
+Cztery różne pojazdy, cztery różne organy, a bajty 0–5 identyczne we wszystkich ośmiu plikach; bajty 16–22 identyczne w 3 z 4 grup. To wyklucza uszkodzony skan — losowa utrata modułów dałaby losowe fragmenty. To poprawny odczyt **innego kodu Aztec na stronie** (pieczęć / znacznik dokumentu), nie kodu DR. 33 bajty to za mało na DR, dokładnie tyle co sygnatura. Skany z 2021 dotyczą 4 pojazdów — bez wpływu na ewidencję. **NIE badać dalej.**
+
+### Czego nie poprawi żaden algorytm
+
+Kaskada aztec-detector.js (kafelkowanie, Otsu, obroty pośrednie) ani komercyjny dekoder PELock nie pomogą tam, gdzie kodu nie ma. Pomagają, gdy kod jest obecny, ale słabo widoczny — a diagnostyka na WB6741U i WA5535C pokazała renderowanie obu stron w pełnej jakości (3–4 MB) z wynikiem null. Kod tam nie istnieje.
+
+### Decyzja
+
+**Temat zamknięty.** Pozostałe dokumenty — wprowadzanie ręczne.
