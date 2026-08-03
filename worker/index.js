@@ -753,6 +753,62 @@ async function handlePrefs(req, env, user) {
   return err('Metoda niedozwolona', 405);
 }
 
+// ─── PREFS KV ─────────────────────────────────────────────────────────────────
+// GET /api/prefs/kv              → { prefs: [{company_id,key,value,updated_at},...] }
+// PUT /api/prefs/kv              → body {key,value,company_id?} | {kv:{...},company_id?}
+// DELETE /api/prefs/kv?key=X[&company=Y]
+async function handlePrefsKv(req, env, user, url) {
+  const uid = user.id;
+
+  if (req.method === 'GET') {
+    const rows = await env.DB.prepare(
+      'SELECT company_id, key, value, updated_at FROM user_prefs_kv WHERE user_id = ? ORDER BY company_id, key'
+    ).bind(uid).all();
+    return json({ prefs: rows.results || [] });
+  }
+
+  if (req.method === 'PUT') {
+    let body;
+    try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const companyId = typeof body.company_id === 'string' ? body.company_id : '';
+
+    if (body.kv && typeof body.kv === 'object' && !Array.isArray(body.kv)) {
+      const entries = Object.entries(body.kv);
+      if (entries.length > 100) return err('Zbyt wiele kluczy naraz (max 100)');
+      const now = new Date().toISOString();
+      for (const [key, value] of entries) {
+        if (!key || key.length > 128) return err(`Nieprawidłowy klucz: ${key}`);
+        await env.DB.prepare(
+          `INSERT INTO user_prefs_kv(user_id,company_id,key,value,updated_at) VALUES(?,?,?,?,?)
+           ON CONFLICT(user_id,company_id,key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at`
+        ).bind(uid, companyId, key, typeof value === 'string' ? value : JSON.stringify(value), now).run();
+      }
+      return json({ ok: true, count: entries.length });
+    }
+
+    const { key, value } = body;
+    if (!key || typeof key !== 'string' || key.length > 128) return err('Nieprawidłowy klucz');
+    if (value === undefined) return err('Brak wartości (value)');
+    await env.DB.prepare(
+      `INSERT INTO user_prefs_kv(user_id,company_id,key,value,updated_at) VALUES(?,?,?,?,datetime('now'))
+       ON CONFLICT(user_id,company_id,key) DO UPDATE SET value=excluded.value,updated_at=datetime('now')`
+    ).bind(uid, companyId, key, typeof value === 'string' ? value : JSON.stringify(value)).run();
+    return json({ ok: true });
+  }
+
+  if (req.method === 'DELETE') {
+    const key       = url.searchParams.get('key');
+    const companyId = url.searchParams.get('company') ?? '';
+    if (!key) return err('Brak parametru key');
+    const r = await env.DB.prepare(
+      'DELETE FROM user_prefs_kv WHERE user_id=? AND company_id=? AND key=?'
+    ).bind(uid, companyId, key).run();
+    return json({ ok: true, deleted: r.meta.changes });
+  }
+
+  return err('Metoda niedozwolona', 405);
+}
+
 // ─── DOCUMENTS — HELPERS ──────────────────────────────────────────────────────
 const _DOC_TYPE_RULES = [
   { type: 'oc',        re: [/\boc\b/i, /odpowiedzia.*cywil/i, /ubezp.*komun/i, /polisa.*oc/i, /oc[-_]polisa/i, /oc[-_\s]ubezp/i] },
@@ -8702,6 +8758,7 @@ async function handleRequest(request, env, url, path, ctx) {
   }
   if (path.startsWith('/api/vehicles')) { if (!user) return err('Nieautoryzowany', 401); return handleVehicles(request, env, user, url, path); }
   if (path.startsWith('/api/state/'))   { if (!user) return err('Nieautoryzowany', 401); return handleState(request, env, user, url, path); }
+  if (path === '/api/prefs/kv')         { if (!user) return err('Nieautoryzowany', 401); return handlePrefsKv(request, env, user, url); }
   if (path.startsWith('/api/prefs'))    { if (!user) return err('Nieautoryzowany', 401); return handlePrefs(request, env, user); }
   if (path.startsWith('/api/docs'))     { if (!user) return err('Nieautoryzowany', 401); return handleDocs(request, env, user, url, path); }
   if (path.startsWith('/api/damages'))  { if (!user) return err('Nieautoryzowany', 401); return handleDamages(request, env, user, url, path); }
