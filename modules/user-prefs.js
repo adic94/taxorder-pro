@@ -55,7 +55,11 @@
   }
 
   function _token() {
-    return localStorage.getItem('session_token') || '';
+    return localStorage.getItem('cf_token') || '';
+  }
+
+  function _isLoggedIn() {
+    return !!document.getElementById('page-dash');
   }
 
   function _company() {
@@ -74,23 +78,35 @@
   }
 
   async function _put(key, value, companyId) {
-    if (_isDisabled() || !_token()) return;
+    if (_isDisabled()) return;
+    const tok = _token();
+    if (!tok) {
+      if (_isLoggedIn()) console.warn('[UserPrefs] PUT pominięty — brak cf_token mimo aktywnej sesji:', key);
+      return;
+    }
     try {
-      await fetch(_workerUrl() + '/api/prefs/kv', {
+      const r = await fetch(_workerUrl() + '/api/prefs/kv', {
         method: 'PUT',
         headers: _authHeaders(),
         body: JSON.stringify({ key, value, company_id: companyId }),
       });
+      if (!r.ok) console.warn('[UserPrefs] Synchronizacja nieudana:', r.status, key);
     } catch { /* silent — localStorage już zapisany */ }
   }
 
   async function _del(key, companyId) {
-    if (_isDisabled() || !_token()) return;
+    if (_isDisabled()) return;
+    const tok = _token();
+    if (!tok) {
+      if (_isLoggedIn()) console.warn('[UserPrefs] DELETE pominięty — brak cf_token mimo aktywnej sesji:', key);
+      return;
+    }
     try {
-      await fetch(
+      const r = await fetch(
         _workerUrl() + '/api/prefs/kv?' + new URLSearchParams({ key, company: companyId }),
-        { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + _token() } }
+        { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + tok } }
       );
+      if (!r.ok) console.warn('[UserPrefs] Synchronizacja nieudana:', r.status, key);
     } catch { /* silent */ }
   }
 
