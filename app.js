@@ -227,7 +227,7 @@ function toggleSidebarIconOnly() {
   const sidebar = document.getElementById('main-sidebar');
   const btn = document.getElementById('sidebar-collapse-btn');
   const isIconOnly = sidebar.classList.toggle('icon-only');
-  localStorage.setItem('taxSidebarIconOnly', isIconOnly ? '1' : '0');
+  if (window.UserPrefs) UserPrefs.set('taxSidebarIconOnly', isIconOnly ? '1' : '0'); else localStorage.setItem('taxSidebarIconOnly', isIconOnly ? '1' : '0');
   if (btn) {
     const icon = btn.querySelector('.ti');
     const lbl = btn.querySelector('span');
@@ -298,7 +298,7 @@ function toggleSidebarSection(label) {
   try {
     const state = JSON.parse(localStorage.getItem('sidebarCollapse') || '{}');
     state[key] = isCollapsed;
-    localStorage.setItem('sidebarCollapse', JSON.stringify(state));
+    if (window.UserPrefs) UserPrefs.set('sidebarCollapse', JSON.stringify(state)); else localStorage.setItem('sidebarCollapse', JSON.stringify(state));
   } catch(e) {}
 }
 
@@ -325,7 +325,7 @@ function initSidebarCollapse() {
 function setSidebarMode() {
   const goBasic = !document.body.classList.contains('sidebar-basic');
   document.body.classList.toggle('sidebar-basic', goBasic);
-  localStorage.setItem('sidebarMode', goBasic ? 'basic' : 'full');
+  if (window.UserPrefs) UserPrefs.set('sidebarMode', goBasic ? 'basic' : 'full'); else localStorage.setItem('sidebarMode', goBasic ? 'basic' : 'full');
   const lbl = document.getElementById('sidebar-mode-label');
   if (lbl) lbl.textContent = goBasic ? 'Pełny widok' : 'Tryb prosty';
   _updateSidebarSectionVisibility();
@@ -998,7 +998,7 @@ function toggleRow(id) {
 // ── Slim table toggle ─────────────────────────────────────────────────────────
 function toggleSlimTable() {
   _slimTable = !_slimTable;
-  localStorage.setItem('slim_table', String(_slimTable));
+  if (window.UserPrefs) UserPrefs.set('slim_table', String(_slimTable)); else localStorage.setItem('slim_table', String(_slimTable));
   _expandedVehId = null;
   _updateSlimBtn();
   renderVeh();
@@ -7705,6 +7705,27 @@ async function doLogin(){
   // Przy niepowodzeniu zostaje lista zaszyta w COMPANIES.
   hydrateCompaniesFromApi().catch(e => console.warn('[Companies] hydratacja:', e.message));
 
+  // Synchronizacja preferencji UI z D1 w tle (UserPrefs, Partia 1 — globalne).
+  // D1 wygrywa dla kluczy które tam są; lokalne klucze których nie ma w D1 → pushToCloud.
+  if (window.UserPrefs) {
+    window.UserPrefs.syncFromCloud().then(() => {
+      _applyTheme(localStorage.getItem('theme') || (localStorage.getItem('taxDarkMode') === '1' ? 'dark' : 'light'));
+      const isBasic = localStorage.getItem('sidebarMode') === 'basic';
+      if (isBasic !== document.body.classList.contains('sidebar-basic')) {
+        document.body.classList.toggle('sidebar-basic', isBasic);
+        _updateSidebarSectionVisibility();
+      }
+      const sbEl = document.getElementById('main-sidebar');
+      if (sbEl) {
+        const shouldIconOnly = localStorage.getItem('taxSidebarIconOnly') === '1';
+        if (shouldIconOnly !== sbEl.classList.contains('icon-only')) toggleSidebarIconOnly();
+      }
+      _slimTable = localStorage.getItem('slim_table') !== 'false';
+      _updateSlimBtn();
+      window.UserPrefs.pushToCloud().catch(() => {});
+    }).catch(() => {});
+  }
+
   if(window.TaxOrderFleetCloud && typeof window.TaxOrderFleetCloud.loadVehicles === 'function'){
     TaxOrderFleetCloud.loadVehicles().then(result => {
       if(typeof refreshAll==='function') refreshAll();
@@ -9800,7 +9821,7 @@ async function clearAllErrorLogs() {
 // ─── DARK / LIGHT MODE ───────────────────────────────────────────────────────
 function _applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem('theme', theme);
+  if (window.UserPrefs) UserPrefs.set('theme', theme); else localStorage.setItem('theme', theme);
   const ico = document.getElementById('dark-mode-icon');
   if (ico) ico.className = theme === 'dark' ? 'ti ti-sun' : 'ti ti-moon';
 }
