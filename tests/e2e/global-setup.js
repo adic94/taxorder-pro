@@ -34,8 +34,9 @@ module.exports = async function globalSetup(config) {
       origins: [{
         origin: baseURL,
         localStorage: [
-          { name: 'cf_token',        value: process.env.TEST_TOKEN },
-          { name: 'currentCompany',  value: company },
+          { name: 'cf_token',                   value: process.env.TEST_TOKEN },
+          { name: 'currentCompany',             value: company },
+          { name: 'taxorder_prefs_kv_source',   value: 'local' },
         ],
       }],
     };
@@ -63,5 +64,11 @@ module.exports = async function globalSetup(config) {
   }
 
   await context.storageState({ path: authPath });
+
+  // Kill switch: wymuś lokalny tryb prefs we wszystkich testach
+  await context.addInitScript(() => {
+    localStorage.setItem('taxorder_prefs_kv_source', 'local');
+  });
+
   await browser.close();
 };
