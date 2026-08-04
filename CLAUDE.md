@@ -22,6 +22,55 @@
 | `modules/gminy-rates.js` | Stawki podatkowe per gmina |
 | `sw.js` | Service Worker (PWA, cache) |
 
+### Mapa katalogów
+```
+taxorder-pro/
+├── app.js                     # SPA main (~9 700 ln)
+├── index.html                 # markup + esc() (~5 200 ln)
+├── worker/
+│   ├── index.js               # Worker backend (~11 500 ln)
+│   └── schema_v*.sql          # migracje DB (aktualny: v44)
+├── modules/
+│   ├── vehicle-detail.js      # karta pojazdu (~3 700 ln)
+│   ├── tax-engine.js          # DT-1 silnik
+│   ├── cf-cloud.js            # klient D1 API
+│   ├── i18n.js                # tłumaczenia 7 języków
+│   └── gminy-rates.js         # stawki per gmina
+├── tests/e2e/                 # Playwright E2E
+│   ├── global-setup.js        # auth (TEST_TOKEN / TEST_EMAIL)
+│   └── .auth-state.json       # stan sesji (gitignore)
+├── tools/                     # skrypty dev — nie wchodzą na prod
+├── .claude/commands/          # slash commands Claude Code
+└── docs/                      # runbooki, rollback
+```
+
+---
+
+## HANDOFF — STAN PROJEKTU
+
+> Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
+> Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
+
+### Zamknięte
+| Kiedy | Temat | Commit |
+|-------|-------|--------|
+| 2026-07 | DR extractor — Aztec + NRV2E kaskada, §12–13 zamknięte | `c2670da` |
+| 2026-07 | DT-1 audyt ≥12t — 17 pojazdów, 11 korekt, +7 728 zł/rok | `4007011` |
+| 2026-07 | UserPrefs — globalne + per-company prefs w D1 (`user_prefs_kv`) | `5b59c95` |
+| 2026-08 | E2E kill switch — `taxorder_prefs_kv_source=local` w global-setup | `3cf0e87` |
+
+### W toku
+- **CFM regression** — `cfm.spec.js` pomija lokalnie (brak `TEST_EMAIL`);
+  podejrzany `438b56c` (2026-07-26, `hydrateCompaniesFromApi` → D1 API, możliwy timeout 8s);
+  **nie naprawione**.
+
+### Otwarte / znane długi
+- `rate-reader.js` — niezmigrowany z Supabase; tabela `tax_rates` nie istnieje w D1.
+  Stawki gminne obsługuje `GminyRates` — `rate-reader` jest martwy.
+- `ocr-service/` — Aztec+NRV2E mikroserwis odłączony od aplikacji (patrz pułapka 8).
+  Docelowo: Aztec jako **pierwszy** krok OCR dla DR przed Groq Vision.
+- Dokumentacja: `docs/ROLLBACK_v44.md` nie opisuje rollbacku UserPrefs (schema v45+).
+
 ---
 
 ## BEZPIECZEŃSTWO — OBOWIĄZKOWE REGUŁY
