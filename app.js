@@ -675,7 +675,7 @@ function filterVeh() {
 
 function applyColFilter(col, val) {
   _colFilters[col] = val;
-  try { localStorage.setItem(_COL_FILTERS_LS, JSON.stringify(_colFilters)); } catch {}
+  try { if (window.UserPrefs) UserPrefs.set('taxColFilters', _colFilters); else localStorage.setItem(_COL_FILTERS_LS, JSON.stringify(_colFilters)); } catch {}
   renderVeh();
 }
 
@@ -1572,7 +1572,7 @@ function saveCurrentFilter() {
   _savedFilters = _savedFilters.filter(f=>f.name!==entry.name);
   _savedFilters.unshift(entry);
   if (_savedFilters.length > 20) _savedFilters.pop();
-  try{localStorage.setItem(_SAVED_FILTERS_LS, JSON.stringify(_savedFilters));}catch{}
+  try{ if (window.UserPrefs) UserPrefs.set('taxorder-saved-filters', _savedFilters); else localStorage.setItem(_SAVED_FILTERS_LS, JSON.stringify(_savedFilters)); }catch{}
   _renderSavedFiltersList();
   toast(`✓ Zapisano filtr „${esc(entry.name)}"`);
 }
@@ -1595,7 +1595,7 @@ function loadSavedFilter(id) {
 
 function deleteSavedFilter(id) {
   _savedFilters = _savedFilters.filter(x=>x.id!==id);
-  try{localStorage.setItem(_SAVED_FILTERS_LS, JSON.stringify(_savedFilters));}catch{}
+  try{ if (window.UserPrefs) UserPrefs.set('taxorder-saved-filters', _savedFilters); else localStorage.setItem(_SAVED_FILTERS_LS, JSON.stringify(_savedFilters)); }catch{}
   _renderSavedFiltersList();
 }
 
@@ -2218,7 +2218,7 @@ function _applyColVis() {
 function toggleCol(col) {
   if (!_colVis) _initColVis();
   _colVis[col] = _colVis[col] ? 0 : 1;
-  localStorage.setItem('taxColVis', JSON.stringify(_colVis));
+  if (window.UserPrefs) UserPrefs.set('taxColVis', _colVis); else localStorage.setItem('taxColVis', JSON.stringify(_colVis));
   renderVeh();
   _renderColPanel();
 }
@@ -2226,7 +2226,7 @@ function toggleCol(col) {
 function toggleAllCols(show) {
   if (!_colVis) _initColVis();
   _getColOrder().forEach(id => { _colVis[id] = show ? 1 : 0; });
-  localStorage.setItem('taxColVis', JSON.stringify(_colVis));
+  if (window.UserPrefs) UserPrefs.set('taxColVis', _colVis); else localStorage.setItem('taxColVis', JSON.stringify(_colVis));
   renderVeh();
   _renderColPanel();
 }
@@ -2234,8 +2234,8 @@ function toggleAllCols(show) {
 function resetColVis() {
   _colVis = {..._COL_DEFAULTS};
   _colOrder = [..._COL_ORDER_DEFAULT];
-  localStorage.setItem('taxColVis', JSON.stringify(_colVis));
-  try { localStorage.setItem(_COL_ORDER_LS, JSON.stringify(_colOrder)); } catch {}
+  if (window.UserPrefs) UserPrefs.set('taxColVis', _colVis); else localStorage.setItem('taxColVis', JSON.stringify(_colVis));
+  try { if (window.UserPrefs) UserPrefs.set('taxColOrder', _colOrder); else localStorage.setItem(_COL_ORDER_LS, JSON.stringify(_colOrder)); } catch {}
   renderVeh();
   _renderColPanel();
 }
@@ -2298,7 +2298,7 @@ function _initColOrderDnd(list) {
   list.addEventListener('dragend', () => {
     if (dragging) { dragging.style.opacity = ''; dragging = null; }
     _colOrder = [...list.querySelectorAll('[data-flcol]')].map(el => el.dataset.flcol);
-    try { localStorage.setItem(_COL_ORDER_LS, JSON.stringify(_colOrder)); } catch {}
+    try { if (window.UserPrefs) UserPrefs.set('taxColOrder', _colOrder); else localStorage.setItem(_COL_ORDER_LS, JSON.stringify(_colOrder)); } catch {}
     renderVeh();
   });
   list.addEventListener('dragover', e => {
@@ -2385,7 +2385,7 @@ function saveColPreset() {
   if (!_colVis) _initColVis();
   const presets = _getColPresets();
   presets.push({ name, vis: {..._colVis}, order: [..._getColOrder()] });
-  try { localStorage.setItem(_COL_PRESETS_LS, JSON.stringify(presets)); } catch {}
+  try { if (window.UserPrefs) UserPrefs.set('taxColPresets', presets); else localStorage.setItem(_COL_PRESETS_LS, JSON.stringify(presets)); } catch {}
   if (nameEl) nameEl.value = '';
   toast(`✓ Preset „${name}" zapisany`);
   _renderColPanel();
@@ -2397,8 +2397,8 @@ function applyColPreset(i) {
   _colVis = {..._COL_DEFAULTS, ...p.vis};
   _colOrder = Array.isArray(p.order) && p.order.length === _COL_ORDER_DEFAULT.length ? [...p.order] : [..._COL_ORDER_DEFAULT];
   try {
-    localStorage.setItem('taxColVis', JSON.stringify(_colVis));
-    localStorage.setItem(_COL_ORDER_LS, JSON.stringify(_colOrder));
+    if (window.UserPrefs) { UserPrefs.set('taxColVis', _colVis); UserPrefs.set('taxColOrder', _colOrder); }
+    else { localStorage.setItem('taxColVis', JSON.stringify(_colVis)); localStorage.setItem(_COL_ORDER_LS, JSON.stringify(_colOrder)); }
   } catch {}
   renderVeh();
   _renderColPanel();
@@ -2409,18 +2409,18 @@ function deleteColPreset(i) {
   const presets = _getColPresets();
   const name = presets[i]?.name || '';
   presets.splice(i, 1);
-  try { localStorage.setItem(_COL_PRESETS_LS, JSON.stringify(presets)); } catch {}
+  try { if (window.UserPrefs) UserPrefs.set('taxColPresets', presets); else localStorage.setItem(_COL_PRESETS_LS, JSON.stringify(presets)); } catch {}
   _renderColPanel();
 }
 
 // ==================== FLEET VIEW MODES ====================
 function switchFleetView(mode) {
   _viewMode = mode;
-  localStorage.setItem('fleetViewMode', mode);
+  if (window.UserPrefs) UserPrefs.set('fleetViewMode', mode); else localStorage.setItem('fleetViewMode', mode);
   if (!_colVis) _initColVis();
   if (mode === 'fleet') Object.assign(_colVis, _COL_FLEET);
   else if (mode === 'dt1') Object.assign(_colVis, _COL_DT1);
-  localStorage.setItem('taxColVis', JSON.stringify(_colVis));
+  if (window.UserPrefs) UserPrefs.set('taxColVis', _colVis); else localStorage.setItem('taxColVis', JSON.stringify(_colVis));
   renderVeh();
 }
 
@@ -8784,6 +8784,14 @@ function switchCompany(companyId){
       window.TaxOrderFleetCloud?.subscribeRealTime?.(companyId);
     }
   });
+  if (window.UserPrefs) {
+    window.UserPrefs.syncFromCloud().then(() => {
+      _colVis = null; _colOrder = null; _colFilters = {};
+      try { _savedFilters = JSON.parse(localStorage.getItem(_SAVED_FILTERS_LS)) || []; } catch { _savedFilters = []; }
+      _viewMode = localStorage.getItem('fleetViewMode') || 'fleet';
+      refreshAll();
+    });
+  }
 }
 
 function updateCompanyUI(){
