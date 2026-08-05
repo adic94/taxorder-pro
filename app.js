@@ -99,28 +99,8 @@ function fmtZl(n) { return Math.round(n).toLocaleString('pl-PL'); }
 function fmtT(kg) { return kg?(kg/1000).toFixed(3).replace('.',','):'—'; }
 
 // ==================== DARK MODE ====================
-function _applyTheme(dark) {
-  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-  const icon = document.getElementById('dark-mode-icon');
-  if (icon) {
-    icon.className = dark ? 'ti ti-sun' : 'ti ti-moon';
-  }
-}
-
-function toggleDarkMode() {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const next = !isDark;
-  localStorage.setItem('taxDarkMode', next ? '1' : '0');
-  _applyTheme(next);
-}
-
-// Zastosuj motyw przy starcie (data-theme natychmiast, ikona po DOM ready)
-;(function() {
-  const saved = localStorage.getItem('taxDarkMode');
-  const preferDark = saved === '1' || (saved === null && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
-  document.documentElement.setAttribute('data-theme', preferDark ? 'dark' : 'light');
-  document.addEventListener('DOMContentLoaded', () => _applyTheme(preferDark));
-})();
+// Usunięto zduplikowany blok (był tu bool-based _applyTheme + toggleDarkMode + IIFE).
+// Właściwe implementacje są przy końcu pliku (linia ~9830).
 
 // ==================== NAVIGATION ====================
 // Otwiera/zamyka sidebar na urządzeniach mobilnych
@@ -9839,8 +9819,9 @@ function toggleDarkMode() {
 }
 (function _initTheme() {
   const saved = localStorage.getItem('theme');
-  if (saved) _applyTheme(saved);
+  if (saved === 'dark' || saved === 'light') _applyTheme(saved);
   else if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) _applyTheme('dark');
+  else _applyTheme('light');
 })();
 
 // ─── ONBOARDING ──────────────────────────────────────────────────────────────
