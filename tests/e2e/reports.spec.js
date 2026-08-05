@@ -21,8 +21,7 @@ test.describe('Strona raportów', () => {
   });
 
   test('widoczne są przyciski filtrowania roku', async ({ page }) => {
-    const yearFilter = page.locator('#page-raporty').locator('[data-yr], .yr-btn, select').first();
-    await expect(yearFilter.or(page.locator('#page-raporty .btn').first())).toBeVisible();
+    await expect(page.locator('#page-raporty .btn').first()).toBeVisible();
   });
 
   test('przycisk eksportu Excel jest widoczny', async ({ page }) => {

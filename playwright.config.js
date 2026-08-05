@@ -1,4 +1,5 @@
 // @ts-check
+require('dotenv').config();
 const { defineConfig, devices } = require('@playwright/test');
 
 // Plik .auth-state.json tworzony przez globalSetup przy każdym uruchomieniu CI.

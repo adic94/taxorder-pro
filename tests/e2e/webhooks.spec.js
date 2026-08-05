@@ -30,9 +30,7 @@ test.describe('Webhooki', () => {
 
   test('kliknięcie "Nowy webhook" otwiera modal', async ({ page }) => {
     await page.click('#page-webhooks button[onclick*="openModal"]');
-    // Poczekaj na pojawienie się dowolnego modalu
-    const modal = page.locator('.modal, [role="dialog"], #wh-modal').first();
-    await expect(modal).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('#webhook-modal')).toBeVisible({ timeout: 5_000 });
   });
 
   test('strona webhooków ładuje się bez błędów JS', async ({ page }) => {
