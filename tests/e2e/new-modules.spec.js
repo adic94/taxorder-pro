@@ -39,7 +39,7 @@ test.describe('Polisy ubezpieczeniowe', () => {
     await waitForIdle(page, 800);
     await page.click('#page-policies button:has-text("Nowa polisa")');
     await expect(page.locator('#pm-modal')).toBeVisible({ timeout: 4_000 });
-    await page.click('#pm-modal button:has-text("Anuluj"), #pm-modal .btn-icon').first();
+    await page.locator('#pm-modal button:has-text("Anuluj"), #pm-modal .btn-icon').first().click();
     expect(errors.filter(e => !e.includes('net::ERR'))).toHaveLength(0);
   });
 
@@ -81,7 +81,7 @@ test.describe('Harmonogram serwisowy', () => {
     await waitForIdle(page, 800);
     await page.click('#page-service-schedule button:has-text("Dodaj pozycję")');
     await expect(page.locator('#ss-modal')).toBeVisible({ timeout: 4_000 });
-    await page.click('#ss-modal .btn-icon').first();
+    await page.locator('#ss-modal .btn-icon').first().click();
     expect(errors.filter(e => !e.includes('net::ERR'))).toHaveLength(0);
   });
 
@@ -133,7 +133,7 @@ test.describe('Rozliczenia km pracowniczych', () => {
     // Kalkulator powinien pokazać "100 km × ..."
     const preview = await page.locator('#mc-calc-preview').textContent().catch(() => '');
     expect(preview).toMatch(/100/);
-    await page.click('#mc-modal .btn-icon').first();
+    await page.locator('#mc-modal .btn-icon').first().click();
     expect(errors.filter(e => !e.includes('net::ERR'))).toHaveLength(0);
   });
 
