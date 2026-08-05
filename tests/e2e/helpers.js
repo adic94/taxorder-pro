@@ -63,4 +63,15 @@ async function waitForIdle(page, ms = 1000) {
   await page.waitForTimeout(ms);
 }
 
-module.exports = { login, waitForIdle, TEST_EMAIL, TEST_PASSWORD, TEST_COMPANY };
+/**
+ * Nawiguj do strony przez showPage() zamiast klikać przycisk w nawigacji.
+ * Wymagane gdy cel jest w sekcji sidebara domyślnie ukrytej przez tabs-mode
+ * (KOSZTY, PODATKI, ZARZĄDZANIE, SERWIS startują z s-hidden do momentu
+ * gdy użytkownik lub initSectionTabs()/switchSection() je odkryje).
+ * showPage() samo wywołuje _syncTabToPage() → switchSection() → sekcja staje się widoczna.
+ */
+async function navigateTo(page, pageId) {
+  await page.evaluate((id) => window.showPage(id), pageId);
+}
+
+module.exports = { login, waitForIdle, navigateTo, TEST_EMAIL, TEST_PASSWORD, TEST_COMPANY };

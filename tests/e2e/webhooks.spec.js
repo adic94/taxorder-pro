@@ -3,7 +3,7 @@
  * Testuje: nawigację, listę, przycisk dodawania
  */
 const { test, expect } = require('@playwright/test');
-const { login, waitForIdle } = require('./helpers');
+const { login, waitForIdle, navigateTo } = require('./helpers');
 
 test.describe('Webhooki', () => {
 
@@ -11,7 +11,7 @@ test.describe('Webhooki', () => {
     if (!process.env.TEST_EMAIL) test.skip();
     await login(page);
     await page.waitForSelector('#page-dash', { state: 'visible', timeout: 10_000 });
-    await page.click('#tnb-webhooks');
+    await navigateTo(page, 'webhooks');
     await page.waitForSelector('#page-webhooks', { state: 'visible', timeout: 8_000 });
     await waitForIdle(page, 800);
   });
@@ -38,7 +38,7 @@ test.describe('Webhooki', () => {
   test('strona webhooków ładuje się bez błędów JS', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    await page.click('#tnb-webhooks');
+    await navigateTo(page, 'webhooks');
     await waitForIdle(page, 500);
     expect(errors.filter(e => !e.includes('net::ERR'))).toHaveLength(0);
   });

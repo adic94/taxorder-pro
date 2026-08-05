@@ -3,7 +3,7 @@
  * Testuje: nawigację, widoczność KPI, wykresów, przycisku eksportu
  */
 const { test, expect } = require('@playwright/test');
-const { login, waitForIdle } = require('./helpers');
+const { login, waitForIdle, navigateTo } = require('./helpers');
 
 test.describe('Strona raportów', () => {
 
@@ -11,7 +11,7 @@ test.describe('Strona raportów', () => {
     if (!process.env.TEST_EMAIL) test.skip();
     await login(page);
     await page.waitForSelector('#page-dash', { state: 'visible', timeout: 10_000 });
-    await page.click('#tnb-raporty');
+    await navigateTo(page, 'raporty');
     await page.waitForSelector('#page-raporty', { state: 'visible', timeout: 8_000 });
     await waitForIdle(page, 800);
   });
@@ -42,7 +42,7 @@ test.describe('Strona raportów', () => {
   test('strona raportów ładuje się bez błędów JS', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    await page.click('#tnb-raporty');
+    await navigateTo(page, 'raporty');
     await waitForIdle(page, 500);
     expect(errors.filter(e => !e.includes('net::ERR'))).toHaveLength(0);
   });

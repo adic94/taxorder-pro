@@ -3,7 +3,7 @@
  * Testuje: nawigację do stron CFM, obecność list i przycisków
  */
 const { test, expect } = require('@playwright/test');
-const { login, waitForIdle } = require('./helpers');
+const { login, waitForIdle, navigateTo } = require('./helpers');
 
 test.describe('CFM — Klienci', () => {
 
@@ -11,7 +11,7 @@ test.describe('CFM — Klienci', () => {
     if (!process.env.TEST_EMAIL) test.skip();
     await login(page);
     await page.waitForSelector('#page-dash', { state: 'visible', timeout: 10_000 });
-    await page.click('#tnb-cfm-klienci');
+    await navigateTo(page, 'cfm-klienci');
     await page.waitForSelector('#page-cfm-klienci', { state: 'visible', timeout: 8_000 });
     await waitForIdle(page, 1000);
   });
@@ -25,7 +25,7 @@ test.describe('CFM — Klienci', () => {
   });
 
   test('przycisk "Nowy klient" jest widoczny', async ({ page }) => {
-    const btn = page.locator('#page-cfm-klienci button[onclick*="openAdd"], #page-cfm-klienci button[onclick*="add"]').first();
+    const btn = page.locator('#page-cfm-klienci button[onclick*="openModal"]').first();
     await expect(btn).toBeVisible();
   });
 });
@@ -36,7 +36,7 @@ test.describe('CFM — Kontrakty', () => {
     if (!process.env.TEST_EMAIL) test.skip();
     await login(page);
     await page.waitForSelector('#page-dash', { state: 'visible', timeout: 10_000 });
-    await page.click('#tnb-cfm-kontrakty');
+    await navigateTo(page, 'cfm-kontrakty');
     await page.waitForSelector('#page-cfm-kontrakty', { state: 'visible', timeout: 8_000 });
     await waitForIdle(page, 1000);
   });
@@ -56,7 +56,7 @@ test.describe('CFM — Faktury', () => {
     if (!process.env.TEST_EMAIL) test.skip();
     await login(page);
     await page.waitForSelector('#page-dash', { state: 'visible', timeout: 10_000 });
-    await page.click('#tnb-cfm-faktury');
+    await navigateTo(page, 'cfm-faktury');
     await page.waitForSelector('#page-cfm-faktury', { state: 'visible', timeout: 8_000 });
     await waitForIdle(page, 1000);
   });
