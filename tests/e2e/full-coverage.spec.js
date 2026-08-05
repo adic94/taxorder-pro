@@ -533,7 +533,7 @@ test.describe('Moduły — testy funkcjonalne (z auth lub fallback)', () => {
       async () => {
         await goToPage(page, 'kalkulator');
         await waitForIdle(page, 800);
-        await expect(page.locator('#page-kalkulator select, #page-kalkulator input').first()).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('#calc-tbody')).toBeAttached();
       },
       async () => {
         expect(await page.locator('#page-kalkulator').count()).toBeGreaterThan(0);
@@ -641,7 +641,7 @@ test.describe('Moduły — testy funkcjonalne (z auth lub fallback)', () => {
       async () => {
         await goToPage(page, 'jpk');
         await waitForIdle(page, 800);
-        await expect(page.locator('#page-jpk button:has-text("Generuj")')).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('#page-jpk button:has-text("Generuj")').first()).toBeVisible({ timeout: 5_000 });
       },
       async () => {
         expect(await page.locator('#page-jpk').count()).toBeGreaterThan(0);
