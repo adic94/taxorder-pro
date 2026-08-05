@@ -58,18 +58,23 @@ taxorder-pro/
 | 2026-07 | DT-1 audyt ≥12t — 17 pojazdów, 11 korekt, +7 728 zł/rok | `4007011` |
 | 2026-07 | UserPrefs — globalne + per-company prefs w D1 (`user_prefs_kv`) | `5b59c95` |
 | 2026-08 | E2E kill switch — `taxorder_prefs_kv_source=local` w global-setup | `3cf0e87` |
+| 2026-08 | CI awaria od 27.07 — tabs-mode sidebar ukrywał `#tnb-*`; fix: `navigateTo()` | `38147c8` |
+| 2026-08 | Build command Cloudflare Pages — dist/ poprawne, SPA fallback, brak wycieku | — |
+| 2026-08 | Repo prywatne — potwierdzone; sekrety nie w git (wrangler secret put) | — |
+| 2026-08 | UserPrefs Partia 2 — `user_prefs_kv` w D1, kill switch, E2E guard | `5b59c95` |
+| 2026-08 | CI tanie awarie — new-modules TypeError, full-coverage strict mode, import-export dropdown | `4fc7e5e` |
 
 ### W toku
-- **Niezidentyfikowana awaria CI nightly** — przyczyna "7 skipped" to brak TEST_EMAIL w nightly,
-  ale istnieje dodatkowy krok z exit code != 0 (nieznany — brak dostępu do logów CI).
+*(brak)*
 
 ### Otwarte / znane długi
+- `vehicle-card.spec.js` — 9 awarii w CI z braku pojazdów w koncie testowym.
+  Wymaga decyzji o seedzie danych testowych lub mocka — osobna sesja.
+- UserPrefs Partia 3 — synchronizacja `theme`, walidacja `theme="false"` — nie zaczęte.
 - `rate-reader.js` — niezmigrowany z Supabase; tabela `tax_rates` nie istnieje w D1.
   Stawki gminne obsługuje `GminyRates` — `rate-reader` jest martwy.
 - `ocr-service/` — Aztec+NRV2E mikroserwis odłączony od aplikacji (patrz pułapka 8).
   Docelowo: Aztec jako **pierwszy** krok OCR dla DR przed Groq Vision.
-- `app.js` — lokalnie: zduplikowany blok `_applyTheme` (bool-based) usunięty, `_initTheme`
-  poprawiony; commit oczekuje na decyzję właściciela.
 
 ---
 
