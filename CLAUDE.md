@@ -116,7 +116,9 @@ taxorder-pro/
 - Endpointy zwracają HTTP 200 także przy błędzie — o powodzeniu decyduje `ErrorCode`, nie status HTTP.
 - `Id` parametru jest **per pojazd** — ten sam poziom paliwa ma inny `Id` na każdym aucie. Nie hardkodować.
 - `GetRoutesSummary` zwraca `HH:MM:SS` — gubi całe doby powyżej 24 h. Do sum: `GetRouteStatsByFilter.T` (sekundy).
-- Limit
+- Limit ~3–5 req/s. Do ciągłego zasysania danych — Kafka, nie REST.
+- `LL.Lt/Ln == 361` oznacza wyłączony moduł GPS (oszczędzanie baterii), nie ostatnią znaną pozycję.
+
 ---
 
 ## BEZPIECZEŃSTWO — OBOWIĄZKOWE REGUŁY
