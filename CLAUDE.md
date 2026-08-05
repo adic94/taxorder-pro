@@ -50,7 +50,7 @@ taxorder-pro/
 
 > Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
 > Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
-> Ostatnia aktualizacja: 2026-08-05
+> Ostatnia aktualizacja: 2026-08-06
 
 ### Zamknięte
 | Kiedy | Temat | Commit |
@@ -62,40 +62,40 @@ taxorder-pro/
 | 2026-08 | UserPrefs Partie 1–2 — globalne + per-company prefs w D1 (`user_prefs_kv`) | `5b59c95` |
 | 2026-08 | E2E kill switch — `taxorder_prefs_kv_source=local` w global-setup | `3cf0e87` |
 | 2026-08 | **CI awaria od 27.07** — tabs-mode sidebar (`494957b`/`c0c6a9e`, merge `3e543da`) ukrywał `#tnb-*` przez `.s-hidden{display:none}`; fix: helper `navigateTo()` → `showPage()` przez `page.evaluate()`. 41 → 20 awarii | `38147c8` |
-| 2026-08 | CI tanie awarie — `new-modules` TypeError, `full-coverage` strict mode, `import-export` dropdown (helper `openTool()`) | `4fc7e5e` |
+| 2026-08 | CI tanie awarie — `new-modules` TypeError, `full-coverage` strict mode, `import-export` dropdown (helper `openTool()`). 20 → 4 awarie | `4fc7e5e` |
 | 2026-08 | dotenv + `.env.example` — poświadczenia testowe poza terminalem i poza git | `5e908ed` |
 | 2026-08 | `.gitignore` — `*.png`, `.playwright-mcp/`, `console-errors.txt` (+ wyjątki `!icons/**`, `!assets/**`) | `c6eb1d5` |
 | 2026-08 | Build command Cloudflare Pages — `dist/` poprawne; 200 na `/worker/*` i `/docs/*` to **fallback SPA**, nie wyciek | — |
 | 2026-08 | Repozytorium prywatne — potwierdzone `gh repo view`; sekrety poza git (`wrangler secret put` + GitHub Secrets) | — |
+| 2026-08 | **Seed danych testowych — temat zamknięty jako zbędny.** Diagnoza „konto CI ma pustą flotę" OBALONA faktami z D1 (patrz niżej). Warianty seed / dedykowany tenant / `test.skip` odrzucone | — |
+| 2026-08 | **CI ostatnie 4 awarie** — `vehicle-card` + `vehicle-detail`: `navigateTo()`, `:not(.sk-row)`, `openFirstVehicle()` przez przycisk zamiast dblclick, tab count → 3 (super-tab), config count → 19 (VD_TABS), `toggleExpandVeh()` targeted DOM (nie renderVeh), `global-setup` mode 2 `page.evaluate()` przed `storageState()`, dblclick test przez `page.evaluate()`. CI: 4 → 0 awarii | — |
 
 ### W toku
 *(brak)*
 
+---
+
 ### Otwarte / znane długi
 
-**Priorytet 1 — blokuje zielone CI**
-- **4 awarie** wyłącznie z braku pojazdu w DB konta CI (tenant `mtoilet`):
-  - `vehicle-card.spec.js:33` — pasek zakładek ≥5 (`openFirstVehicle()` → `#fleet-tbody tr` niewidoczny)
-  - `vehicle-card.spec.js:45` — kliknięcie ⚙ otwiera `#modal-vd-tabs-cfg`
-  - `vehicle-card.spec.js:53` — odznaczenie zakładki GPS + zapis
-  - `vehicle-detail.spec.js:59` — dblclick w wiersz → `#vd-modal` (guard `isVisible()` przepuszcza pustą tabelę)
-  To decyzja projektowa, nie poprawka testu — wymaga seed pojazdu lub `test.skip`. Osobna sesja.
-
-**Priorytet 2 — kolejny temat rozwojowy**
-- UserPrefs Partia 3 — synchronizacja `theme` + walidacja `theme="false"` (wartość `"false"` jako string,
-  nie boolean — sprawdzić przy odczycie z D1).
+**Priorytet 1 — kolejny temat rozwojowy**
+- UserPrefs Partia 3 — synchronizacja `theme` + walidacja `theme="false"` (wartość `"false"` jako
+  string, nie boolean — sprawdzić przy odczycie z D1).
 
 **Dług techniczny**
+- **Konto CI (`adamus1000@gmail.com`) jest adminem.** Cały pipeline e2e działa na uprawnieniach
+  administratora → **regresja w gatingu uprawnień nie zostanie wykryta**. Istotne, bo audyt 2026-07
+  naprawiał 4× IDOR. Docelowo: drugie konto testowe bez roli admin.
 - `rate-reader.js` — niezmigrowany z Supabase; tabela `tax_rates` nie istnieje w D1.
-  Stawki gminne obsługuje `GminyRates` — moduł jest martwy, do usunięcia.
+  Stawki gminne obsługuje `GminyRates` — moduł martwy, do usunięcia.
 - `ocr-service/` — mikroserwis Aztec+NRV2E odłączony od aplikacji.
   Docelowo Aztec jako **pierwszy** krok kaskady OCR dla DR, przed Groq Vision (`/api/ai/ocr`).
 - `tools/*.js` — 17 plików nieśledzonych (`dt1-verify.js`, `dr-pos-probe.js`, `test-*.js`…).
   Przegląd: co zasługuje na commit, co skasować.
-- npm — 7 podatności (2 moderate, 5 high) w devDependencies (eslint 8.57.1 bez wsparcia, stary glob/rimraf).
+- npm — 7 podatności (2 moderate, 5 high) w devDependencies (eslint 8.57.1 bez wsparcia, glob/rimraf).
   ⚠️ `npm audit fix --force` potrafi zepsuć Playwrighta — nie uruchamiać przy czerwonym CI.
 - `CLOUDFLARE_ACCOUNT_ID` zahardkodowany w `nightly-report.yml` zamiast `${{ secrets.* }}`.
 - `SUPABASE_URL` w `wrangler.toml` — Supabase wycofany, wpis do usunięcia.
+- `ROLLBACK` — brak plików dla `v45`/`v46`/`v47`, tylko Time Travel (okno 30 dni, już upływa).
 
 **Sprawy operacyjne (poza kodem)**
 - Domena e-mail dla Dominika Dymowskiego i Roberta Sasina — do ustalenia.
@@ -109,6 +109,34 @@ taxorder-pro/
   (2) zdarzenia paliwowe + geofency stacji → weryfikacja faktur ORLEN;
   (3) pobieranie plików DDD przez API → automatyzacja zgodności ITD.
   Docs: `registry.scalar.com/@tekom/apis/mycar-api`
+
+---
+
+### Środowisko testowe — fakty z D1 (2026-08-05)
+
+Ustalone `SELECT`-ami na produkcyjnym D1. **Nie zgadywać ponownie** — te dane obaliły dwie
+kolejne hipotezy diagnostyczne.
+
+| Fakt | Wartość |
+|------|---------|
+| Konto CI | `adamus1000@gmail.com`, `id=1`, `role=admin` |
+| `users.company_id` | `mtoilet` |
+| `user_company_access` dla `user_id=1` | **0 wierszy** — dostęp wyłącznie przez `users.company_id` |
+| Pojazdy w `mtoilet` | **193** |
+| `TEST_COMPANY` | `mtoilet` (GitHub Secrets + `.env`) |
+
+**Worker autoryzuje po tokenie, nie po parametrze.** `currentCompany` w `localStorage` to jedynie
+sugestia dla SPA. Sama zmiana `TEST_COMPANY` na inny tenant **nie przełączy danych** — Worker
+nadal zwróci dane spółki z `users.company_id`. Przełączenie tenanta wymaga zmiany
+`users.company_id` **albo** wpisu w `user_company_access`.
+
+**`hydrateCompaniesFromApi()` — potwierdzone zachowanie.** Pętla `for…of` nadpisuje istniejące
+i **dodaje nowe** klucze do `COMPANIES`; spółka obecna wyłącznie w API przechodzi przez scalenie.
+Reset `currentCompanyId` następuje tylko wtedy, gdy klucza nie ma po hydration.
+`GET /api/companies` zwraca `WHERE active=1` dla zwykłych kont, **wszystkie** dla adminów —
+więc `active=0` nie blokuje hydration dla konta admin, ale blokuje dla pozostałych.
+
+---
 
 ### Pułapki API MyCar (na wypadek integracji)
 - `GetRouteListByFilter` używa pola **`VehicalID`** (literówka utrwalona w API); `GetEventListByFilter`

@@ -985,8 +985,80 @@ function toggleSlimTable() {
 }
 
 function toggleExpandVeh(id) {
-  _expandedVehId = (_expandedVehId === id) ? null : id;
-  renderVeh();
+  // Targeted DOM update — bez pełnego renderVeh() żeby nie niszczyć ondblclick na wierszu.
+  // renderVeh() podmienia tbody.innerHTML: pierwszy klik w dblclick wywoływał ten handler,
+  // DOM był zastępowany przed ondblclick, więc dwuklik nie otwierał karty pojazdu.
+  const wasExpanded = _expandedVehId === id;
+  _expandedVehId = wasExpanded ? null : id;
+
+  const tbody = document.getElementById('veh-tbody');
+  if (!tbody) return;
+
+  // Usuń istniejący wiersz szczegółów (jeśli był)
+  const old = tbody.querySelector('tr.veh-expand-row');
+  if (old) old.remove();
+
+  // Zaktualizuj styl chevronu wiersza, który był rozwinięty (collapsed → down)
+  if (wasExpanded) _slimRowChevron(tbody, id, false);
+
+  if (!wasExpanded) {
+    // Rozwiń nowy wiersz
+    _slimRowChevron(tbody, id, true);
+    _insertSlimExpandRow(tbody, id);
+  }
+}
+
+function _slimRowChevron(tbody, id, expanded) {
+  for (const tr of tbody.rows) {
+    const btn = tr.querySelector(`button[onclick="toggleExpandVeh(${id})"]`);
+    if (!btn) continue;
+    btn.style.color = expanded ? 'var(--blue)' : 'var(--text3)';
+    btn.title = expanded ? 'Zwiń' : 'Rozwiń';
+    btn.innerHTML = `<i class="ti ti-chevron-${expanded ? 'up' : 'down'}"></i>`;
+    break;
+  }
+}
+
+function _insertSlimExpandRow(tbody, id) {
+  const v = vehs.find(x => x.id === id);
+  if (!v) return;
+  const now = new Date(); now.setHours(0,0,0,0); const _nowMs = now.getTime();
+  const _vDays = ds => { if (!ds) return 9999; const d = new Date(ds+'T00:00:00'); return isNaN(d)?9999:Math.round((d-_nowMs)/86400000); };
+  const _dCol = d => d<0?'var(--red)':d<=30?'var(--amber)':'var(--text)';
+  const _fd = ds => { if(!ds) return '—'; const p=ds.split('-'); return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:ds; };
+  const ocD = _vDays(v.ocEnd), inspD = _vDays(v.nextInspection);
+  const tax = calcTax(v);
+  const html = `<tr class="veh-expand-row" style="background:var(--bg3)">
+    <td colspan="6" style="padding:0;border-top:none">
+      <div style="padding:12px 24px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px 20px;border-bottom:2px solid var(--blue)">
+        <div><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Kierowca</div>
+          <div style="font-size:12px;font-weight:600;${!v.kierowca?'color:var(--text3);font-style:italic':''}">${esc(v.kierowca||'brak')}</div></div>
+        <div><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">DMC</div>
+          <div style="font-size:12px;font-weight:600">${v.dmc ? (v.dmc).toLocaleString('pl-PL')+' kg' : '—'}</div></div>
+        <div><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">OC do</div>
+          <div style="font-size:12px;font-weight:600;color:${_dCol(ocD)}">${_fd(v.ocEnd)}</div></div>
+        <div><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Badanie SKP</div>
+          <div style="font-size:12px;font-weight:600;color:${_dCol(inspD)}">${_fd(v.nextInspection)}</div></div>
+        ${v.leasingEnd?`<div><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Leasing do</div>
+          <div style="font-size:12px;font-weight:600">${_fd(v.leasingEnd)}</div></div>`:''}
+        <div><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Kategoria DT-1</div>
+          <div style="font-size:12px;font-weight:600">${esc(tax.cat||'—')}</div></div>
+        ${v.normaSpalania?`<div><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Norma spalania</div>
+          <div style="font-size:12px;font-weight:600">${v.normaSpalania} l/100km</div></div>`:''}
+        ${v.vin?`<div><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">VIN</div>
+          <div style="font-size:11px;font-family:var(--mono);color:var(--text2)">${esc(v.vin)}</div></div>`:''}
+        <div style="display:flex;align-items:flex-end;gap:6px">
+          <button class="btn btn-blue" style="font-size:11px;padding:5px 10px" onclick="TaxOrderVehicleDetail.open(${v.id})"><i class="ti ti-id-badge"></i>Karta</button>
+          <button class="btn btn-gray" style="font-size:11px;padding:5px 10px" data-nr="${esc(v.nrRej)}" onclick="window.DocViewer?.printVehicleCard(this.dataset.nr)"><i class="ti ti-printer"></i></button>
+        </div>
+      </div>
+    </td>
+  </tr>`;
+  for (const tr of tbody.rows) {
+    if ((tr.getAttribute('onclick')||'').includes(`toggleExpandVeh(${id})`)) {
+      tr.insertAdjacentHTML('afterend', html); break;
+    }
+  }
 }
 
 // ── Widget picker (KPI strip) ─────────────────────────────────────────────────

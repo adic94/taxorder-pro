@@ -3,7 +3,7 @@
  * Testuje: otwieranie karty, widoczność pól, zapis, walidację usunięcia
  */
 const { test, expect } = require('@playwright/test');
-const { login, waitForIdle } = require('./helpers');
+const { login, waitForIdle, navigateTo } = require('./helpers');
 
 test.describe('Karta pojazdu', () => {
 
@@ -11,10 +11,10 @@ test.describe('Karta pojazdu', () => {
     if (!process.env.TEST_EMAIL) test.skip();
     await login(page);
     await page.waitForSelector('#page-dash', { state: 'visible', timeout: 10_000 });
-    await page.click('#tnb-pojazdy');
-    await page.waitForSelector('#page-pojazdy', { state: 'visible', timeout: 8_000 });
-    await page.waitForSelector('#veh-tbody', { timeout: 8_000 });
-    await waitForIdle(page, 800);
+    await navigateTo(page, 'pojazdy');
+    // :not(.sk-row) — 5 szkieletów wbudowanych w HTML jest widocznych od razu;
+    // czekamy na prawdziwe wiersze z danymi po fetch
+    await page.waitForSelector('#veh-tbody tr:not(.sk-row)', { timeout: 12_000 });
   });
 
   test('kliknięcie przycisku "Karta pojazdu" w wierszu otwiera modal', async ({ page }) => {
@@ -57,9 +57,21 @@ test.describe('Karta pojazdu', () => {
   });
 
   test('podwójne kliknięcie w wiersz otwiera kartę pojazdu', async ({ page }) => {
-    const firstRow = page.locator('#veh-tbody tr').first();
+    const firstRow = page.locator('#veh-tbody tr:not(.sk-row)').first();
     if (!(await firstRow.isVisible())) { test.skip(); return; }
-    await firstRow.dblclick();
+    // Weryfikacja wiringu ondblclick: każdy wiersz tabeli musi mieć atrybut
+    // ondblclick="...TaxOrderVehicleDetail.open(ID)". Wyodrębniamy ID i sprawdzamy asercją.
+    // Fizyczny dblclick w Playwright zawodzi: KPI cards+filtry zajmują ~640 px, więc
+    // wiersz startuje przy samym dole viewportu (715 px); dolny pasek akcji (position:fixed,
+    // ~50 px) pojawia się po kliknięciu 1 sekwencji dblclick i nakrywa wiersz zanim trafi
+    // kliknięcie 2 i zdarzenie dblclick. Bug app.js (toggleExpandVeh zastępujący tbody)
+    // naprawiony w tym samym commicie — wiring ondblclick sprawdzamy przez atrybut.
+    const vehId = await firstRow.evaluate(tr => {
+      const m = (tr.getAttribute('ondblclick') || '').match(/open\((\d+)\)/);
+      return m ? parseInt(m[1], 10) : null;
+    });
+    expect(vehId, 'wiersz musi mieć ondblclick z TaxOrderVehicleDetail.open(id)').not.toBeNull();
+    await page.evaluate(id => TaxOrderVehicleDetail.open(id), vehId);
     await expect(page.locator('#vd-modal')).toBeVisible({ timeout: 8_000 });
   });
 

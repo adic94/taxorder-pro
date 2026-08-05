@@ -3,7 +3,7 @@
  * Wymaga zalogowanego użytkownika z min. jednym pojazdem w bazie.
  */
 const { test, expect } = require('@playwright/test');
-const { login, waitForIdle } = require('./helpers');
+const { login, waitForIdle, navigateTo } = require('./helpers');
 
 test.describe('Karta pojazdu', () => {
 
@@ -11,16 +11,19 @@ test.describe('Karta pojazdu', () => {
     if (!process.env.TEST_EMAIL) test.skip();
     await login(page);
     await page.waitForSelector('#page-dash', { state: 'visible', timeout: 10_000 });
-    // Przejdź do listy pojazdów
-    await page.click('[onclick*="pojazdy"], [data-tab="pojazdy"], nav a:has-text("Flota"), nav button:has-text("Pojazdy")');
-    await page.waitForSelector('#page-pojazdy', { state: 'visible', timeout: 8_000 });
+    await navigateTo(page, 'pojazdy');
+    // Czekaj na prawdziwe wiersze danych — #veh-tbody ma wbudowane .sk-row (szkielety)
+    // widoczne od razu; :not(.sk-row) gwarantuje że fetch już wrócił z danymi
+    await page.waitForSelector('#veh-tbody tr:not(.sk-row)', { timeout: 12_000 });
   });
 
   async function openFirstVehicle(page) {
-    // Wiersz: pojedynczy klik = zaznaczenie (toggleRow), podwójny klik = karta pojazdu
-    const firstRow = page.locator('#fleet-tbody tr, #veh-tbody tr').first();
-    await expect(firstRow).toBeVisible({ timeout: 10_000 });
-    await firstRow.dblclick();
+    // Przycisk "Karta pojazdu" — ten sam mechanizm co vehicle-detail.spec.js
+    // Dblclick na <tr> jest zawodny w szerokich tabelach (Playwright trafia w przewinięty obszar);
+    // przycisk jest zawsze widoczny i bezpośrednio wywołuje TaxOrderVehicleDetail.open()
+    const firstCardBtn = page.locator('#veh-tbody button[title="Karta pojazdu"]').first();
+    await expect(firstCardBtn).toBeVisible({ timeout: 10_000 });
+    await firstCardBtn.click();
     await expect(page.locator('#vd-modal')).toBeVisible({ timeout: 8_000 });
   }
 
@@ -32,9 +35,12 @@ test.describe('Karta pojazdu', () => {
 
   test('pasek zakładek zawiera min. 5 zakładek', async ({ page }) => {
     await openFirstVehicle(page);
+    // Super-tab architektura: #vd-tabs zawiera WSZYSTKIE zakładki, ale _superTab() chowa
+    // te spoza aktywnej grupy (display:none). W domyślnym super-tabie 'przeglad' widoczne
+    // są dokładnie 3: dr, insurance, badania.
     const tabButtons = page.locator('#vd-tabs button:visible');
     const count = await tabButtons.count();
-    expect(count).toBeGreaterThan(4);
+    expect(count).toEqual(3);
   });
 
   test('przycisk ⚙ "Dostosuj zakładki" jest widoczny', async ({ page }) => {
@@ -46,8 +52,10 @@ test.describe('Karta pojazdu', () => {
     await openFirstVehicle(page);
     await page.click('button[title="Dostosuj zakładki"]');
     await expect(page.locator('#modal-vd-tabs-cfg')).toBeVisible();
-    // Modal zawiera 16 pozycji
-    await expect(page.locator('#vd-tabs-cfg-list li')).toHaveCount(16);
+    // VD_TABS ma 19 pozycji (dr, insurance, badania, serwis, opony, eksploatacja, koszty,
+    // ownership, purchase, archive, notes, dokumenty, polisy, harmonogram, mandaty, gps,
+    // karty, konserwacja, changelog)
+    await expect(page.locator('#vd-tabs-cfg-list li')).toHaveCount(19);
   });
 
   test('odznaczenie zakładki "GPS" i zapisanie — zakładka znika z paska', async ({ page }) => {
