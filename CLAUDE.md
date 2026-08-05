@@ -50,32 +50,73 @@ taxorder-pro/
 
 > Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
 > Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
+> Ostatnia aktualizacja: 2026-08-05
 
 ### Zamknięte
 | Kiedy | Temat | Commit |
 |-------|-------|--------|
 | 2026-07 | DR extractor — Aztec + NRV2E kaskada, §12–13 zamknięte | `c2670da` |
 | 2026-07 | DT-1 audyt ≥12t — 17 pojazdów, 11 korekt, +7 728 zł/rok | `4007011` |
-| 2026-07 | UserPrefs — globalne + per-company prefs w D1 (`user_prefs_kv`) | `5b59c95` |
+| 2026-07 | Audyt bezpieczeństwa — 4× IDOR, hardening poświadczeń CEPiK | `96a5195` |
+| 2026-07 | Migracja 24 pojazdów do właściwych spółek + test izolacji tenantów | — |
+| 2026-08 | UserPrefs Partie 1–2 — globalne + per-company prefs w D1 (`user_prefs_kv`) | `5b59c95` |
 | 2026-08 | E2E kill switch — `taxorder_prefs_kv_source=local` w global-setup | `3cf0e87` |
-| 2026-08 | CI awaria od 27.07 — tabs-mode sidebar ukrywał `#tnb-*`; fix: `navigateTo()` | `38147c8` |
-| 2026-08 | Build command Cloudflare Pages — dist/ poprawne, SPA fallback, brak wycieku | — |
-| 2026-08 | Repo prywatne — potwierdzone; sekrety nie w git (wrangler secret put) | — |
-| 2026-08 | UserPrefs Partia 2 — `user_prefs_kv` w D1, kill switch, E2E guard | `5b59c95` |
-| 2026-08 | CI tanie awarie — new-modules TypeError, full-coverage strict mode, import-export dropdown | `4fc7e5e` |
+| 2026-08 | **CI awaria od 27.07** — tabs-mode sidebar (`494957b`/`c0c6a9e`, merge `3e543da`) ukrywał `#tnb-*` przez `.s-hidden{display:none}`; fix: helper `navigateTo()` → `showPage()` przez `page.evaluate()`. 41 → 20 awarii | `38147c8` |
+| 2026-08 | CI tanie awarie — `new-modules` TypeError, `full-coverage` strict mode, `import-export` dropdown (helper `openTool()`) | `4fc7e5e` |
+| 2026-08 | dotenv + `.env.example` — poświadczenia testowe poza terminalem i poza git | `5e908ed` |
+| 2026-08 | `.gitignore` — `*.png`, `.playwright-mcp/`, `console-errors.txt` (+ wyjątki `!icons/**`, `!assets/**`) | `c6eb1d5` |
+| 2026-08 | Build command Cloudflare Pages — `dist/` poprawne; 200 na `/worker/*` i `/docs/*` to **fallback SPA**, nie wyciek | — |
+| 2026-08 | Repozytorium prywatne — potwierdzone `gh repo view`; sekrety poza git (`wrangler secret put` + GitHub Secrets) | — |
 
 ### W toku
 *(brak)*
 
 ### Otwarte / znane długi
-- `vehicle-card.spec.js` — 9 awarii w CI z braku pojazdów w koncie testowym.
-  Wymaga decyzji o seedzie danych testowych lub mocka — osobna sesja.
-- UserPrefs Partia 3 — synchronizacja `theme`, walidacja `theme="false"` — nie zaczęte.
-- `rate-reader.js` — niezmigrowany z Supabase; tabela `tax_rates` nie istnieje w D1.
-  Stawki gminne obsługuje `GminyRates` — `rate-reader` jest martwy.
-- `ocr-service/` — Aztec+NRV2E mikroserwis odłączony od aplikacji (patrz pułapka 8).
-  Docelowo: Aztec jako **pierwszy** krok OCR dla DR przed Groq Vision.
 
+**Priorytet 1 — blokuje zielone CI**
+- **4 awarie** wyłącznie z braku pojazdu w DB konta CI (tenant `mtoilet`):
+  - `vehicle-card.spec.js:33` — pasek zakładek ≥5 (`openFirstVehicle()` → `#fleet-tbody tr` niewidoczny)
+  - `vehicle-card.spec.js:45` — kliknięcie ⚙ otwiera `#modal-vd-tabs-cfg`
+  - `vehicle-card.spec.js:53` — odznaczenie zakładki GPS + zapis
+  - `vehicle-detail.spec.js:59` — dblclick w wiersz → `#vd-modal` (guard `isVisible()` przepuszcza pustą tabelę)
+  To decyzja projektowa, nie poprawka testu — wymaga seed pojazdu lub `test.skip`. Osobna sesja.
+
+**Priorytet 2 — kolejny temat rozwojowy**
+- UserPrefs Partia 3 — synchronizacja `theme` + walidacja `theme="false"` (wartość `"false"` jako string,
+  nie boolean — sprawdzić przy odczycie z D1).
+
+**Dług techniczny**
+- `rate-reader.js` — niezmigrowany z Supabase; tabela `tax_rates` nie istnieje w D1.
+  Stawki gminne obsługuje `GminyRates` — moduł jest martwy, do usunięcia.
+- `ocr-service/` — mikroserwis Aztec+NRV2E odłączony od aplikacji.
+  Docelowo Aztec jako **pierwszy** krok kaskady OCR dla DR, przed Groq Vision (`/api/ai/ocr`).
+- `tools/*.js` — 17 plików nieśledzonych (`dt1-verify.js`, `dr-pos-probe.js`, `test-*.js`…).
+  Przegląd: co zasługuje na commit, co skasować.
+- npm — 7 podatności (2 moderate, 5 high) w devDependencies (eslint 8.57.1 bez wsparcia, stary glob/rimraf).
+  ⚠️ `npm audit fix --force` potrafi zepsuć Playwrighta — nie uruchamiać przy czerwonym CI.
+- `CLOUDFLARE_ACCOUNT_ID` zahardkodowany w `nightly-report.yml` zamiast `${{ secrets.* }}`.
+- `SUPABASE_URL` w `wrangler.toml` — Supabase wycofany, wpis do usunięcia.
+
+**Sprawy operacyjne (poza kodem)**
+- Domena e-mail dla Dominika Dymowskiego i Roberta Sasina — do ustalenia.
+- 6 pojazdów litewskich — dokumenty u księgowości, brak potwierdzenia.
+- Klucze legacy w Supabase — do unieważnienia po potwierdzeniu, że nic ich nie używa.
+
+**Nowy wątek — nie zaczęty**
+- **Integracja MyCar GPS API (Tekom Technologia)** — kandydat na warstwę telematyczną.
+  Trzy punkty zaczepienia: (1) czas pracy z **obrotów CAN zamiast zapłonu** — krytyczne dla pojazdów
+  asenizacyjnych pracujących na postoju z PTO, wymaga zgłoszenia do `api@tekom.pl`;
+  (2) zdarzenia paliwowe + geofency stacji → weryfikacja faktur ORLEN;
+  (3) pobieranie plików DDD przez API → automatyzacja zgodności ITD.
+  Docs: `registry.scalar.com/@tekom/apis/mycar-api`
+
+### Pułapki API MyCar (na wypadek integracji)
+- `GetRouteListByFilter` używa pola **`VehicalID`** (literówka utrwalona w API); `GetEventListByFilter`
+  używa poprawnego `VehicleId`. Złe pole = pusty wynik **bez błędu**.
+- Endpointy zwracają HTTP 200 także przy błędzie — o powodzeniu decyduje `ErrorCode`, nie status HTTP.
+- `Id` parametru jest **per pojazd** — ten sam poziom paliwa ma inny `Id` na każdym aucie. Nie hardkodować.
+- `GetRoutesSummary` zwraca `HH:MM:SS` — gubi całe doby powyżej 24 h. Do sum: `GetRouteStatsByFilter.T` (sekundy).
+- Limit
 ---
 
 ## BEZPIECZEŃSTWO — OBOWIĄZKOWE REGUŁY
@@ -101,6 +142,20 @@ onclick="remove('${d.name.replace(/'/g,"\\'")}')";
 data-name="${esc(d.name)}" onclick="remove(this.dataset.name)"
 ```
 
+### Izolacja tenanta — każde zapytanie z company_id
+```javascript
+// ŹLE — IDOR: użytkownik odczyta rekord obcej spółki
+db.prepare('SELECT * FROM vehicles WHERE id = ?').bind(id)
+
+// DOBRZE — company_id z sesji, nie z requestu
+db.prepare('SELECT * FROM vehicles WHERE id = ? AND company_id = ?')
+  .bind(id, session.company_id)
+```
+- `company_id` **zawsze** z tokenu sesji, **nigdy** z parametru żądania
+- Dotyczy GET pojedynczego rekordu tak samo jak list — audyt 2026-07 znalazł 4× IDOR
+  właśnie na endpointach `GET /:id`, gdzie lista była filtrowana, a rekord nie
+- Po każdym nowym endpointcie: test izolacji z konta bez dostępu do danej spółki
+
 ### Fallback dla wartości numerycznych — ZAWSZE ?? nie ||
 ```javascript
 // ŹLE — falsy-zero: gdy dmc=0, zwraca dmcMax zamiast 0
@@ -113,12 +168,75 @@ Dotyczy szczególnie: `dmc`, `dmcMax`, `dmcZespolu`, `miesiacePodatku`, `rok`
 
 ### Sekret API — NIGDY w kodzie
 - Klucze API: `wrangler secret put NAZWA_SEKRETU` (tylko lokalnie, przez terminal)
+- Poświadczenia testowe: `.env` (gitignorowany) + `dotenv` w `playwright.config.js`.
+  **Nigdy** w oknie czatu, nigdy przez `$env:` w terminalu — PowerShell zapisuje historię
+  do `ConsoleHost_history.txt`
 - Tokeny sesji: tylko `localStorage` (nigdy git, nigdy logi)
 - `tools/api-explorer/reports/` i `backups/` → `.gitignore` (mogą zawierać tokeny)
+
+### Supabase — WYCOFANY
+- Nie używać `window.supabaseClient` ani żadnego nowego wywołania Supabase
+- Backend to wyłącznie D1 / R2 / KV przez Worker
 
 ### Webhooki — walidacja URL
 - Przy tworzeniu/edycji webhooka: URL musi zaczynać się od `https://`
 - `github_issue_url` z DB: przed użyciem jako `href` sprawdź `startsWith('https://')`
+
+---
+
+## WERYFIKACJA — narzędzia, które odpowiadają na inne pytanie
+
+> Każdy wpis to realny błąd diagnostyczny z tego projektu. Zanim uznasz coś
+> za sprawdzone, upewnij się, że test mierzy to, co myślisz.
+
+### git check-ignore przy regułach negacji
+`git check-ignore -v plik` **zawsze zwraca exit 0** i pokazuje dopasowaną regułę —
+także wtedy, gdy tą regułą jest negacja `!` i plik **nie jest** ignorowany.
+Odpowiada na pytanie „która reguła pasuje ostatnia", nie „czy Git to zobaczy".
+
+**Prawdziwy test:** utwórz plik i sprawdź `git status` — `??` oznacza nieignorowany.
+```bash
+echo test > icons/probe.png && git status --short icons/probe.png && rm icons/probe.png
+```
+
+### Kod HTTP 200 nie dowodzi, że plik istnieje
+Cloudflare Pages ma `not_found_handling = single-page-application` — **każda**
+nieistniejąca ścieżka dostaje `index.html` ze statusem **200**.
+Test kodem odpowiedzi jest tu bezwartościowy.
+
+**Prawdziwy test:** porównaj **treść** ze ścieżką kontrolną, której na pewno nie ma.
+```bash
+curl -s https://taxorder-pro.pages.dev/nie-ma-mnie-98765.js | head -3
+curl -s https://taxorder-pro.pages.dev/worker/index.js | head -3
+```
+Oba `<!DOCTYPE html>` → fallback, brak wycieku. Drugi z kodem JS → wyciek.
+
+### curl z wieloma URL-ami
+`-o /dev/null` działa **tylko na pierwszy** URL. Treść pozostałych leci na stdout
+i zalewa wynik (u nas: 52 KB zamiast trzech kodów).
+
+**Poprawnie:** pętla z osobnym wywołaniem na adres.
+```bash
+for u in URL1 URL2; do printf "%s  " "$(curl -s -o /dev/null -w '%{http_code}' "$u")"; echo "$u"; done
+```
+
+### Reguła *.png w .gitignore wysadza deploy
+Build command Cloudflare kopiuje `icons/` i `assets/` do `dist/`. Zignorowana ikona
+nie trafi do repo, `cp` jej nie znajdzie i **cały deploy padnie** z błędem
+niepowiązanym z przyczyną. Dlatego pod `*.png` muszą stać wyjątki:
+```gitignore
+*.png
+!icons/**
+!assets/**
+```
+
+### PowerShell — here-string w git commit -m
+Składnia `@'...'@` przekazana do `git commit -m` wciąga znak `@` do treści commita
+(efekt: `@ fix: ...`). Używać zwykłych cudzysłowów albo `git commit -F plik`.
+
+### npx w PowerShell
+Polityka wykonywania blokuje niepodpisany `npx.ps1`. Używać `npx.cmd` albo
+`.\node_modules\.bin\<narzędzie>.cmd`. **Nie zmieniać `Set-ExecutionPolicy`.**
 
 ---
 
