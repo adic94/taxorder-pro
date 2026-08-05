@@ -74,4 +74,13 @@ async function navigateTo(page, pageId) {
   await page.evaluate((id) => window.showPage(id), pageId);
 }
 
-module.exports = { login, waitForIdle, navigateTo, TEST_EMAIL, TEST_PASSWORD, TEST_COMPANY };
+/**
+ * Wywołaj funkcję aplikacji przez evaluate() zamiast klikać ukryty element.
+ * Używane gdy przycisk jest dostępny w DOM, ale schowany (np. zamknięty dropdown).
+ * expression: string JS wykonywany w kontekście przeglądarki, np. 'CSVImport.open()'
+ */
+async function openTool(page, expression) {
+  await page.evaluate((expr) => new Function(expr)(), expression);
+}
+
+module.exports = { login, waitForIdle, navigateTo, openTool, TEST_EMAIL, TEST_PASSWORD, TEST_COMPANY };
