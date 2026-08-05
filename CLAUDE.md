@@ -68,7 +68,7 @@ taxorder-pro/
 | 2026-08 | Build command Cloudflare Pages — `dist/` poprawne; 200 na `/worker/*` i `/docs/*` to **fallback SPA**, nie wyciek | — |
 | 2026-08 | Repozytorium prywatne — potwierdzone `gh repo view`; sekrety poza git (`wrangler secret put` + GitHub Secrets) | — |
 | 2026-08 | **Seed danych testowych — temat zamknięty jako zbędny.** Diagnoza „konto CI ma pustą flotę" OBALONA faktami z D1 (patrz niżej). Warianty seed / dedykowany tenant / `test.skip` odrzucone | — |
-| 2026-08 | **CI ostatnie 4 awarie** — `vehicle-card` + `vehicle-detail`: `navigateTo()`, `:not(.sk-row)`, `openFirstVehicle()` przez przycisk zamiast dblclick, tab count → 3 (super-tab), config count → 19 (VD_TABS), `toggleExpandVeh()` targeted DOM (nie renderVeh), `global-setup` mode 2 `page.evaluate()` przed `storageState()`, dblclick test przez `page.evaluate()`. CI: 4 → 0 awarii | — |
+| 2026-08 | **CI ostatnie 4 awarie** — `vehicle-card` + `vehicle-detail`: `navigateTo()`, `:not(.sk-row)`, `openFirstVehicle()` przez przycisk zamiast dblclick, tab count → 3 (super-tab), config count → 19 (VD_TABS), `toggleExpandVeh()` targeted DOM (nie renderVeh), `global-setup` mode 2 `page.evaluate()` przed `storageState()`, dblclick test przez `page.evaluate()`. CI: 4 → 0 awarii | `c1ff10c` |
 
 ### W toku
 *(brak)*
