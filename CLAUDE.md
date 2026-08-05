@@ -29,7 +29,7 @@ taxorder-pro/
 ├── index.html                 # markup + esc() (~5 200 ln)
 ├── worker/
 │   ├── index.js               # Worker backend (~11 500 ln)
-│   └── schema_v*.sql          # migracje DB (aktualny: v44)
+│   └── schema_v*.sql          # migracje DB (aktualny: v49)
 ├── modules/
 │   ├── vehicle-detail.js      # karta pojazdu (~3 700 ln)
 │   ├── tax-engine.js          # DT-1 silnik
@@ -60,16 +60,16 @@ taxorder-pro/
 | 2026-08 | E2E kill switch — `taxorder_prefs_kv_source=local` w global-setup | `3cf0e87` |
 
 ### W toku
-- **CFM regression** — `cfm.spec.js` pomija lokalnie (brak `TEST_EMAIL`);
-  podejrzany `438b56c` (2026-07-26, `hydrateCompaniesFromApi` → D1 API, możliwy timeout 8s);
-  **nie naprawione**.
+- **Niezidentyfikowana awaria CI nightly** — przyczyna "7 skipped" to brak TEST_EMAIL w nightly,
+  ale istnieje dodatkowy krok z exit code != 0 (nieznany — brak dostępu do logów CI).
 
 ### Otwarte / znane długi
 - `rate-reader.js` — niezmigrowany z Supabase; tabela `tax_rates` nie istnieje w D1.
   Stawki gminne obsługuje `GminyRates` — `rate-reader` jest martwy.
 - `ocr-service/` — Aztec+NRV2E mikroserwis odłączony od aplikacji (patrz pułapka 8).
   Docelowo: Aztec jako **pierwszy** krok OCR dla DR przed Groq Vision.
-- Dokumentacja: `docs/ROLLBACK_v44.md` nie opisuje rollbacku UserPrefs (schema v45+).
+- `app.js` — lokalnie: zduplikowany blok `_applyTheme` (bool-based) usunięty, `_initTheme`
+  poprawiony; commit oczekuje na decyzję właściciela.
 
 ---
 
@@ -172,7 +172,7 @@ cd "c:\Users\acichocki\Desktop\Program flotowy\taxorder-pro"
 .\node_modules\.bin\wrangler.cmd d1 execute taxorder-pro --remote --file=worker/schema_vN.sql
 ```
 - Schematy: `CREATE TABLE IF NOT EXISTS` — bezpieczne do ponownego uruchomienia
-- **Aktualny schemat: v44** (`companies`, `user_company_access`) — 44 pliki migracji
+- **Aktualny schemat: v49** (`user_prefs_kv`) — 49 pliki migracji
 - Nowe tabele zawsze w nowym pliku `schema_vN.sql` (N = kolejny numer)
 - Weryfikacja spójności: `npm run migration-check`
 

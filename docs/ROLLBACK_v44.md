@@ -165,6 +165,61 @@ Coś nie działa po wdrożeniu
 
 ---
 
+---
+
+## Rollback schematów v45–v49
+
+Migracje po v44 dotyczą niezależnych funkcji. Skrypty ROLLBACK usuwają tylko nowe tabele
+— dane pojazdów, deklaracji DT-1 i dokumentów są nienaruszone.
+
+### Kolejność wycofania (od najnowszego)
+
+**1. v49 — user_prefs_kv (UserPrefs cross-device)**
+
+Kill switch bez deployu (per przeglądarka):
+```javascript
+localStorage.setItem('taxorder_prefs_kv_source', 'local'); location.reload();
+```
+Aplikacja wraca do localStorage. Sync z D1 wyłączony do usunięcia klucza.
+
+Usunięcie tabeli z bazy:
+```powershell
+.\node_modules\.bin\wrangler.cmd d1 execute taxorder-pro --remote --file=worker/schema_v49_ROLLBACK.sql
+```
+Usuwa: `user_prefs_kv`, `idx_upkv_user_co`. Utracisz: preferencje UI użytkowników zsynchronizowane przez D1.
+
+**2. v48 — company_packages, usage_snapshots (pakiety modułów)**
+
+```powershell
+.\node_modules\.bin\wrangler.cmd d1 execute taxorder-pro --remote --file=worker/schema_v48_ROLLBACK.sql
+```
+Usuwa: `company_packages`, `usage_snapshots`. Po rollbacku Worker wraca do domyślnego `enterprise` (brak ograniczeń).
+Skrypt ROLLBACK istnieje — bezpieczne.
+
+**3. v45, v46, v47 — brak plików ROLLBACK**
+
+Dla v45 (KSeF), v46 (Driver PWA/HR/Winiety), v47 (Windykacja/Panel zewnętrzny) nie ma skryptów ROLLBACK.
+Jedyna bezpieczna ścieżka: **D1 Time Travel**:
+
+```powershell
+.\node_modules\.bin\wrangler.cmd d1 time-travel info taxorder-pro
+.\node_modules\.bin\wrangler.cmd d1 time-travel restore taxorder-pro --timestamp=2026-07-XX T00:00:00Z
+```
+
+> ⚠️ Time Travel cofa **całą bazę** — wszystko po danym znaczniku czasu zniknie.
+> Używaj wyłącznie gdy migracja v45/v46/v47 faktycznie coś popsuła.
+
+### Zależności
+
+```
+v49 nie zależy od v48 — DROP w dowolnej kolejności.
+v48 nie zależy od v47/v46/v45 — j.w.
+v44 (companies) jest bazą dla v48 (company_packages.company_id FK).
+Nie cofaj v44 dopóki v48 nie jest wycofane.
+```
+
+---
+
 ## Weryfikacja przed mergem
 
 ```powershell
