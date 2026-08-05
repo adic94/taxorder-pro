@@ -55,6 +55,14 @@ tools/api-explorer/ocr_dr_render.jpg
 tests/results/
 test-results/
 playwright-report/
+.playwright-mcp/
+
+# Zrzuty ekranu z testów i narzędzi deweloperskich — mogą zawierać
+# dane produkcyjne (numery rej., NIP-y, nazwiska)
+*.png
+!icons/**
+!assets/**
+console-errors.txt
 
 # Playwright — zapisany stan auth (localStorage/sessionStorage z tokenem sesji)
 tests/e2e/.auth-state.json
