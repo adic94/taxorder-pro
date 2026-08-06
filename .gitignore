@@ -75,3 +75,6 @@ SYSTEM_BRIEF_FOR_AI.md
 
 # VS Code temp files (random session IDs)
 .vscode/*.txt
+
+# Narzędzia jednorazowe — eksperymenty zachowane lokalnie, nie na prod
+tools/_archive/

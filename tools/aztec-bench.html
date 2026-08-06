@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<!--
+  aztec-bench.html — Benchmark detektora kodu Aztec z dowodów rejestracyjnych.
+  Porównuje ścieżkę A (ZXing@0.19.1 przez CDN) z ścieżką B (TaxOrderAztecDetector
+  z modules/aztec-detector.js). Użytkownik ładuje pliki lokalnie — nic nie jest
+  wysyłane na serwer. Wyniki eksportowane jako CSV.
+
+  Wymaga: modules/aztec-detector.js (w katalogu nadrzędnym)
+  Dostęp: otwórz bezpośrednio w przeglądarce (plik:// lub serwer lokalny)
+  Narzędzie lokalne — nie wchodzi do buildu prod.
+-->
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Aztec Detector — Benchmark</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; font-size: 14px;
+         background: #f8f9fa; color: #212529; padding: 20px; }
+  h1 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { font-size: 12px; color: #6c757d; margin-bottom: 20px; }
+  .card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+  label.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
+               background: #0d6efd; color: #fff; border-radius: 6px; cursor: pointer;
+               font-size: 13px; user-select: none; }
+  label.btn:hover { background: #0b5ed7; }
+  button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
+           border: 1px solid #dee2e6; border-radius: 6px; background: #fff;
+           cursor: pointer; font-size: 13px; }
+  button:hover { background: #f8f9fa; }
+  button:disabled { opacity: .5; cursor: default; }
+  #status { font-size: 13px; color: #495057; min-height: 20px; margin-top: 8px; }
+  #progress-bar { height: 4px; background: #e9ecef; border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  #progress-fill { height: 100%; background: #0d6efd; width: 0; transition: width .2s; }
+
+  /* Stats panel */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 12px; }
+  .stat { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 12px; }
+  .stat-label { font-size: 11px; color: #6c757d; margin-bottom: 2px; }
+  .stat-value { font-size: 22px; font-weight: 700; }
+  .stat-value.green { color: #198754; }
+  .stat-value.red   { color: #dc3545; }
+  .stat-value.blue  { color: #0d6efd; }
+
+  /* Results table */
+  #results-wrap { overflow-x: auto; margin-top: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+  th { background: #f8f9fa; border: 1px solid #dee2e6; padding: 6px 8px;
+       text-align: left; font-weight: 600; position: sticky; top: 0; }
+  td { border: 1px solid #dee2e6; padding: 5px 8px; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .ok   { color: #198754; font-weight: 600; }
+  .fail { color: #dc3545; }
+  .only-b { background: #d1e7dd !important; }
+  .only-a { background: #f8d7da !important; }
+
+  /* Strategy breakdown */
+  #strategies-wrap { margin-top: 8px; }
+  .strat-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .strat-label { font-size: 11px; font-family: monospace; min-width: 160px; }
+  .strat-track { flex: 1; background: #e9ecef; border-radius: 3px; height: 14px; }
+  .strat-fill  { height: 100%; border-radius: 3px; background: #0d6efd; transition: width .3s; }
+  .strat-count { font-size: 11px; min-width: 24px; text-align: right; }
+
+  /* Privacy notice */
+  .notice { font-size: 11px; color: #6c757d; border-left: 3px solid #0d6efd;
+            padding: 6px 10px; background: #e7f1ff; border-radius: 0 4px 4px 0; }
+</style>
+</head>
+<body>
+
+<h1>Aztec Detector — Benchmark</h1>
+<p class="subtitle">Porównanie ścieżki A (obecna) i ścieżki B (TaxOrderAztecDetector) na dokumentach lokalnych.</p>
+
+<div class="notice" style="margin-bottom:14px">
+  ⚠ Harness mierzy tylko sukces/porażkę, czas i strategię.
+  Zdekodowane dane <strong>nie są zapisywane</strong>. Nazwy plików są skracane.
+</div>
+
+<!-- Ładowanie bibliotek -->
+<div class="card" id="libs-card">
+  <strong>Ładowanie bibliotek…</strong>
+  <div id="libs-status" style="font-size:12px;color:#6c757d;margin-top:4px"></div>
+</div>
+
+<!-- Wybór plików -->
+<div class="card" id="run-card" style="display:none">
+  <div class="row">
+    <label class="btn" for="file-input">
+      📂 Wybierz pliki (DR — zdjęcia i PDF)
+      <input id="file-input" type="file" multiple accept="image/*,application/pdf,.pdf" style="display:none">
+    </label>
+    <button id="run-btn" disabled>▶ Uruchom benchmark</button>
+    <button id="export-btn" disabled>⬇ Eksportuj CSV</button>
+    <button id="clear-btn">✕ Wyczyść</button>
+  </div>
+  <div id="status">Wczytaj pliki aby rozpocząć.</div>
+  <div id="progress-bar"><div id="progress-fill"></div></div>
+</div>
+
+<!-- Podsumowanie statystyk -->
+<div class="card" id="summary-card" style="display:none">
+  <strong>Podsumowanie</strong>
+  <div class="stats-grid" id="stats-grid"></div>
+
+  <div style="margin-top:16px"><strong>Rozkład strategii B (zwycięskie):</strong></div>
+  <div id="strategies-wrap"></div>
+
+  <div style="margin-top:16px"><strong>Wyniki per plik:</strong></div>
+  <div id="results-wrap">
+    <table id="results-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Plik (skrót)</th>
+          <th>Rozdzielczość</th>
+          <th>Strony</th>
+          <th>Wynik A</th>
+          <th>Czas A (ms)</th>
+          <th>Wynik B</th>
+          <th>Czas B (ms)</th>
+          <th>Strategia B</th>
+          <th>Prób B</th>
+        </tr>
+      </thead>
+      <tbody id="results-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ZXing + pdf.js z CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+  integrity="sha512-q+4liFwdPC/bNdhUpZx6aXDx/h77yEQtn4I1slHydcbZK34nLaR3cAeYSJshoxIOq3mjEf7xJE8YWIUHMn+oCQ=="
+  crossorigin="anonymous"></script>
+<script>
+if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
+<!-- Detektor ładujemy relatywnie (strona jest w tools/, detektor w modules/) -->
+<script src="../modules/aztec-detector.js"></script>
+
+<script>
+// ═══ Helpers ════════════════════════════════════════════════════════════════
+
+function fileId(file) {
+  // Skrót: pierwsze 6 i ostatnie 4 znaki nazwy + rozmiar. BEZ pełnej nazwy.
+  const n = file.name;
+  const short = n.length <= 12 ? n : n.slice(0, 6) + '…' + n.slice(-4);
+  const kb = Math.round(file.size / 1024);
+  return `${short} (${kb} KB)`;
+}
+
+function rotateCanvas(src, deg) {
+  if (deg === 0) return src;
+  const rad = deg * Math.PI / 180;
+  const cos = Math.abs(Math.cos(rad)), sin = Math.abs(Math.sin(rad));
+  const W = src.width, H = src.height;
+  const nw = Math.round(W * cos + H * sin), nh = Math.round(W * sin + H * cos);
+  const c = document.createElement('canvas');
+  c.width = nw; c.height = nh;
+  const ctx = c.getContext('2d');
+  ctx.translate(nw / 2, nh / 2);
+  ctx.rotate(rad);
+  ctx.drawImage(src, -W / 2, -H / 2);
+  return c;
+}
+
+// Ścieżka A: dokładna replika dr-import._tryAztecBlob logiki dekodowania
+// (RGBLuminanceSource + HybridBinarizer, 4 obroty). BEZ wysyłania do API.
+async function pathA(canvas) {
+  if (!window.ZXing) return { ok: false };
+  const t0 = Date.now();
+  const hints = new Map([
+    [ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.AZTEC]],
+    [ZXing.DecodeHintType.TRY_HARDER, true],
+  ]);
+  for (const deg of [0, 90, 270, 180]) {
+    const c = rotateCanvas(canvas, deg);
+    try {
+      const id = c.getContext('2d').getImageData(0, 0, c.width, c.height);
+      const argb = new Int32Array(c.width * c.height);
+      const d = id.data;
+      for (let i = 0, j = 0; i < d.length; i += 4, j++)
+        argb[j] = (d[i] << 16) | (d[i+1] << 8) | d[i+2];
+      const lum = new ZXing.RGBLuminanceSource(argb, c.width, c.height);
+      const rdr = new ZXing.MultiFormatReader();
+      rdr.setHints(hints);
+      const text = rdr.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum))).getText();
+      if (text && text.length >= 8) return { ok: true, timeMs: Date.now() - t0 };
+    } catch { /* następna orientacja */ }
+  }
+  return { ok: false, timeMs: Date.now() - t0 };
+}
+
+// Ścieżka B: TaxOrderAztecDetector.detect()
+async function pathB(canvas) {
+  if (!window.TaxOrderAztecDetector) return { ok: false, strategy: '—', attempts: 0, timeMs: 0 };
+  const r = await TaxOrderAztecDetector.detect(canvas);
+  if (!r) return { ok: false, strategy: '—', attempts: 42, timeMs: 0 };
+  return { ok: true, strategy: r.strategy, attempts: r.attempts, timeMs: r.timeMs };
+}
+
+// Renderuj plik (obraz lub PDF) do tablicy canvasów (jedna strona = jeden canvas)
+async function fileToCanvases(file) {
+  if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+    return pdfToCanvases(file);
+  }
+  const canvas = await imageToCanvas(file);
+  return canvas ? [canvas] : [];
+}
+
+async function imageToCanvas(file) {
+  return new Promise(res => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 4000;
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (w > MAX || h > MAX) { const s = Math.min(MAX/w, MAX/h); w = Math.round(w*s); h = Math.round(h*s); }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      res(c);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); res(null); };
+    img.src = url;
+  });
+}
+
+async function pdfToCanvases(file) {
+  if (typeof pdfjsLib === 'undefined') return [];
+  try {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const canvases = [];
+    // Ostatnia strona pierwsza (Aztec jest na odwrocie DR)
+    for (let i = pdf.numPages; i >= 1; i--) {
+      const page = await pdf.getPage(i);
+      const vp = page.getViewport({ scale: 2.5 });
+      const c = document.createElement('canvas');
+      c.width = vp.width; c.height = vp.height;
+      await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+      canvases.push(c);
+    }
+    return canvases;
+  } catch { return []; }
+}
+
+// ═══ Stan i wyniki ════════════════════════════════════════════════════════════
+
+let _files = [];
+let _rows  = [];
+
+function updateFileCount() {
+  const btn = document.getElementById('run-btn');
+  if (_files.length > 0) {
+    document.getElementById('status').textContent = `Wybrano ${_files.length} pliku(ów). Kliknij "Uruchom benchmark".`;
+    btn.disabled = false;
+  } else {
+    document.getElementById('status').textContent = 'Wczytaj pliki aby rozpocząć.';
+    btn.disabled = true;
+  }
+}
+
+document.getElementById('file-input').addEventListener('change', e => {
+  _files = Array.from(e.target.files || []);
+  updateFileCount();
+});
+
+document.getElementById('clear-btn').addEventListener('click', () => {
+  _files = [];
+  _rows  = [];
+  document.getElementById('file-input').value = '';
+  document.getElementById('summary-card').style.display = 'none';
+  document.getElementById('export-btn').disabled = true;
+  document.getElementById('progress-fill').style.width = '0%';
+  updateFileCount();
+});
+
+document.getElementById('run-btn').addEventListener('click', runBenchmark);
+document.getElementById('export-btn').addEventListener('click', exportCsv);
+
+async function runBenchmark() {
+  if (!_files.length) return;
+  _rows = [];
+  document.getElementById('run-btn').disabled = true;
+  document.getElementById('export-btn').disabled = true;
+  document.getElementById('summary-card').style.display = 'block';
+  document.getElementById('results-body').innerHTML = '';
+  document.getElementById('stats-grid').innerHTML = '';
+  document.getElementById('strategies-wrap').innerHTML = '';
+
+  const total = _files.length;
+  let done = 0;
+
+  for (const file of _files) {
+    document.getElementById('status').textContent =
+      `Przetwarzam ${done + 1}/${total}: ${fileId(file)}`;
+
+    const canvases = await fileToCanvases(file);
+    const pages = canvases.length;
+
+    let rA = { ok: false, timeMs: 0 };
+    let rB = { ok: false, strategy: '—', attempts: 0, timeMs: 0 };
+
+    // Testuj kolejne strony/kąty; przerwij po pierwszym sukcesie (dla każdej ścieżki)
+    for (const c of canvases) {
+      if (!rA.ok) {
+        const t = await pathA(c);
+        if (t.ok) rA = t;
+        else rA.timeMs += t.timeMs;
+      }
+      if (!rB.ok) {
+        const t = await pathB(c);
+        if (t.ok) rB = t;
+        else rB.timeMs += t.timeMs;
+      }
+      if (rA.ok && rB.ok) break;
+    }
+
+    const w = canvases[0] ? canvases[0].width : 0;
+    const h = canvases[0] ? canvases[0].height : 0;
+
+    const row = {
+      idx:       done + 1,
+      fileId:    fileId(file),
+      res:       w && h ? `${w}×${h}` : '—',
+      pages,
+      okA:       rA.ok,
+      timeA:     rA.timeMs,
+      okB:       rB.ok,
+      timeB:     rB.timeMs,
+      strategyB: rB.strategy,
+      attemptsB: rB.attempts,
+    };
+    _rows.push(row);
+    appendRow(row);
+
+    done++;
+    document.getElementById('progress-fill').style.width = `${done / total * 100}%`;
+  }
+
+  document.getElementById('status').textContent = `Zakończono — ${total} plik(ów).`;
+  document.getElementById('run-btn').disabled = false;
+  document.getElementById('export-btn').disabled = false;
+  renderSummary();
+}
+
+function appendRow(r) {
+  const tbody = document.getElementById('results-body');
+  const tr = document.createElement('tr');
+
+  const onlyB = !r.okA && r.okB;
+  const onlyA = r.okA && !r.okB;
+  if (onlyB) tr.classList.add('only-b');
+  if (onlyA) tr.classList.add('only-a');
+
+  tr.innerHTML = `
+    <td>${r.idx}</td>
+    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${r.fileId}">${r.fileId}</td>
+    <td>${r.res}</td>
+    <td>${r.pages}</td>
+    <td class="${r.okA ? 'ok' : 'fail'}">${r.okA ? '✓' : '✗'}</td>
+    <td>${r.timeA}</td>
+    <td class="${r.okB ? 'ok' : 'fail'}">${r.okB ? '✓' : '✗'}</td>
+    <td>${r.timeB}</td>
+    <td style="font-family:monospace;font-size:11px">${r.strategyB}</td>
+    <td>${r.attemptsB}</td>`;
+  tbody.appendChild(tr);
+  tr.scrollIntoView({ block: 'nearest' });
+}
+
+function renderSummary() {
+  const n = _rows.length;
+  const okA = _rows.filter(r => r.okA).length;
+  const okB = _rows.filter(r => r.okB).length;
+  const onlyB = _rows.filter(r => !r.okA && r.okB).length;
+  const onlyA = _rows.filter(r => r.okA && !r.okB).length;
+
+  const timesA = _rows.filter(r => r.okA).map(r => r.timeA);
+  const timesB = _rows.filter(r => r.okB).map(r => r.timeB);
+  const pct = v => n ? `${Math.round(v / n * 100)}%` : '—';
+  const p50 = arr => { if (!arr.length) return '—'; const s = [...arr].sort((a,b)=>a-b); return s[Math.floor(s.length/2)] + ' ms'; };
+  const p95 = arr => { if (!arr.length) return '—'; const s = [...arr].sort((a,b)=>a-b); return s[Math.floor(s.length * .95)] + ' ms'; };
+
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat"><div class="stat-label">Dokumentów</div><div class="stat-value">${n}</div></div>
+    <div class="stat"><div class="stat-label">Sukces A</div><div class="stat-value ${okA===n?'green':okA<n*0.8?'red':'blue'}">${okA} (${pct(okA)})</div></div>
+    <div class="stat"><div class="stat-label">Sukces B</div><div class="stat-value ${okB===n?'green':okB<n*0.8?'red':'blue'}">${okB} (${pct(okB)})</div></div>
+    <div class="stat"><div class="stat-label">Tylko B 🎯</div><div class="stat-value ${onlyB>0?'green':'blue'}">${onlyB}</div></div>
+    <div class="stat"><div class="stat-label">Tylko A ⚠</div><div class="stat-value ${onlyA>0?'red':'blue'}">${onlyA}</div></div>
+    <div class="stat"><div class="stat-label">Mediana A</div><div class="stat-value" style="font-size:14px">${p50(timesA)}</div></div>
+    <div class="stat"><div class="stat-label">Mediana B</div><div class="stat-value" style="font-size:14px">${p50(timesB)}</div></div>
+    <div class="stat"><div class="stat-label">p95 A</div><div class="stat-value" style="font-size:14px">${p95(timesA)}</div></div>
+    <div class="stat"><div class="stat-label">p95 B</div><div class="stat-value" style="font-size:14px">${p95(timesB)}</div></div>`;
+
+  // Etapy 0–1 vs 2–5
+  const early  = _rows.filter(r => r.okB && /^S[01]:/.test(r.strategyB)).length;
+  const late   = _rows.filter(r => r.okB && /^S[2-5]/.test(r.strategyB)).length;
+
+  // Strategii breakdown
+  const strats = {};
+  for (const r of _rows) if (r.okB && r.strategyB !== '—') {
+    // Grupuj: S2a:cs-hybrid:rot90 → S2a (pierwsze segmenty przed dwukropkiem_2)
+    const key = r.strategyB.split(':').slice(0, 2).join(':');
+    strats[key] = (strats[key] || 0) + 1;
+  }
+  const sortedS = Object.entries(strats).sort((a, b) => b[1] - a[1]);
+  const maxV = sortedS[0]?.[1] || 1;
+
+  const swrap = document.getElementById('strategies-wrap');
+  if (sortedS.length === 0) {
+    swrap.innerHTML = '<span style="font-size:12px;color:#6c757d">Brak wyników.</span>';
+  } else {
+    swrap.innerHTML = [
+      `<div style="font-size:11px;color:#6c757d;margin:6px 0">Etapy 0–1 (odzwierciedlają istniejące ścieżki): ${early} | Etapy 2–5 (nowe): ${late}</div>`,
+      ...sortedS.map(([k, v]) => `
+        <div class="strat-bar">
+          <span class="strat-label">${k}</span>
+          <div class="strat-track"><div class="strat-fill" style="width:${v/maxV*100}%"></div></div>
+          <span class="strat-count">${v}</span>
+        </div>`)
+    ].join('');
+  }
+
+  // Ostrzeżenie "Tylko A" — błąd kaskady
+  if (onlyA > 0) {
+    document.getElementById('stats-grid').insertAdjacentHTML('afterend',
+      `<div style="margin-top:10px;padding:8px 12px;background:#f8d7da;border:1px solid #f5c2c7;border-radius:6px;font-size:12px;color:#842029">
+        ⚠ <strong>${onlyA} dokument(ów) rozpoznany przez A, ale nie przez B.</strong>
+        To wskazuje na błąd w kaskadzie detektora — sprawdź S0/S1.
+      </div>`);
+  }
+}
+
+function exportCsv() {
+  const lines = [
+    ['idx','file_id','res_w','res_h','pages','ok_a','time_a_ms','ok_b','time_b_ms','strategy_b','attempts_b']
+      .join(',')
+  ];
+  for (const r of _rows) {
+    const [w, h] = r.res.includes('×') ? r.res.split('×') : ['', ''];
+    lines.push([
+      r.idx,
+      `"${r.fileId.replace(/"/g, '""')}"`,
+      w, h,
+      r.pages,
+      r.okA ? 1 : 0,
+      r.timeA,
+      r.okB ? 1 : 0,
+      r.timeB,
+      `"${r.strategyB}"`,
+      r.attemptsB,
+    ].join(','));
+  }
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `aztec-bench-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ═══ Inicjalizacja — czekaj na biblioteki ════════════════════════════════════
+
+(async function init() {
+  const libsStatus = document.getElementById('libs-status');
+  const libsCard   = document.getElementById('libs-card');
+  const runCard    = document.getElementById('run-card');
+
+  // Sprawdź pdf.js
+  let pdfOk = false;
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfOk = true;
+  } else {
+    libsStatus.textContent = 'pdf.js nie załadowany — obsługa PDF wyłączona.';
+  }
+
+  // Poczekaj na ZXing (może ładować się asynchronicznie przez CDN)
+  let attempts = 0;
+  while (typeof ZXing === 'undefined' && attempts < 30) {
+    await new Promise(r => setTimeout(r, 200));
+    attempts++;
+  }
+  const zxingOk = typeof ZXing !== 'undefined';
+
+  // Poczekaj na detektor
+  const detectorOk = typeof TaxOrderAztecDetector !== 'undefined';
+
+  libsCard.innerHTML = [
+    `<strong>Biblioteki:</strong>`,
+    `<span style="color:${zxingOk?'#198754':'#dc3545'}">ZXing ${zxingOk ? '✓ załadowany' : '✗ brak'}</span>`,
+    `<span style="color:${pdfOk?'#198754':'#6c757d'}">pdf.js ${pdfOk ? '✓ załadowany' : '⚠ niedostępny (PDF nie będzie obsługiwany)'}</span>`,
+    `<span style="color:${detectorOk?'#198754':'#dc3545'}">TaxOrderAztecDetector ${detectorOk ? '✓ załadowany' : '✗ brak — sprawdź ścieżkę do modules/aztec-detector.js'}</span>`,
+  ].join(' &nbsp;|&nbsp; ');
+
+  if (zxingOk && detectorOk) {
+    runCard.style.display = 'block';
+    updateFileCount();
+  } else {
+    libsCard.innerHTML += '<br><span style="color:#dc3545;font-size:12px">Nie można uruchomić benchmarku — brak wymaganych bibliotek.</span>';
+  }
+})();
+</script>
+</body>
+</html>

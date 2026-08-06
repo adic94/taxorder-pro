@@ -1,0 +1,36 @@
+﻿<!DOCTYPE html>
+<!--
+  dr-helper-wasm.html — Helper Playwright: ładuje zxing-wasm przez ES module
+  i udostępnia window.decodeAztecFromCanvas(canvas) do dekodowania Aztec DR.
+  Używany przez dr-heuristic-check.js i dr-page-test.js jako strona Chromium.
+
+  Wymaga: dostępu do internetu (esm.sh CDN)
+  Narzędzie lokalne — nie wchodzi do buildu prod.
+-->
+<html>
+<head><meta charset="UTF-8"><title>ZXing WASM Test</title></head>
+<body>
+<p id="status">Ładowanie zxing-wasm...</p>
+<script type="module">
+import { readBarcodesFromImageData } from 'https://esm.sh/@sec-ant/zxing-wasm@2.2.0';
+
+window.zxingWasmReady = false;
+window.decodeAztecFromCanvas = async function(canvas) {
+  const ctx = canvas.getContext('2d');
+  const id = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  try {
+    const results = await readBarcodesFromImageData(id, {
+      formats: ['Aztec'],
+      tryHarder: true,
+    });
+    return results;
+  } catch(e) {
+    return [{ error: e.message }];
+  }
+};
+
+window.zxingWasmReady = true;
+document.getElementById('status').textContent = 'ZXing WASM gotowy!';
+</script>
+</body>
+</html>
