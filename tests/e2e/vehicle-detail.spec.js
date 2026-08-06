@@ -59,13 +59,10 @@ test.describe('Karta pojazdu', () => {
   test('podwójne kliknięcie w wiersz otwiera kartę pojazdu', async ({ page }) => {
     const firstRow = page.locator('#veh-tbody tr:not(.sk-row)').first();
     if (!(await firstRow.isVisible())) { test.skip(); return; }
-    // Weryfikacja wiringu ondblclick: każdy wiersz tabeli musi mieć atrybut
-    // ondblclick="...TaxOrderVehicleDetail.open(ID)". Wyodrębniamy ID i sprawdzamy asercją.
-    // Fizyczny dblclick w Playwright zawodzi: KPI cards+filtry zajmują ~640 px, więc
-    // wiersz startuje przy samym dole viewportu (715 px); dolny pasek akcji (position:fixed,
-    // ~50 px) pojawia się po kliknięciu 1 sekwencji dblclick i nakrywa wiersz zanim trafi
-    // kliknięcie 2 i zdarzenie dblclick. Bug app.js (toggleExpandVeh zastępujący tbody)
-    // naprawiony w tym samym commicie — wiring ondblclick sprawdzamy przez atrybut.
+    // Fizyczny dblclick nadal zawodzi nawet po naprawie toggleExpandVeh().
+    // Klik-1 zaznacza pojazd → updateCounters() wyświetla #bulk-bar (position:fixed, ~50 px).
+    // Klik-2 trafia w pasek zamiast w wiersz → zdarzenie dblclick nigdy nie dociera do <tr>.
+    // Weryfikujemy wiring ondblclick przez atrybut, potem wywołujemy open() bezpośrednio.
     const vehId = await firstRow.evaluate(tr => {
       const m = (tr.getAttribute('ondblclick') || '').match(/open\((\d+)\)/);
       return m ? parseInt(m[1], 10) : null;

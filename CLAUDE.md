@@ -68,7 +68,7 @@ taxorder-pro/
 | 2026-08 | Build command Cloudflare Pages — `dist/` poprawne; 200 na `/worker/*` i `/docs/*` to **fallback SPA**, nie wyciek | — |
 | 2026-08 | Repozytorium prywatne — potwierdzone `gh repo view`; sekrety poza git (`wrangler secret put` + GitHub Secrets) | — |
 | 2026-08 | **Seed danych testowych — temat zamknięty jako zbędny.** Diagnoza „konto CI ma pustą flotę" OBALONA faktami z D1 (patrz niżej). Warianty seed / dedykowany tenant / `test.skip` odrzucone | — |
-| 2026-08 | **CI ostatnie 4 awarie** — `vehicle-card` + `vehicle-detail`: `navigateTo()`, `:not(.sk-row)`, `openFirstVehicle()` przez przycisk zamiast dblclick, tab count → 3 (super-tab), config count → 19 (VD_TABS), `toggleExpandVeh()` targeted DOM (nie renderVeh), `global-setup` mode 2 `page.evaluate()` przed `storageState()`, dblclick test przez `page.evaluate()`. CI: 4 → 0 awarii | `c1ff10c` |
+| 2026-08 | **CI 41 → 0 awarii (finał)** — `vehicle-card` + `vehicle-detail`: (1) duch `#fleet-tbody` — selektor nie istniał w aplikacji (prawdziwy: `#veh-tbody`); (2) `.sk-row` fałszywy pozytyw `waitForSelector` — 5 szkieletów wbudowanych w HTML spełniało warunek przed fetchem, fix: `:not(.sk-row)`; (3) `toggleExpandVeh()` niszczył `tbody` podczas dblclick — **błąd aplikacji**, fix: targeted DOM zamiast `renderVeh()`; (4) architektura super-tabów — w grupie `'przeglad'` widoczne **3** zakładki, nie 5; (5) VD_TABS urósł 16 → 19; `global-setup` mode 2: `addInitScript` nie modyfikował `storageState`, fix: `page.evaluate()` przed snapshotu | `c1ff10c` |
 
 ### W toku
 *(brak)*
@@ -91,6 +91,11 @@ taxorder-pro/
   Docelowo Aztec jako **pierwszy** krok kaskady OCR dla DR, przed Groq Vision (`/api/ai/ocr`).
 - `tools/*.js` — 17 plików nieśledzonych (`dt1-verify.js`, `dr-pos-probe.js`, `test-*.js`…).
   Przegląd: co zasługuje na commit, co skasować.
+- **Tryb widoku przypięty w `global-setup.js`.** `slim_table='false'` i `fleetViewMode='fleet'`
+  są hardkodowane w global-setup (oba tryby: TOKEN i EMAIL). Jeśli ktoś doda nową preferencję
+  UI wpływającą na renderowanie tabeli floty (np. gęstość wierszy, widoczność kolumn), musi
+  ją tam dopisać — inaczej CI staje się zależne od stanu przeglądarki i testy padają
+  niedeterministycznie.
 - npm — 7 podatności (2 moderate, 5 high) w devDependencies (eslint 8.57.1 bez wsparcia, glob/rimraf).
   ⚠️ `npm audit fix --force` potrafi zepsuć Playwrighta — nie uruchamiać przy czerwonym CI.
 - `CLOUDFLARE_ACCOUNT_ID` zahardkodowany w `nightly-report.yml` zamiast `${{ secrets.* }}`.
