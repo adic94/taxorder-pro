@@ -50,7 +50,7 @@ taxorder-pro/
 
 > Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
 > Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
-> Ostatnia aktualizacja: 2026-08-06
+> Ostatnia aktualizacja: 2026-08-06 (UserPrefs 3a zamknięta)
 
 ### Zamknięte
 | Kiedy | Temat | Commit |
@@ -69,6 +69,8 @@ taxorder-pro/
 | 2026-08 | Repozytorium prywatne — potwierdzone `gh repo view`; sekrety poza git (`wrangler secret put` + GitHub Secrets) | — |
 | 2026-08 | **Seed danych testowych — temat zamknięty jako zbędny.** Diagnoza „konto CI ma pustą flotę" OBALONA faktami z D1 (patrz niżej). Warianty seed / dedykowany tenant / `test.skip` odrzucone | — |
 | 2026-08 | **CI 41 → 0 awarii (finał)** — `vehicle-card` + `vehicle-detail`: (1) duch `#fleet-tbody` — selektor nie istniał w aplikacji (prawdziwy: `#veh-tbody`); (2) `.sk-row` fałszywy pozytyw `waitForSelector` — 5 szkieletów wbudowanych w HTML spełniało warunek przed fetchem, fix: `:not(.sk-row)`; (3) `toggleExpandVeh()` niszczył `tbody` podczas dblclick — **błąd aplikacji**, fix: targeted DOM zamiast `renderVeh()`; (4) architektura super-tabów — w grupie `'przeglad'` widoczne **3** zakładki, nie 5; (5) VD_TABS urósł 16 → 19; `global-setup` mode 2: `addInitScript` nie modyfikował `storageState`, fix: `page.evaluate()` przed snapshotu | `c1ff10c` |
+| 2026-08 | **`#bulk-bar` blokuje dblclick** — fix: `_suppressBulkBar()` (`pointer-events:none` na 800 ms, obie ścieżki: `toggleRow()` i `toggleExpandVeh()`); test `vehicle-detail.spec.js:59` przywrócony do fizycznego `page.dblclick()`. ROLLBACK pliki dla schema v45/v46/v47 (osobny commit, przed upływem Time Travel) | `e4c4161` / `28ee761` |
+| 2026-08 | **UserPrefs Partia 3a** — (1) `global-setup`: pin `onboarding_done=1` + `ks-hint-shown=1` (oba tryby TOKEN i EMAIL); weryfikacja: 286/11/0 bez flag, 286/11/0 z flagami — pipeline NIE przechodził przypadkowo (event `taxorder-login` nigdy niee mitowany, toast 3s nie zakłóca timingu). (2) `user-prefs.js`: walidacja `theme` — tylko `dark`\|`light`, `console.warn` + stack przy innych; klucze podatne na `JSON.parse` w `get()` zgłoszone (slim_table/taxDarkMode/onboarding_done/ks-hint-shown — brak aktywnego buga). (3) migracja write-side: `taxSidebarSection` (app.js:194), `ks-hint-shown` (keyboard-shortcuts.js:146), `onboarding_done` (onboarding.js:73) → `UserPrefs.set()` | `f42ac81` / `76ac94d` / `f83c285` |
 
 ### W toku
 *(brak)*
@@ -78,19 +80,13 @@ taxorder-pro/
 ### Otwarte / znane długi
 
 **Priorytet 1 — kolejny temat rozwojowy**
-- UserPrefs Partia 3 — synchronizacja `theme` + walidacja `theme="false"` (wartość `"false"` jako
-  string, nie boolean — sprawdzić przy odczycie z D1).
+- **UserPrefs Partia 3b** — migracja write-side dla 4 kluczy firmowych:
+  `fleet_widgets` (app.js:1089/1092), `dwf_view` (doc-workflow.js:44/584),
+  `fuelImportSchemas` (fuel-import.js:147/154), `taxorder-dash-config` (app.js:3270/3575 przez
+  `_DASH_LS_KEY`). Najtrudniejszy: `taxorder-dash-config` — duży JSON, ryzyko konfliktu merge
+  między urządzeniami (nowe urządzenie ma pusty config vs D1 ma stary layout). Osobna sesja.
 
 **Dług techniczny**
-- **BŁĄD APLIKACJI — `#bulk-bar` przechwytuje drugi klik dwukliku.** Sekwencja: klik-1 zaznacza
-  pojazd → `updateCounters()` wyświetla `#bulk-bar` (`position:fixed`, ~50 px u dołu) → klik-2
-  trafia w pasek zamiast w wiersz → zdarzenie `dblclick` nie dociera do `<tr>`. Dotyczy
-  **realnych użytkowników** — wiersze blisko dolnej krawędzi widoku są nieklikalne dwuklikiem
-  mimo że mają `title="Dwuklik = karta pojazdu"`. Kierunki naprawy (nie implementuj teraz):
-  `pointer-events:none` na `#bulk-bar` przez ~300 ms po zaznaczeniu; opóźnienie paska o próg
-  dwukliku (~250 ms); `scroll-margin`/`padding-bottom` na kontenerze tabeli.
-  `vehicle-detail.spec.js:59` obchodzi to przez `page.evaluate()` — po naprawie aplikacji
-  przywrócić fizyczny `page.dblclick()`.
 - **LUKA W POKRYCIU — `vehicle-detail.spec.js:110` pomijany zawsze (także w CI).**
   Test „edycja uwag i zapis — wartość persystuje po ponownym otwarciu" trafia w `test.skip()`
   bo `#vd-uwagi` jest na zakładce poza super-tabem `'przeglad'`; selektor zakładki uwag
@@ -107,16 +103,16 @@ taxorder-pro/
   Docelowo Aztec jako **pierwszy** krok kaskady OCR dla DR, przed Groq Vision (`/api/ai/ocr`).
 - `tools/*.js` — 17 plików nieśledzonych (`dt1-verify.js`, `dr-pos-probe.js`, `test-*.js`…).
   Przegląd: co zasługuje na commit, co skasować.
-- **Tryb widoku przypięty w `global-setup.js`.** `slim_table='false'` i `fleetViewMode='fleet'`
-  są hardkodowane w global-setup (oba tryby: TOKEN i EMAIL). Jeśli ktoś doda nową preferencję
-  UI wpływającą na renderowanie tabeli floty (np. gęstość wierszy, widoczność kolumn), musi
-  ją tam dopisać — inaczej CI staje się zależne od stanu przeglądarki i testy padają
-  niedeterministycznie.
+- **Tryb widoku przypięty w `global-setup.js`.** Jawnie pinowane (oba tryby TOKEN i EMAIL):
+  `slim_table='false'`, `fleetViewMode='fleet'`, `onboarding_done='1'`, `ks-hint-shown='1'`.
+  Jeśli ktoś doda nową preferencję UI wpływającą na renderowanie tabeli floty lub powodującą
+  modal/overlay przy pierwszym uruchomieniu — musi ją dopisać do global-setup. Inaczej CI
+  staje się zależne od stanu przeglądarki i testy padają niedeterministycznie.
 - npm — 7 podatności (2 moderate, 5 high) w devDependencies (eslint 8.57.1 bez wsparcia, glob/rimraf).
   ⚠️ `npm audit fix --force` potrafi zepsuć Playwrighta — nie uruchamiać przy czerwonym CI.
 - `CLOUDFLARE_ACCOUNT_ID` zahardkodowany w `nightly-report.yml` zamiast `${{ secrets.* }}`.
 - `SUPABASE_URL` w `wrangler.toml` — Supabase wycofany, wpis do usunięcia.
-- `ROLLBACK` — brak plików dla `v45`/`v46`/`v47`, tylko Time Travel (okno 30 dni, już upływa).
+- `ROLLBACK` — pliki v45/v46/v47 dodane (`28ee761`); v48/v49 brak (Time Travel jeszcze aktywne).
 
 **Sprawy operacyjne (poza kodem)**
 - Domena e-mail dla Dominika Dymowskiego i Roberta Sasina — do ustalenia.
@@ -216,6 +212,20 @@ const dmc = v.dmc || v.dmcMax || 0;
 const dmc = v.dmc ?? v.dmcMax ?? 0;
 ```
 Dotyczy szczególnie: `dmc`, `dmcMax`, `dmcZespolu`, `miesiacePodatku`, `rok`
+
+### UserPrefs.get() zmienia typ — nie porównuj do stringa
+`UserPrefs.get()` przepuszcza wartość przez `JSON.parse()`: `"false"` wraca jako boolean,
+`"1"` jako number. Awaria jest **cicha** — brak błędu w konsoli.
+```javascript
+// ŹLE — boolean false !== string 'false' → TRUE, tryb zwięzły włącza się sam
+const slim = UserPrefs.get('slim_table') !== 'false';
+
+// DOBRZE — String() normalizuje typ niezależnie od tego co zwróci JSON.parse
+const slim = String(UserPrefs.get('slim_table')) !== 'false';
+```
+Podatne klucze (przechowują `"false"`, `"true"`, `"0"`, `"1"`):
+`slim_table`, `taxDarkMode`, `onboarding_done`, `ks-hint-shown`.
+Obecny kod używa wyłącznie `localStorage.getItem()` dla tych kluczy — reguła chroni przyszły kod.
 
 ### Sekret API — NIGDY w kodzie
 - Klucze API: `wrangler secret put NAZWA_SEKRETU` (tylko lokalnie, przez terminal)
