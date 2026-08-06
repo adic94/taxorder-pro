@@ -950,6 +950,18 @@ function renderVeh() {
   _applyColVis();
 }
 
+// Temporarily disables pointer-events on #bulk-bar so click-2 of a dblclick sequence
+// passes through to the <tr> underneath. Applied in both toggleRow() and toggleExpandVeh().
+// 800 ms covers Windows max double-click threshold (~900 ms user setting, default ~500 ms);
+// do not shorten — slower users would still hit the bar before the timeout expires.
+function _suppressBulkBar() {
+  const bar = document.getElementById('bulk-bar');
+  if (!bar) return;
+  bar.style.pointerEvents = 'none';
+  clearTimeout(_suppressBulkBar._t);
+  _suppressBulkBar._t = setTimeout(() => { bar.style.pointerEvents = ''; }, 800);
+}
+
 function toggleRow(id) {
   if(selected.has(id)) selected.delete(id); else selected.add(id);
   const isSel = selected.has(id);
@@ -973,6 +985,7 @@ function toggleRow(id) {
     chkAll.indeterminate = !allSel && list.some(v => selected.has(v.id));
   }
   updateCounters();
+  _suppressBulkBar();
 }
 
 // ── Slim table toggle ─────────────────────────────────────────────────────────
@@ -1006,6 +1019,7 @@ function toggleExpandVeh(id) {
     _slimRowChevron(tbody, id, true);
     _insertSlimExpandRow(tbody, id);
   }
+  _suppressBulkBar();
 }
 
 function _slimRowChevron(tbody, id, expanded) {

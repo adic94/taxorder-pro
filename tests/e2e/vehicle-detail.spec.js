@@ -59,16 +59,7 @@ test.describe('Karta pojazdu', () => {
   test('podwójne kliknięcie w wiersz otwiera kartę pojazdu', async ({ page }) => {
     const firstRow = page.locator('#veh-tbody tr:not(.sk-row)').first();
     if (!(await firstRow.isVisible())) { test.skip(); return; }
-    // Fizyczny dblclick nadal zawodzi nawet po naprawie toggleExpandVeh().
-    // Klik-1 zaznacza pojazd → updateCounters() wyświetla #bulk-bar (position:fixed, ~50 px).
-    // Klik-2 trafia w pasek zamiast w wiersz → zdarzenie dblclick nigdy nie dociera do <tr>.
-    // Weryfikujemy wiring ondblclick przez atrybut, potem wywołujemy open() bezpośrednio.
-    const vehId = await firstRow.evaluate(tr => {
-      const m = (tr.getAttribute('ondblclick') || '').match(/open\((\d+)\)/);
-      return m ? parseInt(m[1], 10) : null;
-    });
-    expect(vehId, 'wiersz musi mieć ondblclick z TaxOrderVehicleDetail.open(id)').not.toBeNull();
-    await page.evaluate(id => TaxOrderVehicleDetail.open(id), vehId);
+    await firstRow.dblclick();
     await expect(page.locator('#vd-modal')).toBeVisible({ timeout: 8_000 });
   });
 
