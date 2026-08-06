@@ -7700,7 +7700,7 @@ async function doLogin(){
     return;
   }
 
-  let supabaseUser = null;
+  let authUser = null;
 
   if(window.TaxOrderAuth && typeof window.TaxOrderAuth.login === 'function'){
     const authResult = await window.TaxOrderAuth.login(email, pass);
@@ -7714,18 +7714,18 @@ async function doLogin(){
       return;
     }
 
-    supabaseUser = authResult.user;
+    authUser = authResult.user;
   }
 
   let u;
-  if(supabaseUser){
+  if(authUser){
     // Backend (D1/Worker) jest jedynym autorytatywnym źródłem roli — NIE nadpisuj jej
     // lokalną listą `users` (localStorage, pozostałość po migracji z Supabase) ani domyślną wartością.
     u = {
-      id: supabaseUser.id,
-      email: supabaseUser.email || email,
-      name: supabaseUser.name || supabaseUser.user_metadata?.name || email,
-      role: supabaseUser.role || 'kierowca',
+      id: authUser.id,
+      email: authUser.email || email,
+      name: authUser.name || email,
+      role: authUser.role || 'kierowca',
       active: true
     };
   } else {
@@ -7889,16 +7889,12 @@ async function submitNewPassword() {
     if (window.TaxOrderAuth?.updatePassword) {
       const result = await window.TaxOrderAuth.updatePassword(newPassword);
       if (!result.ok) throw new Error(result.error?.message || 'błąd');
-    } else if (window.supabaseClient?.auth?.updateUser) {
-      const { error } = await window.supabaseClient.auth.updateUser({ password: newPassword });
-      if (error) throw error;
     } else {
       throw new Error('Brak metody aktualizacji hasła');
     }
     const modal = document.getElementById('pwd-reset-modal');
     if (modal) modal.style.display = 'none';
     toast('✅ Hasło zostało zmienione — możesz się zalogować');
-    if (window.supabaseClient?.auth?.signOut) await window.supabaseClient.auth.signOut();
     const loginScreenEl = document.getElementById('login-screen');
     if (loginScreenEl) loginScreenEl.style.display = 'flex';
     const appEl = document.getElementById('app');
@@ -7915,12 +7911,7 @@ async function _showNewPasswordFallback() {
   const newPassword = prompt('Wpisz nowe hasło (min. 6 znaków):');
   if (!newPassword || newPassword.length < 6) { alert('Hasło musi mieć minimum 6 znaków.'); return; }
   try {
-    if (window.supabaseClient?.auth?.updateUser) {
-      const { error } = await window.supabaseClient.auth.updateUser({ password: newPassword });
-      if (error) throw error;
-    }
     alert('Hasło zostało zmienione. Zaloguj się nowym hasłem.');
-    await window.supabaseClient?.auth?.signOut?.();
   } catch (err) { alert('Błąd: ' + err.message); }
 }
 
@@ -7938,22 +7929,6 @@ function isPasswordRecoveryUrl() {
 async function handlePasswordRecoveryUrl() {
   if (!isPasswordRecoveryUrl()) return;
   try {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    if (code && window.supabaseClient?.auth?.exchangeCodeForSession) {
-      const { error } = await window.supabaseClient.auth.exchangeCodeForSession(code);
-      if (error) console.error('[PasswordRecovery] exchangeCodeForSession error:', error.message);
-    }
-    const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
-    const accessToken = hashParams.get('access_token');
-    const refreshToken = hashParams.get('refresh_token');
-    const type = hashParams.get('type');
-    if (accessToken && type === 'recovery' && window.supabaseClient?.auth?.setSession) {
-      await window.supabaseClient.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken || ''
-      });
-    }
     window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
     showNewPasswordModal();
   } catch (e) {
@@ -7962,17 +7937,6 @@ async function handlePasswordRecoveryUrl() {
   }
 }
 
-if (window.supabaseClient) {
-  window.supabaseClient.auth.onAuthStateChange((event, session) => {
-    if (event === 'PASSWORD_RECOVERY') {
-      console.log('[Auth] PASSWORD_RECOVERY event received');
-      showNewPasswordModal();
-    }
-  });
-  window.addEventListener('load', () => {
-    setTimeout(() => { handlePasswordRecoveryUrl(); }, 800);
-  });
-}
 
 function doLogout(){
   currentUser=null;
