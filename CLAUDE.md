@@ -108,6 +108,14 @@ taxorder-pro/
   Jeśli ktoś doda nową preferencję UI wpływającą na renderowanie tabeli floty lub powodującą
   modal/overlay przy pierwszym uruchomieniu — musi ją dopisać do global-setup. Inaczej CI
   staje się zależne od stanu przeglądarki i testy padają niedeterministycznie.
+- **Niestabilne testy przy długim suite (do obserwacji).** Lokalny suite trwa ~13 min; przy
+  kumulacji czasu `fleet-columns.spec.js:75` („Resetuj domyślne") i `import-export.spec.js:39`
+  (beforeEach timeout) bywają niestabilne — timeout 30 s przekroczony sporadycznie. Oba przechodzą
+  po izolowanym rerun. Jeśli powtórzą się w CI — wymagają osobnej diagnozy, nie są flakie lokalne.
+- **Flagi `onboarding_done` i `ks-hint-shown` nie wpływają na bieżący suite.** Zweryfikowane
+  na czystym storage (bez tych kluczy): 286/11/0, identycznie jak z pinami. Pinowanie w
+  `global-setup.js` jest zabezpieczeniem na przyszłość (event `taxorder-login` niezaimplementowany,
+  toast 3s nie zakłóca timingu testów przy obecnym suite).
 - npm — 7 podatności (2 moderate, 5 high) w devDependencies (eslint 8.57.1 bez wsparcia, glob/rimraf).
   ⚠️ `npm audit fix --force` potrafi zepsuć Playwrighta — nie uruchamiać przy czerwonym CI.
 - `CLOUDFLARE_ACCOUNT_ID` zahardkodowany w `nightly-report.yml` zamiast `${{ secrets.* }}`.
