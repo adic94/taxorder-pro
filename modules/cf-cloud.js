@@ -1,6 +1,7 @@
 /**
  * TaxOrder Pro — Cloudflare Cloud Module
- * Zastępuje: supabase-client.js, auth-supabase.js, fleet-cloud.js, migration-supabase.js
+ * Supabase wycofany (26.07.2026). Ten moduł zastąpił: supabase-client.js,
+ * auth-supabase.js, fleet-cloud.js, migration-supabase.js.
  *
  * Eksportuje na window:
  *   TaxOrderAuth       — login, logout, resetPassword, getSession

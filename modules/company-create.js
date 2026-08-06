@@ -1,10 +1,9 @@
 ﻿/**
  * TaxOrder Pro — Dodawanie firmy (najemcy)
  *
- * MIGRACJA (26.07.2026): przepisane z Supabase na D1.
- * Poprzednia wersja wolala window.supabaseClient BEZ guarda — a klient nigdy
- * nie byl inicjalizowany, wiec zapis konczyl sie TypeError i onboarding
- * nowej firmy w ogole nie dzialal. Teraz POST /api/companies (schema_v44).
+ * Supabase wycofany (26.07.2026). Poprzednia wersja wolala window.supabaseClient
+ * bez guarda — klient nigdy niezainicjalizowany, zapis konczyl sie TypeError
+ * i onboarding nowej firmy nie dzialal. Teraz POST /api/companies (schema_v44).
  */
 (function(){
   'use strict';

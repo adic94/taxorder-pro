@@ -1,11 +1,9 @@
 /**
  * TaxOrder Pro — Lista firm (najemców)
  *
- * MIGRACJA (26.07.2026): przepisane z Supabase na D1.
- * Poprzednia wersja wołała window.supabaseClient, który nigdy nie był
- * inicjalizowany (SDK ani supabase-client.js nie są ładowane w index.html),
- * więc panel firm nie działał. Źródłem prawdy jest teraz tabela `companies`
- * w D1 (schema_v44) przez /api/companies.
+ * Supabase wycofany (26.07.2026). Poprzednia wersja (companies-supabase.js)
+ * wołała window.supabaseClient — nigdy niezainicjalizowany, panel firm nie działał.
+ * Źródłem prawdy jest tabela `companies` w D1 (schema_v44) przez /api/companies.
  */
 (function () {
   'use strict';

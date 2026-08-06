@@ -38,11 +38,8 @@ max_retries = 3
 ENVIRONMENT = "production"
 VAPID_PUBLIC_KEY = "BLb0fmlA2iRulkwWHEIwQKYEnIWCvsRjQR55MHuxoKSNV7tczQ7Tr0cb-5Zo6N6C34UqIz10Or-ZV2eDQwd-EPE"
 OCR_PYTHON_URL = "https://taxorder-pro-production.up.railway.app"
-SUPABASE_URL = "https://opeqckxxdqicszfycolb.supabase.co"
 # OCR_PYTHON_SECRET — ustaw jako Cloudflare Secret (szyfrowany):
 # npx wrangler secret put OCR_PYTHON_SECRET
-# SUPABASE_ANON_KEY — ustaw jako Cloudflare Secret (szyfrowany):
-# npx wrangler secret put SUPABASE_ANON_KEY
 # CEPIK_KEY — Consumer Key z portalu api-cpa.gov.pl:
 # npx wrangler secret put CEPIK_KEY
 # CEPIK_SECRET — Consumer Secret z portalu api-cpa.gov.pl:

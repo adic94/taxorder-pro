@@ -1,9 +1,8 @@
 ﻿/**
  * TaxOrder Pro — Dostepy uzytkownik <-> firma
  *
- * MIGRACJA (26.07.2026): przepisane z Supabase na D1.
- * Poprzednia wersja wolala window.supabaseClient BEZ guarda — a klient nigdy
- * nie byl inicjalizowany, wiec panel uprawnien rzucal TypeError przy otwarciu.
+ * Supabase wycofany (26.07.2026). Poprzednia wersja wolala window.supabaseClient
+ * bez guarda — klient nigdy niezainicjalizowany, panel uprawnien rzucal TypeError.
  * Teraz /api/users i /api/company-access (schema_v44).
  */
 (function(){
