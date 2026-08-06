@@ -191,7 +191,7 @@ function switchSection(name) {
   document.querySelectorAll('.sidebar-section-items').forEach(el =>
     el.classList.toggle('s-hidden', el.dataset.section !== name)
   );
-  localStorage.setItem('taxSidebarSection', name);
+  if (window.UserPrefs) UserPrefs.set('taxSidebarSection', name); else localStorage.setItem('taxSidebarSection', name);
 }
 
 function _syncTabToPage(page) {

@@ -143,7 +143,7 @@ window.TaxOrderShortcuts = (function () {
     setTimeout(() => {
       if (typeof toast === 'function') {
         toast('💡 Naciśnij ? aby zobaczyć skróty klawiszowe');
-        localStorage.setItem('ks-hint-shown', '1');
+        if (window.UserPrefs) UserPrefs.set('ks-hint-shown', '1'); else localStorage.setItem('ks-hint-shown', '1');
       }
     }, 3000);
   });

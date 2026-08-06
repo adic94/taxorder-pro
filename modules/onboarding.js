@@ -70,7 +70,7 @@
   function hide() {
     const m = document.getElementById('onboarding-modal');
     if (m) m.style.display = 'none';
-    localStorage.setItem('onboarding_done', '1');
+    if (window.UserPrefs) UserPrefs.set('onboarding_done', '1'); else localStorage.setItem('onboarding_done', '1');
   }
 
   function goTo(step) { _step = Math.max(1, Math.min(step, STEPS.length)); _render(); }
