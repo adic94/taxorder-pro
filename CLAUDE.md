@@ -276,6 +276,20 @@ Pliki przechowywane aktualnie w `~/Documents/taxorder-backupy/`:
 > Każdy wpis to realny błąd diagnostyczny z tego projektu. Zanim uznasz coś
 > za sprawdzone, upewnij się, że test mierzy to, co myślisz.
 
+### .gitignore nie działa wstecz
+Plik dodany do repozytorium PRZED wpisaniem reguły pozostaje śledzony —
+`.gitignore` dotyczy wyłącznie plików nieśledzonych. `git status` NIE zgłosi tego
+jako problemu, bo z jego perspektywy wszystko jest poprawne.
+
+Wykrycie:
+```powershell
+git ls-files | ForEach-Object { if (git check-ignore -q $_) { $_ } }
+```
+Naprawa: `git rm --cached <plik>` (zostawia plik na dysku).
+
+Przykład z projektu: `.vscode/mcp.json` był śledzony od 2026-06-03 mimo reguły w `.gitignore`.
+Zawierał Supabase `project_ref=opeqckxxdqicszfycolb` — widoczny publicznie od 03.06 do 05.08.2026.
+
 ### git check-ignore przy regułach negacji
 `git check-ignore -v plik` **zawsze zwraca exit 0** i pokazuje dopasowaną regułę —
 także wtedy, gdy tą regułą jest negacja `!` i plik **nie jest** ignorowany.
