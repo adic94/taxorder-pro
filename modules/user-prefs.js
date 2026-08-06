@@ -130,6 +130,10 @@
      * Wartości złożone (object/array) są serializowane do JSON.
      */
     set(key, value) {
+      if (key === 'theme' && value !== 'dark' && value !== 'light') {
+        console.warn('[UserPrefs] theme: wartość musi być "dark" lub "light", pominięto:', value, new Error().stack);
+        return;
+      }
       const serialized = (value !== null && typeof value === 'object') || Array.isArray(value)
         ? JSON.stringify(value)
         : String(value);
