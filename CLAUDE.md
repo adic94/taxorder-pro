@@ -82,6 +82,22 @@ taxorder-pro/
   string, nie boolean — sprawdzić przy odczycie z D1).
 
 **Dług techniczny**
+- **BŁĄD APLIKACJI — `#bulk-bar` przechwytuje drugi klik dwukliku.** Sekwencja: klik-1 zaznacza
+  pojazd → `updateCounters()` wyświetla `#bulk-bar` (`position:fixed`, ~50 px u dołu) → klik-2
+  trafia w pasek zamiast w wiersz → zdarzenie `dblclick` nie dociera do `<tr>`. Dotyczy
+  **realnych użytkowników** — wiersze blisko dolnej krawędzi widoku są nieklikalne dwuklikiem
+  mimo że mają `title="Dwuklik = karta pojazdu"`. Kierunki naprawy (nie implementuj teraz):
+  `pointer-events:none` na `#bulk-bar` przez ~300 ms po zaznaczeniu; opóźnienie paska o próg
+  dwukliku (~250 ms); `scroll-margin`/`padding-bottom` na kontenerze tabeli.
+  `vehicle-detail.spec.js:59` obchodzi to przez `page.evaluate()` — po naprawie aplikacji
+  przywrócić fizyczny `page.dblclick()`.
+- **LUKA W POKRYCIU — `vehicle-detail.spec.js:110` pomijany zawsze (także w CI).**
+  Test „edycja uwag i zapis — wartość persystuje po ponownym otwarciu" trafia w `test.skip()`
+  bo `#vd-uwagi` jest na zakładce poza super-tabem `'przeglad'`; selektor zakładki uwag
+  `[onclick*="tab"][onclick*="uwagi"]` nie trafia w aktywny element nawigacyjny super-tabu.
+  Skutek: edycja uwag i persystencja NIE są weryfikowane przez pipeline.
+  Naprawa: test musi najpierw przełączyć super-tab (analogicznie do asercji liczby zakładek
+  w `vehicle-card.spec.js`). Osobna sesja.
 - **Konto CI (`adamus1000@gmail.com`) jest adminem.** Cały pipeline e2e działa na uprawnieniach
   administratora → **regresja w gatingu uprawnień nie zostanie wykryta**. Istotne, bo audyt 2026-07
   naprawiał 4× IDOR. Docelowo: drugie konto testowe bez roli admin.
