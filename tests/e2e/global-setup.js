@@ -39,6 +39,8 @@ module.exports = async function globalSetup(config) {
           { name: 'taxorder_prefs_kv_source',   value: 'local' },
           { name: 'slim_table',                 value: 'false' },
           { name: 'fleetViewMode',              value: 'fleet' },
+          { name: 'onboarding_done',            value: '1' },
+          { name: 'ks-hint-shown',              value: '1' },
         ],
       }],
     };
@@ -72,6 +74,8 @@ module.exports = async function globalSetup(config) {
     localStorage.setItem('taxorder_prefs_kv_source', 'local');
     localStorage.setItem('slim_table',               'false');
     localStorage.setItem('fleetViewMode',            'fleet');
+    localStorage.setItem('onboarding_done',          '1');
+    localStorage.setItem('ks-hint-shown',            '1');
     if (company) localStorage.setItem('currentCompany', company);
   }, process.env.TEST_COMPANY || '');
 
