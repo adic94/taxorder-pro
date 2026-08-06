@@ -235,6 +235,24 @@ Podatne klucze (przechowują `"false"`, `"true"`, `"0"`, `"1"`):
 `slim_table`, `taxDarkMode`, `onboarding_done`, `ks-hint-shown`.
 Obecny kod używa wyłącznie `localStorage.getItem()` dla tych kluczy — reguła chroni przyszły kod.
 
+### Dane produkcyjne poza repozytorium
+Backupy i raporty z operacji na danych (audyty DT-1, migracje, korekty osi) zawierają
+numery rejestracyjne, DMC, VIN-y i nazwy spółek.
+
+**Miejsce docelowe: `~/Documents/taxorder-backupy/`** — NIE pulpit, NIE katalog projektu.
+Pulpit jest indeksowany przez wyszukiwarkę systemową i bywa synchronizowany z OneDrive.
+
+**Uwaga: `.gitignore` chroni tylko pliki WEWNĄTRZ drzewa repozytorium.** Pliki leżące
+poza `taxorder-pro/` nie są objęte żadną regułą git — są bezpieczne wyłącznie dlatego,
+że git ich nie widzi. Skopiowane do środka repozytorium nie byłyby chronione bez jawnego wpisu.
+
+Pliki przechowywane aktualnie w `~/Documents/taxorder-backupy/`:
+- `dt1-backup-przed-update-B.json`, `dt1-brakujace-B.json`, `dt1-rozbieznosci-C.json`,
+  `dt1-verify-d1.json` — audyt DT-1 31.07.2026 (wartość odtworzeniowa: korekty DMC)
+- `backup-vehicles-przed-migracja.json` — migracja pojazdów 31.07.2026
+- `backup-axles-pre-correction-2026-08-02.json` — korekta osi 02.08.2026
+- `dr-coverage-report.json` — raport pokrycia Aztec DR 31.07.2026
+
 ### Sekret API — NIGDY w kodzie
 - Klucze API: `wrangler secret put NAZWA_SEKRETU` (tylko lokalnie, przez terminal)
 - Poświadczenia testowe: `.env` (gitignorowany) + `dotenv` w `playwright.config.js`.
