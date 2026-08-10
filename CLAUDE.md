@@ -50,7 +50,7 @@ taxorder-pro/
 
 > Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
 > Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
-> Ostatnia aktualizacja: 2026-08-10 (npm audit 6/8 napraw, CLOUDFLARE_ACCOUNT_ID do sekretu, rate-reader.js w sw.js, PR #5 zmergowany do main + hotfix Node 22)
+> Ostatnia aktualizacja: 2026-08-10 (uuid/exceljs — decyzja NIE --force; npm audit 6/8 napraw; CLOUDFLARE_ACCOUNT_ID do sekretu; rate-reader.js w sw.js; PR #5 zmergowany do main + hotfix Node 22)
 
 ### Zamknięte
 | Kiedy | Temat | Commit |
@@ -83,6 +83,7 @@ taxorder-pro/
 | 2026-08 | **`rate-reader.js` — martwe odwołanie w `sw.js` naprawione (realny bug, nie tylko sprzątanie).** Sam moduł już nie istniał (usunięty `d2a6d00` w poprzedniej sesji), ale `STATIC_ASSETS` w `sw.js` wciąż wskazywał na nieistniejący plik. `caches.addAll(STATIC_ASSETS)` w handlerze `install` jest atomowe — jeden 404 wywala całą instalację Service Workera, więc cache PWA/offline nie odświeżał się wcale od czasu usunięcia modułu. Usunięty wpis, `CACHE_NAME` v74→v75, komentarz w `style.css` zaktualizowany. Zweryfikowane: `sw-cache-bump --check` — 0 rozbieżności | — |
 | 2026-08 | **`CLOUDFLARE_ACCOUNT_ID` przeniesiony do sekretu GitHub.** Znaleziony w 3 miejscach (nie 2, jak sugerował poprzedni wpis w długu technicznym) — `deploy-worker.yml` też miał wartość w cleartext, nie tylko `nightly-report.yml` ×2. Nowy sekret `CLOUDFLARE_ACCOUNT_ID` ustawiony przez `gh secret set`, wszystkie trzy miejsca zamienione na `${{ secrets.CLOUDFLARE_ACCOUNT_ID }}`. Uwaga: ID konta i tak jest już jawne w `wrangler.toml` (`account_id = "bb17..."`, plik commitowany) — to porządek/DRY, nie usunięcie realnego wycieku | — |
 | 2026-08 | **npm audit — 6 z 8 podatności (wszystkie high) naprawione bezpiecznie.** Zwykły `npm audit fix` (bez `--force`) rozwiązał `brace-expansion`, `js-yaml`, `sharp`, `undici` — bez breaking changes, `package.json` niezmieniony (tylko `package-lock.json`). Efekt uboczny: lokalny `wrangler` w lockfile skoczył 4.103.0→4.120.1 (w ramach `^4.0.0` z package.json) — zaktualizowane też przypięte wersje w CI (3 miejsca), żeby nie powtórzyć rozjazdu z KROK 3; sprawdzony `engines.node` nowej wersji: nadal `>=22.0.0`, bez zmian. Pozostałe 2 (moderate, `uuid`/`exceljs`) świadomie nietknięte — wymagają `--force` i cofnięcia `exceljs` do 3.4.0. Zweryfikowane: `wrangler --version`/`playwright --version`/`eslint --version` działają, `vehicle-card.spec.js` 10/10 passed (w tym in-browser suite 71/71), YAML sparsowany bez błędu | — |
+| 2026-08 | **uuid/exceljs — decyzja: NIE `--force`, ryzyko świadomie zaakceptowane.** Zbadane przed decyzją: (1) `exceljs@4.4.0` to i tak najnowsza wersja na npm — nie ma nowszej naprawiającej zależność od `uuid`, `--force` cofnąłby DWIE wersje major (4.4.0→3.4.0), nie mały breaking change; (2) `exceljs` jest `require`owany wyłącznie w `tools/dr-extractor.js` (lokalne narzędzie deweloperskie, `tools/` nie wchodzi na produkcję, nie ładowane przez Worker ani przeglądarkę, uruchamiane ręcznie) — zero ekspozycji sieciowej; (3) CVE dotyczy braku sprawdzania granic bufora gdy do `uuid.v4()` przekazany jest własny parametr `buf` — sprawdzone źródło `exceljs` (`node_modules/exceljs/lib/xlsx/xform/sheet/cf-ext/cf-rule-ext-xform.js`): wywołuje `uuidv4()` bez żadnych argumentów, luka strukturalnie nieosiągalna tą ścieżką. Koszt (ryzyko zepsucia `dr-extractor.js`, utrata 2 wersji major funkcjonalności) bez żadnej realnej korzyści bezpieczeństwa. Nie uruchamiać `npm audit fix --force` bez ponownej analizy, jeśli `exceljs` zacznie być używany gdzie indziej niż `tools/` | — |
 
 ### W toku
 *(brak)*
@@ -114,10 +115,9 @@ taxorder-pro/
   na czystym storage (bez tych kluczy): 286/11/0, identycznie jak z pinami. Pinowanie w
   `global-setup.js` jest zabezpieczeniem na przyszłość (event `taxorder-login` niezaimplementowany,
   toast 3s nie zakłóca timingu testów przy obecnym suite).
-- npm — 2 podatności moderate pozostałe (`uuid` <11.1.1, przez `exceljs`). Fix wymaga
-  `npm audit fix --force`, który cofnąłby `exceljs` do 3.4.0 (breaking change) — nie
-  uruchamiać bez świadomej decyzji i testu funkcji eksportu Excel. 6 z 8 pierwotnych
-  podatności (wszystkie high) naprawione bezpiecznie — patrz Zamknięte.
+- 6 z 8 pierwotnych podatności npm (wszystkie high) naprawione bezpiecznie — patrz
+  Zamknięte. Pozostałe 2 (moderate, `uuid`/`exceljs`) — **świadomie zaakceptowane,
+  nie do naprawy `--force`** — patrz Zamknięte, uzasadnienie niżej.
 - `SUPABASE_URL` w `wrangler.toml` — Supabase wycofany, wpis do usunięcia.
 - `ROLLBACK` — pliki v45/v46/v47 dodane (`28ee761`); v48/v49 brak (Time Travel jeszcze aktywne).
 
