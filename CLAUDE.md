@@ -50,7 +50,7 @@ taxorder-pro/
 
 > Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
 > Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
-> Ostatnia aktualizacja: 2026-08-10 (eqeqeq naprawiony właściwie, izolacja tenantów w CI, karty floty 401, UserPrefs 3b, luka pokrycia vehicle-detail, wrangler ujednolicony)
+> Ostatnia aktualizacja: 2026-08-10 (PR #5 zmergowany do main; hotfix Node 22 dla wranglera po awarii deployu; eqeqeq, izolacja tenantów w CI, karty floty 401, UserPrefs 3b, luka pokrycia vehicle-detail)
 
 ### Zamknięte
 | Kiedy | Temat | Commit |
@@ -74,6 +74,7 @@ taxorder-pro/
 | 2026-08 | **tools/ porządek** — 6 narzędzi diagnostycznych commitowanych (dt1-verify.js z DRY-RUN, dr-analyze-unreadable.js, dr-page-test.js, test-nrv2e-variants.js, aztec-bench.html, dr-helper-wasm.html); 11 jednorazowych → `tools/_archive/` + gitignore; `tools/README.md` | `1abfe3c` |
 | 2026-08 | **Luka pokrycia `vehicle-detail.spec.js:110` zamknięta.** Przyczyna: `#vd-uwagi` jest w zakładce `notes`, należącej do super-tabu `ustawienia` (`VD_SUPER_TABS`), nie do domyślnego `przeglad` — trzeba kliknąć `#vd-st-ustawienia` + `#vd-tab-notes` (dwukrotnie, bo `_activeSuperTab` przetrwał `close()`, ale auto-aktywacja w grupie trafia w pierwszą zakładkę `archive`). Przy weryfikacji ujawnił się drugi błąd testu: zakładał, że modal zostaje otwarty po „Zapisz" — `save()` (`vehicle-detail.js:469`) zawsze kończy się `this.close()`. Zweryfikowane: 8 passed, 0 skipped | `7426a00` |
 | 2026-08 | **Rozjazd wersji Wranglera ujednolicony** — `deploy-worker.yml` instalował `wrangler@3`, `nightly-report.yml` dwukrotnie `wrangler@latest` (nieprzypięte); żaden nie odpowiadał `^4.0.0` z `package.json` ani przetestowanej lokalnie `4.103.0` z lockfile. Wszystkie trzy przypięte do `4.103.0`. Sprawdzone przed zmianą: brak w repo usuniętych w v4 opcji, brak dynamic `import()` w `worker/index.js`, `wrangler d1 execute` już miał `--remote` | `effaa48` |
+| 2026-08 | **Hotfix: `wrangler@4.103.0` wymaga Node.js ≥22, nie 20.** Deploy Workera padł natychmiast po merge PR #5 („Wrangler requires at least Node.js v22.0.0") — audyt migracji v3→v4 wyżej sprawdzał ogólne wymagania przejścia na v4, nie konkretnej wersji patch. Kod na produkcji był przez cały czas bezpieczny — deploy padał na `wrangler --version`, przed `wrangler deploy`. Naprawione: `node-version` 20→22 w trzech miejscach faktycznie instalujących wranglera (`deploy-worker.yml`, `nightly-report.yml` ×2; job `syntax-check` w `nightly-report.yml` zostawiony na 20 — nie dotyka wranglera). **Zweryfikowane realnym deployem** (nie tylko lokalnie) — `wrangler.toml` dostał notatkę-komentarz jako trigger, run `31429689144` zielony w 22s, health-check produkcji 200 po deployu. Notatka w `wrangler.toml`: sprawdzaj wymaganą wersję Node przy każdej zmianie wersji wranglera, nie tylko ogólne changelogi migracji | `85eddfb` / `d983c64` |
 | 2026-08 | **UserPrefs Partia 3b** — migracja write-side dla 4 kluczy firmowych: `fleet_widgets`, `dwf_view`, `fuelImportSchemas`, `taxorder-dash-config`. Wszystkie już były w `COMPANY_KEYS` (user-prefs.js) — brakowało tylko zamiany 8 miejsc z gołego `localStorage` na `UserPrefs.get/set/remove`. `taxorder-dash-config` (obawa o strategię scalania) nie wymagał nowej logiki — dziedziczy istniejącą politykę „D1 wygrywa całościowo" z `syncFromCloud()`. `global-setup.js` nie wymagał nowych wpisów — kill switch `taxorder_prefs_kv_source=local` już blokuje `syncFromCloud()` w CI. Zweryfikowane: `dashboard.spec.js` 8/8 passed | `a030b64` |
 | 2026-08 | **Karty floty przy 401 — komunikat błędu + zerwana pętla ponawiania.** `renderKarty()`/`_loadKarty()`: `_cardsLoaded` był ustawiany `true` nawet gdy `r.ok===false` — pusta tabela bez komunikatu. Naprawa: `_cardsLoadError` + `_cardsLoading`, ręczny przycisk „Spróbuj ponownie" zamiast auto-retry. **Przy live-teście (Playwright MCP, bez logowania = prawdziwy 401 z prod Workera) odkryta druga, niezależna instancja tego samego wzorca**: `_renderFleetCardsDash()` (widget dashboardu) miał własny łańcuch retry nierozróżniający „nie wczytano"/„zero kart"/„błąd" — każda nieudana próba generowała kolejną, w pętli bijącej realnymi zapytaniami do prod API co ~100-200ms bez ograniczenia. Naprawione tym samym wzorcem. Brak testu E2E dla tej funkcji — zweryfikowane wyłącznie manualnie, żywym serwerem + Playwright MCP (instrumentacja `window.fetch`/`window._loadKarty`: 20+ wywołań po ustawieniu błędu → 0 nowych fetchy) | `8716182` |
 | 2026-08 | **Drugie, nie-adminowe konto testowe założone + izolacja tenantów zweryfikowana na żywo.** Konto `acichocki@mtoilet.pl`, rola `kierownik`, spółka `gcon` (id=14 w D1), utworzone przez `POST /api/users` (hasło hashowane server-side, zapisane wyłącznie w `~/Documents/taxorder-backupy/test-account-tenant-isolation-2026-08-10.txt`, nigdy w czacie/repo). **Backend:** 4/4 próby cross-tenant (`?company=mtoilet` z sesji `gcon`) na `vehicles`/`export`/`damages`/`fleet-cards` zwróciły `403` — potwierdza guard z `worker/index.js:8672-8679` na żywo, nie tylko statycznie. **Front:** przełączenie firmy w SPA (konto admin, `switchCompany('gcon')`) — `vehCount` 161→21, zero rejestracji z `mtoilet` w `window.vehs` po przełączeniu, `currentCompanyId` i `_cardsLoaded` zaktualizowane poprawnie. Zero wycieku w obu warstwach | — |
@@ -308,6 +309,21 @@ Pliki przechowywane aktualnie w `~/Documents/taxorder-backupy/`:
 
 > Każdy wpis to realny błąd diagnostyczny z tego projektu. Zanim uznasz coś
 > za sprawdzone, upewnij się, że test mierzy to, co myślisz.
+
+### Changelog migracji major (v3→v4) nie mówi nic o konkretnej wersji patch
+Sprawdzenie „jakie funkcje usunięto między v3 a v4" (node_compat, legacy_assets, itd.)
+odpowiada na pytanie o zgodność KODU, nie o wymagania ŚRODOWISKA konkretnej wersji
+patch, którą faktycznie się instaluje. `wrangler@4.103.0` podniósł minimalny Node.js
+do 22 już PO wydaniu v4 — nie ma tego w ogólnym przewodniku migracji v3→v4, tylko
+w komunikacie błędu przy starcie (`wrangler --version`).
+
+Przykład z projektu: `deploy-worker.yml` i `nightly-report.yml` ustawiały Node 20
+(spełniało wymagania v4 z dnia migracji), przypięcie na `wrangler@4.103.0` (nowszy
+patch) zepsuło deploy na produkcję natychmiast po merge.
+
+**Prawdziwy test:** po zmianie wersji narzędzia CLI, uruchom je raz w docelowym
+środowisku CI (albo sprawdź jego własny `engines`/komunikat startowy), nie tylko
+przewodnik migracji między wersjami major.
 
 ### .gitignore nie działa wstecz
 Plik dodany do repozytorium PRZED wpisaniem reguły pozostaje śledzony —
