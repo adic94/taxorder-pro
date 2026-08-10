@@ -50,7 +50,7 @@ taxorder-pro/
 
 > Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
 > Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
-> Ostatnia aktualizacja: 2026-08-06 (UserPrefs 3a zamknięta)
+> Ostatnia aktualizacja: 2026-08-10 (luka pokrycia vehicle-detail zamknięta, wrangler ujednolicony)
 
 ### Zamknięte
 | Kiedy | Temat | Commit |
@@ -72,6 +72,8 @@ taxorder-pro/
 | 2026-08 | **`#bulk-bar` blokuje dblclick** — fix: `_suppressBulkBar()` (`pointer-events:none` na 800 ms, obie ścieżki: `toggleRow()` i `toggleExpandVeh()`); test `vehicle-detail.spec.js:59` przywrócony do fizycznego `page.dblclick()`. ROLLBACK pliki dla schema v45/v46/v47 (osobny commit, przed upływem Time Travel) | `e4c4161` / `28ee761` |
 | 2026-08 | **UserPrefs Partia 3a** — (1) `global-setup`: pin `onboarding_done=1` + `ks-hint-shown=1` (oba tryby TOKEN i EMAIL); weryfikacja: 286/11/0 bez flag, 286/11/0 z flagami — pipeline NIE przechodził przypadkowo (event `taxorder-login` nigdy niee mitowany, toast 3s nie zakłóca timingu). (2) `user-prefs.js`: walidacja `theme` — tylko `dark`\|`light`, `console.warn` + stack przy innych; klucze podatne na `JSON.parse` w `get()` zgłoszone (slim_table/taxDarkMode/onboarding_done/ks-hint-shown — brak aktywnego buga). (3) migracja write-side: `taxSidebarSection` (app.js:194), `ks-hint-shown` (keyboard-shortcuts.js:146), `onboarding_done` (onboarding.js:73) → `UserPrefs.set()` | `f42ac81` / `76ac94d` / `f83c285` |
 | 2026-08 | **tools/ porządek** — 6 narzędzi diagnostycznych commitowanych (dt1-verify.js z DRY-RUN, dr-analyze-unreadable.js, dr-page-test.js, test-nrv2e-variants.js, aztec-bench.html, dr-helper-wasm.html); 11 jednorazowych → `tools/_archive/` + gitignore; `tools/README.md` | `1abfe3c` |
+| 2026-08 | **Luka pokrycia `vehicle-detail.spec.js:110` zamknięta.** Przyczyna: `#vd-uwagi` jest w zakładce `notes`, należącej do super-tabu `ustawienia` (`VD_SUPER_TABS`), nie do domyślnego `przeglad` — trzeba kliknąć `#vd-st-ustawienia` + `#vd-tab-notes` (dwukrotnie, bo `_activeSuperTab` przetrwał `close()`, ale auto-aktywacja w grupie trafia w pierwszą zakładkę `archive`). Przy weryfikacji ujawnił się drugi błąd testu: zakładał, że modal zostaje otwarty po „Zapisz" — `save()` (`vehicle-detail.js:469`) zawsze kończy się `this.close()`. Zweryfikowane: 8 passed, 0 skipped | `7426a00` |
+| 2026-08 | **Rozjazd wersji Wranglera ujednolicony** — `deploy-worker.yml` instalował `wrangler@3`, `nightly-report.yml` dwukrotnie `wrangler@latest` (nieprzypięte); żaden nie odpowiadał `^4.0.0` z `package.json` ani przetestowanej lokalnie `4.103.0` z lockfile. Wszystkie trzy przypięte do `4.103.0`. Sprawdzone przed zmianą: brak w repo usuniętych w v4 opcji, brak dynamic `import()` w `worker/index.js`, `wrangler d1 execute` już miał `--remote` | `effaa48` |
 
 ### W toku
 *(brak)*
@@ -88,13 +90,6 @@ taxorder-pro/
   między urządzeniami (nowe urządzenie ma pusty config vs D1 ma stary layout). Osobna sesja.
 
 **Dług techniczny**
-- **LUKA W POKRYCIU — `vehicle-detail.spec.js:110` pomijany zawsze (także w CI).**
-  Test „edycja uwag i zapis — wartość persystuje po ponownym otwarciu" trafia w `test.skip()`
-  bo `#vd-uwagi` jest na zakładce poza super-tabem `'przeglad'`; selektor zakładki uwag
-  `[onclick*="tab"][onclick*="uwagi"]` nie trafia w aktywny element nawigacyjny super-tabu.
-  Skutek: edycja uwag i persystencja NIE są weryfikowane przez pipeline.
-  Naprawa: test musi najpierw przełączyć super-tab (analogicznie do asercji liczby zakładek
-  w `vehicle-card.spec.js`). Osobna sesja.
 - **Konto CI (`adamus1000@gmail.com`) jest adminem.** Cały pipeline e2e działa na uprawnieniach
   administratora → **regresja w gatingu uprawnień nie zostanie wykryta**. Istotne, bo audyt 2026-07
   naprawiał 4× IDOR. Docelowo: drugie konto testowe bez roli admin.
@@ -210,6 +205,41 @@ db.prepare('SELECT * FROM vehicles WHERE id = ? AND company_id = ?')
 - Dotyczy GET pojedynczego rekordu tak samo jak list — audyt 2026-07 znalazł 4× IDOR
   właśnie na endpointach `GET /:id`, gdzie lista była filtrowana, a rekord nie
 - Po każdym nowym endpointcie: test izolacji z konta bez dostępu do danej spółki
+
+**Centralny guard w routerze (`worker/index.js:8672-8679`) — sprawdź TUTAJ najpierw.**
+Zanim ocenisz pojedynczy handler jako podatny na IDOR przez `?company=`, sprawdź ten
+blok w `handleRequest()` — działa PRZED dispatchem do jakiegokolwiek handlera:
+```javascript
+if (user && !user._apiKey && user.role !== 'admin') {
+  const reqCompany = url.searchParams.get('company');
+  if (reqCompany && reqCompany !== user.company_id) {
+    return err('Brak dostępu do tej firmy', 403);
+  }
+}
+```
+Dzięki temu ~70 handlerów czytających `url.searchParams.get('company') || user.company_id`
+bez własnego guardu (np. `handleVehicles`, `/api/export`, `/api/import`, `handleDocs`
+plik z R2) **nie jest podatnych** dla sesji nie-admin — mismatch odcina router, zanim
+handler w ogóle się wykona. Analiza pojedynczego handlera w oderwaniu od routera
+prowadzi do fałszywego alarmu (sprawdzone 2026-08-10: subagent zgłosił to jako
+"systemowy IDOR w 70 handlerach" bez uwzględnienia tego guardu — po weryfikacji
+bezpośrednio w kodzie okazało się nieprawdą).
+
+**Jedyny faktyczny wyjątek: `role === 'admin'` pomija scoping wszędzie, celowo.**
+Komentarz w kodzie: *"Admin może odpytywać dowolną firmę — zarządzanie wieloma
+klientami z jednego konta"*. To zamierzona architektura (jedno konto operatora
+zarządza 6 spółkami klienckimi), spójna z `GET /api/companies` (admin: wszystkie
+spółki) i `POST/PUT/DELETE /api/companies` (tylko admin/superadmin). Nie jest to
+luka do załatania kodem — to sprowadza się do pytania **kto dostaje rolę admin**
+(kwestia operacyjna, nie kod). Dokładnie ten sam, już udokumentowany dług: „Konto CI
+jest adminem — regresja w gatingu uprawnień nie zostanie wykryta" (patrz Otwarte /
+dług techniczny). `handleUsers` (jedyne miejsce nadające/zmieniające role i
+company_id innych userów) samo wymaga `user.role==='admin'` na wejściu — brak
+ścieżki samo-eskalacji uprawnień.
+
+**To była analiza statyczna, nie pentest.** Pełna pewność wymaga czarnoskrzynkowego
+testu drugim, nie-adminowym kontem testowym — patrz "macierz izolacji tenantów"
+niżej, wciąż zablokowana brakiem decyzji o takim koncie.
 
 ### Fallback dla wartości numerycznych — ZAWSZE ?? nie ||
 ```javascript
