@@ -89,7 +89,7 @@ body.sidebar-basic .tnb:not(.tnb-basic){display:none!important}
 .content{flex:1;padding:1.5rem;overflow-y:auto;min-width:0}
 .page{display:none}
 .page.active{display:block}
-/* Generic card — używana przez moduły (feature-config, rate-reader itp.) */
+/* Generic card — używana przez moduły (feature-config itp.) */
 .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
 .pg-title{font-size:18px;font-weight:600;margin-bottom:1.25rem;display:flex;align-items:center;gap:10px}
 .pg-title .ti{font-size:22px;color:var(--text2)}

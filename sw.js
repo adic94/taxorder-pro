@@ -3,7 +3,7 @@
  * Cache-first dla assetów, network-first dla danych
  * Obsługuje: install, activate, fetch, push, notificationclick
  */
-const CACHE_NAME = 'taxorder-v74';
+const CACHE_NAME = 'taxorder-v75';
 const STATIC_ASSETS = [
   '/',
   '/app.js',
@@ -130,7 +130,6 @@ const STATIC_ASSETS = [
   '/modules/predictive-maintenance-ai.js',
   '/modules/predictive-maintenance.js',
   '/modules/rag-manager-chat.js',
-  '/modules/rate-reader.js',
   '/modules/report-builder.js',
   '/modules/reports.js',
   '/modules/route-billing.js',

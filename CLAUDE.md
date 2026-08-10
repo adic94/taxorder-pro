@@ -80,6 +80,7 @@ taxorder-pro/
 | 2026-08 | **Drugie, nie-adminowe konto testowe założone + izolacja tenantów zweryfikowana na żywo.** Konto `acichocki@mtoilet.pl`, rola `kierownik`, spółka `gcon` (id=14 w D1), utworzone przez `POST /api/users` (hasło hashowane server-side, zapisane wyłącznie w `~/Documents/taxorder-backupy/test-account-tenant-isolation-2026-08-10.txt`, nigdy w czacie/repo). **Backend:** 4/4 próby cross-tenant (`?company=mtoilet` z sesji `gcon`) na `vehicles`/`export`/`damages`/`fleet-cards` zwróciły `403` — potwierdza guard z `worker/index.js:8672-8679` na żywo, nie tylko statycznie. **Front:** przełączenie firmy w SPA (konto admin, `switchCompany('gcon')`) — `vehCount` 161→21, zero rejestracji z `mtoilet` w `window.vehs` po przełączeniu, `currentCompanyId` i `_cardsLoaded` zaktualizowane poprawnie. Zero wycieku w obu warstwach | — |
 | 2026-08 | **Konto nie-admin podłączone do CI.** Nowy `tests/api/tenant-isolation-test.js` (wzorowany na `api-test.js`) loguje się kontem `kierownik`/`gcon` i asertuje `403` na 6 endpointach przy próbie `?company=mtoilet`. Nowy krok w `ci-e2e.yml` obok istniejącego „Testy API", uruchamiany tylko gdy ustawiony `PROD_WORKER_URL`. Nowe sekrety GitHub `TEST_EMAIL_NONADMIN`/`TEST_PASS_NONADMIN` ustawione przez `gh secret set` (wartości nigdy nie trafiły do repo/czatu). Zweryfikowane lokalnie przed commitem: 8/8 PASS. Dług „konto CI jest adminem" — zamknięty dla warstwy API; główny suite Playwright nadal działa na koncie admina (patrz Dług techniczny) | `015c150` |
 | 2026-08 | **eqeqeq — 18 miejsc naprawionych właściwie (jawna konwersja typu), nie zignorowanych.** Wcześniej (`b16a2a7`) celowo pominięte — `==` łapało dopasowanie ID string/number (`onclick="...('${id}')"` vs wewnętrzny `number`) i wartości `<select>.value` (zawsze string) vs liczbowe stałe. Mechaniczna zamiana na `===` zepsułaby wyszukiwanie rekordów i zaznaczenia w dropdownach. Naprawa per-lokacja: dopasowania ID → `String(a)===String(b)` (`documents.js`, `service.js` ×2 funkcje, `vehicle-detail.js` dropdown oddziału), wartości formularzy → `Number(a)===literał` (`service.js` VAT, `folder-monitor.js` interwał skanowania). Przy okazji naprawiony realny błąd wartościowy w `esg-report.js`: linia z `!=` i sąsiednia z `===` dawały niespójny wynik dla `lower_is_better` przechowywanego jako string `"0"` (żaden radiobutton nie wychodził zaznaczony) — obie ujednolicone na `Number(...)`. Zweryfikowane: eslint 0/18, `vehicle-card.spec.js` + `vehicle-detail.spec.js` 18/18 passed (w tym in-browser suite 71/71) | `d28cf25` |
+| 2026-08 | **`rate-reader.js` — martwe odwołanie w `sw.js` naprawione (realny bug, nie tylko sprzątanie).** Sam moduł już nie istniał (usunięty `d2a6d00` w poprzedniej sesji), ale `STATIC_ASSETS` w `sw.js` wciąż wskazywał na nieistniejący plik. `caches.addAll(STATIC_ASSETS)` w handlerze `install` jest atomowe — jeden 404 wywala całą instalację Service Workera, więc cache PWA/offline nie odświeżał się wcale od czasu usunięcia modułu. Usunięty wpis, `CACHE_NAME` v74→v75, komentarz w `style.css` zaktualizowany. Zweryfikowane: `sw-cache-bump --check` — 0 rozbieżności | — |
 
 ### W toku
 *(brak)*
@@ -95,8 +96,6 @@ taxorder-pro/
   (`npm run test:isolation`) działa jako dodatkowy krok API obok głównego suite, nie zastępuje go.
   Jeśli w przyszłości powstaną testy UI wymagające zwykłej (nie-admin) roli — użyj konta
   `acichocki@mtoilet.pl` (`kierownik`/`gcon`, sekrety `TEST_EMAIL_NONADMIN`/`TEST_PASS_NONADMIN`).
-- `rate-reader.js` — niezmigrowany z Supabase; tabela `tax_rates` nie istnieje w D1.
-  Stawki gminne obsługuje `GminyRates` — moduł martwy, do usunięcia.
 - `ocr-service/` — mikroserwis Aztec+NRV2E odłączony od aplikacji.
   Docelowo Aztec jako **pierwszy** krok kaskady OCR dla DR, przed Groq Vision (`/api/ai/ocr`).
 - `tools/README.md` i `tools/_archive/` — zinwentaryzowane. 11 plików w `_archive/` (gitignore). Jeśli dodasz nowe narzędzie diagnostyczne — dopisz je do `tools/README.md`.
@@ -563,8 +562,8 @@ npm run migration-check # sprawdza czy schematy są spójne
 7. **Nie używaj `window.supabaseClient`** — nigdy nie jest inicjalizowany (SDK ani
    `modules/supabase-client.js` nie są ładowane). Moduły `companies-readonly.js`,
    `company-create.js`, `company-access.js` zostały przepisane na D1 (26.07.2026).
-   `rate-reader.js` pozostaje niezmigrowany — tabela `tax_rates` istniała tylko
-   w Supabase; stawki gminne obsługuje `window.GminyRates`.
+   `rate-reader.js` usunięty (`d2a6d00`, tabela `tax_rates` istniała tylko w Supabase);
+   stawki gminne obsługuje `window.GminyRates`.
    **Backend to wyłącznie D1 przez Worker.**
 8. **`ocr-service/` nie jest podłączony** — mikroserwis z kaskadą Aztec+NRV2E istnieje w repo,
    ale żaden plik aplikacji się do niego nie odwołuje. OCR dokumentów idzie przez
