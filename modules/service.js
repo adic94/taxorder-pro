@@ -209,9 +209,9 @@ window.ServiceModule = (function () {
 
   // ── Dodaj/edytuj serwis ───────────────────────────────────────────────────
   function addService(vehId, serviceId) {
-    const v = (window.vehs || []).find(x => x.id == vehId);
+    const v = (window.vehs || []).find(x => String(x.id) === String(vehId));
     if (!v) return;
-    const ex = serviceId ? (v.serviceHistory || []).find(s => s.id == serviceId) : null;
+    const ex = serviceId ? (v.serviceHistory || []).find(s => String(s.id) === String(serviceId)) : null;
 
     const selectedType = ex?.type || 'wymiana_oleju';
     const groups = {};
@@ -276,10 +276,10 @@ window.ServiceModule = (function () {
           <div class="vdf">
             <label class="vdl">Stawka VAT</label>
             <select id="_svc-vat" class="fi" onchange="ServiceModule._calcNetto(document.getElementById('_svc-cost'))">
-              <option value="23" ${defVat==23?'selected':''}>23% (standard)</option>
-              <option value="8"  ${defVat==8?'selected':''}>8%</option>
-              <option value="5"  ${defVat==5?'selected':''}>5%</option>
-              <option value="0"  ${defVat==0?'selected':''}>0% (zwolniony)</option>
+              <option value="23" ${Number(defVat)===23?'selected':''}>23% (standard)</option>
+              <option value="8"  ${Number(defVat)===8?'selected':''}>8%</option>
+              <option value="5"  ${Number(defVat)===5?'selected':''}>5%</option>
+              <option value="0"  ${Number(defVat)===0?'selected':''}>0% (zwolniony)</option>
             </select>
           </div>
           <div id="_svc-curr-info" style="grid-column:1/-1;font-size:11px;color:var(--amber);display:${defCurr!=='PLN'?'block':'none'}">
@@ -363,7 +363,7 @@ window.ServiceModule = (function () {
   }
 
   async function saveService(vehId, serviceId, btn) {
-    const v = (window.vehs || []).find(x => x.id == vehId);
+    const v = (window.vehs || []).find(x => String(x.id) === String(vehId));
     if (!v) return;
     const g  = id => document.getElementById(id)?.value?.trim() || '';
     const gf = id => { const val = g(id); return val ? parseFloat(val.replace(',', '.')) : null; };
@@ -390,11 +390,11 @@ window.ServiceModule = (function () {
       nextServiceKm:  gi('_svc-nextkm'),
       notes:          g('_svc-notes'),
       createdBy:      window.currentUser?.id,
-      createdAt:      v.serviceHistory?.find(s => s.id == serviceId)?.createdAt ?? new Date().toISOString(),
+      createdAt:      v.serviceHistory?.find(s => String(s.id) === String(serviceId))?.createdAt ?? new Date().toISOString(),
     };
 
     if (!Array.isArray(v.serviceHistory)) v.serviceHistory = [];
-    const idx = v.serviceHistory.findIndex(s => s.id == serviceId);
+    const idx = v.serviceHistory.findIndex(s => String(s.id) === String(serviceId));
     if (serviceId && idx >= 0) v.serviceHistory[idx] = record;
     else v.serviceHistory.push(record);
     v.serviceHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -408,9 +408,9 @@ window.ServiceModule = (function () {
   }
 
   async function removeService(vehId, serviceId, btn) {
-    const v = (window.vehs || []).find(x => x.id == vehId);
+    const v = (window.vehs || []).find(x => String(x.id) === String(vehId));
     if (!v) return;
-    v.serviceHistory = (v.serviceHistory || []).filter(s => s.id != serviceId);
+    v.serviceHistory = (v.serviceHistory || []).filter(s => String(s.id) !== String(serviceId));
     btn.closest('[style*=fixed]').remove();
     if (window.TaxOrderFleetCloud?.saveVehicle) await window.TaxOrderFleetCloud.saveVehicle(v);
     toast('Serwis usunięty');

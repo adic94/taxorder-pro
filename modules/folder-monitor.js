@@ -370,7 +370,7 @@
           <i class="ti ti-clock" style="color:var(--text3)"></i>
           <span style="font-size:12px">Skanuj co</span>
           <select id="fm-interval" class="fi" style="width:90px">
-            ${[5,10,15,30,60].map(v => `<option value="${v}" ${s.interval==v?'selected':''}>${v} min</option>`).join('')}
+            ${[5,10,15,30,60].map(v => `<option value="${v}" ${Number(s.interval)===v?'selected':''}>${v} min</option>`).join('')}
           </select>
           <span style="font-size:12px;color:var(--text3)">minut</span>
         </div>

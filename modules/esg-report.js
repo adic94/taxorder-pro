@@ -121,8 +121,8 @@
       <div class="form-row"><label>Jednostka (t, %, km, l…)</label><input name="unit" class="form-control" value="${esc(t.unit||'')}"></div>
       <div class="form-row"><label>Niższy = lepszy</label>
         <select name="lower_is_better" class="form-control">
-          <option value="1" ${t.lower_is_better!=0?'selected':''}>Tak (CO₂, zużycie)</option>
-          <option value="0" ${t.lower_is_better===0?'selected':''}>Nie (udział EV, szkolenia)</option>
+          <option value="1" ${Number(t.lower_is_better)!==0?'selected':''}>Tak (CO₂, zużycie)</option>
+          <option value="0" ${Number(t.lower_is_better)===0?'selected':''}>Nie (udział EV, szkolenia)</option>
         </select>
       </div>
       <div class="form-row"><label>Opis celu</label><textarea name="description" class="form-control" rows="2">${esc(t.description||'')}</textarea></div>

@@ -15,6 +15,7 @@
     "test:cols": "playwright test tests/e2e/fleet-columns.spec.js",
     "test:apik": "playwright test tests/e2e/api-keys.spec.js",
     "test:api": "node tests/api/api-test.js",
+    "test:isolation": "node tests/api/tenant-isolation-test.js",
     "test:report": "playwright show-report tests/results/html",
     "pw:install": "playwright install chromium",
     "xss-audit": "node tools/autotest/xss-audit.js",

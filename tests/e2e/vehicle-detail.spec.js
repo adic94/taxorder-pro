@@ -90,30 +90,33 @@ test.describe('Karta pojazdu', () => {
     await firstCardBtn.click();
     await expect(page.locator('#vd-modal')).toBeVisible({ timeout: 8_000 });
 
-    // Otwórz zakładkę "Podstawowe" (domyślna) — tam jest pole #vd-uwagi
+    // #vd-uwagi jest w zakładce "notes", która należy do super-tabu 'ustawienia'
+    // (VD_SUPER_TABS.ustawienia = ['archive','notes','gps','karty','konserwacja']),
+    // nie do domyślnego 'przeglad'. Trzeba przełączyć super-tab, zanim zakładka
+    // "notes" (i pole w niej) w ogóle stanie się widoczna (modules/vehicle-detail.js:2911).
+    await page.click('#vd-st-ustawienia');
+    await page.click('#vd-tab-notes');
+
     const uwagiFld = page.locator('#vd-uwagi');
-    if (!(await uwagiFld.isVisible())) {
-      // Spróbuj zakładki z uwagami jeśli nie widoczne od razu
-      const tabUwagi = page.locator('#vd-modal [data-tab*="uwagi"], #vd-modal [onclick*="tab"][onclick*="uwagi"]').first();
-      if (await tabUwagi.isVisible()) await tabUwagi.click();
-      await waitForIdle(page, 300);
-    }
-    if (!(await uwagiFld.isVisible())) { test.skip(); return; }
+    await expect(uwagiFld).toBeVisible({ timeout: 5_000 });
 
     const testNote = 'Test-E2E-' + Date.now();
     await uwagiFld.fill(testNote);
 
-    // Kliknij Zapisz i poczekaj na toast
+    // Kliknij Zapisz — save() w vehicle-detail.js kończy się zawsze this.close()
+    // (vehicle-detail.js:469), więc modal zamyka się sam. Nie klikamy X.
     await page.click('#vd-save-btn');
-    await waitForIdle(page, 1500);
-
-    // Zamknij i ponownie otwórz kartę
-    const closeBtn = page.locator('#vd-modal button[onclick*="close"]').first();
-    await closeBtn.click();
     await expect(page.locator('#vd-modal')).toBeHidden({ timeout: 5_000 });
 
+    // Ponownie otwórz kartę
     await firstCardBtn.click();
     await expect(page.locator('#vd-modal')).toBeVisible({ timeout: 8_000 });
+
+    // _activeSuperTab przetrwał zamknięcie karty, ale pierwsza zakładka aktywowana
+    // automatycznie w grupie 'ustawienia' to 'archive', nie 'notes' — przełącz ponownie.
+    await page.click('#vd-st-ustawienia');
+    await page.click('#vd-tab-notes');
+    await expect(page.locator('#vd-uwagi')).toBeVisible({ timeout: 5_000 });
 
     // Wartość powinna być zachowana
     const savedVal = await page.locator('#vd-uwagi').inputValue();

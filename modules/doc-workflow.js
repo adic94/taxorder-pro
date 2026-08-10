@@ -41,7 +41,7 @@
   let _docs = [];
   let _statuses = DEFAULT_STATUSES;
   let _templates = [];
-  let _view = localStorage.getItem('dwf_view') || 'kanban'; // kanban | table
+  let _view = UserPrefs.get('dwf_view', 'kanban'); // kanban | table
   let _filterStatus = '';
   let _filterType = '';
   let _filterPriority = '';
@@ -581,7 +581,7 @@
   // ── Helpers ───────────────────────────────────────────────────────────────
   function _setView(v) {
     _view = v;
-    localStorage.setItem('dwf_view', v);
+    UserPrefs.set('dwf_view', v);
     _render();
   }
   function _filterBy(type, val) {

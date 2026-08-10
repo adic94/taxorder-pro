@@ -144,14 +144,13 @@ window.FuelImport = (function () {
 
   // ── Schemas ───────────────────────────────────────────────────────────────
   function _loadSchemas() {
-    try { _savedSchemas = JSON.parse(localStorage.getItem('fuelImportSchemas')) || {}; }
-    catch { _savedSchemas = {}; }
+    _savedSchemas = UserPrefs.get('fuelImportSchemas', {});
   }
 
   function _saveSchema(name) {
     _loadSchemas();
     _savedSchemas[name] = { colMap: {..._colMap}, headers: [..._headers] };
-    localStorage.setItem('fuelImportSchemas', JSON.stringify(_savedSchemas));
+    UserPrefs.set('fuelImportSchemas', _savedSchemas);
     toast(t('fi.toast.schema.saved').replace('{0}', name));
   }
 
