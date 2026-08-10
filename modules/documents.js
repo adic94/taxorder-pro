@@ -77,9 +77,9 @@ window.DocumentsModule = (function () {
   // ── Dodaj / edytuj ────────────────────────────────────────────────────────
   function add(vehId) { _showForm(vehId, null); }
   function edit(vehId, docId) {
-    const v = (window.vehs||[]).find(x=>x.id===vehId||x.id==vehId);
+    const v = (window.vehs||[]).find(x=>String(x.id)===String(vehId));
     if (!v) return;
-    const d = (v.documents||[]).find(x=>x.id===docId||x.id==docId);
+    const d = (v.documents||[]).find(x=>String(x.id)===String(docId));
     if (!d) return;
     _showForm(vehId, d);
   }
@@ -162,7 +162,7 @@ window.DocumentsModule = (function () {
       createdAt:  new Date().toISOString(),
     };
 
-    const idx = v.documents.findIndex(d=>d.id===docId||d.id==docId);
+    const idx = v.documents.findIndex(d=>String(d.id)===String(docId));
     if (docId && idx>=0) v.documents[idx]=record; else v.documents.push(record);
 
     btn.disabled=true; btn.textContent='Zapisuję…';
@@ -181,7 +181,7 @@ window.DocumentsModule = (function () {
   async function remove(vehId, docId, btn) {
     const v = (window.vehs||[]).find(x=>String(x.id)===String(vehId));
     if (!v) return;
-    v.documents = (v.documents||[]).filter(d=>d.id!==docId&&d.id!=docId);
+    v.documents = (v.documents||[]).filter(d=>String(d.id)!==String(docId));
     btn.disabled=true;
     try {
       if (window.TaxOrderFleetCloud?.saveVehicle) await window.TaxOrderFleetCloud.saveVehicle(v);

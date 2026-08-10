@@ -1058,7 +1058,7 @@ window.TaxOrderVehicleDetail = {
             </label>
             <select id="vd-branchId" class="fi">
               <option value="">— brak oddziału —</option>
-              ${(window._branches||[]).map(b=>`<option value="${b.id}" ${b.id==v.branch_id?'selected':''}>${esc(b.name)}</option>`).join('')}
+              ${(window._branches||[]).map(b=>`<option value="${b.id}" ${String(b.id)===String(v.branch_id)?'selected':''}>${esc(b.name)}</option>`).join('')}
             </select>
           </div>
         </div>
