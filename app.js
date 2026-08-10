@@ -7,10 +7,10 @@ window.vehs = vehs;
 let selected = new Set();
 window.selected = selected;
 let sortKey = 'nrRej', sortAsc = true;
-var _vehPage = 0, _vehPageSize = 100, _lastFilteredLen = -1;
+let _vehPage = 0, _vehPageSize = 100, _lastFilteredLen = -1;
 let _branches = [];
 window._branches = _branches;
-var _dateFilters = { ocFrom: '', ocTo: '', acFrom: '', acTo: '', inspFrom: '', inspTo: '' };
+let _dateFilters = { ocFrom: '', ocTo: '', acFrom: '', acTo: '', inspFrom: '', inspTo: '' };
 
 // Slim table mode (default: true — minimalistyczny widok)
 let _slimTable = localStorage.getItem('slim_table') !== 'false';
