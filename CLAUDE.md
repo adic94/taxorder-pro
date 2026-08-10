@@ -50,7 +50,7 @@ taxorder-pro/
 
 > Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
 > Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
-> Ostatnia aktualizacja: 2026-08-10 (luka pokrycia vehicle-detail zamknięta, wrangler ujednolicony)
+> Ostatnia aktualizacja: 2026-08-10 (UserPrefs 3b zamknięta, luka pokrycia vehicle-detail zamknięta, wrangler ujednolicony)
 
 ### Zamknięte
 | Kiedy | Temat | Commit |
@@ -74,6 +74,7 @@ taxorder-pro/
 | 2026-08 | **tools/ porządek** — 6 narzędzi diagnostycznych commitowanych (dt1-verify.js z DRY-RUN, dr-analyze-unreadable.js, dr-page-test.js, test-nrv2e-variants.js, aztec-bench.html, dr-helper-wasm.html); 11 jednorazowych → `tools/_archive/` + gitignore; `tools/README.md` | `1abfe3c` |
 | 2026-08 | **Luka pokrycia `vehicle-detail.spec.js:110` zamknięta.** Przyczyna: `#vd-uwagi` jest w zakładce `notes`, należącej do super-tabu `ustawienia` (`VD_SUPER_TABS`), nie do domyślnego `przeglad` — trzeba kliknąć `#vd-st-ustawienia` + `#vd-tab-notes` (dwukrotnie, bo `_activeSuperTab` przetrwał `close()`, ale auto-aktywacja w grupie trafia w pierwszą zakładkę `archive`). Przy weryfikacji ujawnił się drugi błąd testu: zakładał, że modal zostaje otwarty po „Zapisz" — `save()` (`vehicle-detail.js:469`) zawsze kończy się `this.close()`. Zweryfikowane: 8 passed, 0 skipped | `7426a00` |
 | 2026-08 | **Rozjazd wersji Wranglera ujednolicony** — `deploy-worker.yml` instalował `wrangler@3`, `nightly-report.yml` dwukrotnie `wrangler@latest` (nieprzypięte); żaden nie odpowiadał `^4.0.0` z `package.json` ani przetestowanej lokalnie `4.103.0` z lockfile. Wszystkie trzy przypięte do `4.103.0`. Sprawdzone przed zmianą: brak w repo usuniętych w v4 opcji, brak dynamic `import()` w `worker/index.js`, `wrangler d1 execute` już miał `--remote` | `effaa48` |
+| 2026-08 | **UserPrefs Partia 3b** — migracja write-side dla 4 kluczy firmowych: `fleet_widgets`, `dwf_view`, `fuelImportSchemas`, `taxorder-dash-config`. Wszystkie już były w `COMPANY_KEYS` (user-prefs.js) — brakowało tylko zamiany 8 miejsc z gołego `localStorage` na `UserPrefs.get/set/remove`. `taxorder-dash-config` (obawa o strategię scalania) nie wymagał nowej logiki — dziedziczy istniejącą politykę „D1 wygrywa całościowo" z `syncFromCloud()`. `global-setup.js` nie wymagał nowych wpisów — kill switch `taxorder_prefs_kv_source=local` już blokuje `syncFromCloud()` w CI. Zweryfikowane: `dashboard.spec.js` 8/8 passed | `a030b64` |
 
 ### W toku
 *(brak)*
@@ -81,13 +82,6 @@ taxorder-pro/
 ---
 
 ### Otwarte / znane długi
-
-**Priorytet 1 — kolejny temat rozwojowy**
-- **UserPrefs Partia 3b** — migracja write-side dla 4 kluczy firmowych:
-  `fleet_widgets` (app.js:1089/1092), `dwf_view` (doc-workflow.js:44/584),
-  `fuelImportSchemas` (fuel-import.js:147/154), `taxorder-dash-config` (app.js:3270/3575 przez
-  `_DASH_LS_KEY`). Najtrudniejszy: `taxorder-dash-config` — duży JSON, ryzyko konfliktu merge
-  między urządzeniami (nowe urządzenie ma pusty config vs D1 ma stary layout). Osobna sesja.
 
 **Dług techniczny**
 - **Konto CI (`adamus1000@gmail.com`) jest adminem.** Cały pipeline e2e działa na uprawnieniach
