@@ -50,7 +50,7 @@ taxorder-pro/
 
 > Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
 > Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
-> Ostatnia aktualizacja: 2026-08-10 (UserPrefs 3b zamknięta, luka pokrycia vehicle-detail zamknięta, wrangler ujednolicony)
+> Ostatnia aktualizacja: 2026-08-10 (izolacja tenantów zweryfikowana na żywo, karty floty 401, UserPrefs 3b, luka pokrycia vehicle-detail, wrangler ujednolicony)
 
 ### Zamknięte
 | Kiedy | Temat | Commit |
@@ -76,6 +76,7 @@ taxorder-pro/
 | 2026-08 | **Rozjazd wersji Wranglera ujednolicony** — `deploy-worker.yml` instalował `wrangler@3`, `nightly-report.yml` dwukrotnie `wrangler@latest` (nieprzypięte); żaden nie odpowiadał `^4.0.0` z `package.json` ani przetestowanej lokalnie `4.103.0` z lockfile. Wszystkie trzy przypięte do `4.103.0`. Sprawdzone przed zmianą: brak w repo usuniętych w v4 opcji, brak dynamic `import()` w `worker/index.js`, `wrangler d1 execute` już miał `--remote` | `effaa48` |
 | 2026-08 | **UserPrefs Partia 3b** — migracja write-side dla 4 kluczy firmowych: `fleet_widgets`, `dwf_view`, `fuelImportSchemas`, `taxorder-dash-config`. Wszystkie już były w `COMPANY_KEYS` (user-prefs.js) — brakowało tylko zamiany 8 miejsc z gołego `localStorage` na `UserPrefs.get/set/remove`. `taxorder-dash-config` (obawa o strategię scalania) nie wymagał nowej logiki — dziedziczy istniejącą politykę „D1 wygrywa całościowo" z `syncFromCloud()`. `global-setup.js` nie wymagał nowych wpisów — kill switch `taxorder_prefs_kv_source=local` już blokuje `syncFromCloud()` w CI. Zweryfikowane: `dashboard.spec.js` 8/8 passed | `a030b64` |
 | 2026-08 | **Karty floty przy 401 — komunikat błędu + zerwana pętla ponawiania.** `renderKarty()`/`_loadKarty()`: `_cardsLoaded` był ustawiany `true` nawet gdy `r.ok===false` — pusta tabela bez komunikatu. Naprawa: `_cardsLoadError` + `_cardsLoading`, ręczny przycisk „Spróbuj ponownie" zamiast auto-retry. **Przy live-teście (Playwright MCP, bez logowania = prawdziwy 401 z prod Workera) odkryta druga, niezależna instancja tego samego wzorca**: `_renderFleetCardsDash()` (widget dashboardu) miał własny łańcuch retry nierozróżniający „nie wczytano"/„zero kart"/„błąd" — każda nieudana próba generowała kolejną, w pętli bijącej realnymi zapytaniami do prod API co ~100-200ms bez ograniczenia. Naprawione tym samym wzorcem. Brak testu E2E dla tej funkcji — zweryfikowane wyłącznie manualnie, żywym serwerem + Playwright MCP (instrumentacja `window.fetch`/`window._loadKarty`: 20+ wywołań po ustawieniu błędu → 0 nowych fetchy) | `8716182` |
+| 2026-08 | **Drugie, nie-adminowe konto testowe założone + izolacja tenantów zweryfikowana na żywo.** Konto `acichocki@mtoilet.pl`, rola `kierownik`, spółka `gcon` (id=14 w D1), utworzone przez `POST /api/users` (hasło hashowane server-side, zapisane wyłącznie w `~/Documents/taxorder-backupy/test-account-tenant-isolation-2026-08-10.txt`, nigdy w czacie/repo). **Backend:** 4/4 próby cross-tenant (`?company=mtoilet` z sesji `gcon`) na `vehicles`/`export`/`damages`/`fleet-cards` zwróciły `403` — potwierdza guard z `worker/index.js:8672-8679` na żywo, nie tylko statycznie. **Front:** przełączenie firmy w SPA (konto admin, `switchCompany('gcon')`) — `vehCount` 161→21, zero rejestracji z `mtoilet` w `window.vehs` po przełączeniu, `currentCompanyId` i `_cardsLoaded` zaktualizowane poprawnie. Zero wycieku w obu warstwach. **Nie zamyka w pełni długu „konto CI jest adminem"** — nowe konto istnieje i działa, ale pipeline e2e nadal loguje się jako admin; podłączenie tego konta do CI (nowy sekret + realne specy testujące gating uprawnień) to osobny temat | — |
 
 ### W toku
 *(brak)*
@@ -87,7 +88,10 @@ taxorder-pro/
 **Dług techniczny**
 - **Konto CI (`adamus1000@gmail.com`) jest adminem.** Cały pipeline e2e działa na uprawnieniach
   administratora → **regresja w gatingu uprawnień nie zostanie wykryta**. Istotne, bo audyt 2026-07
-  naprawiał 4× IDOR. Docelowo: drugie konto testowe bez roli admin.
+  naprawiał 4× IDOR. Drugie, nie-adminowe konto testowe (`acichocki@mtoilet.pl`, `kierownik`/`gcon`,
+  id=14) już istnieje i zweryfikowane ręcznie 2026-08-10 (patrz Zamknięte) — ale **nie jest
+  podłączone do CI**. Żeby faktycznie zamknąć ten dług: nowy sekret GitHub (np. `TEST_EMAIL_NONADMIN`)
+  + specy Playwright asertujące 403 na próbach cross-tenant, uruchamiane w pipeline przy każdym PR.
 - `rate-reader.js` — niezmigrowany z Supabase; tabela `tax_rates` nie istnieje w D1.
   Stawki gminne obsługuje `GminyRates` — moduł martwy, do usunięcia.
 - `ocr-service/` — mikroserwis Aztec+NRV2E odłączony od aplikacji.
@@ -232,9 +236,10 @@ dług techniczny). `handleUsers` (jedyne miejsce nadające/zmieniające role i
 company_id innych userów) samo wymaga `user.role==='admin'` na wejściu — brak
 ścieżki samo-eskalacji uprawnień.
 
-**To była analiza statyczna, nie pentest.** Pełna pewność wymaga czarnoskrzynkowego
-testu drugim, nie-adminowym kontem testowym — patrz "macierz izolacji tenantów"
-niżej, wciąż zablokowana brakiem decyzji o takim koncie.
+**Uzupełnione o test czarnoskrzynkowy 2026-08-10** (patrz HANDOFF → Zamknięte): drugie,
+nie-adminowe konto (`kierownik`/`gcon`) potwierdziło na żywo — 4/4 próby cross-tenant
+zablokowane 403, zero wycieku stanu w SPA przy przełączaniu firmy. Konto istnieje,
+ale nie jest jeszcze podłączone do CI (patrz Dług techniczny).
 
 ### Fallback dla wartości numerycznych — ZAWSZE ?? nie ||
 ```javascript
