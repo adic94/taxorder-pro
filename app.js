@@ -1086,10 +1086,9 @@ const _WIDGET_DEFS = [
   { id: 'driversExp', label: 'Prawa jazdy ≤30 dni' },
 ];
 function _getWidgetPrefs() {
-  try { const s = localStorage.getItem('fleet_widgets'); if (s) return JSON.parse(s); } catch(_) {}
-  return ['total', 'oc', 'insp', 'fines', 'noDriver'];
+  return UserPrefs.get('fleet_widgets', ['total', 'oc', 'insp', 'fines', 'noDriver']);
 }
-function _saveWidgetPrefs(ids) { localStorage.setItem('fleet_widgets', JSON.stringify(ids)); }
+function _saveWidgetPrefs(ids) { UserPrefs.set('fleet_widgets', ids); }
 function openWidgetPicker() {
   const prefs = _getWidgetPrefs();
   const existing = document.getElementById('widget-picker-overlay');
@@ -3271,9 +3270,8 @@ const _DASH_LS_KEY = 'taxorder-dash-config';
 
 function _getDashConfig() {
   try {
-    const raw = localStorage.getItem(_DASH_LS_KEY);
-    if (!raw) return _dashDefaultConfig();
-    const cfg = JSON.parse(raw);
+    const cfg = UserPrefs.get(_DASH_LS_KEY);
+    if (!cfg) return _dashDefaultConfig();
     // Dodaj nowe widgety (których brakuje w zapisanej konfiguracji) na koniec listy
     const known = new Set(cfg.order || []);
     DASH_WIDGETS.forEach(w => { if (!known.has(w.id)) cfg.order.push(w.id); });
@@ -3572,14 +3570,14 @@ function saveDashCustomize() {
     hidden: items.filter(el => !el.querySelector('input[type=checkbox]').checked).map(el => el.dataset.wid),
     widths,
   };
-  try { localStorage.setItem(_DASH_LS_KEY, JSON.stringify(cfg)); } catch (e) { console.warn('[Dash] Nie można zapisać konfiguracji:', e); }
+  try { UserPrefs.set(_DASH_LS_KEY, cfg); } catch (e) { console.warn('[Dash] Nie można zapisać konfiguracji:', e); }
   _applyDashConfig();
   closeDashCustomize();
   toast('✓ Układ kokpitu zapisany');
 }
 
 function resetDashCustomize() {
-  localStorage.removeItem(_DASH_LS_KEY);
+  UserPrefs.remove(_DASH_LS_KEY);
   _applyDashConfig();
   closeDashCustomize();
   toast('Przywrócono domyślny układ kokpitu');
