@@ -21,7 +21,7 @@ jobs:
           node-version: '20'
 
       - name: Install Wrangler
-        run: npm install -g wrangler@3
+        run: npm install -g wrangler@4.103.0
 
       - name: Check Wrangler version
         run: wrangler --version
