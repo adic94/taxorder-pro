@@ -4037,13 +4037,28 @@ function _renderDriversDash() {
 function _renderFleetCardsDash() {
   const el = document.getElementById('dash-fleet-cards');
   if (!el) return;
-  const cards = window.getFlotCards ? window.getFlotCards() : [];
-  if (!cards.length) {
-    // Załaduj asynchronicznie i odśwież dashboard po załadowaniu
+  // _cardsLoaded/_cardsLoadError (app.js, sekcja KARTY FLOTOWE) rozróżniają
+  // "jeszcze nie wczytano" od "wczytano, zero kart" — samo cards.length===0
+  // nie odróżnia tych stanów i przy błędzie (401 itp.) powodowało nieskończone
+  // ponawianie _loadKarty() przy każdym odświeżeniu dashboardu.
+  if (!_cardsLoaded) {
+    if (_cardsLoadError) {
+      el.innerHTML = `<div style="display:flex;align-items:center;gap:7px">
+        <i class="ti ti-alert-triangle" style="color:var(--red);font-size:16px;flex-shrink:0"></i>
+        <div style="font-size:11px;color:var(--red);flex:1">${esc(_cardsLoadError)}</div>
+        <button onclick="_cardsLoadError=null;_renderFleetCardsDash()" style="margin-left:auto;font-size:10px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer;color:var(--text2)">Ponów</button>
+      </div>`;
+      return;
+    }
     if (typeof _loadKarty === 'function' && !window._kartasDashLoading) {
       window._kartasDashLoading = true;
       _loadKarty().then(() => { window._kartasDashLoading = false; _renderFleetCardsDash(); });
     }
+    el.innerHTML = `<div style="font-size:11px;color:var(--text3)">Wczytywanie…</div>`;
+    return;
+  }
+  const cards = window.getFlotCards ? window.getFlotCards() : [];
+  if (!cards.length) {
     el.innerHTML = `<div style="display:flex;align-items:center;gap:7px">
       <i class="ti ti-circle-check" style="color:var(--green);font-size:16px;flex-shrink:0"></i>
       <div>
@@ -8096,6 +8111,8 @@ function showAuditLog() {
 // ==================== KARTY FLOTOWE (D1) ====================
 let _cards = [];
 let _cardsLoaded = false;
+let _cardsLoading = false;
+let _cardsLoadError = null;
 let editKartaId = null;
 window.getFlotCards = () => _cards;
 
@@ -8280,19 +8297,43 @@ async function _migrateKartyLocalStorage() {
 }
 
 async function _loadKarty() {
+  if (_cardsLoading) return;
+  _cardsLoading = true;
   try {
     await _migrateKartyLocalStorage();
     const r = await fetch(`${_cfApi()}/api/fleet-cards?company=${_cfCo()}`, { headers: _cfHdrs() });
-    const d = r.ok ? await r.json() : {};
+    if (!r.ok) { _cardsLoadError = `Nie udało się wczytać kart flotowych (HTTP ${r.status})`; return; }
+    const d = await r.json();
     _cards = d.cards || [];
     _cardsLoaded = true;
-  } catch { _cards = []; }
+    _cardsLoadError = null;
+  } catch {
+    _cardsLoadError = 'Nie udało się wczytać kart flotowych — sprawdź połączenie';
+  } finally {
+    _cardsLoading = false;
+  }
 }
 
 function renderKarty() {
   const tbody = document.getElementById('karty-tbody');
   if (!tbody) return;
-  if (!_cardsLoaded) { _loadKarty().then(() => renderKarty()); return; }
+  if (!_cardsLoaded) {
+    if (_cardsLoadError) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--red)">
+        <i class="ti ti-alert-triangle" style="font-size:32px;display:block;margin-bottom:8px"></i>
+        ${esc(_cardsLoadError)}<br>
+        <button class="tbtn" style="margin-top:10px" onclick="_cardsLoadError=null;renderKarty()">Spróbuj ponownie</button>
+      </td></tr>`;
+      return;
+    }
+    // _cardsLoading chroni tylko przed równoległymi fetchami — bez tego warunku
+    // każde wywołanie renderKarty() w trakcie ładowania (np. kilka re-renderów pod rząd)
+    // dokłada własny łańcuch _loadKarty().then(() => renderKarty()), co tworzy kaskadę
+    // mikrotasków dopóki pierwszy fetch nie wróci.
+    if (!_cardsLoading) _loadKarty().then(() => renderKarty());
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text3)">Wczytywanie…</td></tr>`;
+    return;
+  }
   const q = (document.getElementById('kf-search')?.value || '').toLowerCase();
   const typ = document.getElementById('kf-typ')?.value || '';
   const list = _cards.filter(k =>
@@ -8800,7 +8841,7 @@ function switchCompany(companyId){
   currentCompanyId=companyId;
   window.currentCompanyId = companyId;
   localStorage.setItem('dt1_current_company',companyId);
-  _cards = []; _cardsLoaded = false;
+  _cards = []; _cardsLoaded = false; _cardsLoadError = null;
   loadCompanyState(companyId);
   updateCompanyUI();
   refreshAll();
