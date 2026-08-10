@@ -76,7 +76,8 @@ taxorder-pro/
 | 2026-08 | **Rozjazd wersji Wranglera ujednolicony** — `deploy-worker.yml` instalował `wrangler@3`, `nightly-report.yml` dwukrotnie `wrangler@latest` (nieprzypięte); żaden nie odpowiadał `^4.0.0` z `package.json` ani przetestowanej lokalnie `4.103.0` z lockfile. Wszystkie trzy przypięte do `4.103.0`. Sprawdzone przed zmianą: brak w repo usuniętych w v4 opcji, brak dynamic `import()` w `worker/index.js`, `wrangler d1 execute` już miał `--remote` | `effaa48` |
 | 2026-08 | **UserPrefs Partia 3b** — migracja write-side dla 4 kluczy firmowych: `fleet_widgets`, `dwf_view`, `fuelImportSchemas`, `taxorder-dash-config`. Wszystkie już były w `COMPANY_KEYS` (user-prefs.js) — brakowało tylko zamiany 8 miejsc z gołego `localStorage` na `UserPrefs.get/set/remove`. `taxorder-dash-config` (obawa o strategię scalania) nie wymagał nowej logiki — dziedziczy istniejącą politykę „D1 wygrywa całościowo" z `syncFromCloud()`. `global-setup.js` nie wymagał nowych wpisów — kill switch `taxorder_prefs_kv_source=local` już blokuje `syncFromCloud()` w CI. Zweryfikowane: `dashboard.spec.js` 8/8 passed | `a030b64` |
 | 2026-08 | **Karty floty przy 401 — komunikat błędu + zerwana pętla ponawiania.** `renderKarty()`/`_loadKarty()`: `_cardsLoaded` był ustawiany `true` nawet gdy `r.ok===false` — pusta tabela bez komunikatu. Naprawa: `_cardsLoadError` + `_cardsLoading`, ręczny przycisk „Spróbuj ponownie" zamiast auto-retry. **Przy live-teście (Playwright MCP, bez logowania = prawdziwy 401 z prod Workera) odkryta druga, niezależna instancja tego samego wzorca**: `_renderFleetCardsDash()` (widget dashboardu) miał własny łańcuch retry nierozróżniający „nie wczytano"/„zero kart"/„błąd" — każda nieudana próba generowała kolejną, w pętli bijącej realnymi zapytaniami do prod API co ~100-200ms bez ograniczenia. Naprawione tym samym wzorcem. Brak testu E2E dla tej funkcji — zweryfikowane wyłącznie manualnie, żywym serwerem + Playwright MCP (instrumentacja `window.fetch`/`window._loadKarty`: 20+ wywołań po ustawieniu błędu → 0 nowych fetchy) | `8716182` |
-| 2026-08 | **Drugie, nie-adminowe konto testowe założone + izolacja tenantów zweryfikowana na żywo.** Konto `acichocki@mtoilet.pl`, rola `kierownik`, spółka `gcon` (id=14 w D1), utworzone przez `POST /api/users` (hasło hashowane server-side, zapisane wyłącznie w `~/Documents/taxorder-backupy/test-account-tenant-isolation-2026-08-10.txt`, nigdy w czacie/repo). **Backend:** 4/4 próby cross-tenant (`?company=mtoilet` z sesji `gcon`) na `vehicles`/`export`/`damages`/`fleet-cards` zwróciły `403` — potwierdza guard z `worker/index.js:8672-8679` na żywo, nie tylko statycznie. **Front:** przełączenie firmy w SPA (konto admin, `switchCompany('gcon')`) — `vehCount` 161→21, zero rejestracji z `mtoilet` w `window.vehs` po przełączeniu, `currentCompanyId` i `_cardsLoaded` zaktualizowane poprawnie. Zero wycieku w obu warstwach. **Nie zamyka w pełni długu „konto CI jest adminem"** — nowe konto istnieje i działa, ale pipeline e2e nadal loguje się jako admin; podłączenie tego konta do CI (nowy sekret + realne specy testujące gating uprawnień) to osobny temat | — |
+| 2026-08 | **Drugie, nie-adminowe konto testowe założone + izolacja tenantów zweryfikowana na żywo.** Konto `acichocki@mtoilet.pl`, rola `kierownik`, spółka `gcon` (id=14 w D1), utworzone przez `POST /api/users` (hasło hashowane server-side, zapisane wyłącznie w `~/Documents/taxorder-backupy/test-account-tenant-isolation-2026-08-10.txt`, nigdy w czacie/repo). **Backend:** 4/4 próby cross-tenant (`?company=mtoilet` z sesji `gcon`) na `vehicles`/`export`/`damages`/`fleet-cards` zwróciły `403` — potwierdza guard z `worker/index.js:8672-8679` na żywo, nie tylko statycznie. **Front:** przełączenie firmy w SPA (konto admin, `switchCompany('gcon')`) — `vehCount` 161→21, zero rejestracji z `mtoilet` w `window.vehs` po przełączeniu, `currentCompanyId` i `_cardsLoaded` zaktualizowane poprawnie. Zero wycieku w obu warstwach | — |
+| 2026-08 | **Konto nie-admin podłączone do CI.** Nowy `tests/api/tenant-isolation-test.js` (wzorowany na `api-test.js`) loguje się kontem `kierownik`/`gcon` i asertuje `403` na 6 endpointach przy próbie `?company=mtoilet`. Nowy krok w `ci-e2e.yml` obok istniejącego „Testy API", uruchamiany tylko gdy ustawiony `PROD_WORKER_URL`. Nowe sekrety GitHub `TEST_EMAIL_NONADMIN`/`TEST_PASS_NONADMIN` ustawione przez `gh secret set` (wartości nigdy nie trafiły do repo/czatu). Zweryfikowane lokalnie przed commitem: 8/8 PASS. Dług „konto CI jest adminem" — zamknięty dla warstwy API; główny suite Playwright nadal działa na koncie admina (patrz Dług techniczny) | `015c150` |
 
 ### W toku
 *(brak)*
@@ -86,12 +87,12 @@ taxorder-pro/
 ### Otwarte / znane długi
 
 **Dług techniczny**
-- **Konto CI (`adamus1000@gmail.com`) jest adminem.** Cały pipeline e2e działa na uprawnieniach
-  administratora → **regresja w gatingu uprawnień nie zostanie wykryta**. Istotne, bo audyt 2026-07
-  naprawiał 4× IDOR. Drugie, nie-adminowe konto testowe (`acichocki@mtoilet.pl`, `kierownik`/`gcon`,
-  id=14) już istnieje i zweryfikowane ręcznie 2026-08-10 (patrz Zamknięte) — ale **nie jest
-  podłączone do CI**. Żeby faktycznie zamknąć ten dług: nowy sekret GitHub (np. `TEST_EMAIL_NONADMIN`)
-  + specy Playwright asertujące 403 na próbach cross-tenant, uruchamiane w pipeline przy każdym PR.
+- **Konto CI głównego suite (`ci-e2e.yml` job `e2e`, Playwright) nadal loguje się jako admin
+  (`adamus1000@gmail.com`).** Sam Playwright E2E suite (karty pojazdów, dashboard, itd.) nie testuje
+  gatingu uprawnień. To osobne od testu izolacji tenantów niżej w Zamkniętych — tamten test
+  (`npm run test:isolation`) działa jako dodatkowy krok API obok głównego suite, nie zastępuje go.
+  Jeśli w przyszłości powstaną testy UI wymagające zwykłej (nie-admin) roli — użyj konta
+  `acichocki@mtoilet.pl` (`kierownik`/`gcon`, sekrety `TEST_EMAIL_NONADMIN`/`TEST_PASS_NONADMIN`).
 - `rate-reader.js` — niezmigrowany z Supabase; tabela `tax_rates` nie istnieje w D1.
   Stawki gminne obsługuje `GminyRates` — moduł martwy, do usunięcia.
 - `ocr-service/` — mikroserwis Aztec+NRV2E odłączony od aplikacji.
@@ -238,8 +239,9 @@ company_id innych userów) samo wymaga `user.role==='admin'` na wejściu — bra
 
 **Uzupełnione o test czarnoskrzynkowy 2026-08-10** (patrz HANDOFF → Zamknięte): drugie,
 nie-adminowe konto (`kierownik`/`gcon`) potwierdziło na żywo — 4/4 próby cross-tenant
-zablokowane 403, zero wycieku stanu w SPA przy przełączaniu firmy. Konto istnieje,
-ale nie jest jeszcze podłączone do CI (patrz Dług techniczny).
+zablokowane 403, zero wycieku stanu w SPA przy przełączaniu firmy. Konto podłączone
+do CI (`tests/api/tenant-isolation-test.js`, krok w `ci-e2e.yml`) — regresja w gatingu
+uprawnień od teraz jest wykrywana automatycznie przy każdym PR.
 
 ### Fallback dla wartości numerycznych — ZAWSZE ?? nie ||
 ```javascript
