@@ -1,3 +1,5 @@
+# wrangler@4.103.0 wymaga Node.js >=22 (patrz .github/workflows/deploy-worker.yml,
+# nightly-report.yml) — sprawdzaj to przy kazdej zmianie wersji wranglera.
 name = "taxorder-pro-api"
 main = "worker/index.js"
 compatibility_date = "2025-01-01"
