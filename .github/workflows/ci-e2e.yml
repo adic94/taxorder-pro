@@ -54,6 +54,19 @@ jobs:
           TEST_PASS:    ${{ secrets.TEST_PASS || '' }}
           TEST_COMPANY: ${{ secrets.TEST_COMPANY || '' }}
 
+      # Konto adamus1000@gmail.com (TEST_EMAIL) ma rolę admin i celowo pomija scoping
+      # firmy (worker/index.js:8672-8679) — nie wykryje regresji w gatingu uprawnień
+      # zwykłych użytkowników. Ten krok loguje się osobnym, nie-adminowym kontem
+      # (kierownik/gcon, założone 2026-08-10) i asertuje 403 na próbach cross-tenant.
+      - name: Testy izolacji tenantów (konto nie-admin)
+        if: ${{ vars.PROD_WORKER_URL != '' }}
+        run: npm run test:isolation
+        env:
+          TEST_URL:              ${{ vars.PROD_WORKER_URL || '' }}
+          TEST_EMAIL_NONADMIN:   ${{ secrets.TEST_EMAIL_NONADMIN || '' }}
+          TEST_PASS_NONADMIN:    ${{ secrets.TEST_PASS_NONADMIN || '' }}
+          TEST_COMPANY_NONADMIN: gcon
+
       - name: Upload raportu Playwright
         if: failure()
         uses: actions/upload-artifact@v4
