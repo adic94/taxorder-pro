@@ -32,7 +32,7 @@ jobs:
           node-version: '22'
 
       - name: Install Wrangler
-        run: npm install -g wrangler@4.103.0
+        run: npm install -g wrangler@4.120.1
 
       - name: Uruchom wszystkie schematy (idempotentne — CREATE IF NOT EXISTS)
         env:
@@ -83,7 +83,7 @@ jobs:
           node-version: '22'
 
       - name: Install Wrangler
-        run: npm install -g wrangler@4.103.0
+        run: npm install -g wrangler@4.120.1
 
       - name: Sprawdź użytkowników bez company_id
         env:
