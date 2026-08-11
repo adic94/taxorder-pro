@@ -3496,9 +3496,16 @@ function generateWarsawBookmarklet() {
   const D = _collectDt1DataForWarsaw();
   if (!D.nip && !D.nazwa) { alert('Uzupełnij dane podatnika w zakładce Podatnik.'); return; }
 
-  // Silnik bookmarkletu (minifikowany inline) — wypełnia pola React przez nativeInputValueSetter
+  // Silnik bookmarkletu (minifikowany inline) — wypełnia pola React przez nativeInputValueSetter.
+  // UWAGA: poniżej jest TREŚĆ GENEROWANEGO SKRYPTU, nie kod aplikacji. Wewnątrz literału
+  // szablonowego `\'` NIE jest escapem — daje goły apostrof, który zamykał string w emitowanym
+  // kodzie (SyntaxError przy każdym uruchomieniu). Dlatego zero zagnieżdżonych apostrofów
+  // w atrybutach HTML: zamiast onclick="..." → data-* + addEventListener.
+  // Skrypt działa na origin portalu Warszawy, w sesji zalogowanej PZ — każde pole z danych
+  // pojazdu musi przejść przez esc() zdefiniowane niżej (globalny esc() aplikacji tam nie istnieje).
   const script = `(function(D){
 var ns=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return c==='&'?'&amp;':c==='<'?'&lt;':c==='>'?'&gt;':'&quot;';});}
 function fill(el,v){if(!el||v==null||v==='')return;ns.call(el,String(v));['input','change'].forEach(function(e){el.dispatchEvent(new Event(e,{bubbles:true}));});}
 function q(sel){return document.querySelector(sel);}
 function byLbl(txt){var all=document.querySelectorAll('label');for(var i=0;i<all.length;i++){var t=all[i].textContent.trim();if(t===txt||t===txt+' *'){var f=all[i].getAttribute('for');return f?document.getElementById(f):null;}}return null;}
@@ -3511,14 +3518,21 @@ fill(q('input[name="kodPocztowy"],input[id*="kodPoczt"i]')||byLbl('Kod pocztowy'
 fill(q('input[name="miejscowosc"],input[name="miasto"],input[id*="miasto"i]')||byLbl('Miejscowość'),D.miasto);
 var sel=q('select[name="rokPodatkowy"],select[id*="rok"i]');
 if(sel){sel.value=D.rok;sel.dispatchEvent(new Event('change',{bubbles:true}));}
-var rows=D.pojazdy.map(function(p,i){return '<tr style="background:'+(i%2?'#f8f9fa':'#fff')+'"><td>'+p.nr_rej+'</td><td>'+p.marka+' '+p.model+'</td><td>'+Number(p.dmc/1000).toFixed(1).replace('.',',')+' t</td><td>'+p.osie+'</td><td>'+p.zawieszenie+'</td><td>'+(p.dataNabycia||'—')+'</td></tr>';}).join('');
+var rows=D.pojazdy.map(function(p,i){return '<tr style="background:'+(i%2?'#f8f9fa':'#fff')+'"><td>'+esc(p.nr_rej)+'</td><td>'+esc(p.marka)+' '+esc(p.model)+'</td><td>'+Number(p.dmc/1000).toFixed(1).replace('.',',')+' t</td><td>'+esc(p.osie)+'</td><td>'+esc(p.zawieszenie)+'</td><td>'+esc(p.dataNabycia||'—')+'</td></tr>';}).join('');
 var pan=document.createElement('div');
 pan.style='position:fixed;top:16px;right:16px;z-index:999999;background:#fff;border:2px solid #003566;border-radius:8px;padding:14px;width:480px;max-height:80vh;overflow-y:auto;font-family:sans-serif;font-size:12px;box-shadow:0 4px 24px rgba(0,0,0,.35)';
-pan.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><b style="color:#003566;font-size:14px">TaxOrder Pro → Warszawa '+D.rok+'</b><button onclick="this.closest(\'div[style]\').remove()" style="border:none;background:none;cursor:pointer;font-size:20px;color:#666">×</button></div><p style="color:#555;margin:0 0 8px"><b>'+D.nip+'</b> '+D.nazwa+'<br><small>'+[D.ulica,D.nr].filter(Boolean).join(' ')+', '+D.kod+' '+D.miasto+'</small></p>'+(rows?'<p style="margin:8px 0 4px;font-weight:600;color:#003566">Pojazdy DT-1 (dodaj ręcznie w formularzu Warszawy):</p><table style="width:100%;border-collapse:collapse;font-size:11px"><thead style="background:#003566;color:#fff"><tr><th>Nr rej.</th><th>Marka</th><th>DMC</th><th>Osie</th><th>Zawieszenie</th><th>Nabycie</th></tr></thead><tbody>'+rows+'</tbody></table>':'<p style="color:#888">Brak pojazdów DT-1 (DMC ≥ 3,5 t)</p>')+'<p style="margin:10px 0 0;color:#888;font-size:10px">Wygenerowano przez TaxOrder Pro. Pola podatnika zostały uzupełnione automatycznie.</p>';
+pan.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><b style="color:#003566;font-size:14px">TaxOrder Pro → Warszawa '+D.rok+'</b><button type="button" data-tp-close="1" style="border:none;background:none;cursor:pointer;font-size:20px;color:#666">×</button></div><p style="color:#555;margin:0 0 8px"><b>'+esc(D.nip)+'</b> '+esc(D.nazwa)+'<br><small>'+esc([D.ulica,D.nr].filter(Boolean).join(' '))+', '+esc(D.kod)+' '+esc(D.miasto)+'</small></p>'+(rows?'<p style="margin:8px 0 4px;font-weight:600;color:#003566">Pojazdy DT-1 (dodaj ręcznie w formularzu Warszawy):</p><table style="width:100%;border-collapse:collapse;font-size:11px"><thead style="background:#003566;color:#fff"><tr><th>Nr rej.</th><th>Marka</th><th>DMC</th><th>Osie</th><th>Zawieszenie</th><th>Nabycie</th></tr></thead><tbody>'+rows+'</tbody></table>':'<p style="color:#888">Brak pojazdów DT-1 (DMC ≥ 3,5 t)</p>')+'<p style="margin:10px 0 0;color:#888;font-size:10px">Wygenerowano przez TaxOrder Pro. Pola podatnika zostały uzupełnione automatycznie.</p>';
+var cl=pan.querySelector('[data-tp-close]');
+if(cl)cl.addEventListener('click',function(){pan.remove();});
 document.body.appendChild(pan);
 })`.replace(/\s{2,}/g,' ');
 
-  const bm = 'javascript:' + script + '(' + JSON.stringify(D) + ')';
+  // javascript: URL jest tu celem funkcji (bookmarklet przeciągany na pasek zakładek), nie eval.
+  // encodeURIComponent jest OBOWIĄZKOWE: przeglądarka percent-dekoduje URL przed wykonaniem, więc
+  // '%22' w danych pojazdu zamieniało się w '"' i wychodziło poza literał JSON (potwierdzone
+  // w Chromium). Chroni też '%' w stylach (width:100%) i '#' w kolorach przed obcięciem do fragmentu.
+  // eslint-disable-next-line no-script-url
+  const bm = 'javascript:' + encodeURIComponent(script + '(' + JSON.stringify(D) + ')');
   const resultEl = document.getElementById('warsaw-bookmarklet-result');
   const linkEl   = document.getElementById('warsaw-bookmarklet-link');
   const labelEl  = document.getElementById('warsaw-bookmarklet-label');
