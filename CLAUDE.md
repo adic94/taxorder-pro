@@ -50,7 +50,7 @@ taxorder-pro/
 
 > Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
 > Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
-> Ostatnia aktualizacja: 2026-08-10 (uuid/exceljs — decyzja NIE --force; npm audit 6/8 napraw; CLOUDFLARE_ACCOUNT_ID do sekretu; rate-reader.js w sw.js; PR #5 zmergowany do main + hotfix Node 22)
+> Ostatnia aktualizacja: 2026-08-11 (bookmarklet DT-1→Warszawa: SyntaxError od zawsze + 2 wektory wstrzyknięcia — naprawione, test regresji w CI; bramka lintu w ci-e2e; SW v76; dwa nieaktualne wpisy długu skorygowane)
 
 ### Zamknięte
 | Kiedy | Temat | Commit |
@@ -84,6 +84,7 @@ taxorder-pro/
 | 2026-08 | **`CLOUDFLARE_ACCOUNT_ID` przeniesiony do sekretu GitHub.** Znaleziony w 3 miejscach (nie 2, jak sugerował poprzedni wpis w długu technicznym) — `deploy-worker.yml` też miał wartość w cleartext, nie tylko `nightly-report.yml` ×2. Nowy sekret `CLOUDFLARE_ACCOUNT_ID` ustawiony przez `gh secret set`, wszystkie trzy miejsca zamienione na `${{ secrets.CLOUDFLARE_ACCOUNT_ID }}`. Uwaga: ID konta i tak jest już jawne w `wrangler.toml` (`account_id = "bb17..."`, plik commitowany) — to porządek/DRY, nie usunięcie realnego wycieku | — |
 | 2026-08 | **npm audit — 6 z 8 podatności (wszystkie high) naprawione bezpiecznie.** Zwykły `npm audit fix` (bez `--force`) rozwiązał `brace-expansion`, `js-yaml`, `sharp`, `undici` — bez breaking changes, `package.json` niezmieniony (tylko `package-lock.json`). Efekt uboczny: lokalny `wrangler` w lockfile skoczył 4.103.0→4.120.1 (w ramach `^4.0.0` z package.json) — zaktualizowane też przypięte wersje w CI (3 miejsca), żeby nie powtórzyć rozjazdu z KROK 3; sprawdzony `engines.node` nowej wersji: nadal `>=22.0.0`, bez zmian. Pozostałe 2 (moderate, `uuid`/`exceljs`) świadomie nietknięte — wymagają `--force` i cofnięcia `exceljs` do 3.4.0. Zweryfikowane: `wrangler --version`/`playwright --version`/`eslint --version` działają, `vehicle-card.spec.js` 10/10 passed (w tym in-browser suite 71/71), YAML sparsowany bez błędu | — |
 | 2026-08 | **uuid/exceljs — decyzja: NIE `--force`, ryzyko świadomie zaakceptowane.** Zbadane przed decyzją: (1) `exceljs@4.4.0` to i tak najnowsza wersja na npm — nie ma nowszej naprawiającej zależność od `uuid`, `--force` cofnąłby DWIE wersje major (4.4.0→3.4.0), nie mały breaking change; (2) `exceljs` jest `require`owany wyłącznie w `tools/dr-extractor.js` (lokalne narzędzie deweloperskie, `tools/` nie wchodzi na produkcję, nie ładowane przez Worker ani przeglądarkę, uruchamiane ręcznie) — zero ekspozycji sieciowej; (3) CVE dotyczy braku sprawdzania granic bufora gdy do `uuid.v4()` przekazany jest własny parametr `buf` — sprawdzone źródło `exceljs` (`node_modules/exceljs/lib/xlsx/xform/sheet/cf-ext/cf-rule-ext-xform.js`): wywołuje `uuidv4()` bez żadnych argumentów, luka strukturalnie nieosiągalna tą ścieżką. Koszt (ryzyko zepsucia `dr-extractor.js`, utrata 2 wersji major funkcjonalności) bez żadnej realnej korzyści bezpieczeństwa. Nie uruchamiać `npm audit fix --force` bez ponownej analizy, jeśli `exceljs` zacznie być używany gdzie indziej niż `tools/` | — |
+| 2026-08 | **Bookmarklet DT-1 → Warszawa — funkcja martwa od wprowadzenia + dwa wektory wstrzyknięcia.** Znalezione przy okazji jedynego **błędu** eslint (`no-script-url`) utopionego w 2168 ostrzeżeniach. (1) **Nigdy nie działał**: w literale szablonowym `\'` nie jest escapem — daje goły apostrof, który zamykał string w emitowanym kodzie (`onclick="this.closest('div[style]')..."` wewnątrz stringa ograniczonego `'`) → `SyntaxError: Unexpected identifier 'div'` przy **każdym** uruchomieniu, niezależnie od danych. Wprowadzony i nietknięty od `0000e30`. (2) Po naprawie samej składni **odsłaniały się dwa wektory** — potwierdzone w realnym Chromium, nie teoretycznie: **A)** przeglądarka percent-dekoduje `javascript:` URL przed wykonaniem, więc `%22` w polu `marka` zamieniało się w `"`, wychodziło poza literał JSON i wykonywało dowolny kod; **B)** `p.nr_rej`/`marka`/`model`/`osie`/`zawieszenie` oraz dane podatnika szły surowe do `innerHTML` — a panel renderuje się na origin **moja.warszawa19115.pl w sesji zalogowanej PZ**. Dane wchodzą też z importów CSV/CEPiK/OCR, więc nie tylko „użytkownik atakuje sam siebie". Naprawa: własny `esc()` wewnątrz generowanego skryptu (globalny `esc()` aplikacji tam nie istnieje), `addEventListener` zamiast `onclick` z zagnieżdżonymi apostrofami, `encodeURIComponent` na ładunku `javascript:`, celowy `eslint-disable` z uzasadnieniem. `CACHE_NAME` v75→v76 — SW jest stale-while-revalidate, bez bumpu poprawka dotarłaby dopiero przy drugim wejściu. Nowy test bez zależności `tests/unit/warsaw-bookmarklet-test.js` (7 asercji) wpięty w `ci-js.yml` i `audit:all`; **zweryfikowany negatywnie** — na oryginalnym app.js daje 0/7 PASS, na naprawionym 7/7. Dodana bramka `npm run lint` w `ci-e2e.yml` (eslint nie był uruchamiany w ŻADNYM workflow — stąd przeoczenie) | — |
 
 ### W toku
 *(brak)*
@@ -118,8 +119,17 @@ taxorder-pro/
 - 6 z 8 pierwotnych podatności npm (wszystkie high) naprawione bezpiecznie — patrz
   Zamknięte. Pozostałe 2 (moderate, `uuid`/`exceljs`) — **świadomie zaakceptowane,
   nie do naprawy `--force`** — patrz Zamknięte, uzasadnienie niżej.
-- `SUPABASE_URL` w `wrangler.toml` — Supabase wycofany, wpis do usunięcia.
-- `ROLLBACK` — pliki v45/v46/v47 dodane (`28ee761`); v48/v49 brak (Time Travel jeszcze aktywne).
+- ~~`SUPABASE_URL` w `wrangler.toml`~~ — **nieaktualne, zrobione w `45267f8`.** Zweryfikowane
+  `cat wrangler.toml` 11.08: wpisu nie ma. Ten dług wisiał tu po naprawie.
+- ~~`ROLLBACK` v48/v49 brak~~ — **nieaktualne, pliki istnieją**: `worker/schema_v48_ROLLBACK.sql`
+  (DROP `usage_snapshots`, `company_packages`) i `worker/schema_v49_ROLLBACK.sql`
+  (DROP `idx_upkv_user_co`, `user_prefs_kv`). Komplet v45–v49.
+- **Szum ostrzeżeń eslint: 2168.** Błędów jest 0 (stan 11.08), więc `npm run lint` kończy się
+  kodem 0 i nadaje się na bramkę — eslint ignoruje warningi przy kodzie wyjścia. Rozkład
+  ostrzeżeń: `prefer-template` 1203, `no-undef` 621 (globalne `window.*` bez deklaracji
+  w konfigu), `no-unused-vars` 250, `prefer-const` 47, `no-console` 46. Do przeglądu jest
+  `no-undef` — może maskować literówki w nazwach globali; reszta to styl. **Nie dodawaj
+  `--max-warnings 0`** bez wcześniejszego posprzątania, bo CI stanie się czerwony natychmiast.
 
 **Sprawy operacyjne (poza kodem)**
 - Domena e-mail dla Dominika Dymowskiego i Roberta Sasina — do ustalenia.
@@ -311,6 +321,37 @@ Pliki przechowywane aktualnie w `~/Documents/taxorder-backupy/`:
 
 > Każdy wpis to realny błąd diagnostyczny z tego projektu. Zanim uznasz coś
 > za sprawdzone, upewnij się, że test mierzy to, co myślisz.
+
+### Żadne z narzędzi audytu nie widzi kodu, który aplikacja GENERUJE jako tekst
+
+`node --check`, `syntax-check`, `xss-audit`, eslint i Playwright sprawdzają kod, który
+piszemy. Jeśli funkcja **składa inny program w stringu** (bookmarklet, `new Function`,
+szablon wstrzykiwany do `<script>`), ten wygenerowany kod nie przechodzi przez żadne z nich:
+
+| Narzędzie | Co naprawdę sprawdza | Czego NIE złapie |
+|-----------|----------------------|------------------|
+| `node --check` / `syntax-check` | składnię `app.js` | składni stringa, który `app.js` emituje |
+| `xss-audit` | wzorzec `el.innerHTML = ...` w kodzie | `innerHTML` wewnątrz literału szablonowego |
+| Playwright E2E | zachowanie SPA na naszym origin | bookmarklet uruchamiany na obcej stronie |
+
+Przykład z projektu: generator bookmarkletu DT-1 → Warszawa rzucał `SyntaxError` przy
+**każdym** uruchomieniu od dnia wprowadzenia (`0000e30`), a po naprawie składni odsłonił
+dwa wektory wstrzyknięcia. Cały audyt (`npm run audit:all`) świecił na zielono przez ten
+cały czas. Jedynym sygnałem był 1 **błąd** eslint utopiony w 2168 ostrzeżeniach — a eslint
+nie był wtedy uruchamiany w żadnym workflow.
+
+**Pułapka w literale szablonowym:** wewnątrz `` `...` `` sekwencja `\'` **nie jest escapem** —
+daje goły apostrof. Kod `onclick="fn(\'x\')"` napisany w backtickach emituje `onclick="fn('x')"`,
+co zamyka string w generowanym programie. W generowanym kodzie nie używaj zagnieżdżonych
+apostrofów — dawaj `data-*` + `addEventListener`.
+
+**Pułapka `javascript:` URL:** przeglądarka **percent-dekoduje** URL przed wykonaniem, więc
+`%22` w danych staje się `"` i wychodzi poza literał JSON. Ładunek zawsze przez
+`encodeURIComponent()`.
+
+**Prawdziwy test:** wyekstrahuj wygenerowany string, sparsuj go (`new Function`) i uruchom
+na złośliwych danych — wzorzec w `tests/unit/warsaw-bookmarklet-test.js`. Test uznaj za
+wiarygodny dopiero, gdy **upadnie na starym kodzie** (tam: 0/7 PASS przed naprawą, 7/7 po).
 
 ### Changelog migracji major (v3→v4) nie mówi nic o konkretnej wersji patch
 Sprawdzenie „jakie funkcje usunięto między v3 a v4" (node_compat, legacy_assets, itd.)
