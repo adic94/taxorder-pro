@@ -201,24 +201,27 @@ starszego pliku **nie naprawi** tabeli o innej strukturze — i nic o tym nie zg
   warto je przepiąć na `fuel_fills`:
   `SELECT id,name FROM report_configs WHERE source_table='fuel_entries'`
 
-- **🔴 Kreator raportów jest zepsuty dla większości źródeł, nie tylko dla „Paliwa".**
-  Odkryte przy pisaniu `tests/unit/report-sources-test.js` (uruchom: `npm run report-sources-check`).
-  Backendowa whitelista `ALLOWED_TABLES`/`ALLOWED_COLS` i front `SOURCES` to dwie niezależne
-  kopie tej samej listy, a obie rozjechały się ze schematem bazy. Każde zapytanie ma `.catch()`,
-  więc użytkownik dostaje **pustą tabelę bez błędu**:
+- **Kreator raportów — 4 z 5 źródeł naprawione, `vehicles` otwarte.** Odkryte przez
+  `npm run report-sources-check` (`tests/unit/report-sources-test.js`). Backendowa whitelista
+  `ALLOWED_TABLES`/`ALLOWED_COLS` i front `SOURCES` to dwie niezależne kopie tej samej listy,
+  a obie rozjechały się ze schematem bazy. Każde zapytanie ma `.catch()`, więc użytkownik
+  dostawał **pustą tabelę bez błędu** — ta sama klasa co `fuel_entries`, tylko szersza.
 
-  | Źródło | Problem |
-  |--------|---------|
-  | `vehicles` | whitelista wymienia `reg`, `brand`, `model`, `year`, `fuel_type`, `dmc`, `status`, `driver`, `department` — tabela ma `nr_rej`, `axles_count`, `suspension_type` i **kolumnę JSON `data`**, w której te pola faktycznie siedzą |
-  | `damages` | **tabela nie istnieje** — prawdziwa nazwa to `damage_reports` (schema_v2) |
-  | `service_orders` | brak w schemacie: `date`, `vehicle_reg`, `description`, `cost_pln`, `mileage`, `workshop` |
-  | `fines` | brak w schemacie: `vehicle_reg`, `driver`, `amount_pln`, `reason`, `status` |
-  | `damages`, `fines` (front) | front oferuje `insurance_claim` i `paid_at`, których backend nie ma na whiteliście — ciche odrzucenie kolumny |
+  Naprawione (nazwy kolumn wzięte z realnych `CREATE TABLE`): `fuel_entries`→`fuel_fills`,
+  `damages`→**`damage_reports`** (tabela `damages` nigdy nie istniała), oraz kolumny
+  `service_orders` i `fines` — wszystkie trzy mają polskie nazwy w schemacie
+  (`opis`, `koszt`, `warsztat`, `data_zdarzenia`), a whitelisty wymieniały angielskie.
 
-  `fuel_entries` → `fuel_fills` już naprawione. Reszta **nie jest łatką**: raportowanie po
-  `vehicles` wymaga wyciągania pól z kolumny JSON (`json_extract`), czyli decyzji o kształcie
-  funkcji, a nie poprawki nazwy. Dlatego `report-sources-test.js` celowo NIE jest bramką CI —
-  dziś byłby czerwony z powodu długu, nie regresji. Wpiąć go do `ci-js.yml` dopiero po naprawie.
+  **Zostało `vehicles`** — whitelista wymienia `reg`, `brand`, `model`, `year`, `fuel_type`,
+  `dmc`, `status`, `driver`, `department`, a tabela ma tylko `nr_rej`, `axles_count`,
+  `suspension_type`, `dmc_zespolu` i **kolumnę JSON `data`**, w której te pola faktycznie
+  siedzą. Raportowanie po nich wymaga `json_extract(data,'$.klucz')`, a klucze są
+  **niespójne między rekordami** — aplikacja czyta je z fallbackami (`v.dmc ?? v.dmcMax`,
+  `v.nr_rej || v.nrRej`). Wybór wiodącego wariantu to decyzja o danych, nie refaktor.
+  Do tego czasu źródło „Pojazdy" zwraca pustą tabelę.
+
+  `report-sources-test.js` celowo **nie jest bramką CI** — dziś 4 PASS / 1 FAIL, gdzie
+  jedyna porażka to powyższy dług, nie regresja. Wepnij go do `ci-js.yml` po naprawie `vehicles`.
 
 **Sprawy operacyjne (poza kodem)**
 - Domena e-mail dla Dominika Dymowskiego i Roberta Sasina — do ustalenia.
