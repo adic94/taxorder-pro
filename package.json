@@ -18,6 +18,7 @@
     "test:isolation": "node tests/api/tenant-isolation-test.js",
     "test:bookmarklet": "node tests/unit/warsaw-bookmarklet-test.js",
     "test:migration-glob": "node tests/unit/migration-glob-test.js",
+    "report-sources-check": "node tests/unit/report-sources-test.js",
     "test:esg": "node tests/api/esg-reports-test.js",
     "test:report": "playwright show-report tests/results/html",
     "pw:install": "playwright install chromium",

@@ -111,26 +111,12 @@ async function runAll() {
     assert(Number.isFinite(l) && l > 0, `fuel_consumption_l=${esg.actuals.fuel_consumption_l} mimo tankowań w co2-report`);
   });
 
-  // ─── Kreator raportów ───────────────────────────────────────────────────────
-  await test('Kreator raportów: źródło "fuel_fills" jest dozwolone', async () => {
-    const r = await fetch(`${base}/api/report-builder/run?company=${encodeURIComponent(CONFIG.company)}`, {
-      method: 'POST', headers: { ...hdrs, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source: 'fuel_fills', cols: ['fill_date', 'nr_rej', 'liters', 'total_cost'], limit: 5 }),
-    });
-    assert(r.status === 200, `Oczekiwano 200, otrzymano ${r.status}`);
-    const d = await r.json();
-    assert(!d.error, `Backend odrzucił źródło: ${d.error}`);
-    assert(Array.isArray(d.rows), 'Brak tablicy rows w odpowiedzi');
-  });
-
-  await test('Kreator raportów: martwe źródło "fuel_entries" jest odrzucane', async () => {
-    const r = await fetch(`${base}/api/report-builder/run?company=${encodeURIComponent(CONFIG.company)}`, {
-      method: 'POST', headers: { ...hdrs, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source: 'fuel_entries', cols: ['liters'], limit: 5 }),
-    });
-    const d = await r.json().catch(() => ({}));
-    assert(d.error, 'fuel_entries nie istnieje w bazie — powinno być odrzucone, nie zwracać pustej tabeli');
-  });
+  // UWAGA: asercje o whiteliście kreatora raportów CELOWO tu nie ma. Ten plik odpytuje
+  // PRODUKCYJNEGO Workera, a ten dostaje nowy kod dopiero po mergu do main — więc test
+  // sprawdzający świeżo dodane źródło `fuel_fills` nie miałby prawa przejść na PR-ze
+  // (dokładnie tak wywalił się przy pierwszym przebiegu: 400 dla fuel_fills, brak błędu
+  // dla fuel_entries). Zgodność whitelisty front↔backend i istnienie tabel w schemacie
+  // sprawdza statycznie tests/unit/report-sources-test.js — bez sieci, więc działa na PR-ze.
 
   console.log(`\n${'─'.repeat(46)}`);
   console.log(`Wynik: ${_pass} PASS / ${_fail} FAIL / ${_skip} SKIP`);

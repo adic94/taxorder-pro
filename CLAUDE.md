@@ -201,6 +201,25 @@ starszego pliku **nie naprawi** tabeli o innej strukturze — i nic o tym nie zg
   warto je przepiąć na `fuel_fills`:
   `SELECT id,name FROM report_configs WHERE source_table='fuel_entries'`
 
+- **🔴 Kreator raportów jest zepsuty dla większości źródeł, nie tylko dla „Paliwa".**
+  Odkryte przy pisaniu `tests/unit/report-sources-test.js` (uruchom: `npm run report-sources-check`).
+  Backendowa whitelista `ALLOWED_TABLES`/`ALLOWED_COLS` i front `SOURCES` to dwie niezależne
+  kopie tej samej listy, a obie rozjechały się ze schematem bazy. Każde zapytanie ma `.catch()`,
+  więc użytkownik dostaje **pustą tabelę bez błędu**:
+
+  | Źródło | Problem |
+  |--------|---------|
+  | `vehicles` | whitelista wymienia `reg`, `brand`, `model`, `year`, `fuel_type`, `dmc`, `status`, `driver`, `department` — tabela ma `nr_rej`, `axles_count`, `suspension_type` i **kolumnę JSON `data`**, w której te pola faktycznie siedzą |
+  | `damages` | **tabela nie istnieje** — prawdziwa nazwa to `damage_reports` (schema_v2) |
+  | `service_orders` | brak w schemacie: `date`, `vehicle_reg`, `description`, `cost_pln`, `mileage`, `workshop` |
+  | `fines` | brak w schemacie: `vehicle_reg`, `driver`, `amount_pln`, `reason`, `status` |
+  | `damages`, `fines` (front) | front oferuje `insurance_claim` i `paid_at`, których backend nie ma na whiteliście — ciche odrzucenie kolumny |
+
+  `fuel_entries` → `fuel_fills` już naprawione. Reszta **nie jest łatką**: raportowanie po
+  `vehicles` wymaga wyciągania pól z kolumny JSON (`json_extract`), czyli decyzji o kształcie
+  funkcji, a nie poprawki nazwy. Dlatego `report-sources-test.js` celowo NIE jest bramką CI —
+  dziś byłby czerwony z powodu długu, nie regresji. Wpiąć go do `ci-js.yml` dopiero po naprawie.
+
 **Sprawy operacyjne (poza kodem)**
 - Domena e-mail dla Dominika Dymowskiego i Roberta Sasina — do ustalenia.
 - 6 pojazdów litewskich — dokumenty u księgowości, brak potwierdzenia.
