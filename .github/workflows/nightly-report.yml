@@ -22,7 +22,8 @@ jobs:
         id: schema_check
         run: |
           # Znajdź najwyższy numer schematu w repo
-          LATEST=$(ls worker/schema_v*.sql 2>/dev/null | grep -oP 'v\K[0-9]+' | sort -n | tail -1)
+          # grep -v _ROLLBACK: te pliki nie są migracjami i nie powinny wpływać na numerację
+          LATEST=$(ls worker/schema_v*.sql 2>/dev/null | grep -v '_ROLLBACK' | grep -oP 'v\K[0-9]+' | sort -n | tail -1)
           echo "latest_schema=$LATEST" >> $GITHUB_OUTPUT
           echo "Najwyższy schemat w repo: v$LATEST"
 

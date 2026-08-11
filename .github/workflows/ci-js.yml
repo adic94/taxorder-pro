@@ -28,3 +28,11 @@ jobs:
       # skrypt oraz sprawdza escapowanie danych. Bez zaleznosci - nie wymaga npm ci.
       - name: Bookmarklet DT-1 → Warszawa (regresja)
         run: node tests/unit/warsaw-bookmarklet-test.js
+
+      # Straznik nocnego automatu migracji. Glob `worker/schema_v*.sql` dopasowywal
+      # takze pliki *_ROLLBACK.sql, ktore leksykograficznie wykonywaly sie tuz po
+      # swoich migracjach i kasowaly wlasnie utworzone tabele. Zaden inny test tego
+      # nie widzial: migration-check porownuje pliki schema miedzy soba, a d1-schema-diff
+      # wymaga dostepu do bazy. Ten dziala statycznie, bez sieci i bez zaleznosci.
+      - name: Straznik globa migracji (ROLLBACK, kolejnosc)
+        run: node tests/unit/migration-glob-test.js
