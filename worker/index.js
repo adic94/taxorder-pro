@@ -6569,14 +6569,33 @@ async function handleTCO(request, env, user, url, path) {
 const CO2_EMISSION_FACTORS = { diesel: 2.65, petrol: 2.31, pb: 2.31, gasoline: 2.31, lpg: 1.63, hybrid: 2.0, electric: 0, default: 2.5 };
 
 /**
+ * Degradacja zapytania BEZ ciszy. Zwraca `fallback` przy błędzie, ale najpierw krzyczy.
+ *
+ * Goły `.catch(() => ({results: []}))` zamienia „tabela nie istnieje" w „brak danych",
+ * czego nie widać ani w logach, ani w UI. Dokładnie tak CO2 i zużycie paliwa w raportach
+ * ESG raportowały zera przez cały czas istnienia tej funkcji — użytkownik dostawał
+ * wiarygodnie wyglądający wynik, a nie błąd. Nowy kod na ścieżkach produkujących liczby
+ * dla użytkownika ma używać tego helpera zamiast gołego `.catch()`.
+ */
+async function dbSafe(promise, fallback, env, ctx = {}) {
+  try {
+    return await promise;
+  } catch (e) {
+    console.error('[db-degraded]', ctx.op || 'query', '—', e?.message || e);
+    captureException(e, env, { ...ctx, kind: 'db-degraded' }).catch(() => {});
+    return fallback;
+  }
+}
+
+/**
  * Sumy zatankowanych litrów i wyliczonego CO2 za dany rok.
  * Źródłem jest `fuel_fills` — jedyna tabela tankowań, do której cokolwiek zapisuje.
  */
 async function fuelActualsForYear(env, company, year) {
-  const rows = (await env.DB.prepare(
+  const rows = (await dbSafe(env.DB.prepare(
     `SELECT fuel_type, SUM(liters) AS liters FROM fuel_fills
      WHERE company_id=? AND strftime('%Y',fill_date)=? GROUP BY fuel_type`
-  ).bind(company, String(year)).all().catch(() => ({ results: [] }))).results || [];
+  ).bind(company, String(year)).all(), { results: [] }, env, { op: 'fuelActualsForYear', company, year })).results || [];
   let liters = 0, co2_kg = 0;
   for (const r of rows) {
     const l = r.liters || 0;
@@ -10514,7 +10533,8 @@ async function handleZapierWebhook(req, env, user, url, path) {
     const p = [co];
     if (type) { q += 'AND event_type=? '; p.push(type); }
     q += `ORDER BY created_at DESC LIMIT ${limit}`;
-    const rows = (await env.DB.prepare(q).bind(...p).all().catch(() => ({ results: [] }))).results || [];
+    const rows = (await dbSafe(env.DB.prepare(q).bind(...p).all(), { results: [] }, env,
+      { op: 'zapier-events', company: co })).results || [];
     // Zapier format: tablica z id jako string (wymagany dedupe)
     return json(rows.map(r => ({ id: r.id, ...JSON.parse(r.payload||'{}'), _event_type: r.event_type, _created_at: r.created_at })));
   }

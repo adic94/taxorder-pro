@@ -17,6 +17,7 @@
     "test:api": "node tests/api/api-test.js",
     "test:isolation": "node tests/api/tenant-isolation-test.js",
     "test:bookmarklet": "node tests/unit/warsaw-bookmarklet-test.js",
+    "test:esg": "node tests/api/esg-reports-test.js",
     "test:report": "playwright show-report tests/results/html",
     "pw:install": "playwright install chromium",
     "xss-audit": "node tools/autotest/xss-audit.js",

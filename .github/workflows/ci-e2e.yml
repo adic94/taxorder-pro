@@ -61,8 +61,21 @@ jobs:
           TEST_PASS:    ${{ secrets.TEST_PASS || '' }}
           TEST_COMPANY: ${{ secrets.TEST_COMPANY || '' }}
 
+      # Regresja "cichych zer": fuel_entries nie istniala w D1, a wszystkie zapytania do
+      # niej mialy .catch(), wiec CO2/paliwo w ESG i zrodlo "Paliwo" w kreatorze raportow
+      # zwracaly zera bez zadnego bledu. Asercje sa RELATYWNE wzgledem /api/co2-report
+      # (to samo zrodlo, te same wskazniki), wiec test nie zalezy od stanu danych na koncie.
+      - name: Testy raportowania ESG + kreatora raportow
+        if: ${{ vars.PROD_WORKER_URL != '' }}
+        run: npm run test:esg
+        env:
+          TEST_URL:     ${{ vars.PROD_WORKER_URL || '' }}
+          TEST_EMAIL:   ${{ secrets.TEST_EMAIL || '' }}
+          TEST_PASS:    ${{ secrets.TEST_PASS || '' }}
+          TEST_COMPANY: ${{ secrets.TEST_COMPANY || '' }}
+
       # Konto adamus1000@gmail.com (TEST_EMAIL) ma rolę admin i celowo pomija scoping
-      # firmy (worker/index.js:8672-8679) — nie wykryje regresji w gatingu uprawnień
+      # firmy (worker/index.js:8673-8680) — nie wykryje regresji w gatingu uprawnień
       # zwykłych użytkowników. Ten krok loguje się osobnym, nie-adminowym kontem
       # (kierownik/gcon, założone 2026-08-10) i asertuje 403 na próbach cross-tenant.
       - name: Testy izolacji tenantów (konto nie-admin)
