@@ -50,7 +50,7 @@ taxorder-pro/
 
 > Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
 > Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
-> Ostatnia aktualizacja: 2026-08-11 (bookmarklet DT-1→Warszawa + test regresji; bramka lintu; SW v76; audyt CC zweryfikowany — 4 poprawki; **schemat D1 odczytany z produkcji**: company_packages NIE ISTNIEJE, esg_targets stoi na v35, reservations na v13 — diagnoza audytu obalona, szczegóły w W toku)
+> Ostatnia aktualizacja: 2026-08-11 (bookmarklet DT-1→Warszawa + test regresji; bramka lintu; SW v76; audyt CC zweryfikowany; **schemat D1 odczytany z produkcji** — company_packages NIE ISTNIEJE, esg_targets na v35, reservations na v13; **fuel_entries nie istnieje → CO2/paliwo/raporty były zerami, naprawione**; schema_v50 gotowa, niezastosowana; narzędzie d1-schema-diff)
 
 ### Zamknięte
 | Kiedy | Temat | Commit |
@@ -87,6 +87,7 @@ taxorder-pro/
 | 2026-08 | **Bookmarklet DT-1 → Warszawa — funkcja martwa od wprowadzenia + dwa wektory wstrzyknięcia.** Znalezione przy okazji jedynego **błędu** eslint (`no-script-url`) utopionego w 2168 ostrzeżeniach. (1) **Nigdy nie działał**: w literale szablonowym `\'` nie jest escapem — daje goły apostrof, który zamykał string w emitowanym kodzie (`onclick="this.closest('div[style]')..."` wewnątrz stringa ograniczonego `'`) → `SyntaxError: Unexpected identifier 'div'` przy **każdym** uruchomieniu, niezależnie od danych. Wprowadzony i nietknięty od `0000e30`. (2) Po naprawie samej składni **odsłaniały się dwa wektory** — potwierdzone w realnym Chromium, nie teoretycznie: **A)** przeglądarka percent-dekoduje `javascript:` URL przed wykonaniem, więc `%22` w polu `marka` zamieniało się w `"`, wychodziło poza literał JSON i wykonywało dowolny kod; **B)** `p.nr_rej`/`marka`/`model`/`osie`/`zawieszenie` oraz dane podatnika szły surowe do `innerHTML` — a panel renderuje się na origin **moja.warszawa19115.pl w sesji zalogowanej PZ**. Dane wchodzą też z importów CSV/CEPiK/OCR, więc nie tylko „użytkownik atakuje sam siebie". Naprawa: własny `esc()` wewnątrz generowanego skryptu (globalny `esc()` aplikacji tam nie istnieje), `addEventListener` zamiast `onclick` z zagnieżdżonymi apostrofami, `encodeURIComponent` na ładunku `javascript:`, celowy `eslint-disable` z uzasadnieniem. `CACHE_NAME` v75→v76 — SW jest stale-while-revalidate, bez bumpu poprawka dotarłaby dopiero przy drugim wejściu. Nowy test bez zależności `tests/unit/warsaw-bookmarklet-test.js` (7 asercji) wpięty w `ci-js.yml` i `audit:all`; **zweryfikowany negatywnie** — na oryginalnym app.js daje 0/7 PASS, na naprawionym 7/7. Dodana bramka `npm run lint` w `ci-e2e.yml` (eslint nie był uruchamiany w ŻADNYM workflow — stąd przeoczenie) | — |
 | 2026-08 | **Audyt CC — weryfikacja u źródła i 3 poprawki backendu.** Dwa niezależne przebiegi audytu; każde znalezisko sprawdzone bezpośrednio w kodzie (CLAUDE.md ma udokumentowany przypadek subagenta zgłaszającego nieistniejący „systemowy IDOR w 70 handlerach"). **Potwierdzone i naprawione:** (1) `handleSupplierInvoices` DELETE — `DELETE FROM supplier_invoice_items WHERE invoice_id=?` bez `company_id`; centralny guard routera tu NIE pomaga, bo atak nie używa `?company=` (własna firma w parametrze, cudze `id` w ścieżce) → cross-tenant kasowanie pozycji faktur; fix: `SELECT ... AND company_id=?` → 404 przed kasowaniem dzieci. (2) `handleNotifLog` acknowledge/snooze — dodany `company_id` (ryzyko było niskie, zapytania scope'owane po `user_id`, ale niespójne). (3) `enforceModuleAccess` przeniesione ZA guardy firmy — czyta `?company=` z URL, więc przed guardem odpowiadało o pakiet obcej firmy (402 vs przepuszczenie = kanał boczny); dziś nieaktywne, ale naprawa pakietów bez tej zmiany by go otworzyła. **Odrzucone jako nieaktualne:** raport „4 commity Supabase czekają na push" — wszystkie cztery (`45267f8`, `9aff207`, `af71be6`, `d2a6d00`) są w `origin/main`, zweryfikowane `git merge-base --is-ancestor`; raport „`vehicle-detail.spec.js:110` naprawiony" — naprawiony wcześniej w `7426a00`. **Sprzeczność między raportami:** jeden twierdzi „13 par duplikatów, wszystkie identyczne strukturalnie, bezpieczne", drugi flaguje `company_packages` (jedną z tych par) jako krytyczną — drugi ma rację, różnice strukturalne potwierdzone w `schema_v33`/`v48`, `v35`/`v41`, `v13`/`v40`. Reszta → W toku | — |
 | 2026-08 | **Rezerwacje floty — zapis „Potwierdzone" naruszał CHECK.** Produkcyjna tabela `reservations` stoi na `schema_v13` z `CHECK(status IN ('pending','accepted','rejected'))` — potwierdzone dosłownie przez `SELECT sql FROM sqlite_master` na `--remote`. `schema_v40` redefiniował ją bez CHECK i z `DEFAULT 'confirmed'`, ale jako `CREATE TABLE IF NOT EXISTS` był cichym no-opem. `fleet-reservations.js` oferował `<option value="confirmed">` → każdy zapis ze statusem „Potwierdzone" leciał na `CHECK constraint failed`. Drugi, niezgłoszony objaw: istniejące wiersze ze statusem `accepted` renderowały się w UI jako surowe „accepted", bo `STATUS_LBL` nie miało takiego klucza. Naprawa po stronie UI (3 miejsca w jednym module), nie bazy — SQLite nie zmieni CHECK bez przebudowy tabeli, a wszystkie istniejące wiersze i tak używają `accepted`. Sprawdzone: `vehicle-reservations.js` pisze do INNEJ tabeli (`vehicle_reservations`), więc jego `approved`/`completed`/`cancelled` są poprawne. Zweryfikowane odtworzeniem produkcyjnego CHECK na SQLite: `accepted` przechodzi, `confirmed` → `CHECK constraint failed` | — |
+| 2026-08 | **`fuel_entries` nie istnieje — CO2, paliwo i raporty były cichymi zerami.** Tabela nie jest tworzona przez żaden `schema_v*.sql`, a **wszystkie** odwołania miały `.catch()` — nic nie wybuchało, po prostu każdy wynik był pusty. To gorsze niż 500: użytkownik dostawał wiarygodnie wyglądające zera. Cztery miejsca przestawione na `fuel_fills` (jedyna tabela tankowań z realnymi danymi — pełny CRUD, importy, dashboardy): (1) `handleEsgTargets` ×2 — **CO2 i zużycie paliwa w raportach ESG były zerowe dla każdej firmy i roku**; `fuel_fills` nie ma `co2_kg`, więc CO2 liczone z litrów i typu paliwa, dokładnie jak w `handleCO2Report` — wskaźniki wyciągnięte do wspólnej stałej `CO2_EMISSION_FACTORS`, żeby oba endpointy nie mogły się rozjechać (wartości bez zmian); (2) kreator raportów — źródło „Paliwo" zwracało zawsze pusty raport, poprawione po obu stronach naraz (front i backend są sparowane) z mapowaniem kolumn; (3) eksport JPK_KR/SAF_T — nie zawierał ŻADNYCH pozycji paliwowych. Osobno `webhook_logs`: tam SELECT **nie** miał `.catch()` → 500 na `GET /api/zapier?events`; dodany `.catch()`, ale tabeli celowo NIE utworzono — to jedyne odwołanie w workerze, nic do niej nie pisze, więc utworzenie dałoby trwale pustą tabelę i pozorną naprawę. Zweryfikowane na SQLite: 100 l diesla + 50 l LPG + 10 l elektryka = 160 l i 346,5 kg CO2 zamiast 0 i 0 | — |
 
 ### W toku
 
@@ -111,16 +112,29 @@ starszego pliku **nie naprawi** tabeli o innej strukturze — i nic o tym nie zg
    ```bash
    wrangler d1 execute taxorder-pro --remote --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
    ```
-2. **`esg_targets` — decyzja o kierunku.** Kod backendu i `esg-report.js` są napisane pod model
+2. **`esg_targets` — migracja GOTOWA, niezastosowana.** `worker/schema_v50.sql`
+   (+ `schema_v50_ROLLBACK.sql`) przebudowuje tabelę z v35 na v41, zachowując dane.
+   Zweryfikowana na SQLite na wiernym odtworzeniu produkcyjnej tabeli — round-trip
+   v35→v50→ROLLBACK→v35 zwraca dane identyczne. **Uruchom po sprawdzeniu**
+   `SELECT COUNT(*) FROM esg_targets`:
+   ```bash
+   wrangler d1 execute taxorder-pro --remote --file=worker/schema_v50.sql
+   ```
+   Pułapka, której nie zgłosił żaden audyt: v35 zakłada indeks **UNIQUE**`(company_id, year)`,
+   a model v41 wymaga wielu wierszy na rok. `schema_v41` deklaruje indeks o tej samej nazwie
+   bez UNIQUE, więc też był no-opem — bez `DROP INDEX` nowy model padłby na drugiej metryce.
+
+2b. ~~decyzja o kierunku~~ — rozstrzygnięta: kod backendu i `esg-report.js` Kod backendu i `esg-report.js` są napisane pod model
    v41 (`metric_key`/`target_value`/`lower_is_better` — dowolna metryka), tabela stoi na v35
    (sztywne kolumny). Migracja tabeli do v41 jest właściwym kierunkiem, ale wymaga
    `CREATE TABLE ... AS SELECT` + `DROP` + `RENAME` (SQLite nie zmieni struktury w miejscu).
    Najpierw: `SELECT COUNT(*) FROM esg_targets` — przy zerze migracja jest trywialna.
-3. **`webhook_logs`, `fuel_entries`, `alert_events` — brak `CREATE TABLE` w JAKIMKOLWIEK
-   `schema_v*.sql`.** `webhook_logs`: SELECT bez `.catch()` → 500 na `GET /api/zapier?events`.
-   `fuel_entries`: wszystkie wywołania z `.catch()` → **CO2/paliwo w raportach ESG zawsze 0**
-   (realne dane są w `fuel_fills`, inna struktura kolumn). `alert_events`: cicha awaria
-   zapisu alertów tacho.
+3. ~~`webhook_logs`, `fuel_entries`, `alert_events`~~ — **zrobione**, patrz Zamknięte.
+   Zostało jedno świadome pominięcie: `alert_events` (jedyny zapis, zero odczytów, kod ma
+   już komentarz „jeśli istnieje") — utworzenie tabeli zaczęłoby gromadzić dane, których
+   nic nie czyta. Tak samo `webhook_logs`: naprawiony 500, ale tabeli celowo NIE tworzę,
+   bo nic do niej nie pisze — trigger Zapier wymaga implementacji zapisu, to funkcja,
+   nie łatka.
 
 > ⚠️ **Gdyby kiedyś włączać licencjonowanie modułów:** to nie jest bug fix, tylko wdrożenie
 > funkcji. `_packageModules()` mapuje `basic → []` (pusta lista). Firma **bez wiersza** jest
@@ -170,6 +184,21 @@ starszego pliku **nie naprawi** tabeli o innej strukturze — i nic o tym nie zg
   w konfigu), `no-unused-vars` 250, `prefer-const` 47, `no-console` 46. Do przeglądu jest
   `no-undef` — może maskować literówki w nazwach globali; reszta to styl. **Nie dodawaj
   `--max-warnings 0`** bez wcześniejszego posprzątania, bo CI stanie się czerwony natychmiast.
+
+- **Dwie rozbieżne tablice wskaźników CO2.** `worker/index.js` (`CO2_EMISSION_FACTORS`):
+  diesel 2.65, lpg 1.63, klucze **angielskie** (`petrol`, `electric`). `modules/co2-report.js:144`
+  (`EMISSION_FACTORS`): diesel 2.68, lpg 1.51, klucze **polskie** (`benzyna`, `elektryczny`).
+  Różne wartości i różne języki kluczy oznaczają, że przy niedopasowaniu cicho wchodzi
+  fallback (2.5 w obu). Backend i front mogą więc pokazać inne CO2 dla tej samej floty.
+  **Nie ujednolicałem przy okazji naprawy zer w ESG** — wybór wartości (2.65 czy 2.68?)
+  to decyzja domenowa dla właściciela raportowania ESG, nie refaktor. Do rozstrzygnięcia:
+  która tablica jest wiodąca i w jakim języku zapisywane jest `fuel_type` w `vehicles`
+  oraz `fuel_fills` (schemat ma `DEFAULT 'diesel'`).
+- **Zapisane `report_configs` ze źródłem `fuel_entries`** (jeśli istnieją) po zmianie
+  whitelisty zwrócą „Niedozwolone źródło danych" zamiast pustej tabeli. Te konfiguracje
+  i tak nigdy nie zwracały danych — komunikat błędu jest uczciwszy niż cicha pustka, ale
+  warto je przepiąć na `fuel_fills`:
+  `SELECT id,name FROM report_configs WHERE source_table='fuel_entries'`
 
 **Sprawy operacyjne (poza kodem)**
 - Domena e-mail dla Dominika Dymowskiego i Roberta Sasina — do ustalenia.
