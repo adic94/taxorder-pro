@@ -9,8 +9,12 @@
   let _reservations = [];
   let _curMonth = new Date().toISOString().slice(0, 7);
 
-  const STATUS_LBL   = { pending: 'Oczekuje', confirmed: 'Potwierdzone', rejected: 'Odrzucone' };
-  const STATUS_COLOR = { pending: 'var(--orange)', confirmed: 'var(--green)', rejected: 'var(--red)' };
+  // UWAGA: wartości muszą pasować do CHECK w tabeli `reservations` (schema_v13, potwierdzone
+  // w produkcyjnym D1): CHECK(status IN ('pending','accepted','rejected')). schema_v40
+  // redefiniował tę tabelę bez CHECK i z DEFAULT 'confirmed', ale przez CREATE TABLE IF NOT
+  // EXISTS był cichym no-opem — w bazie stoi v13. Zapis 'confirmed' = naruszenie CHECK.
+  const STATUS_LBL   = { pending: 'Oczekuje', accepted: 'Potwierdzone', rejected: 'Odrzucone' };
+  const STATUS_COLOR = { pending: 'var(--orange)', accepted: 'var(--green)', rejected: 'var(--red)' };
 
   async function renderFleetReservations() {
     const co = Co();
@@ -91,7 +95,7 @@ ${_reservations.map(r => `<tr>
       <label>Status</label>
       <select id="res-status" class="form-input">
         <option value="pending">Oczekuje</option>
-        <option value="confirmed">Potwierdzone</option>
+        <option value="accepted">Potwierdzone</option>
         <option value="rejected">Odrzucone</option>
       </select>
     </div>

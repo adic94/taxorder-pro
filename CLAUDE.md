@@ -50,7 +50,7 @@ taxorder-pro/
 
 > Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
 > Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
-> Ostatnia aktualizacja: 2026-08-11 (bookmarklet DT-1→Warszawa naprawiony + test regresji w CI; bramka lintu; SW v76; audyt CC zweryfikowany — 3 poprawki backendu, rozjazd schematu D1 przeniesiony do W toku jako zablokowany na odczycie produkcyjnego D1)
+> Ostatnia aktualizacja: 2026-08-11 (bookmarklet DT-1→Warszawa + test regresji; bramka lintu; SW v76; audyt CC zweryfikowany — 4 poprawki; **schemat D1 odczytany z produkcji**: company_packages NIE ISTNIEJE, esg_targets stoi na v35, reservations na v13 — diagnoza audytu obalona, szczegóły w W toku)
 
 ### Zamknięte
 | Kiedy | Temat | Commit |
@@ -86,42 +86,48 @@ taxorder-pro/
 | 2026-08 | **uuid/exceljs — decyzja: NIE `--force`, ryzyko świadomie zaakceptowane.** Zbadane przed decyzją: (1) `exceljs@4.4.0` to i tak najnowsza wersja na npm — nie ma nowszej naprawiającej zależność od `uuid`, `--force` cofnąłby DWIE wersje major (4.4.0→3.4.0), nie mały breaking change; (2) `exceljs` jest `require`owany wyłącznie w `tools/dr-extractor.js` (lokalne narzędzie deweloperskie, `tools/` nie wchodzi na produkcję, nie ładowane przez Worker ani przeglądarkę, uruchamiane ręcznie) — zero ekspozycji sieciowej; (3) CVE dotyczy braku sprawdzania granic bufora gdy do `uuid.v4()` przekazany jest własny parametr `buf` — sprawdzone źródło `exceljs` (`node_modules/exceljs/lib/xlsx/xform/sheet/cf-ext/cf-rule-ext-xform.js`): wywołuje `uuidv4()` bez żadnych argumentów, luka strukturalnie nieosiągalna tą ścieżką. Koszt (ryzyko zepsucia `dr-extractor.js`, utrata 2 wersji major funkcjonalności) bez żadnej realnej korzyści bezpieczeństwa. Nie uruchamiać `npm audit fix --force` bez ponownej analizy, jeśli `exceljs` zacznie być używany gdzie indziej niż `tools/` | — |
 | 2026-08 | **Bookmarklet DT-1 → Warszawa — funkcja martwa od wprowadzenia + dwa wektory wstrzyknięcia.** Znalezione przy okazji jedynego **błędu** eslint (`no-script-url`) utopionego w 2168 ostrzeżeniach. (1) **Nigdy nie działał**: w literale szablonowym `\'` nie jest escapem — daje goły apostrof, który zamykał string w emitowanym kodzie (`onclick="this.closest('div[style]')..."` wewnątrz stringa ograniczonego `'`) → `SyntaxError: Unexpected identifier 'div'` przy **każdym** uruchomieniu, niezależnie od danych. Wprowadzony i nietknięty od `0000e30`. (2) Po naprawie samej składni **odsłaniały się dwa wektory** — potwierdzone w realnym Chromium, nie teoretycznie: **A)** przeglądarka percent-dekoduje `javascript:` URL przed wykonaniem, więc `%22` w polu `marka` zamieniało się w `"`, wychodziło poza literał JSON i wykonywało dowolny kod; **B)** `p.nr_rej`/`marka`/`model`/`osie`/`zawieszenie` oraz dane podatnika szły surowe do `innerHTML` — a panel renderuje się na origin **moja.warszawa19115.pl w sesji zalogowanej PZ**. Dane wchodzą też z importów CSV/CEPiK/OCR, więc nie tylko „użytkownik atakuje sam siebie". Naprawa: własny `esc()` wewnątrz generowanego skryptu (globalny `esc()` aplikacji tam nie istnieje), `addEventListener` zamiast `onclick` z zagnieżdżonymi apostrofami, `encodeURIComponent` na ładunku `javascript:`, celowy `eslint-disable` z uzasadnieniem. `CACHE_NAME` v75→v76 — SW jest stale-while-revalidate, bez bumpu poprawka dotarłaby dopiero przy drugim wejściu. Nowy test bez zależności `tests/unit/warsaw-bookmarklet-test.js` (7 asercji) wpięty w `ci-js.yml` i `audit:all`; **zweryfikowany negatywnie** — na oryginalnym app.js daje 0/7 PASS, na naprawionym 7/7. Dodana bramka `npm run lint` w `ci-e2e.yml` (eslint nie był uruchamiany w ŻADNYM workflow — stąd przeoczenie) | — |
 | 2026-08 | **Audyt CC — weryfikacja u źródła i 3 poprawki backendu.** Dwa niezależne przebiegi audytu; każde znalezisko sprawdzone bezpośrednio w kodzie (CLAUDE.md ma udokumentowany przypadek subagenta zgłaszającego nieistniejący „systemowy IDOR w 70 handlerach"). **Potwierdzone i naprawione:** (1) `handleSupplierInvoices` DELETE — `DELETE FROM supplier_invoice_items WHERE invoice_id=?` bez `company_id`; centralny guard routera tu NIE pomaga, bo atak nie używa `?company=` (własna firma w parametrze, cudze `id` w ścieżce) → cross-tenant kasowanie pozycji faktur; fix: `SELECT ... AND company_id=?` → 404 przed kasowaniem dzieci. (2) `handleNotifLog` acknowledge/snooze — dodany `company_id` (ryzyko było niskie, zapytania scope'owane po `user_id`, ale niespójne). (3) `enforceModuleAccess` przeniesione ZA guardy firmy — czyta `?company=` z URL, więc przed guardem odpowiadało o pakiet obcej firmy (402 vs przepuszczenie = kanał boczny); dziś nieaktywne, ale naprawa pakietów bez tej zmiany by go otworzyła. **Odrzucone jako nieaktualne:** raport „4 commity Supabase czekają na push" — wszystkie cztery (`45267f8`, `9aff207`, `af71be6`, `d2a6d00`) są w `origin/main`, zweryfikowane `git merge-base --is-ancestor`; raport „`vehicle-detail.spec.js:110` naprawiony" — naprawiony wcześniej w `7426a00`. **Sprzeczność między raportami:** jeden twierdzi „13 par duplikatów, wszystkie identyczne strukturalnie, bezpieczne", drugi flaguje `company_packages` (jedną z tych par) jako krytyczną — drugi ma rację, różnice strukturalne potwierdzone w `schema_v33`/`v48`, `v35`/`v41`, `v13`/`v40`. Reszta → W toku | — |
+| 2026-08 | **Rezerwacje floty — zapis „Potwierdzone" naruszał CHECK.** Produkcyjna tabela `reservations` stoi na `schema_v13` z `CHECK(status IN ('pending','accepted','rejected'))` — potwierdzone dosłownie przez `SELECT sql FROM sqlite_master` na `--remote`. `schema_v40` redefiniował ją bez CHECK i z `DEFAULT 'confirmed'`, ale jako `CREATE TABLE IF NOT EXISTS` był cichym no-opem. `fleet-reservations.js` oferował `<option value="confirmed">` → każdy zapis ze statusem „Potwierdzone" leciał na `CHECK constraint failed`. Drugi, niezgłoszony objaw: istniejące wiersze ze statusem `accepted` renderowały się w UI jako surowe „accepted", bo `STATUS_LBL` nie miało takiego klucza. Naprawa po stronie UI (3 miejsca w jednym module), nie bazy — SQLite nie zmieni CHECK bez przebudowy tabeli, a wszystkie istniejące wiersze i tak używają `accepted`. Sprawdzone: `vehicle-reservations.js` pisze do INNEJ tabeli (`vehicle_reservations`), więc jego `approved`/`completed`/`cancelled` są poprawne. Zweryfikowane odtworzeniem produkcyjnego CHECK na SQLite: `accepted` przechodzi, `confirmed` → `CHECK constraint failed` | — |
 
 ### W toku
-**Rozjazd schematu D1 — 4 pozycje zablokowane na jednym pytaniu.** Audyt (2 niezależne
-przebiegi CC, zweryfikowane u źródła) znalazł tabele zdefiniowane 2× w różnych
-`schema_v*.sql`. `CREATE TABLE IF NOT EXISTS` = druga definicja to **cichy no-op**, więc
-wygrywa ta z niższego numeru. Wszystkie 4 poniższe wnioski są **warunkowe** — zależą od
-tego, co faktycznie stoi w produkcyjnym D1, a tego NIE zweryfikowano (brak
-`CLOUDFLARE_API_TOKEN` lokalnie, konektor Cloudflare niezautoryzowany).
 
-**Zanim cokolwiek naprawisz — 4 zapytania do D1:**
-```bash
-wrangler d1 execute taxorder-pro --remote --command "PRAGMA table_info(company_packages)"
-wrangler d1 execute taxorder-pro --remote --command "SELECT company_id,package_name FROM company_packages"
-wrangler d1 execute taxorder-pro --remote --command "PRAGMA table_info(esg_targets)"
-wrangler d1 execute taxorder-pro --remote --command "SELECT sql FROM sqlite_master WHERE name='reservations'"
-```
+**Rozjazd schematu D1 — ZWERYFIKOWANY NA PRODUKCJI 11.08.** Odczyt z `wrangler d1 execute
+--remote` obalił diagnozę obu przebiegów audytu w najważniejszym punkcie. Nie zgadywać
+ponownie — to są fakty z bazy.
 
-| Tabela | Konflikt | Skutek (jeśli wygrała starsza) |
-|--------|----------|-------------------------------|
-| `company_packages` | v33 (bez `active`) vs v48 (z `active`) | `resolveModuleAccess` pyta `WHERE active=1` → błąd → `catch` → `allowed=['*']`. **Licencjonowanie modułów nie działa dla nikogo.** Odtworzone lokalnie na SQLite |
-| `esg_targets` | v35 (`co2_target_kg`…) vs v41 (`metric_key`…) | `POST /api/esg/targets` (index.js:11734) pisze kolumny v41, **bez `.catch()`** → 500. Dodawanie celów ESG martwe |
-| `reservations` | v13 (`CHECK(status IN ('pending','accepted','rejected'))`) vs v40 (`DEFAULT 'confirmed'`, bez CHECK) | UI `fleet-reservations.js:94` oferuje `confirmed` → naruszenie CHECK przy zapisie |
-| `webhook_logs`, `fuel_entries`, `alert_events` | **brak `CREATE TABLE` w jakimkolwiek `schema_v*.sql`** | `webhook_logs`: SELECT bez `.catch()` → 500 na `GET /api/zapier?events`. `fuel_entries`: wszystkie z `.catch()` → **CO2/paliwo w raportach ESG zawsze 0** (realne dane są w `fuel_fills`, inna struktura). `alert_events`: cicha awaria zapisu alertów tacho |
+| Tabela | Faktyczny stan w D1 | Wniosek |
+|--------|---------------------|---------|
+| `company_packages` | **NIE ISTNIEJE** — `SELECT` zwraca `no such table`, `PRAGMA table_info` pustkę | Ani v33, ani v48 nigdy nie zostały zastosowane. `catch → allowed=['*']` w `resolveModuleAccess` to **udokumentowana ścieżka backward-compat** (komentarz w kodzie: „Tabela nie istnieje (przed migracją)"), nie awaria. **Zero firm dotkniętych** — nie ma wierszy, więc nikt nic nie traci. Audyt zdiagnozował „v33 wygrała, brak kolumny `active`" — **nieprawda**. Proponowany `ALTER TABLE company_packages ADD COLUMN active` **padłby** na `no such table` |
+| `esg_targets` | **v35** (`co2_target_kg`, `fuel_target_l`, `ev_percentage_target`, `electric_km_target`) | v41 był cichym no-opem. `POST /api/esg/targets` (index.js:11734) pisze kolumny v41 (`metric_key`, `target_value`…) **bez `.catch()`** → 500. **Aktywny błąd produkcyjny**, dodawanie celów ESG martwe |
+| `reservations` | **v13 z `CHECK(status IN ('pending','accepted','rejected'))`** | Potwierdzone dosłownie przez `SELECT sql FROM sqlite_master`. **Naprawione** — `fleet-reservations.js` używał `confirmed` (naruszenie CHECK). Odtworzone lokalnie na SQLite: `accepted` przechodzi, `confirmed` → `CHECK constraint failed` |
 
-> ⚠️ **`company_packages` to NIE jest zwykły bug fix — to włączenie egzekwowania licencji
-> na produkcji.** `_packageModules()` mapuje `basic → []` (pusta lista, zero modułów).
-> Dodanie kolumny `active` sprawi, że każda firma **mająca wiersz** w `company_packages`
-> natychmiast dostanie swój pakiet — a `basic` oznacza odcięcie wszystkich modułów
-> nieobjętych `MODULE_EXEMPT`. Firmy **bez wiersza** są bezpieczne (`if (!row) allowed=['*']`).
-> Dlatego kolejność jest obowiązkowa: (1) `SELECT` z `company_packages` — kto ma wiersz i jaki
-> pakiet; (2) decyzja biznesowa, czy w ogóle włączać; (3) `wrangler secret put
-> MODULE_ENFORCEMENT` → `off` jako zabezpieczenie PRZED migracją; (4) dopiero `ALTER TABLE`.
-> Sprawdzone lokalnie na SQLite 3.51: `ALTER TABLE ... ADD COLUMN active INTEGER NOT NULL
-> DEFAULT 1` działa również na tabeli z wierszami, a `DEFAULT (datetime('now'))` też przechodzi
-> (wbrew obawie o stałe wyrażenie).
+**Właściwy problem jest szerszy niż pojedyncze tabele: dryf migracji.** Co najmniej cały
+`schema_v48.sql` (`company_packages` + `usage_snapshots`) nigdy nie trafił na produkcję,
+a `schema_v41.sql` częściowo. `CREATE TABLE IF NOT EXISTS` sprawia, że ponowne uruchomienie
+starszego pliku **nie naprawi** tabeli o innej strukturze — i nic o tym nie zgłosi.
 
+**Do zamknięcia — 3 kroki:**
+
+1. **Pełne porównanie tabel** (repo: 134 definicje `CREATE TABLE` w `schema_v*.sql`):
+   ```bash
+   wrangler d1 execute taxorder-pro --remote --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+   ```
+2. **`esg_targets` — decyzja o kierunku.** Kod backendu i `esg-report.js` są napisane pod model
+   v41 (`metric_key`/`target_value`/`lower_is_better` — dowolna metryka), tabela stoi na v35
+   (sztywne kolumny). Migracja tabeli do v41 jest właściwym kierunkiem, ale wymaga
+   `CREATE TABLE ... AS SELECT` + `DROP` + `RENAME` (SQLite nie zmieni struktury w miejscu).
+   Najpierw: `SELECT COUNT(*) FROM esg_targets` — przy zerze migracja jest trywialna.
+3. **`webhook_logs`, `fuel_entries`, `alert_events` — brak `CREATE TABLE` w JAKIMKOLWIEK
+   `schema_v*.sql`.** `webhook_logs`: SELECT bez `.catch()` → 500 na `GET /api/zapier?events`.
+   `fuel_entries`: wszystkie wywołania z `.catch()` → **CO2/paliwo w raportach ESG zawsze 0**
+   (realne dane są w `fuel_fills`, inna struktura kolumn). `alert_events`: cicha awaria
+   zapisu alertów tacho.
+
+> ⚠️ **Gdyby kiedyś włączać licencjonowanie modułów:** to nie jest bug fix, tylko wdrożenie
+> funkcji. `_packageModules()` mapuje `basic → []` (pusta lista). Firma **bez wiersza** jest
+> bezpieczna (`if (!row) allowed=['*']`), więc samo utworzenie tabeli z `schema_v48.sql` jest
+> behawioralnie obojętne. Ryzyko pojawia się dopiero przy pierwszym `INSERT` — wiersz z
+> pakietem `basic` odcina wszystkie moduły spoza `MODULE_EXEMPT`. Kolejność: utwórz tabelę →
+> `wrangler secret put MODULE_ENFORCEMENT` → `off` → dopiero wiersze → włącz świadomie.
 
 ---
 
