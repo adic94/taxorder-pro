@@ -467,9 +467,27 @@ niepowiązanym z przyczyną. Dlatego pod `*.png` muszą stać wyjątki:
 Składnia `@'...'@` przekazana do `git commit -m` wciąga znak `@` do treści commita
 (efekt: `@ fix: ...`). Używać zwykłych cudzysłowów albo `git commit -F plik`.
 
-### npx w PowerShell
-Polityka wykonywania blokuje niepodpisany `npx.ps1`. Używać `npx.cmd` albo
-`.\node_modules\.bin\<narzędzie>.cmd`. **Nie zmieniać `Set-ExecutionPolicy`.**
+### npx i npm w PowerShell
+Polityka wykonywania blokuje niepodpisany `npx.ps1` — **i tak samo `npm.ps1`**.
+`npm run <cokolwiek>` kończy się `UnauthorizedAccess`, nie błędem skryptu.
+Używać `npm.cmd run ...` / `npx.cmd`, albo `.\node_modules\.bin\<narzędzie>.cmd`.
+**Nie zmieniać `Set-ExecutionPolicy`.**
+
+Dla narzędzi z `tools/` najprościej ominąć npm w całości — `node` to zwykły plik
+wykonywalny, polityka go nie dotyczy:
+```powershell
+node tools/autotest/d1-schema-diff.js
+```
+
+### Pobranie jednego pliku z brancha bez przełączania się na niego
+Gdy w drzewie roboczym są niezacommitowane zmiany, `git checkout <branch>` przerwie
+operację. Żeby wziąć **pojedynczy plik** z innego brancha, nie ruszając reszty:
+```powershell
+git fetch origin <branch>
+git checkout origin/<branch> -- sciezka/do/pliku.js
+```
+Nie przełącza brancha i nie nadpisuje niepowiązanych zmian. **Nie używać** do tego
+`git show ... > plik` w PowerShellu — operator `>` zapisuje w UTF-16LE i psuje plik.
 
 ---
 
