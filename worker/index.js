@@ -4216,16 +4216,16 @@ async function handleNotifLog(req, env, user, url, path) {
     // actions: acknowledge | snooze | add
     if (body.action === 'acknowledge' && body.id) {
       await env.DB.prepare(
-        "UPDATE notification_log SET acknowledged_at=datetime('now') WHERE id=? AND (user_id=? OR ?='admin')"
-      ).bind(body.id, user.id, user.role).run();
+        "UPDATE notification_log SET acknowledged_at=datetime('now') WHERE id=? AND company_id=? AND (user_id=? OR ?='admin')"
+      ).bind(body.id, company, user.id, user.role).run();
       return json({ ok: true });
     }
     if (body.action === 'snooze' && body.id) {
       const days = Math.max(1, Math.min(parseInt(body.days || 7), 90));
       await env.DB.prepare(
         `UPDATE notification_log SET snoozed_until=datetime('now','+'||?||' days'),snooze_days=?
-         WHERE id=? AND (user_id=? OR ?='admin')`
-      ).bind(days, days, body.id, user.id, user.role).run();
+         WHERE id=? AND company_id=? AND (user_id=? OR ?='admin')`
+      ).bind(days, days, body.id, company, user.id, user.role).run();
       return json({ ok: true });
     }
     if (body.action === 'add') {
@@ -5793,6 +5793,13 @@ async function handleSupplierInvoices(req, env, user, url, path) {
     return json({ ok:true });
   }
   if (method === 'DELETE' && id) {
+    // Najpierw potwierdź własność faktury. Bez tego DELETE pozycji leciał po samym
+    // invoice_id ze ścieżki, bez scope'u company_id — użytkownik firmy A, znając id
+    // faktury firmy B, trwale kasował jej pozycje (kwoty, opisy), a scope'owany DELETE
+    // nagłówka nie kasował nic. Wzorzec jak w handleDamages/handleProtocols.
+    const owned = await env.DB.prepare('SELECT id FROM supplier_invoices WHERE id=? AND company_id=?')
+      .bind(id,company).first();
+    if (!owned) return err('Faktura nie istnieje', 404);
     await env.DB.prepare('DELETE FROM supplier_invoice_items WHERE invoice_id=?').bind(id).run();
     await env.DB.prepare('DELETE FROM supplier_invoices WHERE id=? AND company_id=?').bind(id,company).run();
     return json({ ok:true });
@@ -8645,12 +8652,6 @@ async function handleRequest(request, env, url, path, ctx) {
     if (!rlApi.allowed) return json({ error: 'Zbyt wiele zapytań. Poczekaj chwilę.' }, 429);
   }
 
-  // Egzekwowanie licencji modułów (serwerowo). Kill switch: wrangler secret put MODULE_ENFORCEMENT → off
-  if (user) {
-    const denied = await enforceModuleAccess(env, user, url, path);
-    if (denied) return denied;
-  }
-
   // Klucze API są związane z JEDNĄ firmą — w przeciwieństwie do sesji ludzkich (które mogą przełączać firmy w UI),
   // każde żądanie kluczem API musi dotyczyć dokładnie tej firmy, do której klucz został wydany.
   if (user && user._apiKey) {
@@ -8676,6 +8677,16 @@ async function handleRequest(request, env, url, path, ctx) {
     if (reqCompany && reqCompany !== user.company_id) {
       return err('Brak dostępu do tej firmy', 403);
     }
+  }
+
+  // Egzekwowanie licencji modułów (serwerowo). Kill switch: wrangler secret put MODULE_ENFORCEMENT → off
+  // MUSI stać PO guardach firmy powyżej: enforceModuleAccess czyta ?company= z URL, więc
+  // uruchamiane wcześniej odpowiadało na pytanie o pakiet OBCEJ firmy (402 vs przepuszczenie
+  // = kanał boczny ujawniający jej moduły). Dziś nieaktywny tylko dlatego, że resolveModuleAccess
+  // zawsze zwraca ['*'] — patrz dług: company_packages bez kolumny `active`.
+  if (user) {
+    const denied = await enforceModuleAccess(env, user, url, path);
+    if (denied) return denied;
   }
 
   if (path === '/api/push/subscribe' && request.method === 'POST') {
