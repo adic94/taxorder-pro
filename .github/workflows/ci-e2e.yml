@@ -24,6 +24,13 @@ jobs:
       - name: Zainstaluj zależności
         run: npm ci
 
+      # Eslint nie byl uruchamiany w zadnym workflow — dlatego blad no-script-url
+      # w generatorze bookmarkletu DT-1 przelezal niezauwazony wsrod 2168 ostrzezen.
+      # Bramka lapie tylko BLEDY (eslint konczy sie 0 przy samych ostrzezeniach);
+      # nie dodawaj --max-warnings 0 bez wczesniejszego posprzatania ostrzezen.
+      - name: Lint (bramka na bledy, nie na ostrzezenia)
+        run: npm run lint
+
       - name: Zainstaluj Chromium
         run: npx playwright install chromium --with-deps
 

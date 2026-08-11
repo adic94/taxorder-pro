@@ -22,3 +22,9 @@ jobs:
           for f in modules/*.js worker/*.js; do
             [ -f "$f" ] && node --check "$f"
           done
+
+      # node --check waliduje app.js, ale NIE kod, ktory app.js emituje jako tekst
+      # (bookmarklet DT-1 -> Warszawa). Ten test parsuje i uruchamia wygenerowany
+      # skrypt oraz sprawdza escapowanie danych. Bez zaleznosci - nie wymaga npm ci.
+      - name: Bookmarklet DT-1 → Warszawa (regresja)
+        run: node tests/unit/warsaw-bookmarklet-test.js
