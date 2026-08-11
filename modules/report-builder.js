@@ -5,7 +5,9 @@
 
   const SOURCES = {
     vehicles: { lbl:'Pojazdy', cols:['reg','brand','model','year','fuel_type','dmc','status','driver','department'] },
-    fuel_entries: { lbl:'Paliwo', cols:['date','vehicle_reg','liters','cost_pln','cost_per_liter','mileage','driver','type'] },
+    // fuel_fills, NIE fuel_entries — ta druga nie istnieje w bazie, przez co źródło „Paliwo"
+    // zwracało zawsze pusty raport. Nazwy kolumn muszą się zgadzać z ALLOWED_COLS w workerze.
+    fuel_fills: { lbl:'Paliwo', cols:['fill_date','nr_rej','liters','total_cost','price_per_liter','odometer','driver_name','fuel_type','station'] },
     service_orders: { lbl:'Serwis', cols:['date','vehicle_reg','description','cost_pln','mileage','status','workshop'] },
     damages: { lbl:'Szkody', cols:['date','vehicle_reg','description','cost_pln','fault','status','insurance_claim'] },
     fines: { lbl:'Mandaty', cols:['date','vehicle_reg','driver','amount_pln','reason','status','paid_at'] },
