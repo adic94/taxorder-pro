@@ -34,15 +34,56 @@ jobs:
       - name: Install Wrangler
         run: npm install -g wrangler@4.120.1
 
-      - name: Uruchom wszystkie schematy (idempotentne — CREATE IF NOT EXISTS)
+      # ⚠ Ten krok był PRZEZ DŁUGI CZAS DESTRUKCYJNY — trzy niezależne defekty:
+      #
+      #  1. Glob `worker/schema_v*.sql` dopasowywał TAKŻE pliki `schema_vNN_ROLLBACK.sql`,
+      #     a leksykograficznie każdy z nich trafiał TUŻ PO swojej migracji
+      #     (schema_v48.sql → schema_v48_ROLLBACK.sql). Baza co noc tworzyła tabele
+      #     i natychmiast je kasowała: companies, user_company_access, ksef_config,
+      #     vignettes, hr_leaves, debt_collection, company_packages, user_prefs_kv i inne.
+      #     To, a nie „migracja nigdy nie zastosowana", jest powodem braków w D1.
+      #
+      #  2. Glob powłoki sortuje LEKSYKOGRAFICZNIE, więc v2 wykonywało się po v19,
+      #     a v5 po v49 — migracje szły w złej kolejności. Naprawione przez `sort -V`.
+      #
+      #  3. `|| echo "błąd lub już wykonany"` zrównywał realną awarię z powtórnym
+      #     uruchomieniem i zawsze kończył się kodem 0. Import D1 z `--file` jest
+      #     transakcyjny per plik: JEDEN błędny statement wycofuje CAŁY plik, więc
+      #     „duplicate column name" w pliku z nową tabelą oznacza, że ta tabela też
+      #     nie powstała. Ten komunikat ukrywał dokładnie taki przypadek.
+      #
+      # Krok NIE przerywa się na błędzie — o zdrowiu bazy decyduje weryfikacja niżej,
+      # która porównuje faktyczny stan D1 z repo. Błąd w pliku, który i tak nic nie
+      # wnosi, nie powinien blokować nocnego przebiegu; brakująca tabela — powinien.
+      - name: Uruchom migracje (bez plików ROLLBACK, w kolejności numerycznej)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          for f in worker/schema_v*.sql; do
-            echo "▶ Uruchamiam $f..."
-            wrangler d1 execute taxorder-pro --remote --file="$f" || echo "⚠ $f — błąd lub już wykonany"
+          set -uo pipefail
+          FAILED=0
+          FILES=$(ls worker/schema_v*.sql | grep -v '_ROLLBACK' | sort -V)
+          echo "Do uruchomienia: $(echo "$FILES" | wc -l) plików (pliki ROLLBACK pominięte)"
+          for f in $FILES; do
+            echo "▶ $f"
+            if OUT=$(wrangler d1 execute taxorder-pro --remote --file="$f" 2>&1); then
+              echo "   ok"
+            else
+              FAILED=$((FAILED+1))
+              echo "   ❌ plik wycofany w całości przez D1 — nic z niego nie zostało zastosowane:"
+              echo "$OUT" | grep -iE "ERROR|SQLITE" | head -3 | sed 's/^/      /'
+            fi
           done
+          echo ""
+          echo "Plików zakończonych błędem: $FAILED"
+
+      # Właściwa bramka: czy baza faktycznie wygląda tak, jak zakłada repo.
+      # `migration-check` porównuje pliki między sobą i na to pytanie NIE odpowiada.
+      - name: Weryfikacja zgodności D1 z repo (bramka)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node tools/autotest/d1-schema-diff.js --strict
 
   # ─── Job 2: Raport JS syntax check ──────────────────────────────────────────
   syntax-check:

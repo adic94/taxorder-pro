@@ -1,7 +1,16 @@
--- schema_v50: esg_targets — przebudowa z modelu v35 (sztywne kolumny) na v41 (metric_key)
+-- migration_v50 (JEDNORAZOWA, NIE schema_vN — patrz niżej): esg_targets — przebudowa z modelu v35 (sztywne kolumny) na v41 (metric_key)
 --
--- Uruchom:
---   wrangler d1 execute taxorder-pro --remote --file=worker/schema_v50.sql
+-- Uruchom (RĘCZNIE, jednorazowo):
+--   wrangler d1 execute taxorder-pro --remote --file=worker/migration_v50_esg_targets.sql
+--
+-- DLACZEGO `migration_`, A NIE `schema_v50.sql`: nocny workflow uruchamia KAŻDY plik
+-- pasujący do `worker/schema_v*.sql`, co noc. Ta nazwa jest więc obietnicą: „plik jest
+-- idempotentny, można go puszczać w kółko". Ten plik taki NIE jest — robi DROP TABLE
+-- i RENAME, a przy drugim uruchomieniu wywala się na braku kolumny `co2_target_kg`
+-- (D1 wycofa go w całości, więc bez szkody, ale co noc raportowałby błąd).
+-- Migracje strukturalne (rebuild / DROP / ALTER) nazywaj `migration_vNN_opis.sql`,
+-- żeby nie trafiły do automatu. Dla przypomnienia, ile kosztuje pomyłka w tym miejscu:
+-- pliki `schema_vNN_ROLLBACK.sql` też pasowały do tego globa i kasowały tabele co noc.
 --
 -- DLACZEGO: produkcyjne D1 stoi na strukturze z schema_v35 (potwierdzone PRAGMA table_info
 -- 11.08.2026). schema_v41 miał ją przedefiniować, ale użył CREATE TABLE IF NOT EXISTS,

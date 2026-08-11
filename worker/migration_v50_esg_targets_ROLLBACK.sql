@@ -1,7 +1,7 @@
--- schema_v50 ROLLBACK: esg_targets z modelu v41 (metric_key) z powrotem na v35 (sztywne kolumny)
+-- migration_v50 ROLLBACK: esg_targets z modelu v41 (metric_key) z powrotem na v35 (sztywne kolumny)
 --
 -- Uruchom:
---   wrangler d1 execute taxorder-pro --remote --file=worker/schema_v50_ROLLBACK.sql
+--   wrangler d1 execute taxorder-pro --remote --file=worker/migration_v50_esg_targets_ROLLBACK.sql
 --
 -- ⚠ ROLLBACK JEST STRATNY. Model v35 ma miejsce tylko na cztery metryki. Wiersze o kluczach
 -- spoza listy poniżej (np. co2_per_km, accidents_per_1m_km, training_hours, fuel_cost_pln,

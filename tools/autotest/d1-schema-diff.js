@@ -142,17 +142,22 @@ function readD1() {
   // powłoki i przewraca się na `spawnSync ... EINVAL`. Ścieżka przez `node <plik>.js` jest
   // identyczna na Windows i POSIX, nie wymaga shell:true, więc omija też całą pułapkę
   // cudzysłowów cmd.exe (a zapytanie i tak zawiera apostrofy).
+  // Lokalny wrangler z node_modules; w CI (gdzie instalowany jest globalnie, bez npm ci)
+  // spadamy na `wrangler` z PATH. Na Linuksie to zwykły plik JS z shebangiem, więc
+  // execFileSync poradzi sobie bez powłoki.
   const cli = path.join(ROOT, 'node_modules', 'wrangler', 'bin', 'wrangler.js');
-  if (!fs.existsSync(cli)) throw new Error(`Brak ${cli} — uruchom npm ci`);
+  const useLocal = fs.existsSync(cli);
 
   // Bez LIKE '%...' — znak % jest specjalny dla cmd.exe, a filtrowanie tabel
   // systemowych jest równie łatwe po stronie JS.
   const sql = "SELECT name, sql FROM sqlite_master WHERE type='table'";
-  const args = [cli, 'd1', 'execute', DB_NAME, '--remote', '--json', '--command', sql];
+  const tail = ['d1', 'execute', DB_NAME, '--remote', '--json', '--command', sql];
+  const exe  = useLocal ? process.execPath : 'wrangler';
+  const args = useLocal ? [cli, ...tail] : tail;
 
   let raw;
   try {
-    raw = execFileSync(process.execPath, args, {
+    raw = execFileSync(exe, args, {
       cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
     });
   } catch (e) {
