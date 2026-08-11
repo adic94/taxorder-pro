@@ -137,18 +137,42 @@ function readD1() {
     for (const r of rows) out.set(r.name, { sql: r.sql, columns: columnsOf(r.sql), check: hasCheck(r.sql) });
     return out;
   }
-  const bin = process.platform === 'win32' ? 'wrangler.cmd' : 'wrangler';
-  const exe = path.join(ROOT, 'node_modules', '.bin', bin);
-  const args = ['d1', 'execute', DB_NAME, '--remote', '--json',
-    '--command', "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%'"];
-  const raw = execFileSync(exe, args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+  // Uruchamiamy punkt wejścia wranglera przez `node`, NIE przez node_modules/.bin/wrangler.cmd.
+  // Powód: od łatki na CVE-2024-27980 Node na Windows odmawia uruchomienia pliku .cmd bez
+  // powłoki i przewraca się na `spawnSync ... EINVAL`. Ścieżka przez `node <plik>.js` jest
+  // identyczna na Windows i POSIX, nie wymaga shell:true, więc omija też całą pułapkę
+  // cudzysłowów cmd.exe (a zapytanie i tak zawiera apostrofy).
+  const cli = path.join(ROOT, 'node_modules', 'wrangler', 'bin', 'wrangler.js');
+  if (!fs.existsSync(cli)) throw new Error(`Brak ${cli} — uruchom npm ci`);
+
+  // Bez LIKE '%...' — znak % jest specjalny dla cmd.exe, a filtrowanie tabel
+  // systemowych jest równie łatwe po stronie JS.
+  const sql = "SELECT name, sql FROM sqlite_master WHERE type='table'";
+  const args = [cli, 'd1', 'execute', DB_NAME, '--remote', '--json', '--command', sql];
+
+  let raw;
+  try {
+    raw = execFileSync(process.execPath, args, {
+      cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch (e) {
+    const details = [e.stderr, e.stdout].filter(Boolean).join('\n');
+    if (/not authenticated|wrangler login|Authentication|CLOUDFLARE_API_TOKEN|credentials/i.test(details)) {
+      throw new Error('AUTH: wrangler nie ma poświadczeń');
+    }
+    throw new Error((e.message || 'nieznany błąd').split('\n')[0] +
+      (details ? '\n   ' + details.trim().split('\n').slice(-3).join('\n   ') : ''));
+  }
+
   const start = raw.indexOf('[');
-  if (start < 0) throw new Error('Nie znaleziono JSON w odpowiedzi wranglera');
+  if (start < 0) throw new Error('Nie znaleziono JSON w odpowiedzi wranglera:\n   ' + raw.slice(0, 300));
   const parsed = JSON.parse(raw.slice(start));
-  const rows = (Array.isArray(parsed) ? parsed : [parsed])
-    .flatMap(r => r.results || r.result || []);
+  const rows = (Array.isArray(parsed) ? parsed : [parsed]).flatMap(r => r.results || r.result || []);
   const out = new Map();
-  for (const r of rows) if (r && r.name) out.set(r.name, { sql: r.sql || '', columns: columnsOf(r.sql || ''), check: hasCheck(r.sql || '') });
+  for (const r of rows) {
+    if (!r || !r.name || /^sqlite_|^_cf_/.test(r.name)) continue;
+    out.set(r.name, { sql: r.sql || '', columns: columnsOf(r.sql || ''), check: hasCheck(r.sql || '') });
+  }
   return out;
 }
 
@@ -188,10 +212,17 @@ function main() {
   try {
     live = readD1();
   } catch (e) {
+    const msg = String(e.message || '');
     console.log('\n❌ Nie udało się odczytać D1.');
-    console.log('   ' + String(e.message).split('\n')[0]);
-    console.log('   Zaloguj się: node_modules\\.bin\\wrangler.cmd login   (albo ustaw CLOUDFLARE_API_TOKEN)');
-    console.log('   Sama analiza plików: node tools/autotest/d1-schema-diff.js --offline\n');
+    if (msg.startsWith('AUTH:')) {
+      console.log('   Wrangler nie jest zalogowany.');
+      console.log('   Zaloguj się:  node node_modules/wrangler/bin/wrangler.js login');
+      console.log('   albo ustaw CLOUDFLARE_API_TOKEN w środowisku.');
+    } else {
+      // Nie zgaduj przyczyny — pokaż to, co faktycznie powiedział wrangler.
+      console.log('   ' + msg);
+    }
+    console.log('\n   Sama analiza plików (bez bazy): node tools/autotest/d1-schema-diff.js --offline\n');
     return 2;
   }
 
