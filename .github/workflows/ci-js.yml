@@ -75,6 +75,14 @@ jobs:
       - name: Straznik kreatora raportow — spojnosc zrodel i kolumn
         run: node tests/unit/report-sources-test.js
 
+      # Oplata za korzystanie ze srodowiska. Test pilnuje przede wszystkim tego, ze przy
+      # BRAKU stawek wyliczenie ODMAWIA, zamiast zwrocic zero — zerowa naleznosc wobec
+      # urzedu marszalkowskiego wyglada wiarygodnie i nikt jej nie zakwestionuje.
+      # Pilnuje tez pulapki jednostek: stawka jest na Mg, dane w litrach, wiec
+      # przeliczenie wymaga gestosci, roznej dla kazdego paliwa.
+      - name: Straznik oplat srodowiskowych — brak stawek nie moze dac zera
+        run: node tests/unit/env-fee-test.js
+
       # migration_v50 przebudowuje esg_targets przez DROP + RENAME i w chwili dodania
       # tego kroku NIE jest jeszcze zastosowana na produkcji. Test uruchamia ja na
       # wiernie odtworzonej strukturze v35 i pilnuje trzech rzeczy latwych do zepsucia
