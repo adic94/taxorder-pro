@@ -3,11 +3,24 @@ name: E2E & API tests
 on:
   push:
     branches: [main]
+    # Suite Playwright trwa ~28 min. Zmiany czysto dokumentacyjne nie mogą go zmienić,
+    # a uruchamiały pełny przebieg — na prywatnym repo to minuty z pakietu Actions.
+    paths-ignore: ['**.md', 'docs/**', 'CLAUDE.md']
   pull_request:
+    paths-ignore: ['**.md', 'docs/**', 'CLAUDE.md']
   workflow_dispatch:
   schedule:
     # Nightly testy o 02:00 UTC (04:00 czasu polskiego)
     - cron: '0 2 * * *'
+
+# Nowy push do tej samej gałęzi anuluje poprzedni, jeszcze biegnący przebieg.
+# Bez tego KAŻDY commit uruchamiał osobny, pełny suite i wszystkie biegły do końca,
+# choć liczył się wyłącznie ostatni. Przy sześciu commitach do jednej gałęzi to
+# pięć przebiegów po ~28 min wyrzuconych w błoto.
+# `main` wyłączony z anulowania: tam każdy commit ma mieć własny, kompletny wynik.
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   e2e:

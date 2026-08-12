@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
 
+# Bramki jednostkowe trwają ~15 s, więc oszczędność jest niewielka — ale nadmiarowe
+# przebiegi i tak zajmują runnery, których pula jest wspólna z suitem Playwright.
+concurrency:
+  group: js-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   syntax:
     runs-on: ubuntu-latest
