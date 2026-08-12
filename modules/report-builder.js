@@ -5,10 +5,12 @@
 
   const SOURCES = {
     vehicles: { lbl:'Pojazdy', cols:['reg','brand','model','year','fuel_type','dmc','status','driver','department'] },
-    fuel_entries: { lbl:'Paliwo', cols:['date','vehicle_reg','liters','cost_pln','cost_per_liter','mileage','driver','type'] },
-    service_orders: { lbl:'Serwis', cols:['date','vehicle_reg','description','cost_pln','mileage','status','workshop'] },
-    damages: { lbl:'Szkody', cols:['date','vehicle_reg','description','cost_pln','fault','status','insurance_claim'] },
-    fines: { lbl:'Mandaty', cols:['date','vehicle_reg','driver','amount_pln','reason','status','paid_at'] },
+    // fuel_fills, NIE fuel_entries — ta druga nie istnieje w bazie, przez co źródło „Paliwo"
+    // zwracało zawsze pusty raport. Nazwy kolumn muszą się zgadzać z ALLOWED_COLS w workerze.
+    fuel_fills: { lbl:'Paliwo', cols:['fill_date','nr_rej','liters','total_cost','price_per_liter','odometer','driver_name','fuel_type','station'] },
+    service_orders: { lbl:'Serwis', cols:['nr_rej','typ','opis','status','warsztat','koszt_szacowany','koszt_rzeczywisty','data_realizacji'] },
+    damage_reports: { lbl:'Szkody', cols:['nr_rej','data_zdarzenia','opis','przyczyna','status','koszt','zglaszajacy'] },
+    fines: { lbl:'Mandaty', cols:['nr_rej','driver_name','date','type','amount','description','fine_no','paid'] },
     tco_cost_entries: { lbl:'TCO (koszty)', cols:['entry_date','vehicle_reg','category','amount_pln','description'] },
     ksef_invoices: { lbl:'Faktury KSeF', cols:['invoice_number','ksef_number','ksef_status','seller_nip','buyer_nip','gross_pln','ksef_date'] },
     carpooling_trips: { lbl:'Carpooling', cols:['trip_date','driver_name','vehicle_reg','origin','destination','status','cost_pln'] },

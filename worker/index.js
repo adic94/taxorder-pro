@@ -4216,16 +4216,16 @@ async function handleNotifLog(req, env, user, url, path) {
     // actions: acknowledge | snooze | add
     if (body.action === 'acknowledge' && body.id) {
       await env.DB.prepare(
-        "UPDATE notification_log SET acknowledged_at=datetime('now') WHERE id=? AND (user_id=? OR ?='admin')"
-      ).bind(body.id, user.id, user.role).run();
+        "UPDATE notification_log SET acknowledged_at=datetime('now') WHERE id=? AND company_id=? AND (user_id=? OR ?='admin')"
+      ).bind(body.id, company, user.id, user.role).run();
       return json({ ok: true });
     }
     if (body.action === 'snooze' && body.id) {
       const days = Math.max(1, Math.min(parseInt(body.days || 7), 90));
       await env.DB.prepare(
         `UPDATE notification_log SET snoozed_until=datetime('now','+'||?||' days'),snooze_days=?
-         WHERE id=? AND (user_id=? OR ?='admin')`
-      ).bind(days, days, body.id, user.id, user.role).run();
+         WHERE id=? AND company_id=? AND (user_id=? OR ?='admin')`
+      ).bind(days, days, body.id, company, user.id, user.role).run();
       return json({ ok: true });
     }
     if (body.action === 'add') {
@@ -5793,6 +5793,13 @@ async function handleSupplierInvoices(req, env, user, url, path) {
     return json({ ok:true });
   }
   if (method === 'DELETE' && id) {
+    // Najpierw potwierdź własność faktury. Bez tego DELETE pozycji leciał po samym
+    // invoice_id ze ścieżki, bez scope'u company_id — użytkownik firmy A, znając id
+    // faktury firmy B, trwale kasował jej pozycje (kwoty, opisy), a scope'owany DELETE
+    // nagłówka nie kasował nic. Wzorzec jak w handleDamages/handleProtocols.
+    const owned = await env.DB.prepare('SELECT id FROM supplier_invoices WHERE id=? AND company_id=?')
+      .bind(id,company).first();
+    if (!owned) return err('Faktura nie istnieje', 404);
     await env.DB.prepare('DELETE FROM supplier_invoice_items WHERE invoice_id=?').bind(id).run();
     await env.DB.prepare('DELETE FROM supplier_invoices WHERE id=? AND company_id=?').bind(id,company).run();
     return json({ ok:true });
@@ -6552,13 +6559,59 @@ async function handleTCO(request, env, user, url, path) {
 }
 
 // ─── CO2 REPORT ───────────────────────────────────────────────────────────────
+
+// Wskaźniki emisji CO2 (kg na litr). Współdzielone przez /api/co2-report i /api/esg —
+// wcześniej ESG w ogóle nie liczyło CO2, a po naprawie dwa endpointy mogłyby raportować
+// różne wartości dla tej samej floty, gdyby każdy trzymał własną tablicę.
+// UWAGA: modules/co2-report.js ma WŁASNĄ, rozbieżną tablicę (diesel 2.68, lpg 1.51,
+// klucze po polsku) — patrz dług techniczny w CLAUDE.md. Wartości poniżej są tymi,
+// których backend używał do tej pory; nie zmieniam ich przy okazji naprawy zer.
+const CO2_EMISSION_FACTORS = { diesel: 2.65, petrol: 2.31, pb: 2.31, gasoline: 2.31, lpg: 1.63, hybrid: 2.0, electric: 0, default: 2.5 };
+
+/**
+ * Degradacja zapytania BEZ ciszy. Zwraca `fallback` przy błędzie, ale najpierw krzyczy.
+ *
+ * Goły `.catch(() => ({results: []}))` zamienia „tabela nie istnieje" w „brak danych",
+ * czego nie widać ani w logach, ani w UI. Dokładnie tak CO2 i zużycie paliwa w raportach
+ * ESG raportowały zera przez cały czas istnienia tej funkcji — użytkownik dostawał
+ * wiarygodnie wyglądający wynik, a nie błąd. Nowy kod na ścieżkach produkujących liczby
+ * dla użytkownika ma używać tego helpera zamiast gołego `.catch()`.
+ */
+async function dbSafe(promise, fallback, env, ctx = {}) {
+  try {
+    return await promise;
+  } catch (e) {
+    console.error('[db-degraded]', ctx.op || 'query', '—', e?.message || e);
+    captureException(e, env, { ...ctx, kind: 'db-degraded' }).catch(() => {});
+    return fallback;
+  }
+}
+
+/**
+ * Sumy zatankowanych litrów i wyliczonego CO2 za dany rok.
+ * Źródłem jest `fuel_fills` — jedyna tabela tankowań, do której cokolwiek zapisuje.
+ */
+async function fuelActualsForYear(env, company, year) {
+  const rows = (await dbSafe(env.DB.prepare(
+    `SELECT fuel_type, SUM(liters) AS liters FROM fuel_fills
+     WHERE company_id=? AND strftime('%Y',fill_date)=? GROUP BY fuel_type`
+  ).bind(company, String(year)).all(), { results: [] }, env, { op: 'fuelActualsForYear', company, year })).results || [];
+  let liters = 0, co2_kg = 0;
+  for (const r of rows) {
+    const l = r.liters || 0;
+    liters += l;
+    co2_kg += l * (CO2_EMISSION_FACTORS[(r.fuel_type || '').toLowerCase()] ?? CO2_EMISSION_FACTORS.default);
+  }
+  return { liters, co2_kg };
+}
+
 async function handleCO2Report(request, env, user, url, path) {
   if (request.method !== 'GET') return err('Method Not Allowed', 405);
   const company = url.searchParams.get('company') || user.company_id;
   const year    = url.searchParams.get('year') || String(new Date().getFullYear());
   const month   = url.searchParams.get('month');
 
-  const EMISSION = { diesel: 2.65, petrol: 2.31, pb: 2.31, gasoline: 2.31, lpg: 1.63, hybrid: 2.0, electric: 0, default: 2.5 };
+  const EMISSION = CO2_EMISSION_FACTORS;
   let sql = `SELECT f.nr_rej, f.fuel_type, SUM(f.liters) AS liters, SUM(f.total_cost) AS cost,
              strftime('%Y-%m', f.fill_date) AS ym
              FROM fuel_fills f WHERE f.company_id=? AND strftime('%Y',f.fill_date)=?`;
@@ -8645,12 +8698,6 @@ async function handleRequest(request, env, url, path, ctx) {
     if (!rlApi.allowed) return json({ error: 'Zbyt wiele zapytań. Poczekaj chwilę.' }, 429);
   }
 
-  // Egzekwowanie licencji modułów (serwerowo). Kill switch: wrangler secret put MODULE_ENFORCEMENT → off
-  if (user) {
-    const denied = await enforceModuleAccess(env, user, url, path);
-    if (denied) return denied;
-  }
-
   // Klucze API są związane z JEDNĄ firmą — w przeciwieństwie do sesji ludzkich (które mogą przełączać firmy w UI),
   // każde żądanie kluczem API musi dotyczyć dokładnie tej firmy, do której klucz został wydany.
   if (user && user._apiKey) {
@@ -8676,6 +8723,16 @@ async function handleRequest(request, env, url, path, ctx) {
     if (reqCompany && reqCompany !== user.company_id) {
       return err('Brak dostępu do tej firmy', 403);
     }
+  }
+
+  // Egzekwowanie licencji modułów (serwerowo). Kill switch: wrangler secret put MODULE_ENFORCEMENT → off
+  // MUSI stać PO guardach firmy powyżej: enforceModuleAccess czyta ?company= z URL, więc
+  // uruchamiane wcześniej odpowiadało na pytanie o pakiet OBCEJ firmy (402 vs przepuszczenie
+  // = kanał boczny ujawniający jej moduły). Dziś nieaktywny tylko dlatego, że resolveModuleAccess
+  // zawsze zwraca ['*'] — patrz dług: company_packages bez kolumny `active`.
+  if (user) {
+    const denied = await enforceModuleAccess(env, user, url, path);
+    if (denied) return denied;
   }
 
   if (path === '/api/push/subscribe' && request.method === 'POST') {
@@ -10468,11 +10525,16 @@ async function handleZapierWebhook(req, env, user, url, path) {
     // Zwraca ostatnie zdarzenia w formacie Zapier (polling trigger)
     const limit = parseInt(url.searchParams.get('limit') || '25');
     const type  = url.searchParams.get('type') || '';
+    // UWAGA: webhook_logs nie jest tworzona przez żaden schema_v*.sql i NIC do niej nie
+    // zapisuje — to jedyne odwołanie w całym workerze. Bez .catch() ten SELECT wywalał
+    // GET /api/zapier?events na 500. Pusta lista jest odpowiedzią zgodną z prawdą
+    // (nie ma zalogowanych zdarzeń); dopiero implementacja zapisu uczyni ten trigger użytecznym.
     let q = 'SELECT * FROM webhook_logs WHERE company_id=? ';
     const p = [co];
     if (type) { q += 'AND event_type=? '; p.push(type); }
     q += `ORDER BY created_at DESC LIMIT ${limit}`;
-    const rows = (await env.DB.prepare(q).bind(...p).all()).results || [];
+    const rows = (await dbSafe(env.DB.prepare(q).bind(...p).all(), { results: [] }, env,
+      { op: 'zapier-events', company: co })).results || [];
     // Zapier format: tablica z id jako string (wymagany dedupe)
     return json(rows.map(r => ({ id: r.id, ...JSON.parse(r.payload||'{}'), _event_type: r.event_type, _created_at: r.created_at })));
   }
@@ -11523,8 +11585,11 @@ async function handleFleetDisposal(req, env, user, url, path) {
 
 async function handleReportBuilder(req, env, user, url, path) {
   const co=coOf(url,user);const segs=path.split('/').filter(Boolean);const sub=segs[2]||null;const id=segs[3]||null;const method=req.method;
-  const ALLOWED_TABLES=['vehicles','fuel_entries','service_orders','damages','fines','tco_cost_entries','ksef_invoices','carpooling_trips'];
-  const ALLOWED_COLS={vehicles:['id','reg','brand','model','year','fuel_type','dmc','status','driver','department'],fuel_entries:['id','date','vehicle_reg','liters','cost_pln','cost_per_liter','mileage','driver','type'],service_orders:['id','date','vehicle_reg','description','cost_pln','mileage','status','workshop'],damages:['id','date','vehicle_reg','description','cost_pln','fault','status'],fines:['id','date','vehicle_reg','driver','amount_pln','reason','status'],tco_cost_entries:['id','entry_date','vehicle_reg','category','amount_pln','description'],ksef_invoices:['id','invoice_number','ksef_number','ksef_status','seller_nip','buyer_nip','gross_pln','ksef_date'],carpooling_trips:['id','trip_date','driver_name','vehicle_reg','origin','destination','status','cost_pln']};
+  // fuel_fills, NIE fuel_entries — ta druga nie istnieje w D1, a zapytanie ma .catch(),
+  // więc źródło „Paliwo" w kreatorze raportów dawało zawsze pustą tabelę bez żadnego błędu.
+  // Kolumny muszą się zgadzać z modules/report-builder.js (front i backend są sparowane).
+  const ALLOWED_TABLES=['vehicles','fuel_fills','service_orders','damage_reports','fines','tco_cost_entries','ksef_invoices','carpooling_trips'];
+  const ALLOWED_COLS={vehicles:['id','reg','brand','model','year','fuel_type','dmc','status','driver','department'],fuel_fills:['id','fill_date','nr_rej','liters','total_cost','price_per_liter','odometer','driver_name','fuel_type','station'],service_orders:['id','nr_rej','typ','opis','status','warsztat','koszt_szacowany','koszt_rzeczywisty','data_realizacji','km_realizacji'],damage_reports:['id','nr_rej','data_zdarzenia','opis','przyczyna','status','koszt','zglaszajacy'],fines:['id','nr_rej','driver_name','date','type','amount','description','fine_no','issuer','points','paid','paid_date'],tco_cost_entries:['id','entry_date','vehicle_reg','category','amount_pln','description'],ksef_invoices:['id','invoice_number','ksef_number','ksef_status','seller_nip','buyer_nip','gross_pln','ksef_date'],carpooling_trips:['id','trip_date','driver_name','vehicle_reg','origin','destination','status','cost_pln']};
   if(method==='POST'&&sub==='run'){
     const b=await req.json().catch(()=>({}));
     const table=b.source||b.source_table||'vehicles';
@@ -11632,7 +11697,9 @@ async function handleJpk(req, env, user, url, path) {
       if(b.jpk_type==='JPK_FA'||b.jpk_type==='JPK_V7M'||b.jpk_type==='JPK_V7K'){
         rows=(await env.DB.prepare('SELECT * FROM ksef_invoices WHERE company_id=? AND strftime(\'%Y\',ksef_date)=?').bind(co,String(b.year)).all().catch(()=>({results:[]}))).results||[];
       }else if(b.jpk_type==='JPK_KR'||b.jpk_type==='SAF_T'){
-        const fuel=(await env.DB.prepare('SELECT * FROM fuel_entries WHERE company_id=? AND strftime(\'%Y\',date)=?').bind(co,String(b.year)).all().catch(()=>({results:[]}))).results||[];
+        // fuel_fills (nie fuel_entries — ta nie istnieje), więc kolumna daty to fill_date.
+        // Wcześniej .catch() zjadał błąd i eksport JPK_KR/SAF_T nie zawierał ŻADNYCH kosztów paliwa.
+        const fuel=(await env.DB.prepare('SELECT * FROM fuel_fills WHERE company_id=? AND strftime(\'%Y\',fill_date)=?').bind(co,String(b.year)).all().catch(()=>({results:[]}))).results||[];
         const srv=(await env.DB.prepare('SELECT * FROM service_orders WHERE company_id=? AND strftime(\'%Y\',date)=?').bind(co,String(b.year)).all().catch(()=>({results:[]}))).results||[];
         rows=[...fuel,...srv];
       }
@@ -11714,8 +11781,10 @@ async function handleEsgTargets(req, env, user, url, path) {
   if(method==='GET'&&sub==='report'){
     const targets=(await env.DB.prepare('SELECT * FROM esg_targets WHERE company_id=? AND year=?').bind(co,year).all().catch(()=>({results:[]}))).results||[];
     // Obliczamy aktualne wartości z danych
-    const co2=(await env.DB.prepare('SELECT SUM(co2_kg) s FROM fuel_entries WHERE company_id=? AND strftime(\'%Y\',date)=?').bind(co,String(year)).first().catch(()=>null))?.s||0;
-    const fuel=(await env.DB.prepare('SELECT SUM(liters) s FROM fuel_entries WHERE company_id=? AND strftime(\'%Y\',date)=?').bind(co,String(year)).first().catch(()=>null))?.s||0;
+    // fuel_entries NIE ISTNIEJE w D1 — żaden schema_v*.sql jej nie tworzy. Oba zapytania
+    // miały .catch(), więc cicho zwracały 0: CO2 i zużycie paliwa w raportach ESG były
+    // zerowe dla każdej firmy i każdego roku. Realne tankowania są w fuel_fills.
+    const { co2_kg: co2, liters: fuel } = await fuelActualsForYear(env, co, year);
     const total=(await env.DB.prepare('SELECT COUNT(*) c FROM vehicles WHERE company_id=? AND active=1').bind(co).first().catch(()=>null))?.c||0;
     const ev=(await env.DB.prepare("SELECT COUNT(*) c FROM vehicles WHERE company_id=? AND active=1 AND fuel_type IN ('electric','hybrid')").bind(co).first().catch(()=>null))?.c||0;
     const actuals={co2_total_tonnes:co2?(co2/1000).toFixed(2):null,fuel_consumption_l:fuel||null,ev_share_pct:total?(ev/total*100).toFixed(1):null};
@@ -11723,8 +11792,10 @@ async function handleEsgTargets(req, env, user, url, path) {
   }
   if(method==='GET'&&!sub){
     const targets=(await env.DB.prepare('SELECT * FROM esg_targets WHERE company_id=? AND year=?').bind(co,year).all().catch(()=>({results:[]}))).results||[];
-    const co2=(await env.DB.prepare('SELECT SUM(co2_kg) s FROM fuel_entries WHERE company_id=? AND strftime(\'%Y\',date)=?').bind(co,String(year)).first().catch(()=>null))?.s||0;
-    const fuel=(await env.DB.prepare('SELECT SUM(liters) s FROM fuel_entries WHERE company_id=? AND strftime(\'%Y\',date)=?').bind(co,String(year)).first().catch(()=>null))?.s||0;
+    // fuel_entries NIE ISTNIEJE w D1 — żaden schema_v*.sql jej nie tworzy. Oba zapytania
+    // miały .catch(), więc cicho zwracały 0: CO2 i zużycie paliwa w raportach ESG były
+    // zerowe dla każdej firmy i każdego roku. Realne tankowania są w fuel_fills.
+    const { co2_kg: co2, liters: fuel } = await fuelActualsForYear(env, co, year);
     const total=(await env.DB.prepare('SELECT COUNT(*) c FROM vehicles WHERE company_id=? AND active=1').bind(co).first().catch(()=>null))?.c||0;
     const ev=(await env.DB.prepare("SELECT COUNT(*) c FROM vehicles WHERE company_id=? AND active=1 AND fuel_type IN ('electric','hybrid')").bind(co).first().catch(()=>null))?.c||0;
     const actuals={co2_total_tonnes:co2?(co2/1000).toFixed(2):null,fuel_consumption_l:fuel||null,ev_share_pct:total?(ev/total*100).toFixed(1):null};

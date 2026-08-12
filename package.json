@@ -16,6 +16,10 @@
     "test:apik": "playwright test tests/e2e/api-keys.spec.js",
     "test:api": "node tests/api/api-test.js",
     "test:isolation": "node tests/api/tenant-isolation-test.js",
+    "test:bookmarklet": "node tests/unit/warsaw-bookmarklet-test.js",
+    "test:migration-glob": "node tests/unit/migration-glob-test.js",
+    "report-sources-check": "node tests/unit/report-sources-test.js",
+    "test:esg": "node tests/api/esg-reports-test.js",
     "test:report": "playwright show-report tests/results/html",
     "pw:install": "playwright install chromium",
     "xss-audit": "node tools/autotest/xss-audit.js",
@@ -26,8 +30,10 @@
     "smoke": "node tools/autotest/api-smoke-test.js",
     "smoke:auth": "node tools/autotest/api-smoke-test.js --auth",
     "migration-check": "node tools/autotest/migration-check.js",
+    "d1-diff": "node tools/autotest/d1-schema-diff.js",
+    "d1-diff:offline": "node tools/autotest/d1-schema-diff.js --offline",
     "verify:v44": "node tools/autotest/verify-v44.js",
-    "audit:all": "node tools/autotest/syntax-check.js && node tools/autotest/xss-audit.js && node tools/autotest/i18n-check.js && node tools/autotest/sw-cache-bump.js --check",
+    "audit:all": "node tools/autotest/syntax-check.js && node tools/autotest/xss-audit.js && node tools/autotest/i18n-check.js && node tools/autotest/sw-cache-bump.js --check && node tests/unit/warsaw-bookmarklet-test.js && node tests/unit/migration-glob-test.js && node tests/unit/migration-apply-test.js",
     "lint:worker": "eslint worker/index.js",
     "lint:modules": "eslint modules/*.js",
     "lint": "eslint worker/index.js modules/*.js app.js",
@@ -35,7 +41,8 @@
     "sg:scan": "sg scan",
     "sg:xss": "sg run -p '$EL.innerHTML = $X' modules/*.js app.js",
     "pw:mcp": "playwright-mcp --headless",
-    "lint:all": "eslint worker/index.js modules/*.js app.js && node tools/autotest/xss-audit.js"
+    "lint:all": "eslint worker/index.js modules/*.js app.js && node tools/autotest/xss-audit.js",
+    "test:migration-apply": "node tests/unit/migration-apply-test.js"
   },
   "devDependencies": {
     "@ast-grep/cli": "^0.44.1",

@@ -109,18 +109,61 @@ function schemaFiles() {
     });
 }
 
+/**
+ * ALTER TABLE ... ADD COLUMN z późniejszych plików schema.
+ *
+ * Bez tego narzędzie porównywało stan D1 wyłącznie z treścią CREATE TABLE i każdą
+ * tabelę rozszerzoną późniejszym ALTER-em raportowało jako „nie pasuje do ŻADNEJ
+ * definicji". Na zdrowej bazie dawało to 14 fałszywych rozjazdów i kod wyjścia 1,
+ * czyli bramka `--strict` w nocnym workflow świeciłaby czerwono KAŻDEJ nocy
+ * niezależnie od stanu bazy — a bramka, która zawsze krzyczy, nie niesie informacji.
+ *
+ * Uwzględniamy wyłącznie ADD COLUMN: pliki schema*.sql nie zawierają DROP COLUMN
+ * ani RENAME (sprawdzone), a operacje destrukcyjne żyją w plikach migration_*,
+ * których to narzędzie celowo nie czyta.
+ */
+function parseAlters(files) {
+  const alters = new Map(); // tabela -> [{ fileIdx, column }]
+  files.forEach((f, fileIdx) => {
+    const src = stripComments(fs.readFileSync(path.join(SCHEMA, f), 'utf8'));
+    const re = /ALTER\s+TABLE\s+["`[]?(\w+)["`\]]?\s+ADD\s+(?:COLUMN\s+)?["`[]?(\w+)/gi;
+    let m;
+    while ((m = re.exec(src))) {
+      if (!alters.has(m[1])) alters.set(m[1], []);
+      alters.get(m[1]).push({ fileIdx, column: m[2] });
+    }
+  });
+  return alters;
+}
+
 function parseRepo() {
-  const defs = new Map(); // table -> [{file, columns, check}]
-  for (const f of schemaFiles()) {
+  const files = schemaFiles();
+  const defs  = new Map(); // table -> [{file, columns, check, altered}]
+  files.forEach((f, fileIdx) => {
     const src = stripComments(fs.readFileSync(path.join(SCHEMA, f), 'utf8'));
     const re = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["`[]?(\w+)["`\]]?\s*\(/gi;
     let m;
     while ((m = re.exec(src))) {
       const name = m[1];
       const body = src.slice(m.index);
-      const entry = { file: f, columns: columnsOf(body), check: hasCheck(outerParens(body)) };
+      const entry = {
+        file: f, fileIdx, created: columnsOf(body),
+        check: hasCheck(outerParens(body)),
+      };
       if (!defs.has(name)) defs.set(name, []);
       defs.get(name).push(entry);
+    }
+  });
+
+  // Do każdej definicji doklejamy kolumny dodane ALTER-ami z PÓŹNIEJSZYCH plików.
+  const alters = parseAlters(files);
+  for (const [name, entries] of defs) {
+    const add = alters.get(name) || [];
+    for (const e of entries) {
+      e.altered = [...new Set(
+        add.filter(a => a.fileIdx > e.fileIdx).map(a => a.column)
+      )].filter(c => !e.created.includes(c));
+      e.columns = [...e.created, ...e.altered];
     }
   }
   return defs;
@@ -203,7 +246,7 @@ function main() {
   console.log(`[1] Tabele zdefiniowane >1×: ${multi.length}  (w tym z RÓŻNĄ strukturą: ${conflicting.length})`);
   for (const [name, d] of conflicting) {
     console.log(`    ⚠ ${name}`);
-    d.forEach(x => console.log(`        ${x.file.padEnd(16)} kolumny: ${x.columns.join(', ')}${x.check ? '   [CHECK]' : ''}`));
+    d.forEach(x => console.log(`        ${x.file.padEnd(16)} kolumny: ${x.columns.join(', ')}${x.check ? '   [CHECK]' : ''}${x.altered.length ? `   [+ALTER: ${x.altered.join(', ')}]` : ''}`));
     console.log(`        → wygrywa ${d[0].file} (CREATE TABLE IF NOT EXISTS = pozostałe to no-op)`);
   }
   if (!conflicting.length) console.log('    ✅ brak konfliktów strukturalnych');
@@ -276,7 +319,7 @@ function main() {
     defs.forEach(d => {
       const brak = setDiff(d.columns, act.columns);
       const nadm = setDiff(act.columns, d.columns);
-      console.log(`        ${d.file.padEnd(16)} ${d.columns.join(', ')}`);
+      console.log(`        ${d.file.padEnd(16)} ${d.columns.join(', ')}${d.altered.length ? `   [+ALTER: ${d.altered.join(', ')}]` : ''}`);
       if (brak.length) console.log(`            w D1 BRAKUJE: ${brak.join(', ')}`);
       if (nadm.length) console.log(`            w D1 NADMIAROWE: ${nadm.join(', ')}`);
     });

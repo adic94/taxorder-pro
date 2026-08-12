@@ -10,9 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Node 22, nie 20: tests/unit/migration-apply-test.js używa wbudowanego
+      # `node:sqlite` (dostępny od 22.5). Node 20 jest zresztą wycofywany
+      # z runnerów GitHuba — ostrzeżenie widać w logach nocnego przebiegu.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: Check syntax (node --check)
         run: |
           set -e
@@ -22,3 +25,25 @@ jobs:
           for f in modules/*.js worker/*.js; do
             [ -f "$f" ] && node --check "$f"
           done
+
+      # node --check waliduje app.js, ale NIE kod, ktory app.js emituje jako tekst
+      # (bookmarklet DT-1 -> Warszawa). Ten test parsuje i uruchamia wygenerowany
+      # skrypt oraz sprawdza escapowanie danych. Bez zaleznosci - nie wymaga npm ci.
+      - name: Bookmarklet DT-1 → Warszawa (regresja)
+        run: node tests/unit/warsaw-bookmarklet-test.js
+
+      # Straznik nocnego automatu migracji. Glob `worker/schema_v*.sql` dopasowywal
+      # takze pliki *_ROLLBACK.sql, ktore leksykograficznie wykonywaly sie tuz po
+      # swoich migracjach i kasowaly wlasnie utworzone tabele. Zaden inny test tego
+      # nie widzial: migration-check porownuje pliki schema miedzy soba, a d1-schema-diff
+      # wymaga dostepu do bazy. Ten dziala statycznie, bez sieci i bez zaleznosci.
+      - name: Straznik globa migracji (ROLLBACK, kolejnosc)
+        run: node tests/unit/migration-glob-test.js
+
+      # migration-glob-test pilnuje, CZEGO automat nie odpali. Ten test sprawdza,
+      # co z odpalonego faktycznie POWSTAJE: uruchamia wszystkie schema_v*.sql na
+      # prawdziwym silniku SQL, dwukrotnie, odtwarzajac transakcyjnosc D1 per plik.
+      # Lapie migracje, ktore gubia tabele przez wycofanie calego pliku (tak ginely
+      # 4 tabele powiadomien z schema_v8), oraz falszywe alarmy bramki d1-schema-diff.
+      - name: Straznik migracji — co faktycznie powstaje w bazie
+        run: node tests/unit/migration-apply-test.js

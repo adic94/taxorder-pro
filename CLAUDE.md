@@ -50,7 +50,7 @@ taxorder-pro/
 
 > Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
 > Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
-> Ostatnia aktualizacja: 2026-08-10 (uuid/exceljs — decyzja NIE --force; npm audit 6/8 napraw; CLOUDFLARE_ACCOUNT_ID do sekretu; rate-reader.js w sw.js; PR #5 zmergowany do main + hotfix Node 22)
+> Ostatnia aktualizacja: 2026-08-11 (**🔴 nocny workflow kasował tabele co noc — pliki ROLLBACK w globie `schema_v*.sql`; naprawione**; bookmarklet DT-1 + test regresji; fuel_entries → fuel_fills (CO2/raporty/JPK były zerami); cross-tenant DELETE faktur; bramka `d1-schema-diff --strict` w nightly; migration_v50 gotowa, niezastosowana)
 
 ### Zamknięte
 | Kiedy | Temat | Commit |
@@ -77,16 +77,73 @@ taxorder-pro/
 | 2026-08 | **Hotfix: `wrangler@4.103.0` wymaga Node.js ≥22, nie 20.** Deploy Workera padł natychmiast po merge PR #5 („Wrangler requires at least Node.js v22.0.0") — audyt migracji v3→v4 wyżej sprawdzał ogólne wymagania przejścia na v4, nie konkretnej wersji patch. Kod na produkcji był przez cały czas bezpieczny — deploy padał na `wrangler --version`, przed `wrangler deploy`. Naprawione: `node-version` 20→22 w trzech miejscach faktycznie instalujących wranglera (`deploy-worker.yml`, `nightly-report.yml` ×2; job `syntax-check` w `nightly-report.yml` zostawiony na 20 — nie dotyka wranglera). **Zweryfikowane realnym deployem** (nie tylko lokalnie) — `wrangler.toml` dostał notatkę-komentarz jako trigger, run `31429689144` zielony w 22s, health-check produkcji 200 po deployu. Notatka w `wrangler.toml`: sprawdzaj wymaganą wersję Node przy każdej zmianie wersji wranglera, nie tylko ogólne changelogi migracji | `85eddfb` / `d983c64` |
 | 2026-08 | **UserPrefs Partia 3b** — migracja write-side dla 4 kluczy firmowych: `fleet_widgets`, `dwf_view`, `fuelImportSchemas`, `taxorder-dash-config`. Wszystkie już były w `COMPANY_KEYS` (user-prefs.js) — brakowało tylko zamiany 8 miejsc z gołego `localStorage` na `UserPrefs.get/set/remove`. `taxorder-dash-config` (obawa o strategię scalania) nie wymagał nowej logiki — dziedziczy istniejącą politykę „D1 wygrywa całościowo" z `syncFromCloud()`. `global-setup.js` nie wymagał nowych wpisów — kill switch `taxorder_prefs_kv_source=local` już blokuje `syncFromCloud()` w CI. Zweryfikowane: `dashboard.spec.js` 8/8 passed | `a030b64` |
 | 2026-08 | **Karty floty przy 401 — komunikat błędu + zerwana pętla ponawiania.** `renderKarty()`/`_loadKarty()`: `_cardsLoaded` był ustawiany `true` nawet gdy `r.ok===false` — pusta tabela bez komunikatu. Naprawa: `_cardsLoadError` + `_cardsLoading`, ręczny przycisk „Spróbuj ponownie" zamiast auto-retry. **Przy live-teście (Playwright MCP, bez logowania = prawdziwy 401 z prod Workera) odkryta druga, niezależna instancja tego samego wzorca**: `_renderFleetCardsDash()` (widget dashboardu) miał własny łańcuch retry nierozróżniający „nie wczytano"/„zero kart"/„błąd" — każda nieudana próba generowała kolejną, w pętli bijącej realnymi zapytaniami do prod API co ~100-200ms bez ograniczenia. Naprawione tym samym wzorcem. Brak testu E2E dla tej funkcji — zweryfikowane wyłącznie manualnie, żywym serwerem + Playwright MCP (instrumentacja `window.fetch`/`window._loadKarty`: 20+ wywołań po ustawieniu błędu → 0 nowych fetchy) | `8716182` |
-| 2026-08 | **Drugie, nie-adminowe konto testowe założone + izolacja tenantów zweryfikowana na żywo.** Konto `acichocki@mtoilet.pl`, rola `kierownik`, spółka `gcon` (id=14 w D1), utworzone przez `POST /api/users` (hasło hashowane server-side, zapisane wyłącznie w `~/Documents/taxorder-backupy/test-account-tenant-isolation-2026-08-10.txt`, nigdy w czacie/repo). **Backend:** 4/4 próby cross-tenant (`?company=mtoilet` z sesji `gcon`) na `vehicles`/`export`/`damages`/`fleet-cards` zwróciły `403` — potwierdza guard z `worker/index.js:8672-8679` na żywo, nie tylko statycznie. **Front:** przełączenie firmy w SPA (konto admin, `switchCompany('gcon')`) — `vehCount` 161→21, zero rejestracji z `mtoilet` w `window.vehs` po przełączeniu, `currentCompanyId` i `_cardsLoaded` zaktualizowane poprawnie. Zero wycieku w obu warstwach | — |
+| 2026-08 | **Drugie, nie-adminowe konto testowe założone + izolacja tenantów zweryfikowana na żywo.** Konto `acichocki@mtoilet.pl`, rola `kierownik`, spółka `gcon` (id=14 w D1), utworzone przez `POST /api/users` (hasło hashowane server-side, zapisane wyłącznie w `~/Documents/taxorder-backupy/test-account-tenant-isolation-2026-08-10.txt`, nigdy w czacie/repo). **Backend:** 4/4 próby cross-tenant (`?company=mtoilet` z sesji `gcon`) na `vehicles`/`export`/`damages`/`fleet-cards` zwróciły `403` — potwierdza guard z `worker/index.js:8673-8680` na żywo, nie tylko statycznie. **Front:** przełączenie firmy w SPA (konto admin, `switchCompany('gcon')`) — `vehCount` 161→21, zero rejestracji z `mtoilet` w `window.vehs` po przełączeniu, `currentCompanyId` i `_cardsLoaded` zaktualizowane poprawnie. Zero wycieku w obu warstwach | — |
 | 2026-08 | **Konto nie-admin podłączone do CI.** Nowy `tests/api/tenant-isolation-test.js` (wzorowany na `api-test.js`) loguje się kontem `kierownik`/`gcon` i asertuje `403` na 6 endpointach przy próbie `?company=mtoilet`. Nowy krok w `ci-e2e.yml` obok istniejącego „Testy API", uruchamiany tylko gdy ustawiony `PROD_WORKER_URL`. Nowe sekrety GitHub `TEST_EMAIL_NONADMIN`/`TEST_PASS_NONADMIN` ustawione przez `gh secret set` (wartości nigdy nie trafiły do repo/czatu). Zweryfikowane lokalnie przed commitem: 8/8 PASS. Dług „konto CI jest adminem" — zamknięty dla warstwy API; główny suite Playwright nadal działa na koncie admina (patrz Dług techniczny) | `015c150` |
 | 2026-08 | **eqeqeq — 18 miejsc naprawionych właściwie (jawna konwersja typu), nie zignorowanych.** Wcześniej (`b16a2a7`) celowo pominięte — `==` łapało dopasowanie ID string/number (`onclick="...('${id}')"` vs wewnętrzny `number`) i wartości `<select>.value` (zawsze string) vs liczbowe stałe. Mechaniczna zamiana na `===` zepsułaby wyszukiwanie rekordów i zaznaczenia w dropdownach. Naprawa per-lokacja: dopasowania ID → `String(a)===String(b)` (`documents.js`, `service.js` ×2 funkcje, `vehicle-detail.js` dropdown oddziału), wartości formularzy → `Number(a)===literał` (`service.js` VAT, `folder-monitor.js` interwał skanowania). Przy okazji naprawiony realny błąd wartościowy w `esg-report.js`: linia z `!=` i sąsiednia z `===` dawały niespójny wynik dla `lower_is_better` przechowywanego jako string `"0"` (żaden radiobutton nie wychodził zaznaczony) — obie ujednolicone na `Number(...)`. Zweryfikowane: eslint 0/18, `vehicle-card.spec.js` + `vehicle-detail.spec.js` 18/18 passed (w tym in-browser suite 71/71) | `d28cf25` |
 | 2026-08 | **`rate-reader.js` — martwe odwołanie w `sw.js` naprawione (realny bug, nie tylko sprzątanie).** Sam moduł już nie istniał (usunięty `d2a6d00` w poprzedniej sesji), ale `STATIC_ASSETS` w `sw.js` wciąż wskazywał na nieistniejący plik. `caches.addAll(STATIC_ASSETS)` w handlerze `install` jest atomowe — jeden 404 wywala całą instalację Service Workera, więc cache PWA/offline nie odświeżał się wcale od czasu usunięcia modułu. Usunięty wpis, `CACHE_NAME` v74→v75, komentarz w `style.css` zaktualizowany. Zweryfikowane: `sw-cache-bump --check` — 0 rozbieżności | — |
 | 2026-08 | **`CLOUDFLARE_ACCOUNT_ID` przeniesiony do sekretu GitHub.** Znaleziony w 3 miejscach (nie 2, jak sugerował poprzedni wpis w długu technicznym) — `deploy-worker.yml` też miał wartość w cleartext, nie tylko `nightly-report.yml` ×2. Nowy sekret `CLOUDFLARE_ACCOUNT_ID` ustawiony przez `gh secret set`, wszystkie trzy miejsca zamienione na `${{ secrets.CLOUDFLARE_ACCOUNT_ID }}`. Uwaga: ID konta i tak jest już jawne w `wrangler.toml` (`account_id = "bb17..."`, plik commitowany) — to porządek/DRY, nie usunięcie realnego wycieku | — |
 | 2026-08 | **npm audit — 6 z 8 podatności (wszystkie high) naprawione bezpiecznie.** Zwykły `npm audit fix` (bez `--force`) rozwiązał `brace-expansion`, `js-yaml`, `sharp`, `undici` — bez breaking changes, `package.json` niezmieniony (tylko `package-lock.json`). Efekt uboczny: lokalny `wrangler` w lockfile skoczył 4.103.0→4.120.1 (w ramach `^4.0.0` z package.json) — zaktualizowane też przypięte wersje w CI (3 miejsca), żeby nie powtórzyć rozjazdu z KROK 3; sprawdzony `engines.node` nowej wersji: nadal `>=22.0.0`, bez zmian. Pozostałe 2 (moderate, `uuid`/`exceljs`) świadomie nietknięte — wymagają `--force` i cofnięcia `exceljs` do 3.4.0. Zweryfikowane: `wrangler --version`/`playwright --version`/`eslint --version` działają, `vehicle-card.spec.js` 10/10 passed (w tym in-browser suite 71/71), YAML sparsowany bez błędu | — |
 | 2026-08 | **uuid/exceljs — decyzja: NIE `--force`, ryzyko świadomie zaakceptowane.** Zbadane przed decyzją: (1) `exceljs@4.4.0` to i tak najnowsza wersja na npm — nie ma nowszej naprawiającej zależność od `uuid`, `--force` cofnąłby DWIE wersje major (4.4.0→3.4.0), nie mały breaking change; (2) `exceljs` jest `require`owany wyłącznie w `tools/dr-extractor.js` (lokalne narzędzie deweloperskie, `tools/` nie wchodzi na produkcję, nie ładowane przez Worker ani przeglądarkę, uruchamiane ręcznie) — zero ekspozycji sieciowej; (3) CVE dotyczy braku sprawdzania granic bufora gdy do `uuid.v4()` przekazany jest własny parametr `buf` — sprawdzone źródło `exceljs` (`node_modules/exceljs/lib/xlsx/xform/sheet/cf-ext/cf-rule-ext-xform.js`): wywołuje `uuidv4()` bez żadnych argumentów, luka strukturalnie nieosiągalna tą ścieżką. Koszt (ryzyko zepsucia `dr-extractor.js`, utrata 2 wersji major funkcjonalności) bez żadnej realnej korzyści bezpieczeństwa. Nie uruchamiać `npm audit fix --force` bez ponownej analizy, jeśli `exceljs` zacznie być używany gdzie indziej niż `tools/` | — |
+| 2026-08 | **Bookmarklet DT-1 → Warszawa — funkcja martwa od wprowadzenia + dwa wektory wstrzyknięcia.** Znalezione przy okazji jedynego **błędu** eslint (`no-script-url`) utopionego w 2168 ostrzeżeniach. (1) **Nigdy nie działał**: w literale szablonowym `\'` nie jest escapem — daje goły apostrof, który zamykał string w emitowanym kodzie (`onclick="this.closest('div[style]')..."` wewnątrz stringa ograniczonego `'`) → `SyntaxError: Unexpected identifier 'div'` przy **każdym** uruchomieniu, niezależnie od danych. Wprowadzony i nietknięty od `0000e30`. (2) Po naprawie samej składni **odsłaniały się dwa wektory** — potwierdzone w realnym Chromium, nie teoretycznie: **A)** przeglądarka percent-dekoduje `javascript:` URL przed wykonaniem, więc `%22` w polu `marka` zamieniało się w `"`, wychodziło poza literał JSON i wykonywało dowolny kod; **B)** `p.nr_rej`/`marka`/`model`/`osie`/`zawieszenie` oraz dane podatnika szły surowe do `innerHTML` — a panel renderuje się na origin **moja.warszawa19115.pl w sesji zalogowanej PZ**. Dane wchodzą też z importów CSV/CEPiK/OCR, więc nie tylko „użytkownik atakuje sam siebie". Naprawa: własny `esc()` wewnątrz generowanego skryptu (globalny `esc()` aplikacji tam nie istnieje), `addEventListener` zamiast `onclick` z zagnieżdżonymi apostrofami, `encodeURIComponent` na ładunku `javascript:`, celowy `eslint-disable` z uzasadnieniem. `CACHE_NAME` v75→v76 — SW jest stale-while-revalidate, bez bumpu poprawka dotarłaby dopiero przy drugim wejściu. Nowy test bez zależności `tests/unit/warsaw-bookmarklet-test.js` (7 asercji) wpięty w `ci-js.yml` i `audit:all`; **zweryfikowany negatywnie** — na oryginalnym app.js daje 0/7 PASS, na naprawionym 7/7. Dodana bramka `npm run lint` w `ci-e2e.yml` (eslint nie był uruchamiany w ŻADNYM workflow — stąd przeoczenie) | — |
+| 2026-08 | **Audyt CC — weryfikacja u źródła i 3 poprawki backendu.** Dwa niezależne przebiegi audytu; każde znalezisko sprawdzone bezpośrednio w kodzie (CLAUDE.md ma udokumentowany przypadek subagenta zgłaszającego nieistniejący „systemowy IDOR w 70 handlerach"). **Potwierdzone i naprawione:** (1) `handleSupplierInvoices` DELETE — `DELETE FROM supplier_invoice_items WHERE invoice_id=?` bez `company_id`; centralny guard routera tu NIE pomaga, bo atak nie używa `?company=` (własna firma w parametrze, cudze `id` w ścieżce) → cross-tenant kasowanie pozycji faktur; fix: `SELECT ... AND company_id=?` → 404 przed kasowaniem dzieci. (2) `handleNotifLog` acknowledge/snooze — dodany `company_id` (ryzyko było niskie, zapytania scope'owane po `user_id`, ale niespójne). (3) `enforceModuleAccess` przeniesione ZA guardy firmy — czyta `?company=` z URL, więc przed guardem odpowiadało o pakiet obcej firmy (402 vs przepuszczenie = kanał boczny); dziś nieaktywne, ale naprawa pakietów bez tej zmiany by go otworzyła. **Odrzucone jako nieaktualne:** raport „4 commity Supabase czekają na push" — wszystkie cztery (`45267f8`, `9aff207`, `af71be6`, `d2a6d00`) są w `origin/main`, zweryfikowane `git merge-base --is-ancestor`; raport „`vehicle-detail.spec.js:110` naprawiony" — naprawiony wcześniej w `7426a00`. **Sprzeczność między raportami:** jeden twierdzi „13 par duplikatów, wszystkie identyczne strukturalnie, bezpieczne", drugi flaguje `company_packages` (jedną z tych par) jako krytyczną — drugi ma rację, różnice strukturalne potwierdzone w `schema_v33`/`v48`, `v35`/`v41`, `v13`/`v40`. Reszta → W toku | — |
+| 2026-08 | **Rezerwacje floty — zapis „Potwierdzone" naruszał CHECK.** Produkcyjna tabela `reservations` stoi na `schema_v13` z `CHECK(status IN ('pending','accepted','rejected'))` — potwierdzone dosłownie przez `SELECT sql FROM sqlite_master` na `--remote`. `schema_v40` redefiniował ją bez CHECK i z `DEFAULT 'confirmed'`, ale jako `CREATE TABLE IF NOT EXISTS` był cichym no-opem. `fleet-reservations.js` oferował `<option value="confirmed">` → każdy zapis ze statusem „Potwierdzone" leciał na `CHECK constraint failed`. Drugi, niezgłoszony objaw: istniejące wiersze ze statusem `accepted` renderowały się w UI jako surowe „accepted", bo `STATUS_LBL` nie miało takiego klucza. Naprawa po stronie UI (3 miejsca w jednym module), nie bazy — SQLite nie zmieni CHECK bez przebudowy tabeli, a wszystkie istniejące wiersze i tak używają `accepted`. Sprawdzone: `vehicle-reservations.js` pisze do INNEJ tabeli (`vehicle_reservations`), więc jego `approved`/`completed`/`cancelled` są poprawne. Zweryfikowane odtworzeniem produkcyjnego CHECK na SQLite: `accepted` przechodzi, `confirmed` → `CHECK constraint failed` | — |
+| 2026-08 | **`fuel_entries` nie istnieje — CO2, paliwo i raporty były cichymi zerami.** Tabela nie jest tworzona przez żaden `schema_v*.sql`, a **wszystkie** odwołania miały `.catch()` — nic nie wybuchało, po prostu każdy wynik był pusty. To gorsze niż 500: użytkownik dostawał wiarygodnie wyglądające zera. Cztery miejsca przestawione na `fuel_fills` (jedyna tabela tankowań z realnymi danymi — pełny CRUD, importy, dashboardy): (1) `handleEsgTargets` ×2 — **CO2 i zużycie paliwa w raportach ESG były zerowe dla każdej firmy i roku**; `fuel_fills` nie ma `co2_kg`, więc CO2 liczone z litrów i typu paliwa, dokładnie jak w `handleCO2Report` — wskaźniki wyciągnięte do wspólnej stałej `CO2_EMISSION_FACTORS`, żeby oba endpointy nie mogły się rozjechać (wartości bez zmian); (2) kreator raportów — źródło „Paliwo" zwracało zawsze pusty raport, poprawione po obu stronach naraz (front i backend są sparowane) z mapowaniem kolumn; (3) eksport JPK_KR/SAF_T — nie zawierał ŻADNYCH pozycji paliwowych. Osobno `webhook_logs`: tam SELECT **nie** miał `.catch()` → 500 na `GET /api/zapier?events`; dodany `.catch()`, ale tabeli celowo NIE utworzono — to jedyne odwołanie w workerze, nic do niej nie pisze, więc utworzenie dałoby trwale pustą tabelę i pozorną naprawę. Zweryfikowane na SQLite: 100 l diesla + 50 l LPG + 10 l elektryka = 160 l i 346,5 kg CO2 zamiast 0 i 0 | — |
+| 2026-08 | **🔴 Nocny workflow kasował tabele co noc — główna (ale NIE jedyna) przyczyna „dryfu migracji".** `nightly-report.yml` uruchamiał `for f in worker/schema_v*.sql`. Ten glob dopasowuje **także pliki `schema_vNN_ROLLBACK.sql`**, a leksykograficznie każdy trafiał **tuż po swojej migracji** (`schema_v48.sql` → `schema_v48_ROLLBACK.sql`). Baza co noc tworzyła tabele i natychmiast je kasowała: `companies`, `user_company_access` (v44), `ksef_config`, `ksef_offline_queue` (v45), `vignettes`, `hr_leaves`, `hr_medical_exams`, `driver_trips`, `fixed_assets`, `carrier_ratings` (v46), `debt_collection`, `debt_reminders`, `fuel_import_schedules`, `external_access_tokens` (v47), `company_packages`, `usage_snapshots` (v48), `user_prefs_kv` (v49). **To jest główny powód braków w D1** (`num_tables: 113` w logu nocnego przebiegu wobec 134 definicji w repo), ale **nie wyjaśnia wszystkiego — 5 tabel nie powstałoby nawet po tej naprawie**, patrz wpis niżej o `schema_v8`/`schema_v48`. Dwa dalsze defekty w tym samym kroku: glob powłoki sortuje **leksykograficznie**, więc `v2` wykonywało się po `v19`, a `v5` po `v49` — migracje szły w złej kolejności; oraz `|| echo "błąd lub już wykonany"` zrównywał realną awarię z powtórzeniem i zawsze kończył się kodem 0 (job świecił na zielono 11.08 o 04:47, jak co noc). Import D1 z `--file` jest **transakcyjny per plik** — jeden błędny statement wycofuje CAŁY plik, więc `duplicate column name` w pliku zawierającym nową tabelę oznacza, że ta tabela też nie powstała; w logu widać to na `schema_v8.sql` i `schema_v9.sql`. Naprawa: wykluczenie plików ROLLBACK, `sort -V`, rozdzielenie awarii od powtórzenia, oraz **bramka `d1-schema-diff --strict`** porównująca faktyczny stan bazy z repo. Nowa konwencja: migracje strukturalne (DROP/RENAME/ALTER) nazywamy `migration_vNN_opis.sql`, żeby NIE trafiały do nocnego automatu | — |
+| 2026-08 | **Naprawiony automat NIE wystarczy — 5 tabel nie powstaje mimo to, a bramka `--strict` dawała 14 fałszywych alarmów.** Sprawdzone przez uruchomienie wszystkich `schema_v*.sql` na prawdziwym silniku SQL (`node:sqlite`), dwukrotnie, z odtworzeniem transakcyjności D1 per plik — nie przez czytanie plików. (1) **`schema_v8.sql` pada ZAWSZE, nie tylko przy powtórzeniu**: `ALTER TABLE users ADD COLUMN extra_permissions` dubluje kolumnę już obecną w `CREATE TABLE users` z `schema_v1.sql`. Wycofanie całego pliku zabiera ze sobą **4 tabele powiadomień** — `alert_types`, `notification_prefs`, `notification_log`, `maintenance_templates` — których automat **nigdy nie utworzył**. Potwierdzone dosłownie w logu produkcyjnym (`duplicate column name: extra_permissions`, run `31459590724`), nie tylko lokalnie. Żadne z ~30 zapytań do tych tabel w workerze **nie ma `.catch()`** — przy braku tabel to 500, nie ciche zero. (2) **`schema_v48.sql` pada zawsze**: `CREATE INDEX ... ON company_packages(company_id, active)` — kolumny `active` nie ma, bo tabelę tworzy wcześniejszy `schema_v33` o innej strukturze, a `CREATE TABLE IF NOT EXISTS` z v48 jest cichym no-opem. Ginie `usage_snapshots`. To rehabilituje odrzuconą wcześniej diagnozę audytu („v33 wygrała, brak kolumny `active`") — była poprawna jako opis **konfliktu plików**; błędna była tylko co do stanu produkcji, gdzie tabeli nie było, bo kasował ją nocny ROLLBACK. (3) **`d1-schema-diff --strict` porównywał wyłącznie z `CREATE TABLE`, ignorując `ALTER TABLE ADD COLUMN`** — 14 tabel legalnie rozszerzonych ALTER-ami raportował jako „nie pasuje do ŻADNEJ definicji" i kończył kodem 1. Bramka świeciłaby **czerwono co noc niezależnie od stanu bazy**, czyli nie niosłaby informacji. Naprawione; po naprawie sekcja [5] pusta, kod wyjścia nadal 1 z **prawdziwych** powodów (5 brakujących tabel, 10 na starszej definicji). Nowy `tests/unit/migration-apply-test.js` (bramka w `ci-js.yml`, Node 20→22 bo `node:sqlite`) — **zweryfikowany negatywnie dwukrotnie**: po cofnięciu świadomości ALTER daje 3/4 z „14 rozjazdów", a po dodaniu migracji gubiącej tabelę wskazuje ją po nazwie | — |
 
 ### W toku
-*(brak)*
+
+**Rozjazd schematu D1 — ZWERYFIKOWANY NA PRODUKCJI 11.08.** Odczyt z `wrangler d1 execute
+--remote` obalił diagnozę obu przebiegów audytu w najważniejszym punkcie. Nie zgadywać
+ponownie — to są fakty z bazy.
+
+| Tabela | Faktyczny stan w D1 | Wniosek |
+|--------|---------------------|---------|
+| `company_packages` | **NIE ISTNIEJE** — `SELECT` zwraca `no such table`, `PRAGMA table_info` pustkę | **Przyczyna ustalona: `schema_v48_ROLLBACK.sql` kasował ją co noc** (patrz Zamknięte). Nie „migracja nigdy nie zastosowana" — była stosowana i natychmiast cofana. `catch → allowed=['*']` w `resolveModuleAccess` to **udokumentowana ścieżka backward-compat** (komentarz w kodzie: „Tabela nie istnieje (przed migracją)"), nie awaria. **Zero firm dotkniętych** — nie ma wierszy, więc nikt nic nie traci. Audyt zdiagnozował „v33 wygrała, brak kolumny `active`" — **nieprawda**. Proponowany `ALTER TABLE company_packages ADD COLUMN active` **padłby** na `no such table` |
+| `esg_targets` | **v35** (`co2_target_kg`, `fuel_target_l`, `ev_percentage_target`, `electric_km_target`) | v41 był cichym no-opem. `POST /api/esg/targets` (index.js:11734) pisze kolumny v41 (`metric_key`, `target_value`…) **bez `.catch()`** → 500. **Aktywny błąd produkcyjny**, dodawanie celów ESG martwe |
+| `reservations` | **v13 z `CHECK(status IN ('pending','accepted','rejected'))`** | Potwierdzone dosłownie przez `SELECT sql FROM sqlite_master`. **Naprawione** — `fleet-reservations.js` używał `confirmed` (naruszenie CHECK). Odtworzone lokalnie na SQLite: `accepted` przechodzi, `confirmed` → `CHECK constraint failed` |
+
+**Właściwy problem jest szerszy niż pojedyncze tabele: dryf migracji.** Co najmniej cały
+`schema_v48.sql` (`company_packages` + `usage_snapshots`) nigdy nie trafił na produkcję,
+a `schema_v41.sql` częściowo. `CREATE TABLE IF NOT EXISTS` sprawia, że ponowne uruchomienie
+starszego pliku **nie naprawi** tabeli o innej strukturze — i nic o tym nie zgłosi.
+
+**Do zamknięcia — 3 kroki:**
+
+1. **Pełne porównanie tabel** (repo: 134 definicje `CREATE TABLE` w `schema_v*.sql`):
+   ```bash
+   wrangler d1 execute taxorder-pro --remote --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+   ```
+2. **`esg_targets` — migracja GOTOWA, niezastosowana.** `worker/migration_v50_esg_targets.sql`
+   (+ `migration_v50_esg_targets_ROLLBACK.sql`) przebudowuje tabelę z v35 na v41, zachowując dane.
+   Zweryfikowana na SQLite na wiernym odtworzeniu produkcyjnej tabeli — round-trip
+   v35→v50→ROLLBACK→v35 zwraca dane identyczne. **Uruchom po sprawdzeniu**
+   `SELECT COUNT(*) FROM esg_targets`:
+   ```bash
+   wrangler d1 execute taxorder-pro --remote --file=worker/migration_v50_esg_targets.sql
+   ```
+   Pułapka, której nie zgłosił żaden audyt: v35 zakłada indeks **UNIQUE**`(company_id, year)`,
+   a model v41 wymaga wielu wierszy na rok. `schema_v41` deklaruje indeks o tej samej nazwie
+   bez UNIQUE, więc też był no-opem — bez `DROP INDEX` nowy model padłby na drugiej metryce.
+
+2b. ~~decyzja o kierunku~~ — rozstrzygnięta: kod backendu i `esg-report.js` Kod backendu i `esg-report.js` są napisane pod model
+   v41 (`metric_key`/`target_value`/`lower_is_better` — dowolna metryka), tabela stoi na v35
+   (sztywne kolumny). Migracja tabeli do v41 jest właściwym kierunkiem, ale wymaga
+   `CREATE TABLE ... AS SELECT` + `DROP` + `RENAME` (SQLite nie zmieni struktury w miejscu).
+   Najpierw: `SELECT COUNT(*) FROM esg_targets` — przy zerze migracja jest trywialna.
+3. ~~`webhook_logs`, `fuel_entries`, `alert_events`~~ — **zrobione**, patrz Zamknięte.
+   Zostało jedno świadome pominięcie: `alert_events` (jedyny zapis, zero odczytów, kod ma
+   już komentarz „jeśli istnieje") — utworzenie tabeli zaczęłoby gromadzić dane, których
+   nic nie czyta. Tak samo `webhook_logs`: naprawiony 500, ale tabeli celowo NIE tworzę,
+   bo nic do niej nie pisze — trigger Zapier wymaga implementacji zapisu, to funkcja,
+   nie łatka.
+
+> ⚠️ **Gdyby kiedyś włączać licencjonowanie modułów:** to nie jest bug fix, tylko wdrożenie
+> funkcji. `_packageModules()` mapuje `basic → []` (pusta lista). Firma **bez wiersza** jest
+> bezpieczna (`if (!row) allowed=['*']`), więc samo utworzenie tabeli z `schema_v48.sql` jest
+> behawioralnie obojętne. Ryzyko pojawia się dopiero przy pierwszym `INSERT` — wiersz z
+> pakietem `basic` odcina wszystkie moduły spoza `MODULE_EXEMPT`. Kolejność: utwórz tabelę →
+> `wrangler secret put MODULE_ENFORCEMENT` → `off` → dopiero wiersze → włącz świadomie.
 
 ---
 
@@ -118,8 +175,64 @@ taxorder-pro/
 - 6 z 8 pierwotnych podatności npm (wszystkie high) naprawione bezpiecznie — patrz
   Zamknięte. Pozostałe 2 (moderate, `uuid`/`exceljs`) — **świadomie zaakceptowane,
   nie do naprawy `--force`** — patrz Zamknięte, uzasadnienie niżej.
-- `SUPABASE_URL` w `wrangler.toml` — Supabase wycofany, wpis do usunięcia.
-- `ROLLBACK` — pliki v45/v46/v47 dodane (`28ee761`); v48/v49 brak (Time Travel jeszcze aktywne).
+- ~~`SUPABASE_URL` w `wrangler.toml`~~ — **nieaktualne, zrobione w `45267f8`.** Zweryfikowane
+  `cat wrangler.toml` 11.08: wpisu nie ma. Ten dług wisiał tu po naprawie.
+- ~~`ROLLBACK` v48/v49 brak~~ — **nieaktualne, pliki istnieją**: `worker/schema_v48_ROLLBACK.sql`
+  (DROP `usage_snapshots`, `company_packages`) i `worker/schema_v49_ROLLBACK.sql`
+  (DROP `idx_upkv_user_co`, `user_prefs_kv`). Komplet v45–v49.
+- **Szum ostrzeżeń eslint: 2168.** Błędów jest 0 (stan 11.08), więc `npm run lint` kończy się
+  kodem 0 i nadaje się na bramkę — eslint ignoruje warningi przy kodzie wyjścia. Rozkład
+  ostrzeżeń: `prefer-template` 1203, `no-undef` 621 (globalne `window.*` bez deklaracji
+  w konfigu), `no-unused-vars` 250, `prefer-const` 47, `no-console` 46. Do przeglądu jest
+  `no-undef` — może maskować literówki w nazwach globali; reszta to styl. **Nie dodawaj
+  `--max-warnings 0`** bez wcześniejszego posprzątania, bo CI stanie się czerwony natychmiast.
+
+- **Dwie rozbieżne tablice wskaźników CO2.** `worker/index.js` (`CO2_EMISSION_FACTORS`):
+  diesel 2.65, lpg 1.63, klucze **angielskie** (`petrol`, `electric`). `modules/co2-report.js:144`
+  (`EMISSION_FACTORS`): diesel 2.68, lpg 1.51, klucze **polskie** (`benzyna`, `elektryczny`).
+  Różne wartości i różne języki kluczy oznaczają, że przy niedopasowaniu cicho wchodzi
+  fallback (2.5 w obu). Backend i front mogą więc pokazać inne CO2 dla tej samej floty.
+  **Nie ujednolicałem przy okazji naprawy zer w ESG** — wybór wartości (2.65 czy 2.68?)
+  to decyzja domenowa dla właściciela raportowania ESG, nie refaktor. Do rozstrzygnięcia:
+  która tablica jest wiodąca i w jakim języku zapisywane jest `fuel_type` w `vehicles`
+  oraz `fuel_fills` (schemat ma `DEFAULT 'diesel'`).
+- **Zapisane `report_configs` ze źródłem `fuel_entries`** (jeśli istnieją) po zmianie
+  whitelisty zwrócą „Niedozwolone źródło danych" zamiast pustej tabeli. Te konfiguracje
+  i tak nigdy nie zwracały danych — komunikat błędu jest uczciwszy niż cicha pustka, ale
+  warto je przepiąć na `fuel_fills`:
+  `SELECT id,name FROM report_configs WHERE source_table='fuel_entries'`
+
+- **Kreator raportów — 4 z 5 źródeł naprawione, `vehicles` otwarte.** Odkryte przez
+  `npm run report-sources-check` (`tests/unit/report-sources-test.js`). Backendowa whitelista
+  `ALLOWED_TABLES`/`ALLOWED_COLS` i front `SOURCES` to dwie niezależne kopie tej samej listy,
+  a obie rozjechały się ze schematem bazy. Każde zapytanie ma `.catch()`, więc użytkownik
+  dostawał **pustą tabelę bez błędu** — ta sama klasa co `fuel_entries`, tylko szersza.
+
+  Naprawione (nazwy kolumn wzięte z realnych `CREATE TABLE`): `fuel_entries`→`fuel_fills`,
+  `damages`→**`damage_reports`** (tabela `damages` nigdy nie istniała), oraz kolumny
+  `service_orders` i `fines` — wszystkie trzy mają polskie nazwy w schemacie
+  (`opis`, `koszt`, `warsztat`, `data_zdarzenia`), a whitelisty wymieniały angielskie.
+
+  **Zostało `vehicles`** — whitelista wymienia `reg`, `brand`, `model`, `year`, `fuel_type`,
+  `dmc`, `status`, `driver`, `department`, a tabela ma tylko `nr_rej`, `axles_count`,
+  `suspension_type`, `dmc_zespolu` i **kolumnę JSON `data`**, w której te pola faktycznie
+  siedzą. Raportowanie po nich wymaga `json_extract(data,'$.klucz')`, a klucze są
+  **niespójne między rekordami** — aplikacja czyta je z fallbackami (`v.dmc ?? v.dmcMax`,
+  `v.nr_rej || v.nrRej`). Wybór wiodącego wariantu to decyzja o danych, nie refaktor.
+  Do tego czasu źródło „Pojazdy" zwraca pustą tabelę.
+
+  `report-sources-test.js` celowo **nie jest bramką CI** — dziś 4 PASS / 1 FAIL, gdzie
+  jedyna porażka to powyższy dług, nie regresja. Wepnij go do `ci-js.yml` po naprawie `vehicles`.
+
+- **`company_packages` — kod celuje w DWIE niezgodne struktury naraz.** Nie do naprawy
+  „przy okazji": odczyt `resolveModuleAccess` (`worker/index.js:13248`) wymaga
+  `... WHERE company_id=? AND active=1`, a kolumna `active` istnieje **wyłącznie** w `schema_v48`.
+  Zapis `PUT /api/access-control/config` (`index.js:10813`) wstawia `updated_by`, które
+  istnieje **wyłącznie** w `schema_v33`. Którakolwiek wersja tabeli powstanie, jedna z tych
+  dwóch ścieżek pada. Dziś w praktyce: tabela powstaje z v33 (v48 wycofywany w całości),
+  więc zapis pakietu działa, a odczyt leci w `catch → allowed=['*']` — **admin może zapisać
+  pakiet `basic` i nie stanie się nic**, cicho. To ta sama klasa co „ciche zera" w ESG.
+  Naprawa = decyzja produktowa o licencjonowaniu modułów (patrz ostrzeżenie niżej), nie łatka.
 
 **Sprawy operacyjne (poza kodem)**
 - Domena e-mail dla Dominika Dymowskiego i Roberta Sasina — do ustalenia.
@@ -210,7 +323,7 @@ db.prepare('SELECT * FROM vehicles WHERE id = ? AND company_id = ?')
   właśnie na endpointach `GET /:id`, gdzie lista była filtrowana, a rekord nie
 - Po każdym nowym endpointcie: test izolacji z konta bez dostępu do danej spółki
 
-**Centralny guard w routerze (`worker/index.js:8672-8679`) — sprawdź TUTAJ najpierw.**
+**Centralny guard w routerze (`worker/index.js:8673-8680`) — sprawdź TUTAJ najpierw.**
 Zanim ocenisz pojedynczy handler jako podatny na IDOR przez `?company=`, sprawdź ten
 blok w `handleRequest()` — działa PRZED dispatchem do jakiegokolwiek handlera:
 ```javascript
@@ -312,6 +425,37 @@ Pliki przechowywane aktualnie w `~/Documents/taxorder-backupy/`:
 > Każdy wpis to realny błąd diagnostyczny z tego projektu. Zanim uznasz coś
 > za sprawdzone, upewnij się, że test mierzy to, co myślisz.
 
+### Żadne z narzędzi audytu nie widzi kodu, który aplikacja GENERUJE jako tekst
+
+`node --check`, `syntax-check`, `xss-audit`, eslint i Playwright sprawdzają kod, który
+piszemy. Jeśli funkcja **składa inny program w stringu** (bookmarklet, `new Function`,
+szablon wstrzykiwany do `<script>`), ten wygenerowany kod nie przechodzi przez żadne z nich:
+
+| Narzędzie | Co naprawdę sprawdza | Czego NIE złapie |
+|-----------|----------------------|------------------|
+| `node --check` / `syntax-check` | składnię `app.js` | składni stringa, który `app.js` emituje |
+| `xss-audit` | wzorzec `el.innerHTML = ...` w kodzie | `innerHTML` wewnątrz literału szablonowego |
+| Playwright E2E | zachowanie SPA na naszym origin | bookmarklet uruchamiany na obcej stronie |
+
+Przykład z projektu: generator bookmarkletu DT-1 → Warszawa rzucał `SyntaxError` przy
+**każdym** uruchomieniu od dnia wprowadzenia (`0000e30`), a po naprawie składni odsłonił
+dwa wektory wstrzyknięcia. Cały audyt (`npm run audit:all`) świecił na zielono przez ten
+cały czas. Jedynym sygnałem był 1 **błąd** eslint utopiony w 2168 ostrzeżeniach — a eslint
+nie był wtedy uruchamiany w żadnym workflow.
+
+**Pułapka w literale szablonowym:** wewnątrz `` `...` `` sekwencja `\'` **nie jest escapem** —
+daje goły apostrof. Kod `onclick="fn(\'x\')"` napisany w backtickach emituje `onclick="fn('x')"`,
+co zamyka string w generowanym programie. W generowanym kodzie nie używaj zagnieżdżonych
+apostrofów — dawaj `data-*` + `addEventListener`.
+
+**Pułapka `javascript:` URL:** przeglądarka **percent-dekoduje** URL przed wykonaniem, więc
+`%22` w danych staje się `"` i wychodzi poza literał JSON. Ładunek zawsze przez
+`encodeURIComponent()`.
+
+**Prawdziwy test:** wyekstrahuj wygenerowany string, sparsuj go (`new Function`) i uruchom
+na złośliwych danych — wzorzec w `tests/unit/warsaw-bookmarklet-test.js`. Test uznaj za
+wiarygodny dopiero, gdy **upadnie na starym kodzie** (tam: 0/7 PASS przed naprawą, 7/7 po).
+
 ### Changelog migracji major (v3→v4) nie mówi nic o konkretnej wersji patch
 Sprawdzenie „jakie funkcje usunięto między v3 a v4" (node_compat, legacy_assets, itd.)
 odpowiada na pytanie o zgodność KODU, nie o wymagania ŚRODOWISKA konkretnej wersji
@@ -386,9 +530,27 @@ niepowiązanym z przyczyną. Dlatego pod `*.png` muszą stać wyjątki:
 Składnia `@'...'@` przekazana do `git commit -m` wciąga znak `@` do treści commita
 (efekt: `@ fix: ...`). Używać zwykłych cudzysłowów albo `git commit -F plik`.
 
-### npx w PowerShell
-Polityka wykonywania blokuje niepodpisany `npx.ps1`. Używać `npx.cmd` albo
-`.\node_modules\.bin\<narzędzie>.cmd`. **Nie zmieniać `Set-ExecutionPolicy`.**
+### npx i npm w PowerShell
+Polityka wykonywania blokuje niepodpisany `npx.ps1` — **i tak samo `npm.ps1`**.
+`npm run <cokolwiek>` kończy się `UnauthorizedAccess`, nie błędem skryptu.
+Używać `npm.cmd run ...` / `npx.cmd`, albo `.\node_modules\.bin\<narzędzie>.cmd`.
+**Nie zmieniać `Set-ExecutionPolicy`.**
+
+Dla narzędzi z `tools/` najprościej ominąć npm w całości — `node` to zwykły plik
+wykonywalny, polityka go nie dotyczy:
+```powershell
+node tools/autotest/d1-schema-diff.js
+```
+
+### Pobranie jednego pliku z brancha bez przełączania się na niego
+Gdy w drzewie roboczym są niezacommitowane zmiany, `git checkout <branch>` przerwie
+operację. Żeby wziąć **pojedynczy plik** z innego brancha, nie ruszając reszty:
+```powershell
+git fetch origin <branch>
+git checkout origin/<branch> -- sciezka/do/pliku.js
+```
+Nie przełącza brancha i nie nadpisuje niepowiązanych zmian. **Nie używać** do tego
+`git show ... > plik` w PowerShellu — operator `>` zapisuje w UTF-16LE i psuje plik.
 
 ---
 

@@ -12,6 +12,18 @@ Wymagają: `sharp`, `zxing-wasm`, `playwright` — zainstalowane w `node_modules
 | `dr-helper-wasm.html` | Helper Playwright: ładuje zxing-wasm z CDN, udostępnia `decodeAztecFromCanvas()`; używany przez dr-page-test.js |
 | `test-nrv2e-variants.js` | Referencja historyczna: 5 wariantów NRV2E (A–E); wariant E (LSB, off*2) — poprawny dla polskich DR |
 
+## Zgodność schematu D1
+
+| Skrypt | Co robi |
+|--------|---------|
+| `autotest/d1-schema-diff.js` | Porównuje **produkcyjne D1** z definicjami w `worker/schema_v*.sql`. Wykrywa: tabele nigdy nieutworzone, tabele stojące na starszej definicji (cichy no-op `CREATE TABLE IF NOT EXISTS`), tabele w bazie bez definicji w repo. `npm run d1-diff` (wymaga `wrangler login`), `npm run d1-diff:offline` (tylko analiza plików), `--strict` = kod wyjścia 1 przy rozjeździe, `--fixture <json>` = test logiki bez dostępu do bazy |
+
+> **To NIE to samo co `npm run migration-check`.** Tamten porównuje pliki schema między sobą
+> („czy migracje są spójne w repo"), ten porównuje repo z bazą („czy baza wygląda tak, jak
+> myślimy"). Drugie pytanie nie było zadawane do 11.08.2026 — i właśnie ono ujawniło, że
+> `company_packages` w ogóle nie istnieje, `esg_targets` stoi na v35 zamiast v41, a
+> `reservations` na v13 z `CHECK`, którego v40 miał się pozbyć.
+
 ## Audyt podatkowy DT-1
 
 | Skrypt | Co robi |
