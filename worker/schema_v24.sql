@@ -134,9 +134,7 @@ CREATE TABLE IF NOT EXISTS vehicle_tokens (
 );
 CREATE INDEX IF NOT EXISTS idx_vehicle_tokens_vehicle ON vehicle_tokens(company_id, nr_rej);
 
--- ─── KOLUMNY GL NA ISTNIEJĄCYCH TABELACH ─────────────────────────────────────
-ALTER TABLE service_orders ADD COLUMN gl_account TEXT;
-ALTER TABLE fines          ADD COLUMN gl_account TEXT;
-ALTER TABLE damage_reports ADD COLUMN gl_account TEXT;
-ALTER TABLE mileage_claims ADD COLUMN gl_account TEXT;
-ALTER TABLE policies       ADD COLUMN gl_account TEXT;
+-- ALTER-y ADD COLUMN przeniesione do CREATE TABLE w plikach zrodlowych tabel.
+-- NIE przywracaj ich tutaj: padaly przy kazdym powtorzeniu ('duplicate column name'),
+-- a import D1 z --file jest transakcyjny per plik — jeden taki blad wycofywal CALY
+-- ten plik razem z tabelami, ktore zaklada, wiec stawaly sie nie do odtworzenia.

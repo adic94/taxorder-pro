@@ -105,7 +105,9 @@ CREATE TABLE IF NOT EXISTS spare_parts (
   location            TEXT,
   notes               TEXT,
   created_at          TEXT DEFAULT (datetime('now')),
-  updated_at          TEXT DEFAULT (datetime('now'))
+  updated_at          TEXT DEFAULT (datetime('now')),
+  -- Przeniesione z ALTER-ow w schema_v36.sql (patrz komentarz w tamtych plikach).
+  sku TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_sp_company  ON spare_parts(company_id);
 CREATE INDEX IF NOT EXISTS idx_sp_category ON spare_parts(company_id, category);

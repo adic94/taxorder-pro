@@ -148,9 +148,7 @@ if (nieznane.length) {
 //
 // TA LISTA MOŻE SIĘ TYLKO SKRACAĆ. Dopisanie do niej nowego pliku oznacza, że właśnie
 // wprowadzasz migrację, której tabele będą nie do odtworzenia — napraw plik, nie listę.
-const ZNANE_ZAKLESZCZONE = new Set([
-  'schema_v23.sql', 'schema_v24.sql', 'schema_v30.sql', 'schema_v36.sql', 'schema_v43.sql',
-]);
+const ZNANE_ZAKLESZCZONE = new Set([]);
 
 const zakleszczone = [];
 const bazowe = [];

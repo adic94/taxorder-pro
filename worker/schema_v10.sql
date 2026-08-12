@@ -17,7 +17,10 @@ CREATE TABLE IF NOT EXISTS fines (
   paid_date    TEXT,
   created_by   INTEGER REFERENCES users(id),
   created_at   TEXT DEFAULT (datetime('now')),
-  updated_at   TEXT DEFAULT (datetime('now'))
+  updated_at   TEXT DEFAULT (datetime('now')),
+  -- Przeniesione z ALTER-ow w schema_v23.sql, schema_v24.sql (patrz komentarz w tamtych plikach).
+  branch_id INTEGER,
+  gl_account TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_fines_company ON fines(company_id);
 CREATE INDEX IF NOT EXISTS idx_fines_nrrej   ON fines(company_id, nr_rej);
