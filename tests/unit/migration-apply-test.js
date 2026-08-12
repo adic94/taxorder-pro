@@ -131,6 +131,54 @@ if (nieznane.length) {
   ok(`pliki padające przy powtórzeniu mają znane przyczyny (${bledy.length} plików)`);
 }
 
+// ── 2b. plik padający przy powtórzeniu NIE MOŻE zawierać CREATE TABLE ─────────
+// Najważniejsza asercja tego pliku, dopisana po tym, jak test przepuścił schema_v45.
+// Testy 1 i 2 pytają „czy na CZYSTEJ bazie coś ginie" — a produkcja to baza, na której
+// plik już raz przeszedł. Tam ALTER pada na duplikat kolumny, D1 wycofuje CAŁY plik
+// i tabele z tego pliku nie powstają NIGDY. Jeśli zniknęły (np. przez ROLLBACK), są
+// nie do odzyskania: ALTER-a nie da się cofnąć, bo SQLite nie usuwa kolumn.
+// Dokładnie tak zakleszczyły się ksef_config i ksef_offline_queue (schema_v45).
+// Linia bazowa z 12.08.2026 — pliki, które łamią ten niezmiennik od dawna. Ich tabele
+// AKTUALNIE ISTNIEJĄ na produkcji (sekcja [2] nocnego raportu wymienia tylko 3 braki),
+// więc to ryzyko utajone, nie awaria: gdyby te tabele kiedykolwiek zniknęły, żaden
+// przebieg by ich nie odtworzył. Naprawa wymaga przeniesienia 26 ALTER-ów do CREATE
+// TABLE w 7 różnych plikach, a dla schema_v23/v24 brakuje dowodu z logu produkcyjnego,
+// że kolumny tam faktycznie są — bez tego usunięcie ALTER-a mogłoby pozbawić produkcję
+// kolumny. Osobny temat, wymaga odczytu PRAGMA table_info z --remote.
+//
+// TA LISTA MOŻE SIĘ TYLKO SKRACAĆ. Dopisanie do niej nowego pliku oznacza, że właśnie
+// wprowadzasz migrację, której tabele będą nie do odtworzenia — napraw plik, nie listę.
+const ZNANE_ZAKLESZCZONE = new Set([
+  'schema_v23.sql', 'schema_v24.sql', 'schema_v30.sql', 'schema_v36.sql', 'schema_v43.sql',
+]);
+
+const zakleszczone = [];
+const bazowe = [];
+for (const b of bledy) {
+  const src = fs.readFileSync(path.join(SCHEMA, b.f), 'utf8')
+    .replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  const tabele = [...src.matchAll(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["`[]?(\w+)["`\]]?\s*\(/gi)]
+    .map(m => m[1]);
+  if (!tabele.length) continue;
+  const wpis = `${b.f} → ${tabele.join(', ')} (${b.err})`;
+  (ZNANE_ZAKLESZCZONE.has(b.f) ? bazowe : zakleszczone).push(wpis);
+}
+const naprawione = [...ZNANE_ZAKLESZCZONE].filter(f => !bledy.some(b => b.f === f));
+if (naprawione.length) {
+  bad(`ZNANE_ZAKLESZCZONE są nieaktualne — te pliki już nie padają: ${naprawione.join(', ')}`,
+    'Usuń je z listy, żeby nie maskowała przyszłej regresji.');
+} else {
+  ok(`linia bazowa zakleszczonych plików aktualna (${bazowe.length} plików, do naprawy osobno)`);
+}
+if (zakleszczone.length) {
+  bad(`plik pada przy powtórzeniu I tworzy tabele — te tabele są nie do odtworzenia:\n      ${zakleszczone.join('\n      ')}`,
+    'Przenieś kolumny z ALTER-ów do CREATE TABLE w pliku, który tabelę zakłada, ' +
+    'albo wydziel ryzykowne statementy do osobnego pliku. Plik tworzący tabele ' +
+    'musi być odporny na ponowne uruchomienie.');
+} else {
+  ok('żaden plik padający przy powtórzeniu nie tworzy tabel');
+}
+
 // ── 3. bramka d1-schema-diff nie generuje fałszywych alarmów na zdrowej bazie ──
 // Sekcja [5] („nie pasuje do ŻADNEJ definicji") musi być pusta dla bazy zbudowanej
 // wprost z tych plików. Zanim narzędzie zaczęło uwzględniać ALTER TABLE ADD COLUMN,

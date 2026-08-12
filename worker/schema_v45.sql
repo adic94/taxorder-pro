@@ -28,13 +28,15 @@ CREATE TABLE IF NOT EXISTS ksef_config (
   updated_at        TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
 
--- New columns on ksef_invoices
-ALTER TABLE ksef_invoices ADD COLUMN upo_r2_key TEXT;
-ALTER TABLE ksef_invoices ADD COLUMN upo_reference_number TEXT;
-ALTER TABLE ksef_invoices ADD COLUMN upo_timestamp TEXT;
-ALTER TABLE ksef_invoices ADD COLUMN sent_at TEXT;
-ALTER TABLE ksef_invoices ADD COLUMN accepted_at TEXT;
-ALTER TABLE ksef_invoices ADD COLUMN retry_count INTEGER DEFAULT 0;
+-- Kolumny na ksef_invoices przeniesione do CREATE TABLE w schema_v34.sql.
+-- NIE przywracaj tu ALTER-ów: padały na produkcji ('duplicate column name: upo_r2_key'),
+-- a import D1 z --file jest transakcyjny per plik, więc jeden taki błąd wycofywał CAŁY
+-- ten plik i obie tabele wyżej nigdy nie powstawały. Potwierdzone w logu nocnego
+-- przebiegu (run 31565799753, 12.08) oraz sekcją [2] raportu d1-schema-diff.
 
 CREATE INDEX IF NOT EXISTS idx_ksef_queue ON ksef_offline_queue(company_id, status, next_retry_at);
-CREATE INDEX IF NOT EXISTS idx_ksef_retry ON ksef_invoices(company_id, ksef_status, retry_count);
+-- Indeks zawężony do kolumn z pierwotnego CREATE TABLE (schema_v34). Pierwotnie
+-- obejmował też retry_count — kolumnę dodawaną ALTER-em w tym samym pliku, więc na
+-- bazie, gdzie ALTER nie przeszedł, ten CREATE INDEX wywracał plik po raz drugi.
+-- Zawężenie działa na obu stanach bazy; kolumny wiodące zapytania pozostają pokryte.
+CREATE INDEX IF NOT EXISTS idx_ksef_retry ON ksef_invoices(company_id, ksef_status);

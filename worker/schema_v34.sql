@@ -15,7 +15,19 @@ CREATE TABLE IF NOT EXISTS ksef_invoices (
   buyer_nip TEXT,
   gross_pln REAL,
   xml_payload TEXT,                   -- opcjonalnie — przechowaj wygenerowany XML
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT (datetime('now')),
+  -- Kolumny pierwotnie dodawane ALTER-ami w schema_v45. Przeniesione tutaj, bo tamte
+  -- ALTER-y padały na produkcji ('duplicate column name') i wycofywały CAŁY plik v45,
+  -- zabierając ze sobą ksef_config i ksef_offline_queue. Na produkcji kolumny już są
+  -- (dowodzi tego sam komunikat o duplikacie), a CREATE TABLE IF NOT EXISTS jest tam
+  -- no-opem — więc ta zmiana nic nie psuje. Na czystej bazie daje komplet kolumn
+  -- bez ani jednego ALTER-a.
+  upo_r2_key TEXT,
+  upo_reference_number TEXT,
+  upo_timestamp TEXT,
+  sent_at TEXT,
+  accepted_at TEXT,
+  retry_count INTEGER DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_ksef_company ON ksef_invoices(company_id);
 CREATE INDEX IF NOT EXISTS idx_ksef_status  ON ksef_invoices(ksef_status);
