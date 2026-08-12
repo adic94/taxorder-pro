@@ -223,11 +223,38 @@ kodowych, w których windows-1252 różni się od ISO-8859-1, z powrotem na bajt
 Zweryfikowane `node tools/aztec-compare.js --selftest` — wynik zawiera na stałe linię
 „bez naprawy", pokazującą oba zniekształcenia, więc regresja od razu rzuci się w oczy.
 
-**Czego brakuje do rozstrzygnięcia:** jednego prawdziwego zdjęcia dowodu. Benchmark
-`tools/aztec-bench.html` porównuje wyłącznie **skuteczność detekcji** — nigdy nie
-konwertuje wyniku z powrotem na bajty, więc nie dowodzi, że detektor daje ładunek
-zdatny do NRV2E. To trzeba sprawdzić na realnym dokumencie, trzymanym POZA repozytorium
-(dowód zawiera VIN i dane właściciela).
+**Cała ścieżka DEKODOWANIA zweryfikowana end-to-end — bez zdjęcia (12.08).** `--selftest`
+nie sprawdza już samych bajtów: buduje ładunek w **prawdziwym formacie DR** (nowy, 55 pól),
+koduje go jako Aztec, renderuje do obrazu i przepuszcza przez pełną produkcyjną ścieżkę
+obraz → Aztec → bajty → NRV2E → UTF-16LE → pola. Wynik: **17/17 pól zgodnych** na obu
+ścieżkach, `format=new`. Kontrola negatywna (stara konwersja `charCodeAt & 0xFF`) na tym
+samym ładunku **nie przechodzi** — a gdyby przeszła, test krzyczy „nie mierzy tego, co
+deklaruje", zamiast po cichu zaświecić na zielono.
+
+Dwie rzeczy, które to umożliwiły:
+- `_decodeAztecPayload()` **wydzielone z `handleAztec`** (`worker/index.js`) — narzędzie
+  wyciąga tę funkcję z pliku Workera i uruchamia **dokładnie kod produkcyjny**, zamiast
+  trzymać kopię. Kopia rozjechałaby się i ukryła właśnie ten błąd, który ma wykrywać
+  (precedens: dwie tablice CO2, dwie listy źródeł kreatora raportów). Kotwice ekstrakcji
+  są jawne — ich brak przerywa działanie, nie powoduje cichego fallbacku.
+- Kompresora NRV2E nie mamy i nie jest potrzebny: dekompresor obsługuje wariant
+  **„same literały"** (bit 1 = kolejny bajt to literał) tą samą ścieżką co strumień
+  z odwołaniami wstecz. Round-trip przez produkcyjny `_nrv2eDecompress()` to potwierdza.
+
+**Efekt uboczny — pytanie o detektor częściowo rozstrzygnięte:** po naprawie konwersji
+ścieżka B (`aztec-detector.js`) zwraca bajty **identyczne** ze ścieżką A. Wcześniej nie
+było to wiadome; `tools/aztec-bench.html` tego nie mierzył, bo nigdy nie konwertował
+wyniku z powrotem na bajty.
+
+**Czego nadal brakuje — i tylko tego:** jednego prawdziwego **zdjęcia**. Pozostała
+niewiadoma zawęziła się z „czy dekodowanie działa" do „czy **detekcja** działa na
+sfotografowanym dokumencie" — perspektywa, ostrość, oświetlenie, artefakty JPEG.
+Selftest używa czystego renderu, więc o tym nie mówi nic. Zdjęcie trzymaj POZA
+repozytorium (dowód zawiera VIN i dane właściciela); narzędzie nic nie zapisuje,
+a VIN, nr rej. i serię dowodu **maskuje na wyjściu**, żeby log dało się wkleić
+do zgłoszenia bez wycieku.
+
+    node tools/aztec-compare.js ~/Documents/taxorder-backupy/dowod.jpg
 
 **Inter Cars nie jest tu odpowiedzią.** Ich `/pl/api/aztec/file/decode` kończy się na
 VIN-ie i przekazaniu go do dostawców `[GA09, MRS7, BTR5, BTR6]` — służy identyfikacji

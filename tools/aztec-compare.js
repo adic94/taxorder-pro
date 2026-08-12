@@ -41,12 +41,91 @@ if (!SELFTEST && (!obraz || !fs.existsSync(obraz))) {
 }
 
 /**
- * Ładunek kontrolny dla --selftest. Zawiera bajty z zakresu 0x80–0x9F, czyli te,
- * na których wykłada się konwersja znakowa: w CP1252 `0x80` to znak euro (U+20AC),
- * więc `charCodeAt(i) & 0xFF` zwraca 0xAC zamiast 0x80. NRV2E produkuje dowolne
- * bajty, więc ten zakres w prawdziwym dowodzie WYSTĄPI.
+ * Wyciąga produkcyjny dekoder z worker/index.js i uruchamia go w tym procesie.
+ *
+ * Wyciąga, a NIE kopiuje — celowo. Kopia rozjechałaby się z produkcją i ukryła
+ * dokładnie ten błąd, który to narzędzie ma wykrywać. Ten projekt ma już dwa
+ * takie precedensy: dwie tablice wskaźników CO2 i dwie listy źródeł kreatora
+ * raportów, obie ciche i obie rozjechane z rzeczywistością.
+ *
+ * Kotwice są jawne: brak którejkolwiek przerywa działanie z błędem, zamiast po
+ * cichu sięgnąć po nieaktualny odpowiednik.
  */
-const KONTROLNY = [100, 0, 0, 0, 0x80, 0x81, 0x8D, 0x90, 0x9F, 0xFF, 0x41, 0x42, 0xAB, 0x7A];
+function wyciagnijDekoder() {
+  const src = fs.readFileSync(path.join(ROOT, 'worker', 'index.js'), 'utf8');
+  const OD = '// ─── AZTEC DR DECODER', DO = 'async function handleAztec';
+  const i = src.indexOf(OD), j = src.indexOf(DO);
+  if (i < 0 || j < 0 || j < i) {
+    console.error('Nie znaleziono sekcji dekodera w worker/index.js (kotwice:');
+    console.error(`  "${OD}" oraz "${DO}"). Jeśli kod przeniesiono — popraw kotwice tutaj.`);
+    process.exit(2);
+  }
+  return new Function(src.slice(i, j) + '\nreturn { _nrv2eDecompress, _decodeAztecPayload };')();
+}
+
+/**
+ * NRV2E w wariancie "same literały": bit 1 oznacza, że kolejny bajt strumienia
+ * jest literałem. Układ wynika wprost z `_BitReader` w Workerze — bity idą
+ * MSB-first z bajtu flag, a `readByte()` pobiera następny CAŁY bajt strumienia,
+ * omijając bufor bitowy. Round-trip przez produkcyjny `_nrv2eDecompress()`
+ * potwierdza, że ten układ jest poprawny.
+ *
+ * Kompresora NRV2E nie mamy i nie jest potrzebny: dekompresor obsługuje ten
+ * wariant tą samą ścieżką co strumień z odwołaniami wstecz.
+ */
+function nrv2eLiteraly(bajty) {
+  const out = [];
+  for (let i = 0; i < bajty.length; i += 8) {
+    const grupa = bajty.slice(i, i + 8);
+    out.push((0xFF << (8 - grupa.length)) & 0xFF);
+    for (const b of grupa) out.push(b);
+  }
+  return out;
+}
+
+/**
+ * Ładunek kontrolny dla --selftest: prawdziwy FORMAT dowodu (nowy, >40 pól),
+ * ale w całości dane syntetyczne — żadnego prawdziwego VIN-u ani rejestracji.
+ *
+ * Pola `typ` i `model` zawierają znaki U+0180/U+0192/U+019F, których UTF-16LE
+ * daje młodszy bajt w zakresie 0x80–0x9F. To ten zakres psuła konwersja znakowa
+ * (CP1252: 0x80 → U+20AC → 0xAC). W prawdziwym dowodzie te bajty biorą się nie
+ * ze znaków, lecz ze struktury skompresowanego strumienia — tutaj, przy
+ * kodowaniu samymi literałami, trzeba je wprowadzić tekstem. Zakres bajtów
+ * jest więc odwzorowany wiernie, choć innym mechanizmem.
+ */
+function zbudujDrKontrolny() {
+  const pola = new Array(55).fill('');
+  const oczekiwane = {
+    seriaDr: 'DR/TEST/0001', nrRej: 'ZZ00000', marka: 'TESTMARKA',
+    typ: 'Tƀ-92', model: 'Mƒ-9F Ɵ', vin: 'TESTVIN0000000001',
+    dmcKg: '18000', dmcKg2: '18000', dmcZespolu: '40000', masaWlKg: '7500',
+    kategoria: 'N3', liczbaOsi: '3', pojSilnika: '10837', mocKW: '265',
+    dataRej: '15.03.2019', miejscaSied: '3',
+  };
+  const _DR_NEW = { seriaDr:1, nrRej:7, marka:8, typ:9, model:12, vin:13,
+    dmcKg:38, dmcKg2:39, dmcZespolu:40, masaWlKg:41, kategoria:42, liczbaOsi:44,
+    pojSilnika:48, mocKW:49, paliwo:50, dataRej:51, miejscaSied:52 };
+  for (const [k, idx] of Object.entries(_DR_NEW)) {
+    if (k === 'paliwo') { pola[idx] = 'D'; continue; }          // _FUEL: D → 'ON (Olej napędowy)'
+    if (k === 'dataRej') { pola[idx] = '20190315'; continue; }  // YYYYMMDD → DD.MM.YYYY
+    pola[idx] = oczekiwane[k];
+  }
+  oczekiwane.paliwo = 'ON (Olej napędowy)';
+
+  const tekst = pola.join('|');
+  const utf16 = [];
+  for (let i = 0; i < tekst.length; i++) {
+    const c = tekst.charCodeAt(i);
+    utf16.push(c & 0xFF, (c >> 8) & 0xFF);
+  }
+  const dlugosc = utf16.length;
+  const bajty = [dlugosc & 0xFF, (dlugosc >> 8) & 0xFF, (dlugosc >> 16) & 0xFF, (dlugosc >>> 24) & 0xFF]
+    .concat(nrv2eLiteraly(utf16));
+  return { bajty, oczekiwane };
+}
+
+const { bajty: KONTROLNY, oczekiwane: POLA_OCZEKIWANE } = zbudujDrKontrolny();
 
 // Chromium jest preinstalowany w tym środowisku; wersja z node_modules szuka innego
 // builda i podpowiada `npx playwright install` — nie uruchamiaj go, wskaż binarkę.
@@ -185,29 +264,91 @@ const ZXING = path.join(ROOT, 'node_modules', '@zxing', 'library', 'umd', 'index
     if (r.strategia) console.log(`  ${' '.repeat(30)}strategia: ${r.strategia}, prób: ${r.proby}`);
   }
 
+  // Pełne dekodowanie produkcyjnym kodem Workera — dopiero to rozstrzyga, czy
+  // ładunek jest UŻYTECZNY. Sam nagłówek w zakresie 10..131072 tego nie dowodzi:
+  // zniekształcone bajty potrafią dać wiarygodną długość i wywalić się dopiero
+  // w NRV2E albo wyprodukować pola-śmieci.
+  const { _decodeAztecPayload } = wyciagnijDekoder();
+  const dekoduj = b => {
+    try { return { ok: true, ...(_decodeAztecPayload(Uint8Array.from(b))) }; }
+    catch (e) { return { ok: false, blad: String(e && e.message || e).slice(0, 120) }; }
+  };
+
   if (SELFTEST) {
     console.log('\nKontrola wierności bajtów (ładunek znany):');
     console.log(`  oczekiwano: ${hex(KONTROLNY)}`);
     let bledy = 0;
     for (const [nazwa, r] of [['A', wynik.A], ['B', wynik.B]]) {
       if (!r.ok) { console.log(`  ${nazwa}: ✗ nie odczytano`); bledy++; continue; }
+      const roznice = (b) => b.map((x,i)=>x!==KONTROLNY[i]?`${KONTROLNY[i].toString(16)}→${x.toString(16)}`:null).filter(Boolean);
       const zgodne = r.bajty.length === KONTROLNY.length && r.bajty.every((x,i)=>x===KONTROLNY[i]);
-      const zle = r.bajty.map((x,i)=>x!==KONTROLNY[i]?`poz.${i}: ${KONTROLNY[i].toString(16)}→${x.toString(16)}`:null).filter(Boolean);
-      console.log(`  ${nazwa}: ${zgodne?'✓ bajty wierne':'✗ ZNIEKSZTAŁCONE — '+zle.join(', ')}`);
+      const zle = roznice(r.bajty);
+      const skrot = l => l.length > 4 ? l.slice(0,4).join(', ') + ` (+${l.length-4} więcej)` : l.join(', ');
+      console.log(`  ${nazwa}: ${zgodne?'✓ bajty wierne':'✗ ZNIEKSZTAŁCONE — '+skrot(zle)}`);
       if (r.bajtyStare) {
-        const zleStare = r.bajtyStare.map((x,i)=>x!==KONTROLNY[i]?`${KONTROLNY[i].toString(16)}→${x.toString(16)}`:null).filter(Boolean);
-        console.log(`     bez naprawy (charCodeAt & 0xFF): ${zleStare.length?'✗ '+zleStare.join(', '):'✓ wierne'}`);
+        const zleStare = roznice(r.bajtyStare);
+        console.log(`     bez naprawy (charCodeAt & 0xFF): ${zleStare.length?'✗ '+skrot(zleStare):'✓ wierne'}`);
       }
       if (!zgodne) bledy++;
     }
+
+    // Wierność bajtów to warunek konieczny, nie wystarczający. Ten krok przepuszcza
+    // ładunek przez CAŁĄ produkcyjną ścieżkę Workera (NRV2E → UTF-16LE → pola)
+    // i porównuje wynik z tym, co zakodowaliśmy.
+    console.log('\nDekodowanie end-to-end (produkcyjny _decodeAztecPayload z worker/index.js):');
+    for (const [nazwa, r] of [['A', wynik.A], ['B', wynik.B]]) {
+      if (!r.ok) continue;
+      const d = dekoduj(r.bajty);
+      if (!d.ok) { console.log(`  ${nazwa}: ✗ ${d.blad}`); bledy++; continue; }
+      const zle = Object.entries(POLA_OCZEKIWANE)
+        .filter(([k, v]) => d.fields[k] !== v)
+        .map(([k, v]) => `${k}: "${v}" → "${d.fields[k] ?? '(brak)'}"`);
+      console.log(`  ${nazwa}: ${zle.length ? '✗ ' + zle.join('; ') : `✓ ${Object.keys(POLA_OCZEKIWANE).length}/${Object.keys(POLA_OCZEKIWANE).length} pól zgodnych (format=${d.format}, pól w ładunku=${d.fieldCount})`}`);
+      if (zle.length) bledy++;
+
+      // Kontrola negatywna: ten sam ładunek po STAREJ konwersji. Musi się wywalić —
+      // gdyby przechodził, znaczyłoby to, że test nie mierzy tego, co deklaruje.
+      if (r.bajtyStare) {
+        const ds = dekoduj(r.bajtyStare);
+        const zlamane = !ds.ok || Object.entries(POLA_OCZEKIWANE).some(([k, v]) => ds.fields[k] !== v);
+        console.log(`     bez naprawy: ${zlamane ? '✗ ' + (ds.ok ? 'pola niezgodne' : ds.blad) : '⚠ PRZESZŁO — test nie mierzy tego, co deklaruje'}`);
+        if (!zlamane) bledy++;
+      }
+    }
+
     console.log(bledy
       ? '\n  Konwersja znakowa psuje bajty 0x80–0x9F (CP1252). Ładunek NRV2E zawiera dowolne\n  bajty, więc dotyczy to prawdziwych dowodów. Trzeba czytać bajty bez warstwy tekstowej.\n'
-      : '\n  Obie ścieżki zachowują bajty wiernie.\n');
+      : '\n  Cała ścieżka działa: obraz → Aztec → bajty → NRV2E → UTF-16LE → pola dowodu.\n'
+        + '  UWAGA: to kod Aztec wygenerowany przez nas, nie zdjęcie. Dowodzi poprawności\n'
+        + '  DEKODOWANIA, nie skuteczności DETEKCJI na sfotografowanym dokumencie.\n');
     process.exit(bledy ? 1 : 0);
   }
 
-  const aOk = wynik.A.ok && naglowekOk(wynik.A.bajty);
-  const bOk = wynik.B.ok && naglowekOk(wynik.B.bajty);
+  // ── Prawdziwe zdjęcie: pełne dekodowanie z maskowaniem danych osobowych ──────
+  //
+  // VIN i numer rejestracyjny identyfikują pojazd i właściciela, więc NIE trafiają
+  // na wyjście w całości — inaczej wystarczy wkleić log do czatu albo do zgłoszenia,
+  // żeby dane produkcyjne wyszły poza `~/Documents/taxorder-backupy/`. Do oceny,
+  // czy dekodowanie zadziałało, w zupełności wystarczy sama obecność i długość.
+  // Parametry techniczne (DMC, osie, kategoria, paliwo) danymi osobowymi nie są
+  // i to właśnie ich potrzebuje DT-1 — te pokazujemy w całości.
+  const OSOBOWE = new Set(['vin', 'nrRej', 'seriaDr']);
+  const maskuj = (k, v) => OSOBOWE.has(k) ? `${String(v).slice(0, 2)}… (${String(v).length} zn.)` : v;
+
+  console.log('\nDekodowanie pełnego ładunku (produkcyjny kod Workera):');
+  for (const [nazwa, r] of [['A', wynik.A], ['B', wynik.B]]) {
+    if (!r.ok) { console.log(`  ${nazwa}: — (nie odczytano kodu)`); continue; }
+    const d = dekoduj(r.bajty);
+    if (!d.ok) { console.log(`  ${nazwa}: ✗ ${d.blad}`); continue; }
+    const opis = Object.entries(d.fields).map(([k, v]) => `${k}=${maskuj(k, v)}`).join(', ');
+    console.log(`  ${nazwa}: ✓ format=${d.format}, pól=${d.fieldCount}`);
+    console.log(`     ${opis || '(dekompresja przeszła, ale żadne znane pole nie ma wartości)'}`);
+  }
+  console.log('  (VIN, nr rej. i seria dowodu zamaskowane — patrz komentarz w źródle)');
+
+  const uzyteczne = r => r.ok && naglowekOk(r.bajty) && dekoduj(r.bajty).ok;
+  const aOk = uzyteczne(wynik.A);
+  const bOk = uzyteczne(wynik.B);
   console.log('\nWniosek:');
   if (bOk && aOk) {
     const zgodne = wynik.A.bajty.length === wynik.B.bajty.length && wynik.A.bajty.every((x, i) => x === wynik.B.bajty[i]);

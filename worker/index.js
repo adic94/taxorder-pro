@@ -2824,6 +2824,55 @@ const _DR_OLD = { nrRej:4, marka:5, typ:6, vin:10, dataRej:48 };
 const _FUEL = { P:'PB (Benzyna)', D:'ON (Olej napędowy)', M:'LNG (Metan)',
   LPG:'LPG', CNG:'CNG', LNG:'LNG', H:'Hybrydowy', BD:'Biodiesel', EE:'Elektryczny', E85:'E85' };
 
+/**
+ * Cała ścieżka bajty → pola dowodu, bez warstwy HTTP. Wydzielone z handleAztec,
+ * żeby `tools/aztec-compare.js` mogło uruchomić DOKŁADNIE ten sam kod na zdjęciu
+ * dowodu — kontener deweloperski nie ma dostępu sieciowego do produkcyjnego
+ * Workera, a kopia tej logiki w narzędziu rozjechałaby się z produkcją i ukryła
+ * właśnie ten błąd, który narzędzie ma wykrywać (tak rozjechały się dwie tablice
+ * wskaźników CO2 i dwie listy źródeł kreatora raportów).
+ *
+ * Rzuca Error z komunikatem po polsku — handleAztec zamienia go na 400.
+ */
+function _decodeAztecPayload(bytes) {
+  if (!bytes || bytes.length < 8) throw new Error('Za mało danych AZTEC (' + (bytes ? bytes.length : 0) + ' bajtów)');
+
+  // Pierwsze 4 bajty: długość danych po dekompresji (little-endian uint32)
+  const outputLen = bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] * 0x1000000);
+  if (outputLen < 10 || outputLen > 131072) throw new Error('Nieprawidłowa długość: ' + outputLen);
+
+  const decompressed = _nrv2eDecompress(bytes.slice(4), outputLen);
+
+  // Dekoduj UTF-16LE
+  const text = new TextDecoder('utf-16le').decode(decompressed);
+  const fields = text.split(/[|\n]/);
+
+  // Nowy format ma >50 pól i zaczyna się od "XX"
+  const isNew = fields.length > 40;
+  const map = isNew ? _DR_NEW : _DR_OLD;
+
+  const result = {};
+  for (const [key, idx] of Object.entries(map)) {
+    const v = (fields[idx] || '').trim().replace(/\r/g, '');
+    if (v) result[key] = v;
+  }
+
+  // Normalizuj paliwo
+  if (result.paliwo) result.paliwo = _FUEL[result.paliwo] || result.paliwo;
+
+  // Normalizuj datę: YYYYMMDD lub YYYY-MM-DD → DD.MM.YYYY
+  if (result.dataRej) {
+    if (/^\d{8}$/.test(result.dataRej)) {
+      result.dataRej = result.dataRej.slice(6,8)+'.'+result.dataRej.slice(4,6)+'.'+result.dataRej.slice(0,4);
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(result.dataRej)) {
+      const [y,m,d] = result.dataRej.split('-');
+      result.dataRej = d+'.'+m+'.'+y;
+    }
+  }
+
+  return { fields: result, fieldCount: fields.length, format: isNew ? 'new' : 'old' };
+}
+
 async function handleAztec(request) {
   let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON'); }
   const { bytesBase64 } = body;
@@ -2836,43 +2885,9 @@ async function handleAztec(request) {
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   } catch { return err('Nieprawidłowe base64'); }
 
-  if (bytes.length < 8) return err('Za mało danych AZTEC (' + bytes.length + ' bajtów)');
-
   try {
-    // Pierwsze 4 bajty: długość danych po dekompresji (little-endian uint32)
-    const outputLen = bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] * 0x1000000);
-    if (outputLen < 10 || outputLen > 131072) return err('Nieprawidłowa długość: ' + outputLen);
-
-    const decompressed = _nrv2eDecompress(bytes.slice(4), outputLen);
-
-    // Dekoduj UTF-16LE
-    const text = new TextDecoder('utf-16le').decode(decompressed);
-    const fields = text.split(/[|\n]/);
-
-    // Nowy format ma >50 pól i zaczyna się od "XX"
-    const isNew = fields.length > 40;
-    const map = isNew ? _DR_NEW : _DR_OLD;
-
-    const result = {};
-    for (const [key, idx] of Object.entries(map)) {
-      const v = (fields[idx] || '').trim().replace(/\r/g, '');
-      if (v) result[key] = v;
-    }
-
-    // Normalizuj paliwo
-    if (result.paliwo) result.paliwo = _FUEL[result.paliwo] || result.paliwo;
-
-    // Normalizuj datę: YYYYMMDD lub YYYY-MM-DD → DD.MM.YYYY
-    if (result.dataRej) {
-      if (/^\d{8}$/.test(result.dataRej)) {
-        result.dataRej = result.dataRej.slice(6,8)+'.'+result.dataRej.slice(4,6)+'.'+result.dataRej.slice(0,4);
-      } else if (/^\d{4}-\d{2}-\d{2}$/.test(result.dataRej)) {
-        const [y,m,d] = result.dataRej.split('-');
-        result.dataRej = d+'.'+m+'.'+y;
-      }
-    }
-
-    return json({ ok: true, fields: result, fieldCount: fields.length, format: isNew ? 'new' : 'old' });
+    const { fields, fieldCount, format } = _decodeAztecPayload(bytes);
+    return json({ ok: true, fields, fieldCount, format });
   } catch (e) {
     return err('Błąd dekodowania AZTEC: ' + e.message);
   }
