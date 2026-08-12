@@ -10,8 +10,27 @@ on:
     paths-ignore: ['**.md', 'docs/**', 'CLAUDE.md']
   workflow_dispatch:
   schedule:
-    # Nightly testy o 02:00 UTC (04:00 czasu polskiego)
-    - cron: '0 2 * * *'
+    # TYGODNIOWO, poniedziałek 02:00 UTC (04:00 czasu polskiego) — nie codziennie.
+    #
+    # Zmierzone 12.08.2026, gdy pakiet 2000 min wyczerpał się 12. dnia miesiąca:
+    # jeden przebieg tego suite'u to ~28 min wall-time w JEDNYM jobie, a GitHub
+    # nalicza per job z zaokrągleniem w górę. Codzienny cron to 840 min/mies. —
+    # 42% całego pakietu na prywatnym repo. Razem z health-check (co 4 h, 180 min)
+    # i nocnym raportem (4 joby, 120 min) same harmonogramy zjadały 1140 min, czyli
+    # 57% limitu, ZANIM ktokolwiek cokolwiek wypchnął. Na pracę zostawało 30 przebiegów.
+    #
+    # Tygodniowo: harmonogramy schodzą do 412 min (21%), na PR-y zostaje 56 przebiegów.
+    # Codzienny przebieg i tak w większości powielał to, co robią PR-y — pełny suite
+    # leci na każdym pushu do main i na każdym PR. Nocny łapie wyłącznie dryf zewnętrzny
+    # (zmiana w produkcyjnym API, wygasłe poświadczenia testowe), a to zjawiska tygodniowe,
+    # nie dobowe.
+    #
+    # Monitoring produkcji ŚWIADOMIE nietknięty — health-check co 4 h zostaje. To jedyne,
+    # co pilnuje działającej produkcji; oszczędzać należy na teście, który się powiela,
+    # nie na czujniku, który jako jedyny coś widzi.
+    #
+    # Doraźnie, gdy trzeba tu i teraz: zakładka Actions → „Run workflow" (workflow_dispatch).
+    - cron: '0 2 * * 1'
 
 # Nowy push do tej samej gałęzi anuluje poprzedni, jeszcze biegnący przebieg.
 # Bez tego KAŻDY commit uruchamiał osobny, pełny suite i wszystkie biegły do końca,
