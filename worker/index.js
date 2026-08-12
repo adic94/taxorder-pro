@@ -6576,7 +6576,39 @@ async function handleTCO(request, env, user, url, path) {
 // UWAGA: modules/co2-report.js ma WŁASNĄ, rozbieżną tablicę (diesel 2.68, lpg 1.51,
 // klucze po polsku) — patrz dług techniczny w CLAUDE.md. Wartości poniżej są tymi,
 // których backend używał do tej pory; nie zmieniam ich przy okazji naprawy zer.
-const CO2_EMISSION_FACTORS = { diesel: 2.65, petrol: 2.31, pb: 2.31, gasoline: 2.31, lpg: 1.63, hybrid: 2.0, electric: 0, default: 2.5 };
+const CO2_EMISSION_FACTORS = { diesel: 2.65, petrol: 2.31, pb: 2.31, gasoline: 2.31, lpg: 1.63, cng: 2.04, hybrid: 2.0, electric: 0, default: 2.5 };
+
+/**
+ * Normalizacja `fuel_type` do klucza z CO2_EMISSION_FACTORS.
+ *
+ * Bez tego wyszukiwanie było `FACTORS[fuel_type.toLowerCase()] ?? default` — a formularz
+ * tankowania (`index.html`, select #fm-ftype) zapisuje `pb95`, `pb98`, `cng` i `elektryk`,
+ * czyli wartości, których w tablicy NIE MA. Wszystkie cicho lądowały na `default: 2.5`:
+ * benzyna liczona 2,5 zamiast 2,31, CNG 2,5 zamiast 2,04, a POJAZD ELEKTRYCZNY dostawał
+ * 2,5 zamiast 0. Import paliwa i OCR dowodów dokładają warianty polskie („benzyna",
+ * „elektryczny"), więc dopasowanie musi być po fragmencie, nie po równości.
+ *
+ * Zwraca też `matched:false`, gdy nic nie pasuje — dzięki temu bramka odróżnia
+ * „świadomie użyty default" od „cichego trafienia w default".
+ */
+function co2FactorFor(fuelType) {
+  const s = String(fuelType ?? '').toLowerCase().trim();
+  if (!s) return { factor: CO2_EMISSION_FACTORS.default, key: 'default', matched: false };
+  const reguly = [
+    // UWAGA: polskie „elektr(yk)" i angielskie „electr(ic)" różnią się literą k/c —
+    // jeden wzorzec nie pokrywa obu. Test wyłapał to jako realny błąd tej funkcji.
+    [/elektr|electr|^ev$|\bbev\b/, 'electric'],
+    [/hybry|hybrid|\bhev\b|phev/, 'hybrid'],
+    [/diesel|olej.?nap|\bon\b/, 'diesel'],
+    [/lpg|\bgaz\b|propan/, 'lpg'],
+    [/cng|metan/, 'cng'],
+    [/pb\s*9|benzyn|petrol|gasolin|\bpb\b/, 'petrol'],
+  ];
+  for (const [wzor, klucz] of reguly) {
+    if (wzor.test(s)) return { factor: CO2_EMISSION_FACTORS[klucz], key: klucz, matched: true };
+  }
+  return { factor: CO2_EMISSION_FACTORS.default, key: 'default', matched: false };
+}
 
 /**
  * Degradacja zapytania BEZ ciszy. Zwraca `fallback` przy błędzie, ale najpierw krzyczy.
@@ -6642,7 +6674,7 @@ async function fuelActualsForYear(env, company, year) {
   for (const r of rows) {
     const l = r.liters || 0;
     liters += l;
-    co2_kg += l * (CO2_EMISSION_FACTORS[(r.fuel_type || '').toLowerCase()] ?? CO2_EMISSION_FACTORS.default);
+    co2_kg += l * co2FactorFor(r.fuel_type).factor;
   }
   return { liters, co2_kg };
 }
@@ -6670,10 +6702,13 @@ async function handleCO2Report(request, env, user, url, path) {
   let totalKg = 0;
   const byVehicle = {}; const byMonth = {};
   for (const r of results) {
-    const factor = EMISSION[(r.fuel_type||'').toLowerCase()] ?? EMISSION.default;
+    const { factor } = co2FactorFor(r.fuel_type);
     const kg = r.liters * factor;
     totalKg += kg;
-    if (!byVehicle[r.nr_rej]) byVehicle[r.nr_rej] = { nr_rej: r.nr_rej, fuel_type: r.fuel_type, liters: 0, kg: 0 };
+    // `ef` zwracamy do frontu, żeby raport pokazywał wskaźnik FAKTYCZNIE użyty do wyliczeń.
+    // Wcześniej front miał własną tablicę (inne wartości i inne klucze), więc arkusz
+    // eksportu potrafił pokazać 2,68 obok kilogramów policzonych z 2,65.
+    if (!byVehicle[r.nr_rej]) byVehicle[r.nr_rej] = { nr_rej: r.nr_rej, fuel_type: r.fuel_type, ef: factor, liters: 0, kg: 0 };
     byVehicle[r.nr_rej].liters += r.liters;
     byVehicle[r.nr_rej].kg += kg;
     if (!byMonth[r.ym]) byMonth[r.ym] = { month: r.ym, kg: 0, liters: 0 };
