@@ -3858,13 +3858,23 @@ function _mapCepikKierowcaStatus(attrs) {
 async function _saveCepikKierowcaResult(env, user, vehId, result) {
   try {
     await env.DB.prepare(
-      `UPDATE vehicles SET cepikStatus=?, cepikLastCheck=?, cepikKategorie=? WHERE id=? AND company=?`
+      // Było: SET cepikStatus=..., cepikLastCheck=..., cepikKategorie=... WHERE ... company=?
+      // Żadna z tych kolumn w `vehicles` nie istnieje, a `user.company` też nie —
+      // sesja niesie `company_id`. Całość opakowana w try/catch, więc wynik sprawdzenia
+      // CEPiK nie zapisywał się NIGDY i nikt tego nie widział.
+      `UPDATE vehicles SET data = json_set(COALESCE(data,'{}'),
+          '$.cepikStatus', ?, '$.cepikLastCheck', ?, '$.cepikKategorie', ?),
+        updated_at = datetime('now')
+       WHERE id=? AND company_id=?`
     ).bind(
       result.status,
       new Date().toISOString().slice(0, 10),
-      result.kategorie ?? null,
+      // json_set przyjmuje wartość skalarną — struktury serializujemy, żeby nie zgubić danych.
+      result.kategorie == null || typeof result.kategorie === 'string'
+        ? (result.kategorie ?? null)
+        : JSON.stringify(result.kategorie),
       vehId,
-      user.company
+      user.company_id
     ).run();
   } catch {}
 }
@@ -6588,6 +6598,38 @@ async function dbSafe(promise, fallback, env, ctx = {}) {
 }
 
 /**
+ * Tabela `vehicles` NIE MA płaskich kolumn `status`, `active`, `fuel_type`, `marka`
+ * ani `model` — jej realne kolumny to id, company_id, nr_rej, axles_count,
+ * suspension_type, dmc_zespolu, miesiace_podatku, dt1_category, dt1_tax_amount,
+ * data, updated_at, branch_id, tacho_*. Reszta siedzi w kolumnie JSON `data`.
+ *
+ * Zapytania pisane tak, jakby te kolumny istniały, albo kończą się 500 (bez `.catch()`),
+ * albo — co gorsza — cicho zwracają zera. Poniższe fragmenty są jedynym miejscem,
+ * w którym definiujemy „pojazd czynny" i „pojazd elektryczny", żeby kolejne zapytania
+ * nie rozjechały się między sobą.
+ */
+// Konwencja statusu przejęta z handleDashboard (`index.js`): brak statusu = czynny,
+// wykluczamy wyłącznie 'archived'. To jedyna ustalona w tym kodzie definicja.
+const SQL_VEH_ACTIVE = "COALESCE(JSON_EXTRACT(data,'$.status'),'active')!='archived'";
+// Predykat EV odwzorowany z `modules/vehicle-detail.js` — pole `paliwo` to wolny tekst
+// z pola P.3 dowodu rejestracyjnego, więc dopasowujemy po fragmencie, nie po równości.
+const SQL_VEH_IS_EV = `(
+  LOWER(COALESCE(JSON_EXTRACT(data,'$.paliwo'),'')) LIKE '%elektr%'
+  OR LOWER(COALESCE(JSON_EXTRACT(data,'$.paliwo'),'')) LIKE '%hybryd%'
+  OR LOWER(COALESCE(JSON_EXTRACT(data,'$.paliwo'),'')) LIKE '%bev%'
+  OR LOWER(COALESCE(JSON_EXTRACT(data,'$.paliwo'),'')) LIKE '%hev%'
+)`;
+
+/** Liczba pojazdów czynnych i elektrycznych — wspólna dla obu gałęzi raportu ESG. */
+async function fleetCountsForEsg(env, company) {
+  const row = await dbSafe(env.DB.prepare(
+    `SELECT COUNT(*) AS total, SUM(CASE WHEN ${SQL_VEH_IS_EV} THEN 1 ELSE 0 END) AS ev
+     FROM vehicles WHERE company_id=? AND ${SQL_VEH_ACTIVE}`
+  ).bind(company).first(), null, env, { op: 'fleetCountsForEsg', company });
+  return { total: row?.total || 0, ev: row?.ev || 0 };
+}
+
+/**
  * Sumy zatankowanych litrów i wyliczonego CO2 za dany rok.
  * Źródłem jest `fuel_fills` — jedyna tabela tankowań, do której cokolwiek zapisuje.
  */
@@ -7688,7 +7730,8 @@ async function handleTachoDDD(req, env, user, url, path) {
           // Dopasuj pojazd po VIN
           if (!parsed.vehiclesUsed.find(v => v.vehicle_id)) {
             const vByVin = await env.DB.prepare(
-              'SELECT id FROM vehicles WHERE company_id=? AND vin=? LIMIT 1'
+              // `vin` nie jest kolumną — siedzi w JSON `data`.
+              "SELECT id FROM vehicles WHERE company_id=? AND JSON_EXTRACT(data,'$.vin')=? LIMIT 1"
             ).bind(company, vinFromName).first();
             if (vByVin) {
               parsed.vehiclesUsed = parsed.vehiclesUsed.map(v => ({ ...v, vehicle_id: vByVin.id }));
@@ -10702,7 +10745,14 @@ async function handleFleetKpi(req, env, user, url) {
   const since  = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
 
   const [veh, fuel, svc, drv, tacho, ev, geo, inv, ins, ord] = await Promise.all([
-    env.DB.prepare('SELECT COUNT(*) c, SUM(CASE WHEN status=\'active\' THEN 1 ELSE 0 END) active, SUM(CASE WHEN status=\'w_serwisie\' OR status=\'in_service\' THEN 1 ELSE 0 END) in_service FROM vehicles WHERE company_id=?').bind(co).first(),
+    // Było: `SUM(CASE WHEN status='active' ...)` wprost na kolumnie `status`, której
+    // `vehicles` NIE MA. To jedyne zapytanie w tym Promise.all BEZ `.catch()`, więc
+    // odrzucenie wywracało cały handler — endpoint zwracał 500 przy każdym wywołaniu,
+    // a wraz z nim martwa była cała strona „Dashboard KPI".
+    env.DB.prepare(`SELECT COUNT(*) c,
+        SUM(CASE WHEN ${SQL_VEH_ACTIVE} AND COALESCE(JSON_EXTRACT(data,'$.status'),'') NOT IN ('w_serwisie','in_service') THEN 1 ELSE 0 END) active,
+        SUM(CASE WHEN COALESCE(JSON_EXTRACT(data,'$.status'),'') IN ('w_serwisie','in_service') THEN 1 ELSE 0 END) in_service
+      FROM vehicles WHERE company_id=?`).bind(co).first(),
     env.DB.prepare('SELECT SUM(f.koszt) c FROM fuel f WHERE f.company_id=? AND f.data>=?').bind(co, since).first().catch(()=>null),
     env.DB.prepare('SELECT SUM(so.cost) c FROM service_orders so WHERE so.company_id=? AND so.date>=?').bind(co, since).first().catch(()=>null),
     env.DB.prepare('SELECT COUNT(*) c FROM drivers WHERE company_id=?').bind(co).first(),
@@ -10715,7 +10765,14 @@ async function handleFleetKpi(req, env, user, url) {
   ]);
 
   // Przeterminowane przeglądy
-  const ovInsp = await env.DB.prepare('SELECT COUNT(*) c FROM vehicles WHERE company_id=? AND przeglad_do IS NOT NULL AND przeglad_do < date(\'now\')').bind(co).first().catch(()=>null);
+  // Było `przeglad_do` — nazwa, która NIE WYSTĘPUJE NIGDZIE w repo poza tym zapytaniem.
+  // Aplikacja trzyma termin badania pod kluczem `nextInspection` w JSON `data`.
+  // Z `.catch()` licznik przeterminowanych przeglądów zwracał zawsze zero.
+  const ovInsp = await env.DB.prepare(
+    `SELECT COUNT(*) c FROM vehicles WHERE company_id=?
+       AND JSON_EXTRACT(data,'$.nextInspection') IS NOT NULL
+       AND JSON_EXTRACT(data,'$.nextInspection') < date('now')`
+  ).bind(co).first().catch(()=>null);
   // Top 5 pojazdów wg kosztów paliwa
   const topVeh = (await env.DB.prepare('SELECT nr_rej vehicle_reg, SUM(f.koszt) total_cost FROM fuel f WHERE f.company_id=? AND f.data>=? GROUP BY nr_rej ORDER BY total_cost DESC LIMIT 5').bind(co,since).all().catch(()=>({results:[]}))).results;
   // Top naruszenia per kierowca
@@ -11667,11 +11724,19 @@ async function handleVehicleQr(req, env, user, url, path) {
   if(method==='GET'&&sub==='vehicles'){
     const q=url.searchParams.get('q')||'';
     const where=['company_id=?'];const params=[co];
-    if(q){where.push('(reg LIKE ? OR brand LIKE ? OR model LIKE ?)');params.push('%'+q+'%','%'+q+'%','%'+q+'%');}
-    const rows=(await env.DB.prepare(`SELECT id,reg,brand,model FROM vehicles WHERE ${where.join(' AND ')} AND active=1 ORDER BY reg ASC LIMIT 300`).bind(...params).all().catch(()=>({results:[]}))).results||[];
+    // Było: filtr i SELECT po kolumnach reg/brand/model/active, których `vehicles` NIE MA.
+    // Zapytanie miało `.catch()`, więc wyszukiwarka pojazdów przy skanach QR zwracała
+    // pustą listę ZAWSZE — bez śladu w logach. `nr_rej` to realna kolumna, marka i model
+    // siedzą w JSON `data`. Aliasy zachowują kształt odpowiedzi, więc front bez zmian.
+    if(q){where.push("(nr_rej LIKE ? OR JSON_EXTRACT(data,'$.marka') LIKE ? OR JSON_EXTRACT(data,'$.model') LIKE ?)");params.push('%'+q+'%','%'+q+'%','%'+q+'%');}
+    const rows=(await env.DB.prepare(`SELECT id, nr_rej AS reg,
+        JSON_EXTRACT(data,'$.marka') AS brand,
+        JSON_EXTRACT(data,'$.model') AS model
+      FROM vehicles WHERE ${where.join(' AND ')} AND ${SQL_VEH_ACTIVE} ORDER BY nr_rej ASC LIMIT 300`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     return json({vehicles:rows});
   }
-  if(method==='GET'&&sub==='scans'){const rows=(await env.DB.prepare('SELECT s.*,v.reg vehicle_reg FROM vehicle_qr_scans s LEFT JOIN vehicles v ON v.id=s.vehicle_id WHERE s.company_id=? ORDER BY s.scanned_at DESC LIMIT 100').bind(co).all().catch(()=>({results:[]}))).results||[];return json({scans:rows});}
+  if(method==='GET'&&sub==='scans'){const rows=(await env.DB.prepare(// Było `v.reg` — kolumna nie istnieje, a `.catch()` zamieniał błąd w pustą listę skanów.
+      'SELECT s.*,v.nr_rej vehicle_reg FROM vehicle_qr_scans s LEFT JOIN vehicles v ON v.id=s.vehicle_id WHERE s.company_id=? ORDER BY s.scanned_at DESC LIMIT 100').bind(co).all().catch(()=>({results:[]}))).results||[];return json({scans:rows});}
   if(method==='GET'&&sub==='scan'&&id){
     const vehicle=await env.DB.prepare('SELECT * FROM vehicles WHERE id=? AND company_id=?').bind(id,co).first().catch(()=>null);
     if(!vehicle)return err('Pojazd nie znaleziony',404);
@@ -11785,8 +11850,10 @@ async function handleEsgTargets(req, env, user, url, path) {
     // miały .catch(), więc cicho zwracały 0: CO2 i zużycie paliwa w raportach ESG były
     // zerowe dla każdej firmy i każdego roku. Realne tankowania są w fuel_fills.
     const { co2_kg: co2, liters: fuel } = await fuelActualsForYear(env, co, year);
-    const total=(await env.DB.prepare('SELECT COUNT(*) c FROM vehicles WHERE company_id=? AND active=1').bind(co).first().catch(()=>null))?.c||0;
-    const ev=(await env.DB.prepare("SELECT COUNT(*) c FROM vehicles WHERE company_id=? AND active=1 AND fuel_type IN ('electric','hybrid')").bind(co).first().catch(()=>null))?.c||0;
+    // Było: `WHERE active=1` i `fuel_type IN (...)` — obu kolumn w `vehicles` NIE MA,
+    // więc oba zapytania miały `.catch()` i cicho zwracały 0: udział EV w raporcie ESG
+    // wychodził zawsze zerowy albo pusty, niezależnie od floty.
+    const { total, ev } = await fleetCountsForEsg(env, co);
     const actuals={co2_total_tonnes:co2?(co2/1000).toFixed(2):null,fuel_consumption_l:fuel||null,ev_share_pct:total?(ev/total*100).toFixed(1):null};
     return json({targets,actuals});
   }
@@ -11796,8 +11863,10 @@ async function handleEsgTargets(req, env, user, url, path) {
     // miały .catch(), więc cicho zwracały 0: CO2 i zużycie paliwa w raportach ESG były
     // zerowe dla każdej firmy i każdego roku. Realne tankowania są w fuel_fills.
     const { co2_kg: co2, liters: fuel } = await fuelActualsForYear(env, co, year);
-    const total=(await env.DB.prepare('SELECT COUNT(*) c FROM vehicles WHERE company_id=? AND active=1').bind(co).first().catch(()=>null))?.c||0;
-    const ev=(await env.DB.prepare("SELECT COUNT(*) c FROM vehicles WHERE company_id=? AND active=1 AND fuel_type IN ('electric','hybrid')").bind(co).first().catch(()=>null))?.c||0;
+    // Było: `WHERE active=1` i `fuel_type IN (...)` — obu kolumn w `vehicles` NIE MA,
+    // więc oba zapytania miały `.catch()` i cicho zwracały 0: udział EV w raporcie ESG
+    // wychodził zawsze zerowy albo pusty, niezależnie od floty.
+    const { total, ev } = await fleetCountsForEsg(env, co);
     const actuals={co2_total_tonnes:co2?(co2/1000).toFixed(2):null,fuel_consumption_l:fuel||null,ev_share_pct:total?(ev/total*100).toFixed(1):null};
     return json({targets,actuals});
   }
@@ -12916,7 +12985,13 @@ async function handlePredictiveAi(request, env, user, url, path) {
   const co = user.company_id;
   // Pobierz historię serwisową ostatnich 6 miesięcy
   const history = await env.DB.prepare(
-    `SELECT v.nr_rej, v.marka, v.model, s.tytul, s.termin, s.koszt, s.status
+    // Było `v.marka, v.model` — obu kolumn `vehicles` nie ma, marka i model siedzą
+    // w JSON `data`. Historia serwisowa szła do analizy Claude, więc błąd oznaczał
+    // brak danych wejściowych dla całej funkcji.
+    `SELECT v.nr_rej,
+            JSON_EXTRACT(v.data,'$.marka') AS marka,
+            JSON_EXTRACT(v.data,'$.model') AS model,
+            s.tytul, s.termin, s.koszt, s.status
      FROM service_orders s JOIN vehicles v ON v.id=s.vehicle_id
      WHERE s.company_id=? AND date(s.termin)>=date('now','-180 days')
      ORDER BY v.nr_rej, s.termin DESC LIMIT 100`
