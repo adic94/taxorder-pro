@@ -97,15 +97,25 @@ taxorder-pro/
 
 ### W toku
 
-**`schema_v45` — dwie tabele KSeF nie powstają, ta sama klasa co v8/v48.** Nienaprawione.
-`ALTER TABLE ksef_invoices ADD COLUMN upo_r2_key TEXT` (`worker/schema_v45.sql:32`) pada na
-`duplicate column name`, więc plik wycofuje się w całości i zabiera `ksef_config` oraz
-`ksef_offline_queue`. Obu **nie ma w produkcyjnym D1** (potwierdzone sekcją [2] nocnego raportu).
-Poprawka jest jednolinijkowa i identyczna jak w v8 — usunąć `ALTER`, bo kolumna na produkcji
-już istnieje (dowodzi tego sam komunikat o duplikacie). **Zanim to zrobisz, sprawdź, czy
-`upo_r2_key` jest w `CREATE TABLE ksef_invoices`** w którymś wcześniejszym pliku; jeśli nie ma,
-kolumna powstała ręcznie i usunięcie `ALTER`-a zepsuje odtwarzalność na czystej bazie —
-wtedy właściwym ruchem jest przeniesienie kolumny do `CREATE TABLE`, nie usunięcie.
+**5 plików schematu jest „zakleszczonych" — ich tabele są nie do odtworzenia.** Ryzyko
+utajone, nie awaria: `schema_v23`, `v24`, `v30`, `v36`, `v43` padają przy każdym powtórzeniu
+(`duplicate column name`) i **zawierają `CREATE TABLE`**. Ich tabele dziś na produkcji
+**istnieją**, ale gdyby kiedykolwiek zniknęły — jak zniknęły tabele KSeF przez plik ROLLBACK —
+żaden przebieg by ich nie odtworzył. Najgroźniejszy jest `schema_v24`: deklaruje 8 tabel,
+w tym **`fuel_fills`**, na którym stoją raporty CO2, ESG i JPK.
+
+Naprawa = przeniesienie 26 `ALTER`-ów do `CREATE TABLE` w 7 różnych plikach (v1, v2, v3, v10,
+v11, v21, v25). **Nie rób tego na ślepo.** Dla `v30`, `v36`, `v43` mamy dowód z logu
+produkcyjnego, że kolumny tam są (`duplicate column name` w run `31565799753`). Dla `v23`
+i `v24` takiego dowodu NIE MA — log widziany w tamtej sesji obejmował tylko końcówkę.
+Usunięcie `ALTER`-a bez potwierdzenia mogłoby pozbawić produkcję kolumny. Najpierw:
+```bash
+wrangler d1 execute taxorder-pro --remote --command "PRAGMA table_info(vehicles)"
+wrangler d1 execute taxorder-pro --remote --command "PRAGMA table_info(service_orders)"
+```
+(szukasz `branch_id` i `gl_account`). Lista pilnowana przez `ZNANE_ZAKLESZCZONE`
+w `tests/unit/migration-apply-test.js` — **może się tylko skracać**; dopisanie do niej
+nowego pliku oznacza wprowadzenie migracji, której tabel nic nie odtworzy.
 
 **Rozjazd schematu D1 — ZWERYFIKOWANY NA PRODUKCJI 11.08.** Odczyt z `wrangler d1 execute
 --remote` obalił diagnozę obu przebiegów audytu w najważniejszym punkcie. Nie zgadywać
