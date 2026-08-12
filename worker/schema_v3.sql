@@ -22,7 +22,10 @@ CREATE TABLE IF NOT EXISTS service_orders (
   nastepny_km       INTEGER,
   uwagi             TEXT,
   created_at        TEXT    DEFAULT (datetime('now')),
-  updated_at        TEXT    DEFAULT (datetime('now'))
+  updated_at        TEXT    DEFAULT (datetime('now')),
+  -- Przeniesione z ALTER-ow w schema_v23.sql, schema_v24.sql (patrz komentarz w tamtych plikach).
+  branch_id INTEGER,
+  gl_account TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_so_company ON service_orders(company_id);
 CREATE INDEX IF NOT EXISTS idx_so_vehicle ON service_orders(company_id, nr_rej);

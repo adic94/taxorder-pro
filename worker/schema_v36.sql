@@ -1,6 +1,5 @@
 -- schema_v36: telematyka wideo + kolumna sku w spare_parts
 -- Dodaj sku do spare_parts (istniejąca tabela z v25, bez tej kolumny)
-ALTER TABLE spare_parts ADD COLUMN sku TEXT;
 CREATE INDEX IF NOT EXISTS idx_parts_sku ON spare_parts(sku);
 
 -- schema_v36: tabela zdarzeń telematyki wideo (ADAS)
@@ -23,3 +22,8 @@ CREATE TABLE IF NOT EXISTS video_telematics_events (
 CREATE INDEX IF NOT EXISTS idx_vte_company ON video_telematics_events(company_id);
 CREATE INDEX IF NOT EXISTS idx_vte_vehicle ON video_telematics_events(vehicle_reg);
 CREATE INDEX IF NOT EXISTS idx_vte_event_at ON video_telematics_events(event_at);
+
+-- ALTER-y ADD COLUMN przeniesione do CREATE TABLE w plikach zrodlowych tabel.
+-- NIE przywracaj ich tutaj: padaly przy kazdym powtorzeniu ('duplicate column name'),
+-- a import D1 z --file jest transakcyjny per plik — jeden taki blad wycofywal CALY
+-- ten plik razem z tabelami, ktore zaklada, wiec stawaly sie nie do odtworzenia.

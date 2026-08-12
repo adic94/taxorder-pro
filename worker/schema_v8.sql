@@ -90,4 +90,13 @@ CREATE INDEX IF NOT EXISTS idx_maint_tpl_company ON maintenance_templates(compan
 
 -- Dodatkowe uprawnienia użytkowników (admin może nadać innym użytkownikom)
 -- Możliwe wartości: 'manage_alert_types','manage_templates','manage_notifications','manage_roles'
-ALTER TABLE users ADD COLUMN extra_permissions TEXT DEFAULT '[]';
+--
+-- UWAGA — nie przywracaj tu ALTER TABLE users ADD COLUMN extra_permissions.
+-- Kolumna jest już w CREATE TABLE users w schema_v1.sql (linia 15), więc ALTER
+-- padał na "duplicate column name: extra_permissions" przy KAŻDYM uruchomieniu,
+-- także na pustej bazie. Import D1 z --file jest transakcyjny per plik, więc ten
+-- jeden błędny statement wycofywał CAŁY plik — cztery tabele powyżej
+-- (alert_types, notification_prefs, notification_log, maintenance_templates)
+-- nigdy nie powstawały. Kolumna na produkcji istnieje (dowodzi tego sam komunikat
+-- o duplikacie), więc usunięcie ALTER-a niczego nie zabiera.
+-- Bramka: tests/unit/migration-apply-test.js

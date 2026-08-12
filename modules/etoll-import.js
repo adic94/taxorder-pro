@@ -183,7 +183,7 @@ window.ETollImport = (function () {
       }
     });
 
-    if (typeof saveVehs === 'function') await saveVehs();
+    if (typeof window.saveVehs === 'function') await window.saveVehs();
     else if (typeof window.TaxOrderFleetCloud?.bulkSaveVehicles === 'function')
       await window.TaxOrderFleetCloud.bulkSaveVehicles(vehs);
 

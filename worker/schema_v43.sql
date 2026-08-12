@@ -14,12 +14,6 @@ CREATE TABLE IF NOT EXISTS doc_workflow_templates (
 );
 
 -- Nowe kolumny workflow na tabeli documents
-ALTER TABLE documents ADD COLUMN workflow_status       TEXT DEFAULT 'nowy';
-ALTER TABLE documents ADD COLUMN workflow_template_id  TEXT;
-ALTER TABLE documents ADD COLUMN workflow_assigned_to  TEXT;
-ALTER TABLE documents ADD COLUMN workflow_assigned_name TEXT;
-ALTER TABLE documents ADD COLUMN workflow_due_date     TEXT;
-ALTER TABLE documents ADD COLUMN workflow_priority     TEXT DEFAULT 'normal';
 
 -- Audit trail — pełna historia zmian statusu
 CREATE TABLE IF NOT EXISTS doc_status_history (
@@ -43,3 +37,8 @@ CREATE INDEX IF NOT EXISTS idx_dsh_doc        ON doc_status_history(doc_id);
 CREATE INDEX IF NOT EXISTS idx_dwt_company    ON doc_workflow_templates(company_id);
 CREATE INDEX IF NOT EXISTS idx_docs_wf_status ON documents(company_id, workflow_status);
 CREATE INDEX IF NOT EXISTS idx_docs_wf_assign ON documents(company_id, workflow_assigned_to);
+
+-- ALTER-y ADD COLUMN przeniesione do CREATE TABLE w plikach zrodlowych tabel.
+-- NIE przywracaj ich tutaj: padaly przy kazdym powtorzeniu ('duplicate column name'),
+-- a import D1 z --file jest transakcyjny per plik — jeden taki blad wycofywal CALY
+-- ten plik razem z tabelami, ktore zaklada, wiec stawaly sie nie do odtworzenia.

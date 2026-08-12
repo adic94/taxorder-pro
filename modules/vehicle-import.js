@@ -359,8 +359,8 @@ window.VehicleImport = (function () {
     window.vehs = vehs;
 
     // Zapisz do Supabase / localStorage
-    if (typeof window.FleetCloud !== 'undefined' && typeof FleetCloud.saveVehicles === 'function') {
-      FleetCloud.saveVehicles(vehs);
+    if (typeof window.FleetCloud !== 'undefined' && typeof window.FleetCloud.saveVehicles === 'function') {
+      window.FleetCloud.saveVehicles(vehs);
     } else if (typeof setTaxOrderVehicles === 'function') {
       setTaxOrderVehicles(vehs);
     }

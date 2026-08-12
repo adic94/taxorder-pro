@@ -9,12 +9,10 @@ CREATE TABLE IF NOT EXISTS branches (
 );
 CREATE INDEX IF NOT EXISTS idx_branches_company ON branches(company_id);
 
-ALTER TABLE vehicles       ADD COLUMN branch_id INTEGER REFERENCES branches(id);
-ALTER TABLE service_orders ADD COLUMN branch_id INTEGER;
-ALTER TABLE fines          ADD COLUMN branch_id INTEGER;
-ALTER TABLE damage_reports ADD COLUMN branch_id INTEGER;
-ALTER TABLE tires          ADD COLUMN branch_id INTEGER;
-ALTER TABLE mileage_claims ADD COLUMN branch_id INTEGER;
-ALTER TABLE policies       ADD COLUMN branch_id INTEGER;
 
 CREATE INDEX IF NOT EXISTS idx_vehicles_branch ON vehicles(branch_id);
+
+-- ALTER-y ADD COLUMN przeniesione do CREATE TABLE w plikach zrodlowych tabel.
+-- NIE przywracaj ich tutaj: padaly przy kazdym powtorzeniu ('duplicate column name'),
+-- a import D1 z --file jest transakcyjny per plik — jeden taki blad wycofywal CALY
+-- ten plik razem z tabelami, ktore zaklada, wiec stawaly sie nie do odtworzenia.

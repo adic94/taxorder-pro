@@ -17,7 +17,10 @@ CREATE TABLE IF NOT EXISTS policies (
   notes        TEXT,
   doc_id       TEXT,
   created_at   TEXT DEFAULT (datetime('now')),
-  updated_at   TEXT DEFAULT (datetime('now'))
+  updated_at   TEXT DEFAULT (datetime('now')),
+  -- Przeniesione z ALTER-ow w schema_v23.sql, schema_v24.sql (patrz komentarz w tamtych plikach).
+  branch_id INTEGER,
+  gl_account TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_policies_vehicle  ON policies(company_id, nr_rej);
 CREATE INDEX IF NOT EXISTS idx_policies_end      ON policies(end_date);
@@ -58,7 +61,10 @@ CREATE TABLE IF NOT EXISTS mileage_claims (
   notes        TEXT,
   approved_by  TEXT,
   approved_at  TEXT,
-  created_at   TEXT DEFAULT (datetime('now'))
+  created_at   TEXT DEFAULT (datetime('now')),
+  -- Przeniesione z ALTER-ow w schema_v23.sql, schema_v24.sql (patrz komentarz w tamtych plikach).
+  branch_id INTEGER,
+  gl_account TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_claims_company ON mileage_claims(company_id, claim_date);
 CREATE INDEX IF NOT EXISTS idx_claims_driver  ON mileage_claims(driver_name);

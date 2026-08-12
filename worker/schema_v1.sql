@@ -27,6 +27,12 @@ CREATE TABLE IF NOT EXISTS vehicles (
   dt1_tax_amount   REAL,
   data             TEXT    NOT NULL DEFAULT '{}',
   updated_at       TEXT    DEFAULT (datetime('now')),
+  -- Przeniesione z ALTER-ow w schema_v23.sql (patrz komentarz w tamtych plikach).
+  branch_id INTEGER,
+  -- Przeniesione z ALTER-ow w schema_v30.sql.
+  tacho_calibration_date TEXT,  -- data ostatniej kalibracji
+  tacho_calibration_next TEXT,  -- = calibration_date + 2 lata
+  tacho_vu_last_download TEXT,  -- data ostatniego pobrania VU (limit 90 dni)
   UNIQUE(company_id, nr_rej)
 );
 
@@ -44,7 +50,14 @@ CREATE TABLE IF NOT EXISTS documents (
   name        TEXT    NOT NULL,
   mime_type   TEXT    NOT NULL DEFAULT 'application/octet-stream',
   r2_key      TEXT    NOT NULL UNIQUE,
-  uploaded_at TEXT    DEFAULT (datetime('now'))
+  uploaded_at TEXT    DEFAULT (datetime('now')),
+  -- Przeniesione z ALTER-ow w schema_v43.sql (patrz komentarz w tamtych plikach).
+  workflow_status TEXT DEFAULT 'nowy',
+  workflow_template_id TEXT,
+  workflow_assigned_to TEXT,
+  workflow_assigned_name TEXT,
+  workflow_due_date TEXT,
+  workflow_priority TEXT DEFAULT 'normal'
 );
 
 CREATE TABLE IF NOT EXISTS user_prefs (

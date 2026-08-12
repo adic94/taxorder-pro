@@ -14,7 +14,10 @@ CREATE TABLE IF NOT EXISTS damage_reports (
   zglaszajacy     TEXT,
   uwagi           TEXT,
   created_at      TEXT    DEFAULT (datetime('now')),
-  updated_at      TEXT    DEFAULT (datetime('now'))
+  updated_at      TEXT    DEFAULT (datetime('now')),
+  -- Przeniesione z ALTER-ow w schema_v23.sql, schema_v24.sql (patrz komentarz w tamtych plikach).
+  branch_id INTEGER,
+  gl_account TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_damage_vehicle ON damage_reports(company_id, nr_rej);
 
@@ -45,7 +48,9 @@ CREATE TABLE IF NOT EXISTS tires (
   uwagi               TEXT,
   historia            TEXT    NOT NULL DEFAULT '[]',
   created_at          TEXT    DEFAULT (datetime('now')),
-  updated_at          TEXT    DEFAULT (datetime('now'))
+  updated_at          TEXT    DEFAULT (datetime('now')),
+  -- Przeniesione z ALTER-ow w schema_v23.sql (patrz komentarz w tamtych plikach).
+  branch_id INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_tires_company ON tires(company_id);
 CREATE INDEX IF NOT EXISTS idx_tires_vehicle ON tires(company_id, nr_rej);

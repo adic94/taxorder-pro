@@ -15,7 +15,13 @@ CREATE TABLE IF NOT EXISTS company_packages (
   created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
   updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
-CREATE INDEX IF NOT EXISTS idx_cp_company ON company_packages(company_id, active);
+-- Indeks celowo BEZ kolumny `active`: na produkcji tabela company_packages pochodzi
+-- z schema_v33 (company_id TEXT PRIMARY KEY, bez `active`), a CREATE TABLE IF NOT EXISTS
+-- powyżej jest tam cichym no-opem. Indeks na (company_id, active) padał więc na
+-- "no such column: active", a że import D1 jest transakcyjny per plik — wycofywał CAŁY
+-- plik razem z usage_snapshots poniżej. Wersja na samym company_id działa na obu
+-- strukturach. Rozjazd v33/v48 jest osobnym, otwartym tematem (patrz CLAUDE.md).
+CREATE INDEX IF NOT EXISTS idx_cp_company ON company_packages(company_id);
 
 -- ─── SNAPSHOTY UŻYCIA (miesięczne zliczanie per moduł) ───────────────────────
 CREATE TABLE IF NOT EXISTS usage_snapshots (
