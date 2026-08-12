@@ -17,17 +17,52 @@ on:
 
 jobs:
   claude:
-    # Uruchom tylko gdy:
-    # - komentarz zawiera "@claude"
-    # - Issue ma label "claude"
+    # Uruchom tylko gdy SPEŁNIONE OBA warunki:
+    #   1. autor ma uprawnienia do repozytorium (OWNER / MEMBER / COLLABORATOR),
+    #   2. komentarz zawiera "@claude" albo Issue ma label "claude".
+    #
+    # ⚠️ WARUNEK 1 JEST WARUNKIEM BEZPIECZEŃSTWA, NIE WYGODĄ — nie usuwaj go.
+    #
+    # Ten job dostaje `contents: write` i `secrets.ANTHROPIC_API_KEY`. Bez sprawdzenia
+    # autora wyzwalaczem jest sam TEKST komentarza, a komentarz może napisać każdy, kto
+    # ma dostęp do repozytorium. Dziś repo jest prywatne, więc krąg jest wąski — ale:
+    #
+    #   • gdyby repo stało się PUBLICZNE, dowolna osoba z internetu założyłaby Issue
+    #     z "@claude ..." i dostała agenta z prawem zapisu, na naszym kluczu API.
+    #     Uwaga na asymetrię: `pull_request` z forka NIE dostaje sekretów, ale
+    #     `issue_comment` biegnie w kontekście repo bazowego i sekrety DOSTAJE.
+    #   • push do `worker/**` uruchamia deploy-worker.yml, czyli wdrożenie na
+    #     produkcję — droga od obcego komentarza do produkcji jest prosta.
+    #   • dodanie współpracownika do repo dziś rozszerza ten krąg bez żadnego sygnału.
+    #
+    # `author_association` bierze się ze zdarzenia GitHuba i nie da się go podrobić
+    # treścią komentarza.
+    #
+    # SPRAWDZAMY AUTORA TEGO TEKSTU, KTÓRY STAJE SIĘ PROMPTEM — osobno dla każdego
+    # zdarzenia, nigdy jednym wspólnym OR-em. Wspólny OR jest dziurawy: przepuszczałby
+    # obcy komentarz pod Issue założonym przez właściciela, bo `issue.author_association`
+    # byłoby wtedy OWNER, mimo że promptem jest treść komentarza obcej osoby.
+    #
+    # Dla `issues` (oba warianty) sprawdzamy autora ZGŁOSZENIA, nie osoby nadającej
+    # label — bo to treść zgłoszenia trafia do Claude jako polecenie. Świadomy skutek:
+    # nadanie labelu "claude" na Issue obcej osoby NIE uruchomi joba. Tak ma być —
+    # inaczej wystarczyłoby napisać zgłoszenie i poczekać, aż ktoś je otaguje.
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (
-        (github.event.action == 'labeled' && github.event.label.name == 'claude') ||
-        (github.event.action == 'opened' && contains(github.event.issue.body, '@claude'))
-      ))
+      (github.event_name == 'issue_comment'
+        && contains(github.event.comment.body, '@claude')
+        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
+      (github.event_name == 'pull_request_review_comment'
+        && contains(github.event.comment.body, '@claude')
+        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
+      (github.event_name == 'pull_request_review'
+        && contains(github.event.review.body, '@claude')
+        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)) ||
+      (github.event_name == 'issues'
+        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
+        && (
+          (github.event.action == 'labeled' && github.event.label.name == 'claude') ||
+          (github.event.action == 'opened' && contains(github.event.issue.body, '@claude'))
+        ))
     runs-on: ubuntu-latest
     permissions:
       contents: write
