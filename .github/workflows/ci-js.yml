@@ -65,3 +65,12 @@ jobs:
       # w UI bez wskaznika wywala CI.
       - name: Straznik wskaznikow CO2 — kazde paliwo z UI ma wskaznik
         run: node tests/unit/co2-factors-test.js
+
+      # Front i backend trzymaja DWIE niezalezne kopie listy zrodel i kolumn kreatora
+      # raportow, a obie potrafily rozjechac sie ze schematem bazy. Kazde zapytanie ma
+      # .catch(), wiec efektem byla pusta tabela bez bledu — tak zachowywalo sie zrodlo
+      # "Paliwo" (fuel_entries) i "Pojazdy" (kolumny reg/brand/model, ktorych nie ma).
+      # Wpiety dopiero teraz, bo do naprawy zrodla "Pojazdy" test swiecil na czerwono
+      # z powodu dlugu, nie regresji.
+      - name: Straznik kreatora raportow — spojnosc zrodel i kolumn
+        run: node tests/unit/report-sources-test.js

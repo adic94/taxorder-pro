@@ -11681,19 +11681,46 @@ async function handleReportBuilder(req, env, user, url, path) {
   // więc źródło „Paliwo" w kreatorze raportów dawało zawsze pustą tabelę bez żadnego błędu.
   // Kolumny muszą się zgadzać z modules/report-builder.js (front i backend są sparowane).
   const ALLOWED_TABLES=['vehicles','fuel_fills','service_orders','damage_reports','fines','tco_cost_entries','ksef_invoices','carpooling_trips'];
-  const ALLOWED_COLS={vehicles:['id','reg','brand','model','year','fuel_type','dmc','status','driver','department'],fuel_fills:['id','fill_date','nr_rej','liters','total_cost','price_per_liter','odometer','driver_name','fuel_type','station'],service_orders:['id','nr_rej','typ','opis','status','warsztat','koszt_szacowany','koszt_rzeczywisty','data_realizacji','km_realizacji'],damage_reports:['id','nr_rej','data_zdarzenia','opis','przyczyna','status','koszt','zglaszajacy'],fines:['id','nr_rej','driver_name','date','type','amount','description','fine_no','issuer','points','paid','paid_date'],tco_cost_entries:['id','entry_date','vehicle_reg','category','amount_pln','description'],ksef_invoices:['id','invoice_number','ksef_number','ksef_status','seller_nip','buyer_nip','gross_pln','ksef_date'],carpooling_trips:['id','trip_date','driver_name','vehicle_reg','origin','destination','status','cost_pln']};
+  // `vehicles` to jedyne źródło, w którym dane NIE leżą w płaskich kolumnach — poza
+  // `nr_rej` wszystko siedzi w kolumnie JSON `data`. Whitelista wymieniała nazwy logiczne
+  // (reg, brand, model, dmc…), których w tabeli nie ma, a zapytanie ma `.catch()`,
+  // więc źródło „Pojazdy" zwracało PUSTĄ TABELĘ bez śladu błędu. Mapujemy nazwę logiczną
+  // na wyrażenie SQL; pozostałe źródła zostają na płaskich kolumnach.
+  const COL_EXPR={vehicles:{
+    id:'id',
+    reg:'nr_rej',
+    brand:"JSON_EXTRACT(data,'$.marka')",
+    model:"JSON_EXTRACT(data,'$.model')",
+    year:"JSON_EXTRACT(data,'$.rok')",
+    vin:"JSON_EXTRACT(data,'$.vin')",
+    fuel_type:"JSON_EXTRACT(data,'$.paliwo')",
+    // Aplikacja czyta `v.dmc ?? v.dmcMax` — COALESCE zachowuje tę semantykę,
+    // w tym regułę falsy-zero: DMC równe 0 zostaje zerem, nie wpada w fallback.
+    dmc:"COALESCE(JSON_EXTRACT(data,'$.dmc'),JSON_EXTRACT(data,'$.dmcMax'))",
+    status:"JSON_EXTRACT(data,'$.status')",
+    driver:"JSON_EXTRACT(data,'$.kierowca')",
+    // app.js czyta `v.oddzial || v.branch_id`.
+    department:"COALESCE(JSON_EXTRACT(data,'$.oddzial'),branch_id)",
+  }};
+  // Nazwy kolumn pochodzą wyłącznie z whitelisty poniżej, więc podstawienie jest bezpieczne.
+  const expr=(t,c)=>(COL_EXPR[t]&&COL_EXPR[t][c])||c;
+  const ALLOWED_COLS={vehicles:['id','reg','brand','model','year','vin','fuel_type','dmc','status','driver','department'],fuel_fills:['id','fill_date','nr_rej','liters','total_cost','price_per_liter','odometer','driver_name','fuel_type','station'],service_orders:['id','nr_rej','typ','opis','status','warsztat','koszt_szacowany','koszt_rzeczywisty','data_realizacji','km_realizacji'],damage_reports:['id','nr_rej','data_zdarzenia','opis','przyczyna','status','koszt','zglaszajacy'],fines:['id','nr_rej','driver_name','date','type','amount','description','fine_no','issuer','points','paid','paid_date'],tco_cost_entries:['id','entry_date','vehicle_reg','category','amount_pln','description'],ksef_invoices:['id','invoice_number','ksef_number','ksef_status','seller_nip','buyer_nip','gross_pln','ksef_date'],carpooling_trips:['id','trip_date','driver_name','vehicle_reg','origin','destination','status','cost_pln']};
   if(method==='POST'&&sub==='run'){
     const b=await req.json().catch(()=>({}));
     const table=b.source||b.source_table||'vehicles';
     if(!ALLOWED_TABLES.includes(table))return err('Niedozwolone źródło danych');
     const allowedCols=ALLOWED_COLS[table]||[];
     const reqCols=(Array.isArray(b.cols)&&b.cols.length?b.cols:[]).filter(c=>allowedCols.includes(c));
-    const colList=reqCols.length?reqCols.join(','):'*';
+    // Bez aliasu klucze w wyniku byłyby wyrażeniami SQL zamiast nazwami kolumn,
+    // więc front nie odnalazłby danych. Przy braku wyboru kolumn `*` dla `vehicles`
+    // zwróciłoby surowy JSON — bierzemy komplet zmapowanych nazw.
+    const kolumny=reqCols.length?reqCols:(COL_EXPR[table]?Object.keys(COL_EXPR[table]).filter(c=>allowedCols.includes(c)):[]);
+    const colList=kolumny.length?kolumny.map(c=>`${expr(table,c)} AS ${c}`).join(','):'*';
     const limit=Math.min(+b.limit||100,5000);
     let sql=`SELECT ${colList} FROM ${table} WHERE company_id=?`;
     const params=[co];
-    if(b.filter_col&&allowedCols.includes(b.filter_col)&&b.filter_val){sql+=' AND '+b.filter_col+' LIKE ?';params.push('%'+b.filter_val+'%');}
-    if(b.sort&&allowedCols.includes(b.sort)){sql+=` ORDER BY ${b.sort} ${b.sort_dir==='ASC'?'ASC':'DESC'}`;}
+    if(b.filter_col&&allowedCols.includes(b.filter_col)&&b.filter_val){sql+=' AND '+expr(table,b.filter_col)+' LIKE ?';params.push('%'+b.filter_val+'%');}
+    if(b.sort&&allowedCols.includes(b.sort)){sql+=` ORDER BY ${expr(table,b.sort)} ${b.sort_dir==='ASC'?'ASC':'DESC'}`;}
     sql+=` LIMIT ${limit}`;
     const rows=(await env.DB.prepare(sql).bind(...params).all().catch(()=>({results:[]}))).results||[];
     return json({rows});

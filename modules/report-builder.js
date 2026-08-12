@@ -4,7 +4,10 @@
   const co  = () => window.currentCompanyId || localStorage.getItem('currentCompany') || '';
 
   const SOURCES = {
-    vehicles: { lbl:'Pojazdy', cols:['reg','brand','model','year','fuel_type','dmc','status','driver','department'] },
+    // Nazwy logiczne — backend mapuje je na wyrażenia nad kolumną JSON `data`
+    // (patrz COL_EXPR w worker/index.js). Ta lista MUSI być podzbiorem tamtejszej
+    // whitelisty ALLOWED_COLS.vehicles, inaczej kolumna cicho wypadnie z wyniku.
+    vehicles: { lbl:'Pojazdy', cols:['reg','brand','model','year','vin','fuel_type','dmc','status','driver','department'] },
     // fuel_fills, NIE fuel_entries — ta druga nie istnieje w bazie, przez co źródło „Paliwo"
     // zwracało zawsze pusty raport. Nazwy kolumn muszą się zgadzać z ALLOWED_COLS w workerze.
     fuel_fills: { lbl:'Paliwo', cols:['fill_date','nr_rej','liters','total_cost','price_per_liter','odometer','driver_name','fuel_type','station'] },

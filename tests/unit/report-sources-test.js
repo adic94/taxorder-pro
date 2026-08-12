@@ -142,15 +142,52 @@ test('każda tabela z whitelisty backendu ISTNIEJE w plikach schema', () => {
     'Dokładnie tak zachowywało się źródło „Paliwo" wskazujące na fuel_entries.');
 });
 
-test('kolumny z whitelisty istnieją w definicji tabeli', () => {
+// Nazwa z whitelisty może być albo płaską kolumną, albo nazwą LOGICZNĄ mapowaną
+// w backendzie na wyrażenie SQL (COL_EXPR) — tak działa `vehicles`, gdzie poza
+// `nr_rej` wszystko siedzi w kolumnie JSON `data`. Test musi uznawać oba warianty,
+// ale nie wolno mu przepuścić nazwy, która nie jest ani jednym, ani drugim.
+const colExpr = (() => {
+  const m = workerSrc.match(/const\s+COL_EXPR\s*=\s*\{[\s\S]*?\n\s*\}\}\s*;/);
+  if (!m) return {};
+  const out = {};
+  const tabela = m[0].match(/(\w+)\s*:\s*\{([\s\S]*)\}\}/);
+  if (!tabela) return {};
+  out[tabela[1]] = [...tabela[2].matchAll(/(\w+)\s*:\s*['"`]/g)].map(x => x[1]);
+  return out;
+})();
+
+test('kolumny z whitelisty istnieją w tabeli albo mają mapowanie COL_EXPR', () => {
   const bad = [];
   for (const [t, cols] of Object.entries(allowedCols)) {
     const def = schemaColumns(t);
     if (!def) continue; // zgłoszone w teście wyżej
-    const miss = cols.filter(c => !def.columns.includes(c));
+    const zmapowane = colExpr[t] || [];
+    const miss = cols.filter(c => !def.columns.includes(c) && !zmapowane.includes(c));
     if (miss.length) bad.push(`${t} (${def.file}): ${miss.join(', ')}`);
   }
-  assert(bad.length === 0, `whitelista wymienia kolumny, których nie ma w schemacie → ${bad.join(' | ')}`);
+  assert(bad.length === 0,
+    `whitelista wymienia kolumny, których nie ma ani w schemacie, ani w COL_EXPR → ${bad.join(' | ')}. ` +
+    'Zapytanie ma .catch(), więc raport będzie zawsze pusty — bez żadnego błędu.');
+});
+
+test('mapowanie COL_EXPR odwołuje się wyłącznie do realnych kolumn', () => {
+  const m = workerSrc.match(/const\s+COL_EXPR\s*=\s*\{[\s\S]*?\n\s*\}\}\s*;/);
+  const bad = [];
+  if (m) {
+    for (const [t] of Object.entries(colExpr)) {
+      const def = schemaColumns(t);
+      if (!def) continue;
+      // Kolumny użyte wprost w wyrażeniach (poza literałami ścieżek JSON i słowami SQL).
+      const uzyte = new Set();
+      for (const w of m[0].matchAll(/JSON_EXTRACT\(\s*(\w+)\s*,/g)) uzyte.add(w[1]);
+      for (const w of m[0].matchAll(/COALESCE\([^)]*?,\s*(\w+)\s*\)/g)) uzyte.add(w[1]);
+      for (const w of m[0].matchAll(/:\s*'(\w+)'\s*,/g)) uzyte.add(w[1]);
+      const brak = [...uzyte].filter(c => !def.columns.includes(c));
+      if (brak.length) bad.push(`${t}: ${brak.join(', ')}`);
+    }
+  }
+  assert(bad.length === 0,
+    `COL_EXPR odwołuje się do kolumn, których tabela NIE MA → ${bad.join(' | ')}`);
 });
 
 console.log(`\n${'─'.repeat(44)}`);
