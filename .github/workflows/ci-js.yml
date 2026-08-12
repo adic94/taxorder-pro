@@ -47,3 +47,30 @@ jobs:
       # 4 tabele powiadomien z schema_v8), oraz falszywe alarmy bramki d1-schema-diff.
       - name: Straznik migracji — co faktycznie powstaje w bazie
         run: node tests/unit/migration-apply-test.js
+
+      # Tabela `vehicles` nie ma plaskich kolumn status/active/reg/brand/model/fuel_type/
+      # vin — te dane siedza w kolumnie JSON `data`. Zapytania pisane tak, jakby kolumny
+      # istnialy, sa poprawnym JS i poprawnym SQL, wiec nie widzi ich ani node --check,
+      # ani eslint, ani Playwright. Konczyly sie 500 (GET /api/fleet-kpi, bez .catch())
+      # albo cichymi zerami (liczniki floty, udzial EV, wyszukiwarka QR). Ten test bierze
+      # KAZDE zapytanie do vehicles i przygotowuje je na schemacie z schema_v*.sql —
+      # db.prepare() w SQLite waliduje nazwy kolumn.
+      - name: Straznik kolumn — zapytania do vehicles kontra realny schemat
+        run: node tests/unit/vehicles-columns-test.js
+
+      # Formularz tankowania zapisuje pb95/pb98/cng/elektryk, a tablica wskaznikow miala
+      # klucze petrol/gasoline/electric i wyszukiwala po ROWNOSCI — cztery z szesciu
+      # wartosci cicho ladowaly na default 2.5, w tym pojazd elektryczny. Test czyta
+      # wartosci wprost z <select id="fm-ftype"> w index.html, wiec dodanie nowego paliwa
+      # w UI bez wskaznika wywala CI.
+      - name: Straznik wskaznikow CO2 — kazde paliwo z UI ma wskaznik
+        run: node tests/unit/co2-factors-test.js
+
+      # Front i backend trzymaja DWIE niezalezne kopie listy zrodel i kolumn kreatora
+      # raportow, a obie potrafily rozjechac sie ze schematem bazy. Kazde zapytanie ma
+      # .catch(), wiec efektem byla pusta tabela bez bledu — tak zachowywalo sie zrodlo
+      # "Paliwo" (fuel_entries) i "Pojazdy" (kolumny reg/brand/model, ktorych nie ma).
+      # Wpiety dopiero teraz, bo do naprawy zrodla "Pojazdy" test swiecil na czerwono
+      # z powodu dlugu, nie regresji.
+      - name: Straznik kreatora raportow — spojnosc zrodel i kolumn
+        run: node tests/unit/report-sources-test.js

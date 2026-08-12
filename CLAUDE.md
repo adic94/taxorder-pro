@@ -97,6 +97,10 @@ taxorder-pro/
 
 | 2026-08-12 | **Zero zakleszczonych plików schematu — klasa błędu domknięta.** Punktowe naprawy (v8, v45, v48) rozszerzone na wszystkie pozostałe: `v23`, `v24`, `v30`, `v36`, `v43` padały przy każdym powtórzeniu **i zawierały `CREATE TABLE`**, więc ich tabele były nie do odtworzenia. Najgroźniejszy `schema_v24`: 8 tabel, w tym **`fuel_fills`**. Dowodu, że kolumny są na produkcji, dostarczył nocny raport — `d1-schema-diff` dopasowuje **dokładny** zbiór kolumn D1 do definicji z repo (licząc `ALTER`-y), a sekcja [5] była **pusta** i żadna z tych tabel nie wystąpiła w [4]; brak `branch_id`/`gl_account`/`cpc_*`/`sku`/`workflow_*` wypchnąłby tabelę do jednej z tych sekcji. 26 kolumn przeniesionych do `CREATE TABLE` w 7 plikach (v1, v2, v3, v10, v11, v21, v25). `vehicles.branch_id` **bez** `REFERENCES branches(id)` — `branches` powstaje dopiero w v23, więc FK w `schema_v1` tworzyłby zależność od kolejności tworzenia tabel. **Weryfikacja niezależna od bramki** (bramka porównuje repo z bazą zbudowaną z tego samego repo, więc sama w sobie nie dowodzi zachowawczości): zbudowana baza sprzed zmiany i po niej, porównane `PRAGMA table_info` każdej tabeli — **135 tabel przed i po, zero utraconych, zero z innym zbiorem kolumn**. `ZNANE_ZAKLESZCZONE` wyzerowane; asercja „żaden plik padający przy powtórzeniu nie tworzy tabel" przechodzi dla wszystkich plików; padających przy powtórzeniu 14 → 8. Bramka złapała po drodze dwa błędy wprowadzone moim skryptem: przecinek rozdzielający kolumny wewnątrz komentarza oraz kolumny wstawione **po** `UNIQUE(...)`, które musi stać na końcu | — |
 
+| 2026-08-12 | **`vehicles` nie ma płaskich kolumn — 11 zapytań pisanych tak, jakby miała.** Gałąź `claude/vehicles-i-co2`. Realne kolumny: `id, company_id, nr_rej, axles_count, suspension_type, dmc_zespolu, miesiace_podatku, dt1_category, dt1_tax_amount, data, updated_at, branch_id, tacho_*` — reszta siedzi w JSON `data`. **`GET /api/fleet-kpi` zwracał 500 ZAWSZE** (jedyne zapytanie w swoim `Promise.all` bez `.catch()`), więc strona „Dashboard KPI" była martwa. Dziesięć pozostałych miało `.catch()` → **ciche zera**: liczniki floty i udział EV w ESG, wyszukiwarka pojazdów i skany QR, historia serwisowa dla analizy Claude, licznik przeterminowanych przeglądów (kolumna `przeglad_do` **nie istnieje nigdzie w repo** — aplikacja używa `nextInspection`), zapis wyniku CEPiK (dodatkowo `user.company` zamiast `user.company_id`). Definicje „pojazd czynny"/„elektryczny" wyciągnięte do `SQL_VEH_ACTIVE`/`SQL_VEH_IS_EV`. **Bramka `tests/unit/vehicles-columns-test.js`** — wyciąga KAŻDE zapytanie do `vehicles` i przygotowuje je na schemacie; `db.prepare()` w SQLite waliduje nazwy kolumn. Negatywnie: `origin/main` → 11 zapytań po numerze linii, HEAD → 0 przy 49 sprawdzonych. Pierwsza wersja testu używała regexa na literałach, przechodziła przez ich granice i padała **tak samo na starym i nowym kodzie** — wykryła to dopiero kontrola negatywna; ekstrakcja przepisana na skaner od `.prepare(`. Ten skaner znalazł 2 błędy przeoczone w ręcznym przeglądzie (`JOIN vehicles`, nie `FROM`) | — |
+| 2026-08-12 | **Wskaźniki CO2 nie trafiały w wartości zapisywane przez aplikację.** Dług opisywał to jako „rozjazd dwóch tablic" — w rzeczywistości **obie były rozjechane z danymi**. Formularz tankowania (`index.html`, `#fm-ftype`) zapisuje `diesel/pb95/pb98/lpg/cng/elektryk`, a backend szukał po **równości** wśród kluczy `petrol/gasoline/electric`: `pb95`/`pb98` → 2,5 zamiast 2,31 (+8%), `cng` → 2,5 zamiast 2,04 (+23%), **`elektryk` → 2,5 zamiast 0** (pojazd bezemisyjny liczony jak spalinowy). Dodany `co2FactorFor()` dopasowuje po fragmencie (importy i OCR dokładają `benzyna`, `elektryczny`, `hybryda`, `ON`). Front **nie dostał drugiej kopii tablicy** — kilogramy liczy backend, więc backend zwraca użyty wskaźnik w polu `ef`, a `co2-report.js` tylko go wyświetla; wcześniej arkusz eksportu pokazywał 2,68 obok kilogramów z 2,65. Rozjazd jest teraz strukturalnie niemożliwy. Bramka czyta warianty wprost z `<select>` w `index.html`. Test wyłapał mój własny błąd: polskie `elektr` i angielskie `electr` różnią się literą k/c | — |
+| 2026-08-12 | **Kreator raportów — źródło „Pojazdy" zwracało pustą tabelę.** Mapa `COL_EXPR` (nazwa logiczna → wyrażenie SQL) użyta w SELECT (z aliasem), filtrze i `ORDER BY`. Klucze wzięte z aplikacji: `$.marka`, `$.model`, `$.kierowca`, `COALESCE($.oddzial,branch_id)`, `COALESCE($.dmc,$.dmcMax)` — `COALESCE` zachowuje semantykę `??`, więc DMC równe 0 zostaje zerem. `report-sources-test` **rozszerzony, nie osłabiony**: kolumna musi być płaską kolumną albo mieć mapowanie, a samo `COL_EXPR` może odwoływać się wyłącznie do realnych kolumn. Wpięty do `ci-js.yml` | — |
+
 ### W toku
 
 **Rozjazd schematu D1 — ZWERYFIKOWANY NA PRODUKCJI 11.08.** Odczyt z `wrangler d1 execute
@@ -207,15 +211,12 @@ starszego pliku **nie naprawi** tabeli o innej strukturze — i nic o tym nie zg
     celowe (test bookmarkletu MUSI parsować `javascript:`, `unit-tests.js` używa `eval`
     do uruchamiania asercji). Nie rozszerzaj zakresu bramki bez wyciszenia tych miejsc.
 
-- **Dwie rozbieżne tablice wskaźników CO2.** `worker/index.js` (`CO2_EMISSION_FACTORS`):
-  diesel 2.65, lpg 1.63, klucze **angielskie** (`petrol`, `electric`). `modules/co2-report.js:144`
-  (`EMISSION_FACTORS`): diesel 2.68, lpg 1.51, klucze **polskie** (`benzyna`, `elektryczny`).
-  Różne wartości i różne języki kluczy oznaczają, że przy niedopasowaniu cicho wchodzi
-  fallback (2.5 w obu). Backend i front mogą więc pokazać inne CO2 dla tej samej floty.
-  **Nie ujednolicałem przy okazji naprawy zer w ESG** — wybór wartości (2.65 czy 2.68?)
-  to decyzja domenowa dla właściciela raportowania ESG, nie refaktor. Do rozstrzygnięcia:
-  która tablica jest wiodąca i w jakim języku zapisywane jest `fuel_type` w `vehicles`
-  oraz `fuel_fills` (schemat ma `DEFAULT 'diesel'`).
+- ~~Dwie rozbieżne tablice wskaźników CO2~~ — **zrobione 12.08**, patrz Zamknięte. Problem
+  był szerszy: obie tablice były rozjechane nie tylko ze sobą, ale i z danymi. Front nie ma
+  już własnej tablicy — backend zwraca użyty wskaźnik w polu `ef`.
+  **Do rozstrzygnięcia został jeden parametr domenowy: wartość dla diesla.** Zostawiłem
+  **2.65** (backend), bo to ona produkowała dotychczasowe liczby w ESG i JPK; front miał 2.68.
+  Zmiana = jedna liczba w `CO2_EMISSION_FACTORS`. CNG 2.04 przejęte z tablicy frontu.
 - **Zapisane `report_configs` ze źródłem `fuel_entries`** (jeśli istnieją) po zmianie
   whitelisty zwrócą „Niedozwolone źródło danych" zamiast pustej tabeli. Te konfiguracje
   i tak nigdy nie zwracały danych — komunikat błędu jest uczciwszy niż cicha pustka, ale
@@ -233,16 +234,10 @@ starszego pliku **nie naprawi** tabeli o innej strukturze — i nic o tym nie zg
   `service_orders` i `fines` — wszystkie trzy mają polskie nazwy w schemacie
   (`opis`, `koszt`, `warsztat`, `data_zdarzenia`), a whitelisty wymieniały angielskie.
 
-  **Zostało `vehicles`** — whitelista wymienia `reg`, `brand`, `model`, `year`, `fuel_type`,
-  `dmc`, `status`, `driver`, `department`, a tabela ma tylko `nr_rej`, `axles_count`,
-  `suspension_type`, `dmc_zespolu` i **kolumnę JSON `data`**, w której te pola faktycznie
-  siedzą. Raportowanie po nich wymaga `json_extract(data,'$.klucz')`, a klucze są
-  **niespójne między rekordami** — aplikacja czyta je z fallbackami (`v.dmc ?? v.dmcMax`,
-  `v.nr_rej || v.nrRej`). Wybór wiodącego wariantu to decyzja o danych, nie refaktor.
-  Do tego czasu źródło „Pojazdy" zwraca pustą tabelę.
-
-  `report-sources-test.js` celowo **nie jest bramką CI** — dziś 4 PASS / 1 FAIL, gdzie
-  jedyna porażka to powyższy dług, nie regresja. Wepnij go do `ci-js.yml` po naprawie `vehicles`.
+  ~~Zostało `vehicles`~~ — **zrobione 12.08**, patrz Zamknięte. Mapa `COL_EXPR` tłumaczy
+  nazwy logiczne na wyrażenia nad kolumną JSON `data`; fallbacki wzięte z aplikacji
+  (`COALESCE($.dmc,$.dmcMax)`, `COALESCE($.oddzial,branch_id)`), nie wymyślone.
+  `report-sources-test.js` **jest już bramką** w `ci-js.yml` (6 PASS / 0 FAIL).
 
 - **`company_packages` — kod celuje w DWIE niezgodne struktury naraz.** Nie do naprawy
   „przy okazji": odczyt `resolveModuleAccess` (`worker/index.js:13248`) wymaga

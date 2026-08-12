@@ -3858,13 +3858,23 @@ function _mapCepikKierowcaStatus(attrs) {
 async function _saveCepikKierowcaResult(env, user, vehId, result) {
   try {
     await env.DB.prepare(
-      `UPDATE vehicles SET cepikStatus=?, cepikLastCheck=?, cepikKategorie=? WHERE id=? AND company=?`
+      // Było: SET cepikStatus=..., cepikLastCheck=..., cepikKategorie=... WHERE ... company=?
+      // Żadna z tych kolumn w `vehicles` nie istnieje, a `user.company` też nie —
+      // sesja niesie `company_id`. Całość opakowana w try/catch, więc wynik sprawdzenia
+      // CEPiK nie zapisywał się NIGDY i nikt tego nie widział.
+      `UPDATE vehicles SET data = json_set(COALESCE(data,'{}'),
+          '$.cepikStatus', ?, '$.cepikLastCheck', ?, '$.cepikKategorie', ?),
+        updated_at = datetime('now')
+       WHERE id=? AND company_id=?`
     ).bind(
       result.status,
       new Date().toISOString().slice(0, 10),
-      result.kategorie ?? null,
+      // json_set przyjmuje wartość skalarną — struktury serializujemy, żeby nie zgubić danych.
+      result.kategorie == null || typeof result.kategorie === 'string'
+        ? (result.kategorie ?? null)
+        : JSON.stringify(result.kategorie),
       vehId,
-      user.company
+      user.company_id
     ).run();
   } catch {}
 }
@@ -6566,7 +6576,80 @@ async function handleTCO(request, env, user, url, path) {
 // UWAGA: modules/co2-report.js ma WŁASNĄ, rozbieżną tablicę (diesel 2.68, lpg 1.51,
 // klucze po polsku) — patrz dług techniczny w CLAUDE.md. Wartości poniżej są tymi,
 // których backend używał do tej pory; nie zmieniam ich przy okazji naprawy zer.
-const CO2_EMISSION_FACTORS = { diesel: 2.65, petrol: 2.31, pb: 2.31, gasoline: 2.31, lpg: 1.63, hybrid: 2.0, electric: 0, default: 2.5 };
+/**
+ * Zestawy wskaźników emisyjności Z OKRESEM OBOWIĄZYWANIA.
+ *
+ * Wskaźnik emisyjności jest wielkością regulowaną i zmienia się w czasie, więc pojedyncza
+ * liczba jest strukturalnie zła: podmiana stawki przeliczyłaby raport za rok, który już
+ * został złożony, i sprawozdanie przestałoby się odtwarzać. Wskaźnik wybieramy zawsze
+ * po DACIE ZDARZENIA (dacie tankowania), nie po dacie generowania raportu.
+ *
+ * ⚠️ JEDNOSTKA. Tutejsze wartości to **kg CO2 na LITR paliwa**. Wskaźniki KOBiZE bywają
+ * publikowane na jednostkę energii (kg CO2/GJ) albo na masę — przepisanie takiej liczby
+ * wprost do tej tablicy da błąd o rząd wielkości. Przeliczenie wymaga wartości opałowej
+ * i gęstości paliwa. Dlatego każdy zestaw niesie `jednostka` i `zrodlo`.
+ *
+ * Dodając nowy zestaw: NIE zmieniaj istniejącego wpisu — dopisz kolejny z własnym `od`.
+ * Historia musi zostać odtwarzalna.
+ */
+const CO2_FACTOR_SETS = [
+  {
+    od: '1970-01-01',
+    jednostka: 'kg_co2_na_litr',
+    // Wartości używane przez aplikację od początku. Backend liczył nimi dotychczasowe
+    // raporty ESG i JPK — dlatego zostają jako obowiązujące, dopóki właściciel
+    // raportowania nie potwierdzi ich wobec aktualnych wskaźników KOBiZE.
+    zrodlo: 'wartości historyczne aplikacji — NIEZWERYFIKOWANE wobec wskaźników KOBiZE',
+    wskazniki: { diesel: 2.65, petrol: 2.31, pb: 2.31, gasoline: 2.31, lpg: 1.63, cng: 2.04, hybrid: 2.0, electric: 0, default: 2.5 },
+  },
+];
+
+/** Zestaw obowiązujący w danym dniu; przy braku daty — najnowszy. */
+function co2FactorSetFor(date) {
+  const d = date ? String(date).slice(0, 10) : null;
+  const posortowane = [...CO2_FACTOR_SETS].sort((a, b) => a.od.localeCompare(b.od));
+  if (!d) return posortowane[posortowane.length - 1];
+  let wybrany = posortowane[0];
+  for (const s of posortowane) if (s.od <= d) wybrany = s;
+  return wybrany;
+}
+
+// Zachowane dla zgodności — zawsze zestaw najnowszy.
+const CO2_EMISSION_FACTORS = CO2_FACTOR_SETS[CO2_FACTOR_SETS.length - 1].wskazniki;
+
+/**
+ * Normalizacja `fuel_type` do klucza z CO2_EMISSION_FACTORS.
+ *
+ * Bez tego wyszukiwanie było `FACTORS[fuel_type.toLowerCase()] ?? default` — a formularz
+ * tankowania (`index.html`, select #fm-ftype) zapisuje `pb95`, `pb98`, `cng` i `elektryk`,
+ * czyli wartości, których w tablicy NIE MA. Wszystkie cicho lądowały na `default: 2.5`:
+ * benzyna liczona 2,5 zamiast 2,31, CNG 2,5 zamiast 2,04, a POJAZD ELEKTRYCZNY dostawał
+ * 2,5 zamiast 0. Import paliwa i OCR dowodów dokładają warianty polskie („benzyna",
+ * „elektryczny"), więc dopasowanie musi być po fragmencie, nie po równości.
+ *
+ * Zwraca też `matched:false`, gdy nic nie pasuje — dzięki temu bramka odróżnia
+ * „świadomie użyty default" od „cichego trafienia w default".
+ */
+function co2FactorFor(fuelType, date) {
+  const zestaw = co2FactorSetFor(date);
+  const CO2_EMISSION_FACTORS = zestaw.wskazniki;
+  const s = String(fuelType ?? '').toLowerCase().trim();
+  if (!s) return { factor: CO2_EMISSION_FACTORS.default, key: 'default', matched: false, zrodlo: zestaw.zrodlo };
+  const reguly = [
+    // UWAGA: polskie „elektr(yk)" i angielskie „electr(ic)" różnią się literą k/c —
+    // jeden wzorzec nie pokrywa obu. Test wyłapał to jako realny błąd tej funkcji.
+    [/elektr|electr|^ev$|\bbev\b/, 'electric'],
+    [/hybry|hybrid|\bhev\b|phev/, 'hybrid'],
+    [/diesel|olej.?nap|\bon\b/, 'diesel'],
+    [/lpg|\bgaz\b|propan/, 'lpg'],
+    [/cng|metan/, 'cng'],
+    [/pb\s*9|benzyn|petrol|gasolin|\bpb\b/, 'petrol'],
+  ];
+  for (const [wzor, klucz] of reguly) {
+    if (wzor.test(s)) return { factor: CO2_EMISSION_FACTORS[klucz], key: klucz, matched: true, zrodlo: zestaw.zrodlo };
+  }
+  return { factor: CO2_EMISSION_FACTORS.default, key: 'default', matched: false, zrodlo: zestaw.zrodlo };
+}
 
 /**
  * Degradacja zapytania BEZ ciszy. Zwraca `fallback` przy błędzie, ale najpierw krzyczy.
@@ -6588,19 +6671,53 @@ async function dbSafe(promise, fallback, env, ctx = {}) {
 }
 
 /**
+ * Tabela `vehicles` NIE MA płaskich kolumn `status`, `active`, `fuel_type`, `marka`
+ * ani `model` — jej realne kolumny to id, company_id, nr_rej, axles_count,
+ * suspension_type, dmc_zespolu, miesiace_podatku, dt1_category, dt1_tax_amount,
+ * data, updated_at, branch_id, tacho_*. Reszta siedzi w kolumnie JSON `data`.
+ *
+ * Zapytania pisane tak, jakby te kolumny istniały, albo kończą się 500 (bez `.catch()`),
+ * albo — co gorsza — cicho zwracają zera. Poniższe fragmenty są jedynym miejscem,
+ * w którym definiujemy „pojazd czynny" i „pojazd elektryczny", żeby kolejne zapytania
+ * nie rozjechały się między sobą.
+ */
+// Konwencja statusu przejęta z handleDashboard (`index.js`): brak statusu = czynny,
+// wykluczamy wyłącznie 'archived'. To jedyna ustalona w tym kodzie definicja.
+const SQL_VEH_ACTIVE = "COALESCE(JSON_EXTRACT(data,'$.status'),'active')!='archived'";
+// Predykat EV odwzorowany z `modules/vehicle-detail.js` — pole `paliwo` to wolny tekst
+// z pola P.3 dowodu rejestracyjnego, więc dopasowujemy po fragmencie, nie po równości.
+const SQL_VEH_IS_EV = `(
+  LOWER(COALESCE(JSON_EXTRACT(data,'$.paliwo'),'')) LIKE '%elektr%'
+  OR LOWER(COALESCE(JSON_EXTRACT(data,'$.paliwo'),'')) LIKE '%hybryd%'
+  OR LOWER(COALESCE(JSON_EXTRACT(data,'$.paliwo'),'')) LIKE '%bev%'
+  OR LOWER(COALESCE(JSON_EXTRACT(data,'$.paliwo'),'')) LIKE '%hev%'
+)`;
+
+/** Liczba pojazdów czynnych i elektrycznych — wspólna dla obu gałęzi raportu ESG. */
+async function fleetCountsForEsg(env, company) {
+  const row = await dbSafe(env.DB.prepare(
+    `SELECT COUNT(*) AS total, SUM(CASE WHEN ${SQL_VEH_IS_EV} THEN 1 ELSE 0 END) AS ev
+     FROM vehicles WHERE company_id=? AND ${SQL_VEH_ACTIVE}`
+  ).bind(company).first(), null, env, { op: 'fleetCountsForEsg', company });
+  return { total: row?.total || 0, ev: row?.ev || 0 };
+}
+
+/**
  * Sumy zatankowanych litrów i wyliczonego CO2 za dany rok.
  * Źródłem jest `fuel_fills` — jedyna tabela tankowań, do której cokolwiek zapisuje.
  */
 async function fuelActualsForYear(env, company, year) {
   const rows = (await dbSafe(env.DB.prepare(
-    `SELECT fuel_type, SUM(liters) AS liters FROM fuel_fills
-     WHERE company_id=? AND strftime('%Y',fill_date)=? GROUP BY fuel_type`
+    // Grupujemy takze po miesiacu, zeby wskaznik obowiazujacy w danym okresie
+    // stosowal sie do wlasciwych litrow, gdy stawka zmieni sie w trakcie roku.
+    `SELECT fuel_type, strftime('%Y-%m', fill_date) AS ym, SUM(liters) AS liters FROM fuel_fills
+     WHERE company_id=? AND strftime('%Y',fill_date)=? GROUP BY fuel_type, ym`
   ).bind(company, String(year)).all(), { results: [] }, env, { op: 'fuelActualsForYear', company, year })).results || [];
   let liters = 0, co2_kg = 0;
   for (const r of rows) {
     const l = r.liters || 0;
     liters += l;
-    co2_kg += l * (CO2_EMISSION_FACTORS[(r.fuel_type || '').toLowerCase()] ?? CO2_EMISSION_FACTORS.default);
+    co2_kg += l * co2FactorFor(r.fuel_type, r.ym ? r.ym + '-01' : null).factor;
   }
   return { liters, co2_kg };
 }
@@ -6628,10 +6745,15 @@ async function handleCO2Report(request, env, user, url, path) {
   let totalKg = 0;
   const byVehicle = {}; const byMonth = {};
   for (const r of results) {
-    const factor = EMISSION[(r.fuel_type||'').toLowerCase()] ?? EMISSION.default;
+    // Wskaznik wybierany po DACIE TANKOWANIA, nie po dacie generowania raportu —
+    // inaczej zmiana stawki przeliczylaby juz zlozone sprawozdanie.
+    const { factor } = co2FactorFor(r.fuel_type, r.ym ? r.ym + '-01' : null);
     const kg = r.liters * factor;
     totalKg += kg;
-    if (!byVehicle[r.nr_rej]) byVehicle[r.nr_rej] = { nr_rej: r.nr_rej, fuel_type: r.fuel_type, liters: 0, kg: 0 };
+    // `ef` zwracamy do frontu, żeby raport pokazywał wskaźnik FAKTYCZNIE użyty do wyliczeń.
+    // Wcześniej front miał własną tablicę (inne wartości i inne klucze), więc arkusz
+    // eksportu potrafił pokazać 2,68 obok kilogramów policzonych z 2,65.
+    if (!byVehicle[r.nr_rej]) byVehicle[r.nr_rej] = { nr_rej: r.nr_rej, fuel_type: r.fuel_type, ef: factor, liters: 0, kg: 0 };
     byVehicle[r.nr_rej].liters += r.liters;
     byVehicle[r.nr_rej].kg += kg;
     if (!byMonth[r.ym]) byMonth[r.ym] = { month: r.ym, kg: 0, liters: 0 };
@@ -7688,7 +7810,8 @@ async function handleTachoDDD(req, env, user, url, path) {
           // Dopasuj pojazd po VIN
           if (!parsed.vehiclesUsed.find(v => v.vehicle_id)) {
             const vByVin = await env.DB.prepare(
-              'SELECT id FROM vehicles WHERE company_id=? AND vin=? LIMIT 1'
+              // `vin` nie jest kolumną — siedzi w JSON `data`.
+              "SELECT id FROM vehicles WHERE company_id=? AND JSON_EXTRACT(data,'$.vin')=? LIMIT 1"
             ).bind(company, vinFromName).first();
             if (vByVin) {
               parsed.vehiclesUsed = parsed.vehiclesUsed.map(v => ({ ...v, vehicle_id: vByVin.id }));
@@ -10702,7 +10825,14 @@ async function handleFleetKpi(req, env, user, url) {
   const since  = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
 
   const [veh, fuel, svc, drv, tacho, ev, geo, inv, ins, ord] = await Promise.all([
-    env.DB.prepare('SELECT COUNT(*) c, SUM(CASE WHEN status=\'active\' THEN 1 ELSE 0 END) active, SUM(CASE WHEN status=\'w_serwisie\' OR status=\'in_service\' THEN 1 ELSE 0 END) in_service FROM vehicles WHERE company_id=?').bind(co).first(),
+    // Było: `SUM(CASE WHEN status='active' ...)` wprost na kolumnie `status`, której
+    // `vehicles` NIE MA. To jedyne zapytanie w tym Promise.all BEZ `.catch()`, więc
+    // odrzucenie wywracało cały handler — endpoint zwracał 500 przy każdym wywołaniu,
+    // a wraz z nim martwa była cała strona „Dashboard KPI".
+    env.DB.prepare(`SELECT COUNT(*) c,
+        SUM(CASE WHEN ${SQL_VEH_ACTIVE} AND COALESCE(JSON_EXTRACT(data,'$.status'),'') NOT IN ('w_serwisie','in_service') THEN 1 ELSE 0 END) active,
+        SUM(CASE WHEN COALESCE(JSON_EXTRACT(data,'$.status'),'') IN ('w_serwisie','in_service') THEN 1 ELSE 0 END) in_service
+      FROM vehicles WHERE company_id=?`).bind(co).first(),
     env.DB.prepare('SELECT SUM(f.koszt) c FROM fuel f WHERE f.company_id=? AND f.data>=?').bind(co, since).first().catch(()=>null),
     env.DB.prepare('SELECT SUM(so.cost) c FROM service_orders so WHERE so.company_id=? AND so.date>=?').bind(co, since).first().catch(()=>null),
     env.DB.prepare('SELECT COUNT(*) c FROM drivers WHERE company_id=?').bind(co).first(),
@@ -10715,7 +10845,14 @@ async function handleFleetKpi(req, env, user, url) {
   ]);
 
   // Przeterminowane przeglądy
-  const ovInsp = await env.DB.prepare('SELECT COUNT(*) c FROM vehicles WHERE company_id=? AND przeglad_do IS NOT NULL AND przeglad_do < date(\'now\')').bind(co).first().catch(()=>null);
+  // Było `przeglad_do` — nazwa, która NIE WYSTĘPUJE NIGDZIE w repo poza tym zapytaniem.
+  // Aplikacja trzyma termin badania pod kluczem `nextInspection` w JSON `data`.
+  // Z `.catch()` licznik przeterminowanych przeglądów zwracał zawsze zero.
+  const ovInsp = await env.DB.prepare(
+    `SELECT COUNT(*) c FROM vehicles WHERE company_id=?
+       AND JSON_EXTRACT(data,'$.nextInspection') IS NOT NULL
+       AND JSON_EXTRACT(data,'$.nextInspection') < date('now')`
+  ).bind(co).first().catch(()=>null);
   // Top 5 pojazdów wg kosztów paliwa
   const topVeh = (await env.DB.prepare('SELECT nr_rej vehicle_reg, SUM(f.koszt) total_cost FROM fuel f WHERE f.company_id=? AND f.data>=? GROUP BY nr_rej ORDER BY total_cost DESC LIMIT 5').bind(co,since).all().catch(()=>({results:[]}))).results;
   // Top naruszenia per kierowca
@@ -11589,19 +11726,46 @@ async function handleReportBuilder(req, env, user, url, path) {
   // więc źródło „Paliwo" w kreatorze raportów dawało zawsze pustą tabelę bez żadnego błędu.
   // Kolumny muszą się zgadzać z modules/report-builder.js (front i backend są sparowane).
   const ALLOWED_TABLES=['vehicles','fuel_fills','service_orders','damage_reports','fines','tco_cost_entries','ksef_invoices','carpooling_trips'];
-  const ALLOWED_COLS={vehicles:['id','reg','brand','model','year','fuel_type','dmc','status','driver','department'],fuel_fills:['id','fill_date','nr_rej','liters','total_cost','price_per_liter','odometer','driver_name','fuel_type','station'],service_orders:['id','nr_rej','typ','opis','status','warsztat','koszt_szacowany','koszt_rzeczywisty','data_realizacji','km_realizacji'],damage_reports:['id','nr_rej','data_zdarzenia','opis','przyczyna','status','koszt','zglaszajacy'],fines:['id','nr_rej','driver_name','date','type','amount','description','fine_no','issuer','points','paid','paid_date'],tco_cost_entries:['id','entry_date','vehicle_reg','category','amount_pln','description'],ksef_invoices:['id','invoice_number','ksef_number','ksef_status','seller_nip','buyer_nip','gross_pln','ksef_date'],carpooling_trips:['id','trip_date','driver_name','vehicle_reg','origin','destination','status','cost_pln']};
+  // `vehicles` to jedyne źródło, w którym dane NIE leżą w płaskich kolumnach — poza
+  // `nr_rej` wszystko siedzi w kolumnie JSON `data`. Whitelista wymieniała nazwy logiczne
+  // (reg, brand, model, dmc…), których w tabeli nie ma, a zapytanie ma `.catch()`,
+  // więc źródło „Pojazdy" zwracało PUSTĄ TABELĘ bez śladu błędu. Mapujemy nazwę logiczną
+  // na wyrażenie SQL; pozostałe źródła zostają na płaskich kolumnach.
+  const COL_EXPR={vehicles:{
+    id:'id',
+    reg:'nr_rej',
+    brand:"JSON_EXTRACT(data,'$.marka')",
+    model:"JSON_EXTRACT(data,'$.model')",
+    year:"JSON_EXTRACT(data,'$.rok')",
+    vin:"JSON_EXTRACT(data,'$.vin')",
+    fuel_type:"JSON_EXTRACT(data,'$.paliwo')",
+    // Aplikacja czyta `v.dmc ?? v.dmcMax` — COALESCE zachowuje tę semantykę,
+    // w tym regułę falsy-zero: DMC równe 0 zostaje zerem, nie wpada w fallback.
+    dmc:"COALESCE(JSON_EXTRACT(data,'$.dmc'),JSON_EXTRACT(data,'$.dmcMax'))",
+    status:"JSON_EXTRACT(data,'$.status')",
+    driver:"JSON_EXTRACT(data,'$.kierowca')",
+    // app.js czyta `v.oddzial || v.branch_id`.
+    department:"COALESCE(JSON_EXTRACT(data,'$.oddzial'),branch_id)",
+  }};
+  // Nazwy kolumn pochodzą wyłącznie z whitelisty poniżej, więc podstawienie jest bezpieczne.
+  const expr=(t,c)=>(COL_EXPR[t]&&COL_EXPR[t][c])||c;
+  const ALLOWED_COLS={vehicles:['id','reg','brand','model','year','vin','fuel_type','dmc','status','driver','department'],fuel_fills:['id','fill_date','nr_rej','liters','total_cost','price_per_liter','odometer','driver_name','fuel_type','station'],service_orders:['id','nr_rej','typ','opis','status','warsztat','koszt_szacowany','koszt_rzeczywisty','data_realizacji','km_realizacji'],damage_reports:['id','nr_rej','data_zdarzenia','opis','przyczyna','status','koszt','zglaszajacy'],fines:['id','nr_rej','driver_name','date','type','amount','description','fine_no','issuer','points','paid','paid_date'],tco_cost_entries:['id','entry_date','vehicle_reg','category','amount_pln','description'],ksef_invoices:['id','invoice_number','ksef_number','ksef_status','seller_nip','buyer_nip','gross_pln','ksef_date'],carpooling_trips:['id','trip_date','driver_name','vehicle_reg','origin','destination','status','cost_pln']};
   if(method==='POST'&&sub==='run'){
     const b=await req.json().catch(()=>({}));
     const table=b.source||b.source_table||'vehicles';
     if(!ALLOWED_TABLES.includes(table))return err('Niedozwolone źródło danych');
     const allowedCols=ALLOWED_COLS[table]||[];
     const reqCols=(Array.isArray(b.cols)&&b.cols.length?b.cols:[]).filter(c=>allowedCols.includes(c));
-    const colList=reqCols.length?reqCols.join(','):'*';
+    // Bez aliasu klucze w wyniku byłyby wyrażeniami SQL zamiast nazwami kolumn,
+    // więc front nie odnalazłby danych. Przy braku wyboru kolumn `*` dla `vehicles`
+    // zwróciłoby surowy JSON — bierzemy komplet zmapowanych nazw.
+    const kolumny=reqCols.length?reqCols:(COL_EXPR[table]?Object.keys(COL_EXPR[table]).filter(c=>allowedCols.includes(c)):[]);
+    const colList=kolumny.length?kolumny.map(c=>`${expr(table,c)} AS ${c}`).join(','):'*';
     const limit=Math.min(+b.limit||100,5000);
     let sql=`SELECT ${colList} FROM ${table} WHERE company_id=?`;
     const params=[co];
-    if(b.filter_col&&allowedCols.includes(b.filter_col)&&b.filter_val){sql+=' AND '+b.filter_col+' LIKE ?';params.push('%'+b.filter_val+'%');}
-    if(b.sort&&allowedCols.includes(b.sort)){sql+=` ORDER BY ${b.sort} ${b.sort_dir==='ASC'?'ASC':'DESC'}`;}
+    if(b.filter_col&&allowedCols.includes(b.filter_col)&&b.filter_val){sql+=' AND '+expr(table,b.filter_col)+' LIKE ?';params.push('%'+b.filter_val+'%');}
+    if(b.sort&&allowedCols.includes(b.sort)){sql+=` ORDER BY ${expr(table,b.sort)} ${b.sort_dir==='ASC'?'ASC':'DESC'}`;}
     sql+=` LIMIT ${limit}`;
     const rows=(await env.DB.prepare(sql).bind(...params).all().catch(()=>({results:[]}))).results||[];
     return json({rows});
@@ -11667,11 +11831,19 @@ async function handleVehicleQr(req, env, user, url, path) {
   if(method==='GET'&&sub==='vehicles'){
     const q=url.searchParams.get('q')||'';
     const where=['company_id=?'];const params=[co];
-    if(q){where.push('(reg LIKE ? OR brand LIKE ? OR model LIKE ?)');params.push('%'+q+'%','%'+q+'%','%'+q+'%');}
-    const rows=(await env.DB.prepare(`SELECT id,reg,brand,model FROM vehicles WHERE ${where.join(' AND ')} AND active=1 ORDER BY reg ASC LIMIT 300`).bind(...params).all().catch(()=>({results:[]}))).results||[];
+    // Było: filtr i SELECT po kolumnach reg/brand/model/active, których `vehicles` NIE MA.
+    // Zapytanie miało `.catch()`, więc wyszukiwarka pojazdów przy skanach QR zwracała
+    // pustą listę ZAWSZE — bez śladu w logach. `nr_rej` to realna kolumna, marka i model
+    // siedzą w JSON `data`. Aliasy zachowują kształt odpowiedzi, więc front bez zmian.
+    if(q){where.push("(nr_rej LIKE ? OR JSON_EXTRACT(data,'$.marka') LIKE ? OR JSON_EXTRACT(data,'$.model') LIKE ?)");params.push('%'+q+'%','%'+q+'%','%'+q+'%');}
+    const rows=(await env.DB.prepare(`SELECT id, nr_rej AS reg,
+        JSON_EXTRACT(data,'$.marka') AS brand,
+        JSON_EXTRACT(data,'$.model') AS model
+      FROM vehicles WHERE ${where.join(' AND ')} AND ${SQL_VEH_ACTIVE} ORDER BY nr_rej ASC LIMIT 300`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     return json({vehicles:rows});
   }
-  if(method==='GET'&&sub==='scans'){const rows=(await env.DB.prepare('SELECT s.*,v.reg vehicle_reg FROM vehicle_qr_scans s LEFT JOIN vehicles v ON v.id=s.vehicle_id WHERE s.company_id=? ORDER BY s.scanned_at DESC LIMIT 100').bind(co).all().catch(()=>({results:[]}))).results||[];return json({scans:rows});}
+  if(method==='GET'&&sub==='scans'){const rows=(await env.DB.prepare(// Było `v.reg` — kolumna nie istnieje, a `.catch()` zamieniał błąd w pustą listę skanów.
+      'SELECT s.*,v.nr_rej vehicle_reg FROM vehicle_qr_scans s LEFT JOIN vehicles v ON v.id=s.vehicle_id WHERE s.company_id=? ORDER BY s.scanned_at DESC LIMIT 100').bind(co).all().catch(()=>({results:[]}))).results||[];return json({scans:rows});}
   if(method==='GET'&&sub==='scan'&&id){
     const vehicle=await env.DB.prepare('SELECT * FROM vehicles WHERE id=? AND company_id=?').bind(id,co).first().catch(()=>null);
     if(!vehicle)return err('Pojazd nie znaleziony',404);
@@ -11785,8 +11957,10 @@ async function handleEsgTargets(req, env, user, url, path) {
     // miały .catch(), więc cicho zwracały 0: CO2 i zużycie paliwa w raportach ESG były
     // zerowe dla każdej firmy i każdego roku. Realne tankowania są w fuel_fills.
     const { co2_kg: co2, liters: fuel } = await fuelActualsForYear(env, co, year);
-    const total=(await env.DB.prepare('SELECT COUNT(*) c FROM vehicles WHERE company_id=? AND active=1').bind(co).first().catch(()=>null))?.c||0;
-    const ev=(await env.DB.prepare("SELECT COUNT(*) c FROM vehicles WHERE company_id=? AND active=1 AND fuel_type IN ('electric','hybrid')").bind(co).first().catch(()=>null))?.c||0;
+    // Było: `WHERE active=1` i `fuel_type IN (...)` — obu kolumn w `vehicles` NIE MA,
+    // więc oba zapytania miały `.catch()` i cicho zwracały 0: udział EV w raporcie ESG
+    // wychodził zawsze zerowy albo pusty, niezależnie od floty.
+    const { total, ev } = await fleetCountsForEsg(env, co);
     const actuals={co2_total_tonnes:co2?(co2/1000).toFixed(2):null,fuel_consumption_l:fuel||null,ev_share_pct:total?(ev/total*100).toFixed(1):null};
     return json({targets,actuals});
   }
@@ -11796,8 +11970,10 @@ async function handleEsgTargets(req, env, user, url, path) {
     // miały .catch(), więc cicho zwracały 0: CO2 i zużycie paliwa w raportach ESG były
     // zerowe dla każdej firmy i każdego roku. Realne tankowania są w fuel_fills.
     const { co2_kg: co2, liters: fuel } = await fuelActualsForYear(env, co, year);
-    const total=(await env.DB.prepare('SELECT COUNT(*) c FROM vehicles WHERE company_id=? AND active=1').bind(co).first().catch(()=>null))?.c||0;
-    const ev=(await env.DB.prepare("SELECT COUNT(*) c FROM vehicles WHERE company_id=? AND active=1 AND fuel_type IN ('electric','hybrid')").bind(co).first().catch(()=>null))?.c||0;
+    // Było: `WHERE active=1` i `fuel_type IN (...)` — obu kolumn w `vehicles` NIE MA,
+    // więc oba zapytania miały `.catch()` i cicho zwracały 0: udział EV w raporcie ESG
+    // wychodził zawsze zerowy albo pusty, niezależnie od floty.
+    const { total, ev } = await fleetCountsForEsg(env, co);
     const actuals={co2_total_tonnes:co2?(co2/1000).toFixed(2):null,fuel_consumption_l:fuel||null,ev_share_pct:total?(ev/total*100).toFixed(1):null};
     return json({targets,actuals});
   }
@@ -12916,7 +13092,13 @@ async function handlePredictiveAi(request, env, user, url, path) {
   const co = user.company_id;
   // Pobierz historię serwisową ostatnich 6 miesięcy
   const history = await env.DB.prepare(
-    `SELECT v.nr_rej, v.marka, v.model, s.tytul, s.termin, s.koszt, s.status
+    // Było `v.marka, v.model` — obu kolumn `vehicles` nie ma, marka i model siedzą
+    // w JSON `data`. Historia serwisowa szła do analizy Claude, więc błąd oznaczał
+    // brak danych wejściowych dla całej funkcji.
+    `SELECT v.nr_rej,
+            JSON_EXTRACT(v.data,'$.marka') AS marka,
+            JSON_EXTRACT(v.data,'$.model') AS model,
+            s.tytul, s.termin, s.koszt, s.status
      FROM service_orders s JOIN vehicles v ON v.id=s.vehicle_id
      WHERE s.company_id=? AND date(s.termin)>=date('now','-180 days')
      ORDER BY v.nr_rej, s.termin DESC LIMIT 100`

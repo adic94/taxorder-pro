@@ -141,9 +141,12 @@ ${r.by_vehicle?.length ? r.by_vehicle.map(v => `<tr>
 
     // Sheet 2 — Per-vehicle breakdown
     const vehHdrs = ['Nr rej.', 'Typ paliwa', 'Litry', 'CO₂ (kg)', 'CO₂ (tCO₂e)', 'Udział %', 'Współczynnik emisji (kg/l)'];
-    const EMISSION_FACTORS = { benzyna: 2.31, diesel: 2.68, lpg: 1.51, cng: 2.04, elektryczny: 0 };
+    // Własna tablica wskaźników USUNIĘTA. Miała inne wartości (diesel 2,68 vs 2,65 w
+    // backendzie) i inne klucze (polskie), a kilogramy w tym arkuszu i tak liczy backend —
+    // więc kolumna „wskaźnik" potrafiła pokazywać liczbę, z której te kilogramy NIE wynikały.
+    // Backend zwraca teraz `ef` — wskaźnik faktycznie użyty do wyliczenia `kg`.
     const vehRows = (r.by_vehicle || []).map(v => {
-      const ef = EMISSION_FACTORS[v.fuel_type?.toLowerCase()] ?? 2.5;
+      const ef = v.ef;
       return [v.nr_rej||'', v.fuel_type||'', Number(v.liters?.toFixed(1)), Number(v.kg?.toFixed(1)), Number((v.kg/1000)?.toFixed(4)), Number(v.pct?.toFixed(2)), ef];
     });
     const ws2 = XLSX.utils.aoa_to_sheet([vehHdrs, ...vehRows]);
