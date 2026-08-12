@@ -111,7 +111,16 @@ const ZXING = path.join(ROOT, 'node_modules', '@zxing', 'library', 'umd', 'index
     canvas.getContext('2d').drawImage(img, 0, 0);
     if (!canvas.width) return { blad: 'nie udało się wczytać obrazu' };
 
-    const naBajty = t => { const u = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) u[i] = t.charCodeAt(i) & 0xFF; return u; };
+    // Odwrócenie windows-1252 — kopia `_aztecTextToBytes` z app.js. Trzymaj zgodne:
+    // to jedyne miejsce, w którym mierzymy wierność bajtów, więc rozjazd tutaj
+    // ukryłby dokładnie ten błąd, który ten skrypt ma wykrywać.
+    const CP = {0x20AC:0x80,0x201A:0x82,0x0192:0x83,0x201E:0x84,0x2026:0x85,0x2020:0x86,
+      0x2021:0x87,0x02C6:0x88,0x2030:0x89,0x0160:0x8A,0x2039:0x8B,0x0152:0x8C,0x017D:0x8E,
+      0x2018:0x91,0x2019:0x92,0x201C:0x93,0x201D:0x94,0x2022:0x95,0x2013:0x96,0x2014:0x97,
+      0x02DC:0x98,0x2122:0x99,0x0161:0x9A,0x203A:0x9B,0x0153:0x9C,0x017E:0x9E,0x0178:0x9F};
+    const naBajty = t => { const u = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) { const c = t.charCodeAt(i); u[i] = CP[c] !== undefined ? CP[c] : (c & 0xFF); } return u; };
+    // Stara konwersja — pokazujemy w selfteście, co dokładnie naprawiono.
+    const naBajtyStare = t => { const u = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) u[i] = t.charCodeAt(i) & 0xFF; return u; };
 
     // ── Ścieżka A: dokładnie jak tryAztecFromCanvas() w app.js ──────────────
     function sciezkaA(c) {
@@ -128,7 +137,7 @@ const ZXING = path.join(ROOT, 'node_modules', '@zxing', 'library', 'umd', 'index
         for (let i = 0; i < argb.length; i++) argb[i] = (d.data[i*4] << 16) | (d.data[i*4+1] << 8) | d.data[i*4+2];
         const lum = new ZXing.RGBLuminanceSource(argb, c.width, c.height);
         const r = reader.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum)));
-        return { ok: true, bajty: Array.from(naBajty(r.getText())) };
+        return { ok: true, bajty: Array.from(naBajty(r.getText())), bajtyStare: Array.from(naBajtyStare(r.getText())) };
       } catch (e) { return { ok: false, blad: String(e && e.message || e).slice(0, 120) }; }
     }
 
@@ -151,7 +160,7 @@ const ZXING = path.join(ROOT, 'node_modules', '@zxing', 'library', 'umd', 'index
     let B;
     try {
       const r = await window.TaxOrderAztecDetector.detect(canvas, { budget: 10000 });
-      B = r ? { ok: true, strategia: r.strategy, proby: r.attempts, bajty: Array.from(naBajty(r.text)) }
+      B = r ? { ok: true, strategia: r.strategy, proby: r.attempts, bajty: Array.from(naBajty(r.text)), bajtyStare: Array.from(naBajtyStare(r.text)) }
             : { ok: false, blad: 'detect() zwrócił null' };
     } catch (e) { B = { ok: false, blad: String(e && e.message || e).slice(0, 120) }; }
 
@@ -185,6 +194,10 @@ const ZXING = path.join(ROOT, 'node_modules', '@zxing', 'library', 'umd', 'index
       const zgodne = r.bajty.length === KONTROLNY.length && r.bajty.every((x,i)=>x===KONTROLNY[i]);
       const zle = r.bajty.map((x,i)=>x!==KONTROLNY[i]?`poz.${i}: ${KONTROLNY[i].toString(16)}→${x.toString(16)}`:null).filter(Boolean);
       console.log(`  ${nazwa}: ${zgodne?'✓ bajty wierne':'✗ ZNIEKSZTAŁCONE — '+zle.join(', ')}`);
+      if (r.bajtyStare) {
+        const zleStare = r.bajtyStare.map((x,i)=>x!==KONTROLNY[i]?`${KONTROLNY[i].toString(16)}→${x.toString(16)}`:null).filter(Boolean);
+        console.log(`     bez naprawy (charCodeAt & 0xFF): ${zleStare.length?'✗ '+zleStare.join(', '):'✓ wierne'}`);
+      }
       if (!zgodne) bledy++;
     }
     console.log(bledy

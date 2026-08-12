@@ -210,9 +210,18 @@ wystąpi. **HIPOTEZA DO SPRAWDZENIA:** część dowodów kwalifikowanych dotąd 
 mogła w rzeczywistości zostać poprawnie wykryta i dopiero zniekształcona na warstwie
 tekstowej. Nie potwierdzone na realnym dokumencie.
 
-**Kierunek naprawy:** czytać bajty z pominięciem warstwy tekstowej (`getRawBytes()`
-albo własne złożenie z `ResultPoint`/`DecoderResult`), zamiast `getText()` + `charCodeAt`.
-Zmiana dotyczy danych binarnych, więc wymaga sprawdzenia na prawdziwym dowodzie.
+**NAPRAWIONE — przyczyna okazała się inna, niż zakładał ten akapit.** `getRawBytes()`
+jest nieosiągalne: `Decoder.decode()` woła `getEncodedData()` PRZED złożeniem wyniku
+i to ono rzuca `URIError`. Sedno leży głębiej: w trybie binarnym dekoder odczytuje
+**dokładną wartość bajtu** (`readCode(bits, index, 8)`), po czym przepuszcza ją przez
+`StringUtils.castAsNonUtf8Char` → `TextDecoder`. A **standard WHATWG mapuje etykietę
+„ISO-8859-1" na windows-1252** — stąd `0x80` → U+20AC → `0xAC` i `0x9F` → U+0178 → `0x78`.
+Wskazówka `CHARACTER_SET` nie ma z tym nic wspólnego, bo mapowanie robi warstwa tekstowa.
+
+Naprawa jest odwróceniem tej tablicy: `_aztecTextToBytes()` w `app.js` mapuje 27 punktów
+kodowych, w których windows-1252 różni się od ISO-8859-1, z powrotem na bajty.
+Zweryfikowane `node tools/aztec-compare.js --selftest` — wynik zawiera na stałe linię
+„bez naprawy", pokazującą oba zniekształcenia, więc regresja od razu rzuci się w oczy.
 
 **Czego brakuje do rozstrzygnięcia:** jednego prawdziwego zdjęcia dowodu. Benchmark
 `tools/aztec-bench.html` porównuje wyłącznie **skuteczność detekcji** — nigdy nie
