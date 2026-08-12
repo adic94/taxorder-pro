@@ -39,13 +39,14 @@ const bad = (m, d) => { console.log(`  [31m✗[0m ${m}`); if (d) console.log(`
  * Tabele, których automat NIE tworzy — stan zastany, nie regresja.
  * Każda pozycja musi mieć powód; pusta lista to cel docelowy.
  */
-const ZNANE_BRAKI = {
-  alert_types:           'schema_v8 — plik wycofywany w całości przez ALTER users.extra_permissions (kolumna już w v1)',
-  notification_prefs:    'schema_v8 — jw.',
-  notification_log:      'schema_v8 — jw.',
-  maintenance_templates: 'schema_v8 — jw.',
-  usage_snapshots:       'schema_v48 — plik wycofywany przez CREATE INDEX na company_packages(active); kolumny `active` nie ma, bo tabelę tworzy wcześniejszy schema_v33',
-};
+// Pusta = żaden plik schema_v*.sql nie gubi dziś tabeli przez wycofanie.
+// Do 12.08.2026 było tu 5 wpisów: cztery tabele powiadomień ginące z schema_v8
+// (ALTER users.extra_permissions — kolumna już w v1) i usage_snapshots ginące
+// z schema_v48 (CREATE INDEX na nieistniejącej kolumnie `active`). Oba pliki
+// naprawione u źródła, więc lista jest pusta — i ma taka zostać.
+// Nie dopisuj tu tabeli, żeby uciszyć test: wpis oznacza, że migracja NIE dociera
+// na produkcję. Napraw błędny statement albo rozdziel plik.
+const ZNANE_BRAKI = {};
 
 // ── odpowiednik: ls worker/schema_v*.sql | grep -v _ROLLBACK | sort -V ──────────
 const files = fs.readdirSync(SCHEMA)
