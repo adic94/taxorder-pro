@@ -6,6 +6,11 @@ let vehs = VEHICLES.map((v,i) => ({...v, id:i, osie: v.osie||((+(v.dmc??v.dmcMax
 window.vehs = vehs;
 let selected = new Set();
 window.selected = selected;
+// Powód złożenia deklaracji — element stanu sesji, wyłącznie round-trip przez
+// expJson()/impJson(). BEZ tej deklaracji expJson() rzucał ReferenceError przy
+// odczycie na czystej sesji: app.js nie jest w trybie strict, więc przypisanie
+// w impJson() tworzyło globalną niejawnie, ale tylko po wcześniejszym imporcie.
+let decReason = '';
 let sortKey = 'nrRej', sortAsc = true;
 let _vehPage = 0, _vehPageSize = 100, _lastFilteredLen = -1;
 let _branches = [];
@@ -2712,7 +2717,7 @@ function bulkExportCSV() {
     v.nrRej||'', v.marka||'', v.model||'', v.rok||'', v.typ||'',
     v.dmc??v.dmcMax??'', v.status||'', v.kierowca||'', v.vin||'',
     v.cat||'', v.amount>0?v.amount:'',
-  ].map(_csvEsc).join(';'));
+  ].map(csvCell).join(';'));
   const blob = new Blob(['﻿' + [header, ...rows].join('\r\n')], { type: 'text/csv;charset=utf-8' });
   const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'flota-' + new Date().toISOString().slice(0,10) + '.csv' });
   a.click();
