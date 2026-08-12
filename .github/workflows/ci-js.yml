@@ -10,9 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Node 22, nie 20: tests/unit/migration-apply-test.js używa wbudowanego
+      # `node:sqlite` (dostępny od 22.5). Node 20 jest zresztą wycofywany
+      # z runnerów GitHuba — ostrzeżenie widać w logach nocnego przebiegu.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: Check syntax (node --check)
         run: |
           set -e
@@ -36,3 +39,11 @@ jobs:
       # wymaga dostepu do bazy. Ten dziala statycznie, bez sieci i bez zaleznosci.
       - name: Straznik globa migracji (ROLLBACK, kolejnosc)
         run: node tests/unit/migration-glob-test.js
+
+      # migration-glob-test pilnuje, CZEGO automat nie odpali. Ten test sprawdza,
+      # co z odpalonego faktycznie POWSTAJE: uruchamia wszystkie schema_v*.sql na
+      # prawdziwym silniku SQL, dwukrotnie, odtwarzajac transakcyjnosc D1 per plik.
+      # Lapie migracje, ktore gubia tabele przez wycofanie calego pliku (tak ginely
+      # 4 tabele powiadomien z schema_v8), oraz falszywe alarmy bramki d1-schema-diff.
+      - name: Straznik migracji — co faktycznie powstaje w bazie
+        run: node tests/unit/migration-apply-test.js

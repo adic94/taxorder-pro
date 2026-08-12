@@ -33,7 +33,7 @@
     "d1-diff": "node tools/autotest/d1-schema-diff.js",
     "d1-diff:offline": "node tools/autotest/d1-schema-diff.js --offline",
     "verify:v44": "node tools/autotest/verify-v44.js",
-    "audit:all": "node tools/autotest/syntax-check.js && node tools/autotest/xss-audit.js && node tools/autotest/i18n-check.js && node tools/autotest/sw-cache-bump.js --check && node tests/unit/warsaw-bookmarklet-test.js && node tests/unit/migration-glob-test.js",
+    "audit:all": "node tools/autotest/syntax-check.js && node tools/autotest/xss-audit.js && node tools/autotest/i18n-check.js && node tools/autotest/sw-cache-bump.js --check && node tests/unit/warsaw-bookmarklet-test.js && node tests/unit/migration-glob-test.js && node tests/unit/migration-apply-test.js",
     "lint:worker": "eslint worker/index.js",
     "lint:modules": "eslint modules/*.js",
     "lint": "eslint worker/index.js modules/*.js app.js",
@@ -41,7 +41,8 @@
     "sg:scan": "sg scan",
     "sg:xss": "sg run -p '$EL.innerHTML = $X' modules/*.js app.js",
     "pw:mcp": "playwright-mcp --headless",
-    "lint:all": "eslint worker/index.js modules/*.js app.js && node tools/autotest/xss-audit.js"
+    "lint:all": "eslint worker/index.js modules/*.js app.js && node tools/autotest/xss-audit.js",
+    "test:migration-apply": "node tests/unit/migration-apply-test.js"
   },
   "devDependencies": {
     "@ast-grep/cli": "^0.44.1",
