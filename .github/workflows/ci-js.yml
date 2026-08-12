@@ -74,3 +74,12 @@ jobs:
       # z powodu dlugu, nie regresji.
       - name: Straznik kreatora raportow — spojnosc zrodel i kolumn
         run: node tests/unit/report-sources-test.js
+
+      # migration_v50 przebudowuje esg_targets przez DROP + RENAME i w chwili dodania
+      # tego kroku NIE jest jeszcze zastosowana na produkcji. Test uruchamia ja na
+      # wiernie odtworzonej strukturze v35 i pilnuje trzech rzeczy latwych do zepsucia
+      # edycja pliku: przeliczenia CO2 kg->t (inaczej cele 1000x zawyzone), usuniecia
+      # starego indeksu UNIQUE (inaczej model v41 blokuje sie na drugiej metryce w roku)
+      # oraz tego, ze doslowny INSERT z worker/index.js wykonuje sie na nowej strukturze.
+      - name: Straznik migracji v50 — esg_targets bez utraty danych
+        run: node tests/unit/migration-v50-test.js
