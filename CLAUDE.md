@@ -162,6 +162,47 @@ starszego pliku **nie naprawi** tabeli o innej strukturze — i nic o tym nie zg
 
 ---
 
+### Aztec — ustalenia z 12.08.2026 (NIE odtwarzaj tego śledztwa od zera)
+
+**Teza „brakuje nam warstwy obraz → bajty Aztec" jest NIEPRAWDZIWA.** Warstwa istnieje
+i działa po stronie przeglądarki: `loadZXing()` + `tryAztecFromCanvas()` (`app.js:5868`
+i `5880`), używane przez `modules/dr-import.js:_tryAztecBlob`, które próbuje czterech
+obrotów. Architektura jest świadoma: detekcja w przeglądarce, NRV2E i parsowanie pól
+w Workerze (`handleAztec`, `/api/aztec`, przyjmuje `bytesBase64`).
+
+**Realne znalezisko: `modules/aztec-detector.js` jest martwy w aplikacji.** Kaskada
+9 strategii, do 42 prób, budżet 6 s, obsługa dowolnych kątów obrotu. Jest ładowany
+w `index.html:4318`, ale wołają go **wyłącznie** `tools/dr-helper.html`
+i `tools/aztec-bench.html` — narzędzia deweloperskie. Import dowodu jedzie słabszą
+ścieżką. Ktoś zbudował nawet benchmark porównujący obie, ale migracja nie nastąpiła.
+
+**Dlaczego nie wolno go podpiąć „po prostu":**
+- `tryAztecFromCanvas` ustawia `CHARACTER_SET: ISO-8859-1` i odzyskuje bajty przez
+  `text.charCodeAt(i) & 0xFF` — ISO-8859-1 to mapowanie 1:1 bajt↔znak, więc to działa.
+- `aztec-detector.js` woła `.getText()` **bez** tej wskazówki (linie 157 i 176).
+- Ładunek DR jest binarny (NRV2E), więc różnica dotyczy wierności bajtów ≥ 0x80.
+
+**Hipoteza „wystarczy dopiąć charset" ZOSTAŁA OBALONA.** Round-trip na `@zxing/library@0.20.0`
+(zainstalowanej lokalnie — `registry.npmjs.org` jest w wyjątkach proxy, więc da się to
+powtórzyć bez sieci do CDN): `AztecEncoder.encode()` na ładunku z bajtami `0x80`–`0xFF`,
+potem `AztecCodeReader.decode()` — wywala się na `URI malformed` **zarówno z wskazówką
+ISO-8859-1, jak i bez niej**. Detekcja przechodzi, przewraca się dopiero warstwa tekstowa.
+Czyli biblioteka ignoruje `CHARACTER_SET` na ścieżce Aztec, a poprawka jest głębsza niż
+jedna wskazówka.
+
+**Czego brakuje do rozstrzygnięcia:** jednego prawdziwego zdjęcia dowodu. Benchmark
+`tools/aztec-bench.html` porównuje wyłącznie **skuteczność detekcji** — nigdy nie
+konwertuje wyniku z powrotem na bajty, więc nie dowodzi, że detektor daje ładunek
+zdatny do NRV2E. To trzeba sprawdzić na realnym dokumencie, trzymanym POZA repozytorium
+(dowód zawiera VIN i dane właściciela).
+
+**Inter Cars nie jest tu odpowiedzią.** Ich `/pl/api/aztec/file/decode` kończy się na
+VIN-ie i przekazaniu go do dostawców `[GA09, MRS7, BTR5, BTR6]` — służy identyfikacji
+auta pod katalog części. DT-1 potrzebuje DMC, liczby osi i zawieszenia, czyli pełnego
+ładunku dowodu, którego IC nie oddaje. Do tego stopka e-Cat niesie zastrzeżenie TecDoc
+zakazujące kopiowania ich bazy.
+
+
 ### Otwarte / znane długi
 
 **Dług techniczny**
