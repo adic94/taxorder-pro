@@ -6576,7 +6576,46 @@ async function handleTCO(request, env, user, url, path) {
 // UWAGA: modules/co2-report.js ma WŁASNĄ, rozbieżną tablicę (diesel 2.68, lpg 1.51,
 // klucze po polsku) — patrz dług techniczny w CLAUDE.md. Wartości poniżej są tymi,
 // których backend używał do tej pory; nie zmieniam ich przy okazji naprawy zer.
-const CO2_EMISSION_FACTORS = { diesel: 2.65, petrol: 2.31, pb: 2.31, gasoline: 2.31, lpg: 1.63, cng: 2.04, hybrid: 2.0, electric: 0, default: 2.5 };
+/**
+ * Zestawy wskaźników emisyjności Z OKRESEM OBOWIĄZYWANIA.
+ *
+ * Wskaźnik emisyjności jest wielkością regulowaną i zmienia się w czasie, więc pojedyncza
+ * liczba jest strukturalnie zła: podmiana stawki przeliczyłaby raport za rok, który już
+ * został złożony, i sprawozdanie przestałoby się odtwarzać. Wskaźnik wybieramy zawsze
+ * po DACIE ZDARZENIA (dacie tankowania), nie po dacie generowania raportu.
+ *
+ * ⚠️ JEDNOSTKA. Tutejsze wartości to **kg CO2 na LITR paliwa**. Wskaźniki KOBiZE bywają
+ * publikowane na jednostkę energii (kg CO2/GJ) albo na masę — przepisanie takiej liczby
+ * wprost do tej tablicy da błąd o rząd wielkości. Przeliczenie wymaga wartości opałowej
+ * i gęstości paliwa. Dlatego każdy zestaw niesie `jednostka` i `zrodlo`.
+ *
+ * Dodając nowy zestaw: NIE zmieniaj istniejącego wpisu — dopisz kolejny z własnym `od`.
+ * Historia musi zostać odtwarzalna.
+ */
+const CO2_FACTOR_SETS = [
+  {
+    od: '1970-01-01',
+    jednostka: 'kg_co2_na_litr',
+    // Wartości używane przez aplikację od początku. Backend liczył nimi dotychczasowe
+    // raporty ESG i JPK — dlatego zostają jako obowiązujące, dopóki właściciel
+    // raportowania nie potwierdzi ich wobec aktualnych wskaźników KOBiZE.
+    zrodlo: 'wartości historyczne aplikacji — NIEZWERYFIKOWANE wobec wskaźników KOBiZE',
+    wskazniki: { diesel: 2.65, petrol: 2.31, pb: 2.31, gasoline: 2.31, lpg: 1.63, cng: 2.04, hybrid: 2.0, electric: 0, default: 2.5 },
+  },
+];
+
+/** Zestaw obowiązujący w danym dniu; przy braku daty — najnowszy. */
+function co2FactorSetFor(date) {
+  const d = date ? String(date).slice(0, 10) : null;
+  const posortowane = [...CO2_FACTOR_SETS].sort((a, b) => a.od.localeCompare(b.od));
+  if (!d) return posortowane[posortowane.length - 1];
+  let wybrany = posortowane[0];
+  for (const s of posortowane) if (s.od <= d) wybrany = s;
+  return wybrany;
+}
+
+// Zachowane dla zgodności — zawsze zestaw najnowszy.
+const CO2_EMISSION_FACTORS = CO2_FACTOR_SETS[CO2_FACTOR_SETS.length - 1].wskazniki;
 
 /**
  * Normalizacja `fuel_type` do klucza z CO2_EMISSION_FACTORS.
@@ -6591,9 +6630,11 @@ const CO2_EMISSION_FACTORS = { diesel: 2.65, petrol: 2.31, pb: 2.31, gasoline: 2
  * Zwraca też `matched:false`, gdy nic nie pasuje — dzięki temu bramka odróżnia
  * „świadomie użyty default" od „cichego trafienia w default".
  */
-function co2FactorFor(fuelType) {
+function co2FactorFor(fuelType, date) {
+  const zestaw = co2FactorSetFor(date);
+  const CO2_EMISSION_FACTORS = zestaw.wskazniki;
   const s = String(fuelType ?? '').toLowerCase().trim();
-  if (!s) return { factor: CO2_EMISSION_FACTORS.default, key: 'default', matched: false };
+  if (!s) return { factor: CO2_EMISSION_FACTORS.default, key: 'default', matched: false, zrodlo: zestaw.zrodlo };
   const reguly = [
     // UWAGA: polskie „elektr(yk)" i angielskie „electr(ic)" różnią się literą k/c —
     // jeden wzorzec nie pokrywa obu. Test wyłapał to jako realny błąd tej funkcji.
@@ -6605,9 +6646,9 @@ function co2FactorFor(fuelType) {
     [/pb\s*9|benzyn|petrol|gasolin|\bpb\b/, 'petrol'],
   ];
   for (const [wzor, klucz] of reguly) {
-    if (wzor.test(s)) return { factor: CO2_EMISSION_FACTORS[klucz], key: klucz, matched: true };
+    if (wzor.test(s)) return { factor: CO2_EMISSION_FACTORS[klucz], key: klucz, matched: true, zrodlo: zestaw.zrodlo };
   }
-  return { factor: CO2_EMISSION_FACTORS.default, key: 'default', matched: false };
+  return { factor: CO2_EMISSION_FACTORS.default, key: 'default', matched: false, zrodlo: zestaw.zrodlo };
 }
 
 /**
@@ -6667,14 +6708,16 @@ async function fleetCountsForEsg(env, company) {
  */
 async function fuelActualsForYear(env, company, year) {
   const rows = (await dbSafe(env.DB.prepare(
-    `SELECT fuel_type, SUM(liters) AS liters FROM fuel_fills
-     WHERE company_id=? AND strftime('%Y',fill_date)=? GROUP BY fuel_type`
+    // Grupujemy takze po miesiacu, zeby wskaznik obowiazujacy w danym okresie
+    // stosowal sie do wlasciwych litrow, gdy stawka zmieni sie w trakcie roku.
+    `SELECT fuel_type, strftime('%Y-%m', fill_date) AS ym, SUM(liters) AS liters FROM fuel_fills
+     WHERE company_id=? AND strftime('%Y',fill_date)=? GROUP BY fuel_type, ym`
   ).bind(company, String(year)).all(), { results: [] }, env, { op: 'fuelActualsForYear', company, year })).results || [];
   let liters = 0, co2_kg = 0;
   for (const r of rows) {
     const l = r.liters || 0;
     liters += l;
-    co2_kg += l * co2FactorFor(r.fuel_type).factor;
+    co2_kg += l * co2FactorFor(r.fuel_type, r.ym ? r.ym + '-01' : null).factor;
   }
   return { liters, co2_kg };
 }
@@ -6702,7 +6745,9 @@ async function handleCO2Report(request, env, user, url, path) {
   let totalKg = 0;
   const byVehicle = {}; const byMonth = {};
   for (const r of results) {
-    const { factor } = co2FactorFor(r.fuel_type);
+    // Wskaznik wybierany po DACIE TANKOWANIA, nie po dacie generowania raportu —
+    // inaczej zmiana stawki przeliczylaby juz zlozone sprawozdanie.
+    const { factor } = co2FactorFor(r.fuel_type, r.ym ? r.ym + '-01' : null);
     const kg = r.liters * factor;
     totalKg += kg;
     // `ef` zwracamy do frontu, żeby raport pokazywał wskaźnik FAKTYCZNIE użyty do wyliczeń.

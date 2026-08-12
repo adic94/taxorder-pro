@@ -28,14 +28,30 @@ const bad = (m, hint) => { fail++; console.log(`  \x1b[31m✗\x1b[0m ${m}`); if 
 
 const src = fs.readFileSync(WORKER, 'utf8');
 
-// ── tablica wskaźników i normalizator, wprost z kodu produkcyjnego ────────────
-const mFactors = src.match(/const\s+CO2_EMISSION_FACTORS\s*=\s*(\{[^}]*\})\s*;/);
-if (!mFactors) { bad('nie znaleziono CO2_EMISSION_FACTORS w worker/index.js'); process.exit(1); }
-const CO2_EMISSION_FACTORS = eval('(' + mFactors[1] + ')'); // eslint-disable-line no-eval
+// ── zestawy wskaźników i normalizator, wprost z kodu produkcyjnego ───────────
+const mSets = src.match(/const\s+CO2_FACTOR_SETS\s*=\s*(\[[\s\S]*?\n\];)/);
+const mLegacy = src.match(/const\s+CO2_EMISSION_FACTORS\s*=\s*(\{[^}]*\})\s*;/);
+
+let CO2_FACTOR_SETS, CO2_EMISSION_FACTORS, co2FactorSetFor;
+if (mSets) {
+  CO2_FACTOR_SETS = eval('(' + mSets[1].replace(/;$/, '') + ')'); // eslint-disable-line no-eval
+  const mSetFn = src.match(/function\s+co2FactorSetFor\s*\([\s\S]*?\n\}/);
+  co2FactorSetFor = eval('(' + mSetFn[0] + ')'); // eslint-disable-line no-eval
+  CO2_EMISSION_FACTORS = CO2_FACTOR_SETS[CO2_FACTOR_SETS.length - 1].wskazniki;
+} else if (mLegacy) {
+  // Kod sprzed wersjonowania — jeden zestaw bez daty obowiązywania.
+  CO2_EMISSION_FACTORS = eval('(' + mLegacy[1] + ')'); // eslint-disable-line no-eval
+  CO2_FACTOR_SETS = null;
+} else {
+  bad('nie znaleziono ani CO2_FACTOR_SETS, ani CO2_EMISSION_FACTORS w worker/index.js');
+  process.exit(1);
+}
 
 const mNorm = src.match(/function\s+co2FactorFor\s*\([\s\S]*?\n\}/);
 let co2FactorFor;
-if (mNorm) {
+if (mNorm && mSets) {
+  co2FactorFor = eval('(' + mNorm[0] + ')'); // eslint-disable-line no-eval
+} else if (mNorm) {
   co2FactorFor = eval('(' + mNorm[0] + ')'); // eslint-disable-line no-eval
 } else {
   // Kod sprzed naprawy nie ma normalizatora — odtwarzamy ówczesne wyszukiwanie,
@@ -89,6 +105,47 @@ if (/EMISSION_FACTORS\s*=\s*\{/.test(front)) {
     '      wskaźnik, z którego te kilogramy NIE wynikają. Front ma używać pola `ef` z odpowiedzi.');
 } else {
   ok('front nie duplikuje tablicy wskaźników (używa `ef` z backendu)');
+}
+
+// ── wersjonowanie: wskaźnik jest wielkością regulowaną ───────────────────────
+if (CO2_FACTOR_SETS) {
+  const braki = [];
+  for (const s of CO2_FACTOR_SETS) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s.od || '')) braki.push(`zestaw bez poprawnej daty "od": ${JSON.stringify(s.od)}`);
+    if (!s.jednostka) braki.push(`zestaw ${s.od} bez pola "jednostka"`);
+    if (!s.zrodlo) braki.push(`zestaw ${s.od} bez pola "zrodlo"`);
+    if (!s.wskazniki || typeof s.wskazniki.default !== 'number') braki.push(`zestaw ${s.od} bez wskaźnika "default"`);
+  }
+  const daty = CO2_FACTOR_SETS.map(s => s.od);
+  if (new Set(daty).size !== daty.length) braki.push('dwa zestawy z tą samą datą "od" — okres obowiązywania byłby niejednoznaczny');
+
+  if (braki.length) {
+    bad(`zestawy wskaźników niekompletne: ${braki.length}`,
+      'Każdy zestaw musi nieść datę obowiązywania, jednostkę i źródło — inaczej nie da się\n' +
+      '      odtworzyć raportu złożonego w przeszłości ani sprawdzić, skąd wzięła się liczba.\n      ' +
+      braki.join('\n      '));
+  } else {
+    ok(`każdy zestaw ma datę obowiązywania, jednostkę i źródło (${CO2_FACTOR_SETS.length})`);
+  }
+
+  // Jednostka musi być jawna — wskaźniki KOBiZE bywają na GJ albo na masę,
+  // a tutejsze wyliczenia są na LITR. Pomyłka daje błąd o rząd wielkości.
+  const zleJednostki = CO2_FACTOR_SETS.filter(s => s.jednostka !== 'kg_co2_na_litr');
+  if (zleJednostki.length) {
+    bad(`zestaw w innej jednostce niż kg_co2_na_litr: ${zleJednostki.map(s => `${s.od} → ${s.jednostka}`).join(', ')}`,
+      'Kod mnoży wskaźnik przez LITRY. Zestaw w kg CO2/GJ wymaga przeliczenia przez\n' +
+      '      wartość opałową i gęstość — samo wpisanie liczby z rozporządzenia jest błędem.');
+  } else {
+    ok('wszystkie zestawy w jednostce kg CO2 / litr, zgodnej z wyliczeniami');
+  }
+
+  // Wybór po dacie zdarzenia — inaczej zmiana stawki przelicza złożone sprawozdania.
+  if (typeof co2FactorSetFor === 'function') {
+    const najstarszy = [...CO2_FACTOR_SETS].sort((a, b) => a.od.localeCompare(b.od))[0];
+    const trafiony = co2FactorSetFor('1999-01-01');
+    if (trafiony && trafiony.od === najstarszy.od) ok('wybór zestawu po dacie zdarzenia działa wstecz');
+    else bad('co2FactorSetFor nie zwraca najstarszego zestawu dla dawnej daty');
+  }
 }
 
 console.log(`\n${'─'.repeat(52)}\nWynik: ${pass} PASS / ${fail} FAIL\n`);
