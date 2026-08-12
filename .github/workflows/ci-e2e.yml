@@ -125,4 +125,11 @@ jobs:
         with:
           name: playwright-report-${{ github.run_number }}
           path: tests/results/html/
-          retention-days: 14
+          # 7 dni, nie 14. Storage Actions to osobny limit od minut i 12.08.2026 był
+          # wyczerpany tak samo (0,5 GB / 0,5 GB). Sam krok jest już oszczędny —
+          # `if: failure()` wysyła raport wyłącznie przy porażce — ale przy serii
+          # czerwonych przebiegów (najpierw 41 awarii CI, potem blokada runnerów)
+          # raporty Playwrighta z trace'ami i zrzutami ekranu potrafią zapchać pakiet.
+          # Raport z nieudanego przebiegu jest przydatny w pierwszych dniach; po tygodniu
+          # gałąź albo jest naprawiona, albo problem i tak trzeba odtworzyć od nowa.
+          retention-days: 7
