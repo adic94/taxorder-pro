@@ -1,0 +1,132 @@
+name: Migracja D1 — ręczne uruchomienie
+
+# Pliki `migration_v*.sql` celowo NIE są uruchamiane przez nocny automat: to operacje
+# strukturalne (DROP / RENAME / CREATE TABLE AS SELECT) na żywych danych, a nie
+# idempotentne `CREATE TABLE IF NOT EXISTS`. Puszczanie ich w pętli co noc byłoby
+# groźne — dlatego mają osobny prefiks i osobny, świadomie uruchamiany workflow.
+#
+# Ten workflow istnieje po to, żeby zastosowanie migracji nie wymagało lokalnego
+# wranglera ani poświadczeń Cloudflare na maszynie operatora — sekrety są już w repo.
+#
+# PIERWSZY PRZEBIEG JEST TYLKO ODCZYTEM. Pole `zastosuj` domyślnie `false`: workflow
+# pokazuje treść pliku i AKTUALNY stan tabel, których dotyczy, i na tym kończy.
+# Dopiero świadome ustawienie `zastosuj=true` wykonuje zmianę.
+
+on:
+  workflow_dispatch:
+    inputs:
+      plik:
+        description: 'Nazwa pliku w worker/ (np. migration_v50_esg_targets.sql)'
+        required: true
+        type: string
+      zastosuj:
+        description: 'ZASTOSUJ zmianę. Puste/false = tylko podgląd stanu przed migracją.'
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  migracja:
+    name: Migracja D1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'          # wrangler 4.x wymaga Node >= 22
+
+      - name: Zainstaluj wranglera
+        run: npm install -g wrangler@4.120.1
+
+      # Plik musi już istnieć w repo — workflow nie przyjmuje SQL-a z zewnątrz.
+      # Dzięki temu każda uruchamiana zmiana przeszła przez PR i code review.
+      - name: Sprawdź plik
+        id: sprawdz
+        run: |
+          set -euo pipefail
+          PLIK="worker/${{ inputs.plik }}"
+          case "${{ inputs.plik }}" in
+            */*|..*) echo "::error::Nazwa pliku nie może zawierać ścieżki"; exit 1 ;;
+          esac
+          if [ ! -f "$PLIK" ]; then
+            echo "::error::Nie ma pliku $PLIK. Dostępne:"; ls worker/*.sql | sed 's/^/  /'
+            exit 1
+          fi
+          echo "plik=$PLIK" >> "$GITHUB_OUTPUT"
+          echo "### Treść $PLIK" >> "$GITHUB_STEP_SUMMARY"
+          echo '```sql' >> "$GITHUB_STEP_SUMMARY"
+          cat "$PLIK" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      # Stan PRZED — zawsze, niezależnie od `zastosuj`. Bez tego nie da się później
+      # stwierdzić, co migracja faktycznie zmieniła, ani czy w ogóle było co zmieniać.
+      - name: Stan tabel PRZED migracją
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -uo pipefail
+          PLIK="${{ steps.sprawdz.outputs.plik }}"
+          TABELE=$(grep -oiE '\b(CREATE TABLE( IF NOT EXISTS)?|ALTER TABLE|DROP TABLE( IF EXISTS)?|INSERT INTO|FROM)\s+[a-zA-Z_][a-zA-Z0-9_]*' "$PLIK" \
+                   | awk '{print $NF}' | tr 'A-Z' 'a-z' | grep -vwE 'if|exists|not|table|into|from|select' | sort -u)
+          echo "Tabele, których dotyka plik: $(echo $TABELE | tr '\n' ' ')"
+          for t in $TABELE; do
+            echo "── $t"
+            wrangler d1 execute taxorder-pro --remote \
+              --command "SELECT COUNT(*) AS wierszy FROM $t" 2>&1 | tail -5 || echo "   (tabela nie istnieje albo brak dostępu)"
+            wrangler d1 execute taxorder-pro --remote \
+              --command "PRAGMA table_info($t)" 2>&1 | tail -25 || true
+          done
+
+      - name: Podgląd — bez zmian
+        if: ${{ !inputs.zastosuj }}
+        run: |
+          echo "::notice::Tryb podglądu. Nic nie zostało zmienione."
+          echo "Aby zastosować migrację, uruchom workflow ponownie z zastosuj = true." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: ZASTOSUJ migrację
+        if: ${{ inputs.zastosuj }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          PLIK="${{ steps.sprawdz.outputs.plik }}"
+          echo "▶ $PLIK"
+          # Import D1 z --file jest transakcyjny per plik: jeden błędny statement
+          # wycofuje CAŁY plik. Kod wyjścia wranglera jest tu jedynym wiarygodnym
+          # sygnałem — nie zagłuszamy go `|| true`, jak robił to kiedyś nocny automat.
+          wrangler d1 execute taxorder-pro --remote --file="$PLIK"
+          echo "✅ zastosowano" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Stan tabel PO migracji
+        if: ${{ inputs.zastosuj }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -uo pipefail
+          PLIK="${{ steps.sprawdz.outputs.plik }}"
+          TABELE=$(grep -oiE '\b(CREATE TABLE( IF NOT EXISTS)?|ALTER TABLE|INSERT INTO|FROM)\s+[a-zA-Z_][a-zA-Z0-9_]*' "$PLIK" \
+                   | awk '{print $NF}' | tr 'A-Z' 'a-z' | grep -vwE 'if|exists|not|table|into|from|select' | sort -u)
+          for t in $TABELE; do
+            echo "── $t"
+            wrangler d1 execute taxorder-pro --remote --command "SELECT COUNT(*) AS wierszy FROM $t" 2>&1 | tail -5 || true
+            wrangler d1 execute taxorder-pro --remote --command "PRAGMA table_info($t)" 2>&1 | tail -25 || true
+          done
+
+      # Po zmianie struktury pokazujemy, czy baza nadal zgadza się z repo.
+      #
+      # `continue-on-error` jest tu ŚWIADOME: o powodzeniu migracji decyduje kod wyjścia
+      # wranglera w kroku wyżej, a nie ten raport. Dopóki 11 tabel stoi na starszej
+      # definicji, `--strict` kończy się kodem 1 z powodu zastanego długu — gdyby to
+      # blokowało, każdy udany przebieg świeciłby czerwono i po tygodniu nikt by tego
+      # kroku nie czytał. To ta sama pułapka, którą naprawia linia bazowa w bramce.
+      - name: Raport zgodności D1 z repo (informacyjnie)
+        if: ${{ inputs.zastosuj }}
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node tools/autotest/d1-schema-diff.js --strict
