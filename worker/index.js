@@ -6577,6 +6577,81 @@ async function handleTCO(request, env, user, url, path) {
 // klucze po polsku) — patrz dług techniczny w CLAUDE.md. Wartości poniżej są tymi,
 // których backend używał do tej pory; nie zmieniam ich przy okazji naprawy zer.
 /**
+ * ══ OPŁATY ZA KORZYSTANIE ZE ŚRODOWISKA — eksploatacja pojazdów ══════════════
+ *
+ * ODRĘBNE od wskaźników CO2 niżej. Mylenie tych dwóch rzeczy daje liczby bez sensu:
+ *
+ *                  wskaźnik CO2            opłata środowiskowa
+ *   wynik          kg CO2                  ZŁOTE
+ *   podstawa       objętość (litry)        MASA paliwa (Mg)
+ *   różnicowanie   rodzaj paliwa           rodzaj paliwa I NORMA EURO
+ *   adresat        raport ESG/CSRD         urząd marszałkowski
+ *   zmienność      wskaźniki KOBiZE        obwieszczenie ministra, corocznie
+ *
+ * Dlatego stawki NIE trafiają do CO2_FACTOR_SETS — tamta struktura nie zna norm
+ * EURO i mnoży przez litry.
+ *
+ * ⚠️ DWIE PUŁAPKI JEDNOSTEK, obie dające błąd o rząd wielkości:
+ *   1. stawka jest na Mg (tonę), a `fuel_fills` trzyma LITRY — przeliczenie wymaga
+ *      GĘSTOŚCI, która jest częścią podstawy wyliczenia, nie stałą uniwersalną;
+ *   2. gęstość różni się między paliwami (ON ≠ benzyna ≠ LPG).
+ * Dlatego gęstość jest częścią ZESTAWU STAWEK — kto wpisuje stawki, ten deklaruje
+ * też gęstość, na której je oparł, i jedno i drugie ma to samo źródło.
+ *
+ * Lista jest CELOWO PUSTA. Nie wpisuję stawek, których nie odczytałem ze źródła —
+ * a `computeEnvironmentalFee` przy braku zestawu ODMAWIA wyliczenia zamiast zwrócić
+ * zero. Cicha zerowa należność wobec urzędu marszałkowskiego byłaby gorsza niż błąd.
+ */
+const ENV_FEE_RATE_SETS = [];
+
+/** Normalizacja normy EURO z pola `euro` pojazdu („EURO 6", „euro6", „EU6"). */
+function normalizeEuroNorm(raw) {
+  const s = String(raw ?? '').toLowerCase().replace(/[\s_-]/g, '');
+  const m = s.match(/eu(?:ro)?([1-6])/);
+  return m ? `EURO ${m[1]}` : null;
+}
+
+/** Zestaw stawek obowiązujący dla danego roku; `null`, gdy brak. */
+function envFeeRateSetForYear(year) {
+  const y = Number(year);
+  return ENV_FEE_RATE_SETS.find(s => Number(s.rok) === y) || null;
+}
+
+/**
+ * Opłata za dany rok. Zwraca `{ ok:false, powod }`, gdy czegoś brakuje — NIGDY
+ * kwoty wziętej z domysłu. Pojazdy bez ustalonej normy EURO trafiają na listę
+ * `nieustalone` zamiast dostać stawkę domyślną: przypisanie im dowolnej stawki
+ * byłoby zgadywaniem o skutkach finansowych.
+ */
+function computeEnvironmentalFee({ year, pozycje }) {
+  const zestaw = envFeeRateSetForYear(year);
+  if (!zestaw) {
+    return { ok: false, powod: 'BRAK_STAWEK',
+      opis: `Brak zestawu stawek dla roku ${year}. Stawki opłat środowiskowych wynikają z obwieszczenia ministra i muszą zostać wprowadzone wraz z gęstościami paliw oraz źródłem.` };
+  }
+  const wynik = { ok: true, rok: zestaw.rok, zrodlo: zestaw.zrodlo, jednostka: zestaw.jednostka_stawki,
+    pozycje: [], nieustalone: [], razem_pln: 0 };
+  for (const p of pozycje || []) {
+    const paliwo = co2FactorFor(p.fuel_type).key;         // ta sama normalizacja co w CO2
+    const euro = normalizeEuroNorm(p.euro);
+    const gestosc = zestaw.gestosc_kg_na_litr?.[paliwo];
+    const stawka = euro ? zestaw.stawki?.[`${paliwo}|${euro}`] : undefined;
+    if (!euro || gestosc === undefined || stawka === undefined) {
+      wynik.nieustalone.push({ nr_rej: p.nr_rej, fuel_type: p.fuel_type, euro: p.euro,
+        brakuje: [!euro && 'norma EURO', gestosc === undefined && 'gęstość paliwa', stawka === undefined && 'stawka'].filter(Boolean) });
+      continue;
+    }
+    const mg = (p.liters * gestosc) / 1000;               // litry → kg → Mg
+    const pln = mg * stawka;
+    wynik.pozycje.push({ nr_rej: p.nr_rej, paliwo, euro, liters: p.liters,
+      mg: Math.round(mg * 1000) / 1000, stawka, pln: Math.round(pln * 100) / 100 });
+    wynik.razem_pln += pln;
+  }
+  wynik.razem_pln = Math.round(wynik.razem_pln * 100) / 100;
+  return wynik;
+}
+
+/**
  * Zestawy wskaźników emisyjności Z OKRESEM OBOWIĄZYWANIA.
  *
  * Wskaźnik emisyjności jest wielkością regulowaną i zmienia się w czasie, więc pojedyncza
@@ -6766,6 +6841,31 @@ async function handleCO2Report(request, env, user, url, path) {
     target_exceeded: totalKg > 10000,
     by_vehicle: vehicles, by_month: Object.values(byMonth).sort((a, b) => a.month.localeCompare(b.month)),
   });
+}
+
+/**
+ * GET /api/environmental-fee?year=YYYY — opłata za korzystanie ze środowiska.
+ *
+ * Zwraca 422 z czytelnym powodem, dopóki nie ma stawek na dany rok. To celowe:
+ * kwota należności wobec urzędu marszałkowskiego nie może pochodzić z domysłu,
+ * a zero byłoby tu najgorszą z możliwych odpowiedzi.
+ */
+async function handleEnvironmentalFee(req, env, user, url) {
+  const co = url.searchParams.get('company') || user.company_id;
+  const year = url.searchParams.get('year') || String(new Date().getFullYear());
+
+  const { results } = await env.DB.prepare(
+    `SELECT f.nr_rej, f.fuel_type, SUM(f.liters) AS liters,
+            JSON_EXTRACT(v.data,'$.euro') AS euro
+       FROM fuel_fills f
+       LEFT JOIN vehicles v ON v.nr_rej = f.nr_rej AND v.company_id = f.company_id
+      WHERE f.company_id=? AND strftime('%Y',f.fill_date)=?
+      GROUP BY f.nr_rej, f.fuel_type, euro`
+  ).bind(co, String(year)).all();
+
+  const wynik = computeEnvironmentalFee({ year, pozycje: results || [] });
+  if (!wynik.ok) return json({ error: wynik.opis, powod: wynik.powod, rok: Number(year) }, 422);
+  return json(wynik);
 }
 
 // ─── AUDIT LOG ────────────────────────────────────────────────────────────────
@@ -9016,6 +9116,7 @@ async function handleRequest(request, env, url, path, ctx) {
   if (path.startsWith('/api/insurance'))          { if (!user) return err('Nieautoryzowany', 401); return handleInsurance(request, env, user, url, path); }
   if (path.startsWith('/api/route-billing'))      { if (!user) return err('Nieautoryzowany', 401); return handleRouteBilling(request, env, user, url, path); }
   if (path === '/api/fleet-kpi' && request.method === 'GET') { if (!user) return err('Nieautoryzowany', 401); return handleFleetKpi(request, env, user, url); }
+  if (path === '/api/environmental-fee' && request.method === 'GET') { if (!user) return err('Nieautoryzowany', 401); return handleEnvironmentalFee(request, env, user, url); }
   if (path.startsWith('/api/access-control'))   { if (!user) return err('Nieautoryzowany', 401); return handleAccessControl(request, env, user, url, path); }
   if (path.startsWith('/api/ksef'))             { if (!user) return err('Nieautoryzowany', 401); return handleKsef(request, env, user, url, path); }
   if (path.startsWith('/api/vehicle-inspections')) { if (!user) return err('Nieautoryzowany', 401); return handleVehicleInspections(request, env, user, url, path); }
