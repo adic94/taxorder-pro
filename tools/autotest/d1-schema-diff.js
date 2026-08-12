@@ -333,7 +333,55 @@ function main() {
   console.log('Pamiętaj: CREATE TABLE IF NOT EXISTS NIE naprawi istniejącej tabeli —');
   console.log('rozjazd struktury wymaga CREATE TABLE ... AS SELECT + DROP + RENAME.\n');
 
-  return STRICT && problems ? 1 : 0;
+  // ── Linia bazowa dla --strict ───────────────────────────────────────────────
+  // Sekcja [4] to dług STAŁY: 11 tabel stoi na starszej definicji i naprawa każdej
+  // wymaga przebudowy (CREATE TABLE AS SELECT + DROP + RENAME) na żywych danych.
+  // Gdyby --strict czerwienił się od tego co noc, bramka przestałaby nieść informację —
+  // a dokładnie tak przegapiono pierwotną awarię: nocny job świecił NA ZIELONO co noc
+  // mimo kasowania tabel, więc nikt go nie czytał. Czerwony na stałe działa tak samo,
+  // tylko z drugiej strony.
+  //
+  // Dlatego znany dług jest wypisany imiennie i NIE psuje kodu wyjścia, ale każda
+  // NOWA tabela na starszej definicji już tak. Brakujące tabele [2] i rozjazd [5]
+  // psują kod wyjścia zawsze — to zawsze regresja, nigdy dług.
+  //
+  // TA LISTA MOŻE SIĘ TYLKO SKRACAĆ. Dopisanie do niej tabeli oznacza pogodzenie się
+  // z tym, że kod piszący nowszą definicję będzie padał — napraw tabelę, nie listę.
+  //
+  // POCHODZENIE LISTY: sekcja [4] nocnego przebiegu `31571743555` z 12.08.2026, sha
+  // fd43645 — czyli odczyt z PRODUKCYJNEGO D1, nie z odtworzenia plików schematu.
+  // To rozróżnienie jest istotne: stanu produkcji NIE DA SIĘ zreplikować lokalnie,
+  // bo realna historia bazy różni się od kolejności plików w repo (np. produkcyjne
+  // `push_subscriptions` pochodzi z `schema.sql`, którego nocny automat nie uruchamia).
+  // Odtworzenie z plików daje INNY zbiór tabel na starszej definicji — jeśli kiedyś
+  // zechcesz zweryfikować tę listę, zrób to raportem z produkcji, nie lokalnie.
+  const ZNANY_DLUG_STALE = new Set([
+    'push_subscriptions', 'reservations', 'trips', 'geofences', 'geofence_events',
+    'company_packages', 'gdpr_records', 'predictive_alerts', 'warranties_recalls',
+    'disposal_records', 'esg_targets',
+  ]);
+
+  const staleNowe = stale.filter(s => !ZNANY_DLUG_STALE.has(s.name));
+  const staleNaprawione = [...ZNANY_DLUG_STALE].filter(n => !stale.some(s => s.name === n));
+
+  if (STRICT) {
+    if (staleNaprawione.length) {
+      console.log(`❌ ZNANY_DLUG_STALE jest nieaktualny — te tabele już NIE są na starszej definicji:`);
+      staleNaprawione.forEach(n => console.log(`     ${n}`));
+      console.log('   Usuń je z listy w tools/autotest/d1-schema-diff.js, żeby nie maskowała przyszłej regresji.\n');
+    }
+    if (staleNowe.length) {
+      console.log(`❌ NOWE tabele na starszej definicji (poza znanym długiem):`);
+      staleNowe.forEach(s => console.log(`     ${s.name}   D1 = ${s.match.file}`));
+      console.log('   To regresja, nie dług — nowsza definicja nigdy się nie zastosowała.\n');
+    }
+    if (stale.length && !staleNowe.length && !staleNaprawione.length) {
+      console.log(`ℹ Sekcja [4]: ${stale.length} tabel na starszej definicji — wszystkie w znanym długu, kod wyjścia bez zmian.\n`);
+    }
+  }
+
+  const blokujace = missing.length + drift.length + staleNowe.length + staleNaprawione.length;
+  return STRICT && blokujace ? 1 : 0;
 }
 
 process.exit(main());
