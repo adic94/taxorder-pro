@@ -56,3 +56,18 @@ Temat zamknięty — skuteczność ekstraktora osiągnęła 71,4% (typy stałe z
 | `dr-owner-check.js` | Wyciągał właścicieli-firmy z Aztec; zapisywał VIN→owner na dysk |
 | `webinar-analyzer.html` | Standalone recorder webinarów (Groq Whisper + LLM); bez związku z flotą |
 | `dr-heuristic-check.js` | Próbkuje share sieciowy pod hardkodowaną ścieżką — bezużyteczne poza oryginalną maszyną |
+
+### `aztec-compare.js`
+Porównuje dwie ścieżki dekodowania Aztec na prawdziwym zdjęciu dowodu:
+ścieżkę produkcyjną (`tryAztecFromCanvas` z `app.js`) i nieużywany
+`modules/aztec-detector.js`. Sprawdza **wierność bajtów**, a nie tylko skuteczność
+detekcji — czego `aztec-bench.html` nie mierzy.
+
+```bash
+npm i --no-save @zxing/library@0.20.0
+node tools/aztec-compare.js sciezka/do/dowodu.jpg   # wymaga zdjęcia POZA repo
+node tools/aztec-compare.js --selftest              # bez zdjęcia: kontrola wierności bajtów
+```
+
+`--selftest` generuje własny kod Aztec o znanym ładunku i wykrywa zniekształcenie
+bajtów `0x80`–`0x9F` przez warstwę tekstową (CP1252). Kod wyjścia 1 przy rozjeździe.

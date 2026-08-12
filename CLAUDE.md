@@ -190,6 +190,30 @@ ISO-8859-1, jak i bez niej**. Detekcja przechodzi, przewraca się dopiero warstw
 Czyli biblioteka ignoruje `CHARACTER_SET` na ścieżce Aztec, a poprawka jest głębsza niż
 jedna wskazówka.
 
+**ZNALEZIONE 12.08 PO NAPISANIU NARZĘDZIA — WADA JEST W ŚCIEŻCE PRODUKCYJNEJ, nie tylko
+w detektorze.** `node tools/aztec-compare.js --selftest` generuje kod Aztec o ZNANYM ładunku
+i porównuje odczytane bajty z oryginałem. Wynik na obu ścieżkach identyczny i **błędny**:
+
+    oczekiwano: 64 00 00 00 80 81 8d 90 9f ff 41 42
+    odczytano : 64 00 00 00 ac 81 8d 90 78 ff 41 42
+                            ^^                ^^
+    poz.4: 0x80 → 0xAC     poz.8: 0x9F → 0x78
+
+To podpis **CP1252**: `0x80` to tam znak euro (U+20AC), a `charCodeAt(i) & 0xFF` z U+20AC
+daje `0xAC`. Przeglądarka nie stosuje czystego ISO-8859-1 **mimo wymuszonej wskazówki
+CHARACTER_SET**. Dotyczy to `tryAztecFromCanvas()` w `app.js`, czyli ścieżki, którą
+JEDZIE PRODUKCYJNY IMPORT DOWODU — nie tylko nieużywanego detektora.
+
+Ładunek NRV2E to dowolne bajty, więc zakres `0x80`–`0x9F` w prawdziwych dowodach
+wystąpi. **HIPOTEZA DO SPRAWDZENIA:** część dowodów kwalifikowanych dotąd jako
+„nieczytelne" (patrz `tools/dr-analyze-unreadable.js`, `dr-coverage-report.json`)
+mogła w rzeczywistości zostać poprawnie wykryta i dopiero zniekształcona na warstwie
+tekstowej. Nie potwierdzone na realnym dokumencie.
+
+**Kierunek naprawy:** czytać bajty z pominięciem warstwy tekstowej (`getRawBytes()`
+albo własne złożenie z `ResultPoint`/`DecoderResult`), zamiast `getText()` + `charCodeAt`.
+Zmiana dotyczy danych binarnych, więc wymaga sprawdzenia na prawdziwym dowodzie.
+
 **Czego brakuje do rozstrzygnięcia:** jednego prawdziwego zdjęcia dowodu. Benchmark
 `tools/aztec-bench.html` porównuje wyłącznie **skuteczność detekcji** — nigdy nie
 konwertuje wyniku z powrotem na bajty, więc nie dowodzi, że detektor daje ładunek
