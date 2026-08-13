@@ -272,6 +272,30 @@ async function glowna() {
     obrazBuf = Buffer.from(du.split(',')[1],'base64');
   }
 
+  // PDF na wejściu renderujemy DOKŁADNIE tak, jak robi to produkcja — ustawienia
+  // czytane z `PDF_AZTEC` w modules/dr-import.js, nie wpisane tutaj na sztywno.
+  // Dzięki temu narzędzie mierzy produkcyjną ścieżkę, a nie jej wyobrażenie: zmiana
+  // DPI albo formatu w module od razu zmienia to, co ten test sprawdza.
+  const JEST_PDF = !SELFTEST && /\.pdf$/i.test(obraz || '');
+  let PDFJS = null, PDFWRK = null, USTAW_PDF = null;
+  if (JEST_PDF) {
+    PDFJS  = path.join(ROOT, 'node_modules', 'pdfjs-dist', 'build', 'pdf.min.js');
+    PDFWRK = path.join(ROOT, 'node_modules', 'pdfjs-dist', 'build', 'pdf.worker.min.js');
+    if (!fs.existsSync(PDFJS)) {
+      console.error('Wejście to PDF, a brakuje pdfjs-dist. Uruchom:');
+      console.error('  npm i --no-save pdfjs-dist@3.11.174        # ta sama wersja co w index.html');
+      process.exit(2);
+    }
+    const src = fs.readFileSync(path.join(ROOT, 'modules', 'dr-import.js'), 'utf8');
+    const m = src.match(/PDF_AZTEC\s*=\s*\{([^}]*)\}/);
+    if (!m) { console.error('Nie znaleziono PDF_AZTEC w modules/dr-import.js — popraw kotwicę.'); process.exit(2); }
+    USTAW_PDF = {
+      dpi: Number((m[1].match(/dpi:\s*(\d+)/) || [])[1]) || 300,
+      format: (m[1].match(/format:\s*'([^']+)'/) || [])[1] || 'image/png',
+    };
+    console.log(`\n  Wejście PDF — render jak w produkcji: ${USTAW_PDF.dpi} DPI, ${USTAW_PDF.format}`);
+  }
+
   // Serwer lokalny: strona ładuje ZXing z DYSKU, nie z CDN — kontener nie ma sieci.
   const srv = http.createServer((req, res) => {
     const mapa = {
@@ -280,6 +304,10 @@ async function glowna() {
       '/detector.js': ['application/javascript', fs.readFileSync(path.join(ROOT, 'modules', 'aztec-detector.js'))],
       '/obraz': ['application/octet-stream', SELFTEST ? obrazBuf : fs.readFileSync(obraz)],
     };
+    if (JEST_PDF) {
+      mapa['/pdf.js'] = ['application/javascript', fs.readFileSync(PDFJS)];
+      mapa['/pdf.worker.js'] = ['application/javascript', fs.readFileSync(PDFWRK)];
+    }
     const wpis = mapa[req.url];
     if (!wpis) { res.writeHead(404); return res.end(); }
     res.writeHead(200, { 'Content-Type': wpis[0] });
@@ -293,13 +321,39 @@ async function glowna() {
   await page.goto(`http://127.0.0.1:${port}/`);
   await page.addScriptTag({ url: '/zxing.js' });
   await page.addScriptTag({ url: '/detector.js' });
+  if (JEST_PDF) {
+    await page.addScriptTag({ url: '/pdf.js' });
+    await page.evaluate(() => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.js'; });
+  }
 
-  const wynik = await page.evaluate(async () => {
-    const img = new Image();
-    await new Promise(res => { img.onload = res; img.onerror = res; img.src = '/obraz'; });
-    const canvas = document.createElement('canvas');
-    canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
-    canvas.getContext('2d').drawImage(img, 0, 0);
+  const wynik = await page.evaluate(async (pdfOpts) => {
+    let canvas;
+    if (pdfOpts) {
+      // Odwzorowanie _pdfPage1Blob() z dr-import.js: render strony 1 w zadanym DPI,
+      // zapis do blobu w zadanym formacie i powrót do canvasu — tak jak w produkcji,
+      // razem z tym powrotem, bo to on decyduje o ostatecznych pikselach.
+      const dane = await (await fetch('/obraz')).arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument({ data: dane }).promise;
+      const strona = await pdf.getPage(1);
+      const vp = strona.getViewport({ scale: pdfOpts.dpi / 72 });
+      const cv = document.createElement('canvas');
+      cv.width = vp.width; cv.height = vp.height;
+      await strona.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+      const blob = await new Promise(r => cv.toBlob(r, pdfOpts.format));
+      const url = URL.createObjectURL(blob);
+      const im = new Image();
+      await new Promise(r => { im.onload = r; im.onerror = r; im.src = url; });
+      canvas = document.createElement('canvas');
+      canvas.width = im.naturalWidth; canvas.height = im.naturalHeight;
+      canvas.getContext('2d').drawImage(im, 0, 0);
+      URL.revokeObjectURL(url);
+    } else {
+      const img = new Image();
+      await new Promise(res => { img.onload = res; img.onerror = res; img.src = '/obraz'; });
+      canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+    }
     if (!canvas.width) return { blad: 'nie udało się wczytać obrazu' };
 
     // Odwrócenie windows-1252 — kopia `_aztecTextToBytes` z app.js. Trzymaj zgodne:
@@ -355,8 +409,8 @@ async function glowna() {
             : { ok: false, blad: 'detect() zwrócił null' };
     } catch (e) { B = { ok: false, blad: String(e && e.message || e).slice(0, 120) }; }
 
-    return { A, B };
-  });
+    return { A, B, wymiar: `${canvas.width}x${canvas.height}` };
+  }, JEST_PDF ? USTAW_PDF : null);
 
   await browser.close(); srv.close();
 
