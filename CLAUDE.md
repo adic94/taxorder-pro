@@ -682,6 +682,27 @@ niepowiązanym z przyczyną. Dlatego pod `*.png` muszą stać wyjątki:
 Składnia `@'...'@` przekazana do `git commit -m` wciąga znak `@` do treści commita
 (efekt: `@ fix: ...`). Używać zwykłych cudzysłowów albo `git commit -F plik`.
 
+### `&&` nie działa w PowerShell 5.1 — i to błąd PARSOWANIA, nie wykonania
+Windows PowerShell 5.1 (domyślny na Windowsie) nie zna `&&` ani `||` jako separatorów —
+te operatory doszły dopiero w PowerShell 7. Komunikat:
+
+    The token '&&' is not a valid statement separator in this version.
+
+**Pułapka jest w tym, że to błąd parsera:** wywala się CAŁA linia, więc nie wykonuje się
+nawet pierwsze polecenie. Łatwo pomyśleć „pierwsze przeszło, drugie padło" i szukać
+przyczyny nie tam, gdzie trzeba.
+
+```powershell
+git checkout <branch>        # osobne linie
+git pull
+```
+`;` też zadziała, ale ma inną semantykę niż `&&` — uruchamia kolejne polecenie
+**niezależnie od tego, czy poprzednie się powiodło**. Przy sekwencjach typu
+„checkout, potem pull" to potrafi zrobić pulla na złej gałęzi.
+
+Dotyczy to także instrukcji, które generujemy dla użytkownika: pisząc polecenia dla
+tego projektu, zakładaj PowerShell 5.1, nie bash.
+
 ### npx i npm w PowerShell
 Polityka wykonywania blokuje niepodpisany `npx.ps1` — **i tak samo `npm.ps1`**.
 `npm run <cokolwiek>` kończy się `UnauthorizedAccess`, nie błędem skryptu.
