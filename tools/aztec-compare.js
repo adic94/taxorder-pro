@@ -2,8 +2,17 @@
  * TaxOrder Pro — porównanie dwóch ścieżek dekodowania Aztec na PRAWDZIWYM dowodzie.
  *
  * Uruchom:
+ *   git checkout claude/aztec-naprawa            # ⚠️ tego pliku NIE MA na main
  *   npm i --no-save @zxing/library@0.20.0        # jednorazowo, jeśli brak
+ *   npx playwright install chromium              # jednorazowo, jeśli brak przeglądarki
  *   node tools/aztec-compare.js <sciezka-do-zdjecia.jpg>
+ *
+ * Pierwsza linijka jest istotna do czasu scalenia PR #13/#14: na `main` polecenie
+ * kończy się „Cannot find module", co łatwo wziąć za awarię narzędzia zamiast za
+ * brak pliku na gałęzi.
+ *
+ * Na Windowsie: `npm run` bywa blokowany polityką wykonywania PowerShella — `node`
+ * to zwykły plik wykonywalny i polityka go nie dotyczy, więc wołaj go wprost.
  *
  * ŚCIEŻKA A — obecna, produkcyjna: ZXing z wymuszonym CHARACTER_SET ISO-8859-1,
  *   bajty odzyskiwane przez `text.charCodeAt(i) & 0xFF`. Odwzorowanie
@@ -127,9 +136,54 @@ function zbudujDrKontrolny() {
 
 const { bajty: KONTROLNY, oczekiwane: POLA_OCZEKIWANE } = zbudujDrKontrolny();
 
-// Chromium jest preinstalowany w tym środowisku; wersja z node_modules szuka innego
-// builda i podpowiada `npx playwright install` — nie uruchamiaj go, wskaż binarkę.
-const CHROME = process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+/**
+ * Opcje uruchomienia przeglądarki — MUSZĄ działać i na Windowsie, i w kontenerze CI.
+ *
+ * Pierwsza wersja tego pliku miała ścieżkę do Chromium zahardkodowaną na układ
+ * kontenera deweloperskiego (`/opt/pw-browsers/...`). Na maszynie deweloperskiej
+ * z Windowsem taki plik nie istnieje, więc `chromium.launch()` padał na
+ * „executable doesn't exist" — narzędzie było nieuruchamialne dokładnie tam, gdzie
+ * leżą prawdziwe zdjęcia dowodów.
+ *
+ * Kolejność: jawny CHROME_PATH → preinstalowana binarka, jeśli FAKTYCZNIE istnieje →
+ * Chromium Playwrighta (pominięty `executablePath`, biblioteka znajdzie własny build).
+ * `--no-sandbox` jest konieczny w kontenerze i nieszkodliwy poza nim.
+ */
+function opcjeChrome() {
+  const args = ['--no-sandbox'];
+  const jawny = process.env.CHROME_PATH;
+  if (jawny) {
+    if (!fs.existsSync(jawny)) {
+      console.error(`CHROME_PATH wskazuje na nieistniejący plik: ${jawny}`);
+      process.exit(2);
+    }
+    return { executablePath: jawny, args };
+  }
+  const wKontenerze = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+  if (fs.existsSync(wKontenerze)) return { executablePath: wKontenerze, args };
+  return { args };   // Playwright sam wskaże swoją binarkę (npx playwright install chromium)
+}
+
+/**
+ * Uruchomienie przeglądarki z komunikatem, który mówi CO ZROBIĆ.
+ *
+ * Bez tego brak Chromium kończy się gołym stack tracem Playwrighta — a to najbardziej
+ * prawdopodobny sposób, w jaki to narzędzie odmówi współpracy na świeżej maszynie.
+ */
+async function uruchomChrome(chromium) {
+  try {
+    return await chromium.launch(opcjeChrome());
+  } catch (e) {
+    console.error('\nNie udało się uruchomić Chromium.\n');
+    console.error('  Najczęstsza przyczyna: Playwright nie ma pobranej przeglądarki.');
+    console.error('  Napraw jednym z dwóch sposobów:\n');
+    console.error('    npx playwright install chromium');
+    console.error('    albo wskaż istniejącą przeglądarkę:');
+    console.error('    CHROME_PATH="C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"\n');
+    console.error(`  Komunikat Playwrighta: ${String(e && e.message || e).split('\n')[0]}\n`);
+    process.exit(2);
+  }
+}
 const ZXING = path.join(ROOT, 'node_modules', '@zxing', 'library', 'umd', 'index.min.js');
 
 (async () => {
@@ -147,7 +201,7 @@ const ZXING = path.join(ROOT, 'node_modules', '@zxing', 'library', 'umd', 'index
     const code = Z.AztecEncoder.encode(Uint8Array.from(KONTROLNY), 33, Z.AztecEncoder.DEFAULT_AZTEC_LAYERS);
     const m = code.getMatrix();
     const px = []; for (let y=0;y<m.getHeight();y++){const r=[];for(let x=0;x<m.getWidth();x++)r.push(m.get(x,y)?1:0);px.push(r);}
-    const b0 = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+    const b0 = await uruchomChrome(chromium);
     const p0 = await b0.newPage();
     const S=10,Q=40,W=m.getWidth()*S+2*Q,H=m.getHeight()*S+2*Q;
     const du = await p0.evaluate(({px,S,Q,W,H})=>{
@@ -176,7 +230,7 @@ const ZXING = path.join(ROOT, 'node_modules', '@zxing', 'library', 'umd', 'index
   await new Promise(r => srv.listen(0, '127.0.0.1', r));
   const port = srv.address().port;
 
-  const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+  const browser = await uruchomChrome(chromium);
   const page = await browser.newPage();
   await page.goto(`http://127.0.0.1:${port}/`);
   await page.addScriptTag({ url: '/zxing.js' });
