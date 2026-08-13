@@ -814,6 +814,44 @@ cd "c:\Users\acichocki\Desktop\Program flotowy\taxorder-pro"
 
 ## CI/CD — GITHUB ACTIONS
 
+### ⚠️ BUDŻET MINUT JEST CIASNY — repo jest PRYWATNE, więc każda minuta idzie z pakietu
+
+Pakiet: **2000 min/mies.** Wyczerpał się 12.08.2026, **12. dnia miesiąca**. Reset —
+pierwszy dzień cyklu rozliczeniowego (wtedy: 1 września).
+
+**Jak wygląda wyczerpanie limitu:** przebiegi startują i padają po 3–5 sekundach,
+z `runner_id: 0` i pustym `runner_name`. Wygląda to jak awaria CI albo błąd w YAML-u —
+i tak też to początkowo zdiagnozowano. Zanim zaczniesz szukać przyczyny w kodzie,
+sprawdź https://github.com/settings/billing. Rozróżnienie jest istotne, bo dwie
+przyczyny wyglądają identycznie: **wyczerpane minuty** (czekaj do resetu) i **spending
+limit na `$0`** (podniesienie odblokowuje natychmiast).
+
+**Rachunek, który to spowodował** (zmierzony 12.08 — `run_duration_ms` z API, nie szacunek):
+jeden przebieg `ci-e2e` to **~28 min w JEDNYM jobie**, a GitHub nalicza per job
+z zaokrągleniem w górę.
+
+| Harmonogram | Zużycie/mies. |
+|---|---|
+| `ci-e2e` nightly, **codziennie** | 840 min — **42% pakietu** |
+| `health-check` co 4 h | 180 min |
+| `nightly-report` (4 joby) | 120 min |
+| **razem, zanim ktokolwiek cokolwiek wypchnie** | **1140 min = 57% limitu** |
+
+Naprawione przez zejście z nocnego E2E na **tygodniowy** (poniedziałki) — harmonogramy
+schodzą do 412 min (21%), na PR-y zostaje 56 przebiegów zamiast 30.
+
+> **Dodając cokolwiek do `schedule:`, policz najpierw koszt miesięczny.** Cron co 4 h
+> to 180 przebiegów, a każdy job kosztuje minimum minutę, choćby trwał 5 sekund.
+> `health-check` zostawiono świadomie nietknięty: to jedyne, co pilnuje działającej
+> produkcji. Oszczędzaj na teście, który się powiela, nie na czujniku, który jako
+> jedyny coś widzi.
+
+**`paths-ignore` na `pull_request` jest bezpieczne TYLKO dopóki nie ma wymaganych
+checków.** Przy włączonej ochronie gałęzi PR dotykający wyłącznie plików z listy
+zawiśnie na „Expected — waiting for status" i nie da się go zmergować. Stan na 12.08:
+`main` ma `protected: false`, więc problem nie występuje — ale zakładając ochronę
+gałęzi, wróć tutaj.
+
 ### ⚠️ PUSH DO `main` = WDROŻENIE NA PRODUKCJĘ
 - `worker/**`, `wrangler.toml`, `package.json` → **`deploy-worker.yml` automatycznie wdraża Worker**
 - każdy inny plik → Cloudflare Pages przebudowuje frontend

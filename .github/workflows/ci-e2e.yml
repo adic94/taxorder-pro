@@ -3,11 +3,43 @@ name: E2E & API tests
 on:
   push:
     branches: [main]
+    # Suite Playwright trwa ~28 min. Zmiany czysto dokumentacyjne nie mogą go zmienić,
+    # a uruchamiały pełny przebieg — na prywatnym repo to minuty z pakietu Actions.
+    paths-ignore: ['**.md', 'docs/**', 'CLAUDE.md']
   pull_request:
+    paths-ignore: ['**.md', 'docs/**', 'CLAUDE.md']
   workflow_dispatch:
   schedule:
-    # Nightly testy o 02:00 UTC (04:00 czasu polskiego)
-    - cron: '0 2 * * *'
+    # TYGODNIOWO, poniedziałek 02:00 UTC (04:00 czasu polskiego) — nie codziennie.
+    #
+    # Zmierzone 12.08.2026, gdy pakiet 2000 min wyczerpał się 12. dnia miesiąca:
+    # jeden przebieg tego suite'u to ~28 min wall-time w JEDNYM jobie, a GitHub
+    # nalicza per job z zaokrągleniem w górę. Codzienny cron to 840 min/mies. —
+    # 42% całego pakietu na prywatnym repo. Razem z health-check (co 4 h, 180 min)
+    # i nocnym raportem (4 joby, 120 min) same harmonogramy zjadały 1140 min, czyli
+    # 57% limitu, ZANIM ktokolwiek cokolwiek wypchnął. Na pracę zostawało 30 przebiegów.
+    #
+    # Tygodniowo: harmonogramy schodzą do 412 min (21%), na PR-y zostaje 56 przebiegów.
+    # Codzienny przebieg i tak w większości powielał to, co robią PR-y — pełny suite
+    # leci na każdym pushu do main i na każdym PR. Nocny łapie wyłącznie dryf zewnętrzny
+    # (zmiana w produkcyjnym API, wygasłe poświadczenia testowe), a to zjawiska tygodniowe,
+    # nie dobowe.
+    #
+    # Monitoring produkcji ŚWIADOMIE nietknięty — health-check co 4 h zostaje. To jedyne,
+    # co pilnuje działającej produkcji; oszczędzać należy na teście, który się powiela,
+    # nie na czujniku, który jako jedyny coś widzi.
+    #
+    # Doraźnie, gdy trzeba tu i teraz: zakładka Actions → „Run workflow" (workflow_dispatch).
+    - cron: '0 2 * * 1'
+
+# Nowy push do tej samej gałęzi anuluje poprzedni, jeszcze biegnący przebieg.
+# Bez tego KAŻDY commit uruchamiał osobny, pełny suite i wszystkie biegły do końca,
+# choć liczył się wyłącznie ostatni. Przy sześciu commitach do jednej gałęzi to
+# pięć przebiegów po ~28 min wyrzuconych w błoto.
+# `main` wyłączony z anulowania: tam każdy commit ma mieć własny, kompletny wynik.
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   e2e:
@@ -93,4 +125,11 @@ jobs:
         with:
           name: playwright-report-${{ github.run_number }}
           path: tests/results/html/
-          retention-days: 14
+          # 7 dni, nie 14. Storage Actions to osobny limit od minut i 12.08.2026 był
+          # wyczerpany tak samo (0,5 GB / 0,5 GB). Sam krok jest już oszczędny —
+          # `if: failure()` wysyła raport wyłącznie przy porażce — ale przy serii
+          # czerwonych przebiegów (najpierw 41 awarii CI, potem blokada runnerów)
+          # raporty Playwrighta z trace'ami i zrzutami ekranu potrafią zapchać pakiet.
+          # Raport z nieudanego przebiegu jest przydatny w pierwszych dniach; po tygodniu
+          # gałąź albo jest naprawiona, albo problem i tak trzeba odtworzyć od nowa.
+          retention-days: 7
