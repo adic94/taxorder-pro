@@ -41,9 +41,13 @@ const fs = require('fs');
 const http = require('http');
 
 const ROOT = path.join(__dirname, '..');
+// URUCHAMIANY BEZPOŚREDNIO vs `require`-owany: przy require sprawdzanie argumentów
+// i główna pętla NIE mogą wystartować — inne narzędzia (tools/aztec-pdf-bench.js)
+// biorą stąd budowniczego ładunku DR i ekstraktor dekodera, zamiast trzymać kopie.
+const BEZPOSREDNIO = require.main === module;
 const SELFTEST = process.argv.includes('--selftest');
 const obraz = SELFTEST ? null : process.argv[2];
-if (!SELFTEST && (!obraz || !fs.existsSync(obraz))) {
+if (BEZPOSREDNIO && !SELFTEST && (!obraz || !fs.existsSync(obraz))) {
   console.error('Podaj ścieżkę do zdjęcia dowodu: node tools/aztec-compare.js <plik>');
   console.error('albo uruchom kontrolę wierności bajtów:  node tools/aztec-compare.js --selftest');
   process.exit(2);
@@ -186,7 +190,7 @@ async function uruchomChrome(chromium) {
 }
 const ZXING = path.join(ROOT, 'node_modules', '@zxing', 'library', 'umd', 'index.min.js');
 
-(async () => {
+async function glowna() {
   if (!fs.existsSync(ZXING)) {
     console.error('Brak @zxing/library. Uruchom: npm i --no-save @zxing/library@0.20.0');
     process.exit(2);
@@ -418,4 +422,9 @@ const ZXING = path.join(ROOT, 'node_modules', '@zxing', 'library', 'umd', 'index
     console.log('  Żadna ścieżka nie odczytała kodu z tego zdjęcia — spróbuj ostrzejszego ujęcia.');
   }
   console.log('');
-})();
+}
+
+// Eksport dla innych narzędzi — bez uruchamiania czegokolwiek.
+module.exports = { wyciagnijDekoder, nrv2eLiteraly, zbudujDrKontrolny, opcjeChrome, uruchomChrome, KONTROLNY, POLA_OCZEKIWANE };
+
+if (BEZPOSREDNIO) glowna();
