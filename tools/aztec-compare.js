@@ -7,6 +7,12 @@
  *   npx playwright install chromium              # jednorazowo, jeśli brak przeglądarki
  *   node tools/aztec-compare.js <sciezka-do-zdjecia.jpg>
  *
+ * TRZY TRYBY, bo odpowiadają na trzy różne pytania:
+ *   <plik.jpg|png>      — czy umiemy ZNALEŹĆ i odczytać kod na tym obrazie
+ *   --selftest          — czy cała ścieżka działa na kodzie o znanym ładunku
+ *   --bytes <plik.bin>  — czy umiemy ROZPAKOWAĆ gotowe bajty (bez warstwy optycznej;
+ *                         nie wymaga przeglądarki ani @zxing/library)
+ *
  * Pierwsza linijka jest istotna do czasu scalenia PR #13/#14: na `main` polecenie
  * kończy się „Cannot find module", co łatwo wziąć za awarię narzędzia zamiast za
  * brak pliku na gałęzi.
@@ -46,11 +52,59 @@ const ROOT = path.join(__dirname, '..');
 // biorą stąd budowniczego ładunku DR i ekstraktor dekodera, zamiast trzymać kopie.
 const BEZPOSREDNIO = require.main === module;
 const SELFTEST = process.argv.includes('--selftest');
-const obraz = SELFTEST ? null : process.argv[2];
-if (BEZPOSREDNIO && !SELFTEST && (!obraz || !fs.existsSync(obraz))) {
+const iBajty = process.argv.indexOf('--bytes');
+const plikBajtow = iBajty >= 0 ? process.argv[iBajty + 1] : null;
+const obraz = (SELFTEST || plikBajtow) ? null : process.argv[2];
+if (BEZPOSREDNIO && !SELFTEST && !plikBajtow && (!obraz || !fs.existsSync(obraz))) {
   console.error('Podaj ścieżkę do zdjęcia dowodu: node tools/aztec-compare.js <plik>');
-  console.error('albo uruchom kontrolę wierności bajtów:  node tools/aztec-compare.js --selftest');
+  console.error('albo kontrolę wierności bajtów:   node tools/aztec-compare.js --selftest');
+  console.error('albo gotowe bajty ładunku:        node tools/aztec-compare.js --bytes <plik.bin>');
   process.exit(2);
+}
+
+/**
+ * Tryb `--bytes`: pomija CAŁĄ warstwę optyczną i podaje gotowe bajty wprost
+ * produkcyjnemu `_decodeAztecPayload`. Przeglądarka nie jest potrzebna.
+ *
+ * PO CO: rozdziela dwa pytania, które łatwo pomylić — „czy umiemy ZNALEŹĆ i odczytać
+ * kod na obrazie" (detekcja) od „czy umiemy ROZPAKOWAĆ jego ładunek" (NRV2E + pola).
+ * Jeśli skądkolwiek mamy już bajty prawdziwego dowodu, ten tryb odpowiada na drugie
+ * pytanie natychmiast i bez zgadywania. Selftest odpowiada na nie tylko dla ładunku,
+ * który sami zbudowaliśmy — a prawdziwy strumień NRV2E ma odwołania wstecz, których
+ * nasz enkoder „samych literałów" nie produkuje.
+ *
+ * Maskowanie takie samo jak w trybie obrazu: VIN, nr rej. i seria dowodu nie trafiają
+ * w całości na wyjście, żeby log dało się wkleić bez wycieku.
+ */
+function trybBajtow(plik) {
+  if (!fs.existsSync(plik)) { console.error(`Nie ma pliku: ${plik}`); process.exit(2); }
+  const buf = fs.readFileSync(plik);
+  const { _decodeAztecPayload } = wyciagnijDekoder();
+  const hex = b => Array.from(b.slice(0, 12)).map(x => x.toString(16).padStart(2, '0')).join(' ');
+  const dl = buf[0] | (buf[1] << 8) | (buf[2] << 16) | (buf[3] * 0x1000000);
+
+  console.log(`\nDekodowanie gotowych bajtów: ${path.basename(plik)}\n`);
+  console.log(`  bajtów w pliku      : ${buf.length}`);
+  console.log(`  pierwsze bajty      : ${hex(buf)}`);
+  console.log(`  nagłówek (długość)  : ${dl} ${dl >= 10 && dl <= 131072 ? '(w zakresie 10..131072)' : '\x1b[31m(POZA zakresem — to nie wygląda na ładunek DR)\x1b[0m'}`);
+
+  let d;
+  try { d = _decodeAztecPayload(new Uint8Array(buf)); }
+  catch (e) {
+    console.log(`\n  \x1b[31m✗ ${e.message}\x1b[0m`);
+    console.log('\n  Możliwe przyczyny: to nie jest ładunek DR, bajty są zniekształcone,');
+    console.log('  albo plik zawiera coś innego niż surowe wyjście dekodera Aztec.\n');
+    process.exit(1);
+  }
+
+  const OSOBOWE = new Set(['vin', 'nrRej', 'seriaDr']);
+  const maskuj = (k, v) => OSOBOWE.has(k) ? `${String(v).slice(0, 2)}… (${String(v).length} zn.)` : v;
+  console.log(`\n  \x1b[32m✓ rozpakowane\x1b[0m — format=${d.format}, pól w ładunku=${d.fieldCount}\n`);
+  for (const [k, v] of Object.entries(d.fields)) console.log(`    ${k.padEnd(14)} ${maskuj(k, v)}`);
+  console.log('\n  (VIN, nr rej. i seria dowodu zamaskowane — log można wkleić bez wycieku)');
+  console.log('\n  UWAGA: to dowodzi wyłącznie, że NRV2E i mapowanie pól radzą sobie z PRAWDZIWYM');
+  console.log('  ładunkiem. Nie mówi nic o tym, czy potrafimy ten kod ZNALEŹĆ na zdjęciu.\n');
+  process.exit(0);
 }
 
 /**
@@ -427,4 +481,5 @@ async function glowna() {
 // Eksport dla innych narzędzi — bez uruchamiania czegokolwiek.
 module.exports = { wyciagnijDekoder, nrv2eLiteraly, zbudujDrKontrolny, opcjeChrome, uruchomChrome, KONTROLNY, POLA_OCZEKIWANE };
 
+if (BEZPOSREDNIO && plikBajtow) trybBajtow(plikBajtow);
 if (BEZPOSREDNIO) glowna();
