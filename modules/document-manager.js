@@ -221,7 +221,7 @@
     if (!window.pdfjsLib) return '';
     try {
       const buf  = await file.arrayBuffer();
-      const pdf  = await pdfjsLib.getDocument({ data: buf }).promise;
+      const pdf  = await pdfjsLib.getDocument({ data: buf, isEvalSupported: false }).promise;
       const page = await pdf.getPage(1);
       const content = await page.getTextContent();
       return content.items.map(i => i.str).join(' ').slice(0, 2000);

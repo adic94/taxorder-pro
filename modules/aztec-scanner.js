@@ -159,7 +159,7 @@ window.AztecScanner = {
       throw new Error('PDF.js niedostępny — odśwież stronę');
     }
     const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, isEvalSupported: false }).promise;
     const numPages = pdf.numPages;
 
     // Zacznij od ostatniej strony (Aztec jest z tyłu DR), potem od początku

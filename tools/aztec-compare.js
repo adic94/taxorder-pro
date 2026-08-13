@@ -2,8 +2,23 @@
  * TaxOrder Pro — porównanie dwóch ścieżek dekodowania Aztec na PRAWDZIWYM dowodzie.
  *
  * Uruchom:
+ *   git checkout claude/aztec-naprawa            # ⚠️ tego pliku NIE MA na main
  *   npm i --no-save @zxing/library@0.20.0        # jednorazowo, jeśli brak
+ *   npx playwright install chromium              # jednorazowo, jeśli brak przeglądarki
  *   node tools/aztec-compare.js <sciezka-do-zdjecia.jpg>
+ *
+ * TRZY TRYBY, bo odpowiadają na trzy różne pytania:
+ *   <plik.jpg|png>      — czy umiemy ZNALEŹĆ i odczytać kod na tym obrazie
+ *   --selftest          — czy cała ścieżka działa na kodzie o znanym ładunku
+ *   --bytes <plik.bin>  — czy umiemy ROZPAKOWAĆ gotowe bajty (bez warstwy optycznej;
+ *                         nie wymaga przeglądarki ani @zxing/library)
+ *
+ * Pierwsza linijka jest istotna do czasu scalenia PR #13/#14: na `main` polecenie
+ * kończy się „Cannot find module", co łatwo wziąć za awarię narzędzia zamiast za
+ * brak pliku na gałęzi.
+ *
+ * Na Windowsie: `npm run` bywa blokowany polityką wykonywania PowerShella — `node`
+ * to zwykły plik wykonywalny i polityka go nie dotyczy, więc wołaj go wprost.
  *
  * ŚCIEŻKA A — obecna, produkcyjna: ZXing z wymuszonym CHARACTER_SET ISO-8859-1,
  *   bajty odzyskiwane przez `text.charCodeAt(i) & 0xFF`. Odwzorowanie
@@ -32,28 +47,218 @@ const fs = require('fs');
 const http = require('http');
 
 const ROOT = path.join(__dirname, '..');
+// URUCHAMIANY BEZPOŚREDNIO vs `require`-owany: przy require sprawdzanie argumentów
+// i główna pętla NIE mogą wystartować — inne narzędzia (tools/aztec-pdf-bench.js)
+// biorą stąd budowniczego ładunku DR i ekstraktor dekodera, zamiast trzymać kopie.
+const BEZPOSREDNIO = require.main === module;
 const SELFTEST = process.argv.includes('--selftest');
-const obraz = SELFTEST ? null : process.argv[2];
-if (!SELFTEST && (!obraz || !fs.existsSync(obraz))) {
+const iBajty = process.argv.indexOf('--bytes');
+const plikBajtow = iBajty >= 0 ? process.argv[iBajty + 1] : null;
+const obraz = (SELFTEST || plikBajtow) ? null : process.argv[2];
+if (BEZPOSREDNIO && !SELFTEST && !plikBajtow && (!obraz || !fs.existsSync(obraz))) {
   console.error('Podaj ścieżkę do zdjęcia dowodu: node tools/aztec-compare.js <plik>');
-  console.error('albo uruchom kontrolę wierności bajtów:  node tools/aztec-compare.js --selftest');
+  console.error('albo kontrolę wierności bajtów:   node tools/aztec-compare.js --selftest');
+  console.error('albo gotowe bajty ładunku:        node tools/aztec-compare.js --bytes <plik.bin>');
   process.exit(2);
 }
 
 /**
- * Ładunek kontrolny dla --selftest. Zawiera bajty z zakresu 0x80–0x9F, czyli te,
- * na których wykłada się konwersja znakowa: w CP1252 `0x80` to znak euro (U+20AC),
- * więc `charCodeAt(i) & 0xFF` zwraca 0xAC zamiast 0x80. NRV2E produkuje dowolne
- * bajty, więc ten zakres w prawdziwym dowodzie WYSTĄPI.
+ * Tryb `--bytes`: pomija CAŁĄ warstwę optyczną i podaje gotowe bajty wprost
+ * produkcyjnemu `_decodeAztecPayload`. Przeglądarka nie jest potrzebna.
+ *
+ * PO CO: rozdziela dwa pytania, które łatwo pomylić — „czy umiemy ZNALEŹĆ i odczytać
+ * kod na obrazie" (detekcja) od „czy umiemy ROZPAKOWAĆ jego ładunek" (NRV2E + pola).
+ * Jeśli skądkolwiek mamy już bajty prawdziwego dowodu, ten tryb odpowiada na drugie
+ * pytanie natychmiast i bez zgadywania. Selftest odpowiada na nie tylko dla ładunku,
+ * który sami zbudowaliśmy — a prawdziwy strumień NRV2E ma odwołania wstecz, których
+ * nasz enkoder „samych literałów" nie produkuje.
+ *
+ * Maskowanie takie samo jak w trybie obrazu: VIN, nr rej. i seria dowodu nie trafiają
+ * w całości na wyjście, żeby log dało się wkleić bez wycieku.
  */
-const KONTROLNY = [100, 0, 0, 0, 0x80, 0x81, 0x8D, 0x90, 0x9F, 0xFF, 0x41, 0x42, 0xAB, 0x7A];
+function trybBajtow(plik) {
+  if (!fs.existsSync(plik)) { console.error(`Nie ma pliku: ${plik}`); process.exit(2); }
+  let buf = fs.readFileSync(plik);
 
-// Chromium jest preinstalowany w tym środowisku; wersja z node_modules szuka innego
-// builda i podpowiada `npx playwright install` — nie uruchamiaj go, wskaż binarkę.
-const CHROME = process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+  // Plik bywa BASE64, nie surowymi bajtami — `/api/aztec` przyjmuje `bytesBase64`,
+  // więc narzędzia zrzucające „bajty Aztec" często zapisują właśnie tekst base64.
+  // Bez tej detekcji nagłówek wychodzi absurdalny (np. 1095848246 z ASCII „6QQA")
+  // i łatwo uznać ładunek za zniekształcony, choć jest nietknięty.
+  const tekst = buf.toString('latin1').trim();
+  if (/^[A-Za-z0-9+/\r\n=]+$/.test(tekst) && tekst.length >= 16) {
+    const dek = Buffer.from(tekst, 'base64');
+    if (dek.length >= 8) {
+      console.log(`\n  Wejście rozpoznane jako BASE64 — zdekodowane: ${buf.length} → ${dek.length} bajtów`);
+      buf = dek;
+    }
+  }
+
+  const { _decodeAztecPayload } = wyciagnijDekoder();
+  const hex = b => Array.from(b.slice(0, 12)).map(x => x.toString(16).padStart(2, '0')).join(' ');
+  const dl = buf[0] | (buf[1] << 8) | (buf[2] << 16) | (buf[3] * 0x1000000);
+
+  console.log(`\nDekodowanie gotowych bajtów: ${path.basename(plik)}\n`);
+  console.log(`  bajtów w pliku      : ${buf.length}`);
+  console.log(`  pierwsze bajty      : ${hex(buf)}`);
+  console.log(`  nagłówek (długość)  : ${dl} ${dl >= 10 && dl <= 131072 ? '(w zakresie 10..131072)' : '\x1b[31m(POZA zakresem — to nie wygląda na ładunek DR)\x1b[0m'}`);
+
+  let d;
+  try { d = _decodeAztecPayload(new Uint8Array(buf)); }
+  catch (e) {
+    console.log(`\n  \x1b[31m✗ ${e.message}\x1b[0m`);
+    console.log('\n  Możliwe przyczyny: to nie jest ładunek DR, bajty są zniekształcone,');
+    console.log('  albo plik zawiera coś innego niż surowe wyjście dekodera Aztec.\n');
+    process.exit(1);
+  }
+
+  const OSOBOWE = new Set(['vin', 'nrRej', 'seriaDr']);
+  const maskuj = (k, v) => OSOBOWE.has(k) ? `${String(v).slice(0, 2)}… (${String(v).length} zn.)` : v;
+  console.log(`\n  \x1b[32m✓ rozpakowane\x1b[0m — format=${d.format}, pól w ładunku=${d.fieldCount}\n`);
+  for (const [k, v] of Object.entries(d.fields)) console.log(`    ${k.padEnd(14)} ${maskuj(k, v)}`);
+  console.log('\n  (VIN, nr rej. i seria dowodu zamaskowane — log można wkleić bez wycieku)');
+  console.log('\n  UWAGA: to dowodzi wyłącznie, że NRV2E i mapowanie pól radzą sobie z PRAWDZIWYM');
+  console.log('  ładunkiem. Nie mówi nic o tym, czy potrafimy ten kod ZNALEŹĆ na zdjęciu.\n');
+  process.exit(0);
+}
+
+/**
+ * Wyciąga produkcyjny dekoder z worker/index.js i uruchamia go w tym procesie.
+ *
+ * Wyciąga, a NIE kopiuje — celowo. Kopia rozjechałaby się z produkcją i ukryła
+ * dokładnie ten błąd, który to narzędzie ma wykrywać. Ten projekt ma już dwa
+ * takie precedensy: dwie tablice wskaźników CO2 i dwie listy źródeł kreatora
+ * raportów, obie ciche i obie rozjechane z rzeczywistością.
+ *
+ * Kotwice są jawne: brak którejkolwiek przerywa działanie z błędem, zamiast po
+ * cichu sięgnąć po nieaktualny odpowiednik.
+ */
+function wyciagnijDekoder() {
+  const src = fs.readFileSync(path.join(ROOT, 'worker', 'index.js'), 'utf8');
+  const OD = '// ─── AZTEC DR DECODER', DO = 'async function handleAztec';
+  const i = src.indexOf(OD), j = src.indexOf(DO);
+  if (i < 0 || j < 0 || j < i) {
+    console.error('Nie znaleziono sekcji dekodera w worker/index.js (kotwice:');
+    console.error(`  "${OD}" oraz "${DO}"). Jeśli kod przeniesiono — popraw kotwice tutaj.`);
+    process.exit(2);
+  }
+  return new Function(src.slice(i, j) + '\nreturn { _nrv2eDecompress, _decodeAztecPayload };')();
+}
+
+/**
+ * NRV2E w wariancie "same literały": bit 1 oznacza, że kolejny bajt strumienia
+ * jest literałem. Układ wynika wprost z `_BitReader` w Workerze — bity idą
+ * MSB-first z bajtu flag, a `readByte()` pobiera następny CAŁY bajt strumienia,
+ * omijając bufor bitowy. Round-trip przez produkcyjny `_nrv2eDecompress()`
+ * potwierdza, że ten układ jest poprawny.
+ *
+ * Kompresora NRV2E nie mamy i nie jest potrzebny: dekompresor obsługuje ten
+ * wariant tą samą ścieżką co strumień z odwołaniami wstecz.
+ */
+function nrv2eLiteraly(bajty) {
+  const out = [];
+  for (let i = 0; i < bajty.length; i += 8) {
+    const grupa = bajty.slice(i, i + 8);
+    out.push((0xFF << (8 - grupa.length)) & 0xFF);
+    for (const b of grupa) out.push(b);
+  }
+  return out;
+}
+
+/**
+ * Ładunek kontrolny dla --selftest: prawdziwy FORMAT dowodu (nowy, >40 pól),
+ * ale w całości dane syntetyczne — żadnego prawdziwego VIN-u ani rejestracji.
+ *
+ * Pola `typ` i `model` zawierają znaki U+0180/U+0192/U+019F, których UTF-16LE
+ * daje młodszy bajt w zakresie 0x80–0x9F. To ten zakres psuła konwersja znakowa
+ * (CP1252: 0x80 → U+20AC → 0xAC). W prawdziwym dowodzie te bajty biorą się nie
+ * ze znaków, lecz ze struktury skompresowanego strumienia — tutaj, przy
+ * kodowaniu samymi literałami, trzeba je wprowadzić tekstem. Zakres bajtów
+ * jest więc odwzorowany wiernie, choć innym mechanizmem.
+ */
+function zbudujDrKontrolny() {
+  const pola = new Array(55).fill('');
+  const oczekiwane = {
+    seriaDr: 'DR/TEST/0001', nrRej: 'ZZ00000', marka: 'TESTMARKA',
+    typ: 'Tƀ-92', model: 'Mƒ-9F Ɵ', vin: 'TESTVIN0000000001',
+    dmcKg: '18000', dmcKg2: '18000', dmcZespolu: '40000', masaWlKg: '7500',
+    kategoria: 'N3', liczbaOsi: '3', pojSilnika: '10837', mocKW: '265',
+    dataRej: '15.03.2019', miejscaSied: '3',
+  };
+  const _DR_NEW = { seriaDr:1, nrRej:7, marka:8, typ:9, model:12, vin:13,
+    dmcKg:38, dmcKg2:39, dmcZespolu:40, masaWlKg:41, kategoria:42, liczbaOsi:44,
+    pojSilnika:48, mocKW:49, paliwo:50, dataRej:51, miejscaSied:52 };
+  for (const [k, idx] of Object.entries(_DR_NEW)) {
+    if (k === 'paliwo') { pola[idx] = 'D'; continue; }          // _FUEL: D → 'ON (Olej napędowy)'
+    if (k === 'dataRej') { pola[idx] = '20190315'; continue; }  // YYYYMMDD → DD.MM.YYYY
+    pola[idx] = oczekiwane[k];
+  }
+  oczekiwane.paliwo = 'ON (Olej napędowy)';
+
+  const tekst = pola.join('|');
+  const utf16 = [];
+  for (let i = 0; i < tekst.length; i++) {
+    const c = tekst.charCodeAt(i);
+    utf16.push(c & 0xFF, (c >> 8) & 0xFF);
+  }
+  const dlugosc = utf16.length;
+  const bajty = [dlugosc & 0xFF, (dlugosc >> 8) & 0xFF, (dlugosc >> 16) & 0xFF, (dlugosc >>> 24) & 0xFF]
+    .concat(nrv2eLiteraly(utf16));
+  return { bajty, oczekiwane };
+}
+
+const { bajty: KONTROLNY, oczekiwane: POLA_OCZEKIWANE } = zbudujDrKontrolny();
+
+/**
+ * Opcje uruchomienia przeglądarki — MUSZĄ działać i na Windowsie, i w kontenerze CI.
+ *
+ * Pierwsza wersja tego pliku miała ścieżkę do Chromium zahardkodowaną na układ
+ * kontenera deweloperskiego (`/opt/pw-browsers/...`). Na maszynie deweloperskiej
+ * z Windowsem taki plik nie istnieje, więc `chromium.launch()` padał na
+ * „executable doesn't exist" — narzędzie było nieuruchamialne dokładnie tam, gdzie
+ * leżą prawdziwe zdjęcia dowodów.
+ *
+ * Kolejność: jawny CHROME_PATH → preinstalowana binarka, jeśli FAKTYCZNIE istnieje →
+ * Chromium Playwrighta (pominięty `executablePath`, biblioteka znajdzie własny build).
+ * `--no-sandbox` jest konieczny w kontenerze i nieszkodliwy poza nim.
+ */
+function opcjeChrome() {
+  const args = ['--no-sandbox'];
+  const jawny = process.env.CHROME_PATH;
+  if (jawny) {
+    if (!fs.existsSync(jawny)) {
+      console.error(`CHROME_PATH wskazuje na nieistniejący plik: ${jawny}`);
+      process.exit(2);
+    }
+    return { executablePath: jawny, args };
+  }
+  const wKontenerze = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+  if (fs.existsSync(wKontenerze)) return { executablePath: wKontenerze, args };
+  return { args };   // Playwright sam wskaże swoją binarkę (npx playwright install chromium)
+}
+
+/**
+ * Uruchomienie przeglądarki z komunikatem, który mówi CO ZROBIĆ.
+ *
+ * Bez tego brak Chromium kończy się gołym stack tracem Playwrighta — a to najbardziej
+ * prawdopodobny sposób, w jaki to narzędzie odmówi współpracy na świeżej maszynie.
+ */
+async function uruchomChrome(chromium) {
+  try {
+    return await chromium.launch(opcjeChrome());
+  } catch (e) {
+    console.error('\nNie udało się uruchomić Chromium.\n');
+    console.error('  Najczęstsza przyczyna: Playwright nie ma pobranej przeglądarki.');
+    console.error('  Napraw jednym z dwóch sposobów:\n');
+    console.error('    npx playwright install chromium');
+    console.error('    albo wskaż istniejącą przeglądarkę:');
+    console.error('    CHROME_PATH="C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"\n');
+    console.error(`  Komunikat Playwrighta: ${String(e && e.message || e).split('\n')[0]}\n`);
+    process.exit(2);
+  }
+}
 const ZXING = path.join(ROOT, 'node_modules', '@zxing', 'library', 'umd', 'index.min.js');
 
-(async () => {
+async function glowna() {
   if (!fs.existsSync(ZXING)) {
     console.error('Brak @zxing/library. Uruchom: npm i --no-save @zxing/library@0.20.0');
     process.exit(2);
@@ -68,7 +273,7 @@ const ZXING = path.join(ROOT, 'node_modules', '@zxing', 'library', 'umd', 'index
     const code = Z.AztecEncoder.encode(Uint8Array.from(KONTROLNY), 33, Z.AztecEncoder.DEFAULT_AZTEC_LAYERS);
     const m = code.getMatrix();
     const px = []; for (let y=0;y<m.getHeight();y++){const r=[];for(let x=0;x<m.getWidth();x++)r.push(m.get(x,y)?1:0);px.push(r);}
-    const b0 = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+    const b0 = await uruchomChrome(chromium);
     const p0 = await b0.newPage();
     const S=10,Q=40,W=m.getWidth()*S+2*Q,H=m.getHeight()*S+2*Q;
     const du = await p0.evaluate(({px,S,Q,W,H})=>{
@@ -81,6 +286,30 @@ const ZXING = path.join(ROOT, 'node_modules', '@zxing', 'library', 'umd', 'index
     obrazBuf = Buffer.from(du.split(',')[1],'base64');
   }
 
+  // PDF na wejściu renderujemy DOKŁADNIE tak, jak robi to produkcja — ustawienia
+  // czytane z `PDF_AZTEC` w modules/dr-import.js, nie wpisane tutaj na sztywno.
+  // Dzięki temu narzędzie mierzy produkcyjną ścieżkę, a nie jej wyobrażenie: zmiana
+  // DPI albo formatu w module od razu zmienia to, co ten test sprawdza.
+  const JEST_PDF = !SELFTEST && /\.pdf$/i.test(obraz || '');
+  let PDFJS = null, PDFWRK = null, USTAW_PDF = null;
+  if (JEST_PDF) {
+    PDFJS  = path.join(ROOT, 'node_modules', 'pdfjs-dist', 'build', 'pdf.min.js');
+    PDFWRK = path.join(ROOT, 'node_modules', 'pdfjs-dist', 'build', 'pdf.worker.min.js');
+    if (!fs.existsSync(PDFJS)) {
+      console.error('Wejście to PDF, a brakuje pdfjs-dist. Uruchom:');
+      console.error('  npm i --no-save pdfjs-dist@3.11.174        # ta sama wersja co w index.html');
+      process.exit(2);
+    }
+    const src = fs.readFileSync(path.join(ROOT, 'modules', 'dr-import.js'), 'utf8');
+    const m = src.match(/PDF_AZTEC\s*=\s*\{([^}]*)\}/);
+    if (!m) { console.error('Nie znaleziono PDF_AZTEC w modules/dr-import.js — popraw kotwicę.'); process.exit(2); }
+    USTAW_PDF = {
+      dpi: Number((m[1].match(/dpi:\s*(\d+)/) || [])[1]) || 300,
+      format: (m[1].match(/format:\s*'([^']+)'/) || [])[1] || 'image/png',
+    };
+    console.log(`\n  Wejście PDF — render jak w produkcji: ${USTAW_PDF.dpi} DPI, ${USTAW_PDF.format}`);
+  }
+
   // Serwer lokalny: strona ładuje ZXing z DYSKU, nie z CDN — kontener nie ma sieci.
   const srv = http.createServer((req, res) => {
     const mapa = {
@@ -89,6 +318,10 @@ const ZXING = path.join(ROOT, 'node_modules', '@zxing', 'library', 'umd', 'index
       '/detector.js': ['application/javascript', fs.readFileSync(path.join(ROOT, 'modules', 'aztec-detector.js'))],
       '/obraz': ['application/octet-stream', SELFTEST ? obrazBuf : fs.readFileSync(obraz)],
     };
+    if (JEST_PDF) {
+      mapa['/pdf.js'] = ['application/javascript', fs.readFileSync(PDFJS)];
+      mapa['/pdf.worker.js'] = ['application/javascript', fs.readFileSync(PDFWRK)];
+    }
     const wpis = mapa[req.url];
     if (!wpis) { res.writeHead(404); return res.end(); }
     res.writeHead(200, { 'Content-Type': wpis[0] });
@@ -97,21 +330,56 @@ const ZXING = path.join(ROOT, 'node_modules', '@zxing', 'library', 'umd', 'index
   await new Promise(r => srv.listen(0, '127.0.0.1', r));
   const port = srv.address().port;
 
-  const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+  const browser = await uruchomChrome(chromium);
   const page = await browser.newPage();
   await page.goto(`http://127.0.0.1:${port}/`);
   await page.addScriptTag({ url: '/zxing.js' });
   await page.addScriptTag({ url: '/detector.js' });
+  if (JEST_PDF) {
+    await page.addScriptTag({ url: '/pdf.js' });
+    await page.evaluate(() => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.js'; });
+  }
 
-  const wynik = await page.evaluate(async () => {
-    const img = new Image();
-    await new Promise(res => { img.onload = res; img.onerror = res; img.src = '/obraz'; });
-    const canvas = document.createElement('canvas');
-    canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
-    canvas.getContext('2d').drawImage(img, 0, 0);
+  const wynik = await page.evaluate(async (pdfOpts) => {
+    let canvas;
+    if (pdfOpts) {
+      // Odwzorowanie _pdfPage1Blob() z dr-import.js: render strony 1 w zadanym DPI,
+      // zapis do blobu w zadanym formacie i powrót do canvasu — tak jak w produkcji,
+      // razem z tym powrotem, bo to on decyduje o ostatecznych pikselach.
+      const dane = await (await fetch('/obraz')).arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument({ data: dane }).promise;
+      const strona = await pdf.getPage(1);
+      const vp = strona.getViewport({ scale: pdfOpts.dpi / 72 });
+      const cv = document.createElement('canvas');
+      cv.width = vp.width; cv.height = vp.height;
+      await strona.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+      const blob = await new Promise(r => cv.toBlob(r, pdfOpts.format));
+      const url = URL.createObjectURL(blob);
+      const im = new Image();
+      await new Promise(r => { im.onload = r; im.onerror = r; im.src = url; });
+      canvas = document.createElement('canvas');
+      canvas.width = im.naturalWidth; canvas.height = im.naturalHeight;
+      canvas.getContext('2d').drawImage(im, 0, 0);
+      URL.revokeObjectURL(url);
+    } else {
+      const img = new Image();
+      await new Promise(res => { img.onload = res; img.onerror = res; img.src = '/obraz'; });
+      canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+    }
     if (!canvas.width) return { blad: 'nie udało się wczytać obrazu' };
 
-    const naBajty = t => { const u = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) u[i] = t.charCodeAt(i) & 0xFF; return u; };
+    // Odwrócenie windows-1252 — kopia `_aztecTextToBytes` z app.js. Trzymaj zgodne:
+    // to jedyne miejsce, w którym mierzymy wierność bajtów, więc rozjazd tutaj
+    // ukryłby dokładnie ten błąd, który ten skrypt ma wykrywać.
+    const CP = {0x20AC:0x80,0x201A:0x82,0x0192:0x83,0x201E:0x84,0x2026:0x85,0x2020:0x86,
+      0x2021:0x87,0x02C6:0x88,0x2030:0x89,0x0160:0x8A,0x2039:0x8B,0x0152:0x8C,0x017D:0x8E,
+      0x2018:0x91,0x2019:0x92,0x201C:0x93,0x201D:0x94,0x2022:0x95,0x2013:0x96,0x2014:0x97,
+      0x02DC:0x98,0x2122:0x99,0x0161:0x9A,0x203A:0x9B,0x0153:0x9C,0x017E:0x9E,0x0178:0x9F};
+    const naBajty = t => { const u = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) { const c = t.charCodeAt(i); u[i] = CP[c] !== undefined ? CP[c] : (c & 0xFF); } return u; };
+    // Stara konwersja — pokazujemy w selfteście, co dokładnie naprawiono.
+    const naBajtyStare = t => { const u = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) u[i] = t.charCodeAt(i) & 0xFF; return u; };
 
     // ── Ścieżka A: dokładnie jak tryAztecFromCanvas() w app.js ──────────────
     function sciezkaA(c) {
@@ -128,7 +396,7 @@ const ZXING = path.join(ROOT, 'node_modules', '@zxing', 'library', 'umd', 'index
         for (let i = 0; i < argb.length; i++) argb[i] = (d.data[i*4] << 16) | (d.data[i*4+1] << 8) | d.data[i*4+2];
         const lum = new ZXing.RGBLuminanceSource(argb, c.width, c.height);
         const r = reader.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum)));
-        return { ok: true, bajty: Array.from(naBajty(r.getText())) };
+        return { ok: true, bajty: Array.from(naBajty(r.getText())), bajtyStare: Array.from(naBajtyStare(r.getText())) };
       } catch (e) { return { ok: false, blad: String(e && e.message || e).slice(0, 120) }; }
     }
 
@@ -151,12 +419,12 @@ const ZXING = path.join(ROOT, 'node_modules', '@zxing', 'library', 'umd', 'index
     let B;
     try {
       const r = await window.TaxOrderAztecDetector.detect(canvas, { budget: 10000 });
-      B = r ? { ok: true, strategia: r.strategy, proby: r.attempts, bajty: Array.from(naBajty(r.text)) }
+      B = r ? { ok: true, strategia: r.strategy, proby: r.attempts, bajty: Array.from(naBajty(r.text)), bajtyStare: Array.from(naBajtyStare(r.text)) }
             : { ok: false, blad: 'detect() zwrócił null' };
     } catch (e) { B = { ok: false, blad: String(e && e.message || e).slice(0, 120) }; }
 
-    return { A, B };
-  });
+    return { A, B, wymiar: `${canvas.width}x${canvas.height}` };
+  }, JEST_PDF ? USTAW_PDF : null);
 
   await browser.close(); srv.close();
 
@@ -176,25 +444,91 @@ const ZXING = path.join(ROOT, 'node_modules', '@zxing', 'library', 'umd', 'index
     if (r.strategia) console.log(`  ${' '.repeat(30)}strategia: ${r.strategia}, prób: ${r.proby}`);
   }
 
+  // Pełne dekodowanie produkcyjnym kodem Workera — dopiero to rozstrzyga, czy
+  // ładunek jest UŻYTECZNY. Sam nagłówek w zakresie 10..131072 tego nie dowodzi:
+  // zniekształcone bajty potrafią dać wiarygodną długość i wywalić się dopiero
+  // w NRV2E albo wyprodukować pola-śmieci.
+  const { _decodeAztecPayload } = wyciagnijDekoder();
+  const dekoduj = b => {
+    try { return { ok: true, ...(_decodeAztecPayload(Uint8Array.from(b))) }; }
+    catch (e) { return { ok: false, blad: String(e && e.message || e).slice(0, 120) }; }
+  };
+
   if (SELFTEST) {
     console.log('\nKontrola wierności bajtów (ładunek znany):');
     console.log(`  oczekiwano: ${hex(KONTROLNY)}`);
     let bledy = 0;
     for (const [nazwa, r] of [['A', wynik.A], ['B', wynik.B]]) {
       if (!r.ok) { console.log(`  ${nazwa}: ✗ nie odczytano`); bledy++; continue; }
+      const roznice = (b) => b.map((x,i)=>x!==KONTROLNY[i]?`${KONTROLNY[i].toString(16)}→${x.toString(16)}`:null).filter(Boolean);
       const zgodne = r.bajty.length === KONTROLNY.length && r.bajty.every((x,i)=>x===KONTROLNY[i]);
-      const zle = r.bajty.map((x,i)=>x!==KONTROLNY[i]?`poz.${i}: ${KONTROLNY[i].toString(16)}→${x.toString(16)}`:null).filter(Boolean);
-      console.log(`  ${nazwa}: ${zgodne?'✓ bajty wierne':'✗ ZNIEKSZTAŁCONE — '+zle.join(', ')}`);
+      const zle = roznice(r.bajty);
+      const skrot = l => l.length > 4 ? l.slice(0,4).join(', ') + ` (+${l.length-4} więcej)` : l.join(', ');
+      console.log(`  ${nazwa}: ${zgodne?'✓ bajty wierne':'✗ ZNIEKSZTAŁCONE — '+skrot(zle)}`);
+      if (r.bajtyStare) {
+        const zleStare = roznice(r.bajtyStare);
+        console.log(`     bez naprawy (charCodeAt & 0xFF): ${zleStare.length?'✗ '+skrot(zleStare):'✓ wierne'}`);
+      }
       if (!zgodne) bledy++;
     }
+
+    // Wierność bajtów to warunek konieczny, nie wystarczający. Ten krok przepuszcza
+    // ładunek przez CAŁĄ produkcyjną ścieżkę Workera (NRV2E → UTF-16LE → pola)
+    // i porównuje wynik z tym, co zakodowaliśmy.
+    console.log('\nDekodowanie end-to-end (produkcyjny _decodeAztecPayload z worker/index.js):');
+    for (const [nazwa, r] of [['A', wynik.A], ['B', wynik.B]]) {
+      if (!r.ok) continue;
+      const d = dekoduj(r.bajty);
+      if (!d.ok) { console.log(`  ${nazwa}: ✗ ${d.blad}`); bledy++; continue; }
+      const zle = Object.entries(POLA_OCZEKIWANE)
+        .filter(([k, v]) => d.fields[k] !== v)
+        .map(([k, v]) => `${k}: "${v}" → "${d.fields[k] ?? '(brak)'}"`);
+      console.log(`  ${nazwa}: ${zle.length ? '✗ ' + zle.join('; ') : `✓ ${Object.keys(POLA_OCZEKIWANE).length}/${Object.keys(POLA_OCZEKIWANE).length} pól zgodnych (format=${d.format}, pól w ładunku=${d.fieldCount})`}`);
+      if (zle.length) bledy++;
+
+      // Kontrola negatywna: ten sam ładunek po STAREJ konwersji. Musi się wywalić —
+      // gdyby przechodził, znaczyłoby to, że test nie mierzy tego, co deklaruje.
+      if (r.bajtyStare) {
+        const ds = dekoduj(r.bajtyStare);
+        const zlamane = !ds.ok || Object.entries(POLA_OCZEKIWANE).some(([k, v]) => ds.fields[k] !== v);
+        console.log(`     bez naprawy: ${zlamane ? '✗ ' + (ds.ok ? 'pola niezgodne' : ds.blad) : '⚠ PRZESZŁO — test nie mierzy tego, co deklaruje'}`);
+        if (!zlamane) bledy++;
+      }
+    }
+
     console.log(bledy
       ? '\n  Konwersja znakowa psuje bajty 0x80–0x9F (CP1252). Ładunek NRV2E zawiera dowolne\n  bajty, więc dotyczy to prawdziwych dowodów. Trzeba czytać bajty bez warstwy tekstowej.\n'
-      : '\n  Obie ścieżki zachowują bajty wiernie.\n');
+      : '\n  Cała ścieżka działa: obraz → Aztec → bajty → NRV2E → UTF-16LE → pola dowodu.\n'
+        + '  UWAGA: to kod Aztec wygenerowany przez nas, nie zdjęcie. Dowodzi poprawności\n'
+        + '  DEKODOWANIA, nie skuteczności DETEKCJI na sfotografowanym dokumencie.\n');
     process.exit(bledy ? 1 : 0);
   }
 
-  const aOk = wynik.A.ok && naglowekOk(wynik.A.bajty);
-  const bOk = wynik.B.ok && naglowekOk(wynik.B.bajty);
+  // ── Prawdziwe zdjęcie: pełne dekodowanie z maskowaniem danych osobowych ──────
+  //
+  // VIN i numer rejestracyjny identyfikują pojazd i właściciela, więc NIE trafiają
+  // na wyjście w całości — inaczej wystarczy wkleić log do czatu albo do zgłoszenia,
+  // żeby dane produkcyjne wyszły poza `~/Documents/taxorder-backupy/`. Do oceny,
+  // czy dekodowanie zadziałało, w zupełności wystarczy sama obecność i długość.
+  // Parametry techniczne (DMC, osie, kategoria, paliwo) danymi osobowymi nie są
+  // i to właśnie ich potrzebuje DT-1 — te pokazujemy w całości.
+  const OSOBOWE = new Set(['vin', 'nrRej', 'seriaDr']);
+  const maskuj = (k, v) => OSOBOWE.has(k) ? `${String(v).slice(0, 2)}… (${String(v).length} zn.)` : v;
+
+  console.log('\nDekodowanie pełnego ładunku (produkcyjny kod Workera):');
+  for (const [nazwa, r] of [['A', wynik.A], ['B', wynik.B]]) {
+    if (!r.ok) { console.log(`  ${nazwa}: — (nie odczytano kodu)`); continue; }
+    const d = dekoduj(r.bajty);
+    if (!d.ok) { console.log(`  ${nazwa}: ✗ ${d.blad}`); continue; }
+    const opis = Object.entries(d.fields).map(([k, v]) => `${k}=${maskuj(k, v)}`).join(', ');
+    console.log(`  ${nazwa}: ✓ format=${d.format}, pól=${d.fieldCount}`);
+    console.log(`     ${opis || '(dekompresja przeszła, ale żadne znane pole nie ma wartości)'}`);
+  }
+  console.log('  (VIN, nr rej. i seria dowodu zamaskowane — patrz komentarz w źródle)');
+
+  const uzyteczne = r => r.ok && naglowekOk(r.bajty) && dekoduj(r.bajty).ok;
+  const aOk = uzyteczne(wynik.A);
+  const bOk = uzyteczne(wynik.B);
   console.log('\nWniosek:');
   if (bOk && aOk) {
     const zgodne = wynik.A.bajty.length === wynik.B.bajty.length && wynik.A.bajty.every((x, i) => x === wynik.B.bajty[i]);
@@ -210,4 +544,10 @@ const ZXING = path.join(ROOT, 'node_modules', '@zxing', 'library', 'umd', 'index
     console.log('  Żadna ścieżka nie odczytała kodu z tego zdjęcia — spróbuj ostrzejszego ujęcia.');
   }
   console.log('');
-})();
+}
+
+// Eksport dla innych narzędzi — bez uruchamiania czegokolwiek.
+module.exports = { wyciagnijDekoder, nrv2eLiteraly, zbudujDrKontrolny, opcjeChrome, uruchomChrome, KONTROLNY, POLA_OCZEKIWANE };
+
+if (BEZPOSREDNIO && plikBajtow) trybBajtow(plikBajtow);
+if (BEZPOSREDNIO) glowna();

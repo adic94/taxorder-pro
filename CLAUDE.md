@@ -50,7 +50,43 @@ taxorder-pro/
 
 > Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
 > Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
-> Ostatnia aktualizacja: 2026-08-12 (**PR #6 zmergowany `090ba3e`, deploy Workera + health-check zielone**; `schema_v8`/`schema_v48` naprawione u źródła — padały ZAWSZE, także na czystej bazie, i zabierały ze sobą 5 tabel → PR #8; nocny workflow kasował tabele co noc przez pliki ROLLBACK w globie — naprawione; bookmarklet DT-1 + test regresji; fuel_entries → fuel_fills (CO2/raporty/JPK były zerami); cross-tenant DELETE faktur; migration_v50 `esg_targets` **nadal niezastosowana**)
+> Ostatnia aktualizacja: 2026-08-13
+>
+> ### ⛔ CZTERY RZECZY CZEKAJĄ NA CZŁOWIEKA — zacznij od nich, nie od kodu
+>
+> 1. **Worker NIE JEST wdrożony.** Trzy zmergowane commity dotykające `worker/`
+>    (`fd43645`, `6528242`, `bb4f3b9`) siedzą na `main` niewdrożone, bo Actions padły
+>    w trakcie. **Produkcja ma więc nadal 500 na `GET /api/fleet-kpi`** (strona
+>    „Dashboard KPI" martwa) **i błędne wskaźniki CO2** (elektryk liczony jak spalinowy).
+>    Nie czekaj na Actions — `git pull origin main && wrangler deploy` z terminala.
+> 2. **`migration_v50_esg_targets.sql` niezastosowana** → 500 przy dodawaniu celów ESG.
+>    Najpierw `SELECT COUNT(*) FROM esg_targets`. Migracja ma bramkę
+>    (`tests/unit/migration-v50-test.js`, 11 asercji, 3 kontrole negatywne).
+> 3. **Pakiet minut Actions wyczerpany** (2000/2000), reset **1 września**. Przebiegi
+>    padają po 3–5 s z `runner_id: 0` — to NIE jest awaria CI, patrz sekcja CI/CD.
+> 4. **Klucze legacy Supabase — czy unieważnione?** Otwarte od dawna; przy rozważaniu
+>    upublicznienia repo przestaje to być formalność (`project_ref` jest w historii).
+>
+> ### Cztery PR-y otwarte, żaden nie ma zielonego CI (runnery niedostępne)
+>
+> | PR | Gałąź | Rzecz |
+> |----|-------|-------|
+> | **#16** | `claude/claude-yml-guard` | **scal pierwszy** — `claude.yml` uruchamiał agenta z `contents: write` na sam TEKST komentarza, bez sprawdzenia autora |
+> | #15 | `claude/ci-oszczednosci` | harmonogramy zjadały 57% pakietu minut |
+> | #13 → #14 | `aztec-ustalenia` → `aztec-naprawa` | stos: narzędzie + naprawa Aztec |
+>
+> Wszystkie bramki uruchomione lokalnie i zielone; każda nowa zweryfikowana negatywnie.
+> `ci-js.yml` rozjechał się między gałęziami — konflikt `env-fee` vs `migration-v50`
+> **rozwiązany już w `aztec-naprawa`** (oba kroki zostają, 9 kroków).
+>
+> ### Skrót tego, co zamknięto 12–13.08
+>
+> Aztec: przyczyna zniekształcenia bajtów `0x80`–`0x9F` znaleziona (WHATWG mapuje
+> etykietę „ISO-8859-1" na **windows-1252**) i naprawiona; `--selftest` przechodzi całą
+> produkcyjną ścieżkę end-to-end, 17/17 pól, bez potrzeby zdjęcia. `_decodeAztecPayload`
+> wydzielone z `handleAztec`, żeby narzędzie uruchamiało kod produkcyjny, nie kopię.
+> Zostało **wyłącznie** pytanie o skuteczność DETEKCJI na sfotografowanym dokumencie —
+> do tego potrzeba jednego prawdziwego zdjęcia, trzymanego poza repozytorium.
 
 ### Zamknięte
 | Kiedy | Temat | Commit |
@@ -210,15 +246,51 @@ wystąpi. **HIPOTEZA DO SPRAWDZENIA:** część dowodów kwalifikowanych dotąd 
 mogła w rzeczywistości zostać poprawnie wykryta i dopiero zniekształcona na warstwie
 tekstowej. Nie potwierdzone na realnym dokumencie.
 
-**Kierunek naprawy:** czytać bajty z pominięciem warstwy tekstowej (`getRawBytes()`
-albo własne złożenie z `ResultPoint`/`DecoderResult`), zamiast `getText()` + `charCodeAt`.
-Zmiana dotyczy danych binarnych, więc wymaga sprawdzenia na prawdziwym dowodzie.
+**NAPRAWIONE — przyczyna okazała się inna, niż zakładał ten akapit.** `getRawBytes()`
+jest nieosiągalne: `Decoder.decode()` woła `getEncodedData()` PRZED złożeniem wyniku
+i to ono rzuca `URIError`. Sedno leży głębiej: w trybie binarnym dekoder odczytuje
+**dokładną wartość bajtu** (`readCode(bits, index, 8)`), po czym przepuszcza ją przez
+`StringUtils.castAsNonUtf8Char` → `TextDecoder`. A **standard WHATWG mapuje etykietę
+„ISO-8859-1" na windows-1252** — stąd `0x80` → U+20AC → `0xAC` i `0x9F` → U+0178 → `0x78`.
+Wskazówka `CHARACTER_SET` nie ma z tym nic wspólnego, bo mapowanie robi warstwa tekstowa.
 
-**Czego brakuje do rozstrzygnięcia:** jednego prawdziwego zdjęcia dowodu. Benchmark
-`tools/aztec-bench.html` porównuje wyłącznie **skuteczność detekcji** — nigdy nie
-konwertuje wyniku z powrotem na bajty, więc nie dowodzi, że detektor daje ładunek
-zdatny do NRV2E. To trzeba sprawdzić na realnym dokumencie, trzymanym POZA repozytorium
-(dowód zawiera VIN i dane właściciela).
+Naprawa jest odwróceniem tej tablicy: `_aztecTextToBytes()` w `app.js` mapuje 27 punktów
+kodowych, w których windows-1252 różni się od ISO-8859-1, z powrotem na bajty.
+Zweryfikowane `node tools/aztec-compare.js --selftest` — wynik zawiera na stałe linię
+„bez naprawy", pokazującą oba zniekształcenia, więc regresja od razu rzuci się w oczy.
+
+**Cała ścieżka DEKODOWANIA zweryfikowana end-to-end — bez zdjęcia (12.08).** `--selftest`
+nie sprawdza już samych bajtów: buduje ładunek w **prawdziwym formacie DR** (nowy, 55 pól),
+koduje go jako Aztec, renderuje do obrazu i przepuszcza przez pełną produkcyjną ścieżkę
+obraz → Aztec → bajty → NRV2E → UTF-16LE → pola. Wynik: **17/17 pól zgodnych** na obu
+ścieżkach, `format=new`. Kontrola negatywna (stara konwersja `charCodeAt & 0xFF`) na tym
+samym ładunku **nie przechodzi** — a gdyby przeszła, test krzyczy „nie mierzy tego, co
+deklaruje", zamiast po cichu zaświecić na zielono.
+
+Dwie rzeczy, które to umożliwiły:
+- `_decodeAztecPayload()` **wydzielone z `handleAztec`** (`worker/index.js`) — narzędzie
+  wyciąga tę funkcję z pliku Workera i uruchamia **dokładnie kod produkcyjny**, zamiast
+  trzymać kopię. Kopia rozjechałaby się i ukryła właśnie ten błąd, który ma wykrywać
+  (precedens: dwie tablice CO2, dwie listy źródeł kreatora raportów). Kotwice ekstrakcji
+  są jawne — ich brak przerywa działanie, nie powoduje cichego fallbacku.
+- Kompresora NRV2E nie mamy i nie jest potrzebny: dekompresor obsługuje wariant
+  **„same literały"** (bit 1 = kolejny bajt to literał) tą samą ścieżką co strumień
+  z odwołaniami wstecz. Round-trip przez produkcyjny `_nrv2eDecompress()` to potwierdza.
+
+**Efekt uboczny — pytanie o detektor częściowo rozstrzygnięte:** po naprawie konwersji
+ścieżka B (`aztec-detector.js`) zwraca bajty **identyczne** ze ścieżką A. Wcześniej nie
+było to wiadome; `tools/aztec-bench.html` tego nie mierzył, bo nigdy nie konwertował
+wyniku z powrotem na bajty.
+
+**Czego nadal brakuje — i tylko tego:** jednego prawdziwego **zdjęcia**. Pozostała
+niewiadoma zawęziła się z „czy dekodowanie działa" do „czy **detekcja** działa na
+sfotografowanym dokumencie" — perspektywa, ostrość, oświetlenie, artefakty JPEG.
+Selftest używa czystego renderu, więc o tym nie mówi nic. Zdjęcie trzymaj POZA
+repozytorium (dowód zawiera VIN i dane właściciela); narzędzie nic nie zapisuje,
+a VIN, nr rej. i serię dowodu **maskuje na wyjściu**, żeby log dało się wkleić
+do zgłoszenia bez wycieku.
+
+    node tools/aztec-compare.js ~/Documents/taxorder-backupy/dowod.jpg
 
 **Inter Cars nie jest tu odpowiedzią.** Ich `/pl/api/aztec/file/decode` kończy się na
 VIN-ie i przekazaniu go do dostawców `[GA09, MRS7, BTR5, BTR6]` — służy identyfikacji
@@ -609,6 +681,27 @@ niepowiązanym z przyczyną. Dlatego pod `*.png` muszą stać wyjątki:
 ### PowerShell — here-string w git commit -m
 Składnia `@'...'@` przekazana do `git commit -m` wciąga znak `@` do treści commita
 (efekt: `@ fix: ...`). Używać zwykłych cudzysłowów albo `git commit -F plik`.
+
+### `&&` nie działa w PowerShell 5.1 — i to błąd PARSOWANIA, nie wykonania
+Windows PowerShell 5.1 (domyślny na Windowsie) nie zna `&&` ani `||` jako separatorów —
+te operatory doszły dopiero w PowerShell 7. Komunikat:
+
+    The token '&&' is not a valid statement separator in this version.
+
+**Pułapka jest w tym, że to błąd parsera:** wywala się CAŁA linia, więc nie wykonuje się
+nawet pierwsze polecenie. Łatwo pomyśleć „pierwsze przeszło, drugie padło" i szukać
+przyczyny nie tam, gdzie trzeba.
+
+```powershell
+git checkout <branch>        # osobne linie
+git pull
+```
+`;` też zadziała, ale ma inną semantykę niż `&&` — uruchamia kolejne polecenie
+**niezależnie od tego, czy poprzednie się powiodło**. Przy sekwencjach typu
+„checkout, potem pull" to potrafi zrobić pulla na złej gałęzi.
+
+Dotyczy to także instrukcji, które generujemy dla użytkownika: pisząc polecenia dla
+tego projektu, zakładaj PowerShell 5.1, nie bash.
 
 ### npx i npm w PowerShell
 Polityka wykonywania blokuje niepodpisany `npx.ps1` — **i tak samo `npm.ps1`**.

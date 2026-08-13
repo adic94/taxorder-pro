@@ -194,7 +194,7 @@ window.TaxOrderPolicyOcr = (function () {
       const pdfjsLib = window.pdfjsLib;
       if (!pdfjsLib) return null;
       const arrayBuffer = await pdfBlob.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, isEvalSupported: false }).promise;
       const page = await pdf.getPage(1);
       const viewport = page.getViewport({ scale: 2.0 });
       const canvas = document.createElement('canvas');

@@ -91,3 +91,29 @@ jobs:
       # obcej osoby przechodza (6 PASS / 5 FAIL).
       - name: Straznik uprawnien do claude.yml — obcy nie uruchomi agenta
         run: node tests/unit/claude-workflow-guard-test.js
+
+      # migration_v50 przebudowuje esg_targets przez DROP + RENAME i w chwili dodania
+      # tego kroku NIE jest jeszcze zastosowana na produkcji. Test uruchamia ja na
+      # wiernie odtworzonej strukturze v35 i pilnuje trzech rzeczy latwych do zepsucia
+      # edycja pliku: przeliczenia CO2 kg->t (inaczej cele 1000x zawyzone), usuniecia
+      # starego indeksu UNIQUE (inaczej model v41 blokuje sie na drugiej metryce w roku)
+      # oraz tego, ze doslowny INSERT z worker/index.js wykonuje sie na nowej strukturze.
+      - name: Straznik migracji v50 — esg_targets bez utraty danych
+        run: node tests/unit/migration-v50-test.js
+
+      # Import dowodu przyjmuje PDF-y (skany). Renderowalismy je jednym ustawieniem
+      # dobranym pod OCR — scale 2.0 (=144 DPI) i przekompresowanie do JPEG 0.92 —
+      # co dla OCR jest nieszkodliwe, a dla kodu Aztec zabojcze: modul ma przy tej
+      # gestosci ~1 piksel, a JPEG dokłada artefakty DCT dokladnie na jego krawedziach.
+      # Test jest statyczny (czyta zrodlo), wiec nie wymaga przegladarki ani PDF-a.
+      # Zweryfikowany negatywnie: na wersji sprzed naprawy 0 PASS / 6 FAIL.
+      - name: Straznik renderu PDF — Aztec dostaje 300 DPI bez kompresji stratnej
+        run: node tests/unit/dr-pdf-render-test.js
+
+      # CVE-2024-4367: pdf.js < 4.2.67 pozwala spreparowanemu PDF-owi wykonac DOWOLNY
+      # JavaScript w origin strony, gdy isEvalSupported zostaje na domyslnym true.
+      # Aplikacja laduje pdf.js 3.11.174 i renderuje nim pliki WGRYWANE PRZEZ UZYTKOWNIKOW
+      # (dowody, polisy, faktury), a token sesji lezy w localStorage tego samego origin.
+      # Zweryfikowany negatywnie: przed naprawa 6 wywolan bez zabezpieczenia, po nazwie i linii.
+      - name: Straznik pdf.js — wgrany PDF nie moze wykonac kodu
+        run: node tests/unit/pdfjs-eval-test.js

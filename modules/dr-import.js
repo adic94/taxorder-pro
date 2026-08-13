@@ -303,31 +303,62 @@ window.TaxOrderDrImport = (function () {
     _showModal(r2Key, fileName, result.fields, result.method);
   }
 
+  // Renderowanie PDF-a dla DEKODOWANIA KODU vs dla OCR to dwa różne zadania i dwa
+  // różne ustawienia. Wcześniej było jedno, dobrane pod OCR, i zabijało Aztec.
+  const PDF_AZTEC = { dpi: 300, format: 'image/png' };                   // bez strat
+  const PDF_OCR   = { dpi: 150, format: 'image/jpeg', quality: 0.92 };   // lekki, pod limit API
+
   async function _extractFile(r2Key, fileName) {
     // Pobierz plik z R2
     const r = await fetch(`${API()}/api/docs/file/${r2Key}`, { headers: hdrs() });
     if (!r.ok) return null;
-    let blob = await r.blob();
-    let mimeType = blob.type || 'image/jpeg';
+    const original = await r.blob();
 
-    // PDF → obraz (strona 1)
     if (fileName.toLowerCase().endsWith('.pdf') && window.pdfjsLib) {
-      blob = await _pdfPage1Blob(blob) || blob;
-      mimeType = 'image/jpeg';
+      // 1. Aztec — wysoka rozdzielczość, bez stratnej kompresji.
+      const hi = await _pdfPage1Blob(original, PDF_AZTEC);
+      if (hi) {
+        const fields = await _tryAztecBlob(hi, PDF_AZTEC.format);
+        if (fields) return { fields, method: 'AZTEC' };
+      }
+      // 2. OCR — osobny, lżejszy render. Nie ma sensu wysyłać do API 300-DPI PNG-a.
+      const lo = await _pdfPage1Blob(original, PDF_OCR);
+      const fields = await _tryAiOcr(lo || original, PDF_OCR.format);
+      return fields ? { fields, method: 'AI' } : null;
     }
 
-    return await _extractFromBlob(blob, mimeType);
+    return await _extractFromBlob(original, original.type || 'image/jpeg');
   }
 
-  async function _pdfPage1Blob(pdfBlob) {
+  /**
+   * Strona 1 PDF-a jako obraz.
+   *
+   * DWIE RZECZY, KTÓRE TU BYŁY I ZABIJAŁY DEKODOWANIE AZTEC — nie przywracaj ich:
+   *
+   * 1. `scale: 2.0`. Bazowa jednostka PDF to 72 DPI, więc dawało to **144 DPI**.
+   *    Na dowodzie w formacie karty moduł kodu Aztec ma przy tej gęstości ok. jednego
+   *    piksela — po binaryzacji nie ma czego odczytać. Stąd 300 DPI: to najniższa
+   *    gęstość, przy której moduł ma kilka pikseli, a strona A4 (2480×3508 ≈ 8,7 Mpx)
+   *    mieści się z zapasem w limicie powierzchni canvasu.
+   *
+   * 2. `toBlob(..., 'image/jpeg', 0.92)`. Renderowaliśmy PDF do canvasu (piksele
+   *    bezstratne) i **z powrotem kompresowali do JPEG** — dokładając artefakty DCT 8×8
+   *    na krawędziach modułów, czyli tę samą wadę, którą ma skan JPEG. Zupełnie
+   *    bez potrzeby, bo następny krok i tak ładuje to z powrotem do canvasu.
+   *    Dla ścieżki Aztec wynik jest teraz PNG.
+   *
+   * Dla OCR jedno i drugie było w porządku — model językowy czyta tekst, nie moduły —
+   * dlatego ustawienia są rozdzielone (PDF_AZTEC / PDF_OCR), a nie podniesione globalnie.
+   */
+  async function _pdfPage1Blob(pdfBlob, opts = PDF_AZTEC) {
     try {
-      const pdf = await window.pdfjsLib.getDocument({ data: await pdfBlob.arrayBuffer() }).promise;
+      const pdf = await window.pdfjsLib.getDocument({ data: await pdfBlob.arrayBuffer(), isEvalSupported: false }).promise;
       const page = await pdf.getPage(1);
-      const vp = page.getViewport({ scale: 2.0 });
+      const vp = page.getViewport({ scale: (opts.dpi || 300) / 72 });
       const canvas = document.createElement('canvas');
       canvas.width = vp.width; canvas.height = vp.height;
       await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
-      return await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.92));
+      return await new Promise(res => canvas.toBlob(res, opts.format || 'image/png', opts.quality));
     } catch { return null; }
   }
 
