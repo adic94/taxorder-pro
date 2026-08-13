@@ -50,34 +50,42 @@ taxorder-pro/
 
 > Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
 > Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
-> Ostatnia aktualizacja: 2026-08-13
+> Ostatnia aktualizacja: 2026-08-13 (wieczór)
 >
-> ### ⛔ CZTERY RZECZY CZEKAJĄ NA CZŁOWIEKA — zacznij od nich, nie od kodu
+> ### ⛔ TRZY RZECZY CZEKAJĄ NA CZŁOWIEKA — zacznij od nich, nie od kodu
 >
-> 1. **Worker NIE JEST wdrożony.** Trzy zmergowane commity dotykające `worker/`
->    (`fd43645`, `6528242`, `bb4f3b9`) siedzą na `main` niewdrożone, bo Actions padły
->    w trakcie. **Produkcja ma więc nadal 500 na `GET /api/fleet-kpi`** (strona
->    „Dashboard KPI" martwa) **i błędne wskaźniki CO2** (elektryk liczony jak spalinowy).
->    Nie czekaj na Actions — `git pull origin main && wrangler deploy` z terminala.
-> 2. **`migration_v50_esg_targets.sql` niezastosowana** → 500 przy dodawaniu celów ESG.
->    Najpierw `SELECT COUNT(*) FROM esg_targets`. Migracja ma bramkę
->    (`tests/unit/migration-v50-test.js`, 11 asercji, 3 kontrole negatywne).
+> 1. **Trzy tabele nie istnieją w D1** — `ksef_config`, `ksef_offline_queue`
+>    (`schema_v45`), `usage_snapshots` (`schema_v48`). Przyczynę naprawiono w plikach
+>    schematu, ale tworzy je nocny automat, a ten nie ma runnerów do 1 września.
+>    **Trzy odwołania w workerze nie mają `.catch()`** (linie ~11145, ~11150, ~11174),
+>    więc dotknięcie KSeF kończy się 500. Uruchom ręcznie:
+>    `wrangler d1 execute taxorder-pro --remote --file=worker/schema_v45.sql` i to samo
+>    dla `v48`. Uwaga: `v48` tworzy też `company_packages` — samo utworzenie jest
+>    obojętne (`brak wiersza → allowed=['*']`), ale **nie wstawiaj tam wiersza** bez
+>    `wrangler secret put MODULE_ENFORCEMENT` → `off`.
+> 2. **Worker na produkcji jest starszy niż `main`.** Wdrożony 13.08 (wersja `164e4fa2`)
+>    z commita `931afba`; od tego czasu `main` dostał wydzielenie `_decodeAztecPayload`.
+>    To czysty refaktor bez zmiany zachowania poza prefiksem w dwóch komunikatach błędu,
+>    więc nie pali się — ale `deploy-worker.yml` nie ma runnerów, więc trzeba ręcznie.
 > 3. **Pakiet minut Actions wyczerpany** (2000/2000), reset **1 września**. Przebiegi
 >    padają po 3–5 s z `runner_id: 0` — to NIE jest awaria CI, patrz sekcja CI/CD.
-> 4. **Klucze legacy Supabase — czy unieważnione?** Otwarte od dawna; przy rozważaniu
->    upublicznienia repo przestaje to być formalność (`project_ref` jest w historii).
+>    Po scaleniu #15 harmonogramy zejdą z 57% do 21% pakietu, więc wrzesień nie powtórzy
+>    sierpnia.
 >
-> ### Cztery PR-y otwarte, żaden nie ma zielonego CI (runnery niedostępne)
+> ### Zamknięte 13.08 wieczorem
 >
-> | PR | Gałąź | Rzecz |
-> |----|-------|-------|
-> | **#16** | `claude/claude-yml-guard` | **scal pierwszy** — `claude.yml` uruchamiał agenta z `contents: write` na sam TEKST komentarza, bez sprawdzenia autora |
-> | #15 | `claude/ci-oszczednosci` | harmonogramy zjadały 57% pakietu minut |
-> | #13 → #14 | `aztec-ustalenia` → `aztec-naprawa` | stos: narzędzie + naprawa Aztec |
+> Worker wdrożony (29 commitów, wersja `164e4fa2`) — zdjęło 500 na `/api/fleet-kpi`,
+> błędne wskaźniki CO2 i pętlę ponawiania przy kartach flotowych. `migration_v50`
+> zastosowana (`COUNT(*)` był 0, więc bezstratna), potwierdzona strukturą: `idx_esg_co_metric`
+> odwołuje się do `metric_key`, a `idx_esg_co_year` **nie jest już UNIQUE**.
+> Wszystkie PR-y (#13, #14, #15, #16) scalone — zero otwartych.
 >
-> Wszystkie bramki uruchomione lokalnie i zielone; każda nowa zweryfikowana negatywnie.
-> `ci-js.yml` rozjechał się między gałęziami — konflikt `env-fee` vs `migration-v50`
-> **rozwiązany już w `aztec-naprawa`** (oba kroki zostają, 9 kroków).
+> ### Otwarte pytania do właściciela
+>
+> - **Klucze legacy Supabase — czy unieważnione?** `project_ref` jest w historii repo.
+> - **Wskaźnik CO2 dla diesla: 2,65 czy 2,68?** Zmienia liczby w ESG i JPK wstecz.
+> - **Stawki opłat środowiskowych** z rozporządzenia — szkielet czeka i celowo odmawia
+>   zamiast zwracać zero.
 >
 > ### Skrót tego, co zamknięto 12–13.08
 >
@@ -385,6 +393,20 @@ zakazujące kopiowania ich bazy.
   więc zapis pakietu działa, a odczyt leci w `catch → allowed=['*']` — **admin może zapisać
   pakiet `basic` i nie stanie się nic**, cicho. To ta sama klasa co „ciche zera" w ESG.
   Naprawa = decyzja produktowa o licencjonowaniu modułów (patrz ostrzeżenie niżej), nie łatka.
+
+- **`xlsx@0.18.5` (SheetJS) z cdnjs — podatny, parsuje pliki użytkownika.** Wersja 0.18.5
+  ma znaną podatność na zanieczyszczenie prototypu (naprawioną w 0.19.3) i ReDoS
+  (0.20.2). Parsujemy nią pliki wgrywane przez użytkownika w czterech miejscach
+  produkcyjnych: `modules/import-export.js:169`, `modules/bulk-import.js:198`,
+  `modules/vehicle-import.js:206`, `app.js:7525` — a pola `<input accept=".xlsx,.xls">`
+  przyjmują je wprost od użytkownika.
+  **Dlaczego nie naprawione od razu:** cdnjs nie ma nowszej wersji niż 0.18.5 (SheetJS
+  wycofał się z npm i cdnjs), a właściwe źródło to `https://cdn.sheetjs.com/xlsx-0.20.x/`.
+  Zmiana hosta wymaga policzenia nowego hasza SRI, a to wymaga pobrania pliku —
+  z kontenera deweloperskiego `cdn.sheetjs.com` jest niedostępny (proxy, 403).
+  **Nie dopisuj tej biblioteki bez `integrity`** — to usunęłoby istniejące zabezpieczenie
+  i byłoby gorsze niż stan obecny. Naprawa wymaga policzenia hasza na maszynie z dostępem:
+  `curl -s <url> | openssl dgst -sha384 -binary | openssl base64 -A`
 
 **Sprawy operacyjne (poza kodem)**
 - Domena e-mail dla Dominika Dymowskiego i Roberta Sasina — do ustalenia.

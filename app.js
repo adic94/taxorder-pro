@@ -5870,7 +5870,13 @@ async function loadZXing(){
   if(window.ZXing){_zxingLoaded=true;return window.ZXing;}
   return new Promise((res,rej)=>{
     const s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js';
+    // Wersja MUSI być ta sama co w index.html — inaczej aplikacja deklaruje dwie
+    // różne wersje tej samej biblioteki. W praktyce ta ścieżka i tak się nie wykonuje:
+    // index.html ładuje ZXing zwykłym <script>, więc `window.ZXing` istnieje zanim
+    // ktokolwiek zawoła loadZXing(), a funkcja zwraca wtedy wcześnie. To jest awaryjny
+    // fallback na wypadek, gdyby tamten <script> nie doszedł — i wtedy tym bardziej
+    // musi dać tę samą wersję, a nie inną. Pilnuje tego tests/unit/zxing-version-test.js.
+    s.src='https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js';
     s.onload=()=>{_zxingLoaded=true;res(window.ZXing);};
     s.onerror=()=>rej(new Error('ZXing nie załadowany'));
     document.head.appendChild(s);
