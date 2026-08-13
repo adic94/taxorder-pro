@@ -132,3 +132,11 @@ jobs:
       # 0.19.1, ale sprawdzilismy to dopiero po fakcie.
       - name: Straznik wersji ZXing — jedna wersja, ta sama w testach
         run: node tests/unit/zxing-version-test.js
+
+      # index.html laduje 9 bibliotek z trzech obcych hostow. Bez `integrity` przegladarka
+      # wykona DOWOLNA tresc, ktora ten host odda — a skrypt dziala w origin aplikacji,
+      # gdzie w localStorage lezy token sesji. SRI to jedyne zabezpieczenie na tej sciezce:
+      # nie hostujemy tych plikow u siebie i nie mamy CSP ograniczajacego script-src.
+      # Jeden znany wyjatek (Chart.js) — lista moze wylacznie malec.
+      - name: Straznik SRI — skrypty z CDN maja integrity
+        run: node tests/unit/cdn-sri-test.js
