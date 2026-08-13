@@ -3591,7 +3591,7 @@ td:last-child{font-weight:600;color:#1e293b}
           if (isPdf) {
             if (!window.pdfjsLib) throw new Error('PDF.js nie jest załadowany — odśwież stronę');
             const arrayBuffer = await file.arrayBuffer();
-            const pdfDoc = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+            const pdfDoc = await pdfjsLib.getDocument({data: arrayBuffer, isEvalSupported: false}).promise;
             for (let p = 1; p <= pdfDoc.numPages; p++) {
               if (prog) prog.textContent = `PDF ${file.name}: renderowanie str. ${p}/${pdfDoc.numPages}…`;
               const page = await pdfDoc.getPage(p);

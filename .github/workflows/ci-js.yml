@@ -109,3 +109,11 @@ jobs:
       # Zweryfikowany negatywnie: na wersji sprzed naprawy 0 PASS / 6 FAIL.
       - name: Straznik renderu PDF — Aztec dostaje 300 DPI bez kompresji stratnej
         run: node tests/unit/dr-pdf-render-test.js
+
+      # CVE-2024-4367: pdf.js < 4.2.67 pozwala spreparowanemu PDF-owi wykonac DOWOLNY
+      # JavaScript w origin strony, gdy isEvalSupported zostaje na domyslnym true.
+      # Aplikacja laduje pdf.js 3.11.174 i renderuje nim pliki WGRYWANE PRZEZ UZYTKOWNIKOW
+      # (dowody, polisy, faktury), a token sesji lezy w localStorage tego samego origin.
+      # Zweryfikowany negatywnie: przed naprawa 6 wywolan bez zabezpieczenia, po nazwie i linii.
+      - name: Straznik pdf.js — wgrany PDF nie moze wykonac kodu
+        run: node tests/unit/pdfjs-eval-test.js

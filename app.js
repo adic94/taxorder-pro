@@ -5691,7 +5691,7 @@ function processOcrFile(f){
       // PDF: renderuj pierwszą stronę do canvas przez PDF.js
       try{
         const pdfjs=await loadPdfJs();
-        const loadingTask=pdfjs.getDocument({data:atob(ocrBase64)});
+        const loadingTask=pdfjs.getDocument({data:atob(ocrBase64),isEvalSupported:false});
         const pdf=await loadingTask.promise;
         const page=await pdf.getPage(1);
         const viewport=page.getViewport({scale:4.0});

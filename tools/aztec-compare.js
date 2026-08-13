@@ -78,7 +78,21 @@ if (BEZPOSREDNIO && !SELFTEST && !plikBajtow && (!obraz || !fs.existsSync(obraz)
  */
 function trybBajtow(plik) {
   if (!fs.existsSync(plik)) { console.error(`Nie ma pliku: ${plik}`); process.exit(2); }
-  const buf = fs.readFileSync(plik);
+  let buf = fs.readFileSync(plik);
+
+  // Plik bywa BASE64, nie surowymi bajtami — `/api/aztec` przyjmuje `bytesBase64`,
+  // więc narzędzia zrzucające „bajty Aztec" często zapisują właśnie tekst base64.
+  // Bez tej detekcji nagłówek wychodzi absurdalny (np. 1095848246 z ASCII „6QQA")
+  // i łatwo uznać ładunek za zniekształcony, choć jest nietknięty.
+  const tekst = buf.toString('latin1').trim();
+  if (/^[A-Za-z0-9+/\r\n=]+$/.test(tekst) && tekst.length >= 16) {
+    const dek = Buffer.from(tekst, 'base64');
+    if (dek.length >= 8) {
+      console.log(`\n  Wejście rozpoznane jako BASE64 — zdekodowane: ${buf.length} → ${dek.length} bajtów`);
+      buf = dek;
+    }
+  }
+
   const { _decodeAztecPayload } = wyciagnijDekoder();
   const hex = b => Array.from(b.slice(0, 12)).map(x => x.toString(16).padStart(2, '0')).join(' ');
   const dl = buf[0] | (buf[1] << 8) | (buf[2] << 16) | (buf[3] * 0x1000000);

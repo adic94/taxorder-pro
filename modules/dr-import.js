@@ -352,7 +352,7 @@ window.TaxOrderDrImport = (function () {
    */
   async function _pdfPage1Blob(pdfBlob, opts = PDF_AZTEC) {
     try {
-      const pdf = await window.pdfjsLib.getDocument({ data: await pdfBlob.arrayBuffer() }).promise;
+      const pdf = await window.pdfjsLib.getDocument({ data: await pdfBlob.arrayBuffer(), isEvalSupported: false }).promise;
       const page = await pdf.getPage(1);
       const vp = page.getViewport({ scale: (opts.dpi || 300) / 72 });
       const canvas = document.createElement('canvas');
