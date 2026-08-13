@@ -50,7 +50,43 @@ taxorder-pro/
 
 > Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
 > Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
-> Ostatnia aktualizacja: 2026-08-12 (**PR #6 zmergowany `090ba3e`, deploy Workera + health-check zielone**; `schema_v8`/`schema_v48` naprawione u źródła — padały ZAWSZE, także na czystej bazie, i zabierały ze sobą 5 tabel → PR #8; nocny workflow kasował tabele co noc przez pliki ROLLBACK w globie — naprawione; bookmarklet DT-1 + test regresji; fuel_entries → fuel_fills (CO2/raporty/JPK były zerami); cross-tenant DELETE faktur; migration_v50 `esg_targets` **nadal niezastosowana**)
+> Ostatnia aktualizacja: 2026-08-13
+>
+> ### ⛔ CZTERY RZECZY CZEKAJĄ NA CZŁOWIEKA — zacznij od nich, nie od kodu
+>
+> 1. **Worker NIE JEST wdrożony.** Trzy zmergowane commity dotykające `worker/`
+>    (`fd43645`, `6528242`, `bb4f3b9`) siedzą na `main` niewdrożone, bo Actions padły
+>    w trakcie. **Produkcja ma więc nadal 500 na `GET /api/fleet-kpi`** (strona
+>    „Dashboard KPI" martwa) **i błędne wskaźniki CO2** (elektryk liczony jak spalinowy).
+>    Nie czekaj na Actions — `git pull origin main && wrangler deploy` z terminala.
+> 2. **`migration_v50_esg_targets.sql` niezastosowana** → 500 przy dodawaniu celów ESG.
+>    Najpierw `SELECT COUNT(*) FROM esg_targets`. Migracja ma bramkę
+>    (`tests/unit/migration-v50-test.js`, 11 asercji, 3 kontrole negatywne).
+> 3. **Pakiet minut Actions wyczerpany** (2000/2000), reset **1 września**. Przebiegi
+>    padają po 3–5 s z `runner_id: 0` — to NIE jest awaria CI, patrz sekcja CI/CD.
+> 4. **Klucze legacy Supabase — czy unieważnione?** Otwarte od dawna; przy rozważaniu
+>    upublicznienia repo przestaje to być formalność (`project_ref` jest w historii).
+>
+> ### Cztery PR-y otwarte, żaden nie ma zielonego CI (runnery niedostępne)
+>
+> | PR | Gałąź | Rzecz |
+> |----|-------|-------|
+> | **#16** | `claude/claude-yml-guard` | **scal pierwszy** — `claude.yml` uruchamiał agenta z `contents: write` na sam TEKST komentarza, bez sprawdzenia autora |
+> | #15 | `claude/ci-oszczednosci` | harmonogramy zjadały 57% pakietu minut |
+> | #13 → #14 | `aztec-ustalenia` → `aztec-naprawa` | stos: narzędzie + naprawa Aztec |
+>
+> Wszystkie bramki uruchomione lokalnie i zielone; każda nowa zweryfikowana negatywnie.
+> `ci-js.yml` rozjechał się między gałęziami — konflikt `env-fee` vs `migration-v50`
+> **rozwiązany już w `aztec-naprawa`** (oba kroki zostają, 9 kroków).
+>
+> ### Skrót tego, co zamknięto 12–13.08
+>
+> Aztec: przyczyna zniekształcenia bajtów `0x80`–`0x9F` znaleziona (WHATWG mapuje
+> etykietę „ISO-8859-1" na **windows-1252**) i naprawiona; `--selftest` przechodzi całą
+> produkcyjną ścieżkę end-to-end, 17/17 pól, bez potrzeby zdjęcia. `_decodeAztecPayload`
+> wydzielone z `handleAztec`, żeby narzędzie uruchamiało kod produkcyjny, nie kopię.
+> Zostało **wyłącznie** pytanie o skuteczność DETEKCJI na sfotografowanym dokumencie —
+> do tego potrzeba jednego prawdziwego zdjęcia, trzymanego poza repozytorium.
 
 ### Zamknięte
 | Kiedy | Temat | Commit |
