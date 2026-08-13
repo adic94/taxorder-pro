@@ -408,6 +408,25 @@ zakazujące kopiowania ich bazy.
   i byłoby gorsze niż stan obecny. Naprawa wymaga policzenia hasza na maszynie z dostępem:
   `curl -s <url> | openssl dgst -sha384 -binary | openssl base64 -A`
 
+- **Podniesienie ZXing NIE naprawi zniekształcania bajtów Aztec — sprawdzone.** Kusi,
+  żeby uznać `_aztecTextToBytes()` w `app.js` za obejście do usunięcia po aktualizacji
+  biblioteki. Nie jest. Wada (`castAsNonUtf8Char` → `TextDecoder` → WHATWG mapuje
+  „ISO-8859-1" na windows-1252) występuje w **0.19.1, 0.20.0 i 0.23.0** — sprawdzone
+  przez uruchomienie `--selftest` na każdej z nich. Wzorzec zniekształcenia identyczny:
+  `80→ac, 92→19, 9f→78`. To wieloletnia właściwość biblioteki, nie regresja jednej wersji.
+  Produkcja stoi na **0.19.1** (`index.html:4317`), a bramka `zxing-version-test.js`
+  pilnuje, żeby narzędzia testowały tę samą wersję.
+
+- **Chart.js jest jedynym skryptem z CDN bez `integrity`** (`index.html:39`, 8 z 9
+  pozostałych ma SRI). Bramka `cdn-sri-test.js` blokuje dokładanie **nowych** skryptów
+  bez SRI, ale tej luki nie zamyka. **Nie zgaduj hasza** — przy niezgodności przeglądarka
+  odmawia wykonania skryptu, więc wszystkie wykresy padają natychmiast; to gorsze niż
+  brak SRI. Hasza nie da się policzyć z kontenera: `cdnjs.cloudflare.com` jest zablokowany
+  przez proxy (403), a npm dla `chart.js@4.4.1` wysyła `dist/chart.umd.js` —
+  **nieminifikowany**, czyli inny plik niż `chart.umd.min.js` z cdnjs. Do zamknięcia
+  na maszynie z siecią:
+  `curl -s <url> | openssl dgst -sha384 -binary | openssl base64 -A`
+
 **Sprawy operacyjne (poza kodem)**
 - Domena e-mail dla Dominika Dymowskiego i Roberta Sasina — do ustalenia.
 - 6 pojazdów litewskich — dokumenty u księgowości, brak potwierdzenia.
