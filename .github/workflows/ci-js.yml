@@ -100,3 +100,12 @@ jobs:
       # oraz tego, ze doslowny INSERT z worker/index.js wykonuje sie na nowej strukturze.
       - name: Straznik migracji v50 — esg_targets bez utraty danych
         run: node tests/unit/migration-v50-test.js
+
+      # Import dowodu przyjmuje PDF-y (skany). Renderowalismy je jednym ustawieniem
+      # dobranym pod OCR — scale 2.0 (=144 DPI) i przekompresowanie do JPEG 0.92 —
+      # co dla OCR jest nieszkodliwe, a dla kodu Aztec zabojcze: modul ma przy tej
+      # gestosci ~1 piksel, a JPEG dokłada artefakty DCT dokladnie na jego krawedziach.
+      # Test jest statyczny (czyta zrodlo), wiec nie wymaga przegladarki ani PDF-a.
+      # Zweryfikowany negatywnie: na wersji sprzed naprawy 0 PASS / 6 FAIL.
+      - name: Straznik renderu PDF — Aztec dostaje 300 DPI bez kompresji stratnej
+        run: node tests/unit/dr-pdf-render-test.js
