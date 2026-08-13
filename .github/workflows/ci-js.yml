@@ -123,3 +123,12 @@ jobs:
       # Zweryfikowany negatywnie: przed naprawa 6 wywolan bez zabezpieczenia, po nazwie i linii.
       - name: Straznik pdf.js — wgrany PDF nie moze wykonac kodu
         run: node tests/unit/pdfjs-eval-test.js
+
+      # Aplikacja deklarowala DWIE rozne wersje ZXing: index.html 0.19.1 (zwykly <script>)
+      # i app.js 0.20.0 (wstrzykiwany). Wygrywala 0.19.1, bo loadZXing() zwraca wczesnie
+      # przy istniejacym window.ZXing — linia z 0.20.0 byla martwa. Cale sledztwo nad
+      # zniekształcaniem bajtow Aztec prowadzilismy na 0.20.0 z node_modules, czyli na
+      # wersji, ktorej produkcja NIE uruchamia. Naprawa okazala sie sluszna takze dla
+      # 0.19.1, ale sprawdzilismy to dopiero po fakcie.
+      - name: Straznik wersji ZXing — jedna wersja, ta sama w testach
+        run: node tests/unit/zxing-version-test.js
