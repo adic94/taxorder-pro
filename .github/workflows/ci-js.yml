@@ -83,6 +83,15 @@ jobs:
       - name: Straznik oplat srodowiskowych — brak stawek nie moze dac zera
         run: node tests/unit/env-fee-test.js
 
+      # claude.yml dostaje `contents: write` i ANTHROPIC_API_KEY, a wyzwalaczem jest
+      # TRESC komentarza. Bez sprawdzenia autora wystarczy napisac "@claude ...", zeby
+      # dostac agenta z prawem zapisu — a push do worker/** to deploy na produkcje.
+      # Test wyciaga warunek `if:` wprost z workflow i ewaluuje go na syntetycznych
+      # zdarzeniach. Zweryfikowany negatywnie: na wersji sprzed naprawy 4 przypadki
+      # obcej osoby przechodza (6 PASS / 5 FAIL).
+      - name: Straznik uprawnien do claude.yml — obcy nie uruchomi agenta
+        run: node tests/unit/claude-workflow-guard-test.js
+
       # migration_v50 przebudowuje esg_targets przez DROP + RENAME i w chwili dodania
       # tego kroku NIE jest jeszcze zastosowana na produkcji. Test uruchamia ja na
       # wiernie odtworzonej strukturze v35 i pilnuje trzech rzeczy latwych do zepsucia
