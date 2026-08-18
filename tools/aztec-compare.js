@@ -573,18 +573,44 @@ module.exports = { wyciagnijDekoder, nrv2eLiteraly, zbudujDrKontrolny, opcjeChro
 function trybKatalogu(dir) {
   if (!fs.existsSync(dir)) { console.error(`Nie ma katalogu: ${dir}`); process.exit(2); }
   const OBSLUGIWANE = /\.(pdf|jpe?g|png|webp)$/i;
-  const pliki = fs.readdirSync(dir).filter(f => OBSLUGIWANE.test(f)).sort();
-  if (!pliki.length) { console.error(`Brak plików (pdf/jpg/png/webp) w: ${dir}`); process.exit(2); }
+
+  // REKURENCYJNIE — dokumenty pojazdów zwykle leżą w podfolderach (per pojazd, per rok).
+  // Pierwsza wersja czytała tylko pierwszy poziom i trafiła na folder z samymi
+  // instrukcjami, dając "0/2" na materiale, który nigdy nie miał kodu Aztec.
+  // Zero na złym wejściu wygląda identycznie jak zero na dobrym — stąd rekurencja
+  // i wypisanie NA WEJŚCIU, co zostało znalezione.
+  const zbierz = (d, glebokosc = 0) => {
+    if (glebokosc > 6) return [];
+    let wpisy = [];
+    try { wpisy = fs.readdirSync(d, { withFileTypes: true }); } catch { return []; }
+    return wpisy.flatMap(w => {
+      const p = path.join(d, w.name);
+      if (w.isDirectory()) return zbierz(p, glebokosc + 1);
+      return OBSLUGIWANE.test(w.name) ? [p] : [];
+    });
+  };
+  const pliki = zbierz(dir).sort();
+  if (!pliki.length) { console.error(`Brak plików (pdf/jpg/png/webp) w: ${dir} ani w podfolderach`); process.exit(2); }
 
   const { execFileSync } = require('child_process');
-  const skrot = f => f.length > 34 ? f.slice(0, 16) + '…' + f.slice(-14) : f;
+  const skrot = p => { const f = path.basename(p); return f.length > 34 ? f.slice(0, 16) + '…' + f.slice(-14) : f; };
 
-  console.log(`\nOdczyt kodu Aztec — ${pliki.length} dokumentów z ${dir}\n`);
+  // Wypisz, CO zostało znalezione, zanim cokolwiek policzymy. Jeśli to nie są dowody,
+  // widać to od razu, zamiast po zobaczeniu zer.
+  const wgFolderu = {};
+  for (const p of pliki) { const d = path.dirname(p); (wgFolderu[d] = wgFolderu[d] || []).push(path.basename(p)); }
+  console.log(`\nZnaleziono ${pliki.length} plików w ${Object.keys(wgFolderu).length} folderze/ach:`);
+  for (const [d, fs_] of Object.entries(wgFolderu)) {
+    console.log(`  ${d.replace(dir, '.') || '.'}  (${fs_.length})`);
+  }
+  console.log('\n  Jeśli to nie wyglądają na skany dowodów rejestracyjnych — przerwij (Ctrl+C).');
+  console.log('  Zero odczytów na złym materiale wygląda identycznie jak zero na dobrym.\n');
+  console.log(`Odczyt kodu Aztec — ${pliki.length} dokumentów\n`);
   const wyniki = [];
   for (const f of pliki) {
     let out = '', kod = 0;
     try {
-      out = execFileSync(process.execPath, [__filename, path.join(dir, f)],
+      out = execFileSync(process.execPath, [__filename, f],
         { encoding: 'utf8', timeout: 180000, stdio: ['ignore', 'pipe', 'pipe'] });
     } catch (e) { out = (e.stdout || '') + (e.stderr || ''); kod = e.status ?? 1; }
 
