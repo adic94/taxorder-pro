@@ -3050,6 +3050,12 @@ Zwroc WYLACZNIE JSON bez markdown:
     } catch (e) { /* fall through — Python service niedostępny */ }
   }
 
+  // Powód porażki KAŻDEJ próby musi dotrzeć do wywołującego, nie tylko do console.log.
+  // Do 18.08 CF AI zwracał kod 5016 („licencja modelu niezaakceptowana"), a endpoint
+  // oddawał 502 z komunikatem o Groq — czyli o warstwie, która była tylko skutkiem.
+  // Diagnoza zajęła dzień zamiast minuty, bo prawdziwa przyczyna była wyłącznie w logu.
+  let cfErr = null;
+
   // ── Próba 1: Cloudflare Workers AI (primarna, bez kosztów zewnętrznych API) ──
   if (env.AI) {
     try {
@@ -3064,7 +3070,9 @@ Zwroc WYLACZNIE JSON bez markdown:
       const answer = cfResult?.response || '';
       console.log('[OCR CF-AI raw]', answer.slice(0, 500));
       const jm = answer.match(/\{[\s\S]*\}/);
-      if (jm) {
+      if (!jm) {
+        cfErr = answer ? 'model nie zwrócił JSON: ' + answer.slice(0, 80) : 'pusta odpowiedź modelu';
+      } else {
         const parsed = JSON.parse(jm[0]);
         console.log('[OCR CF-AI parsed vin]', parsed.vin ?? 'BRAK');
         const fields = _sanitizeOcrFields(parsed);
@@ -3072,8 +3080,16 @@ Zwroc WYLACZNIE JSON bez markdown:
         if (fields.nrRej || fields.vin || fields.marka || fields.dmcKg) {
           return json({ ok: true, fields, model: 'cf-workers-ai-llama-3.2-11b' });
         }
+        // Model odpowiedział, ale po sanitizacji nie zostało nic użytecznego. Bez tego
+        // rozróżnienia wygląda to identycznie jak awaria modelu, a wymaga innej naprawy.
+        cfErr = '_sanitizeOcrFields nie zostawił żadnego użytecznego pola';
       }
-    } catch (e) { console.log('[OCR CF-AI error]', e?.message); /* fall through to Groq */ }
+    } catch (e) {
+      cfErr = e?.message || String(e);
+      console.log('[OCR CF-AI error]', cfErr);
+    }
+  } else {
+    cfErr = 'binding AI niedostępny w środowisku Workera';
   }
 
   // ── Próba 2: Groq Vision — 4-modelowy łańcuch fallback ───────────────────────
@@ -3087,11 +3103,12 @@ Zwroc WYLACZNIE JSON bez markdown:
     ],
   }];
 
+  // Modele `*-vision-preview` usunięte 18.08 — Groq je wycofał, więc każda próba
+  // kosztowała tylko czas i zaciemniała komunikat błędu. `llama-4-*` ZOSTAJĄ: to są
+  // aktualne identyfikatory Groq, nie literówki.
   const visionModels = [
     'meta-llama/llama-4-scout-17b-16e-instruct',
     'meta-llama/llama-4-maverick-17b-128e-instruct',
-    'llama-3.2-90b-vision-preview',
-    'llama-3.2-11b-vision-preview',
   ];
   let lastErr = 'Brak działającego modelu vision';
   for (const model of visionModels) {
@@ -3120,7 +3137,9 @@ Zwroc WYLACZNIE JSON bez markdown:
       lastErr = `${model}: ${e?.message}`;
     }
   }
-  return err('Błąd AI Vision: ' + lastErr, 502);
+  // Obie warstwy w jednym komunikacie — inaczej wywołujący widzi wyłącznie porażkę
+  // Groq i szuka przyczyny w warstwie, która była tylko następstwem.
+  return err(`Błąd AI Vision. CF Workers AI: ${cfErr || 'pominięte'}. Groq: ${lastErr}`, 502);
 }
 
 // ─── FOLDER MONITOR — agent watcher handlers ──────────────────────────────────
