@@ -7,11 +7,13 @@
  *   npx playwright install chromium              # jednorazowo, jeśli brak przeglądarki
  *   node tools/aztec-compare.js <sciezka-do-zdjecia.jpg>
  *
- * TRZY TRYBY, bo odpowiadają na trzy różne pytania:
+ * CZTERY TRYBY, bo odpowiadają na różne pytania:
  *   <plik.jpg|png>      — czy umiemy ZNALEŹĆ i odczytać kod na tym obrazie
  *   --selftest          — czy cała ścieżka działa na kodzie o znanym ładunku
  *   --bytes <plik.bin>  — czy umiemy ROZPAKOWAĆ gotowe bajty (bez warstwy optycznej;
  *                         nie wymaga przeglądarki ani @zxing/library)
+ *   --katalog <folder>  — jaki jest WSKAŹNIK skuteczności na całym zbiorze dokumentów
+ *                         (dla PDF-ów wymaga: npm i --no-save pdfjs-dist@3.11.174)
  *
  * Pierwsza linijka jest istotna do czasu scalenia PR #13/#14: na `main` polecenie
  * kończy się „Cannot find module", co łatwo wziąć za awarię narzędzia zamiast za
@@ -54,11 +56,14 @@ const BEZPOSREDNIO = require.main === module;
 const SELFTEST = process.argv.includes('--selftest');
 const iBajty = process.argv.indexOf('--bytes');
 const plikBajtow = iBajty >= 0 ? process.argv[iBajty + 1] : null;
-const obraz = (SELFTEST || plikBajtow) ? null : process.argv[2];
-if (BEZPOSREDNIO && !SELFTEST && !plikBajtow && (!obraz || !fs.existsSync(obraz))) {
+const iKat = process.argv.indexOf('--katalog');
+const katalog = iKat >= 0 ? process.argv[iKat + 1] : null;
+const obraz = (SELFTEST || plikBajtow || katalog) ? null : process.argv[2];
+if (BEZPOSREDNIO && !SELFTEST && !plikBajtow && !katalog && (!obraz || !fs.existsSync(obraz))) {
   console.error('Podaj ścieżkę do zdjęcia dowodu: node tools/aztec-compare.js <plik>');
   console.error('albo kontrolę wierności bajtów:   node tools/aztec-compare.js --selftest');
   console.error('albo gotowe bajty ładunku:        node tools/aztec-compare.js --bytes <plik.bin>');
+  console.error('albo CAŁY katalog dokumentów:     node tools/aztec-compare.js --katalog <folder>');
   process.exit(2);
 }
 
@@ -549,5 +554,79 @@ async function glowna() {
 // Eksport dla innych narzędzi — bez uruchamiania czegokolwiek.
 module.exports = { wyciagnijDekoder, nrv2eLiteraly, zbudujDrKontrolny, opcjeChrome, uruchomChrome, KONTROLNY, POLA_OCZEKIWANE };
 
+/**
+ * Tryb `--katalog`: uruchamia ścieżkę jednoplikową na KAŻDYM dokumencie w folderze
+ * i podaje WSKAŹNIK SKUTECZNOŚCI, a nie werdykt z jednego pliku.
+ *
+ * PO CO: jeden dokument daje odpowiedź „ten się nie odczytał", co nie mówi nic o tym,
+ * czy problem jest w materiale, czy w naszej ścieżce. Dwadzieścia dokumentów mówi,
+ * czy odczytujemy 0%, 40% czy 95% — a to jest różnica między „nie działa",
+ * „działa przy dobrej jakości skanu" i „działa, trafiliśmy na feralny plik".
+ *
+ * Uruchamia każdy plik jako OSOBNY PROCES, zamiast przerabiać pętlę wewnątrz strony.
+ * Wolniej (nowa przeglądarka na plik), ale nie dotyka działającej ścieżki jednoplikowej
+ * i awaria jednego dokumentu nie przewraca całego przebiegu.
+ *
+ * NIC NIE ZAPISUJE. Nazwy plików bywają numerami rejestracyjnymi, więc na wyjściu
+ * są skracane; VIN, nr rej. i seria dowodu i tak są maskowane przez ścieżkę jednoplikową.
+ */
+function trybKatalogu(dir) {
+  if (!fs.existsSync(dir)) { console.error(`Nie ma katalogu: ${dir}`); process.exit(2); }
+  const OBSLUGIWANE = /\.(pdf|jpe?g|png|webp)$/i;
+  const pliki = fs.readdirSync(dir).filter(f => OBSLUGIWANE.test(f)).sort();
+  if (!pliki.length) { console.error(`Brak plików (pdf/jpg/png/webp) w: ${dir}`); process.exit(2); }
+
+  const { execFileSync } = require('child_process');
+  const skrot = f => f.length > 34 ? f.slice(0, 16) + '…' + f.slice(-14) : f;
+
+  console.log(`\nOdczyt kodu Aztec — ${pliki.length} dokumentów z ${dir}\n`);
+  const wyniki = [];
+  for (const f of pliki) {
+    let out = '', kod = 0;
+    try {
+      out = execFileSync(process.execPath, [__filename, path.join(dir, f)],
+        { encoding: 'utf8', timeout: 180000, stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (e) { out = (e.stdout || '') + (e.stderr || ''); kod = e.status ?? 1; }
+
+    const czysty = out.replace(/\x1b\[[0-9;]*m/g, '');
+    const A = /A: ✓ format=/.test(czysty);
+    const B = /B: ✓ format=/.test(czysty);
+
+    // Kod 2 = narzędzie NIE MOGŁO SIĘ URUCHOMIĆ (brak zależności, brak przeglądarki,
+    // przesunięte kotwice). To NIE jest to samo co "kodu nie odczytano" i mieszanie
+    // tych dwóch daje fałszywy wniosek o materiale — sam się na to nabrałem przy
+    // pierwszym przebiegu, gdy brak pdfjs-dist policzył się jako porażka odczytu.
+    const awariaNarzedzia = kod === 2;
+    const stan = awariaNarzedzia ? '\x1b[33m⚠ narzędzie\x1b[0m'
+      : (A || B) ? '\x1b[32m✓ odczytany\x1b[0m' : '\x1b[31m✗\x1b[0m';
+    const czym = awariaNarzedzia ? (czysty.trim().split('\n')[0] || '').slice(0, 44)
+      : A && B ? 'obie ścieżki' : A ? 'tylko A (produkcyjna)' : B ? 'tylko B (detektor)' : '—';
+    console.log(`  ${skrot(f).padEnd(36)} ${stan.padEnd(22)} ${czym}`);
+    wyniki.push({ f, A, B, ok: A || B, awariaNarzedzia });
+  }
+
+  const awarie = wyniki.filter(w => w.awariaNarzedzia);
+  if (awarie.length) {
+    console.log(`\n  \x1b[33m${awarie.length} plik(ów) NIE ZOSTAŁO ZBADANYCH — narzędzie nie mogło się uruchomić.\x1b[0m`);
+    console.log('  Nie licz ich jako porażki odczytu. Napraw przyczynę i powtórz, inaczej');
+    console.log('  wskaźnik poniżej opisuje co innego, niż się wydaje.');
+  }
+  const zbadane = wyniki.filter(w => !w.awariaNarzedzia);
+  if (!zbadane.length) { console.log('\n  Żaden plik nie został zbadany.\n'); process.exit(2); }
+
+  const ok = zbadane.filter(w => w.ok).length;
+  const tylkoB = zbadane.filter(w => w.B && !w.A).length;
+  const proc = Math.round(ok / zbadane.length * 100);
+  console.log(`\n  Odczytane: ${ok}/${zbadane.length} (${proc}%)`);
+  if (tylkoB) console.log(`  \x1b[33m${tylkoB} dokument(ów) odczytał TYLKO detektor (ścieżka B), której aplikacja nie używa.\x1b[0m`);
+  console.log(proc === 0
+    ? '\n  Zero odczytów na całym zbiorze — to wskazuje na naszą ścieżkę albo na wspólną\n  cechę materiału (ten sam skaner, ten sam format), nie na feralny pojedynczy plik.\n'
+    : proc === 100
+      ? '\n  Wszystko odczytane — ścieżka produkcyjna działa na realnych dowodach.\n'
+      : `\n  Częściowa skuteczność. Porównaj pliki odczytane z nieodczytanymi (format, DPI,\n  skaner) — różnica między nimi jest tu ważniejsza niż sam odsetek.\n`);
+  process.exit(ok ? 0 : 1);
+}
+
+if (BEZPOSREDNIO && katalog) trybKatalogu(katalog);
 if (BEZPOSREDNIO && plikBajtow) trybBajtow(plikBajtow);
 if (BEZPOSREDNIO) glowna();
