@@ -116,7 +116,7 @@ function trybBajtow(plik) {
     process.exit(1);
   }
 
-  const OSOBOWE = new Set(['vin', 'nrRej', 'seriaDr']);
+  const OSOBOWE = new Set(['vin', 'nrRej', 'seriaDr', 'wlasciciel', 'posiadacz', 'nipWlasciciela']);
   const maskuj = (k, v) => OSOBOWE.has(k) ? `${String(v).slice(0, 2)}… (${String(v).length} zn.)` : v;
   console.log(`\n  \x1b[32m✓ rozpakowane\x1b[0m — format=${d.format}, pól w ładunku=${d.fieldCount}\n`);
   for (const [k, v] of Object.entries(d.fields)) console.log(`    ${k.padEnd(14)} ${maskuj(k, v)}`);
@@ -181,17 +181,21 @@ function nrv2eLiteraly(bajty) {
  * jest więc odwzorowany wiernie, choć innym mechanizmem.
  */
 function zbudujDrKontrolny() {
-  const pola = new Array(55).fill('');
+  const pola = new Array(67).fill('');
   const oczekiwane = {
     seriaDr: 'DR/TEST/0001', nrRej: 'ZZ00000', marka: 'TESTMARKA',
     typ: 'Tƀ-92', model: 'Mƒ-9F Ɵ', vin: 'TESTVIN0000000001',
     dmcKg: '18000', dmcKg2: '18000', dmcZespolu: '40000', masaWlKg: '7500',
     kategoria: 'N3', liczbaOsi: '3', pojSilnika: '10837', mocKW: '265',
     dataRej: '15.03.2019', miejscaSied: '3',
+    dataWydania: '2019-03-22', wlasciciel: 'TESTLEASING SP. Z O.O.',
+    nipWlasciciela: '00000000000000', posiadacz: 'TESTSPOLKA SP. Z O.O.',
+    rokPierwszejRej: '2019',
   };
   const _DR_NEW = { seriaDr:1, nrRej:7, marka:8, typ:9, model:12, vin:13,
+    dataWydania:14, wlasciciel:16, nipWlasciciela:20, posiadacz:27,
     dmcKg:38, dmcKg2:39, dmcZespolu:40, masaWlKg:41, kategoria:42, liczbaOsi:44,
-    pojSilnika:48, mocKW:49, paliwo:50, dataRej:51, miejscaSied:52 };
+    pojSilnika:48, mocKW:49, paliwo:50, dataRej:51, miejscaSied:52, rokPierwszejRej:56 };
   for (const [k, idx] of Object.entries(_DR_NEW)) {
     if (k === 'paliwo') { pola[idx] = 'D'; continue; }          // _FUEL: D → 'ON (Olej napędowy)'
     if (k === 'dataRej') { pola[idx] = '20190315'; continue; }  // YYYYMMDD → DD.MM.YYYY
@@ -517,7 +521,7 @@ async function glowna() {
   // czy dekodowanie zadziałało, w zupełności wystarczy sama obecność i długość.
   // Parametry techniczne (DMC, osie, kategoria, paliwo) danymi osobowymi nie są
   // i to właśnie ich potrzebuje DT-1 — te pokazujemy w całości.
-  const OSOBOWE = new Set(['vin', 'nrRej', 'seriaDr']);
+  const OSOBOWE = new Set(['vin', 'nrRej', 'seriaDr', 'wlasciciel', 'posiadacz', 'nipWlasciciela']);
   const maskuj = (k, v) => OSOBOWE.has(k) ? `${String(v).slice(0, 2)}… (${String(v).length} zn.)` : v;
 
   console.log('\nDekodowanie pełnego ładunku (produkcyjny kod Workera):');
