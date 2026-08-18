@@ -2817,9 +2817,22 @@ function _nrv2eDecompress(input, outputLen) {
 }
 
 // Mapowanie indeksów pól w nowym formacie polskiego DR
+// Indeksy potwierdzone na PRAWDZIWYM dowodzie (Mercedes Sprinter, dokument z 04.2020,
+// 67 pól). Wcześniej mapowaliśmy 17 pól z 67 — reszta była w ładunku, tylko jej nie
+// czytaliśmy.
+//
+// `dataWydania` (14) to DATA WYSTAWIENIA DOKUMENTU i to ona zmienia się przy każdej
+// wymianie dowodu. `dataRej` (51) jest datą rejestracji i NIE WIADOMO, czy pierwszej,
+// czy bieżącej — do rozstrzygnięcia trzeba dwóch dowodów tego samego VIN-u. Do ustalania,
+// który dokument jest aktualny, używaj `dataWydania`, nie `dataRej`.
+//
+// `wlasciciel` (16) to pole C.1 dyrektywy — przy leasingu jest tam leasingodawca,
+// po wykupie spółka. To najsilniejszy sygnał odróżniający dowód leasingowy od własnego.
+// `posiadacz` (27) to C.2, czyli użytkownik/dzierżawca.
 const _DR_NEW = { seriaDr:1, nrRej:7, marka:8, typ:9, model:12, vin:13,
+  dataWydania:14, wlasciciel:16, nipWlasciciela:20, posiadacz:27,
   dmcKg:38, dmcKg2:39, dmcZespolu:40, masaWlKg:41, kategoria:42, liczbaOsi:44,
-  pojSilnika:48, mocKW:49, paliwo:50, dataRej:51, miejscaSied:52 };
+  pojSilnika:48, mocKW:49, paliwo:50, dataRej:51, miejscaSied:52, rokPierwszejRej:56 };
 const _DR_OLD = { nrRej:4, marka:5, typ:6, vin:10, dataRej:48 };
 const _FUEL = { P:'PB (Benzyna)', D:'ON (Olej napędowy)', M:'LNG (Metan)',
   LPG:'LPG', CNG:'CNG', LNG:'LNG', H:'Hybrydowy', BD:'Biodiesel', EE:'Elektryczny', E85:'E85' };
