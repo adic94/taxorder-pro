@@ -159,28 +159,33 @@ ponownie — to są fakty z bazy.
 a `schema_v41.sql` częściowo. `CREATE TABLE IF NOT EXISTS` sprawia, że ponowne uruchomienie
 starszego pliku **nie naprawi** tabeli o innej strukturze — i nic o tym nie zgłosi.
 
-**Do zamknięcia — 3 kroki:**
+**ZAMKNIĘTE 13.08 wieczorem — wszystkie trzy kroki wykonane, potwierdzone u źródła.**
 
-1. **Pełne porównanie tabel** (repo: 134 definicje `CREATE TABLE` w `schema_v*.sql`):
-   ```bash
-   wrangler d1 execute taxorder-pro --remote --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-   ```
-   Od 12.08 nie trzeba tego robić ręcznie — nocny raport ma bramkę `d1-schema-diff --strict`,
-   a jej sekcja `[2]` wymienia brakujące tabele po nazwie. **Pierwszy przebieg z naprawionym
-   automatem wypadnie czerwono i tak ma być** — to 3 realnie brakujące tabele i 11 na
-   starszej definicji, nie usterka bramki. Przyczyna tych 5 jest naprawiona w PR #8
-   (`schema_v8`/`schema_v48`), ale skutek zniknie dopiero po przebiegu, który je zastosuje.
-2. **`esg_targets` — migracja GOTOWA, niezastosowana.** `worker/migration_v50_esg_targets.sql`
-   (+ `migration_v50_esg_targets_ROLLBACK.sql`) przebudowuje tabelę z v35 na v41, zachowując dane.
-   Zweryfikowana na SQLite na wiernym odtworzeniu produkcyjnej tabeli — round-trip
-   v35→v50→ROLLBACK→v35 zwraca dane identyczne. **Uruchom po sprawdzeniu**
-   `SELECT COUNT(*) FROM esg_targets`:
-   ```bash
-   wrangler d1 execute taxorder-pro --remote --file=worker/migration_v50_esg_targets.sql
-   ```
-   Pułapka, której nie zgłosił żaden audyt: v35 zakłada indeks **UNIQUE**`(company_id, year)`,
-   a model v41 wymaga wielu wierszy na rok. `schema_v41` deklaruje indeks o tej samej nazwie
-   bez UNIQUE, więc też był no-opem — bez `DROP INDEX` nowy model padłby na drugiej metryce.
+Ręcznie, bo nocny automat nie ma runnerów do 1 września:
+
+```powershell
+wrangler d1 execute taxorder-pro --remote --file=worker/schema_v45.sql   # ksef_config, ksef_offline_queue
+wrangler d1 execute taxorder-pro --remote --file=worker/schema_v48.sql   # usage_snapshots, company_packages
+wrangler d1 execute taxorder-pro --remote --file=worker/migration_v50_esg_targets.sql
+```
+
+Potwierdzenie zapytaniem do `sqlite_master`, nie wnioskowaniem z „brak błędu":
+
+    company_packages | ksef_config | ksef_offline_queue | usage_snapshots   — cztery z czterech
+
+Oba pliki przeszły po 4 zapytania **bez błędu** — wcześniej `v45` padał na
+`duplicate column name: upo_r2_key`, a `v48` na `no such column: active`. Naprawy
+z PR #8 i przeniesienie kolumn KSeF do `schema_v34` faktycznie zadziałały na produkcji,
+nie tylko na czystej bazie w teście.
+
+`esg_targets`: `COUNT(*)` był **0**, więc migracja bezstratna z definicji. Struktura
+potwierdzona po fakcie — `idx_esg_co_metric` odwołuje się do `metric_key` (czyli kolumna
+istnieje), a `idx_esg_co_year` **nie jest już UNIQUE** (czyli pułapka blokująca drugą
+metrykę w tym samym roku jest rozbrojona).
+
+**Co z tego wynika na przyszłość:** nocny automat nie jest jedyną drogą. Gdy runnery są
+niedostępne, pliki schematu uruchamia się ręcznie tym samym poleceniem — a stan
+sprawdza zapytaniem do `sqlite_master`, nie po tym, czy polecenie nie krzyknęło.
 
 2b. ~~decyzja o kierunku~~ — rozstrzygnięta: kod backendu i `esg-report.js` Kod backendu i `esg-report.js` są napisane pod model
    v41 (`metric_key`/`target_value`/`lower_is_better` — dowolna metryka), tabela stoi na v35
@@ -745,7 +750,8 @@ tego projektu, zakładaj PowerShell 5.1, nie bash.
 Polityka wykonywania blokuje niepodpisany `npx.ps1` — **i tak samo `npm.ps1`**.
 `npm run <cokolwiek>` kończy się `UnauthorizedAccess`, nie błędem skryptu.
 Używać `npm.cmd run ...` / `npx.cmd`, albo `.\node_modules\.bin\<narzędzie>.cmd`.
-**Nie zmieniać `Set-ExecutionPolicy`.**
+**Nie zmieniaj `Set-ExecutionPolicy` na stałe** (zakres `CurrentUser` ani `LocalMachine`) — to zdejmuje zabezpieczenie z całego systemu, żeby obejść jedną niedogodność.
+Wyjątek, który jest w porządku: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` dotyczy **wyłącznie bieżącego okna** i znika po jego zamknięciu. Nic nie zostaje w rejestrze. Jeśli i tak wolisz nie ruszać polityki — wariant z `.cmd` działa zawsze i niczego nie zmienia.
 
 Dla narzędzi z `tools/` najprościej ominąć npm w całości — `node` to zwykły plik
 wykonywalny, polityka go nie dotyczy:
