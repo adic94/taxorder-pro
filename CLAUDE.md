@@ -50,22 +50,52 @@ taxorder-pro/
 
 > Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
 > Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
-> Ostatnia aktualizacja: 2026-08-13 (noc) — **produkcja i `main` są ZGODNE**
+> Ostatnia aktualizacja: 2026-08-18 — **`main` WYPRZEDZA produkcję o dwa commity**
 >
-> ### Stan: nic nie czeka na człowieka po stronie wdrożeń
+> ### Czeka na człowieka: jeden deploy Workera i jedna zgoda w panelu Cloudflare
 >
-> Worker wdrożony z `d9cd6cd` (wersja `ad9e932f`), `migration_v50` zastosowana,
-> `schema_v45` i `schema_v48` uruchomione ręcznie. Zero otwartych PR-ów.
-> Na produkcji jest komplet: mitygacja CVE-2024-4367 w pdf.js, naprawa bajtów Aztec,
-> render PDF 300 DPI, wydzielony `_decodeAztecPayload`, zrównana wersja ZXing.
+> Baza jest w komplecie i nic w niej nie czeka: `migration_v50` zastosowana, `schema_v45`
+> i `schema_v48` uruchomione ręcznie, cztery tabele potwierdzone w `sqlite_master`.
+> Zero otwartych PR-ów. Na produkcji jest mitygacja CVE-2024-4367 w pdf.js, naprawa
+> bajtów Aztec, render PDF 300 DPI, wydzielony `_decodeAztecPayload`, zrównana ZXing.
 >
-> ### Jedyne, co zostaje z rzeczy technicznych
+> **Ale wdrożona wersja Workera to nadal `ad9e932f` z `d9cd6cd` (13.08).** Od tego czasu
+> `worker/index.js` zmieniły dwa scalone PR-y, a `deploy-worker.yml` ich NIE wdrożył —
+> pakiet minut Actions jest wyczerpany, więc przebiegi `32165938087` (dla `16eda51`)
+> i `32173542755` (dla `a2a795c`) padły po kilku sekundach z `runner_id: 0`.
+> To nie jest awaria deployu, tylko brak runnera. Wdrożenie ręczne:
+>
+>     git pull            # main = a2a795c
+>     .\node_modules\.bin\wrangler.cmd deploy
+>
+> Co czeka w tych dwóch commitach:
+> - `16eda51` — +5 pól z ładunku DR (data wydania, właściciel, NIP, posiadacz) w `_DR_NEW`
+> - `a2a795c` — powód porażki CF Workers AI dociera do wywołującego, zamiast ginąć po drodze
+>
+> ### Druga rzecz, bez której OCR nie ruszy: licencja modelu w panelu Cloudflare
+>
+> `wrangler tail` pokazał, że CF Workers AI odpowiada **błędem 5016 — „model license not
+> accepted"**. To nie jest awaria sieci ani limit. CF Workers AI stoi **pierwszy**
+> w kaskadzie (`worker/index.js:3059`), więc każdy dokument cicho spadał na Groq i całość
+> wyglądała na problem z Groq — dlatego `a2a795c` przepuszcza powód porażki CF do odpowiedzi.
+> Naprawa jest w panelu, nie w kodzie:
+>
+>     Dashboard → Workers & Pages → AI → Models → llama-3.2-11b-vision-instruct → Accept
+>
+> Zero zmian w kodzie, zero deployu, w pełni odwracalne. **Odrzucona alternatywa:** zejście
+> na `@cf/llava-hf/llava-1.5-7b-hf`. Model jest starszy i wyraźnie słabszy przy ekstrakcji
+> pól ze skanów; przy 1318 dokumentach różnica jakości to setki pól do ręcznej korekty.
+> Usuwanie wycofanych modeli Groq też nie jest odpowiedzią — Groq jest w kaskadzie DRUGI,
+> więc zmiana jego listy nie dotyka przyczyny.
+>
+> ### Rzeczy techniczne, które zostają
 >
 > 1. **Pakiet minut Actions wyczerpany** (2000/2000), reset **1 września**. Przebiegi
 >    padają po 3–5 s z `runner_id: 0` — to NIE jest awaria CI, patrz sekcja CI/CD.
 >    Po scaleniu #15 harmonogramy zeszły z 57% do 21% pakietu, więc wrzesień nie
->    powtórzy sierpnia. Do tego czasu **bramki uruchamiaj lokalnie** — jest ich 13,
->    wszystkie bez sieci i bez zależności poza `node`.
+>    powtórzy sierpnia. Do tego czasu **bramki uruchamiaj lokalnie**: `npm run test:gates`
+>    (13 plików, 83 asercje, ~15 s, bez sieci i bez zależności poza `node`). Do 18.08
+>    `npm run audit:all` uruchamiał tylko 3 z nich — patrz sekcja o narzędziach.
 > 2. **`aztec-decoded-bytes.bin` w `%TEMP%`** (729 B, 30.07) — plik jest BASE64, nie
 >    surowymi bajtami; po zdekodowaniu nagłówek wychodzi 1257, czyli w zakresie.
 >    `node tools/aztec-compare.js --bytes <plik>` rozpoznaje base64 sam. Odpowiada na
@@ -963,11 +993,27 @@ npx sg run -p 'el.innerHTML = $X' modules/*.js
 
 ### Audyt własny (tools/autotest/)
 ```bash
-npm run audit:all       # syntax + XSS + i18n + SW cache
+npm run audit:all       # syntax + XSS + i18n + SW cache + WSZYSTKIE bramki jednostkowe
+npm run test:gates      # same bramki z tests/unit/ (13 plików, 83 asercje, ~15 s)
 npm run xss-audit       # szuka innerHTML bez esc()
 npm run sw-check        # weryfikuje CACHE_NAME po zmianach index.html
 npm run migration-check # sprawdza czy schematy są spójne
 ```
+
+**`test:gates` nie ma własnej listy bramek — czyta katalog `tests/unit/`.** Do 18.08.2026
+`audit:all` uruchamiał **3 z 13** bramek: lista żyła w dwóch miejscach naraz (łańcuch `&&`
+w `package.json` i kroki w `ci-js.yml`) i po cichu się rozjechała. Dopóki CI działa, to
+tylko niewygoda — ale od 12.08 minuty Actions są wyczerpane, więc bramki lokalne są całą
+siecią bezpieczeństwa, a ta sieć miała 23% pokrycia i wyglądała na zieloną.
+
+Dlatego `run-gates.js` sprawdza też **spójność w drugą stronę**: plik w `tests/unit/`
+nieobecny w `ci-js.yml` to porażka (bramka poza CI nie zadziała na PR-ach), tak samo krok
+w `ci-js.yml` wskazujący na nieistniejący plik. Dodając bramkę, dopisz krok do `ci-js.yml` —
+sam runner ci o tym przypomni. Uruchamia wszystkie do końca, także po pierwszej porażce,
+i przedrukowuje wyjście tych, które padły.
+
+Zweryfikowane negatywnie na wszystkich trzech warunkach: bramka celowo padająca, bramka
+poza `ci-js.yml`, krok CI bez pliku — każdy daje kod wyjścia 1, a po przywróceniu 0.
 
 ---
 
