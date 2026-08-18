@@ -50,35 +50,32 @@ taxorder-pro/
 
 > Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
 > Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
-> Ostatnia aktualizacja: 2026-08-13 (wieczór)
+> Ostatnia aktualizacja: 2026-08-13 (noc) — **produkcja i `main` są ZGODNE**
 >
-> ### ⛔ TRZY RZECZY CZEKAJĄ NA CZŁOWIEKA — zacznij od nich, nie od kodu
+> ### Stan: nic nie czeka na człowieka po stronie wdrożeń
 >
-> 1. **Trzy tabele nie istnieją w D1** — `ksef_config`, `ksef_offline_queue`
->    (`schema_v45`), `usage_snapshots` (`schema_v48`). Przyczynę naprawiono w plikach
->    schematu, ale tworzy je nocny automat, a ten nie ma runnerów do 1 września.
->    **Trzy odwołania w workerze nie mają `.catch()`** (linie ~11145, ~11150, ~11174),
->    więc dotknięcie KSeF kończy się 500. Uruchom ręcznie:
->    `wrangler d1 execute taxorder-pro --remote --file=worker/schema_v45.sql` i to samo
->    dla `v48`. Uwaga: `v48` tworzy też `company_packages` — samo utworzenie jest
->    obojętne (`brak wiersza → allowed=['*']`), ale **nie wstawiaj tam wiersza** bez
->    `wrangler secret put MODULE_ENFORCEMENT` → `off`.
-> 2. **Worker na produkcji jest starszy niż `main`.** Wdrożony 13.08 (wersja `164e4fa2`)
->    z commita `931afba`; od tego czasu `main` dostał wydzielenie `_decodeAztecPayload`.
->    To czysty refaktor bez zmiany zachowania poza prefiksem w dwóch komunikatach błędu,
->    więc nie pali się — ale `deploy-worker.yml` nie ma runnerów, więc trzeba ręcznie.
-> 3. **Pakiet minut Actions wyczerpany** (2000/2000), reset **1 września**. Przebiegi
+> Worker wdrożony z `d9cd6cd` (wersja `ad9e932f`), `migration_v50` zastosowana,
+> `schema_v45` i `schema_v48` uruchomione ręcznie. Zero otwartych PR-ów.
+> Na produkcji jest komplet: mitygacja CVE-2024-4367 w pdf.js, naprawa bajtów Aztec,
+> render PDF 300 DPI, wydzielony `_decodeAztecPayload`, zrównana wersja ZXing.
+>
+> ### Jedyne, co zostaje z rzeczy technicznych
+>
+> 1. **Pakiet minut Actions wyczerpany** (2000/2000), reset **1 września**. Przebiegi
 >    padają po 3–5 s z `runner_id: 0` — to NIE jest awaria CI, patrz sekcja CI/CD.
->    Po scaleniu #15 harmonogramy zejdą z 57% do 21% pakietu, więc wrzesień nie powtórzy
->    sierpnia.
->
-> ### Zamknięte 13.08 wieczorem
->
-> Worker wdrożony (29 commitów, wersja `164e4fa2`) — zdjęło 500 na `/api/fleet-kpi`,
-> błędne wskaźniki CO2 i pętlę ponawiania przy kartach flotowych. `migration_v50`
-> zastosowana (`COUNT(*)` był 0, więc bezstratna), potwierdzona strukturą: `idx_esg_co_metric`
-> odwołuje się do `metric_key`, a `idx_esg_co_year` **nie jest już UNIQUE**.
-> Wszystkie PR-y (#13, #14, #15, #16) scalone — zero otwartych.
+>    Po scaleniu #15 harmonogramy zeszły z 57% do 21% pakietu, więc wrzesień nie
+>    powtórzy sierpnia. Do tego czasu **bramki uruchamiaj lokalnie** — jest ich 13,
+>    wszystkie bez sieci i bez zależności poza `node`.
+> 2. **`aztec-decoded-bytes.bin` w `%TEMP%`** (729 B, 30.07) — plik jest BASE64, nie
+>    surowymi bajtami; po zdekodowaniu nagłówek wychodzi 1257, czyli w zakresie.
+>    `node tools/aztec-compare.js --bytes <plik>` rozpoznaje base64 sam. Odpowiada na
+>    pytanie, czy NRV2E radzi sobie z PRAWDZIWYM strumieniem — selftest tego nie mówi,
+>    bo koduje „samymi literałami", a rzeczywisty NRV2E ma odwołania wstecz.
+> 3. **Detekcja Aztec na materiale CC nie działa w ŻADNEJ implementacji.** `zxingcpp`
+>    (Python, u CC), nasza ścieżka produkcyjna i kaskada `aztec-detector.js` — wszystkie
+>    trzy na zero, na obu cropach (`aztec-tight.png`, `aztec-crop.png`). Nieprzetestowana
+>    została jedna kombinacja: **oryginalny PDF przez nasz render** (narzędzie przyjmuje
+>    teraz PDF i renderuje go ustawieniami czytanymi z `PDF_AZTEC`).
 >
 > ### Otwarte pytania do właściciela
 >
@@ -153,7 +150,7 @@ ponownie — to są fakty z bazy.
 
 | Tabela | Faktyczny stan w D1 | Wniosek |
 |--------|---------------------|---------|
-| `company_packages` | **NIE ISTNIEJE** — `SELECT` zwraca `no such table`, `PRAGMA table_info` pustkę | **Przyczyna ustalona: `schema_v48_ROLLBACK.sql` kasował ją co noc** (patrz Zamknięte). Nie „migracja nigdy nie zastosowana" — była stosowana i natychmiast cofana. `catch → allowed=['*']` w `resolveModuleAccess` to **udokumentowana ścieżka backward-compat** (komentarz w kodzie: „Tabela nie istnieje (przed migracją)"), nie awaria. **Zero firm dotkniętych** — nie ma wierszy, więc nikt nic nie traci. Audyt zdiagnozował „v33 wygrała, brak kolumny `active`" — **nieprawda**. Proponowany `ALTER TABLE company_packages ADD COLUMN active` **padłby** na `no such table` |
+| `company_packages` | **ISTNIEJE od 13.08 wieczorem** — utworzona ręcznie przez `wrangler d1 execute --file=worker/schema_v48.sql` (nocny automat nie ma runnerów do 1.09). Struktura z **v48**, czyli z kolumną `active`, bez `updated_by`. **Utworzenie jest behawioralnie obojętne — sprawdzone w kodzie, nie założone:** `resolveModuleAccess` (index.js:13548) ma `if (!row) allowed = ['*']`, więc pusta tabela daje pełny dostęp dokładnie tak samo, jak wcześniej dawał `catch` przy braku tabeli. `GET /api/access-control/config` też zwraca domyślne `enterprise` przy braku wiersza. **ZAPIS nadal pada 500**, bo `PUT /api/access-control/config` (index.js:11066) wstawia `updated_by`, którego v48 nie ma — ale padał też wcześniej, na `no such table`. Ten zepsuty zapis działa dziś jako blokada: nie da się przypadkiem zapisać pakietu. Naprawa (`ALTER TABLE company_packages ADD COLUMN updated_by TEXT`) to **włączenie licencjonowania modułów**, czyli decyzja produktowa — patrz ostrzeżenie niżej. |
 | `esg_targets` | **v35** (`co2_target_kg`, `fuel_target_l`, `ev_percentage_target`, `electric_km_target`) | v41 był cichym no-opem. `POST /api/esg/targets` (index.js:11734) pisze kolumny v41 (`metric_key`, `target_value`…) **bez `.catch()`** → 500. **Aktywny błąd produkcyjny**, dodawanie celów ESG martwe |
 | `reservations` | **v13 z `CHECK(status IN ('pending','accepted','rejected'))`** | Potwierdzone dosłownie przez `SELECT sql FROM sqlite_master`. **Naprawione** — `fleet-reservations.js` używał `confirmed` (naruszenie CHECK). Odtworzone lokalnie na SQLite: `accepted` przechodzi, `confirmed` → `CHECK constraint failed` |
 
