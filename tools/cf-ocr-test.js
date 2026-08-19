@@ -41,10 +41,70 @@ try { require('dotenv').config({ path: path.join(ROOT, '.env') }); } catch { /* 
 const G = s => `\x1b[32m${s}\x1b[0m`, R = s => `\x1b[31m${s}\x1b[0m`,
       Y = s => `\x1b[33m${s}\x1b[0m`, B = s => `\x1b[1m${s}\x1b[0m`, D = s => `\x1b[2m${s}\x1b[0m`;
 
-const plik = process.argv[2];
-if (!plik || !fs.existsSync(plik)) {
-  console.error(`\nUżycie: node tools/cf-ocr-test.js <ścieżka-do-dowodu>\n`);
-  console.error(`Obsługiwane: .jpg .jpeg .png .webp  (PDF przygotuj wcześniej jako obraz)\n`);
+/**
+ * Wybór dokumentu: podany argument albo — gdy go nie ma — pierwszy obraz znaleziony
+ * w `DR_FOLDER`. Chodzi o zdjęcie z człowieka obowiązku wskazywania konkretnego pliku
+ * w katalogu, który ma tysiące pozycji w podfolderach per pojazd.
+ *
+ * PDF-y są POMIJANE przy automatycznym wyborze, nie renderowane w locie. Produkcyjny
+ * render PDF ma własne ustawienia (PDF_AZTEC: 300 DPI, PNG bezstratny) i użycie byle
+ * jakiego renderu zafałszowałoby wynik — test mierzyłby jakość naszego renderu, a nie
+ * modelu. Osobne narzędzie `aztec-compare.js` renderuje PDF-y właściwymi ustawieniami.
+ */
+const OBRAZY = /\.(jpe?g|png|webp)$/i;
+
+function znajdzObraz(dir, limit = 4000) {
+  const wynik = { obraz: null, pdfy: 0, sprawdzone: 0 };
+  const chodz = (d, glebokosc = 0) => {
+    if (wynik.obraz || glebokosc > 6 || wynik.sprawdzone > limit) return;
+    let wpisy = [];
+    try { wpisy = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
+    for (const w of wpisy) {
+      if (wynik.obraz) return;
+      const pelna = path.join(d, w.name);
+      if (w.isDirectory()) { chodz(pelna, glebokosc + 1); continue; }
+      wynik.sprawdzone++;
+      if (OBRAZY.test(w.name)) { wynik.obraz = pelna; return; }
+      if (/\.pdf$/i.test(w.name)) wynik.pdfy++;
+    }
+  };
+  chodz(dir);
+  return wynik;
+}
+
+let plik = process.argv[2];
+let wybranyAutomatycznie = false;
+
+if (!plik) {
+  const folder = process.env.DR_FOLDER;
+  if (!folder) {
+    console.error(`\nUżycie: node tools/cf-ocr-test.js <ścieżka-do-dowodu>\n`);
+    console.error(`Obsługiwane: .jpg .jpeg .png .webp\n`);
+    console.error(`Albo ustaw ${'\x1b[1m'}DR_FOLDER${'\x1b[0m'} w .env, a narzędzie samo wybierze jeden obraz:`);
+    console.error(`    DR_FOLDER=C:\\Users\\...\\Dokumentacja pojazdów\n`);
+    process.exit(2);
+  }
+  if (!fs.existsSync(folder)) {
+    console.error(`\nDR_FOLDER wskazuje na nieistniejący katalog:\n  ${folder}\n`);
+    process.exit(2);
+  }
+  const z = znajdzObraz(folder);
+  if (!z.obraz) {
+    console.error(`\nNie znalazłem obrazu (.jpg/.png/.webp) w ${folder}`);
+    console.error(`Sprawdzonych plików: ${z.sprawdzone}, w tym PDF-ów: ${z.pdfy}\n`);
+    if (z.pdfy) {
+      console.error(`Same PDF-y. Ten test przyjmuje obraz, bo render PDF ma własne ustawienia`);
+      console.error(`(PDF_AZTEC: 300 DPI, PNG bezstratny) i byle jaki render zafałszowałby wynik.`);
+      console.error(`Wyeksportuj jedną stronę do PNG i podaj ścieżkę wprost.\n`);
+    }
+    process.exit(2);
+  }
+  plik = z.obraz;
+  wybranyAutomatycznie = true;
+}
+
+if (!fs.existsSync(plik)) {
+  console.error(`\nNie ma takiego pliku:\n  ${plik}\n`);
   process.exit(2);
 }
 
@@ -127,6 +187,7 @@ function polaZOdpowiedzi(dane) {
 (async () => {
   console.log(B(`\n  Test OCR na jednym dowodzie — konto ${ACCOUNT.slice(0, 8)}…\n`));
   console.log(`  ${D('plik:')} ${path.basename(plik)}  ${D(`(${Math.round(bajty.length / 1024)} kB, ${MIME})`)}`);
+  if (wybranyAutomatycznie) console.log(D(`        wybrany automatycznie z DR_FOLDER — podaj ścieżkę, żeby użyć innego`));
   console.log(D('  Obraz leci wyłącznie na Twoje konto Cloudflare. Nigdzie indziej.\n'));
 
   const proby = [
