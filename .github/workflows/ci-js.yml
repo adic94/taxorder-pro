@@ -151,3 +151,14 @@ jobs:
       # sprzed naprawy 6 PASS / 4 FAIL, ze wskazaniem linii pustego catch.
       - name: Straznik kaskady OCR — kazda warstwa mowi, dlaczego padla
         run: node tests/unit/ocr-cascade-errors-test.js
+
+      # `aztec-compare.js --zapisz-prawde` zapisuje pola z kodow Aztec BEZ maskowania —
+      # VIN, nr rej., serie dowodu, wlasciciela i NIP. Taki jest sens zbioru odniesienia
+      # do porownywania modeli OCR, ale plik nie moze wyladowac w repozytorium: .gitignore
+      # chroni tylko pliki wewnatrz drzewa i tylko gdy regula powstala ZANIM plik sie
+      # pojawil (precedens: .vscode/mcp.json sledzony mimo reguly, project_ref Supabase
+      # jawny przez dwa miesiace). Dlatego narzedzie ODMAWIA, a nie ostrzega. Test jest
+      # behawioralny — uruchamia narzedzie i sprawdza, czy faktycznie nie zapisalo.
+      # Zweryfikowany negatywnie: bez straznika 5 PASS / 4 FAIL.
+      - name: Straznik zbioru odniesienia — dane osobowe nie trafiaja do repo
+        run: node tests/unit/aztec-prawda-guard-test.js
