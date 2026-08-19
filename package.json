@@ -19,6 +19,7 @@
     "test:bookmarklet": "node tests/unit/warsaw-bookmarklet-test.js",
     "test:migration-glob": "node tests/unit/migration-glob-test.js",
     "uruchom": "node tools/uruchom-wszystko.js",
+    "ocr:test": "node tools/cf-ocr-test.js",
     "test:gates": "node tools/autotest/run-gates.js",
     "report-sources-check": "node tests/unit/report-sources-test.js",
     "test:esg": "node tests/api/esg-reports-test.js",
