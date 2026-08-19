@@ -23,6 +23,10 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
+// `.env` jest tu istotny nie dla nas, tylko dla WRANGLERA: gdy ustawiony jest
+// CLOUDFLARE_API_TOKEN, wrangler uwierzytelnia się nim zamiast przez OAuth. Bez tego
+// skrypt raportował „brak poświadczeń" u kogoś, kto token ma — tylko w pliku.
+try { require('dotenv').config({ path: path.join(ROOT, '.env'), quiet: true }); } catch { /* opcjonalny */ }
 const WYKONAJ = process.argv.includes('--wykonaj');
 const WIN = process.platform === 'win32';
 const WRANGLER = path.join(ROOT, 'node_modules', '.bin', WIN ? 'wrangler.cmd' : 'wrangler');
@@ -92,7 +96,17 @@ if (fs.existsSync(WRANGLER)) {
   zalogowany = !/not authenticated|You are not logged in/i.test(out) && who.status === 0;
   if (zalogowany) {
     const mail = (out.match(/[\w.+-]+@[\w.-]+\.\w+/) || [])[0];
-    console.log(`  ${G('✓')} zalogowany${mail ? ` jako ${mail}` : ''}`);
+    // Rozróżnienie ISTOTNE dla kroku 5: token API ma ZAKRES. Ten utworzony do testu OCR
+    // ma „Workers AI → Read" i NIE pozwoli na `wrangler deploy` — a komunikat o odmowie
+    // przyszedłby dopiero w trakcie wdrożenia, wyglądając na awarię deployu.
+    const przezToken = !!process.env.CLOUDFLARE_API_TOKEN;
+    console.log(`  ${G('✓')} zalogowany${mail ? ` jako ${mail}` : ''}${przezToken ? D('  (przez CLOUDFLARE_API_TOKEN z .env)') : ''}`);
+    if (przezToken) {
+      console.log(Y('      Token API ma ZAKRES. Jeśli utworzyłeś go do testu OCR'));
+      console.log(Y('      („Workers AI → Read"), NIE wystarczy na `wrangler deploy`.'));
+      console.log(D('      Do wdrożenia: `wrangler login` (OAuth) albo token z uprawnieniem'));
+      console.log(D('      Account → Workers Scripts → Edit.'));
+    }
   } else {
     console.log(`  ${R('✗')} brak poświadczeń`);
     doRecznie.push(['Zaloguj wranglera', `${WIN ? '.\\node_modules\\.bin\\wrangler.cmd' : './node_modules/.bin/wrangler'} login`]);
