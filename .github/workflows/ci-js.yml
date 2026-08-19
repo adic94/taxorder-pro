@@ -162,3 +162,15 @@ jobs:
       # Zweryfikowany negatywnie: bez straznika 5 PASS / 4 FAIL.
       - name: Straznik zbioru odniesienia — dane osobowe nie trafiaja do repo
         run: node tests/unit/aztec-prawda-guard-test.js
+
+      # Dwa bledy zgloszone przez uzytkownika 19.08, oba dajace FALSZYWY ODCZYT zamiast
+      # awarii: (1) `uruchom-wszystko.js` raportowal „bramki nie przechodza" przy 15/15
+      # PASS, bo shell:true na Windowsie rozbijal sciezke ze spacja („Program flotowy");
+      # to samo falszowalo `wrangler whoami` -> „brak poswiadczen". (2) `env-setup.js`
+      # pokazywal wszystkie klucze jako puste przy poprawnie zapisanych wartosciach, bo
+      # dzielil po '\n' zamiast /\r?\n/ i na CRLF wzorzec nie pasowal. Obie klasy sa
+      # NIEWIDOCZNE na Linuksie (shell wylaczony, pliki z LF), a CI stoi na ubuntu —
+      # wiec bez tego testu nic ich nie zlapie. Zweryfikowany negatywnie: po przywroceniu
+      # obu bledow 6 PASS / 2 FAIL.
+      - name: Straznik narzedzi — Windows, spacje w sciezce, CRLF
+        run: node tests/unit/tooling-windows-test.js

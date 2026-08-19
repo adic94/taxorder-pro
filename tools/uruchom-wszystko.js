@@ -30,8 +30,29 @@ const WRANGLER = path.join(ROOT, 'node_modules', '.bin', WIN ? 'wrangler.cmd' : 
 const G = s => `\x1b[32m${s}\x1b[0m`, R = s => `\x1b[31m${s}\x1b[0m`,
       Y = s => `\x1b[33m${s}\x1b[0m`, B = s => `\x1b[1m${s}\x1b[0m`, D = s => `\x1b[2m${s}\x1b[0m`;
 
-const uruchom = (cmd, args, opts = {}) =>
-  spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8', timeout: opts.timeout || 180000, shell: WIN });
+/**
+ * NIE UZYWAJ `shell: true` TAM, GDZIE NIE MUSISZ.
+ *
+ * Na Windowsie `spawnSync` z `shell: true` sklada wiersz polecenia, laczac polecenie
+ * i argumenty SPACJAMI, BEZ cudzyslowow. Sciezka projektu to
+ * `...\Desktop\Program flotowy\taxorder-pro\...` — cmd.exe rozbija ja na spacji i node
+ * dostaje `C:\Users\...\Desktop\Program` jako plik do uruchomienia. MODULE_NOT_FOUND,
+ * kod wyjscia 1, a skrypt raportowal „bramki nie przechodza" przy 15/15 PASS.
+ * To samo falszowalo `wrangler whoami` -> „brak poswiadczen" przy zalogowanym wranglerze.
+ *
+ * Zgloszone przez uzytkownika, odtworzone: shell:false -> kod 0, shell:true -> kod 1.
+ *
+ * `node` (process.execPath) to plik .exe — uruchamia sie BEZ powloki, wiec argumenty
+ * ida tablica i spacje nie maja znaczenia. Powloka jest potrzebna wylacznie dla plikow
+ * .cmd/.bat (wrangler.cmd), i tam kazdy element musi byc w cudzyslowach.
+ */
+const uruchom = (cmd, args, opts = {}) => {
+  const wsp = { cwd: ROOT, encoding: 'utf8', timeout: opts.timeout || 180000 };
+  const potrzebnaPowloka = WIN && /\.(cmd|bat)$/i.test(cmd);
+  if (!potrzebnaPowloka) return spawnSync(cmd, args, wsp);
+  const cyt = a => `"${String(a).replace(/"/g, '\\"')}"`;
+  return spawnSync(cyt(cmd), args.map(cyt), { ...wsp, shell: true });
+};
 
 const doRecznie = [];   // czynności, których skrypt nie potrafi wykonać
 const problemy = [];    // rzeczy, które trzeba naprawić zanim się ruszy dalej

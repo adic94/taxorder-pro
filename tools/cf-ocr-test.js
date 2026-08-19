@@ -169,6 +169,10 @@ function opiszBlad(status, dane) {
   const err = dane?.errors?.[0];
   const kod = err?.code;
   if (kod === 5016) return R('5016 — LICENCJA MODELU NIEZAAKCEPTOWANA');
+  // 4006 przy HTTP 429 to wyczerpany DZIENNY przydział neuronów (plan darmowy: 10 000/dobę),
+  // nie awaria modelu ani problem z tokenem. Odnawia się o północy UTC. Przy 1318 dowodach
+  // ten próg nie wystarczy na masowe przetwarzanie — patrz komentarz w podsumowaniu.
+  if (kod === 4006) return R('4006 — WYCZERPANY DZIENNY LIMIT NEURONÓW (reset o północy UTC)');
   if (kod === 5035) return R('5035 — model wymaga planu Workers Paid');
   if (kod === 3041 || kod === 5018) return R(`${kod} — konto bez dostępu do tego modelu`);
   if (kod === 3042) return R('3042 — nieprawidłowy identyfikator modelu');
@@ -255,6 +259,20 @@ function polaZOdpowiedzi(dane) {
 
   // ── Wnioski ────────────────────────────────────────────────────────────────
   console.log(B('─'.repeat(64)));
+  const limit = wyniki.filter(w => w.kod === 4006);
+  if (limit.length) {
+    console.log(Y(`\n  DZIENNY LIMIT NEURONÓW WYCZERPANY (${limit.length} model/e).`));
+    console.log(D('    To NIE jest problem z tokenem, licencją ani modelem — sam fakt, że'));
+    console.log(D('    Cloudflare odpowiedział tym kodem, dowodzi, że token działa i licencja'));
+    console.log(D('    jest zaakceptowana (inaczej byłoby 5016).'));
+    console.log(D('    Limit odnawia się o północy UTC. Powtórz test wtedy.'));
+    console.log(Y('\n    UWAGA NA SKALĘ: plan darmowy to 10 000 neuronów/dobę. Inferencja wizyjna'));
+    console.log(Y('    na 1318 dowodach znacznie to przekracza — masowe przetwarzanie wymaga'));
+    console.log(Y('    planu Workers Paid ALBO rozłożenia na wiele dni. Sprawdź plan konta,'));
+    console.log(Y('    zanim uruchomisz przebieg na całym zbiorze: przerwie się w połowie,'));
+    console.log(Y('    a przy cichej kaskadzie objawi się jako gorsze dane, nie jako błąd.\n'));
+  }
+
   const licencja = wyniki.filter(w => w.kod === 5016);
   if (licencja.length) {
     console.log(R(`\n  LICENCJA NIEZAAKCEPTOWANA (${licencja.length} model/e):`));
