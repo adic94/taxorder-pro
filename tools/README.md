@@ -3,6 +3,12 @@
 Skrypty lokalne do diagnostyki, audytu i QA. Nie wchodzą do buildu prod.
 Wymagają: `sharp`, `zxing-wasm`, `playwright` — zainstalowane w `node_modules/`.
 
+## Doprowadzenie projektu do stanu działającego
+
+| Skrypt | Co robi |
+|--------|---------|
+| `uruchom-wszystko.js` | **Jedno polecenie na start.** `npm.cmd run uruchom` sprawdza środowisko, poświadczenia wranglera, aktualność kodu, bramki jednostkowe, niewdrożone commity Workera i listę modeli AI — po czym wypisuje, **czego nie potrafi zrobić za człowieka** (akceptacja licencji modelu, `wrangler login`). Domyślnie **niczego nie zmienia**; `--wykonaj` dodatkowo wdraża Workera. Wdrożenie jest wstrzymywane, gdy bramki nie przechodzą. Każdy krok potwierdza wynik odczytem, nie brakiem błędu |
+
 ## Narzędzia diagnostyczne DR (dowód rejestracyjny)
 
 | Skrypt | Co robi |
