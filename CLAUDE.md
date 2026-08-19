@@ -107,12 +107,30 @@ taxorder-pro/
 >    została jedna kombinacja: **oryginalny PDF przez nasz render** (narzędzie przyjmuje
 >    teraz PDF i renderuje go ustawieniami czytanymi z `PDF_AZTEC`).
 >
-> ### Otwarte pytania do właściciela
+> ### Otwarte pytania do właściciela — dwa z trzech zamknięte 19.08
 >
-> - **Klucze legacy Supabase — czy unieważnione?** `project_ref` jest w historii repo.
-> - **Wskaźnik CO2 dla diesla: 2,65 czy 2,68?** Zmienia liczby w ESG i JPK wstecz.
-> - **Stawki opłat środowiskowych** z rozporządzenia — szkielet czeka i celowo odmawia
->   zamiast zwracać zero.
+> - ~~**Klucze legacy Supabase — czy unieważnione?**~~ — **ZAMKNIĘTE odczytem, nie domysłem.**
+>   Konektor Supabase (MCP) na koncie właściciela: `list_organizations` zwraca jedną
+>   organizację („Wolund Synergy"), a `list_projects` zwraca **zero projektów**. Projekt
+>   `opeqckxxdqicszfycolb` z historii repo **nie istnieje** — został skasowany, więc klucze
+>   w historii wskazują na nieistniejący zasób i są martwe. Uwaga na zakres dowodu: to
+>   stwierdzenie opiera się na tym, że token MCP widzi całe konto; projekt w organizacji
+>   poza zasięgiem tokenu nie zostałby wykazany.
+> - ~~**Wskaźnik CO2 dla diesla: 2,65 czy 2,68?**~~ — **ROZSTRZYGNIĘTE na 2,65**, rachunkiem,
+>   nie wyborem. Stechiometria ON bez domieszki: `0,835 kg/l × 0,862 C × 44/12 = 2,639`,
+>   czyli 2,65 mieści się w wyniku. **2,68 to inna wielkość, nie inna wartość tej samej** —
+>   pochodzi ze współczynników typu DEFRA, które są CO2**e** (z CH4 i N2O) i zwykle zakładają
+>   domieszkę B7. Za 2,65 przemawia też odtwarzalność: tą wartością policzone są wszystkie
+>   złożone dotąd raporty ESG i JPK. **Co zostaje:** rachunek potwierdza rząd wielkości
+>   i odrzuca 2,68, ale nie zastępuje odczytu z aktualnej tabeli KOBiZE — dlatego `zrodlo`
+>   nadal mówi „niezweryfikowane". Sprawozdanie w CO2e wymaga OSOBNEGO zestawu z własnym
+>   `od`, nie podmiany tych liczb.
+> - **Stawki opłat środowiskowych** z obwieszczenia — **nadal otwarte i nie do zamknięcia
+>   przeze mnie.** `ENV_FEE_RATE_SETS` jest celowo pusta, a `computeEnvironmentalFee`
+>   ODMAWIA wyliczenia zamiast zwrócić zero. Wpisanie stawek z pamięci byłoby dokładnie tym
+>   błędem, przed którym ten kod się broni: zerowa albo zmyślona należność wobec urzędu
+>   marszałkowskiego wygląda wiarygodnie i nikt jej nie zakwestionuje. Potrzebny odczyt
+>   ze źródła — wraz z gęstościami paliw, na których stawki oparto.
 >
 > ### Skrót tego, co zamknięto 12–13.08
 >
@@ -412,11 +430,10 @@ zakazujące kopiowania ich bazy.
   **Do rozstrzygnięcia został jeden parametr domenowy: wartość dla diesla.** Zostawiłem
   **2.65** (backend), bo to ona produkowała dotychczasowe liczby w ESG i JPK; front miał 2.68.
   Zmiana = jedna liczba w `CO2_EMISSION_FACTORS`. CNG 2.04 przejęte z tablicy frontu.
-- **Zapisane `report_configs` ze źródłem `fuel_entries`** (jeśli istnieją) po zmianie
-  whitelisty zwrócą „Niedozwolone źródło danych" zamiast pustej tabeli. Te konfiguracje
-  i tak nigdy nie zwracały danych — komunikat błędu jest uczciwszy niż cicha pustka, ale
-  warto je przepiąć na `fuel_fills`:
-  `SELECT id,name FROM report_configs WHERE source_table='fuel_entries'`
+- ~~**Zapisane `report_configs` ze źródłem `fuel_entries`**~~ — **bezprzedmiotowe,
+  sprawdzone 19.08 zapytaniem do produkcyjnego D1:**
+  `SELECT id,name,source_table FROM report_configs WHERE source_table IN ('fuel_entries','damages')`
+  → **zero wierszy.** Nie ma czego przepinać.
 
 - **Kreator raportów — 4 z 5 źródeł naprawione, `vehicles` otwarte.** Odkryte przez
   `npm run report-sources-check` (`tests/unit/report-sources-test.js`). Backendowa whitelista
@@ -480,7 +497,8 @@ zakazujące kopiowania ich bazy.
 **Sprawy operacyjne (poza kodem)**
 - Domena e-mail dla Dominika Dymowskiego i Roberta Sasina — do ustalenia.
 - 6 pojazdów litewskich — dokumenty u księgowości, brak potwierdzenia.
-- Klucze legacy w Supabase — do unieważnienia po potwierdzeniu, że nic ich nie używa.
+- ~~Klucze legacy w Supabase~~ — **bezprzedmiotowe, sprawdzone 19.08**: konto nie ma
+  ŻADNEGO projektu, `opeqckxxdqicszfycolb` skasowany. Nie ma czego unieważniać.
 
 **Nowy wątek — nie zaczęty**
 - **Integracja MyCar GPS API (Tekom Technologia)** — kandydat na warstwę telematyczną.
