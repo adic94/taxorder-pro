@@ -141,6 +141,45 @@ taxorder-pro/
 > Zostało **wyłącznie** pytanie o skuteczność DETEKCJI na sfotografowanym dokumencie —
 > do tego potrzeba jednego prawdziwego zdjęcia, trzymanego poza repozytorium.
 
+### Kandydat na warstwę CF: `llama-4-scout` — ustalenia z 19.08 (NIE podmieniaj identyfikatora)
+
+`@cf/meta/llama-4-scout-17b-16e-instruct` jest lepszym kandydatem na Próbę 1 niż obecny
+`llama-3.2-11b-vision-instruct`: **Vision: Yes**, 131 000 tokenów kontekstu, Batch,
+Function calling, w dokumentacji CF oznaczony „Pinned". Decydujące: **ten sam model już
+przetwarza nasze dowody w warstwie Groq** (`worker/index.js:3130`), więc wiadomo, że
+radzi sobie z tym materiałem.
+
+**⚠️ PODMIANA SAMEGO IDENTYFIKATORA MODELU ZEPSUJE OCR — cicho.** Oba modele przyjmują
+obraz zupełnie inaczej:
+
+| | `llama-3.2-11b-vision` | `llama-4-scout` |
+|---|---|---|
+| wejście obrazu | `image: [tablica bajtów]` | **brak takiego parametru** — obraz w `messages` |
+| typ | model wizyjny | model czatowy, natywnie multimodalny |
+
+Scout z samym `prompt` (bez obrazu w `messages`) nie zwróci błędu — **zacznie zmyślać
+pola**. To awaria gorsza niż 5016, bo wygląda na sukces.
+
+Kształt żądania jest już napisany: warstwa Groq wysyła do tego modelu wieloczęściowe
+`content` (`{type:'image_url'…}, {type:'text'…}`) przez endpoint zgodny z OpenAI, a CF
+też taki wystawia (`/v1/chat/completions`). **Niewiadoma, której nie zgaduj:** czy
+`env.AI.run()` przyjmuje wieloczęściowe `content` z `image_url`, czy trzeba REST-a.
+Sekcja „API Schemas (Raw)" na stronie modelu jest zwinięta — sprawdź jednym dokumentem.
+
+**`guided_json` to mocniejszy argument niż jakość rozpoznawania.** Scout przyjmuje
+`guided_json` (schemat JSON wymuszony na odpowiedzi); `llama-3.2-11b-vision` nie.
+Dziś `handleAIOCR` robi `text.match(/\{[\s\S]*\}/)` — prosi o JSON i ma nadzieję.
+Przy 55 polach dowodu i 1318 dokumentach wymuszenie schematu eliminuje całą klasę awarii,
+a schemat jest już rozpisany w promptcie.
+
+Cennik: **$0,27 / M tokenów wejścia, $0,85 / M wyjścia**.
+
+**Kolejność:** licencja w playgroundzie (wrzuć tam prawdziwy dowód — zero kodu, zero
+deployu) → deploy → pomiar obecnej kaskady na zbiorze z Aztec → dopiero wtedy decyzja,
+z liczbami. Akceptacja licencji nie odbywa się przyciskiem na liście modeli: link `Terms`
+prowadzi do tekstu licencji Meta na GitHubie, a zgodę wyzwala UŻYCIE modelu w panelu
+(`https://playground.ai.cloudflare.com/?model=<id>`).
+
 ### Zamknięte
 | Kiedy | Temat | Commit |
 |-------|-------|--------|
