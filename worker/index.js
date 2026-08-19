@@ -3026,7 +3026,16 @@ Zwroc WYLACZNIE JSON bez markdown:
 {"nrRej":"A — numer rejestracyjny np WPR0365T lub WA0677L (2-3 wielkie litery + cyfry, BEZ spacji)","dataRej":"B — data PIERWSZEJ rejestracji DD.MM.RRRR","marka":"D.1 — marka np MAN lub SCANIA","typ":"D.2 — krotki kod techniczny np TGE140 lub R490 (NIE adres, NIE opis slowny)","przeznaczenie":"RODZAJ POJAZDU / PRZEZNACZENIE z sekcji bezowej, np SAMOCHOD SPECJALNY lub SAMOCHOD CIEZAROWY (puste jesli nie widoczne)","vin":"E — dokladnie 17 znakow VIN np WMA29VUZ7R9018317 (litery A-H J-N P R-Z i cyfry 0-9, NIGDY I O Q, NIGDY gwiazdki)","dmcKg":"F.1 — DMC kg z ZOLTEJ tabeli (jesli dwie wartosci wybierz WIEKSZA)","dmcKg2":"F.2 — DMC z ladunkiem kg","dmcZespolu":"F.3 — DMC zespolu kg (>= F.1)","masaWlKg":"G — masa wlasna kg (mniejsza niz F.1)","liczbaOsi":"L — liczba osi 1-5","kategoria":"J — kategoria np N1 N2 N3 M1","pojSilnika":"P.1 — pojemnosc cm3 cyfry","mocKW":"P.2 — moc kW cyfry","paliwo":"P.3 — D lub B lub G","miejscaSied":"S.1 — miejsca siedzace cyfra","rokProd":"rok produkcji 4 cyfry","dmcPrzyczHam":"O.1 — masa przyczepy z hamulcem kg","dmcPrzyczNieham":"O.2 — masa przyczepy bez hamulca kg","nrHomolog":"K — nr homologacji np e32*IV18/858*NI15391"}`;
 
   // ── Próba 0: Python PaddleOCR Service (najdokładniejszy — przestrzenne bounding boxy) ──
-  if (env.OCR_PYTHON_URL) {
+  // Powód porażki tego kroku ginął w pustym `catch`, dokładnie tak samo jak powód
+  // porażki CF Workers AI przed naprawą z 18.08. Skutek jest gorszy niż tam: PaddleOCR
+  // jest krokiem NAJDOKŁADNIEJSZYM (przestrzenne bounding boxy), więc jego cicha śmierć
+  // degraduje jakość ekstrakcji, nie przerywa działania. Usługa uśpiona na Railway,
+  // zmieniony adres, obrócony `OCR_PYTHON_SECRET` — każde z nich wygląda identycznie:
+  // dokument po prostu wychodzi z gorszymi polami i nikt nie wie dlaczego.
+  let pyErr = null;
+  if (!env.OCR_PYTHON_URL) {
+    pyErr = 'OCR_PYTHON_URL nieustawiony';
+  } else {
     try {
       const headers = { 'Content-Type': 'application/json' };
       if (env.OCR_PYTHON_SECRET) headers['X-Api-Key'] = env.OCR_PYTHON_SECRET;
@@ -3036,19 +3045,31 @@ Zwroc WYLACZNIE JSON bez markdown:
         body: JSON.stringify({ imageBase64, mimeType }),
         signal: AbortSignal.timeout(8000),
       });
-      if (pyResp.ok) {
+      if (!pyResp.ok) {
+        // Treść odpowiedzi przycięta: leci do wywołującego, a serwis dostał obraz
+        // dowodu i mógłby odbić jego fragment w komunikacie błędu.
+        const tresc = await pyResp.text().catch(() => '');
+        pyErr = `HTTP ${pyResp.status}${tresc ? ' — ' + tresc.slice(0, 120) : ''}`;
+      } else {
         const pyData = await pyResp.json();
-        if (pyData.ok && pyData.fields) {
+        if (!pyData.ok || !pyData.fields) {
+          pyErr = `odpowiedź bez pól (ok=${pyData?.ok})${pyData?.error ? ' — ' + String(pyData.error).slice(0, 120) : ''}`;
+        } else {
           const sanitized = _sanitizeOcrFields(pyData.fields);
           // Sprawdź po sanityzacji — jeśli kluczowe pola puste, przejdź do Groq
           if (sanitized.nrRej || sanitized.vin || sanitized.marka || sanitized.dmcKg) {
             return json({ ok: true, fields: sanitized, model: 'paddleocr' });
           }
-          console.log('[OCR PaddleOCR] wynik po sanityzacji pusty — fallthrough do Groq');
+          pyErr = 'wynik po sanityzacji pusty (brak nrRej/vin/marka/dmcKg)';
         }
       }
-    } catch (e) { /* fall through — Python service niedostępny */ }
+    } catch (e) {
+      // AbortSignal.timeout(8000) zgłasza się tu jako TimeoutError — to najczęstszy
+      // objaw uśpionej instancji Railway, wart odróżnienia od zwykłej awarii sieci.
+      pyErr = e.name === 'TimeoutError' ? 'przekroczono 8 s (usługa uśpiona?)' : (e.message || String(e));
+    }
   }
+  if (pyErr) console.log(`[OCR PaddleOCR] pominięty: ${pyErr}`);
 
   // Powód porażki KAŻDEJ próby musi dotrzeć do wywołującego, nie tylko do console.log.
   // Do 18.08 CF AI zwracał kod 5016 („licencja modelu niezaakceptowana"), a endpoint
@@ -3139,7 +3160,7 @@ Zwroc WYLACZNIE JSON bez markdown:
   }
   // Obie warstwy w jednym komunikacie — inaczej wywołujący widzi wyłącznie porażkę
   // Groq i szuka przyczyny w warstwie, która była tylko następstwem.
-  return err(`Błąd AI Vision. CF Workers AI: ${cfErr || 'pominięte'}. Groq: ${lastErr}`, 502);
+  return err(`Błąd AI Vision. PaddleOCR: ${pyErr || 'pominięte'}. CF Workers AI: ${cfErr || 'pominięte'}. Groq: ${lastErr}`, 502);
 }
 
 // ─── FOLDER MONITOR — agent watcher handlers ──────────────────────────────────

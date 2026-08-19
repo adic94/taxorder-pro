@@ -140,3 +140,14 @@ jobs:
       # Jeden znany wyjatek (Chart.js) — lista moze wylacznie malec.
       - name: Straznik SRI — skrypty z CDN maja integrity
         run: node tests/unit/cdn-sri-test.js
+
+      # Kaskada OCR ma cztery warstwy, kazda GORSZA od poprzedniej, a zejscie w dol jest
+      # ciche — awaria warstwy wyzszej nie daje bledu, tylko gorsze dane. Dwa razy w tygodniu
+      # kosztowalo to diagnoze: CF Workers AI zwracal 5016 („model license not accepted")
+      # wylacznie do console.log, a Proba 0 (PaddleOCR na Railway) miala `catch` z samym
+      # komentarzem, wiec uspiona instancja wygladala jak brak problemu. Test pilnuje, ze
+      # kazda warstwa ma zmienna z powodem, ze wszystkie trzy trafiaja do odpowiedzi 502,
+      # i ze zaden catch w kaskadzie nie jest pusty. Zweryfikowany negatywnie: na kodzie
+      # sprzed naprawy 6 PASS / 4 FAIL, ze wskazaniem linii pustego catch.
+      - name: Straznik kaskady OCR — kazda warstwa mowi, dlaczego padla
+        run: node tests/unit/ocr-cascade-errors-test.js

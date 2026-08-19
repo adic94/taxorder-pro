@@ -348,8 +348,11 @@ zakazujące kopiowania ich bazy.
   (`npm run test:isolation`) działa jako dodatkowy krok API obok głównego suite, nie zastępuje go.
   Jeśli w przyszłości powstaną testy UI wymagające zwykłej (nie-admin) roli — użyj konta
   `acichocki@mtoilet.pl` (`kierownik`/`gcon`, sekrety `TEST_EMAIL_NONADMIN`/`TEST_PASS_NONADMIN`).
-- `ocr-service/` — mikroserwis Aztec+NRV2E odłączony od aplikacji.
-  Docelowo Aztec jako **pierwszy** krok kaskady OCR dla DR, przed Groq Vision (`/api/ai/ocr`).
+- `ocr-service/` — **JEST podłączony, wbrew temu, co ten dług twierdził do 19.08.**
+  `worker/index.js:3029` wywołuje go jako „Próbę 0" pod adresem z `OCR_PYTHON_URL`
+  (`wrangler.toml` → Railway). Otwarte zostaje co innego: **nie wiadomo, czy ta instancja
+  żyje** — do 19.08 jej porażka ginęła w pustym `catch`. Po naprawie powód trafia do
+  `console.log` i do odpowiedzi 502, więc `wrangler tail` odpowie na to jednym dokumentem.
 - `tools/README.md` i `tools/_archive/` — zinwentaryzowane. 11 plików w `_archive/` (gitignore). Jeśli dodasz nowe narzędzie diagnostyczne — dopisz je do `tools/README.md`.
 - **Tryb widoku przypięty w `global-setup.js`.** Jawnie pinowane (oba tryby TOKEN i EMAIL):
   `slim_table='false'`, `fleetViewMode='fleet'`, `onboarding_done='1'`, `ks-hint-shown='1'`.
@@ -1031,10 +1034,21 @@ poza `ci-js.yml`, krok CI bez pliku — każdy daje kod wyjścia 1, a po przywr�
    `rate-reader.js` usunięty (`d2a6d00`, tabela `tax_rates` istniała tylko w Supabase);
    stawki gminne obsługuje `window.GminyRates`.
    **Backend to wyłącznie D1 przez Worker.**
-8. **`ocr-service/` nie jest podłączony** — mikroserwis z kaskadą Aztec+NRV2E istnieje w repo,
-   ale żaden plik aplikacji się do niego nie odwołuje. OCR dokumentów idzie przez
-   `/api/ai/ocr`, `/api/ai/ocr-doc` i `/api/bulk/*` (Groq Vision). Aztec daje 100% pewności
-   danych — docelowo powinien być pierwszym krokiem dla dowodów rejestracyjnych.
+8. **Kaskada OCR ma CZTERY warstwy, nie dwie — i każda niższa jest gorsza.**
+   Kolejność w `handleAIOCR` (`worker/index.js`): **Aztec** (100% pewności) → **Próba 0
+   PaddleOCR** (`ocr-service/` na Railway, `OCR_PYTHON_URL`, linia 3029) → **Próba 1
+   CF Workers AI** (`llama-3.2-11b-vision-instruct`, linia 3065) → **Próba 2 Groq Vision**
+   (×4 modele). `handleAIOCRDoc` (linia 3416) nie ma Próby 0 — zaczyna od CF.
+
+   **Zejście w dół jest ciche, więc awaria warstwy wyższej objawia się GORSZYMI DANYMI,
+   nie błędem.** Ta klasa kosztowała dwie diagnozy w jednym tygodniu: CF zwracał kod 5016
+   („model license not accepted") wyłącznie do `console.log`, a Próba 0 miała `catch`
+   z samym komentarzem. Oba naprawione — powód każdej warstwy trafia do odpowiedzi 502.
+   Pilnuje tego bramka `tests/unit/ocr-cascade-errors-test.js`.
+
+   Do 19.08 ten wpis twierdził, że `ocr-service/` „nie jest podłączony i żaden plik
+   aplikacji się do niego nie odwołuje". **To było nieprawdą** i wprowadzało w błąd przy
+   każdej diagnozie OCR — analiza kaskady bez Próby 0 opisuje inny system niż działający.
 9. **Izolacja tenanta** — każde zapytanie do tabeli tenantowej musi mieć `company_id=?`.
    Wzorzec dla operacji po `id`: najpierw `SELECT ... WHERE id=? AND company_id=?`, przy braku
    wiersza `404`; albo `WHERE id=? AND company_id=?` bezpośrednio w `UPDATE`/`DELETE`
