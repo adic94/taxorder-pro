@@ -23,10 +23,17 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
-// `.env` jest tu istotny nie dla nas, tylko dla WRANGLERA: gdy ustawiony jest
-// CLOUDFLARE_API_TOKEN, wrangler uwierzytelnia się nim zamiast przez OAuth. Bez tego
-// skrypt raportował „brak poświadczeń" u kogoś, kto token ma — tylko w pliku.
-try { require('dotenv').config({ path: path.join(ROOT, '.env'), quiet: true }); } catch { /* opcjonalny */ }
+// CELOWO NIE WCZYTUJEMY `.env` DO ŚRODOWISKA WRANGLERA — i to jest naprawa, nie brak.
+//
+// Poprzednia wersja robiła `dotenv.config()`, żeby wrangler „zobaczył" CLOUDFLARE_API_TOKEN.
+// To był błąd: gdy ta zmienna jest ustawiona, wrangler uwierzytelnia się NIĄ i CAŁKOWICIE
+// IGNORUJE logowanie OAuth. Token utworzony do testu OCR ma zakres „Workers AI → Read",
+// więc `wrangler deploy` i `wrangler tail` odbijają się od `Authentication error [10000]`
+// — u użytkownika dokładnie tak się stało.
+//
+// Skrypt uruchamia wrangler do rzeczy WYMAGAJĄCYCH szerokich uprawnień (deploy, tail,
+// lista modeli), więc token o wąskim zakresie jest tu przeszkodą, nie pomocą. Zamiast go
+// wstrzykiwać, USUWAMY go ze środowiska podprocesu i mówimy o tym wprost.
 const WYKONAJ = process.argv.includes('--wykonaj');
 const WIN = process.platform === 'win32';
 const WRANGLER = path.join(ROOT, 'node_modules', '.bin', WIN ? 'wrangler.cmd' : 'wrangler');
@@ -50,8 +57,14 @@ const G = s => `\x1b[32m${s}\x1b[0m`, R = s => `\x1b[31m${s}\x1b[0m`,
  * ida tablica i spacje nie maja znaczenia. Powloka jest potrzebna wylacznie dla plikow
  * .cmd/.bat (wrangler.cmd), i tam kazdy element musi byc w cudzyslowach.
  */
+const TOKEN_W_SRODOWISKU = !!process.env.CLOUDFLARE_API_TOKEN;
+
 const uruchom = (cmd, args, opts = {}) => {
-  const wsp = { cwd: ROOT, encoding: 'utf8', timeout: opts.timeout || 180000 };
+  // Podproces dostaje środowisko BEZ tokenu API, żeby wrangler użył logowania OAuth.
+  const env = { ...process.env };
+  delete env.CLOUDFLARE_API_TOKEN;
+  delete env.CF_API_TOKEN;
+  const wsp = { cwd: ROOT, encoding: 'utf8', timeout: opts.timeout || 180000, env };
   const potrzebnaPowloka = WIN && /\.(cmd|bat)$/i.test(cmd);
   if (!potrzebnaPowloka) return spawnSync(cmd, args, wsp);
   const cyt = a => `"${String(a).replace(/"/g, '\\"')}"`;
@@ -99,16 +112,19 @@ if (fs.existsSync(WRANGLER)) {
     // Rozróżnienie ISTOTNE dla kroku 5: token API ma ZAKRES. Ten utworzony do testu OCR
     // ma „Workers AI → Read" i NIE pozwoli na `wrangler deploy` — a komunikat o odmowie
     // przyszedłby dopiero w trakcie wdrożenia, wyglądając na awarię deployu.
-    const przezToken = !!process.env.CLOUDFLARE_API_TOKEN;
-    console.log(`  ${G('✓')} zalogowany${mail ? ` jako ${mail}` : ''}${przezToken ? D('  (przez CLOUDFLARE_API_TOKEN z .env)') : ''}`);
-    if (przezToken) {
-      console.log(Y('      Token API ma ZAKRES. Jeśli utworzyłeś go do testu OCR'));
-      console.log(Y('      („Workers AI → Read"), NIE wystarczy na `wrangler deploy`.'));
-      console.log(D('      Do wdrożenia: `wrangler login` (OAuth) albo token z uprawnieniem'));
-      console.log(D('      Account → Workers Scripts → Edit.'));
-    }
+    console.log(`  ${G('✓')} zalogowany${mail ? ` jako ${mail}` : ''} ${D('(OAuth)')}`);
   } else {
-    console.log(`  ${R('✗')} brak poświadczeń`);
+    console.log(`  ${R('✗')} brak poświadczeń OAuth`);
+    if (TOKEN_W_SRODOWISKU) {
+      console.log(Y('      Masz ustawiony CLOUDFLARE_API_TOKEN. Ta zmienna PRZESŁANIA OAuth —'));
+      console.log(Y('      wrangler używa jej do wszystkiego i ignoruje `wrangler login`.'));
+      console.log(Y('      Token do testu OCR ma zakres „Workers AI → Read", więc deploy'));
+      console.log(Y('      i `tail` odbiją się od Authentication error [10000].'));
+      console.log(D('      Ten skrypt usuwa go ze środowiska podprocesów, ale w Twojej powłoce'));
+      console.log(D('      zostaje. Zanim uruchomisz wranglera ręcznie:'));
+      console.log(`\n        ${B('Remove-Item Env:\\CLOUDFLARE_API_TOKEN')}`);
+      console.log(`        ${B('.\\node_modules\\.bin\\wrangler.cmd login')}\n`);
+    }
     doRecznie.push(['Zaloguj wranglera', `${WIN ? '.\\node_modules\\.bin\\wrangler.cmd' : './node_modules/.bin/wrangler'} login`]);
     problemy.push('wrangler bez poświadczeń — deploy i odczyt modeli niemożliwe');
   }

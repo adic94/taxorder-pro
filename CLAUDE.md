@@ -876,6 +876,55 @@ git pull
 Dotyczy to także instrukcji, które generujemy dla użytkownika: pisząc polecenia dla
 tego projektu, zakładaj PowerShell 5.1, nie bash.
 
+### PowerShell: `^` to NIE jest kontynuacja linii, a `stash@{0}` wymaga cudzysłowów
+
+Dwa błędy popełnione przy pisaniu poleceń dla tego projektu 19.08 — oba wyglądają jak
+literówka użytkownika, a są błędem autora polecenia.
+
+**Kontynuacja linii to backtick `` ` ``, nie `^`.** `^` działa w `cmd.exe`; w PowerShellu
+daje `Missing expression after unary operator '--'`, bo kolejna linia zaczyna się od `--`.
+
+```powershell
+node tools/aztec-compare.js --katalog "..." `
+  --zapisz-prawde "..."
+```
+
+**`{`…`}` po `@` to literał tablicy asocjacyjnej.** `git stash show -p stash@{0}` rozsypuje
+się na `Too many revisions specified: 'stash@' 'MAA=' 'xml' 'text'`. Referencje stasha
+i inne argumenty z nawiasami klamrowymi zawsze w cudzysłowach:
+
+```powershell
+git stash show -p "stash@{0}"
+git stash drop "stash@{0}"
+```
+
+**Osobno, nie PowerShell:** `git diff <plik>` pokazuje wyłącznie zmiany NIEZASTAGOWANE.
+Po `git stash pop` zmiany wracają zastagowane (`M ` — litera w PIERWSZEJ kolumnie
+`git status --short`), więc `git diff` pokazuje pustkę przy niepustym drzewie roboczym.
+Do obejrzenia: `git diff --cached <plik>`.
+
+### `CLOUDFLARE_API_TOKEN` w środowisku PRZESŁANIA `wrangler login`
+
+Gdy ta zmienna jest ustawiona, wrangler uwierzytelnia się **nią** i całkowicie ignoruje
+logowanie OAuth — także po świeżym `wrangler login`. Token o wąskim zakresie (np.
+`Workers AI → Read`, utworzony do `tools/cf-ocr-test.js`) wystarcza na inferencję, ale
+`wrangler deploy` i `wrangler tail` odbijają się wtedy od:
+
+    Authentication error [code: 10000]
+
+Komunikat wygląda na wygasłe logowanie i wysyła w ślepy zaułek — `wrangler login` niczego
+nie naprawi, dopóki zmienna jest ustawiona. Zdjęcie jej dotyczy TYLKO bieżącego okna:
+
+```powershell
+Remove-Item Env:\CLOUDFLARE_API_TOKEN
+.\node_modules\.bin\wrangler.cmd login
+```
+
+`tools/uruchom-wszystko.js` usuwa tę zmienną ze środowiska podprocesów i ostrzega, gdy ją
+wykryje. **Nie dodawaj `dotenv` do narzędzi wołających wranglera** — wstrzyknięcie tokenu
+z `.env` odtworzy dokładnie ten problem. `cf-ocr-test.js` czyta `.env` celowo: woła REST
+bezpośrednio, nie przez wranglera.
+
 ### npx i npm w PowerShell
 Polityka wykonywania blokuje niepodpisany `npx.ps1` — **i tak samo `npm.ps1`**.
 `npm run <cokolwiek>` kończy się `UnauthorizedAccess`, nie błędem skryptu.
