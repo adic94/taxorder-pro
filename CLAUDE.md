@@ -141,6 +141,31 @@ taxorder-pro/
 > Zostało **wyłącznie** pytanie o skuteczność DETEKCJI na sfotografowanym dokumencie —
 > do tego potrzeba jednego prawdziwego zdjęcia, trzymanego poza repozytorium.
 
+### CF Workers AI — licencja ZAAKCEPTOWANA, blokadą jest teraz dzienny limit (19.08)
+
+Zmierzone `tools/cf-ocr-test.js` na prawdziwym dowodzie, oba modele:
+
+| Model | Wynik |
+|---|---|
+| `llama-3.2-11b-vision-instruct` | HTTP 429 / **4006** |
+| `llama-4-scout-17b-16e-instruct` | HTTP 429 / **4006** |
+
+**Kodu 5016 NIE MA.** Licencja jest zaakceptowana — temat zamknięty. Sam fakt, że
+Cloudflare odpowiedział kodem 4006, dowodzi, że token działa i model jest dostępny.
+
+**4006 = wyczerpany DZIENNY przydział neuronów.** Plan darmowy to **10 000 neuronów/dobę**,
+reset o północy UTC. To nie jest awaria — to próg planu.
+
+**⚠️ To zmienia plan dla 1318 dokumentów, nie tylko datę testu.** Inferencja wizyjna na
+całym zbiorze znacznie przekracza darmowy próg. Masowe przetwarzanie wymaga **planu
+Workers Paid** albo rozłożenia na wiele dni. Sprawdź plan konta ZANIM uruchomisz przebieg
+na całości: przerwie się w połowie, a przy cichej kaskadzie objawi się to jako „część
+dowodów ma gorsze dane", nie jako błąd — bo Worker po cichu zejdzie na Groq.
+
+To jest kolejny argument za mierzeniem na **zbiorze odniesienia z Aztec** (kilkadziesiąt
+dokumentów) zamiast na całości: odpowiada na pytanie o jakość modelu, nie zużywając
+budżetu przeznaczonego na produkcyjny przebieg.
+
 ### Kandydat na warstwę CF: `llama-4-scout` — ustalenia z 19.08 (NIE podmieniaj identyfikatora)
 
 `@cf/meta/llama-4-scout-17b-16e-instruct` jest lepszym kandydatem na Próbę 1 niż obecny

@@ -66,7 +66,7 @@ if (brakujace.length) {
   // Przenosimy też komentarz poprzedzający klucz — bez niego użytkownik nie wie,
   // jakiego zakresu ma być token ani skąd go wziąć.
   let dopisz = istnial && tresc.trim() ? '\n' : '';
-  const linie = wzor.split('\n');
+  const linie = wzor.split(/\r?\n/);
   for (const k of brakujace) {
     const i = linie.findIndex(l => new RegExp(`^\\s*${k}\\s*=`).test(l));
     let od = i;
@@ -79,8 +79,14 @@ if (brakujace.length) {
 fs.writeFileSync(CEL, tresc, { encoding: 'utf8' });
 
 // ── Raport: nazwy kluczy i czy wypełnione. Wartości NIE są wypisywane. ────────
+// PODZIAL NA /\r?\n/, NIE NA '\n'. Na Windowsie plik ma zakonczenia CRLF, wiec podzial
+// po samym '\n' zostawia '\r' na koncu kazdej linii. W JavaScripcie `.` NIE dopasowuje
+// '\r' (to terminator linii), a `$` bez flagi `m` dopasowuje sie WYLACZNIE na koncu
+// napisu — nie przed koncowym terminatorem, jak w Pythonie. Efekt: caly wzorzec nie
+// pasowal i KAZDY klucz byl raportowany jako pusty, mimo poprawnie zapisanych wartosci.
+// Zglosil to uzytkownik: „drugi run pokazal wszystkie 8 jako puste, a wartosci SA w pliku".
 const wartosci = Object.fromEntries(
-  tresc.split('\n')
+  tresc.split(/\r?\n/)
     .map(l => l.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=(.*)$/))
     .filter(Boolean)
     .map(m => [m[1], m[2].trim()]));
