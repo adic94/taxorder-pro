@@ -9,6 +9,12 @@ Wymagają: `sharp`, `zxing-wasm`, `playwright` — zainstalowane w `node_modules
 |--------|---------|
 | `uruchom-wszystko.js` | **Jedno polecenie na start.** `npm.cmd run uruchom` sprawdza środowisko, poświadczenia wranglera, aktualność kodu, bramki jednostkowe, niewdrożone commity Workera i listę modeli AI — po czym wypisuje, **czego nie potrafi zrobić za człowieka** (akceptacja licencji modelu, `wrangler login`). Domyślnie **niczego nie zmienia**; `--wykonaj` dodatkowo wdraża Workera. Wdrożenie jest wstrzymywane, gdy bramki nie przechodzą. Każdy krok potwierdza wynik odczytem, nie brakiem błędu |
 
+## Konfiguracja lokalna
+
+| Skrypt | Co robi |
+|--------|---------|
+| `env-setup.js` | **Tworzy albo UZUPEŁNIA `.env`** na podstawie `.env.example`. `npm.cmd run env:setup`. W odróżnieniu od `Copy-Item .env.example .env` **nie nadpisuje** istniejących wartości — dopisuje wyłącznie brakujące klucze wraz z ich komentarzami. Omija dwie pułapki Windowsa: `.env.txt` z Notatnika (wykrywa i ostrzega — dotenv go nie czyta, a `.gitignore` nie ignoruje) oraz UTF-16LE po zapisie przez `>` w PowerShellu (wykrywa i przepisuje na UTF-8). **Nigdy nie wypisuje wartości** — raportuje nazwy kluczy i to, czy są wypełnione, więc wynik da się wkleić do zgłoszenia bez wycieku |
+
 ## Test OCR bez deployu
 
 | Skrypt | Co robi |
