@@ -58,12 +58,20 @@ const iBajty = process.argv.indexOf('--bytes');
 const plikBajtow = iBajty >= 0 ? process.argv[iBajty + 1] : null;
 const iKat = process.argv.indexOf('--katalog');
 const katalog = iKat >= 0 ? process.argv[iKat + 1] : null;
+// Tryb wewnętrzny: proces potomny wypisuje NIEZAMASKOWANE pola jedną linią z markerem,
+// żeby rodzic (--katalog) mógł zebrać zbiór odniesienia. Nieudokumentowany w pomocy —
+// uruchomiony ręcznie wysypuje dane osobowe na terminal.
+const POLA_JSON = process.argv.includes('--pola-json');
+const iPrawda = process.argv.indexOf('--zapisz-prawde');
+const plikPrawdy = iPrawda >= 0 ? process.argv[iPrawda + 1] : null;
 const obraz = (SELFTEST || plikBajtow || katalog) ? null : process.argv[2];
 if (BEZPOSREDNIO && !SELFTEST && !plikBajtow && !katalog && (!obraz || !fs.existsSync(obraz))) {
   console.error('Podaj ścieżkę do zdjęcia dowodu: node tools/aztec-compare.js <plik>');
   console.error('albo kontrolę wierności bajtów:   node tools/aztec-compare.js --selftest');
   console.error('albo gotowe bajty ładunku:        node tools/aztec-compare.js --bytes <plik.bin>');
   console.error('albo CAŁY katalog dokumentów:     node tools/aztec-compare.js --katalog <folder>');
+  console.error('zbiór odniesienia do porównań OCR: node tools/aztec-compare.js --katalog <folder> \\');
+  console.error('                                     --zapisz-prawde <poza-repo>/aztec-prawda.json');
   process.exit(2);
 }
 
@@ -535,6 +543,18 @@ async function glowna() {
   }
   console.log('  (VIN, nr rej. i seria dowodu zamaskowane — patrz komentarz w źródle)');
 
+  // Zbiór odniesienia: rodzic prosi o pola BEZ maskowania. Ścieżka A (produkcyjna)
+  // ma pierwszeństwo — to ona odpowiada temu, co zobaczy aplikacja; B tylko gdy A padła.
+  if (POLA_JSON) {
+    const dA = wynik.A.ok ? dekoduj(wynik.A.bajty) : null;
+    const dB = wynik.B.ok ? dekoduj(wynik.B.bajty) : null;
+    const d = (dA && dA.ok) ? dA : ((dB && dB.ok) ? dB : null);
+    if (d) console.log('___POLA___' + JSON.stringify({
+      plik: obraz, sciezka: (dA && dA.ok) ? 'A' : 'B',
+      format: d.format, fieldCount: d.fieldCount, fields: d.fields,
+    }));
+  }
+
   const uzyteczne = r => r.ok && naglowekOk(r.bajty) && dekoduj(r.bajty).ok;
   const aOk = uzyteczne(wynik.A);
   const bOk = uzyteczne(wynik.B);
@@ -599,6 +619,41 @@ function trybKatalogu(dir) {
   const { execFileSync } = require('child_process');
   const skrot = p => { const f = path.basename(p); return f.length > 34 ? f.slice(0, 16) + '…' + f.slice(-14) : f; };
 
+  // ── Zbiór odniesienia: gdzie WOLNO go zapisać ──────────────────────────────
+  //
+  // Plik zawiera VIN, numer rejestracyjny, serię dowodu, nazwisko właściciela i NIP
+  // — NIEZAMASKOWANE, bo taki jest sens zbioru odniesienia. `.gitignore` chroni tylko
+  // pliki WEWNĄTRZ drzewa repozytorium, a i to dopiero gdy ktoś doda właściwą regułę
+  // ZANIM plik powstanie (reguła nie działa wstecz — plik dodany wcześniej zostaje
+  // śledzony). Poleganie na tym byłoby jednym `git add -A` od wycieku.
+  //
+  // Dlatego zapis do drzewa repozytorium jest ODMAWIANY, a nie ostrzegany.
+  let ROOT = null;
+  if (plikPrawdy) {
+    if (path.extname(plikPrawdy).toLowerCase() !== '.json') {
+      console.error(`\n  --zapisz-prawde oczekuje pliku .json, dostało: ${plikPrawdy}\n`);
+      process.exit(2);
+    }
+    ROOT = path.resolve(__dirname, '..');
+    const cel = path.resolve(plikPrawdy);
+    const wRepo = cel === ROOT || cel.startsWith(ROOT + path.sep);
+    if (wRepo) {
+      console.error(`\n  \x1b[31mODMOWA: ${cel}\x1b[0m leży w drzewie repozytorium.`);
+      console.error('  Plik zawiera NIEZAMASKOWANE VIN-y, numery rejestracyjne i dane właścicieli.');
+      console.error('  Wskaż lokalizację poza repo, np.:');
+      console.error('    --zapisz-prawde "%USERPROFILE%\\Documents\\taxorder-backupy\\aztec-prawda.json"\n');
+      process.exit(2);
+    }
+    const katDocelowy = path.dirname(cel);
+    if (!fs.existsSync(katDocelowy)) {
+      console.error(`\n  Katalog docelowy nie istnieje: ${katDocelowy}\n  Utwórz go i powtórz.\n`);
+      process.exit(2);
+    }
+    console.log(`\n  Zbiór odniesienia zostanie zapisany do: ${cel}`);
+    console.log('  \x1b[33mUWAGA: plik będzie zawierał dane osobowe bez maskowania.\x1b[0m');
+    console.log('  Nie wklejaj go do czatu, zgłoszenia ani repozytorium.\n');
+  }
+
   // Wypisz, CO zostało znalezione, zanim cokolwiek policzymy. Jeśli to nie są dowody,
   // widać to od razu, zamiast po zobaczeniu zer.
   const wgFolderu = {};
@@ -614,7 +669,7 @@ function trybKatalogu(dir) {
   for (const f of pliki) {
     let out = '', kod = 0;
     try {
-      out = execFileSync(process.execPath, [__filename, f],
+      out = execFileSync(process.execPath, [__filename, f, ...(plikPrawdy ? ['--pola-json'] : [])],
         { encoding: 'utf8', timeout: 180000, stdio: ['ignore', 'pipe', 'pipe'] });
     } catch (e) { out = (e.stdout || '') + (e.stderr || ''); kod = e.status ?? 1; }
 
@@ -632,7 +687,13 @@ function trybKatalogu(dir) {
     const czym = awariaNarzedzia ? (czysty.trim().split('\n')[0] || '').slice(0, 44)
       : A && B ? 'obie ścieżki' : A ? 'tylko A (produkcyjna)' : B ? 'tylko B (detektor)' : '—';
     console.log(`  ${skrot(f).padEnd(36)} ${stan.padEnd(22)} ${czym}`);
-    wyniki.push({ f, A, B, ok: A || B, awariaNarzedzia });
+
+    let pola = null;
+    if (plikPrawdy) {
+      const linia = czysty.split('\n').find(l => l.startsWith('___POLA___'));
+      if (linia) { try { pola = JSON.parse(linia.slice(10)); } catch { /* pominięty rekord widać w podsumowaniu */ } }
+    }
+    wyniki.push({ f, A, B, ok: A || B, awariaNarzedzia, pola });
   }
 
   const awarie = wyniki.filter(w => w.awariaNarzedzia);
@@ -654,6 +715,57 @@ function trybKatalogu(dir) {
     : proc === 100
       ? '\n  Wszystko odczytane — ścieżka produkcyjna działa na realnych dowodach.\n'
       : `\n  Częściowa skuteczność. Porównaj pliki odczytane z nieodczytanymi (format, DPI,\n  skaner) — różnica między nimi jest tu ważniejsza niż sam odsetek.\n`);
+
+  // ── Zapis zbioru odniesienia ───────────────────────────────────────────────
+  //
+  // PO CO TO ISTNIEJE. Pytanie „który model OCR jest lepszy dla NASZYCH dowodów"
+  // nie ma odpowiedzi w cudzych benchmarkach: nasze dokumenty to formularz o stałym
+  // układzie, a wąskim gardłem nie jest rozpoznawanie znaków, tylko trafienie
+  // we właściwe pole (F.1 z żółtej tabeli, nie F.2; litera K to homologacja, nie VIN).
+  //
+  // Aztec daje pola ze 100% pewnością, więc każdy dokument, z którego kod się odczytał,
+  // jest DARMOWĄ próbką odniesienia — bez ręcznego etykietowania. Ten plik zamienia
+  // je w zbiór, na którym da się zmierzyć dowolny model na tych samych obrazach.
+  if (plikPrawdy) {
+    const zPolami = wyniki.filter(w => w.pola);
+    if (!zPolami.length) {
+      console.log('  \x1b[33mŻaden dokument nie dał pól — plik odniesienia NIE został zapisany.\x1b[0m');
+      console.log('  Pusty plik wyglądałby jak zbiór, którym nie jest.\n');
+      process.exit(ok ? 0 : 1);
+    }
+
+    // Ten sam pojazd bywa w zbiorze wielokrotnie: dowód z leasingu i dowód własny
+    // po wykupie. Do pomiaru modelu liczy się RÓŻNORODNOŚĆ dokumentów, więc zostaje
+    // jeden rekord na VIN — ten z najpóźniejszą datą wydania, czyli aktualny.
+    const doDaty = (s) => {
+      const m = String(s || '').match(/(\d{2})[.\-/](\d{2})[.\-/](\d{4})/);
+      return m ? `${m[3]}${m[2]}${m[1]}` : '';
+    };
+    const wgVin = new Map();
+    for (const w of zPolami) {
+      const vin = w.pola.fields?.vin || `__bezVin_${w.f}`;
+      const poprz = wgVin.get(vin);
+      if (!poprz || doDaty(w.pola.fields?.dataWydania) > doDaty(poprz.pola.fields?.dataWydania)) wgVin.set(vin, w);
+    }
+    const rekordy = [...wgVin.values()].map(w => ({
+      plik: w.f, sciezkaOdczytu: w.pola.sciezka,
+      format: w.pola.format, fieldCount: w.pola.fieldCount, fields: w.pola.fields,
+    }));
+
+    fs.writeFileSync(path.resolve(plikPrawdy), JSON.stringify({
+      _ostrzezenie: 'DANE OSOBOWE BEZ MASKOWANIA (VIN, nr rej., właściciel, NIP). Trzymaj poza repozytorium, nie wklejaj do czatu ani zgłoszeń.',
+      _zrodlo: 'kod Aztec z dowodu rejestracyjnego — wartości pewne, nie OCR',
+      _wygenerowano: new Date().toISOString(),
+      _zbadanych: zbadane.length, _zOdczytem: ok, _poDeduplikacjiVin: rekordy.length,
+      rekordy,
+    }, null, 2), 'utf8');
+
+    const duplikaty = zPolami.length - rekordy.length;
+    console.log(`  Zapisano zbiór odniesienia: ${rekordy.length} rekordów` +
+      (duplikaty ? ` (pominięto ${duplikaty} starszych dowodów tego samego VIN)` : ''));
+    console.log(`  → ${path.resolve(plikPrawdy)}\n`);
+  }
+
   process.exit(ok ? 0 : 1);
 }
 

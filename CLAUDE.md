@@ -332,6 +332,21 @@ do zgłoszenia bez wycieku.
 
     node tools/aztec-compare.js ~/Documents/taxorder-backupy/dowod.jpg
 
+**Zbiór odniesienia do porównywania modeli OCR — bez ręcznego etykietowania.** Pytanie
+„który model OCR jest lepszy dla NASZYCH dowodów" nie ma odpowiedzi w cudzych benchmarkach:
+nasze dokumenty to formularz o stałym układzie, a wąskim gardłem nie jest rozpoznawanie
+znaków, tylko trafienie we właściwe pole (F.1 z żółtej tabeli, nie F.2; litera K to
+homologacja, nie VIN). Aztec daje pola ze **100% pewnością**, więc każdy dokument
+z odczytanym kodem jest darmową próbką odniesienia:
+
+    node tools/aztec-compare.js --katalog "<folder z dowodami>" \
+      --zapisz-prawde ~/Documents/taxorder-backupy/aztec-prawda.json
+
+Deduplikuje po VIN, zostawiając dowód z najpóźniejszą datą wydania (leasingowy kontra
+własny po wykupie). **Zapis do drzewa repozytorium jest ODMAWIANY, nie ostrzegany** —
+plik zawiera niezamaskowane VIN-y i dane właścicieli, a `.gitignore` nie działa wstecz.
+Pilnuje tego bramka `tests/unit/aztec-prawda-guard-test.js`.
+
 **Inter Cars nie jest tu odpowiedzią.** Ich `/pl/api/aztec/file/decode` kończy się na
 VIN-ie i przekazaniu go do dostawców `[GA09, MRS7, BTR5, BTR6]` — służy identyfikacji
 auta pod katalog części. DT-1 potrzebuje DMC, liczby osi i zawieszenia, czyli pełnego
