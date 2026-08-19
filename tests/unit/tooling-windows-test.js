@@ -96,5 +96,25 @@ ok(/process\.exitCode\s*=/.test(ostatnie) && !/process\.exit\(/.test(ostatnie),
     ? 'cf-ocr-test kończy async przez process.exitCode (nie ubija zamykających się gniazd)'
     : 'cf-ocr-test woła process.exit() w kontekście async — na Windowsie przerwie asercją libuv');
 
+// ── [5] narzędzia wołające wranglera nie wstrzykują mu tokenu API ───────────
+// CLOUDFLARE_API_TOKEN w środowisku PRZESŁANIA `wrangler login` — wrangler używa tokenu
+// do wszystkiego i ignoruje OAuth. Token utworzony do testu OCR ma zakres „Workers AI →
+// Read", więc `deploy` i `tail` odbijają się od Authentication error [10000], a komunikat
+// wygląda na wygasłe logowanie. Wystąpiło u użytkownika po tym, jak dodałem tu `dotenv`.
+// Sprawdzamy WYWOŁANIE, nie napis: komentarz wyjaśniający, dlaczego dotenv jest tu
+// niepożądany, sam zawiera to słowo. Pierwsza wersja tej asercji dopasowywała /dotenv/
+// i padała na własnym komentarzu — bramka opisywałaby wtedy tekst, a nie zachowanie.
+const uw = fs.readFileSync(path.join(ROOT, 'tools', 'uruchom-wszystko.js'), 'utf8');
+const bezKomentarzy = uw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+const ladujeEnv = /require\(\s*['"]dotenv['"]\s*\)/.test(bezKomentarzy);
+ok(!ladujeEnv,
+  !ladujeEnv
+    ? 'uruchom-wszystko NIE wczytuje .env (nie przesłania OAuth tokenem o wąskim zakresie)'
+    : 'uruchom-wszystko wczytuje .env — CLOUDFLARE_API_TOKEN przesłoni wrangler login');
+ok(/delete env\.CLOUDFLARE_API_TOKEN/.test(uw),
+  /delete env\.CLOUDFLARE_API_TOKEN/.test(uw)
+    ? 'uruchom-wszystko usuwa token ze środowiska podprocesów wranglera'
+    : 'uruchom-wszystko przekazuje CLOUDFLARE_API_TOKEN do wranglera — zablokuje deploy');
+
 console.log(`\n────────────────────────────────────────────\nWynik: ${pass} PASS / ${fail} FAIL\n`);
 process.exit(fail ? 1 : 0);
