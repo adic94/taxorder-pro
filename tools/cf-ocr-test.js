@@ -304,5 +304,12 @@ function polaZOdpowiedzi(dane) {
     console.log(D('  po stronie REST. To była otwarta niewiadoma w CLAUDE.md. Zostaje sprawdzić,'));
     console.log(D('  czy powiązanie `env.AI.run()` w Workerze przyjmuje ten sam kształt.\n'));
   }
-  process.exit(dzialajace.length ? 0 : 1);
+  // `process.exitCode`, NIE `process.exit()`. Ten kod wykonuje sie wewnatrz funkcji async,
+  // w ktorej gniazda `fetch` moga byc jeszcze w trakcie zamykania. `process.exit()` ubija
+  // petle zdarzen w srodku tej operacji i libuv na Windowsie przerywa asercja:
+  //     Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c
+  // Wynik jest juz wtedy wypisany, wiec nic nie ginie — ale wyglada jak awaria narzedzia
+  // i przykrywa prawdziwy komunikat. Ustawienie kodu wyjscia pozwala Node'owi domknac
+  // uchwyty i zakonczyc sie normalnie, z tym samym kodem.
+  process.exitCode = dzialajace.length ? 0 : 1;
 })();

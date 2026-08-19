@@ -83,5 +83,18 @@ for (const [kod, opis] of [['5016', 'licencja modelu'], ['4006', 'dzienny limit 
   ok(ocr.includes(kod), `cf-ocr-test rozpoznaje kod ${kod} (${opis})`);
 }
 
+// ── [4] narzędzia oparte na fetch nie ubijają pętli zdarzeń ─────────────────
+// `process.exit()` wywołany wewnątrz funkcji async, gdy gniazda fetch jeszcze się
+// zamykają, przerywa Node'a asercją libuv NA WINDOWSIE:
+//     Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c
+// Wynik jest wtedy już wypisany, więc nic nie ginie — ale wygląda jak awaria narzędzia
+// i przykrywa prawdziwy komunikat. Zgłoszone przez użytkownika po realnym przebiegu.
+// Na Linuksie to samo kończy się bez asercji, więc CI tego nie złapie.
+const ostatnie = ocr.slice(ocr.lastIndexOf('})();') - 400);
+ok(/process\.exitCode\s*=/.test(ostatnie) && !/process\.exit\(/.test(ostatnie),
+  /process\.exitCode\s*=/.test(ostatnie) && !/process\.exit\(/.test(ostatnie)
+    ? 'cf-ocr-test kończy async przez process.exitCode (nie ubija zamykających się gniazd)'
+    : 'cf-ocr-test woła process.exit() w kontekście async — na Windowsie przerwie asercją libuv');
+
 console.log(`\n────────────────────────────────────────────\nWynik: ${pass} PASS / ${fail} FAIL\n`);
 process.exit(fail ? 1 : 0);
