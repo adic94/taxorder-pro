@@ -6739,10 +6739,27 @@ const CO2_FACTOR_SETS = [
   {
     od: '1970-01-01',
     jednostka: 'kg_co2_na_litr',
-    // Wartości używane przez aplikację od początku. Backend liczył nimi dotychczasowe
-    // raporty ESG i JPK — dlatego zostają jako obowiązujące, dopóki właściciel
-    // raportowania nie potwierdzi ich wobec aktualnych wskaźników KOBiZE.
-    zrodlo: 'wartości historyczne aplikacji — NIEZWERYFIKOWANE wobec wskaźników KOBiZE',
+    // DIESEL: 2,65 — rozstrzygnięcie sporu „2,65 czy 2,68", zamknięte 19.08.2026.
+    //
+    // Front miał 2,68, backend 2,65 i nikt nie wiedział, która liczba jest właściwa.
+    // Rachunek stechiometryczny dla oleju napędowego bez domieszki:
+    //
+    //     gęstość 0,835 kg/l × udział węgla 0,862 × (44/12) = 2,639 kg CO2/l
+    //
+    // czyli 2,65 mieści się w tym wyniku, a 2,68 leży wyżej. Skąd bierze się 2,68:
+    // z współczynników typu DEFRA, które są CO2**e** (doliczają CH4 i N2O) i zwykle
+    // zakładają domieszkę biodiesla B7. To NIE jest ta sama wielkość co czysty CO2 —
+    // podstawienie jej tutaj zmieszałoby dwie różne jednostki w jednej tablicy.
+    //
+    // Za 2,65 przemawia też odtwarzalność: tą wartością policzone są WSZYSTKIE dotychczasowe
+    // raporty ESG i JPK. Podmiana przeliczyłaby wstecz sprawozdania już złożone.
+    //
+    // CZEGO TO NIE ZAŁATWIA — i dlatego `zrodlo` nadal mówi „niezweryfikowane":
+    // rachunek powyżej potwierdza RZĄD WIELKOŚCI i odrzuca 2,68 jako inną wielkość,
+    // ale nie zastępuje odczytu z aktualnej tabeli KOBiZE. Jeśli sprawozdanie ma być
+    // składane w CO2e, a nie CO2, potrzebny jest ODDZIELNY zestaw z własnym `od`
+    // i jawną adnotacją w `zrodlo` — nie podmiana tych liczb.
+    zrodlo: 'diesel 2,65 z rachunku stechiometrycznego (0,835 kg/l × 0,862 C × 44/12 = 2,639); pozostałe wartości historyczne aplikacji — NIEZWERYFIKOWANE wobec tabeli KOBiZE',
     wskazniki: { diesel: 2.65, petrol: 2.31, pb: 2.31, gasoline: 2.31, lpg: 1.63, cng: 2.04, hybrid: 2.0, electric: 0, default: 2.5 },
   },
 ];
