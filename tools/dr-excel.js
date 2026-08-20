@@ -55,7 +55,19 @@ const wyjscie = (iw >= 0 ? argv[iw + 1] : null) || path.join(
   process.env.USERPROFILE || process.env.HOME || '.', 'Documents', 'taxorder-backupy',
   `dowody-rejestracyjne-${new Date().toISOString().slice(0, 10)}.xlsx`);
 
-if (!wejscie || wejscia.some(w => !fs.existsSync(w))) {
+// Komunikat ma mowic, CO jest nie tak. Wypisanie instrukcji uzycia przy istniejacym,
+// ale literowkowym argumencie kaze szukac bledu w skladni polecenia, a nie w sciezce.
+const brakujace = wejscia.filter(w => !fs.existsSync(w));
+if (wejscie && brakujace.length) {
+  console.error(R(`\n  Nie ma takich plikow (${brakujace.length}):`));
+  for (const b of brakujace) console.error(`     ${b}`);
+  console.error(D('\n  Jesli to placeholder w rodzaju <plik>.json — podmien na prawdziwa sciezke.'));
+  console.error(D('  Szukanie kandydatow:'));
+  console.error(D('     Get-ChildItem "$env:USERPROFILE\\Documents\\taxorder-backupy" -Filter *.json'));
+  console.error('');
+  process.exit(2);
+}
+if (!wejscie) {
   console.error(`\nUżycie: node tools/dr-excel.js <dane1.json> [dane2.json ...] [--wyjscie plik.xlsx]\n`);
   console.error(`Wejście: tablica JSON, jeden obiekt na pojazd, klucze wg modules/dr-fields.js`);
   console.error(`Opcjonalnie w rekordzie: _zrodlo, _zrodla, _plik\n`);
