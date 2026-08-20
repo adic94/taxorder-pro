@@ -219,7 +219,12 @@ if (nr) url.searchParams.set('numer-rejestracyjny', nr);
     console.log(D(`\n  Odpowiedź serwera: ${tresc.slice(0, 200)}\n`));
     process.exitCode = 1; return;
   }
-  if (!r.ok) {
+  // `r.status`, NIE `r.ok`. `.ok` istnieje wylacznie w odpowiedzi `fetch`; po przejsciu
+  // na `https.get` obiekt go NIE MA, wiec `!r.ok` bylo ZAWSZE prawdziwe i sonda wchodzila
+  // w galaz bledu nawet przy HTTP 200 — wypisujac surowa odpowiedz zamiast analizy pol.
+  // Czwarty blad tej samej klasy w tej sesji: zmiana ksztaltu obiektu psuje zalozenie
+  // w innym miejscu. Po kazdej takiej zmianie trzeba przejsc WSZYSTKIE odwolania.
+  if (r.status < 200 || r.status >= 300) {
     console.log(R(`  HTTP ${r.status}`));
     console.log(D(`  ${tresc.slice(0, 300)}\n`));
     process.exitCode = 1; return;
