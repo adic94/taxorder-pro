@@ -45,6 +45,7 @@ const G = s => `\x1b[32m${s}\x1b[0m`, R = s => `\x1b[31m${s}\x1b[0m`,
       Y = s => `\x1b[33m${s}\x1b[0m`, B = s => `\x1b[1m${s}\x1b[0m`, D = s => `\x1b[2m${s}\x1b[0m`;
 
 const argv = process.argv.slice(2);
+const POKAZ = argv.includes('--pokaz');
 const iw = argv.indexOf('--wyjscie');
 // `iw >= 0` JEST KONIECZNE. Bez tego przy braku --wyjscie mamy iw === -1, wiec iw+1 === 0
 // i filtr wyrzuca argument numer 0 — czyli jedyny podany plik wejsciowy. Objawialo sie to
@@ -78,6 +79,70 @@ if (!wejscie) {
 // `.gitignore` chroni wyłącznie pliki wewnątrz drzewa i tylko gdy reguła powstała
 // ZANIM plik się pojawił — reguła nie działa wstecz. Ostrzeżenie na terminalu ginie
 // w wyjściu przebiegu; odmowa nie ginie.
+/**
+ * `--pokaz` — co naprawde jest w pliku JSON, zanim go scalimy.
+ *
+ * Pliki z cudzych pipeline'ow (checkpointy, wyniki OCR) maja wlasny ksztalt: bywaja
+ * obiektem zamiast tablicy, trzymaja rekordy pod dowolnym kluczem, uzywaja innych nazw
+ * pol. Scalanie na slepo daje arkusz z pustymi kolumnami i zadnego sygnalu, ze cos poszlo
+ * nie tak — bo brak danych wyglada identycznie jak brak dopasowania.
+ *
+ * Ten sam wzorzec co `xlsx-import --pokaz`: najpierw obejrzyj, potem uzyj.
+ */
+function trybPokaz(sciezki) {
+  for (const sc of sciezki) {
+    console.log(B(`\n  ${path.basename(sc)}`));
+    let d;
+    try { d = JSON.parse(fs.readFileSync(sc, 'utf8')); }
+    catch (e) { console.log(R(`     nie jest poprawnym JSON-em: ${e.message}\n`)); continue; }
+
+    let rek = d, podKluczem = null;
+    if (!Array.isArray(d)) {
+      const kandydat = ['rekordy', 'pojazdy', 'data', 'results', 'items', 'wyniki', 'documents']
+        .find(k => Array.isArray(d[k]));
+      if (kandydat) { rek = d[kandydat]; podKluczem = kandydat; }
+      else {
+        const tablice = Object.entries(d).filter(([, v]) => Array.isArray(v) && v.length);
+        if (tablice.length === 1) { rek = tablice[0][1]; podKluczem = tablice[0][0]; }
+      }
+    }
+    if (!Array.isArray(rek)) {
+      console.log(Y('     nie tablica rekordow.') + D(`  klucze najwyzszego poziomu: ${Object.keys(d).slice(0, 12).join(', ')}`));
+      console.log(D('     Wskaz podtablice recznie albo przeksztalc plik.\n'));
+      continue;
+    }
+    console.log(D(`     ${rek.length} rekordow` + (podKluczem ? ` (pod kluczem "${podKluczem}")` : '')));
+
+    // Zbieramy WSZYSTKIE klucze wystepujace w rekordach, nie tylko z pierwszego —
+    // pipeline'y czesto pomijaja puste pola, wiec pierwszy rekord nie opisuje calosci.
+    const licznik = {};
+    for (const r of rek.slice(0, 500)) {
+      if (r && typeof r === 'object') for (const k of Object.keys(r)) licznik[k] = (licznik[k] || 0) + 1;
+    }
+    const znane = new Set(DR.klucze());
+    const wszystkie = Object.keys(licznik).sort((a, b) => licznik[b] - licznik[a]);
+    const pasuje = wszystkie.filter(k => znane.has(k));
+    const obce   = wszystkie.filter(k => !znane.has(k) && !k.startsWith('_'));
+
+    console.log(`     ${pasuje.length ? G('✓') : R('✗')} pol zgodnych z katalogiem: ${pasuje.length}`);
+    for (const k of pasuje) {
+      const pole = DR.wgKlucza[k];
+      console.log(`        ${(pole.kod + ' ' + k).padEnd(28)} ${String(licznik[k]).padStart(4)} rekordow` +
+        (pole.dt1 ? Y('   DT-1') : ''));
+    }
+    if (obce.length) console.log(D(`     pola spoza katalogu (${obce.length}): ${obce.slice(0, 14).join(', ')}${obce.length > 14 ? '…' : ''}`));
+    const zeZrodlem = rek.filter(r => r && (r._zrodlo || r._zrodla)).length;
+    console.log(D(`     rekordow z oznaczonym zrodlem: ${zeZrodlem}/${rek.length}` +
+      (zeZrodlem ? '' : '  — dostana domyslne "folder", najnizsza range')));
+  }
+  console.log('');
+}
+
+// PODGLAD PRZED STRAZNIKAMI ZAPISU. `--pokaz` niczego nie zapisuje, wiec sprawdzanie
+// katalogu docelowego i drzewa repozytorium jest dla niego bez znaczenia — a wykonane
+// wczesniej BLOKOWALOBY podglad, gdy domyslny katalog nie istnieje.
+if (POKAZ) { trybPokaz(wejscia); process.exit(0); }
+
 const ROOT = path.resolve(__dirname, '..');
 const cel = path.resolve(wyjscie);
 if (cel === ROOT || cel.startsWith(ROOT + path.sep)) {
