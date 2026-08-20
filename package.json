@@ -24,6 +24,7 @@
     "aztec:diagnoza": "node tools/aztec-diagnoza.js",
     "cepik:probe": "node tools/cepik-probe.js",
     "dr:excel": "node tools/dr-excel.js",
+    "xlsx:import": "node tools/xlsx-import.js",
     "test:gates": "node tools/autotest/run-gates.js",
     "report-sources-check": "node tests/unit/report-sources-test.js",
     "test:esg": "node tests/api/esg-reports-test.js",
