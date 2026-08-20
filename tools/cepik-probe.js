@@ -60,8 +60,22 @@ const SZYFRY_ECDHE = [
 const G = s => `\x1b[32m${s}\x1b[0m`, R = s => `\x1b[31m${s}\x1b[0m`,
       Y = s => `\x1b[33m${s}\x1b[0m`, B = s => `\x1b[1m${s}\x1b[0m`, D = s => `\x1b[2m${s}\x1b[0m`;
 
-const nr  = process.argv[2] || '';
-const woj = process.argv[3] || '14';
+/**
+ * `--slaby-tls` — OSTATECZNOŚĆ, świadomie NIEDOMYŚLNA.
+ *
+ * Obniża poziom bezpieczeństwa OpenSSL, żeby zaakceptować słaby parametr Diffie-Hellmana,
+ * zamiast go omijać przez ECDHE. Wtedy uzgadnianie jest podatne na atak pośrednika:
+ * ktoś w drodze mógłby PODMIENIĆ ODPOWIEDŹ, a odpowiedź to dane pojazdu, które trafiają
+ * do deklaracji podatkowej.
+ *
+ * Dla samego rozpoznania NAZW PÓL ryzyko jest znikome — nie wysyłamy poświadczeń, a wynik
+ * i tak weryfikuje człowiek. Do POBIERANIA DANYCH tą drogą nie należy tego używać.
+ * Dlatego flaga jest jawna: narzędzie mówi, że opcja istnieje i ile kosztuje, ale decyzji
+ * nie podejmuje za człowieka.
+ */
+const SLABY_TLS = process.argv.includes('--slaby-tls');
+const nr  = process.argv.filter(a => !a.startsWith('--'))[0] || '';
+const woj = process.argv.filter(a => !a.startsWith('--'))[1] || '14';
 const rok = new Date().getFullYear() - 1;
 
 // Pola, na których nam zależy — pogrupowane wg tego, co z nimi zrobimy.
@@ -87,15 +101,30 @@ if (nr) url.searchParams.set('numer-rejestracyjny', nr);
   try {
     r = await zadanieHttps(url);
   } catch (e0) {
-    // Słaby parametr DH po stronie serwera — jedyny błąd, przy którym ponawianie ma sens.
-    const kod0 = (e0.cause || e0).code || e0.message || '';
-    if (!/DH_KEY_TOO_SMALL|SSLV3_ALERT|WRONG_VERSION|UNSUPPORTED_PROTOCOL/i.test(String(kod0))) {
+    // Błąd uzgadniania TLS — jedyny rodzaj, przy którym ponawianie ma sens.
+    //
+    // SPRAWDZAMY KOD *ORAZ* TREŚĆ. `https.get` zgłasza słaby parametr DH jako `EPROTO`,
+    // a konkret („dh key too small") siedzi dopiero w komunikacie. Pierwsza wersja tego
+    // warunku patrzyła wyłącznie na kod i przez to NIE PONAWIAŁA — u użytkownika sonda
+    // poddawała się na `EPROTO`, mimo że miała dokładnie na taki przypadek obejście.
+    const err0 = e0.cause || e0;
+    const kod0 = err0.code || e0.code || '';
+    const opis0 = `${kod0} ${err0.message || ''} ${e0.message || ''}`;
+    const doPonowienia = /EPROTO|ERR_SSL|DH_KEY_TOO_SMALL|dh key too small|SSLV3_ALERT|WRONG_VERSION|UNSUPPORTED_PROTOCOL|HANDSHAKE/i;
+    if (!doPonowienia.test(opis0)) {
       var e = e0; r = null;
     } else {
-      console.log(Y(`  Serwer nie uzgodnił połączenia domyślnymi ustawieniami (${kod0}).`));
+      console.log(Y(`  Serwer nie uzgodnił połączenia domyślnymi ustawieniami (${kod0 || 'błąd TLS'}).`));
       console.log(D('  Ponawiam z wymuszonym ECDHE — omija słaby parametr DH, nie osłabia szyfrowania.\n'));
       try { r = await zadanieHttps(url, { ciphers: SZYFRY_ECDHE }); sciezka = 'ECDHE'; }
-      catch (e1) { var e = e1; r = null; }
+      catch (e1) {
+        if (SLABY_TLS) {
+          console.log(R('  ECDHE też nie przeszło. Ponawiam z OBNIŻONYM poziomem bezpieczeństwa'));
+          console.log(R('  (--slaby-tls) — uzgadnianie podatne na podmianę odpowiedzi.\n'));
+          try { r = await zadanieHttps(url, { ciphers: 'DEFAULT@SECLEVEL=0', minDHSize: 512 }); sciezka = 'SECLEVEL=0'; }
+          catch (e2) { var e = e2; r = null; }
+        } else { var e = e1; r = null; }
+      }
     }
   }
   if (!r) {
@@ -117,6 +146,7 @@ if (nr) url.searchParams.set('numer-rejestracyjny', nr);
       CERT_HAS_EXPIRED: 'Certyfikat wygasł albo firewall podstawia własny.',
       UNABLE_TO_VERIFY_LEAF_SIGNATURE: 'Łańcuch certyfikatów nie do zweryfikowania — zwykle firewall z własnym CA.',
       DEPTH_ZERO_SELF_SIGNED_CERT: 'Certyfikat samopodpisany — ruch przechodzi przez proxy inspekcjonujące TLS.',
+      EPROTO: 'Błąd protokołu TLS. Serwer i klient nie dogadali się co do wersji albo zestawu szyfrów.',
     };
     if (PODPOWIEDZI[kod]) console.log(Y(`     ${PODPOWIEDZI[kod]}`));
 
@@ -125,7 +155,15 @@ if (nr) url.searchParams.set('numer-rejestracyjny', nr);
     console.log(D('     Test-NetConnection api.cepik.gov.pl -Port 443'));
     console.log(D('     curl.exe -sI "https://api.cepik.gov.pl/pojazdy?wojewodztwo=14&limit=1"'));
     console.log(D('\n  Jeśli DNS nie rozwiązuje albo port 443 jest zamknięty — to sieć, nie API.'));
-    console.log(D('  Spróbuj z innej sieci (np. hotspot z telefonu), żeby to rozstrzygnąć.\n'));
+    console.log(D('  Spróbuj z innej sieci (np. hotspot z telefonu), żeby to rozstrzygnąć.'));
+    if (/EPROTO|SSL|TLS|HANDSHAKE|DH/i.test(`${kod} ${c.message || ''} ${e.message || ''}`) && !SLABY_TLS) {
+      console.log(Y('\n  To jest błąd UZGADNIANIA TLS, nie sieci — DNS i port 443 działają.'));
+      console.log(Y('  Ostateczność, jeśli ECDHE nie wystarczyło:'));
+      console.log(`      ${B('node tools/cepik-probe.js --slaby-tls')}`);
+      console.log(D('  Obniża poziom bezpieczeństwa, żeby zaakceptować słaby parametr serwera.'));
+      console.log(D('  Do rozpoznania NAZW PÓL to akceptowalne; do pobierania danych — nie.'));
+    }
+    console.log('');
     process.exitCode = 2; return;
   }
 
