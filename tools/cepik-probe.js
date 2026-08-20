@@ -74,8 +74,13 @@ const G = s => `\x1b[32m${s}\x1b[0m`, R = s => `\x1b[31m${s}\x1b[0m`,
  * nie podejmuje za człowieka.
  */
 const SLABY_TLS = process.argv.includes('--slaby-tls');
-const nr  = process.argv.filter(a => !a.startsWith('--'))[0] || '';
-const woj = process.argv.filter(a => !a.startsWith('--'))[1] || '14';
+// `slice(2)` JEST KONIECZNE: argv[0] to sciezka node'a, argv[1] to sciezka skryptu.
+// Przy dodawaniu --slaby-tls zamienilem process.argv[2] na filter(...)[0] i zgubilem
+// slice — przez co sciezka skryptu poszla do CEPiK jako kod wojewodztwa, a serwer
+// odpowiedzial HTTP 400. Blad byl widoczny dopiero w URL-u, nie w kodzie.
+const wolne = process.argv.slice(2).filter(a => !a.startsWith('--'));
+const nr  = wolne[0] || '';
+const woj = wolne[1] || '14';
 const rok = new Date().getFullYear() - 1;
 
 // Pola, na których nam zależy — pogrupowane wg tego, co z nimi zrobimy.
@@ -84,6 +89,19 @@ const SZUKANE = {
   'DT-1 — masy':      [/masa/i, /dopuszczalna/i, /^dmc/i],
   'identyfikacja':    [/^vin/i, /rejestracyj/i, /^marka/i, /^model/i, /^rok/i, /kategoria/i],
 };
+
+// Walidacja PRZED wyslaniem. Bledny argument ma sie zatrzymac tutaj, z czytelnym
+// komunikatem, a nie wrocic jako HTTP 400 z serwera — tam wyglada na awarie API.
+if (!/^\d{2}$/.test(woj)) {
+  console.error(R(`\n  Kod wojewodztwa musi byc dwucyfrowy, dostalem: "${woj}"`));
+  console.error(D('  Mazowieckie = 14. Pelna lista kodow w app.js (ALL_WOJ_CODES).\n'));
+  process.exit(2);
+}
+if (nr && !/^[A-Za-z0-9]{3,10}$/.test(nr.replace(/\s/g, ''))) {
+  console.error(R(`\n  To nie wyglada na numer rejestracyjny: "${nr}"`));
+  console.error(D('  Uzycie: node tools/cepik-probe.js [NR-REJ] [KOD-WOJ] [--slaby-tls]\n'));
+  process.exit(2);
+}
 
 const url = new URL('https://api.cepik.gov.pl/pojazdy');
 url.searchParams.set('wojewodztwo', woj);
