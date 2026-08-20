@@ -116,5 +116,22 @@ ok(/delete env\.CLOUDFLARE_API_TOKEN/.test(uw),
     ? 'uruchom-wszystko usuwa token ze środowiska podprocesów wranglera'
     : 'uruchom-wszystko przekazuje CLOUDFLARE_API_TOKEN do wranglera — zablokuje deploy');
 
+// ── [6] sondy API rozpoznają odpowiedź spoza docelowego serwisu ─────────────
+// Proxy firmowe i firewalle oddają WŁASNE 401/403 z treścią, która nie jest JSON-em API.
+// Narzędzie, które sprawdza kod statusu ZANIM sprawdzi, skąd przyszła odpowiedź, wydaje
+// werdykt o serwisie, do którego żądanie nie dotarło. Wystąpiło dwa razy:
+//   cf-ocr-test  — „HTTP 403" wyglądało na odrzucony token
+//   cepik-probe  — „403" zdiagnozowane jako „CEPiK wymaga autoryzacji"
+// Oba razy prawdziwą treścią było `Host not in allowlist`. Człowiek poszedłby wtedy
+// po poświadczenia, których nie potrzebuje.
+for (const n of ['cf-ocr-test.js', 'cepik-probe.js']) {
+  const src = fs.readFileSync(path.join(ROOT, 'tools', n), 'utf8');
+  const rozpoznaje = /NIE pochodzi/i.test(src);
+  ok(rozpoznaje,
+    rozpoznaje
+      ? `${n} rozpoznaje odpowiedź spoza docelowego API przed oceną statusu`
+      : `${n} ocenia kod statusu bez sprawdzenia, czy odpowiedź pochodzi z docelowego API`);
+}
+
 console.log(`\n────────────────────────────────────────────\nWynik: ${pass} PASS / ${fail} FAIL\n`);
 process.exit(fail ? 1 : 0);

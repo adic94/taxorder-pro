@@ -22,6 +22,7 @@
     "env:setup": "node tools/env-setup.js",
     "ocr:test": "node tools/cf-ocr-test.js",
     "aztec:diagnoza": "node tools/aztec-diagnoza.js",
+    "cepik:probe": "node tools/cepik-probe.js",
     "test:gates": "node tools/autotest/run-gates.js",
     "report-sources-check": "node tests/unit/report-sources-test.js",
     "test:esg": "node tests/api/esg-reports-test.js",
