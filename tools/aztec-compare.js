@@ -62,6 +62,10 @@ const katalog = iKat >= 0 ? process.argv[iKat + 1] : null;
 // żeby rodzic (--katalog) mógł zebrać zbiór odniesienia. Nieudokumentowany w pomocy —
 // uruchomiony ręcznie wysypuje dane osobowe na terminal.
 const POLA_JSON = process.argv.includes('--pola-json');
+const iRown = process.argv.indexOf('--rownolegle');
+// Domyslnie 1 = zachowanie sprzed dodania flagi. Zbior 1318 dokumentow przy jednym
+// procesie to godziny, bo kazdy plik dostaje wlasna przegladarke.
+const rownolegle = Math.max(1, Math.min(16, iRown >= 0 ? Number(process.argv[iRown + 1]) || 1 : 1));
 const iPrawda = process.argv.indexOf('--zapisz-prawde');
 const plikPrawdy = iPrawda >= 0 ? process.argv[iPrawda + 1] : null;
 const obraz = (SELFTEST || plikBajtow || katalog) ? null : process.argv[2];
@@ -70,6 +74,7 @@ if (BEZPOSREDNIO && !SELFTEST && !plikBajtow && !katalog && (!obraz || !fs.exist
   console.error('albo kontrolę wierności bajtów:   node tools/aztec-compare.js --selftest');
   console.error('albo gotowe bajty ładunku:        node tools/aztec-compare.js --bytes <plik.bin>');
   console.error('albo CAŁY katalog dokumentów:     node tools/aztec-compare.js --katalog <folder>');
+  console.error('szybciej na duzym zbiorze:          dodaj --rownolegle 4');
   console.error('zbiór odniesienia do porównań OCR: node tools/aztec-compare.js --katalog <folder> \\');
   console.error('                                     --zapisz-prawde <poza-repo>/aztec-prawda.json');
   process.exit(2);
@@ -594,7 +599,7 @@ module.exports = { wyciagnijDekoder, nrv2eLiteraly, zbudujDrKontrolny, opcjeChro
  * NIC NIE ZAPISUJE. Nazwy plików bywają numerami rejestracyjnymi, więc na wyjściu
  * są skracane; VIN, nr rej. i seria dowodu i tak są maskowane przez ścieżkę jednoplikową.
  */
-function trybKatalogu(dir) {
+async function trybKatalogu(dir) {
   if (!fs.existsSync(dir)) { console.error(`Nie ma katalogu: ${dir}`); process.exit(2); }
   const OBSLUGIWANE = /\.(pdf|jpe?g|png|webp)$/i;
 
@@ -665,13 +670,49 @@ function trybKatalogu(dir) {
   console.log('\n  Jeśli to nie wyglądają na skany dowodów rejestracyjnych — przerwij (Ctrl+C).');
   console.log('  Zero odczytów na złym materiale wygląda identycznie jak zero na dobrym.\n');
   console.log(`Odczyt kodu Aztec — ${pliki.length} dokumentów\n`);
+  // ── Pula pracownikow ────────────────────────────────────────────────────────
+  //
+  // Kazdy plik nadal dostaje WLASNY PODPROCES — to byl swiadomy wybor (izolacja: awaria
+  // jednego dokumentu nie przewraca przebiegu) i nie zmieniamy go. Zmienia sie tylko to,
+  // ile podprocesow biegnie naraz. Przy 1318 dokumentach roznica to godziny.
+  //
+  // Wyniki zbieramy do tablicy INDEKSOWANEJ POZYCJA PLIKU, a wypisujemy dopiero po
+  // wszystkim — inaczej przy rownoleglosci wiersze wychodzilyby w kolejnosci zakonczen
+  // i nie dalo by sie ich zestawic z lista wejsciowa.
+  const { execFile } = require('child_process');
+  const jedenPlik = (f) => new Promise(res => {
+    execFile(process.execPath, [__filename, f, ...(plikPrawdy ? ['--pola-json'] : [])],
+      { encoding: 'utf8', timeout: 180000, maxBuffer: 16 * 1024 * 1024 },
+      (err, stdout, stderr) => res({
+        out: `${stdout || ''}${stderr || ''}`,
+        kod: err ? (typeof err.code === 'number' ? err.code : 1) : 0,
+      }));
+  });
+
+  const surowe = new Array(pliki.length);
+  let nastepny = 0, zrobione = 0;
+  const start = Date.now();
+  const postep = () => {
+    if (!process.stderr.isTTY) return;
+    const min = (Date.now() - start) / 60000;
+    const eta = zrobione ? ((pliki.length - zrobione) * (min / zrobione)) : 0;
+    process.stderr.write(`\r  ${zrobione}/${pliki.length}` +
+      (zrobione > 2 ? `  pozostalo ~${eta < 1 ? '<1' : Math.round(eta)} min` : '') + '   ');
+  };
+  const pracownik = async () => {
+    for (let i = nastepny++; i < pliki.length; i = nastepny++) {
+      surowe[i] = await jedenPlik(pliki[i]);
+      zrobione++; postep();
+    }
+  };
+  if (rownolegle > 1) console.log(`  ${rownolegle} rownoczesnych procesow\n`);
+  await Promise.all(Array.from({ length: Math.min(rownolegle, pliki.length) }, pracownik));
+  if (process.stderr.isTTY) process.stderr.write('\r' + ' '.repeat(50) + '\r');
+
   const wyniki = [];
-  for (const f of pliki) {
-    let out = '', kod = 0;
-    try {
-      out = execFileSync(process.execPath, [__filename, f, ...(plikPrawdy ? ['--pola-json'] : [])],
-        { encoding: 'utf8', timeout: 180000, stdio: ['ignore', 'pipe', 'pipe'] });
-    } catch (e) { out = (e.stdout || '') + (e.stderr || ''); kod = e.status ?? 1; }
+  for (let i = 0; i < pliki.length; i++) {
+    const f = pliki[i];
+    const { out, kod } = surowe[i];
 
     const czysty = out.replace(/\x1b\[[0-9;]*m/g, '');
     const A = /A: ✓ format=/.test(czysty);
@@ -731,7 +772,8 @@ function trybKatalogu(dir) {
     if (!zPolami.length) {
       console.log('  \x1b[33mŻaden dokument nie dał pól — plik odniesienia NIE został zapisany.\x1b[0m');
       console.log('  Pusty plik wyglądałby jak zbiór, którym nie jest.\n');
-      process.exit(ok ? 0 : 1);
+      process.exitCode = ok ? 0 : 1;
+      return;   // funkcja jest async — `exit()` ubilby zamykajace sie podprocesy
     }
 
     // Ten sam pojazd bywa w zbiorze wielokrotnie: dowód z leasingu i dowód własny
@@ -766,9 +808,21 @@ function trybKatalogu(dir) {
     console.log(`  → ${path.resolve(plikPrawdy)}\n`);
   }
 
-  process.exit(ok ? 0 : 1);
+  // `exitCode`, nie `exit()` — funkcja jest async, a podprocesy moga byc jeszcze
+  // w trakcie zamykania. `process.exit()` przerywa wtedy Node'a asercja libuv na Windowsie.
+  process.exitCode = ok ? 0 : 1;
 }
 
-if (BEZPOSREDNIO && katalog) trybKatalogu(katalog);
-if (BEZPOSREDNIO && plikBajtow) trybBajtow(plikBajtow);
-if (BEZPOSREDNIO) glowna();
+// ŁAŃCUCH `else if`, NIE trzy niezależne `if`. Do 19.08 działało to jako trzy warunki,
+// bo `trybKatalogu` było SYNCHRONICZNE i kończyło się `process.exit()` — kolejne linie
+// nigdy się nie wykonywały. Po zmianie na async funkcja wraca natychmiast, więc `glowna()`
+// startowała RÓWNOLEGLE z trybem katalogu i wywalała się na `readFileSync(null)`, bo
+// w trybie katalogu nie ma pojedynczego pliku wejściowego.
+//
+// Poleganie na `process.exit()` jako na sterowaniu przepływem jest kruche — znika przy
+// pierwszej zmianie funkcji na asynchroniczną. Warunki muszą się wykluczać jawnie.
+if (BEZPOSREDNIO) {
+  if (katalog) trybKatalogu(katalog);
+  else if (plikBajtow) trybBajtow(plikBajtow);
+  else glowna();
+}
