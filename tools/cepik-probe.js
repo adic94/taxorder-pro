@@ -55,8 +55,31 @@ if (nr) url.searchParams.set('numer-rejestracyjny', nr);
   try {
     r = await fetch(url, { headers: { Accept: 'application/vnd.api+json' } });
   } catch (e) {
-    console.log(R(`  Brak połączenia: ${e.message}`));
-    console.log(D('  Jeśli to sieć firmowa albo proxy — spróbuj z innej.\n'));
+    // `fetch failed` to opakowanie Node'a — prawdziwa przyczyna siedzi w `cause`
+    // i bez niej komunikat nie niesie żadnej informacji diagnostycznej.
+    const c = e.cause || {};
+    const kod = c.code || c.errno || '';
+    console.log(R(`  Brak połączenia: ${kod || e.message}`));
+    if (c.message && c.message !== e.message) console.log(D(`     ${c.message}`));
+
+    const PODPOWIEDZI = {
+      ENOTFOUND:    'Nazwa nie rozwiązuje się w DNS. Serwer DNS w sieci firmowej może blokować domeny .gov.pl.',
+      EAI_AGAIN:    'Chwilowa awaria DNS albo brak dostępu do serwera nazw.',
+      ECONNREFUSED: 'Host odpowiada, ale odrzuca połączenie na tym porcie.',
+      ECONNRESET:   'Połączenie zerwane w trakcie — typowe dla firewalla inspekcjonującego ruch TLS.',
+      ETIMEDOUT:    'Brak odpowiedzi. Ruch prawdopodobnie odcięty po cichu.',
+      CERT_HAS_EXPIRED: 'Certyfikat wygasł albo firewall podstawia własny.',
+      UNABLE_TO_VERIFY_LEAF_SIGNATURE: 'Łańcuch certyfikatów nie do zweryfikowania — zwykle firewall z własnym CA.',
+      DEPTH_ZERO_SELF_SIGNED_CERT: 'Certyfikat samopodpisany — ruch przechodzi przez proxy inspekcjonujące TLS.',
+    };
+    if (PODPOWIEDZI[kod]) console.log(Y(`     ${PODPOWIEDZI[kod]}`));
+
+    console.log(D('\n  Sprawdź po kolei — pierwsze, które zadziała, wskaże warstwę problemu:'));
+    console.log(D('     Resolve-DnsName api.cepik.gov.pl'));
+    console.log(D('     Test-NetConnection api.cepik.gov.pl -Port 443'));
+    console.log(D('     curl.exe -sI "https://api.cepik.gov.pl/pojazdy?wojewodztwo=14&limit=1"'));
+    console.log(D('\n  Jeśli DNS nie rozwiązuje albo port 443 jest zamknięty — to sieć, nie API.'));
+    console.log(D('  Spróbuj z innej sieci (np. hotspot z telefonu), żeby to rozstrzygnąć.\n'));
     process.exitCode = 2; return;
   }
 
