@@ -25,6 +25,38 @@
  * Nie wypisuje danych osobowych pojazdu — wyłącznie NAZWY pól i garść wartości
  * technicznych (masy, osie), które danymi osobowymi nie są.
  */
+const https = require('node:https');
+
+/**
+ * Żądanie HTTPS z kontrolą uzgadniania TLS.
+ *
+ * `fetch` nie pozwala ustawić parametrów TLS, a serwery administracji publicznej bywają
+ * skonfigurowane na wysłużonych zestawach szyfrów. CEPiK oferuje klucz Diffie-Hellmana
+ * słabszy niż minimum Node'a (`ERR_SSL_DH_KEY_TOO_SMALL`) — połączenie nie dochodzi
+ * do skutku, choć DNS i port 443 działają.
+ */
+function zadanieHttps(url, opcjeTls = {}) {
+  return new Promise((res, rej) => {
+    const req = https.get(url, { headers: { Accept: 'application/vnd.api+json' }, ...opcjeTls }, (r) => {
+      let buf = '';
+      r.setEncoding('utf8');
+      r.on('data', (c) => { buf += c; });
+      r.on('end', () => res({ status: r.statusCode, tresc: buf }));
+    });
+    req.on('error', rej);
+    req.setTimeout(25000, () => { req.destroy(new Error('ETIMEDOUT')); });
+  });
+}
+
+// Zestaw wymuszający ECDHE — wymianę klucza na krzywych eliptycznych. Omija słaby parametr
+// DH CAŁKOWICIE, zamiast go tolerować, więc uzgadnianie zostaje mocne. Serwer obsługujący
+// ECDHE (praktycznie każdy z ostatniej dekady) połączy się tą drogą bez żadnego ustępstwa.
+const SZYFRY_ECDHE = [
+  'ECDHE-ECDSA-AES256-GCM-SHA384', 'ECDHE-RSA-AES256-GCM-SHA384',
+  'ECDHE-ECDSA-AES128-GCM-SHA256', 'ECDHE-RSA-AES128-GCM-SHA256',
+  'ECDHE-RSA-AES256-SHA384', 'ECDHE-RSA-AES128-SHA256',
+].join(':');
+
 const G = s => `\x1b[32m${s}\x1b[0m`, R = s => `\x1b[31m${s}\x1b[0m`,
       Y = s => `\x1b[33m${s}\x1b[0m`, B = s => `\x1b[1m${s}\x1b[0m`, D = s => `\x1b[2m${s}\x1b[0m`;
 
@@ -51,14 +83,28 @@ if (nr) url.searchParams.set('numer-rejestracyjny', nr);
   console.log(B('\n  Sonda CEPiK — autoryzacja i dostępne pola\n'));
   console.log(D(`  ${url.toString().replace(/numer-rejestracyjny=[^&]*/, 'numer-rejestracyjny=***')}\n`));
 
-  let r;
+  let r, sciezka = 'domyślna';
   try {
-    r = await fetch(url, { headers: { Accept: 'application/vnd.api+json' } });
-  } catch (e) {
+    r = await zadanieHttps(url);
+  } catch (e0) {
+    // Słaby parametr DH po stronie serwera — jedyny błąd, przy którym ponawianie ma sens.
+    const kod0 = (e0.cause || e0).code || e0.message || '';
+    if (!/DH_KEY_TOO_SMALL|SSLV3_ALERT|WRONG_VERSION|UNSUPPORTED_PROTOCOL/i.test(String(kod0))) {
+      var e = e0; r = null;
+    } else {
+      console.log(Y(`  Serwer nie uzgodnił połączenia domyślnymi ustawieniami (${kod0}).`));
+      console.log(D('  Ponawiam z wymuszonym ECDHE — omija słaby parametr DH, nie osłabia szyfrowania.\n'));
+      try { r = await zadanieHttps(url, { ciphers: SZYFRY_ECDHE }); sciezka = 'ECDHE'; }
+      catch (e1) { var e = e1; r = null; }
+    }
+  }
+  if (!r) {
     // `fetch failed` to opakowanie Node'a — prawdziwa przyczyna siedzi w `cause`
     // i bez niej komunikat nie niesie żadnej informacji diagnostycznej.
+    // `fetch` opakowuje blad w `cause`, `https.get` rzuca go wprost. Po przejsciu na
+    // https odczyt wylacznie z `cause` chybial i gubil podpowiedz — sprawdzamy oba miejsca.
     const c = e.cause || {};
-    const kod = c.code || c.errno || '';
+    const kod = e.code || c.code || c.errno || e.errno || '';
     console.log(R(`  Brak połączenia: ${kod || e.message}`));
     if (c.message && c.message !== e.message) console.log(D(`     ${c.message}`));
 
@@ -83,7 +129,8 @@ if (nr) url.searchParams.set('numer-rejestracyjny', nr);
     process.exitCode = 2; return;
   }
 
-  const tresc = await r.text();
+  if (sciezka !== 'domyślna') console.log(D(`  (połączono ścieżką ${sciezka})\n`));
+  const tresc = r.tresc;
   let dane = null;
   try { dane = JSON.parse(tresc); } catch { /* nie-JSON — obsłużone niżej */ }
 

@@ -46,7 +46,10 @@ const G = s => `\x1b[32m${s}\x1b[0m`, R = s => `\x1b[31m${s}\x1b[0m`,
 
 const argv = process.argv.slice(2);
 const iw = argv.indexOf('--wyjscie');
-const wejscia = argv.filter((a, i) => !a.startsWith('--') && i !== iw + 1);
+// `iw >= 0` JEST KONIECZNE. Bez tego przy braku --wyjscie mamy iw === -1, wiec iw+1 === 0
+// i filtr wyrzuca argument numer 0 — czyli jedyny podany plik wejsciowy. Objawialo sie to
+// wypisaniem instrukcji uzycia przy poprawnym wywolaniu.
+const wejscia = argv.filter((a, i) => !a.startsWith('--') && !(iw >= 0 && i === iw + 1));
 const wejscie = wejscia[0];
 const wyjscie = (iw >= 0 ? argv[iw + 1] : null) || path.join(
   process.env.USERPROFILE || process.env.HOME || '.', 'Documents', 'taxorder-backupy',
