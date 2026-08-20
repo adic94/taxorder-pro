@@ -174,3 +174,15 @@ jobs:
       # obu bledow 6 PASS / 2 FAIL.
       - name: Straznik narzedzi — Windows, spacje w sciezce, CRLF
         run: node tests/unit/tooling-windows-test.js
+
+      # Lista pol dowodu rejestracyjnego zyla w CZTERECH niezaleznych kopiach: mapa _DR_NEW
+      # (pozycje w ladunku Aztec), prompt OCR, mapowanie CEPiK i skrypt budujacy Excel.
+      # Ten projekt przerabial rozjazd takich kopii trzykrotnie — dwie tablice CO2, dwie
+      # listy zrodel raportow, dwie wersje ZXing — i za kazdym razem objawialo sie to
+      # CICHYMI ZLYMI DANYMI. Bramka pilnuje, ze kazdy klucz uzywany w kodzie istnieje
+      # w katalogu modules/dr-fields.js, ze flaga `aztec` zgadza sie z _DR_NEW co do
+      # zbioru, oraz ze pola osobowe i pola DT-1 sa oznaczone. Przy pierwszym uruchomieniu
+      # znalazla realny rozjazd: rokPierwszejRej vs rokProd (DWA ROZNE pola) oraz trzy
+      # nazwy na jedno pole przeznaczenia.
+      - name: Straznik katalogu pol DR — jedno zrodlo prawdy
+        run: node tests/unit/dr-fields-test.js
