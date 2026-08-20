@@ -46,11 +46,17 @@ const G = s => `\x1b[32m${s}\x1b[0m`, R = s => `\x1b[31m${s}\x1b[0m`,
 
 const argv = process.argv.slice(2);
 const POKAZ = argv.includes('--pokaz');
+// `--zrodlo <nazwa>` nadaje zrodlo rekordom, ktore go nie maja. Bez tego pliki z cudzych
+// pipeline'ow dostaja domyslna range „folder" — NAJNIZSZA — wiec przegrywaja z kazdym innym
+// zrodlem nawet wtedy, gdy niosa lepsze dane. Dotyczy WSZYSTKICH plikow w tym wywolaniu.
+const iz = argv.indexOf('--zrodlo');
+const ZRODLO_DOMYSLNE = iz >= 0 ? argv[iz + 1] : null;
 const iw = argv.indexOf('--wyjscie');
 // `iw >= 0` JEST KONIECZNE. Bez tego przy braku --wyjscie mamy iw === -1, wiec iw+1 === 0
 // i filtr wyrzuca argument numer 0 — czyli jedyny podany plik wejsciowy. Objawialo sie to
 // wypisaniem instrukcji uzycia przy poprawnym wywolaniu.
-const wejscia = argv.filter((a, i) => !a.startsWith('--') && !(iw >= 0 && i === iw + 1));
+const wejscia = argv.filter((a, i) => !a.startsWith('--')
+  && !(iw >= 0 && i === iw + 1) && !(iz >= 0 && i === iz + 1));
 const wejscie = wejscia[0];
 const wyjscie = (iw >= 0 ? argv[iw + 1] : null) || path.join(
   process.env.USERPROFILE || process.env.HOME || '.', 'Documents', 'taxorder-backupy',
@@ -164,7 +170,7 @@ const ZRODLA = {
   folder:      { etykieta: 'nazwa pliku',       kolor: 'FFE7E6E6', ranga: 0 },
 };
 const zrodloPola = (rek, klucz) =>
-  (rek._zrodla && rek._zrodla[klucz]) || rek._zrodlo || null;
+  (rek._zrodla && rek._zrodla[klucz]) || rek._zrodlo || ZRODLO_DOMYSLNE || null;
 
 function wczytaj(sciezka) {
   let d;
@@ -179,7 +185,57 @@ function wczytaj(sciezka) {
 // normalizujemy, ale W ARKUSZU zostaje wartość ze źródła o najwyższej randze.
 const kluczScalania = (r) => String(r.nrRej ?? '').toUpperCase().replace(/[\s-]/g, '');
 
+/**
+ * Wartosc pasuje do typu pola — inaczej NIE trafia do arkusza.
+ *
+ * PO CO. Pierwsze scalenie danych z OCR ujawnilo wartosci wlozone w niewlasciwe pola:
+ *
+ *     F.1 (maksymalna masa, kg)  ->  "2023.05.11"      data zamiast kilogramow
+ *     F.3 (masa zespolu, kg)     ->  "m.p."            skrot z formularza
+ *     J   (kategoria)            ->  "m.p."
+ *
+ * Model jezykowy czytajacy skan potrafi przypisac wartosc do sasiedniego pola. Arkusz,
+ * ktory to przyjmuje, wyglada na kompletny i jest fałszywy — a przy DMC i liczbie osi
+ * przeklada sie wprost na kwote podatku. Odrzucenie zostawia pole PUSTE, co jest widoczne
+ * w arkuszu Pokrycie; przyjecie smiecia nie jest widoczne nigdzie.
+ *
+ * Zakresy pochodza z katalogu (`modules/dr-fields.js`), zeby nie powstala kolejna kopia.
+ */
+function wartoscPasuje(pole, v) {
+  const t = String(v).trim();
+  if (!t) return { ok: false, powod: 'puste' };
+
+  if (pole.typ === 'liczba') {
+    // Data w polu liczbowym to najczestszy blad OCR — rozpoznajemy ja ZANIM sprobujemy
+    // sparsowac, bo „2023.05.11" po usunieciu kropek daje wiarygodnie wygladajace 20230511.
+    if (/\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}|\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4}/.test(t)) {
+      return { ok: false, powod: 'data w polu liczbowym' };
+    }
+    const n = Number(t.replace(/\s/g, '').replace(/[^\d.,-]/g, '').replace(',', '.'));
+    if (!Number.isFinite(n)) return { ok: false, powod: 'nie jest liczba' };
+    if (pole.zakres && (n < pole.zakres[0] || n > pole.zakres[1])) {
+      return { ok: false, powod: `poza zakresem ${pole.zakres[0]}–${pole.zakres[1]}` };
+    }
+    return { ok: true, wartosc: n };
+  }
+
+  if (pole.typ === 'data') {
+    if (!/\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}|\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4}/.test(t)) {
+      return { ok: false, powod: 'nie wyglada na date' };
+    }
+    return { ok: true, wartosc: t };
+  }
+
+  // Skroty z formularzy („m.p." = miejsce puste, „---", „b/d") niosa informacje „brak",
+  // a nie wartosc. Wpuszczone do arkusza udaja dane.
+  if (/^(m\.?\s*p\.?|---+|-|b\/?d|brak|n\/?d|nie dotyczy)$/i.test(t)) {
+    return { ok: false, powod: 'oznaczenie braku danych' };
+  }
+  return { ok: true, wartosc: t };
+}
+
 const konflikty = [];
+const odrzucone = [];
 const scalone = new Map();
 
 for (const sciezka of wejscia) {
@@ -191,8 +247,16 @@ for (const sciezka of wejscia) {
     if (!cel._plik && rek._plik) cel._plik = rek._plik;
 
     for (const p of DR.POLA) {
-      const v = rek[p.klucz];
-      if (v == null || v === '') continue;
+      const surowa = rek[p.klucz];
+      if (surowa == null || surowa === '') continue;
+      const sprawdz = wartoscPasuje(p, surowa);
+      if (!sprawdz.ok) {
+        odrzucone.push({ nrRej: rek.nrRej || k, kod: p.kod, pole: p.nazwa, dt1: p.dt1,
+          wartosc: String(surowa).slice(0, 40), powod: sprawdz.powod,
+          zrodlo: zrodloPola(rek, p.klucz) || 'folder' });
+        continue;
+      }
+      const v = sprawdz.wartosc;
       const z = zrodloPola(rek, p.klucz) || 'folder';
       const rangaNowa = ZRODLA[z]?.ranga ?? 0;
       const zStare = cel._zrodla[p.klucz];
@@ -316,6 +380,32 @@ const rekordy = [...scalone.values()];
     wk.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: wk.columns.length } };
   }
 
+  // ── Arkusz: odrzucone ──────────────────────────────────────────────────────
+  //
+  // Odrzucona wartosc MUSI byc widoczna. Ciche pominiecie zamienia jeden problem (smiec
+  // w arkuszu) na drugi (puste pole bez wyjasnienia) — a przy 128 rozbieznosciach w polach
+  // DT-1 czlowiek musi wiedziec, CZY danych nie bylo, czy zostaly odrzucone i dlaczego.
+  if (odrzucone.length) {
+    const wo = wb.addWorksheet('Odrzucone');
+    wo.columns = [
+      { header: 'Nr rej.', key: 'nrRej', width: 12 },
+      { header: 'Kod', key: 'kod', width: 8 },
+      { header: 'Pole', key: 'pole', width: 34 },
+      { header: 'DT-1', key: 'dt1', width: 7 },
+      { header: 'Odrzucona wartość', key: 'wartosc', width: 26 },
+      { header: 'Powód', key: 'powod', width: 30 },
+      { header: 'Źródło', key: 'zrodlo', width: 16 },
+    ];
+    wo.getRow(1).font = { bold: true };
+    for (const o of odrzucone.sort((a, b) => (b.dt1 - a.dt1) || String(a.nrRej).localeCompare(String(b.nrRej)))) {
+      const w = wo.addRow({ ...o, dt1: o.dt1 ? 'TAK' : '' });
+      if (o.dt1) w.getCell('pole').font = { color: { argb: 'FF9C0006' }, bold: true };
+      const def = ZRODLA[o.zrodlo];
+      if (def) w.getCell('zrodlo').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: def.kolor } };
+    }
+    wo.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: wo.columns.length } };
+  }
+
   // ── Arkusz 4: legenda ──────────────────────────────────────────────────────
   const wl = wb.addWorksheet('Legenda');
   wl.columns = [{ header: '', key: 'a', width: 26 }, { header: '', key: 'b', width: 78 }];
@@ -334,6 +424,11 @@ const rekordy = [...scalone.values()];
   wl.addRow({ a: 'KOLUMNA DT-1', b: 'Pole wpływa na wymiar podatku od środków transportowych.' });
   wl.addRow({ a: '', b: 'Pola DT-1 wypełnione w mniej niż połowie rekordów są w arkuszu Pokrycie na czerwono.' });
   wl.addRow({});
+  wl.addRow({ a: 'ARKUSZ ODRZUCONE', b: 'Wartości, które NIE PASOWAŁY do typu pola i nie trafiły do arkusza.' }).font = { bold: true };
+  wl.addRow({ a: '', b: 'Np. data w polu masy, „m.p." w polu liczbowym, wartość poza sensownym zakresem.' });
+  wl.addRow({ a: '', b: 'Odrzucenie zostawia pole PUSTE — widać to w Pokryciu. Przyjęcie śmiecia nie widać nigdzie.' });
+  wl.addRow({ a: '', b: 'Jeśli odrzucona wartość jest jednak poprawna — popraw ją w źródle, nie w arkuszu.' });
+  wl.addRow({});
   wl.addRow({ a: 'ARKUSZ KONFLIKTY', b: 'Pola, w których źródła podały RÓŻNE wartości.' }).font = { bold: true };
   wl.addRow({ a: '', b: 'Wygrywa źródło wyżej w hierarchii, ale rozbieżność zostaje widoczna.' });
   wl.addRow({ a: '', b: 'Hierarchia: Aztec > CEPiK > zestawienie > OCR > nazwa pliku.' });
@@ -351,7 +446,20 @@ const rekordy = [...scalone.values()];
   const dt1Slabe = kolumny.filter(p => p.dt1 && pokrycie[p.klucz].razem / (rekordy.length || 1) < 0.5);
   console.log(`  ${G('✓')} zapisano: ${cel}`);
   console.log(D(`     źródeł: ${wejscia.length}  |  pojazdów po scaleniu: ${rekordy.length}  |  pól: ${kolumny.length}`));
-  console.log(D(`     arkusze: Pojazdy, Pokrycie${konflikty.length ? ', Konflikty' : ''}, Legenda\n`));
+  console.log(D(`     arkusze: Pojazdy, Pokrycie${konflikty.length ? ', Konflikty' : ''}${odrzucone.length ? ', Odrzucone' : ''}, Legenda\n`));
+
+  if (odrzucone.length) {
+    const odt1 = odrzucone.filter(o => o.dt1);
+    console.log(Y(`  ${odrzucone.length} wartości ODRZUCONYCH jako niepasujące do typu pola` +
+      (odt1.length ? R(`, w tym ${odt1.length} w polach DT-1`) : '')));
+    const wgPowodu = {};
+    for (const o of odrzucone) wgPowodu[o.powod] = (wgPowodu[o.powod] || 0) + 1;
+    for (const [powod, n] of Object.entries(wgPowodu).sort((a, b) => b[1] - a[1]).slice(0, 5)) {
+      console.log(`     ${String(n).padStart(5)}  ${powod}`);
+    }
+    console.log(D('\n     To NIE są braki danych — to wartości, które model wstawił w złe pole.'));
+    console.log(D('     Patrz arkusz Odrzucone.\n'));
+  }
 
   if (konflikty.length) {
     const kdt1 = konflikty.filter(k => k.dt1);
