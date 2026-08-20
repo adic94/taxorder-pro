@@ -15,6 +15,12 @@ Wymagają: `sharp`, `zxing-wasm`, `playwright` — zainstalowane w `node_modules
 |--------|---------|
 | `env-setup.js` | **Tworzy albo UZUPEŁNIA `.env`** na podstawie `.env.example`. `npm.cmd run env:setup`. W odróżnieniu od `Copy-Item .env.example .env` **nie nadpisuje** istniejących wartości — dopisuje wyłącznie brakujące klucze wraz z ich komentarzami. Omija dwie pułapki Windowsa: `.env.txt` z Notatnika (wykrywa i ostrzega — dotenv go nie czyta, a `.gitignore` nie ignoruje) oraz UTF-16LE po zapisie przez `>` w PowerShellu (wykrywa i przepisuje na UTF-8). **Nigdy nie wypisuje wartości** — raportuje nazwy kluczy i to, czy są wypełnione, więc wynik da się wkleić do zgłoszenia bez wycieku |
 
+## CEPiK — rejestr państwowy jako źródło danych DT-1
+
+| Skrypt | Co robi |
+|--------|---------|
+| `cepik-probe.js` | **Czy `api.cepik.gov.pl` wymaga autoryzacji i jakie pola zwraca.** `POST /api/cepik/token` oddaje 503 „CEPiK nie jest skonfigurowany" — sekrety `CEPIK_KEY`/`CEPIK_SECRET` nigdy nie zostały ustawione. Zanim ktokolwiek wystąpi o poświadczenia, ta sonda odpowiada taniej: czy endpoint otwartych danych w ogóle ich potrzebuje, oraz czy zwraca **liczbę osi i rodzaj zawieszenia** — pola DT-1, których `_qavParseCepik` w `app.js` nie mapuje (mapuje markę, model, VIN, rok, DMC, paliwo, kategorię). Nie da się tego sprawdzić z konsoli przeglądarki: CSP aplikacji nie ma `api.cepik.gov.pl` w `connect-src`. Nie wypisuje VIN-u ani numeru rejestracyjnego |
+
 ## Test OCR bez deployu
 
 | Skrypt | Co robi |
