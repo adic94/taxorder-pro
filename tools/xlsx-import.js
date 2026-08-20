@@ -53,7 +53,11 @@ if (!plik || !fs.existsSync(plik)) {
  */
 const WARIANTY = {
   nrRej:        ['nrrej', 'numerrejestracyjny', 'rejestracja', 'nrrejestracyjny', 'tablica'],
-  vin:          ['vin', 'nrvin', 'numervin', 'nadwozie'],
+  // „Nr podwozia" TO JEST VIN. Wzór dowodu nazywa pole E „numer VIN / nr nadwozia,
+  // podwozia lub ramy" i arkusze flotowe używają każdego z tych określeń zamiennie.
+  // Pominięcie tego wariantu kosztowało w realnym arkuszu 817 numerów VIN.
+  vin:          ['vin', 'nrvin', 'numervin', 'nadwozie', 'nrnadwozia', 'podwozie', 'nrpodwozia', 'rama', 'nrramy'],
+  wlasciciel:   ['wlasciciel', 'wlascicielpojazdu'],
   marka:        ['marka'],
   model:        ['model'],
   typ:          ['typ', 'wariant'],
@@ -71,7 +75,7 @@ const WARIANTY = {
   mocKW:        ['mockw', 'moc'],
   miejscaSied:  ['miejscasiedzace', 'liczbamiejsc', 'miejsca'],
   normaEuro:    ['euro', 'normaemisji', 'normaeuro'],
-  nextInspection:['badanietechniczne', 'nastepnebadanie', 'przegladdo', 'terminbadania'],
+  nextInspection:['badanietechniczne', 'nastepnebadanie', 'przegladdo', 'terminbadania', 'przeglad'],
   nrHomolog:    ['homologacja', 'swiadectwohomologacji'],
   seriaDr:      ['seriadowodu', 'nrdowodu', 'numerdowodu'],
 };
