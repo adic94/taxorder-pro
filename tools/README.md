@@ -28,6 +28,7 @@ Wymagają: `sharp`, `zxing-wasm`, `playwright` — zainstalowane w `node_modules
 | `dr-analyze-unreadable.js` | Analizuje corpus DR "Aztec nieodczytany" z checkpointu; kategoryzuje wg nazwy/rozdzielczości; szacuje realny brak kodu vs porażka detekcji |
 | `dr-page-test.js` | Weryfikuje czy renderPdfToBase64 renderuje tylko str. 1 PDF; testuje kolejne strony na losowej próbce "stały DR" |
 | `dr-helper-wasm.html` | Helper Playwright: ładuje zxing-wasm z CDN, udostępnia `decodeAztecFromCanvas()`; używany przez dr-page-test.js |
+| `aztec-compare.js --katalog` | Wskaźnik odczytu Aztec na całym zbiorze. **`--rownolegle N`** uruchamia N podprocesów naraz — przy 1318 dokumentach różnica to godziny. Każdy plik nadal dostaje własny podproces (izolacja: awaria jednego nie przewraca przebiegu), zmienia się tylko liczba biegnących równocześnie. Wyniki wypisywane w kolejności PLIKÓW, nie zakończeń — inaczej nie dałoby się ich zestawić z listą wejściową. Zweryfikowane: wynik identyczny sekwencyjnie i przy `--rownolegle 4` |
 | `test-nrv2e-variants.js` | Referencja historyczna: 5 wariantów NRV2E (A–E); wariant E (LSB, off*2) — poprawny dla polskich DR |
 
 ## Zgodność schematu D1
