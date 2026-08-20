@@ -15,6 +15,13 @@ Wymagają: `sharp`, `zxing-wasm`, `playwright` — zainstalowane w `node_modules
 |--------|---------|
 | `env-setup.js` | **Tworzy albo UZUPEŁNIA `.env`** na podstawie `.env.example`. `npm.cmd run env:setup`. W odróżnieniu od `Copy-Item .env.example .env` **nie nadpisuje** istniejących wartości — dopisuje wyłącznie brakujące klucze wraz z ich komentarzami. Omija dwie pułapki Windowsa: `.env.txt` z Notatnika (wykrywa i ostrzega — dotenv go nie czyta, a `.gitignore` nie ignoruje) oraz UTF-16LE po zapisie przez `>` w PowerShellu (wykrywa i przepisuje na UTF-8). **Nigdy nie wypisuje wartości** — raportuje nazwy kluczy i to, czy są wypełnione, więc wynik da się wkleić do zgłoszenia bez wycieku |
 
+## Dowód rejestracyjny — katalog pól i Excel
+
+| Skrypt | Co robi |
+|--------|---------|
+| `modules/dr-fields.js` | **Jedno źródło prawdy dla pól DR.** 34 pola z oznaczeniami z rozporządzenia (A, B, D.1, E, F.1…), z flagami `dt1` (wpływa na podatek), `osobowe` (maskowanie), `aztec` (jest w ładunku kodu) i mapowaniem na nazwy CEPiK. Sześć kodów oznaczonych `pewne: false` — wpisanych z wiedzy ogólnej, do sprawdzenia w Dz.U. Katalog nie udaje pewności, której nie ma |
+| `dr-excel.js` | **Excel ze wszystkimi polami DR + POCHODZENIE każdej wartości.** `npm.cmd run dr:excel -- dane.json`. Trzy arkusze: *Pojazdy* (kolumny w kolejności katalogu, nagłówki z kodami urzędowymi, liczby jako liczby, **kolor komórki wg źródła**), *Pokrycie* (ile wypełnionych na pole i z jakiego źródła; pola DT-1 poniżej 50% na czerwono), *Legenda*. Powód, dla którego kolor jest w arkuszu, a nie w logu: „3500" z kodu Aztec i „3500" zgadnięte przez model z rozmytego skanu wyglądają identycznie, a przy DMC przekładają się wprost na kwotę wobec urzędu. Zapis do drzewa repo **odmawiany** |
+
 ## CEPiK — rejestr państwowy jako źródło danych DT-1
 
 | Skrypt | Co robi |
