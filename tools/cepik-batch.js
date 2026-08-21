@@ -21,9 +21,11 @@
  * BEZ POSWIADCZEN. Endpoint /pojazdy jest publiczny — zmierzone, nie zalozone (HTTP 200
  * bez naglowka Authorization). Sekrety CEPIK_KEY/CEPIK_SECRET nie sa do tego potrzebne.
  *
- * GRZECZNOSC WOBEC API PUBLICZNEGO. Domyslnie jedno zadanie na 350 ms, sekwencyjnie.
- * To nie jest ostroznosc na wyrost: to darmowe API panstwowe, a my odpytujemy setki razy
- * pod rzad. Checkpoint zapisywany na biezaco, wiec przerwanie nie kosztuje calego przebiegu.
+ * GRZECZNOSC WOBEC API PUBLICZNEGO. Domyslnie jedno zadanie na 900 ms, sekwencyjnie,
+ * z odstepem PO KAZDYM zadaniu — takze po nieudanym — i z wykladniczym wycofywaniem przy
+ * HTTP 429. To nie jest ostroznosc na wyrost: pierwsza wersja (350 ms, odstep pomijany przy
+ * bledzie, fallback po 16 wojewodztwach) dostala 429 po kilku pojazdach i miala to zasluzone.
+ * Checkpoint zapisywany na biezaco, wiec przerwanie nie kosztuje calego przebiegu.
  */
 const fs = require('fs');
 const path = require('path');
@@ -37,12 +39,20 @@ const argv = process.argv.slice(2);
 const par = (f, dom) => { const i = argv.indexOf(f); return i >= 0 ? argv[i + 1] : dom; };
 const wejscie = argv.find(a => !a.startsWith('--') && /\.json$/i.test(a));
 const wyjscie = par('--wyjscie');
-const ODSTEP  = Number(par('--odstep', 350));
+// 900 ms, nie 350. Pierwsza wersja z 350 ms dostala HTTP 429 po kilku pojazdach —
+// bo fallback mnozyl liczbe zadan sesnastokrotnie, a odstep byl pomijany przy bledzie.
+const ODSTEP  = Number(par('--odstep', 900));
 const LIMIT   = Number(par('--limit', 0));          // 0 = bez ograniczenia
+// Fallback po 16 wojewodztwach jest WYLACZONY domyslnie: kosztuje szesnascie zadan na
+// kazdy pojazd, ktorego nie ma w rejestrze pod wlasciwym kodem. Wlacz swiadomie, gdy
+// przebieg bez niego zostawi duzo „bez wyniku".
+const FALLBACK_WOJ = argv.includes('--fallback-woj');
+// Zakres dat. CEPiK wymaga przedzialu; zbyt szeroki bywa odrzucany, wiec domyslnie 15 lat.
+const ZAKRES_LAT = Number(par('--lata', 15));
 
 if (!wejscie || !fs.existsSync(wejscie) || !wyjscie) {
   console.error('\nUzycie: node tools/cepik-batch.js <zrodlo-numerow.json> --wyjscie <cepik.json>');
-  console.error('        [--odstep 350] [--limit 20]\n');
+  console.error('        [--odstep 900] [--limit 20] [--fallback-woj] [--lata 15]\n');
   console.error('Zrodlo numerow: tablica rekordow z polem nrRej (np. zestawienie.json).');
   console.error('`--limit` ogranicza liczbe pojazdow — uzyj na poczatku, zeby zmierzyc tempo.\n');
   process.exit(2);
@@ -86,28 +96,66 @@ function zmapuj(attrs) {
 
 const spij = (ms) => new Promise(r => setTimeout(r, ms));
 
+/**
+ * Jedno zadanie z ODSTEPEM PO KAZDYM, bez wyjatkow, oraz z wycofywaniem przy 429.
+ *
+ * PIERWSZA WERSJA ZALEWALA API. Przy nietrafionym wojewodztwie robila `continue`, ktore
+ * PRZESKAKIWALO odstep — a fallback probuje do 16 kodow, wiec na jeden pojazd szlo do
+ * 16 zadan pod rzad bez zadnej przerwy. Serwer odpowiedzial HTTP 429 po kilku pojazdach
+ * i mial racje. To jest darmowe API panstwowe; zalewanie go jest nasza wina, nie jego
+ * ograniczeniem.
+ *
+ * 429 nie jest tez powodem do poddania sie: to prosba o zwolnienie. Wycofujemy sie
+ * wykladniczo i probujemy dalej, zamiast tracic caly przebieg.
+ */
+async function zadanieZOdstepem(u, proba = 0) {
+  const r = await pobierz(u);
+  await spij(ODSTEP);
+  if (r.status === 429) {
+    if (proba >= 4) return { ...r, poddajemy: true };
+    const czekaj = ODSTEP * Math.pow(3, proba + 1);
+    if (process.stderr.isTTY) process.stderr.write(`\r  429 — czekam ${Math.round(czekaj / 1000)}s…${' '.repeat(30)}`);
+    await spij(czekaj);
+    return zadanieZOdstepem(u, proba + 1);
+  }
+  return r;
+}
+
 async function jedenPojazd(nr, rok) {
-  const kody = [wojZNumeru(nr), ...ALL_WOJ.filter(w => w !== wojZNumeru(nr))];
+  // Wlasciwe wojewodztwo NAJPIERW; pozostale tylko gdy trzeba i tylko przy wlaczonym
+  // fallbacku. Bez tego kazdy pojazd spoza rejestru kosztuje sesnascie zadan zamiast jednego.
+  const kody = FALLBACK_WOJ
+    ? [wojZNumeru(nr), ...ALL_WOJ.filter(w => w !== wojZNumeru(nr))]
+    : [wojZNumeru(nr)];
+  let ostatniBlad = null;
+
   for (const woj of kody) {
     const u = new URL('https://api.cepik.gov.pl/pojazdy');
     u.searchParams.set('wojewodztwo', woj);
     u.searchParams.set('numer-rejestracyjny', nr);
-    u.searchParams.set('data-od', `${rok - 30}0101`);
+    u.searchParams.set('data-od', `${rok - ZAKRES_LAT}0101`);
     u.searchParams.set('data-do', `${rok}1231`);
     u.searchParams.set('limit', '1');
     u.searchParams.set('pokaz-wszystkie-pola', 'true');
 
-    const r = await pobierz(u);
+    const r = await zadanieZOdstepem(u);
+    if (r.poddajemy) return { blad: 'HTTP 429 mimo wycofywania — zwieksz --odstep' };
+
     if (r.status < 200 || r.status >= 300) {
-      if (r.status === 429) return { blad: 'HTTP 429 — limit zapytan; zwieksz --odstep' };
-      continue;                                  // 4xx dla zlego wojewodztwa — probuj dalej
+      // CEPiK zwraca BARDZO dobre komunikaty bledu (wskazal nam kiedys dokladnie zly
+      // parametr). Przemilczenie ich zamienia diagnozowalny problem w „brak wyniku".
+      try {
+        const d = JSON.parse(r.tresc);
+        const e = d?.errors?.[0];
+        if (e) ostatniBlad = `HTTP ${r.status}: ${e['error-reason'] || e['error-result'] || ''}`.slice(0, 160);
+      } catch { ostatniBlad = `HTTP ${r.status}`; }
+      continue;
     }
-    let d; try { d = JSON.parse(r.tresc); } catch { continue; }
+    let d; try { d = JSON.parse(r.tresc); } catch { ostatniBlad = 'odpowiedz nie jest JSON-em'; continue; }
     const rek = Array.isArray(d?.data) ? d.data[0] : d?.data;
     if (rek?.attributes) return { attrs: rek.attributes, woj };
-    await spij(ODSTEP);
   }
-  return { brak: true };
+  return ostatniBlad ? { blad: ostatniBlad } : { brak: true };
 }
 
 (async () => {
@@ -129,6 +177,7 @@ async function jedenPojazd(nr, rok) {
   const gotowe = new Set(wynik.map(r => r.nrRej));
   const rok = new Date().getFullYear();
   let znalezione = 0, puste = 0, bledy = 0, i = 0;
+  const powody = {};
 
   for (const nr of doPobrania) {
     i++;
@@ -141,7 +190,7 @@ async function jedenPojazd(nr, rok) {
       wynik.push({ nrRej: nr, ...zmapuj(r.attrs), _zrodlo: 'cepik' });
       znalezione++;
     } else if (r.brak) { puste++; }
-    else { bledy++; if (bledy <= 3) console.log(R(`  ${nr}: ${r.blad}`)); }
+    else { bledy++; powody[r.blad] = (powody[r.blad] || 0) + 1; }
 
     if (i % 10 === 0 || i === doPobrania.length) {
       fs.writeFileSync(cel, JSON.stringify(wynik, null, 2), 'utf8');
@@ -149,10 +198,31 @@ async function jedenPojazd(nr, rok) {
         process.stderr.write(`\r  ${i}/${doPobrania.length}  znalezione ${znalezione}  bez wyniku ${puste}  bledy ${bledy}   `);
       }
     }
-    await spij(ODSTEP);
+    // Bez odstepu w TEJ petli. `zadanieZOdstepem` spi po KAZDYM zadaniu, wiec drugi
+    // odstep tutaj podwajalby tempo i `--odstep 900` znaczyloby w praktyce 1800 ms.
+    // Flaga ma znaczyc to, co mowi: jedno zadanie na ODSTEP.
   }
   fs.writeFileSync(cel, JSON.stringify(wynik, null, 2), 'utf8');
   if (process.stderr.isTTY) process.stderr.write('\r' + ' '.repeat(72) + '\r');
+
+  // Powody niepowodzen ZANIM pokazemy pokrycie. Tabela samych zer nic nie mowi;
+  // komunikat serwera mowi wszystko — a CEPiK zwraca bardzo dobre komunikaty.
+  if (Object.keys(powody).length) {
+    console.log(B('\n  Dlaczego sie nie udalo:\n'));
+    for (const [p, n] of Object.entries(powody).sort((a, b) => b[1] - a[1]).slice(0, 6)) {
+      console.log(`   ${String(n).padStart(4)}×  ${p}`);
+    }
+  }
+
+  if (!wynik.length) {
+    console.log(R('\n  ZERO rekordow — pokrycie pol nie ma tu czego pokazac.'));
+    console.log(D('  Sprawdz komunikaty wyzej. Najczestsze przyczyny:'));
+    console.log(D('    • HTTP 429 — zwieksz --odstep (domyslnie 900 ms)'));
+    console.log(D('    • zly zakres dat — sprobuj --lata 5'));
+    console.log(D('    • pojazd zarejestrowany w innym wojewodztwie — --fallback-woj'));
+    console.log(D('  Zacznij od jednego pojazdu:  node tools/cepik-probe.js <NR-REJ> <KOD-WOJ>\n'));
+    return;
+  }
 
   // Pokrycie pol DT-1 — po to caly ten przebieg.
   const dt1 = DR.dt1();
