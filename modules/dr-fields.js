@@ -40,22 +40,22 @@
     { kod: 'D.2',   klucz: 'typ',              nazwa: 'Typ, wariant, wersja',                typ: 'tekst',  pewne: true,  dt1: false, aztec: true,  cepik: ['typ'] },
     { kod: 'D.3',   klucz: 'model',            nazwa: 'Model',                               typ: 'tekst',  pewne: true,  dt1: false, aztec: true,  cepik: ['model'] },
     { kod: 'E',     klucz: 'vin',              nazwa: 'VIN / nr nadwozia, podwozia lub ramy', typ: 'tekst', pewne: true,  dt1: false, aztec: true,  cepik: ['vin'], osobowe: true },
-    { kod: 'F.1',   klucz: 'dmcKg',            nazwa: 'Maksymalna masa całkowita',           typ: 'liczba', zakres: [100, 100000], pewne: true,  dt1: true,  aztec: true,  cepik: ['dopuszczalna-masa-calkowita'], jednostka: 'kg' },
-    { kod: 'F.2',   klucz: 'dmcKg2',           nazwa: 'Dopuszczalna masa całkowita',         typ: 'liczba', zakres: [100, 100000], pewne: true,  dt1: true,  aztec: true,  cepik: [], jednostka: 'kg' },
-    { kod: 'F.3',   klucz: 'dmcZespolu',       nazwa: 'Dopuszczalna masa całkowita zespołu', typ: 'liczba', zakres: [100, 200000], pewne: true,  dt1: true,  aztec: true,  cepik: [], jednostka: 'kg' },
-    { kod: 'G',     klucz: 'masaWlKg',         nazwa: 'Masa własna',                         typ: 'liczba', zakres: [100, 100000], pewne: true,  dt1: false, aztec: true,  cepik: ['masa-wlasna'], jednostka: 'kg' },
+    { kod: 'F.1',   klucz: 'dmcKg',            nazwa: 'Maksymalna masa całkowita',           typ: 'liczba', zakres: [100, 100000], pewne: true,  dt1: true,  aztec: true,  cepik: ['max-masa-calkowita'], jednostka: 'kg' },
+    { kod: 'F.2',   klucz: 'dmcKg2',           nazwa: 'Dopuszczalna masa całkowita',         typ: 'liczba', zakres: [100, 100000], pewne: true,  dt1: true,  aztec: true,  cepik: ['dopuszczalna-masa-calkowita'], jednostka: 'kg' },
+    { kod: 'F.3',   klucz: 'dmcZespolu',       nazwa: 'Dopuszczalna masa całkowita zespołu', typ: 'liczba', zakres: [100, 200000], pewne: true,  dt1: true,  aztec: true,  cepik: ['dopuszczalna-masa-calkowita-zespolu-pojazdow'], jednostka: 'kg' },
+    { kod: 'G',     klucz: 'masaWlKg',         nazwa: 'Masa własna',                         typ: 'liczba', zakres: [100, 100000], pewne: true,  dt1: false, aztec: true,  cepik: ['masa-wlasna', 'masa-pojazdu-gotowego-do-jazdy'], jednostka: 'kg' },
     { kod: 'H',     klucz: 'okresWaznosci',    nazwa: 'Okres ważności dowodu',               typ: 'tekst',  pewne: false, dt1: false, aztec: false, cepik: [] },
     { kod: 'I',     klucz: 'dataWydania',      nazwa: 'Data wydania dowodu',                 typ: 'data',   pewne: true,  dt1: false, aztec: true,  cepik: [] },
-    { kod: 'J',     klucz: 'kategoria',        nazwa: 'Kategoria pojazdu',                   typ: 'tekst',  pewne: true,  dt1: true,  aztec: true,  cepik: ['kategoria'] },
+    { kod: 'J',     klucz: 'kategoria',        nazwa: 'Kategoria pojazdu',                   typ: 'tekst',  pewne: true,  dt1: true,  aztec: true,  cepik: ['kategoria-pojazdu'] },
     { kod: 'K',     klucz: 'nrHomolog',        nazwa: 'Numer świadectwa homologacji',        typ: 'tekst',  pewne: true,  dt1: false, aztec: false, cepik: [] },
     { kod: 'L',     klucz: 'liczbaOsi',        nazwa: 'Liczba osi',                          typ: 'liczba', zakres: [1, 10], pewne: true,  dt1: true,  aztec: true,  cepik: ['liczba-osi'] },
-    { kod: 'O.1',   klucz: 'dmcPrzyczHam',     nazwa: 'Masa przyczepy z hamulcem',           typ: 'liczba', zakres: [0, 100000], pewne: true,  dt1: true,  aztec: false, cepik: [], jednostka: 'kg' },
-    { kod: 'O.2',   klucz: 'dmcPrzyczNieham',  nazwa: 'Masa przyczepy bez hamulca',          typ: 'liczba', zakres: [0, 100000], pewne: true,  dt1: false, aztec: false, cepik: [], jednostka: 'kg' },
-    { kod: 'P.1',   klucz: 'pojSilnika',       nazwa: 'Pojemność silnika',                   typ: 'liczba', zakres: [50, 30000], pewne: true,  dt1: false, aztec: true,  cepik: ['pojemnosc-silnika'], jednostka: 'cm3' },
-    { kod: 'P.2',   klucz: 'mocKW',            nazwa: 'Maksymalna moc netto silnika',        typ: 'liczba', zakres: [1, 2000], pewne: true,  dt1: false, aztec: true,  cepik: ['moc-silnika'], jednostka: 'kW' },
+    { kod: 'O.1',   klucz: 'dmcPrzyczHam',     nazwa: 'Masa przyczepy z hamulcem',           typ: 'liczba', zakres: [0, 100000], pewne: true,  dt1: true,  aztec: false, cepik: ['max-masa-calkowita-przyczepy-z-hamulcem'], jednostka: 'kg' },
+    { kod: 'O.2',   klucz: 'dmcPrzyczNieham',  nazwa: 'Masa przyczepy bez hamulca',          typ: 'liczba', zakres: [0, 100000], pewne: true,  dt1: false, aztec: false, cepik: ['max-masa-calkowita-przyczepy-bez-hamulca'], jednostka: 'kg' },
+    { kod: 'P.1',   klucz: 'pojSilnika',       nazwa: 'Pojemność silnika',                   typ: 'liczba', zakres: [50, 30000], pewne: true,  dt1: false, aztec: true,  cepik: ['pojemnosc-skokowa-silnika'], jednostka: 'cm3' },
+    { kod: 'P.2',   klucz: 'mocKW',            nazwa: 'Maksymalna moc netto silnika',        typ: 'liczba', zakres: [1, 2000], pewne: true,  dt1: false, aztec: true,  cepik: ['moc-netto-silnika'], jednostka: 'kW' },
     { kod: 'P.3',   klucz: 'paliwo',           nazwa: 'Rodzaj paliwa',                       typ: 'tekst',  pewne: true,  dt1: false, aztec: true,  cepik: ['rodzaj-paliwa'] },
-    { kod: 'S.1',   klucz: 'miejscaSied',      nazwa: 'Liczba miejsc siedzących',            typ: 'liczba', zakres: [1, 100], pewne: true,  dt1: true,  aztec: true,  cepik: ['liczba-miejsc-ogolem'] },
-    { kod: 'S.2',   klucz: 'miejscaStoj',      nazwa: 'Liczba miejsc stojących',             typ: 'liczba', zakres: [0, 200], pewne: false, dt1: false, aztec: false, cepik: [] },
+    { kod: 'S.1',   klucz: 'miejscaSied',      nazwa: 'Liczba miejsc siedzących',            typ: 'liczba', zakres: [1, 100], pewne: true,  dt1: true,  aztec: true,  cepik: ['liczba-miejsc-siedzacych'] },
+    { kod: 'S.2',   klucz: 'miejscaStoj',      nazwa: 'Liczba miejsc stojących',             typ: 'liczba', zakres: [0, 200], pewne: false, dt1: false, aztec: false, cepik: ['liczba-miejsc-stojacych'] },
     { kod: 'T',     klucz: 'predkoscMax',      nazwa: 'Prędkość maksymalna',                 typ: 'liczba', zakres: [10, 400], pewne: false, dt1: false, aztec: false, cepik: [], jednostka: 'km/h' },
     { kod: 'V.9',   klucz: 'normaEuro',        nazwa: 'Norma emisji spalin (EURO)',          typ: 'tekst',  pewne: false, dt1: true,  aztec: false, cepik: [] },
     { kod: 'X',     klucz: 'nextInspection',   nazwa: 'Termin następnego badania techn.',    typ: 'data',   pewne: false, dt1: false, aztec: false, cepik: [] },
@@ -66,14 +66,14 @@
     // Katalog ma opisywać stan faktyczny kodu, a nie narzucać mu nowe nazewnictwo: zmiana
     // klucza w promptcie to zmiana kontraktu z modelem, osobna decyzja i osobny pomiar.
     // To pole decyduje o ZWOLNIENIU z DT-1 (pojazd specjalny) — patrz TaxEngine.getCat().
-    { kod: '—', klucz: 'przeznaczenie',    nazwa: 'Rodzaj pojazdu / przeznaczenie', typ: 'tekst',  pewne: true,  dt1: true,  aztec: false, cepik: ['rodzaj-pojazdu'] },
+    { kod: '—', klucz: 'przeznaczenie',    nazwa: 'Rodzaj pojazdu / przeznaczenie', typ: 'tekst',  pewne: true,  dt1: true,  aztec: false, cepik: ['rodzaj-pojazdu', 'przeznaczenie-pojazdu'] },
     // DWA RÓŻNE POLA, nie dwie nazwy jednego. Ładunek Aztec niesie rok PIERWSZEJ
     // REJESTRACJI (pozycja 56); prompt OCR pyta o rok PRODUKCJI. Pojazd sprowadzony
     // z zagranicy ma je różne, czasem o kilka lat — sklejenie ich zafałszowałoby wiek floty.
     { kod: '—', klucz: 'rokPierwszejRej', nazwa: 'Rok pierwszej rejestracji',      typ: 'liczba', zakres: [1900, 2100], pewne: true,  dt1: false, aztec: true,  cepik: [] },
     { kod: '—', klucz: 'rokProd',         nazwa: 'Rok produkcji',                  typ: 'liczba', zakres: [1900, 2100], pewne: true,  dt1: false, aztec: false, cepik: ['rok-produkcji'] },
     { kod: '—', klucz: 'seriaDr',       nazwa: 'Seria i numer dowodu',            typ: 'tekst',  pewne: true,  dt1: false, aztec: true,  cepik: [], osobowe: true },
-    { kod: '—', klucz: 'zawieszenie',   nazwa: 'Rodzaj zawieszenia',              typ: 'tekst',  pewne: true,  dt1: true,  aztec: false, cepik: [] },
+    { kod: '—', klucz: 'zawieszenie',   nazwa: 'Rodzaj zawieszenia',              typ: 'tekst',  pewne: true,  dt1: true,  aztec: false, cepik: ['rodzaj-zawieszenia'] },
     { kod: '—', klucz: 'nipWlasciciela',nazwa: 'NIP właściciela',                 typ: 'tekst',  pewne: true,  dt1: false, aztec: true,  cepik: [], osobowe: true },
   ];
 
