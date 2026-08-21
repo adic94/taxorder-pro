@@ -214,110 +214,135 @@ async function preflight(nr) {
   const rok = new Date().getFullYear();
   console.log(B(`\n  Preflight dla ${nr} — wojewodztwo ${woj}\n`));
 
-  let trafienie = null, znalezionyRek = null, oknoTrafienia = null;
-  // Drabinka konczy sie na 2 latach, bo TYLE wynosi limit — powiedzial to sam serwer:
-  // „Bledny zakres dat. Maksymalny zakres lat to: 2". Trzecie okno (5 lat) zostaje
-  // wylacznie jako dowod, ze limit nadal obowiazuje; gdyby CEPiK go kiedys podniosl,
-  // preflight to zobaczy zamiast powielac nieaktualne zalozenie.
-  for (const lat of [1, 2, 5]) {
+  /** Jedno zapytanie o konkretne okno [od, do] (lata kalendarzowe). */
+  async function pytaj(od, do_, zNumerem = true) {
     const u = new URL('https://api.cepik.gov.pl/pojazdy');
     u.searchParams.set('wojewodztwo', woj);
-    u.searchParams.set('numer-rejestracyjny', nr);
-    u.searchParams.set('data-od', `${rok - lat}0101`);
-    u.searchParams.set('data-do', `${rok}1231`);
+    if (zNumerem) u.searchParams.set('numer-rejestracyjny', nr);
+    u.searchParams.set('data-od', `${od}0101`);
+    u.searchParams.set('data-do', `${do_}1231`);
     u.searchParams.set('limit', '1');
     u.searchParams.set('pokaz-wszystkie-pola', 'true');
 
     const r = await zadanieZOdstepem(u);
-    const etykieta = `okno ${String(lat).padStart(2)} lat`;
-
     if (r.status < 200 || r.status >= 300) {
       let powod = `HTTP ${r.status}`;
       try {
         const e = JSON.parse(r.tresc)?.errors?.[0];
         if (e) powod += `: ${e['error-reason'] || e['error-result'] || ''}`;
-      } catch { /* tresc nie jest JSON-em — sam status musi wystarczyc */ }
-      console.log(`   ${R('✗')} ${etykieta}  ${powod.slice(0, 120)}`);
-      continue;
+      } catch { /* nie JSON — sam status musi wystarczyc */ }
+      return { blad: powod.slice(0, 130) };
     }
-    let d; try { d = JSON.parse(r.tresc); } catch { console.log(`   ${R('✗')} ${etykieta}  odpowiedz nie jest JSON-em`); continue; }
+    let d; try { d = JSON.parse(r.tresc); } catch { return { blad: 'odpowiedz nie jest JSON-em' }; }
     const rek = Array.isArray(d?.data) ? d.data[0] : d?.data;
-    if (rek?.attributes) {
-      const pola = Object.keys(rek.attributes).length;
-      console.log(`   ${G('✓')} ${etykieta}  REKORD ZNALEZIONY, pol: ${pola}`);
-      if (!trafienie) { trafienie = lat; znalezionyRek = rek.attributes; oknoTrafienia = [rok - lat, rok]; }
-    } else {
-      console.log(`   ${Y('·')} ${etykieta}  HTTP 200, ale zero rekordow`);
-    }
+    return rek?.attributes ? { attrs: rek.attributes } : { brak: true };
+  }
+
+  const pokaz = (od, do_, w) => {
+    const lat = do_ - od + 1;
+    const et = `${od}–${do_}  (${lat === 1 ? '1 rok kalendarzowy' : `${lat} lata kalendarzowe`})`.padEnd(34);
+    if (w.blad) console.log(`   ${R('✗')} ${et} ${w.blad}`);
+    else if (w.brak) console.log(`   ${Y('·')} ${et} HTTP 200, ale zero rekordow`);
+    else console.log(`   ${G('✓')} ${et} REKORD ZNALEZIONY, pol: ${Object.keys(w.attrs).length}`);
+  };
+
+  // DRABINKA. Okna opisane FAKTYCZNYM zakresem dat, nie „liczba lat wstecz".
+  // Poprzednia wersja etykietowala je liczba lat wstecz i przez to KLAMALA: „okno 1 lat"
+  // wysylalo 2025-01-01..2026-12-31, czyli DWA lata kalendarzowe, a „okno 2 lat" wysylalo
+  // trzy. Wygladalo to, jakby limit dwuletni byl lamany takze przez okno dwuletnie —
+  // a to okno jest w porzadku i wlasnie takie generuje `okna()` dla przebiegu wsadowego.
+  const proby = [
+    [rok, rok],          // 1 rok kalendarzowy
+    [rok - 1, rok],      // 2 lata — tyle, ile deklaruje limit; TEGO uzywa przebieg wsadowy
+    [rok - 2, rok],      // 3 lata — celowo za szerokie, potwierdza ze limit nadal obowiazuje
+  ];
+
+  let trafienie = null;
+  for (const [od, do_] of proby) {
+    const w = await pytaj(od, do_);
+    pokaz(od, do_, w);
+    if (w.attrs && !trafienie) trafienie = { attrs: w.attrs, okno: [od, do_] };
   }
 
   console.log('');
-  if (trafienie) {
-    console.log(G(`  Dziala. Najwezsze okno z trafieniem: ${trafienie} lat.`));
-
-    // PO KTOREJ DACIE FILTRUJE OKNO? To nie jest ciekawostka, tylko liczba zadan na cala
-    // flote. Limit 2 lat oznacza, ze pokrycie N lat kosztuje ceil(N/2) okien NA POJAZD:
-    // przy 30 latach to 15 zadan × 876 pojazdow = ponad 13 000. Jesli okno filtruje po
-    // dacie ostatniej operacji, jedno swieze okno zlapie wiekszosc floty i przebieg
-    // kosztuje 876 zadan. Roznica jest miedzy kwadransem a poltora doby.
-    const daty = Object.entries(znalezionyRek)
-      .filter(([k, v]) => /data|rok/i.test(k) && v != null && v !== '' && !/^-+$/.test(String(v).trim()));
-    if (daty.length) {
-      console.log(B(`\n  Daty w znalezionym rekordzie (okno ${oknoTrafienia[0]}–${oknoTrafienia[1]}):\n`));
-      for (const [k, v] of daty) {
-        const rokPola = String(v).match(/(19|20)\d{2}/);
-        const w = rokPola && Number(rokPola[0]) >= oknoTrafienia[0] && Number(rokPola[0]) <= oknoTrafienia[1];
-        console.log(`   ${w ? G('◄') : ' '} ${k.padEnd(38)} ${String(v).slice(0, 30)}`);
-      }
-      console.log(D('\n  ◄ = data mieszczaca sie w oknie, ktore trafilo. Jesli zaznaczona jest data'));
-      console.log(D('    ostatniej operacji, a NIE pierwszej rejestracji — jedno swieze okno wystarczy'));
-      console.log(D('    na wiekszosc floty i przebieg jest tani.\n'));
-    }
-    // Rozpoznanie pojazdu — zeby bylo widac, ze to nie przypadkowy rekord z wojewodztwa.
-    const opis = ['marka', 'model', 'rodzaj-pojazdu'].map(k => znalezionyRek[k]).filter(Boolean).join(' · ');
-    if (opis) console.log(D(`  Rekord dotyczy: ${opis}\n`));
-    // Celowo NIE podpowiadam zwezenia okna do tej wartosci. Pomiar dotyczy JEDNEGO pojazdu,
-    // a flota ma rozne roczniki — okno dobrane pod jeden pojazd wyciolby starsze.
-    console.log(D('  Domyslne okno 30 lat je obejmuje, wiec przebieg bez dodatkowych flag:'));
-    console.log(D('    node tools/cepik-batch.js <zrodlo.json> --wyjscie <cepik.json> --limit 20\n'));
-  } else {
+  if (!trafienie) {
     console.log(R('  Zadne okno nie zwrocilo rekordu.'));
 
     // PROBA KONTROLNA — to samo zapytanie BEZ filtra po numerze rejestracyjnym.
-    // Rozstrzyga pytanie, ktorego caly przebieg wsadowy nie potrafi zadac: czy endpoint
-    // z tymi parametrami zwraca COKOLWIEK. Jesli zwraca, filtr po numerze jest problemem
-    // (albo nie jest wspierany, albo pojazdu tam nie ma). Jesli nie zwraca nic takze bez
-    // filtra, to parametry sa zle i szukanie winy w numerze jest strata czasu.
-    const k = new URL('https://api.cepik.gov.pl/pojazdy');
-    k.searchParams.set('wojewodztwo', woj);
-    k.searchParams.set('data-od', `${rok - 30}0101`);
-    k.searchParams.set('data-do', `${rok}1231`);
-    k.searchParams.set('limit', '1');
-    const rk = await zadanieZOdstepem(k);
-    let maKontrolny = false, powodK = `HTTP ${rk.status}`;
-    try {
-      const d = JSON.parse(rk.tresc);
-      const rek = Array.isArray(d?.data) ? d.data[0] : d?.data;
-      maKontrolny = !!rek?.attributes;
-      const e = d?.errors?.[0];
-      if (e) powodK += `: ${e['error-reason'] || e['error-result'] || ''}`;
-    } catch { /* nie JSON — sam status */ }
-
+    // Rozstrzyga pytanie, ktorego przebieg wsadowy nie potrafi zadac: czy endpoint
+    // z tymi parametrami zwraca COKOLWIEK.
+    const k = await pytaj(rok - 1, rok, false);
     console.log(B('\n  Proba kontrolna bez filtra po numerze rejestracyjnym:'));
-    if (maKontrolny) {
+    if (k.attrs) {
       console.log(`   ${G('✓')} endpoint zwraca rekordy dla wojewodztwa ${woj}.`);
       console.log(D('  Czyli parametry sa dobre, a problemem jest sam numer:'));
       console.log(D(`    • sprawdz pisownie ${nr} (bez spacji, wielkimi literami)`));
       console.log(D(`    • pojazd moze byc zarejestrowany poza wojewodztwem ${woj} — uruchom z --fallback-woj`));
       console.log(D('    • pojazd moze byc wyrejestrowany albo zarejestrowany poza Polska\n'));
     } else {
-      console.log(`   ${R('✗')} endpoint nie zwraca nic takze bez filtra  (${powodK.slice(0, 120)})`);
+      console.log(`   ${R('✗')} endpoint nie zwraca nic takze bez filtra  (${k.blad || 'zero rekordow'})`);
       console.log(D('  Czyli problem NIE jest w numerze rejestracyjnym, tylko w parametrach'));
-      console.log(D('  albo w dostepie. Nie uruchamiaj przebiegu na calej flocie — nic nie znajdzie.'));
-      console.log(D('  Pojedyncze zapytanie do recznego obejrzenia odpowiedzi:'));
-      console.log(D(`    node tools/cepik-probe.js ${nr} ${woj}\n`));
+      console.log(D('  albo w dostepie. Nie uruchamiaj przebiegu na calej flocie — nic nie znajdzie.\n'));
     }
+    return;
   }
+
+  const { attrs, okno } = trafienie;
+  const opis = ['marka', 'model', 'rodzaj-pojazdu'].map(k => attrs[k]).filter(Boolean).join(' · ');
+  console.log(G(`  Dziala. Najwezsze okno z trafieniem: ${okno[0]}–${okno[1]}.`));
+  if (opis) console.log(D(`  Rekord dotyczy: ${opis}`));
+
+  const rokZ = (v) => { const m = String(v || '').match(/(19|20)\d{2}/); return m ? Number(m[0]) : null; };
+  const pierwsza = rokZ(attrs['data-pierwszej-rejestracji-w-kraju'] || attrs['data-pierwszej-rejestracji']);
+  const ostatnia = rokZ(attrs['data-ostatniej-rejestracji-w-kraju']);
+
+  console.log(B('\n  Daty w znalezionym rekordzie:\n'));
+  for (const [k, v] of Object.entries(attrs)) {
+    if (!/data|rok/i.test(k) || v == null || v === '' || /^-+$/.test(String(v).trim())) continue;
+    const r2 = rokZ(v);
+    const w = r2 != null && r2 >= okno[0] && r2 <= okno[1];
+    console.log(`   ${w ? G('◄') : ' '} ${k.padEnd(38)} ${String(v).slice(0, 30)}`);
+  }
+
+  // ZAPYTANIE ROZSTRZYGAJACE — po KTOREJ dacie filtruje okno.
+  //
+  // To nie jest ciekawostka, tylko liczba zadan na cala flote. Jesli okno patrzy na date
+  // OSTATNIEJ operacji, jedno swieze okno zlapie kazdy pojazd, ktory mial ostatnio
+  // jakakolwiek zmiane w rejestrze. Jesli patrzy na date PIERWSZEJ rejestracji, trzeba
+  // siegac wstecz az do rocznika najstarszego pojazdu — a kazde dwa lata to osobne okno
+  // na KAZDY pojazd.
+  //
+  // Rozstrzygamy jednym zapytaniem o okno, ktore zawiera date pierwszej rejestracji,
+  // ale NIE zawiera daty ostatniej operacji. Trafienie = filtr widzi pierwsza rejestracje.
+  if (pierwsza == null || ostatnia == null || pierwsza === ostatnia) {
+    console.log(Y('\n  Ten pojazd nie rozstrzyga, po ktorej dacie filtruje okno.'));
+    console.log(D(`  Pierwsza rejestracja i ostatnia operacja sa w tym samym roku (${pierwsza ?? '?'}),`));
+    console.log(D('  wiec kazde okno obejmuje albo obie, albo zadna.'));
+    console.log(D('  Uruchom preflight na STARSZYM pojezdzie — takim, ktory jest w flocie od lat.'));
+    console.log(D('  Dopiero wtedy bedzie wiadomo, jakie --lata ustawic na caly przebieg.\n'));
+    return;
+  }
+
+  const rozOd = pierwsza - 1, rozDo = pierwsza;   // 2 lata kalendarzowe, bez roku ostatniej operacji
+  console.log(B(`\n  Zapytanie rozstrzygajace — okno ${rozOd}–${rozDo}:`));
+  console.log(D(`  zawiera pierwsza rejestracje (${pierwsza}), nie zawiera ostatniej operacji (${ostatnia}).`));
+  const roz = await pytaj(rozOd, rozDo);
+  pokaz(rozOd, rozDo, roz);
+
+  console.log('');
+  if (roz.attrs) {
+    console.log(G('  WERDYKT: okno widzi date PIERWSZEJ REJESTRACJI.'));
+    console.log(D('  Przebieg musi siegnac wstecz do rocznika najstarszego pojazdu floty.'));
+    console.log(D('  Kazde 2 lata zakresu to jedno dodatkowe okno NA KAZDY pojazd — patrz budzet,'));
+    console.log(D('  ktory narzedzie wypisuje przed startem. Zacznij od malego --limit.\n'));
+  } else {
+    console.log(G('  WERDYKT: okno NIE widzi daty pierwszej rejestracji.'));
+    console.log(D(`  Trafienie bierze sie z daty ostatniej operacji (${ostatnia}), wiec swieze okno`));
+    console.log(D('  wystarczy dla kazdego pojazdu z niedawna zmiana w rejestrze — a to jest tanie:'));
+    console.log(D('  jedno okno na pojazd. Domyslne --lata 2 jest wlasciwe.\n'));
+  }
+  console.log(D('  Caly przebieg (zacznij od --limit 20, zobacz budzet zadan):'));
+  console.log(D('    node tools/cepik-batch.js <zrodlo.json> --wyjscie <cepik.json> --limit 20\n'));
 }
 
 // `else`, nie `return` — top-level `return` jest legalny w CommonJS, ale eslint parsuje
