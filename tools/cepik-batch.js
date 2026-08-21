@@ -47,12 +47,32 @@ const LIMIT   = Number(par('--limit', 0));          // 0 = bez ograniczenia
 // kazdy pojazd, ktorego nie ma w rejestrze pod wlasciwym kodem. Wlacz swiadomie, gdy
 // przebieg bez niego zostawi duzo „bez wyniku".
 const FALLBACK_WOJ = argv.includes('--fallback-woj');
-// Zakres dat. CEPiK filtruje po DACIE REJESTRACJI, wiec okno musi objac rok rejestracji
-// pojazdu — inaczej rekord po prostu nie wystapi, bez zadnego bledu. Domyslne 30 lat jest
-// celowo szerokie: nasza flota to takze pojazdy dwudziestoletnie. NIE zwezaj tego „na
-// wszelki wypadek" — probowalem 15 i bylby to regres pokrycia oparty na domysle, nie na
-// pomiarze. Jesli okaze sie, ze API odrzuca szerokie okno, `--sprawdz` to wykaze.
-const ZAKRES_LAT = Number(par('--lata', 30));
+// ILE LAT WSTECZ PRZESZUKAC. Uwaga: to NIE jest szerokosc jednego zapytania.
+//
+// CEPiK przyjmuje okno o dlugosci NAJWYZEJ DWOCH LAT. Powiedzial to sam, dokladnie tymi
+// slowami: „Bledny zakres dat. Maksymalny zakres lat to: 2". Pojedyncze zapytanie o 30 lat
+// dostaje HTTP 400 — czyli poprzednia wersja z `--lata 30` nie mogla znalezc NICZEGO,
+// bo kazde jej zapytanie bylo odrzucane, zanim ktokolwiek zdazyl pomyslec o wojewodztwie.
+//
+// Pokrycie N lat kosztuje wiec ceil(N/2) OKIEN NA KAZDY POJAZD. Przy 876 pojazdach:
+//
+//     --lata  2   ->    876 zadan   ~13 min
+//     --lata 10   ->  4 380 zadan   ~66 min
+//     --lata 30   -> 13 140 zadan   ~3,5 h
+//
+// Dlatego domyslnie 2 lata (jedno okno) i jawny budzet wypisywany przed startem.
+// Zwiekszaj swiadomie, patrzac na ten rachunek — nie „na wszelki wypadek".
+const ZAKRES_LAT = Number(par('--lata', 2));
+const OKNO_MAX = 2;                                   // twardy limit CEPiK, nie nasz wybor
+
+/** Okna po <=2 lata, od najswiezszego wstecz. Zwraca pary [rokOd, rokDo]. */
+function okna(rok, lat) {
+  const w = [];
+  for (let gora = rok; gora > rok - lat; gora -= OKNO_MAX) {
+    w.push([Math.max(gora - (OKNO_MAX - 1), rok - lat + 1), gora]);
+  }
+  return w;
+}
 // Preflight: jeden numer rejestracyjny, kilka szerokosci okna dat. Cztery zadania zamiast
 // osmiuset — odpowiada na pytanie „czemu zero wynikow" ZANIM ruszy caly przebieg.
 const SPRAWDZ = par('--sprawdz');
@@ -149,11 +169,12 @@ async function jedenPojazd(nr, rok) {
   let ostatniBlad = null;
 
   for (const woj of kody) {
+   for (const [od, do_] of okna(rok, ZAKRES_LAT)) {
     const u = new URL('https://api.cepik.gov.pl/pojazdy');
     u.searchParams.set('wojewodztwo', woj);
     u.searchParams.set('numer-rejestracyjny', nr);
-    u.searchParams.set('data-od', `${rok - ZAKRES_LAT}0101`);
-    u.searchParams.set('data-do', `${rok}1231`);
+    u.searchParams.set('data-od', `${od}0101`);
+    u.searchParams.set('data-do', `${do_}1231`);
     u.searchParams.set('limit', '1');
     u.searchParams.set('pokaz-wszystkie-pola', 'true');
 
@@ -172,7 +193,8 @@ async function jedenPojazd(nr, rok) {
     }
     let d; try { d = JSON.parse(r.tresc); } catch { ostatniBlad = 'odpowiedz nie jest JSON-em'; continue; }
     const rek = Array.isArray(d?.data) ? d.data[0] : d?.data;
-    if (rek?.attributes) return { attrs: rek.attributes, woj };
+    if (rek?.attributes) return { attrs: rek.attributes, woj, okno: [od, do_] };
+   }
   }
   return ostatniBlad ? { blad: ostatniBlad } : { brak: true };
 }
@@ -192,8 +214,12 @@ async function preflight(nr) {
   const rok = new Date().getFullYear();
   console.log(B(`\n  Preflight dla ${nr} — wojewodztwo ${woj}\n`));
 
-  let trafienie = null;
-  for (const lat of [1, 5, 15, 30]) {
+  let trafienie = null, znalezionyRek = null, oknoTrafienia = null;
+  // Drabinka konczy sie na 2 latach, bo TYLE wynosi limit — powiedzial to sam serwer:
+  // „Bledny zakres dat. Maksymalny zakres lat to: 2". Trzecie okno (5 lat) zostaje
+  // wylacznie jako dowod, ze limit nadal obowiazuje; gdyby CEPiK go kiedys podniosl,
+  // preflight to zobaczy zamiast powielac nieaktualne zalozenie.
+  for (const lat of [1, 2, 5]) {
     const u = new URL('https://api.cepik.gov.pl/pojazdy');
     u.searchParams.set('wojewodztwo', woj);
     u.searchParams.set('numer-rejestracyjny', nr);
@@ -219,7 +245,7 @@ async function preflight(nr) {
     if (rek?.attributes) {
       const pola = Object.keys(rek.attributes).length;
       console.log(`   ${G('✓')} ${etykieta}  REKORD ZNALEZIONY, pol: ${pola}`);
-      if (!trafienie) trafienie = lat;
+      if (!trafienie) { trafienie = lat; znalezionyRek = rek.attributes; oknoTrafienia = [rok - lat, rok]; }
     } else {
       console.log(`   ${Y('·')} ${etykieta}  HTTP 200, ale zero rekordow`);
     }
@@ -228,6 +254,28 @@ async function preflight(nr) {
   console.log('');
   if (trafienie) {
     console.log(G(`  Dziala. Najwezsze okno z trafieniem: ${trafienie} lat.`));
+
+    // PO KTOREJ DACIE FILTRUJE OKNO? To nie jest ciekawostka, tylko liczba zadan na cala
+    // flote. Limit 2 lat oznacza, ze pokrycie N lat kosztuje ceil(N/2) okien NA POJAZD:
+    // przy 30 latach to 15 zadan × 876 pojazdow = ponad 13 000. Jesli okno filtruje po
+    // dacie ostatniej operacji, jedno swieze okno zlapie wiekszosc floty i przebieg
+    // kosztuje 876 zadan. Roznica jest miedzy kwadransem a poltora doby.
+    const daty = Object.entries(znalezionyRek)
+      .filter(([k, v]) => /data|rok/i.test(k) && v != null && v !== '' && !/^-+$/.test(String(v).trim()));
+    if (daty.length) {
+      console.log(B(`\n  Daty w znalezionym rekordzie (okno ${oknoTrafienia[0]}–${oknoTrafienia[1]}):\n`));
+      for (const [k, v] of daty) {
+        const rokPola = String(v).match(/(19|20)\d{2}/);
+        const w = rokPola && Number(rokPola[0]) >= oknoTrafienia[0] && Number(rokPola[0]) <= oknoTrafienia[1];
+        console.log(`   ${w ? G('◄') : ' '} ${k.padEnd(38)} ${String(v).slice(0, 30)}`);
+      }
+      console.log(D('\n  ◄ = data mieszczaca sie w oknie, ktore trafilo. Jesli zaznaczona jest data'));
+      console.log(D('    ostatniej operacji, a NIE pierwszej rejestracji — jedno swieze okno wystarczy'));
+      console.log(D('    na wiekszosc floty i przebieg jest tani.\n'));
+    }
+    // Rozpoznanie pojazdu — zeby bylo widac, ze to nie przypadkowy rekord z wojewodztwa.
+    const opis = ['marka', 'model', 'rodzaj-pojazdu'].map(k => znalezionyRek[k]).filter(Boolean).join(' · ');
+    if (opis) console.log(D(`  Rekord dotyczy: ${opis}\n`));
     // Celowo NIE podpowiadam zwezenia okna do tej wartosci. Pomiar dotyczy JEDNEGO pojazdu,
     // a flota ma rozne roczniki — okno dobrane pod jeden pojazd wyciolby starsze.
     console.log(D('  Domyslne okno 30 lat je obejmuje, wiec przebieg bez dodatkowych flag:'));
@@ -282,8 +330,22 @@ if (SPRAWDZ) {
   const numery = [...new Set(zrodlo.map(r => String(r?.nrRej ?? '').toUpperCase().replace(/[\s-]/g, '')).filter(Boolean))];
   const doPobrania = LIMIT ? numery.slice(0, LIMIT) : numery;
 
+  // BUDZET ZADAN, JAWNIE. Liczba pojazdow nie jest juz liczba zadan: limit dwuletniego
+  // okna w CEPiK sprawia, ze kazdy pojazd kosztuje ceil(lat/2) zapytan, a `--fallback-woj`
+  // mnozy to razy szesnascie. Bez tego rachunku przed oczami latwo uruchomic przebieg na
+  // kilkanascie tysiecy zadan przeciwko darmowemu API panstwowemu — juz raz to zrobilismy.
+  const oknaNaPojazd = okna(new Date().getFullYear(), ZAKRES_LAT).length;
+  const mnoznikWoj = FALLBACK_WOJ ? ALL_WOJ.length : 1;
+  const maxZadan = doPobrania.length * oknaNaPojazd * mnoznikWoj;
+  const minut = Math.ceil(maxZadan * ODSTEP / 60000);
+
   console.log(B(`\n  CEPiK — pobieranie danych DR dla ${doPobrania.length} pojazdow\n`));
-  console.log(D(`  odstep ${ODSTEP} ms miedzy zadaniami; szacowany czas: ~${Math.ceil(doPobrania.length * ODSTEP / 60000)} min`));
+  console.log(D(`  zakres ${ZAKRES_LAT} lat = ${oknaNaPojazd} okien po <=2 lata na pojazd` +
+    (FALLBACK_WOJ ? `, x${mnoznikWoj} wojewodztw (--fallback-woj)` : '')));
+  console.log(D(`  odstep ${ODSTEP} ms; NAJWYZEJ ${maxZadan} zadan, czyli do ~${minut} min`));
+  if (maxZadan > 3000) {
+    console.log(Y(`\n  To duzo jak na publiczne API. Rozwaz mniejszy --lata albo przebieg na raty.`));
+  }
   console.log(D('  Checkpoint zapisywany na biezaco — przerwanie nie kosztuje calego przebiegu.\n'));
 
   // Wznawianie: rekordy juz pobrane zostaja, dopytujemy tylko brakujace.
