@@ -12,7 +12,7 @@
  * Test pilnuje, żeby każdy klucz używany w kodzie produkcyjnym istniał w katalogu.
  * Nie wymusza kierunku odwrotnego: katalog może zawierać pola, których jeszcze nie
  * wyciągamy z żadnego źródła (np. `zawieszenie` — jest na dowodzie, liczy się dla DT-1,
- * a nie ma go ani w Aztec, ani w dzisiejszym promptcie).
+ * a nie ma go w Aztec). Wyjatek: pola DT-1 MUSZA byc w promptcie — patrz [2].
  */
 const fs = require('fs');
 const path = require('path');
@@ -51,20 +51,58 @@ if (mDrNew) {
       : 'flaga `aztec` w katalogu zgadza się z _DR_NEW co do zbioru');
 }
 
-// --- [2] pola żądane w promptcie OCR istnieją w katalogu ---------------------
-// Prompt prosi model o JSON o konkretnych kluczach. Klucz spoza katalogu oznacza pole,
-// którego nie umiemy potem umieścić w arkuszu — trafi do wyniku i zniknie.
-const mPrompt = WORKER.match(/Zwroc WYLACZNIE JSON bez markdown:\s*\n?\s*`?\s*\{([\s\S]{0,4000}?)\}`/);
-if (mPrompt) {
-  const kluczePromptu = [...mPrompt[1].matchAll(/"([a-zA-Z][a-zA-Z0-9]*)"\s*:/g)].map(m => m[1]);
+// --- [2] prompt OCR: JEDNA definicja pól, komplet DT-1, brak drugiej kopii ---
+// Do 21.08 prompt DR istniał w DWÓCH kopiach — `handleAIOCR` (20 pól) i `handleDrOcr`
+// (16 pól, bez przeznaczenia, bez F.2, bez O.1/O.2). Który handler obsłużył dokument,
+// taki zestaw pól wracał, bez śladu w odpowiedzi. Teraz jest stała `DR_POLA_OCR`.
+//
+// Ta sekcja NIE MOŻE się „pomijać". Wcześniejsza wersja szukała literału JSON regexem
+// i przy nietrafieniu wypisywała „pomijam" — czyli po każdej zmianie kształtu promptu
+// przestawała mierzyć cokolwiek i nadal świeciła na zielono.
+const mPola = WORKER.match(/const DR_POLA_OCR\s*=\s*\{([\s\S]*?)\n\};/);
+ok(!!mPola, mPola
+  ? 'DR_POLA_OCR znalezione w worker/index.js'
+  : 'BRAK stałej DR_POLA_OCR — prompt OCR wrócił do literału i może się rozjechać');
+if (mPola) {
+  const kluczePromptu = [...mPola[1].matchAll(/^\s*([a-zA-Z][a-zA-Z0-9]*)\s*:/gm)].map(m => m[1]);
   const obce = [...new Set(kluczePromptu.filter(k => !znane.has(k)))];
   ok(obce.length === 0,
     obce.length
       ? `prompt OCR żąda pól spoza katalogu: ${obce.join(', ')}`
       : `wszystkie ${kluczePromptu.length} pól z promptu OCR jest w katalogu`);
-} else {
-  console.log('  \x1b[2m(nie znalazłem bloku JSON w promptcie — pomijam; zmienił się kształt promptu)\x1b[0m');
+
+  // Pole DT-1, o które prompt nie pyta, jest NIE DO ZDOBYCIA z OCR — a jego brak
+  // objawia się pustą kolumną w arkuszu, nie błędem. Tak zniknęło `zawieszenie`:
+  // 0/916 pojazdów, z żadnego źródła, bo nikt o nie nie prosił.
+  const wPromptcie = new Set(kluczePromptu);
+  const brakDt1 = DR.dt1().filter(f => !wPromptcie.has(f.klucz)).map(f => `${f.kod} ${f.klucz}`);
+  ok(brakDt1.length === 0,
+    brakDt1.length
+      ? `prompt OCR nie pyta o pola DT-1: ${brakDt1.join(', ')} — bez nich nie da się wyliczyć podatku`
+      : `prompt OCR pyta o wszystkie ${DR.dt1().length} pól DT-1`);
 }
+
+// Druga kopia listy pól DR w promptcie = ten sam rozjazd, który właśnie usunęliśmy.
+//
+// Sam `{"nrRej":` NIE WYSTARCZY jako sygnał: worker ma prompty do polisy, faktury
+// paliwowej i faktury serwisowej, które też pytają o numer rejestracyjny i są w porządku.
+// Pierwsza wersja tej asercji zgłaszała je jako regres — fałszywy alarm w bramce jest
+// gorszy niż jej brak, bo uczy ignorowania czerwonego wyniku.
+// Kopią promptu DR jest dopiero literał, który obok `nrRej` niesie pola karty pojazdu.
+const POLA_TYLKO_DR = ['dmcKg', 'liczbaOsi', 'masaWlKg', 'nrHomolog'];
+const kopieDr = [];
+for (const m of WORKER.matchAll(/\{"nrRej":/g)) {
+  const fragment = WORKER.slice(m.index, m.index + 3000);
+  const koniec = fragment.indexOf('\n');
+  const literal = koniec > 0 ? fragment.slice(0, koniec) : fragment;
+  if (POLA_TYLKO_DR.filter(k => literal.includes(`"${k}"`)).length >= 2) {
+    kopieDr.push(WORKER.slice(0, m.index).split('\n').length);
+  }
+}
+ok(kopieDr.length === 0,
+  kopieDr.length === 0
+    ? 'brak drugiego literału z listą pól DR — jedno źródło prawdy'
+    : `lista pól DR powtórzona w literale, linia(e): ${kopieDr.join(', ')} — druga kopia promptu wróciła`);
 
 // --- [3] pola osobowe są oznaczone -------------------------------------------
 // Od tej flagi zależy maskowanie w narzędziach i w eksporcie. Pominięcie oznaczenia

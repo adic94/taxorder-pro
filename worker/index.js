@@ -3009,6 +3009,49 @@ function _sanitizeOcrFields(f) {
   return f;
 }
 
+/**
+ * POLA ZADANE OD MODELU OCR — JEDNA definicja dla obu sciezek.
+ *
+ * DLACZEGO STALA, A NIE DWA LITERALY. Do 21.08 prompt DR istnial w DWOCH kopiach:
+ * `handleAIOCR` (20 pol, szczegolowe wskazowki) i `handleDrOcr` (16 pol, bez przeznaczenia,
+ * bez F.2, bez O.1/O.2, bez wskazowek do VIN-a). Ktora sciezka obsluzyla dokument, taki
+ * zestaw pol wracal — bez sladu w wyniku. Ten projekt ma juz trzy takie rozjazdy
+ * (dwie tablice wskaznikow CO2, dwie listy zrodel kreatora raportow, dwie deklaracje
+ * wersji ZXing) i wszystkie objawialy sie CICHYMI ZLYMI DANYMI, nie bledem.
+ *
+ * DWA POLA DOPISANE PO POMIARZE NA 916 POJAZDACH:
+ *   V.9  normaEuro   — bylo 55/916, i to wylacznie z zestawienia; OCR o to nie pytal
+ *   —    zawieszenie — bylo 0/916, z ZADNEGO zrodla; OCR o to nie pytal
+ * Oba sa polami DT-1: rodzaj zawieszenia decyduje o stawce dla pojazdow >= 12 t.
+ * Bez nich podatku nie da sie wyliczyc, a ich brak nie zglaszal sie jako blad.
+ */
+const DR_POLA_OCR = {
+  nrRej: 'A — numer rejestracyjny np WPR0365T lub WA0677L (2-3 wielkie litery + cyfry, BEZ spacji)',
+  dataRej: 'B — data PIERWSZEJ rejestracji DD.MM.RRRR',
+  marka: 'D.1 — marka np MAN lub SCANIA',
+  typ: 'D.2 — krotki kod techniczny np TGE140 lub R490 (NIE adres, NIE opis slowny)',
+  model: 'D.3 — model np ACTROS lub SPRINTER',
+  przeznaczenie: 'RODZAJ POJAZDU / PRZEZNACZENIE z sekcji bezowej, np SAMOCHOD SPECJALNY lub SAMOCHOD CIEZAROWY (puste jesli nie widoczne)',
+  vin: 'E — dokladnie 17 znakow VIN np WMA29VUZ7R9018317 (litery A-H J-N P R-Z i cyfry 0-9, NIGDY I O Q, NIGDY gwiazdki)',
+  dmcKg: 'F.1 — DMC kg z ZOLTEJ tabeli (jesli dwie wartosci wybierz WIEKSZA)',
+  dmcKg2: 'F.2 — DMC z ladunkiem kg',
+  dmcZespolu: 'F.3 — DMC zespolu kg (>= F.1)',
+  masaWlKg: 'G — masa wlasna kg (mniejsza niz F.1)',
+  liczbaOsi: 'L — liczba osi 1-5',
+  kategoria: 'J — kategoria np N1 N2 N3 M1',
+  pojSilnika: 'P.1 — pojemnosc cm3 cyfry',
+  mocKW: 'P.2 — moc kW cyfry',
+  paliwo: 'P.3 — D lub B lub G',
+  miejscaSied: 'S.1 — miejsca siedzace cyfra',
+  rokProd: 'rok produkcji 4 cyfry',
+  dmcPrzyczHam: 'O.1 — masa przyczepy z hamulcem kg',
+  dmcPrzyczNieham: 'O.2 — masa przyczepy bez hamulca kg',
+  nrHomolog: 'K — nr homologacji np e32*IV18/858*NI15391',
+  normaEuro: 'V.9 — poziom emisji spalin np EURO 6 lub EURO VI. Szukaj takze w ADNOTACJACH URZEDOWYCH na dole dokumentu, gdzie bywa zapisany slownie (puste jesli nie widoczne)',
+  zawieszenie: 'RODZAJ ZAWIESZENIA OSI JEZDNEJ — zwykle w ADNOTACJACH URZEDOWYCH, np "zawieszenie pneumatyczne" albo "zawieszenie uznane za rownowazne pneumatycznemu". Zwroc "pneumatyczne", "rownowazne pneumatycznemu" albo "inne". Puste jesli dokument o tym nie mowi — NIE ZGADUJ',
+};
+const DR_JSON_SZABLON = () => JSON.stringify(DR_POLA_OCR);
+
 async function handleAIOCR(request, env) {
   if (request.method !== 'POST') return err('Method not allowed', 405);
   let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON'); }
@@ -3023,7 +3066,7 @@ UWAGI KRYTYCZNE:
 - Pola F.1/F.2/F.3/G to tylko liczby kilogramow z ZOLTEJ tabeli (nie z sekcji bezowej).
 - W sekcji bezowej (gora dokumentu) szukaj etykiety "RODZAJ POJAZDU" lub "PRZEZNACZENIE" — to KRYTYCZNE pole podatkowe: jesli pojazd jest oznaczony jako "SAMOCHOD SPECJALNY" (np. do czyszczenia, asenizacyjny, szambiarka, wodolejka itp.), pojazd jest ZWOLNIONY z podatku DT-1. Zwroc dokladny tekst tej etykiety.
 Zwroc WYLACZNIE JSON bez markdown:
-{"nrRej":"A — numer rejestracyjny np WPR0365T lub WA0677L (2-3 wielkie litery + cyfry, BEZ spacji)","dataRej":"B — data PIERWSZEJ rejestracji DD.MM.RRRR","marka":"D.1 — marka np MAN lub SCANIA","typ":"D.2 — krotki kod techniczny np TGE140 lub R490 (NIE adres, NIE opis slowny)","przeznaczenie":"RODZAJ POJAZDU / PRZEZNACZENIE z sekcji bezowej, np SAMOCHOD SPECJALNY lub SAMOCHOD CIEZAROWY (puste jesli nie widoczne)","vin":"E — dokladnie 17 znakow VIN np WMA29VUZ7R9018317 (litery A-H J-N P R-Z i cyfry 0-9, NIGDY I O Q, NIGDY gwiazdki)","dmcKg":"F.1 — DMC kg z ZOLTEJ tabeli (jesli dwie wartosci wybierz WIEKSZA)","dmcKg2":"F.2 — DMC z ladunkiem kg","dmcZespolu":"F.3 — DMC zespolu kg (>= F.1)","masaWlKg":"G — masa wlasna kg (mniejsza niz F.1)","liczbaOsi":"L — liczba osi 1-5","kategoria":"J — kategoria np N1 N2 N3 M1","pojSilnika":"P.1 — pojemnosc cm3 cyfry","mocKW":"P.2 — moc kW cyfry","paliwo":"P.3 — D lub B lub G","miejscaSied":"S.1 — miejsca siedzace cyfra","rokProd":"rok produkcji 4 cyfry","dmcPrzyczHam":"O.1 — masa przyczepy z hamulcem kg","dmcPrzyczNieham":"O.2 — masa przyczepy bez hamulca kg","nrHomolog":"K — nr homologacji np e32*IV18/858*NI15391"}`;
+${DR_JSON_SZABLON()}`;
 
   // ── Próba 0: Python PaddleOCR Service (najdokładniejszy — przestrzenne bounding boxy) ──
   // Powód porażki tego kroku ginął w pustym `catch`, dokładnie tak samo jak powód
@@ -6505,9 +6548,13 @@ async function handleDrOcr(request, env) {
   const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
   if (!allowed.includes(mt)) return err('Nieobsługiwany typ obrazu', 400);
 
-  const prompt = `Przeanalizuj skan polskiego dowodu rejestracyjnego i wyodrębnij dane. Zwróć TYLKO obiekt JSON:
-{"nrRej":null,"vin":null,"marka":null,"typ":null,"model":null,"rokProd":null,"kategoria":null,"dmcKg":null,"dmcZespolu":null,"masaWlKg":null,"pojSilnika":null,"mocKW":null,"paliwo":null,"miejscaSied":null,"liczbaOsi":null,"dataRej":null}
-Pola: nrRej=A, vin=E(17 znaków), marka=D.1, typ=D.2, model=D.3/D.8, rokProd=rok z B(RRRR), kategoria=J(np.N2), dmcKg=F.1 w kg, dmcZespolu=F.2/F.3 w kg, masaWlKg=G w kg, pojSilnika=P.1 w cm3, mocKW=P.2 w kW, paliwo=P.3(diesel/benzyna/lpg/elektryczny), miejscaSied=S.1, liczbaOsi=L, dataRej=B(DD.MM.RRRR). Nieczytelne=null. TYLKO JSON.`;
+  // Ta sama lista pol co `handleAIOCR` — patrz DR_POLA_OCR. Wczesniej byla tu WLASNA,
+  // krotsza kopia (16 pol zamiast 22), wiec zestaw zwroconych pol zalezal od tego, ktora
+  // sciezka obsluzyla dokument — bez zadnego sladu w odpowiedzi.
+  const prompt = `Przeanalizuj skan polskiego dowodu rejestracyjnego i wyodrębnij dane.
+Zwróć TYLKO obiekt JSON o dokładnie tych kluczach; wartość opisuje, czego szukać:
+${DR_JSON_SZABLON()}
+Nieczytelne lub nieobecne pole = null. NIE ZGADUJ. TYLKO JSON.`;
 
   function _parseOcrJson(raw) {
     const m = raw.match(/\{[\s\S]*\}/);
