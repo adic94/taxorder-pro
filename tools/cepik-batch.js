@@ -470,6 +470,48 @@ if (SPRAWDZ) {
   const maxZadan = doPobrania.length * oknaNaPojazd * mnoznikWoj;
   const minut = Math.ceil(maxZadan * ODSTEP / 60000);
 
+  // SAMOKONTROLA PRZED PRZEBIEGIEM — czy filtr `numer-rejestracyjny` cokolwiek zawezea?
+  //
+  // Pomiar z 21.08 na dwoch prawdziwych numerach floty daje mocna poszlake, ze NIE:
+  //   okno 2025–2026, numer WGM5973R -> pojazd z data pierwszej rejestracji 2025-01-01
+  //   okno 2026–2026, numer WZ003EY  -> pojazd z data pierwszej rejestracji 2026-01-02
+  // Za kazdym razem rekord z POCZATKU okna, a WZ003EY to w naszej flocie mercedes
+  // sprinter, nie toyota corolla, ktora zwrocil rejestr. To wyglada na zwracanie
+  // pierwszego rekordu z wojewodztwa i okna, z pominieciem numeru.
+  //
+  // Gdyby tak bylo, przebieg przypisalby CUDZE dane do naszych numerow: 68 pol, poprawne
+  // typy, sensowne wartosci — nie do wykrycia po fakcie. Dlatego narzedzie sprawdza to
+  // samo, dwoma zapytaniami, i ODMAWIA pracy zamiast wyprodukowac wiarygodna nieprawde.
+  if (doPobrania.length >= 2) {
+    const rok0 = new Date().getFullYear();
+    const [a, b] = [doPobrania[0], doPobrania[doPobrania.length - 1]];
+    const zapytaj = async (n) => {
+      const u = new URL('https://api.cepik.gov.pl/pojazdy');
+      u.searchParams.set('wojewodztwo', wojZNumeru(n));
+      u.searchParams.set('numer-rejestracyjny', n);
+      u.searchParams.set('data-od', `${rok0 - 1}0101`);
+      u.searchParams.set('data-do', `${rok0}1231`);
+      u.searchParams.set('limit', '1');
+      u.searchParams.set('pokaz-wszystkie-pola', 'true');
+      const r = await zadanieZOdstepem(u);
+      if (r.status < 200 || r.status >= 300) return null;
+      try { const d = JSON.parse(r.tresc); const k = Array.isArray(d?.data) ? d.data[0] : d?.data; return k?.attributes || null; }
+      catch { return null; }
+    };
+    const [ra, rb] = [await zapytaj(a), await zapytaj(b)];
+    if (ra && rb && wojZNumeru(a) === wojZNumeru(b) && JSON.stringify(ra) === JSON.stringify(rb)) {
+      console.error(R('\n  ODMOWA: filtr po numerze rejestracyjnym nie zawezea wyniku.'));
+      console.error(R(`  Numery ${a} i ${b} zwrocily IDENTYCZNY rekord.`));
+      console.error(D('\n  Przebieg przypisalby te same, cudze dane do kazdego pojazdu — z poprawnymi'));
+      console.error(D('  typami i sensownymi wartosciami, wiec bez szansy na wykrycie po fakcie.'));
+      console.error(D('  Zamiast tego arkusz zbuduj ze zrodel, ktore dotycza NASZYCH pojazdow:'));
+      console.error(D('    node tools/dr-excel.js zestawienie.json dr-extraction-checkpoint.json --zrodlo ocr --wyjscie DR.xlsx\n'));
+      process.exitCode = 3;
+      return;
+    }
+    console.log(D(`\n  Samokontrola: ${a} i ${b} zwracaja rozne rekordy — filtr po numerze dziala.`));
+  }
+
   console.log(B(`\n  CEPiK — pobieranie danych DR dla ${doPobrania.length} pojazdow\n`));
   console.log(D(`  zakres ${ZAKRES_LAT} lat = ${oknaNaPojazd} okien po <=2 lata na pojazd` +
     (FALLBACK_WOJ ? `, x${mnoznikWoj} wojewodztw (--fallback-woj)` : '')));

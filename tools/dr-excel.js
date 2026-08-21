@@ -172,13 +172,67 @@ const ZRODLA = {
 const zrodloPola = (rek, klucz) =>
   (rek._zrodla && rek._zrodla[klucz]) || rek._zrodlo || ZRODLO_DOMYSLNE || null;
 
+/**
+ * Numer rejestracyjny z nazwy pliku — TYLKO gdy wygląda jak polska tablica.
+ *
+ * Checkpointy OCR bywają kluczowane ścieżką skanu, a nie numerem rejestracyjnym.
+ * Zgadywanie numeru z dowolnego fragmentu nazwy byłoby zmyślaniem danych, więc wzorzec
+ * jest wąski: pierwsza litera musi być literą wyróżnika województwa, całość ma zawierać
+ * cyfrę i mieścić się w 4–8 znakach. Rekord rozpoznany tą drogą dostaje źródło `folder`
+ * — najniższą rangę w scalaniu — więc przegrywa z każdym innym źródłem tego samego pola.
+ */
+const LITERY_WOJ = 'BCDEFGKLNOPRSTWZ';
+function nrZNazwyPliku(nazwa) {
+  const baza = path.basename(String(nazwa)).replace(/\.[a-z0-9]+$/i, '').toUpperCase();
+  for (const kandydat of baza.split(/[^A-Z0-9]+/)) {
+    if (kandydat.length < 4 || kandydat.length > 8) continue;
+    if (!LITERY_WOJ.includes(kandydat[0])) continue;
+    if (!/[0-9]/.test(kandydat) || !/^[A-Z]{1,3}[A-Z0-9]{3,7}$/.test(kandydat)) continue;
+    return kandydat;
+  }
+  return null;
+}
+
+/** Checkpoint OCR kluczowany ścieżką pliku -> tablica rekordów. */
+function zCheckpointu(wpisy, sciezka) {
+  const out = [];
+  let bezNumeru = 0, zNazwy = 0;
+  for (const [klucz, wartosc] of wpisy) {
+    // Wartość bywa opakowana — checkpoint zapisuje czasem {pola:{…}, ok:true}.
+    const rek = wartosc.pola || wartosc.fields || wartosc.dane || wartosc;
+    if (!rek || typeof rek !== 'object' || Array.isArray(rek)) { bezNumeru++; continue; }
+    let nr = rek.nrRej || rek.numerRejestracyjny || rek.nr_rej;
+    let zrodloNr = null;
+    if (!nr) { nr = nrZNazwyPliku(klucz); if (nr) { zNazwy++; zrodloNr = 'folder'; } }
+    if (!nr) { bezNumeru++; continue; }
+    out.push(zrodloNr ? { ...rek, nrRej: nr, _zrodlaNrZNazwy: true } : { ...rek, nrRej: nr });
+  }
+  const nazwa = path.basename(sciezka);
+  console.log(D(`  ${nazwa}: checkpoint kluczowany ścieżką pliku — ${out.length} rekordów` +
+    (zNazwy ? `, w tym ${zNazwy} z numerem odczytanym z nazwy pliku` : '') +
+    (bezNumeru ? `, pominięto ${bezNumeru} bez numeru rejestracyjnego` : '')));
+  return out;
+}
+
 function wczytaj(sciezka) {
   let d;
   try { d = JSON.parse(fs.readFileSync(sciezka, 'utf8')); }
   catch (e) { console.error(R(`\n  ${path.basename(sciezka)} nie jest poprawnym JSON-em: ${e.message}\n`)); process.exit(2); }
-  if (!Array.isArray(d)) d = d.rekordy || d.pojazdy || d.data;
-  if (!Array.isArray(d)) { console.error(R(`\n  ${path.basename(sciezka)}: oczekiwano tablicy rekordów.\n`)); process.exit(2); }
-  return d;
+  if (Array.isArray(d)) return d;
+
+  const zPola = d.rekordy || d.pojazdy || d.data;
+  if (Array.isArray(zPola)) return zPola;
+
+  // Kształt „obiekt kluczowany ścieżką pliku" — tak zapisuje checkpoint ekstrakcji DR.
+  // Wcześniej narzędzie odmawiało tu pracy, przez co WYNIKI OCR w ogóle nie trafiały
+  // do arkusza, mimo że były policzone. Odmowa była słuszna wtedy, gdy alternatywą było
+  // zgadywanie; teraz kształt jest rozpoznawany jawnie i raportowany.
+  const wpisy = Object.entries(d).filter(([, v]) => v && typeof v === 'object' && !Array.isArray(v));
+  if (wpisy.length) return zCheckpointu(wpisy, sciezka);
+
+  console.error(R(`\n  ${path.basename(sciezka)}: oczekiwano tablicy rekordów albo obiektu`));
+  console.error(R('  kluczowanego ścieżką pliku. Znaleziono ani jedno, ani drugie.\n'));
+  process.exit(2);
 }
 
 // Numer rejestracyjny bywa zapisany ze spacjami i małymi literami — do dopasowania
