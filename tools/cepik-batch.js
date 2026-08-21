@@ -80,7 +80,8 @@ const SPRAWDZ = par('--sprawdz');
 if (!SPRAWDZ && (!wejscie || !fs.existsSync(wejscie) || !wyjscie)) {
   console.error('\nUzycie: node tools/cepik-batch.js <zrodlo-numerow.json> --wyjscie <cepik.json>');
   console.error('        [--odstep 900] [--limit 20] [--fallback-woj] [--lata 30]\n');
-  console.error('Zanim uruchomisz caly przebieg:  node tools/cepik-batch.js --sprawdz <NR-REJ>');
+  console.error('Zanim uruchomisz caly przebieg:  node tools/cepik-batch.js --sprawdz <zrodlo.json>');
+  console.error('  (przyjmuje tez pojedynczy numer; przy pliku sam wybiera NAJSTARSZY pojazd)');
   console.error('Zrodlo numerow: tablica rekordow z polem nrRej (np. zestawienie.json).');
   console.error('`--limit` ogranicza liczbe pojazdow — uzyj na poczatku, zeby zmierzyc tempo.\n');
   process.exit(2);
@@ -200,6 +201,39 @@ async function jedenPojazd(nr, rok) {
 }
 
 /**
+ * Wybiera z pliku floty pojazd NAJSTARSZY oraz jeden inny, do proby kontrolnej.
+ *
+ * DLACZEGO NIE „pierwszy z brzegu": preflight musi rozstrzygnac, po ktorej dacie filtruje
+ * okno, a pojazd zarejestrowany niedawno tego NIE ROZSTRZYGA — jego data pierwszej
+ * rejestracji i data ostatniej operacji leza w tym samym roku, wiec kazde okno obejmuje
+ * albo obie, albo zadna. Dwa pierwsze przebiegi (quad z 2025, corolla z 2026) skonczyly
+ * sie dokladnie tak i nie odpowiedzialy na nic. Wybor rocznika nie moze byc losowy.
+ */
+function wybierzDoPreflightu(plik) {
+  let z = JSON.parse(fs.readFileSync(plik, 'utf8'));
+  if (!Array.isArray(z)) z = z.rekordy || z.pojazdy || z.data || [];
+  const rokZ = (r) => {
+    for (const k of ['rokProd', 'rokPierwszejRej', 'rok', 'dataRej', 'dataPierwszejRej']) {
+      const m = String(r?.[k] ?? '').match(/(19|20)\d{2}/);
+      if (m) return Number(m[0]);
+    }
+    return null;
+  };
+  const zRokiem = z.map(r => ({ nr: String(r?.nrRej ?? '').toUpperCase().replace(/[\s-]/g, ''), rok: rokZ(r), rek: r }))
+                   .filter(x => x.nr && x.rok);
+  if (!zRokiem.length) {
+    const nry = [...new Set(z.map(r => String(r?.nrRej ?? '').toUpperCase().replace(/[\s-]/g, '')).filter(Boolean))];
+    return { glowny: nry[0] || null, drugi: nry[1] || null, rocznikNieznany: true, ile: nry.length };
+  }
+  zRokiem.sort((a, b) => a.rok - b.rok);
+  return {
+    glowny: zRokiem[0].nr, rokGlownego: zRokiem[0].rok, rekGlownego: zRokiem[0].rek,
+    drugi: (zRokiem[zRokiem.length - 1] || {}).nr,
+    ile: zRokiem.length,
+  };
+}
+
+/**
  * PREFLIGHT — jeden numer, kilka szerokosci okna dat.
  *
  * Powod: `data-od`/`data-do` w CEPiK filtruja po DACIE REJESTRACJI. Okno, ktore nie obejmuje
@@ -209,16 +243,16 @@ async function jedenPojazd(nr, rok) {
  *
  * Cztery zadania odpowiadaja na to pytanie przed uruchomieniem osmiuset.
  */
-async function preflight(nr) {
+async function preflight(nr, drugiNr = null, rekZrodla = null) {
   const woj = wojZNumeru(nr);
   const rok = new Date().getFullYear();
   console.log(B(`\n  Preflight dla ${nr} — wojewodztwo ${woj}\n`));
 
   /** Jedno zapytanie o konkretne okno [od, do] (lata kalendarzowe). */
-  async function pytaj(od, do_, zNumerem = true) {
+  async function pytaj(od, do_, zNumerem = true, numer = nr) {
     const u = new URL('https://api.cepik.gov.pl/pojazdy');
-    u.searchParams.set('wojewodztwo', woj);
-    if (zNumerem) u.searchParams.set('numer-rejestracyjny', nr);
+    u.searchParams.set('wojewodztwo', wojZNumeru(numer));
+    if (zNumerem) u.searchParams.set('numer-rejestracyjny', numer);
     u.searchParams.set('data-od', `${od}0101`);
     u.searchParams.set('data-do', `${do_}1231`);
     u.searchParams.set('limit', '1');
@@ -292,6 +326,58 @@ async function preflight(nr) {
   console.log(G(`  Dziala. Najwezsze okno z trafieniem: ${okno[0]}–${okno[1]}.`));
   if (opis) console.log(D(`  Rekord dotyczy: ${opis}`));
 
+  // TABLICE W POLSCE BYWAJA PRZENOSZONE NA NOWY POJAZD. Rejestr zwroci wtedy AKTUALNEGO
+  // wlasciciela numeru, nie nasz pojazd — dane beda prawdziwe i calkowicie nie te.
+  // Porownanie z tym, co juz wiemy o pojezdzie, jest jedyna szansa to zauwazyc.
+  if (rekZrodla) {
+    const norm = v => String(v ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const rozne = [];
+    const parami = [
+      ['marka', rekZrodla.marka], ['model', rekZrodla.model],
+      ['rok-produkcji', rekZrodla.rokProd ?? rekZrodla.rok],
+    ];
+    for (const [kluczCepik, nasze] of parami) {
+      if (!nasze || !attrs[kluczCepik]) continue;
+      const a = norm(attrs[kluczCepik]), b = norm(nasze);
+      if (a && b && !a.includes(b) && !b.includes(a)) rozne.push(`${kluczCepik}: rejestr „${attrs[kluczCepik]}" vs nasze „${nasze}"`);
+    }
+    if (rozne.length) {
+      console.log(Y('\n  UWAGA: rejestr opisuje INNY pojazd niz nasze dane dla tego numeru.'));
+      for (const r of rozne) console.log(Y(`    ${r}`));
+      console.log(D('  Tablice bywaja przenoszone na nowy pojazd przy sprzedazy. Jesli to ten przypadek,'));
+      console.log(D('  przebieg wsadowy nadpisze dane naszego pojazdu danymi cudzego — a wygladaja'));
+      console.log(D('  wiarygodnie. Arkusz wynikowy ma zakladke Konflikty; przejrzyj ja przed uzyciem.\n'));
+    }
+  }
+
+  // PROBA TOZSAMOSCI — czy filtr `numer-rejestracyjny` faktycznie zawezea wynik?
+  //
+  // To pytanie musi paść PRZED wszystkimi innymi. Gdyby CEPiK ignorowal ten parametr,
+  // kazde zapytanie zwracaloby po prostu pierwszy rekord z wojewodztwa i okna — a my
+  // przypisalibysmy CUDZE dane do naszych numerow rejestracyjnych. Wynik wygladalby
+  // wiarygodnie: 68 pol, poprawne typy, sensowne wartosci. Nikt by tego nie zakwestionowal.
+  // To dokladnie ta klasa awarii, ktora ten projekt spotkal juz przy zerowych raportach ESG.
+  //
+  // Test: to samo okno, INNY numer rejestracyjny. Ten sam rekord = filtr jest martwy.
+  if (drugiNr && drugiNr !== nr) {
+    const d = await pytaj(okno[0], okno[1], true, drugiNr);
+    console.log(B(`\n  Proba tozsamosci — to samo okno, numer ${drugiNr}:`));
+    if (d.attrs) {
+      const takiSam = JSON.stringify(d.attrs) === JSON.stringify(attrs);
+      if (takiSam) {
+        console.log(`   ${R('✗')} IDENTYCZNY REKORD dla innego numeru rejestracyjnego.`);
+        console.log(R('\n  WERDYKT: filtr po numerze rejestracyjnym NIE DZIALA.'));
+        console.log(D('  Kazdy pojazd dostalby te same, cudze dane — z poprawnymi typami i sensownymi'));
+        console.log(D('  wartosciami, wiec bez szansy na wykrycie po fakcie. NIE URUCHAMIAJ przebiegu.\n'));
+        return;
+      }
+      const opis2 = ['marka', 'model'].map(k => d.attrs[k]).filter(Boolean).join(' ');
+      console.log(`   ${G('✓')} inny rekord (${opis2 || 'inne dane'}) — filtr po numerze dziala.`);
+    } else {
+      console.log(`   ${G('✓')} brak rekordu dla ${drugiNr} w tym oknie — filtr po numerze dziala.`);
+    }
+  }
+
   const rokZ = (v) => { const m = String(v || '').match(/(19|20)\d{2}/); return m ? Number(m[0]) : null; };
   const pierwsza = rokZ(attrs['data-pierwszej-rejestracji-w-kraju'] || attrs['data-pierwszej-rejestracji']);
   const ostatnia = rokZ(attrs['data-ostatniej-rejestracji-w-kraju']);
@@ -348,7 +434,27 @@ async function preflight(nr) {
 // `else`, nie `return` — top-level `return` jest legalny w CommonJS, ale eslint parsuje
 // plik jako skrypt i zglasza blad. Bramka `npm run lint` ma zostac zielona.
 if (SPRAWDZ) {
-  preflight(SPRAWDZ).catch(e => { console.error(R(`\n  ${e.message}\n`)); process.exitCode = 1; });
+  // `--sprawdz` przyjmuje numer rejestracyjny ALBO plik floty. Przy pliku narzedzie samo
+  // wybiera pojazd NAJSTARSZY — bo tylko taki rozstrzyga pytanie o date, a dwa pierwsze
+  // przebiegi zmarnowaly sie na pojazdach zarejestrowanych w tym samym roku, w ktorym
+  // wykonano ostatnia operacje.
+  let glowny = SPRAWDZ, drugi = null, rekZrodla = null;
+  if (/\.json$/i.test(SPRAWDZ)) {
+    if (!fs.existsSync(SPRAWDZ)) {
+      console.error(R(`\n  Nie ma pliku: ${SPRAWDZ}\n`));
+      process.exit(2);
+    }
+    const w = wybierzDoPreflightu(SPRAWDZ);
+    if (!w.glowny) {
+      console.error(R('\n  Plik nie zawiera zadnego numeru rejestracyjnego (pole nrRej).\n'));
+      process.exit(2);
+    }
+    glowny = w.glowny; drugi = w.drugi; rekZrodla = w.rekGlownego || null;
+    console.log(D(`\n  Z ${w.ile} pojazdow wybrany najstarszy: ${glowny}` +
+      (w.rokGlownego ? ` (rocznik ${w.rokGlownego})` : ' — rocznika nie ma w danych, wybor przypadkowy')));
+  }
+  preflight(glowny, drugi, rekZrodla)
+    .catch(e => { console.error(R(`\n  ${e.message}\n`)); process.exitCode = 1; });
 } else (async () => {
   let zrodlo = JSON.parse(fs.readFileSync(wejscie, 'utf8'));
   if (!Array.isArray(zrodlo)) zrodlo = zrodlo.rekordy || zrodlo.pojazdy || zrodlo.data || [];
