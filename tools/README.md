@@ -29,6 +29,7 @@ Wymagają: `sharp`, `zxing-wasm`, `playwright` — zainstalowane w `node_modules
 
 | Skrypt | Co robi |
 |--------|---------|
+| `cepik-batch.js` | **Pobiera dane DR z rejestru państwowego dla całej floty.** `npm.cmd run cepik:batch -- zestawienie.json --wyjscie cepik.json`. Pomiar sondą (21.08) wykazał, że CEPiK zwraca **68 pól** i pokrywa **9 z 10 pól DT-1** — w tym liczbę osi i rodzaj zawieszenia, których nie ma ani w zestawieniu, ani w OCR, ani w Aztec (0%). Brakuje tylko normy EURO, a ta jest w zestawieniu. Bez poświadczeń — endpoint publiczny, zmierzone. Województwo z prefiksu numeru, przy pudle próbuje pozostałych 15 kodów (błędny kod daje **pusty wynik, nie błąd** — wygląda jak „pojazdu nie ma"). Odstęp 350 ms, checkpoint zapisywany co 10 pojazdów, wznawianie po przerwaniu. `--limit N` do zmierzenia tempa przed pełnym przebiegiem |
 | `cepik-probe.js` | **Czy `api.cepik.gov.pl` wymaga autoryzacji i jakie pola zwraca.** `POST /api/cepik/token` oddaje 503 „CEPiK nie jest skonfigurowany" — sekrety `CEPIK_KEY`/`CEPIK_SECRET` nigdy nie zostały ustawione. Zanim ktokolwiek wystąpi o poświadczenia, ta sonda odpowiada taniej: czy endpoint otwartych danych w ogóle ich potrzebuje, oraz czy zwraca **liczbę osi i rodzaj zawieszenia** — pola DT-1, których `_qavParseCepik` w `app.js` nie mapuje (mapuje markę, model, VIN, rok, DMC, paliwo, kategorię). Nie da się tego sprawdzić z konsoli przeglądarki: CSP aplikacji nie ma `api.cepik.gov.pl` w `connect-src`. Nie wypisuje VIN-u ani numeru rejestracyjnego |
 
 ## Test OCR bez deployu
