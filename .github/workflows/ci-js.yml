@@ -186,3 +186,10 @@ jobs:
       # nazwy na jedno pole przeznaczenia.
       - name: Straznik katalogu pol DR — jedno zrodlo prawdy
         run: node tests/unit/dr-fields-test.js
+
+      # Narzedzie CEPiK zalalo publiczne API panstwowe (45 zadan zamiast 3, odstep
+      # pomijany na sciezce bledu), a tablica wojewodztw miala 15 kodow zamiast 16, wiec
+      # kujawsko-pomorskie bylo nieosiagalne. Oba objawy byly NIEME: CEPiK na zly kod
+      # zwraca pusty wynik, nie blad. Bramka czyta funkcje wprost z pliku produkcyjnego.
+      - name: Straznik zapytan do CEPiK — limity API i budzet zadan
+        run: node tests/unit/cepik-batch-test.js
