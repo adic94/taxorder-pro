@@ -234,10 +234,41 @@ async function preflight(nr) {
     console.log(D('    node tools/cepik-batch.js <zrodlo.json> --wyjscie <cepik.json> --limit 20\n'));
   } else {
     console.log(R('  Zadne okno nie zwrocilo rekordu.'));
-    console.log(D('  To NIE jest kwestia zakresu dat. Sprawdz po kolei:'));
-    console.log(D(`    • czy numer ${nr} jest poprawny i pojazd jest zarejestrowany w Polsce`));
-    console.log(D(`    • czy wojewodztwo ${woj} sie zgadza — jesli nie, przebieg z --fallback-woj`));
-    console.log(D('    • czy nie lecimy w 429 — zwieksz --odstep\n'));
+
+    // PROBA KONTROLNA — to samo zapytanie BEZ filtra po numerze rejestracyjnym.
+    // Rozstrzyga pytanie, ktorego caly przebieg wsadowy nie potrafi zadac: czy endpoint
+    // z tymi parametrami zwraca COKOLWIEK. Jesli zwraca, filtr po numerze jest problemem
+    // (albo nie jest wspierany, albo pojazdu tam nie ma). Jesli nie zwraca nic takze bez
+    // filtra, to parametry sa zle i szukanie winy w numerze jest strata czasu.
+    const k = new URL('https://api.cepik.gov.pl/pojazdy');
+    k.searchParams.set('wojewodztwo', woj);
+    k.searchParams.set('data-od', `${rok - 30}0101`);
+    k.searchParams.set('data-do', `${rok}1231`);
+    k.searchParams.set('limit', '1');
+    const rk = await zadanieZOdstepem(k);
+    let maKontrolny = false, powodK = `HTTP ${rk.status}`;
+    try {
+      const d = JSON.parse(rk.tresc);
+      const rek = Array.isArray(d?.data) ? d.data[0] : d?.data;
+      maKontrolny = !!rek?.attributes;
+      const e = d?.errors?.[0];
+      if (e) powodK += `: ${e['error-reason'] || e['error-result'] || ''}`;
+    } catch { /* nie JSON — sam status */ }
+
+    console.log(B('\n  Proba kontrolna bez filtra po numerze rejestracyjnym:'));
+    if (maKontrolny) {
+      console.log(`   ${G('✓')} endpoint zwraca rekordy dla wojewodztwa ${woj}.`);
+      console.log(D('  Czyli parametry sa dobre, a problemem jest sam numer:'));
+      console.log(D(`    • sprawdz pisownie ${nr} (bez spacji, wielkimi literami)`));
+      console.log(D(`    • pojazd moze byc zarejestrowany poza wojewodztwem ${woj} — uruchom z --fallback-woj`));
+      console.log(D('    • pojazd moze byc wyrejestrowany albo zarejestrowany poza Polska\n'));
+    } else {
+      console.log(`   ${R('✗')} endpoint nie zwraca nic takze bez filtra  (${powodK.slice(0, 120)})`);
+      console.log(D('  Czyli problem NIE jest w numerze rejestracyjnym, tylko w parametrach'));
+      console.log(D('  albo w dostepie. Nie uruchamiaj przebiegu na calej flocie — nic nie znajdzie.'));
+      console.log(D('  Pojedyncze zapytanie do recznego obejrzenia odpowiedzi:'));
+      console.log(D(`    node tools/cepik-probe.js ${nr} ${woj}\n`));
+    }
   }
 }
 
