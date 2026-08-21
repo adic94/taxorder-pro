@@ -205,7 +205,11 @@ function zCheckpointu(wpisy, sciezka) {
     let zrodloNr = null;
     if (!nr) { nr = nrZNazwyPliku(klucz); if (nr) { zNazwy++; zrodloNr = 'folder'; } }
     if (!nr) { bezNumeru++; continue; }
-    out.push(zrodloNr ? { ...rek, nrRej: nr, _zrodlaNrZNazwy: true } : { ...rek, nrRej: nr });
+    // Sciezka skanu zostaje przy rekordzie: przy pojezdzie-widmie to jedyny sposob,
+    // zeby otworzyc dokument i sprawdzic, czy numer zostal zle odczytany.
+    out.push(zrodloNr
+      ? { ...rek, nrRej: nr, _plik: rek._plik || klucz, _zrodlaNrZNazwy: true }
+      : { ...rek, nrRej: nr, _plik: rek._plik || klucz });
   }
   const nazwa = path.basename(sciezka);
   console.log(D(`  ${nazwa}: checkpoint kluczowany ścieżką pliku — ${out.length} rekordów` +
@@ -285,6 +289,33 @@ function wartoscPasuje(pole, v) {
   if (/^(m\.?\s*p\.?|---+|-|b\/?d|brak|n\/?d|nie dotyczy)$/i.test(t)) {
     return { ok: false, powod: 'oznaczenie braku danych' };
   }
+
+  // --- POLA TEKSTOWE TEZ WYMAGAJA KONTROLI ------------------------------------------
+  // Do 21.08 kazda niepusta wartosc tekstowa wchodzila do arkusza. Pierwsze scalenie na
+  // pelnym zbiorze pokazalo, co przez to przechodzi:
+  //
+  //     przeznaczenie = „2 3 MAR 2004"
+  //     przeznaczenie = „Zamieszenie inne - (V.9) Pozion przys. Spalin - Euro VI D-4"
+  //
+  // Pierwsze to data z sasiedniej rubryki, drugie to sklejka ETYKIET z formularza, nie
+  // wartosc. Oba wygladaja jak dane i oba trafialyby do deklaracji DT-1.
+  //
+  // Pola dlugie z natury (nazwiska, adresy, VIN, nr homologacji) sa z tych regul wylaczone.
+  const DLUGIE = new Set(['posiadacz', 'wlasciciel', 'adresWlasciciela', 'nrHomolog', 'typ', 'okresWaznosci']);
+  if (!DLUGIE.has(pole.klucz)) {
+    if (/\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}|\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4}/.test(t)) {
+      return { ok: false, powod: 'data w polu tekstowym' };
+    }
+    // „2 3 MAR 2004" — dzien i rok wokol skrotu miesiaca, w dowolnym rozstrzeleniu.
+    if (/\b(STY|LUT|MAR|KWI|MAJ|CZE|LIP|SIE|WRZ|PAZ|PAŹ|LIS|GRU|JAN|FEB|APR|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b[\s.]*\d{4}/i.test(t)) {
+      return { ok: false, powod: 'data slowna w polu tekstowym' };
+    }
+    // Odwolanie do kodu rubryki w TRESCI wartosci znaczy, ze model przepisal etykiete.
+    if (/\((?:[A-Z]\.?\d(?:\.\d)?)\)/.test(t)) {
+      return { ok: false, powod: 'etykieta rubryki zamiast wartosci' };
+    }
+    if (t.length > 60) return { ok: false, powod: 'tekst dluzszy niz 60 znakow' };
+  }
   return { ok: true, wartosc: t };
 }
 
@@ -296,8 +327,9 @@ for (const sciezka of wejscia) {
   for (const rek of wczytaj(sciezka)) {
     const k = kluczScalania(rek);
     if (!k) continue;                       // bez numeru nie ma po czym scalać
-    if (!scalone.has(k)) scalone.set(k, { _zrodla: {}, _plik: rek._plik });
+    if (!scalone.has(k)) scalone.set(k, { _zrodla: {}, _plik: rek._plik, _uzyte: new Set(), _zNazwy: false });
     const cel = scalone.get(k);
+    if (rek._zrodlaNrZNazwy) cel._zNazwy = true;
     if (!cel._plik && rek._plik) cel._plik = rek._plik;
 
     for (const p of DR.POLA) {
@@ -326,12 +358,30 @@ for (const sciezka of wejscia) {
           wybrano: rangaNowa > rangaStara ? z : zStare,
         });
       }
+      cel._uzyte.add(z);
       if (rangaNowa > rangaStara) { cel[p.klucz] = v; cel._zrodla[p.klucz] = z; }
     }
   }
 }
 
 const rekordy = [...scalone.values()];
+
+/**
+ * Pojazdy, o ktorych wie WYLACZNIE OCR albo nazwa pliku.
+ *
+ * PO CO. Pierwsze scalenie na pelnym zbiorze dalo 916 pojazdow przy flocie liczacej 816.
+ * Setka nadwyzki nie wzięła się z nikąd: numer rejestracyjny czytany z NAZWY PLIKU bywa
+ * przeklamany (jedna litera, jedna cyfra), a kazde takie przeklamanie tworzy pojazd,
+ * ktory nie istnieje — z kompletem pol, wygladajacy w arkuszu jak kazdy inny wiersz.
+ *
+ * Wierszy NIE USUWAMY: czesc z nich to moga byc pojazdy faktycznie nowe, jeszcze
+ * nieobecne w zestawieniu. Ale musza byc WYMIENIONE Z NAZWY, zeby dalo sie je obejrzec,
+ * zamiast rozplynac sie w 916 wierszach.
+ */
+const spozaZestawienia = rekordy.filter(r => {
+  const uzyte = [...(r._uzyte || [])];
+  return uzyte.length > 0 && uzyte.every(z => (ZRODLA[z]?.ranga ?? 0) <= 1);
+});
 
 (async () => {
   console.log(B(`\n  Excel z dowodów rejestracyjnych — ${rekordy.length} pojazdów\n`));
@@ -460,6 +510,28 @@ const rekordy = [...scalone.values()];
     wo.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: wo.columns.length } };
   }
 
+  // ── Arkusz: pojazdy znane wylacznie z OCR / nazwy pliku ────────────────────
+  if (spozaZestawienia.length) {
+    const wz = wb.addWorksheet('Spoza zestawienia');
+    wz.columns = [
+      { header: 'Nr rej.', key: 'nrRej', width: 12 },
+      { header: 'Numer z nazwy pliku', key: 'zNazwy', width: 20 },
+      { header: 'Wypełnionych pól', key: 'ile', width: 17 },
+      { header: 'Marka', key: 'marka', width: 18 },
+      { header: 'Model', key: 'model', width: 20 },
+      { header: 'Plik źródłowy', key: 'plik', width: 60 },
+    ];
+    wz.getRow(1).font = { bold: true };
+    for (const r of spozaZestawienia.sort((a, b) => String(a.nrRej).localeCompare(String(b.nrRej)))) {
+      wz.addRow({
+        nrRej: r.nrRej, zNazwy: r._zNazwy ? 'TAK' : '',
+        ile: DR.POLA.filter(p => r[p.klucz] != null && r[p.klucz] !== '').length,
+        marka: r.marka || '', model: r.model || '', plik: r._plik || '',
+      });
+    }
+    wz.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: wz.columns.length } };
+  }
+
   // ── Arkusz 4: legenda ──────────────────────────────────────────────────────
   const wl = wb.addWorksheet('Legenda');
   wl.columns = [{ header: '', key: 'a', width: 26 }, { header: '', key: 'b', width: 78 }];
@@ -500,7 +572,18 @@ const rekordy = [...scalone.values()];
   const dt1Slabe = kolumny.filter(p => p.dt1 && pokrycie[p.klucz].razem / (rekordy.length || 1) < 0.5);
   console.log(`  ${G('✓')} zapisano: ${cel}`);
   console.log(D(`     źródeł: ${wejscia.length}  |  pojazdów po scaleniu: ${rekordy.length}  |  pól: ${kolumny.length}`));
-  console.log(D(`     arkusze: Pojazdy, Pokrycie${konflikty.length ? ', Konflikty' : ''}${odrzucone.length ? ', Odrzucone' : ''}, Legenda\n`));
+  console.log(D(`     arkusze: Pojazdy, Pokrycie${konflikty.length ? ', Konflikty' : ''}${odrzucone.length ? ', Odrzucone' : ''}` +
+    `${spozaZestawienia.length ? ', Spoza zestawienia' : ''}, Legenda\n`));
+
+  if (spozaZestawienia.length) {
+    const zNazwy = spozaZestawienia.filter(r => r._zNazwy).length;
+    console.log(Y(`  ${spozaZestawienia.length} pojazdow zna WYLACZNIE OCR albo nazwa pliku` +
+      (zNazwy ? `, w tym ${zNazwy} z numerem odczytanym z nazwy pliku` : '')));
+    console.log(D('     Numer czytany z nazwy pliku bywa przeklamany o jedna litere lub cyfre,'));
+    console.log(D('     a kazde takie przeklamanie tworzy pojazd, ktory nie istnieje — z kompletem'));
+    console.log(D('     pol, nieodroznialny w arkuszu od prawdziwego wiersza.'));
+    console.log(D('     Wierszy nie usuwam (czesc moze byc nowa): patrz arkusz „Spoza zestawienia".\n'));
+  }
 
   if (odrzucone.length) {
     const odt1 = odrzucone.filter(o => o.dt1);
