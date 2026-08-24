@@ -120,8 +120,44 @@ ul. Królewska 27
 ```
 
 **Forma:** papierowo albo elektronicznie — pismo podpisane kwalifikowanym podpisem
-elektronicznym, podpisem zaufanym albo podpisem osobistym. Przy formie elektronicznej
-użyj e-Doręczeń lub ePUAP; zwykły e-mail nie spełnia wymogu formy dla wniosku.
+elektronicznym, **podpisem zaufanym** albo podpisem osobistym (e-dowód). Zwykły e-mail
+nie spełnia wymogu formy dla wniosku.
+
+#### Kanał elektroniczny — e-Doręczenia, nie ePUAP
+
+**Od 1 stycznia 2026 r. e-Doręczenia zastąpiły ePUAP** jako kanał korespondencji
+z administracją. Korespondencja przez ePUAP jest od tej daty skuteczna wyłącznie
+w sprawach wskazanych w przepisach szczególnych (m.in. dostęp do informacji publicznej,
+petycje) — **wniosek CEPiK się do nich nie zalicza**. Nie wysyłaj tego pisma przez ePUAP.
+
+Ścieżka elektroniczna wygląda tak:
+
+1. **Adres do e-Doręczeń (ADE) spółki** — Wolund Synergy jako spółka z KRS ma ustawowy
+   obowiązek posiadania aktywnego ADE (podmioty wpisane do KRS przed 1.01.2025 —
+   od 1 kwietnia 2025 r.; zarejestrowane później — adres tworzony przy rejestracji).
+   Jeśli spółka go nie ma, wniosek o adres składa się przez Biznes.gov.pl u dostawcy
+   publicznego albo u kwalifikowanego dostawcy komercyjnego.
+2. **Administrator skrzynki** — podmioty z KRS **muszą wyznaczyć administratora skrzynki**
+   (inaczej niż jednoosobowe działalności z CEIDG, które zarządzają nią same). Bez tego
+   nikt nie wyśle pisma z adresu spółki.
+3. **Logowanie i wysyłka** — do skrzynki logujesz się Profilem Zaufanym albo e-dowodem,
+   dołączasz pismo i załączniki, podpisujesz i wysyłasz. Wiadomość z ADE ma skutek prawny
+   listu poleconego za potwierdzeniem odbioru.
+
+**Profil Zaufany to podpis i sposób logowania, nie kanał wysyłki.** Podpisem zaufanym
+podpisuje **osoba fizyczna** — więc pismo podpisuje członek zarządu albo pełnomocnik,
+a jego umocowanie organ ustala z KRS lub z załączonego pełnomocnictwa. Nie mylić
+z kwalifikowaną pieczęcią elektroniczną, która należy do spółki, ale nie zastępuje
+podpisu osoby przy wniosku wymagającym podpisu wnioskodawcy.
+
+#### Czego prawdopodobnie nie musisz załączać
+
+Zgodnie z art. 220 KPA organ nie może żądać zaświadczenia ani dokumentu na potwierdzenie
+faktów możliwych do ustalenia na podstawie **rejestrów publicznych dostępnych dla organu**.
+KRS jest takim rejestrem. W praktyce zamiast odpisów KRS (zał. 3–7) często wystarczy podać
+numery KRS i powołać się na ten przepis — pozwala to uniknąć kompletowania pięciu odpisów
+i ich poświadczania. Pełnomocnictw to **nie** dotyczy: te trzeba złożyć, a w formie
+elektronicznej muszą być podpisane elektronicznie przez mocodawcę.
 
 **Adresy pomocnicze (do pytań, nie do złożenia wniosku):**
 
@@ -148,6 +184,10 @@ techniczna: certyfikaty (Centrum Certyfikacji COI, Łódź) i konfiguracja sekre
 
 ## 3. Ścieżka D — dane jednostkowe (gdy potrzebny jeden pojazd)
 
+- **To jedyna ścieżka z prawdziwą e-usługą online.** Wniosek składa się przez formularz
+  na gov.pl, podpisując go Profilem Zaufanym, podpisem kwalifikowanym albo podpisem
+  osobistym z e-dowodu — bez pisma, bez poczty. Dla teletransmisji (ścieżka C) takiej
+  usługi nie ma; tam jest zwykłe pismo wysyłane przez e-Doręczenia albo pocztą.
 - Wzór wniosku: rozporządzenie Ministra Cyfryzacji z 31 października 2017 r. w sprawie
   wzoru wniosku o udostępnienie albo przekazanie danych z centralnej ewidencji pojazdów
   (Dz. U. z 2017 r. poz. 2068), obowiązuje od 13 listopada 2017 r.
@@ -202,6 +242,9 @@ ten wariant, treść pisma zmienia się w pkt I, III.1 i VI, reszta zostaje.
 - [Dostęp pocztą — gov.pl/web/cepik](https://www.gov.pl/web/cepik/poczta2)
 - [Rozporządzenie MC z 31.10.2017, Dz.U. 2017 poz. 2068 — ISAP](https://isap.sejm.gov.pl/isap.nsf/DocDetails.xsp?id=WDU20170002068)
 - [Art. 80cd Prawa o ruchu drogowym](https://lexlege.pl/prawo-o-ruchu-drogowym/art-80cd/)
+- [Dostęp przez internet — gov.pl/web/cepik](https://www.gov.pl/web/cepik/dostep-przez-internet)
+- [Zmiany w komunikacji elektronicznej od 1 stycznia 2026 r. — e-Doręczenia](https://www.gov.pl/web/e-doreczenia/zmiany-w-komunikacji-elektronicznej-od-1-stycznia-2026-roku)
+- [e-Doręczenia dla przedsiębiorców — Biznes.gov.pl](https://www.biznes.gov.pl/pl/portal/004495)
 
 > Adresy i kwoty zebrano przez wyszukiwarkę — proxy tego środowiska blokuje bezpośredni
 > dostęp do `gov.pl`, `eli.gov.pl` i `lexlege.pl`, więc **nie udało się ich potwierdzić
