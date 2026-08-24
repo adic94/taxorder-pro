@@ -529,6 +529,83 @@ const spozaZestawienia = rekordy.filter(r => {
     wo.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: wo.columns.length } };
   }
 
+  // ── Arkusz: DT-1 — kto podlega podatkowi i czego do niego brakuje ──────────
+  //
+  // PO CO. Raport pokrycia mowi „liczba osi 68/916" i brzmi to jak katastrofa. Ale
+  // `TaxEngine.getCat()` potrzebuje liczby osi WYLACZNIE dla pojazdow od 12 t; ponizej
+  // progu decyduje sama DMC i rodzaj. Pytanie „ile brakuje do policzenia podatku" ma
+  // wiec zupelnie inna odpowiedz niz „ile pol jest pustych" — i tylko to pierwsze
+  // mowi, ile pracy zostalo.
+  //
+  // Kategorie liczy PRODUKCYJNY `modules/tax-engine.js`, zaladowany przez `window`-shim,
+  // a nie kopia progow przepisana tutaj. Progi 3,5 t / 7 t / 12 t, zwolnienie pojazdow
+  // specjalnych i obsluga leasingu maja jedno zrodlo prawdy; druga kopia rozjechalaby sie
+  // z silnikiem i pokazywala podatek inny niz aplikacja.
+  const shim = { window: {} };
+  new Function('window', fs.readFileSync(path.join(__dirname, '..', 'modules', 'tax-engine.js'), 'utf8'))(shim.window);
+  const TaxEngine = shim.window.TaxEngine;
+
+  const dt1Wiersze = rekordy.map(r => {
+    const v = {
+      dmc: r.dmcKg ?? null, dmcMax: r.dmcKg2 ?? null, dmcZespolu: r.dmcZespolu ?? 0,
+      typ: r.przeznaczenie || r.typ || '', przeznaczenie: r.przeznaczenie || '',
+      osie: r.liczbaOsi, miejsca: r.miejscaSied, rok: r.rokProd,
+    };
+    const maDmc = r.dmcKg != null || r.dmcKg2 != null;
+    const tonaz = ((r.dmcZespolu || 0) > 0 ? r.dmcZespolu : (r.dmcKg ?? r.dmcKg2 ?? 0)) / 1000;
+    const specjalny = /specjaln/i.test(v.typ) || /specjaln/i.test(v.przeznaczenie);
+    const cat = maDmc ? TaxEngine.getCat(v) : null;
+
+    // Czego brakuje — pytamy o to, co silnik FAKTYCZNIE czyta przy tym tonazu.
+    const braki = [];
+    if (!maDmc) braki.push('F.1 DMC');
+    if (!r.przeznaczenie && !r.typ) braki.push('rodzaj pojazdu');
+    if (maDmc && !specjalny && tonaz >= 12) {
+      if (r.liczbaOsi == null) braki.push('L liczba osi');
+      if (!r.zawieszenie) braki.push('zawieszenie');
+    }
+
+    let status;
+    if (specjalny) status = 'zwolniony (specjalny)';
+    else if (!maDmc) status = 'NIE DA SIE USTALIC';
+    else if (cat) status = braki.length ? `${cat} — niepewna` : cat;
+    else status = 'ponizej progu / brak podatku';
+
+    return {
+      nrRej: r.nrRej, marka: r.marka || '', model: r.model || '',
+      rodzaj: r.przeznaczenie || r.typ || '', dmc: r.dmcKg ?? null,
+      dmcZesp: r.dmcZespolu ?? null, osie: r.liczbaOsi ?? null,
+      zawieszenie: r.zawieszenie || '', kat: cat || '', status,
+      braki: braki.join(', '), _wymaga12t: maDmc && !specjalny && tonaz >= 12,
+      _podlega: !!cat, _niepewny: braki.length > 0 && !specjalny,
+    };
+  });
+
+  const wd = wb.addWorksheet('DT-1');
+  wd.columns = [
+    { header: 'Nr rej.', key: 'nrRej', width: 12 },
+    { header: 'Marka', key: 'marka', width: 16 },
+    { header: 'Model', key: 'model', width: 18 },
+    { header: 'Rodzaj / przeznaczenie', key: 'rodzaj', width: 26 },
+    { header: 'F.1 DMC (kg)', key: 'dmc', width: 13 },
+    { header: 'F.3 DMC zespolu', key: 'dmcZesp', width: 16 },
+    { header: 'L osie', key: 'osie', width: 8 },
+    { header: 'Zawieszenie', key: 'zawieszenie', width: 22 },
+    { header: 'Kategoria DT-1', key: 'kat', width: 14 },
+    { header: 'Status', key: 'status', width: 26 },
+    { header: 'Czego brakuje', key: 'braki', width: 34 },
+  ];
+  wd.getRow(1).font = { bold: true };
+  // Najpierw to, co wymaga uwagi: niepewne, potem podlegajace, potem reszta.
+  for (const w of dt1Wiersze.sort((a, b) =>
+    (Number(b._niepewny) - Number(a._niepewny)) || (Number(b._podlega) - Number(a._podlega)) ||
+    String(a.nrRej).localeCompare(String(b.nrRej)))) {
+    const wiersz = wd.addRow(w);
+    if (w.braki) wiersz.getCell('braki').font = { color: { argb: 'FF9C0006' }, bold: true };
+    if (w.status === 'NIE DA SIE USTALIC') wiersz.getCell('status').font = { color: { argb: 'FF9C0006' }, bold: true };
+  }
+  wd.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: wd.columns.length } };
+
   // ── Arkusz: pojazdy znane wylacznie z OCR / nazwy pliku ────────────────────
   if (spozaZestawienia.length) {
     const wz = wb.addWorksheet('Spoza zestawienia');
@@ -592,7 +669,26 @@ const spozaZestawienia = rekordy.filter(r => {
   console.log(`  ${G('✓')} zapisano: ${cel}`);
   console.log(D(`     źródeł: ${wejscia.length}  |  pojazdów po scaleniu: ${rekordy.length}  |  pól: ${kolumny.length}`));
   console.log(D(`     arkusze: Pojazdy, Pokrycie${konflikty.length ? ', Konflikty' : ''}${odrzucone.length ? ', Odrzucone' : ''}` +
-    `${spozaZestawienia.length ? ', Spoza zestawienia' : ''}, Legenda\n`));
+    `${spozaZestawienia.length ? ', Spoza zestawienia' : ''}, DT-1, Legenda\n`));
+
+  // Podsumowanie DT-1 PRZED reszta ostrzezen: to jest liczba, ktora mowi, ile pracy zostalo.
+  {
+    const podlega = dt1Wiersze.filter(w => w._podlega);
+    const wymaga12t = dt1Wiersze.filter(w => w._wymaga12t);
+    const brak12t = wymaga12t.filter(w => w.braki);
+    const nieDaSie = dt1Wiersze.filter(w => w.status === 'NIE DA SIE USTALIC');
+    const zwolnione = dt1Wiersze.filter(w => w.status.startsWith('zwolniony'));
+
+    console.log(B('\n  DT-1 — ile pracy faktycznie zostalo:\n'));
+    console.log(`   ${String(podlega.length).padStart(4)}  pojazdow podlega podatkowi (kategoria ustalona)`);
+    console.log(`   ${String(zwolnione.length).padStart(4)}  zwolnionych jako specjalne`);
+    console.log(`   ${String(wymaga12t.length).padStart(4)}  od 12 t — tylko TE potrzebuja liczby osi i zawieszenia`);
+    console.log(`   ${(brak12t.length ? R : G)(String(brak12t.length).padStart(4))}  z nich ma braki w tych polach`);
+    if (nieDaSie.length) console.log(`   ${R(String(nieDaSie.length).padStart(4))}  bez DMC — kategorii nie da sie ustalic wcale`);
+    console.log(D('\n     Liczba osi „68/916" w raporcie pokrycia myli: silnik czyta ja WYLACZNIE'));
+    console.log(D('     dla pojazdow od 12 t. Ponizej progu decyduje sama DMC i rodzaj pojazdu.'));
+    console.log(D('     Arkusz DT-1 wymienia braki per pojazd, wiec da sie je uzupelnic recznie.\n'));
+  }
 
   if (spozaZestawienia.length) {
     const zNazwy = spozaZestawienia.filter(r => r._zNazwy).length;
