@@ -50,29 +50,55 @@ taxorder-pro/
 
 > Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
 > Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
-> Ostatnia aktualizacja: 2026-08-24 — **CEPiK odpada jako źródło; Worker czeka na deploy**
+> Ostatnia aktualizacja: 2026-08-24 (popołudnie) — **Worker wdrożony, GitHub Actions
+> odblokowane, CEPiK open-data potwierdzony jako zepsuty (nie tylko podejrzany)**
 >
-> ### Czeka na człowieka: dwie komendy w terminalu
+> ### Zamknięte dziś: obie pozycje z poprzedniej wersji tej sekcji
 >
-> **1. Deploy Workera.** `main` niesie nowy prompt OCR (`DR_POLA_OCR`), którego NIE MA
-> na produkcji. `wrangler deploy` pada z `Authentication error [code: 10000]` — to NIE
-> jest wygasłe logowanie. `CLOUDFLARE_API_TOKEN` w środowisku (ten wąski, do
-> `cf-ocr-test.js`) **przesłania `wrangler login`**; wrangler sam to podpowiada
-> w komunikacie. Zdjęcie zmiennej działa tylko w bieżącym oknie:
+> **1. Deploy Workera — ZROBIONE.** Przyczyna `Authentication error [code: 10000]` okazała
+> się INNA, niż zakładał poprzedni wpis: to nie zmienna systemowa `CLOUDFLARE_API_TOKEN`
+> (sprawdzone `Remove-Item Env:\...` → „does not exist"), tylko **plik `.env` w katalogu
+> projektu** — `wrangler@4.120.1` sam go wczytuje i traktuje `CLOUDFLARE_API_TOKEN` stamtąd
+> jako nadpisanie logowania OAuth, bez żadnej zmiennej w tle. Naprawa i pełny opis pułapki:
+> patrz sekcja „PUŁAPKI" niżej, wpis przy istniejącym `CLOUDFLARE_API_TOKEN`. Wdrożone:
+> Version ID `519dd2ea-98c3-4a22-ae30-a97d8d946800`, potwierdzone żywą odpowiedzią Workera
+> (`/` → `{"error":"Endpoint nie istnieje"}`, nie błąd sieci). Produkcja miała 12 dni
+> zaległości (ostatni udany auto-deploy: 12.08) — teraz wyrównana z `main`.
 >
->     Remove-Item Env:\CLOUDFLARE_API_TOKEN
->     .\node_modules\.bin\wrangler.cmd login
->     .\node_modules\.bin\wrangler.cmd deploy
+> **2. `aztec-diagnoza.js` — URUCHOMIONE, 8314 dokumentów.** Wynik: **MATERIAŁ
+> WYSTARCZAJĄCY** — 65% skanów ≥150 DPI, żaden koszyk rozdzielczości nie spada do „za
+> mało". To zawęża pytanie z „czy skany są za słabe" do „czy detekcja/dekodowanie sobie
+> radzi" — i tu jest gorsza wiadomość, patrz niżej.
 >
-> Jeśli `[Environment]::GetEnvironmentVariable('CLOUDFLARE_API_TOKEN','User')` coś zwraca,
-> wpis jest trwały i wróci w każdym nowym oknie.
+> **GitHub Actions — odblokowane.** Blokada „recent account payments have failed" (nie
+> zwykłe wyczerpanie 2000 min — patrz sekcja CI/CD) zniknęła między 08:47 a 12:49 dziś.
+> Potwierdzone realnym przebiegiem: `JS syntax check` i `E2E & API tests` (28 min, pełny
+> suite) — oba **sukces** na pchniętym commicie. Nie ustalono, czy to efekt zmiany limitu
+> wydatków po stronie właściciela, czy GitHub sam wyczyścił coś po swojej stronie.
 >
-> **2. `node tools/aztec-diagnoza.js "<folder z dowodami>"`** — napisane, **nigdy nie
-> uruchomione**. Zero sieci, zero limitów, zero kosztu. Rozstrzyga, czy detekcja Aztec
-> 0/1318 to wina materiału (skany za słabe → przeskanuj w 300 DPI), czy nasza. Aztec to
-> jedyne źródło ze 100% pewnością — dekodowanie mamy potwierdzone end-to-end (17/17 pól).
+> ### Aztec: dekodowanie działa na SELFTEŚCIE, ale jest NIESTABILNE na prawdziwym dokumencie
 >
-> ### ⛔ CEPiK: `/pojazdy` najprawdopodobniej IGNORUJE `numer-rejestracyjny`
+> Głębszy dive niż punkt 2 wyżej. Na realnym dowodzie (WA0638H) — kod fizycznie obecny,
+> czysty dla oka, potwierdzone wizualnie. Ale:
+>
+> - **Detekcja na pełnej stronie zawodzi STRUKTURALNIE** — algorytm Azteca w ZXing szuka
+>   wzorca od ŚRODKA obrazu na zewnątrz (inaczej niż QR), a kod leży w konkretnym polu
+>   dokumentu, nie w centrum strony. To samo w sobie tłumaczy „0/1318" niezależnie od
+>   jakości skanu — potwierdzone niezależnie od binaryzera (Hybrid i GlobalHistogram).
+> - **Po ręcznym wycentrowaniu bywa niestabilne między sesjami renderowania TEGO SAMEGO
+>   pliku PDF.** Raz detekcja przechodzi i dochodzi do błędu Reed-Solomon
+>   (`Error locator degree does not match number of roots` — za dużo błędów bitowych na
+>   pojemność korekcji), raz zawodzi już na etapie detekcji. Ten sam plik uruchomiony
+>   trzykrotnie z rzędu daje identyczny wynik (deterministyczne w ramach jednej sesji),
+>   ale RÓŻNY między osobnymi renderami tej samej strony — subpikselowa różnica w
+>   antyaliasingu Chromium wystarcza, żeby przełączyć wynik.
+> - **Wniosek: to nie jest już zadanie programistyczne.** Detekcja na pełnej stronie da
+>   się naprawić (tiling/wycinanie), ale samo dekodowanie jest na granicy nawet w
+>   warunkach idealnych (czysty render PDF, bez aparatu). Dalsza praca ma malejący zwrot
+>   bez **prawdziwego zdjęcia** — pytanie zawęziło się z „czy materiał wystarcza" do
+>   „czy fizyczny druk kodu ma zapas jakości", a na to odpowiada tylko realna fotografia.
+>
+> ### ⛔ CEPiK open-data: `numer-rejestracyjny` POTWIERDZONY jako zepsuty, nie tylko podejrzany
 >
 > **Nie buduj na tym niczego, dopóki to nie zostanie rozstrzygnięte.** Dwa pomiary na
 > prawdziwych numerach floty:
@@ -89,6 +115,15 @@ taxorder-pro/
 > wykrycie po fakcie. `cepik-batch` robi teraz samokontrolę przed startem (dwa różne
 > numery, to samo okno) i **odmawia pracy** przy identycznym rekordzie.
 >
+> **DOPISANE 24.08 popołudnie: potwierdzone niezależnie, na INNYM oknie dat.** Preflight
+> (`--sprawdz`) na liście 134 pojazdów z brakami DT-1 zatrzymał się sam — słusznie —
+> na dokładnie tym samym objawie. Ręczny test na `WA142AL`/`WA143AL` (dwie różne, dobrze
+> sformatowane tablice) w oknie **2025–2026** dał ten sam rekord (CAN-AM OUTLANDER — ta
+> sama „widmo"-tablica co w tabeli wyżej, inny dzień pomiaru, ten sam wynik: nie przypadek,
+> tylko powtarzalny fallback). Powtórzone w oknie **2017–2018** — znowu identyczny rekord
+> (CHEVROLET CAMARO tym razem). **To nie jest kwestia złego okna czasowego — filtr nie
+> działa w żadnym z przetestowanych okien.** Partia 134 pojazdów NIE URUCHOMIONA — słusznie.
+>
 > Co jeszcze ustalone o tym API, żeby nie odtwarzać śledztwa:
 > - **okno dat ma limit DWÓCH LAT KALENDARZOWYCH** — serwer mówi to wprost („Maksymalny
 >   zakres lat to: 2"). Wcześniejsza wersja pytała o 30 lat w jednym zapytaniu, więc
@@ -98,21 +133,43 @@ taxorder-pro/
 > - endpoint jest publiczny, bez `Authorization`; 429 przychodzi szybko, domyślny odstęp
 >   to teraz 900 ms i obowiązuje po KAŻDYM żądaniu, także nieudanym.
 >
-> **Niesprawdzone, warte jednego pomiaru:** mamy **817 numerów VIN** z zestawienia, a VIN
-> identyfikuje pojazd jednoznacznie. Zanim spiszemy rejestr na straty — sonda po VIN-ie.
+> **VIN — SPRAWDZONE i ZAMKNIĘTE, ślepy zaułek.** Pole VIN **nie istnieje w ogóle** w tym
+> API — wylistowane wszystkie ~70 pól zwracanych przy `pokaz-wszystkie-pola=true` na
+> prawdziwym rekordzie, zero trafień na „vin"/„nadwozie"/„podwozie"/„rama". Parametr
+> `vin=` bez wymaganych `wojewodztwo`+`data-od`+`data-do` daje 404 („nie podano wymaganych
+> parametrów"); z nimi — zwraca coś, ale nie da się zweryfikować, bo API nigdy nie zwraca
+> VIN-u w odpowiedzi. Nie próbuj tego ponownie bez nowej przesłanki. Efekt uboczny, który
+> to jednak potwierdziło: pełna lista pól MA `liczba-osi` i `rodzaj-zawieszenia` — CEPiK
+> dalej jest właściwym źródłem tych dwóch pól DT-1, TYLKO filtr po numerze trzeba naprawić
+> albo obejść (patrz gałąź `claude/cepik-synergy-access-letter-f9lnoi` — szkic pisma
+> o teletransmisję CEP, czyli oficjalny dostęp z `CEPIK_KEY`/`CEPIK_SECRET` zamiast
+> zepsutego endpointu open-data; niescalona, nieprzejrzana).
 >
 > ### Arkusz DR: jest, ale najpierw przeczytaj trzy zakładki
 >
-> `tools/dr-excel.js` buduje arkusz z 34 polami i kodami urzędowymi w nagłówkach.
-> Ostatni przebieg: **916 pojazdów** (zestawienie 816 + checkpoint OCR 1290 rekordów).
+> `tools/dr-excel.js` buduje arkusz z 30 polami katalogu i kodami urzędowymi w nagłówkach.
+> **Przebieg 24.08 popołudnie (po trzech nowych filtrach — patrz commit `6890c66`):
+> 907 pojazdów** (zestawienie 816 + checkpoint OCR 1290 rekordów, 10 mniej niż poprzedni
+> przebieg — usunięte pojazdy-widma z fragmentów VIN/ścieżki jako „numer rejestracyjny").
 >
-> - **„Spoza zestawienia"** — 100 pojazdów zna wyłącznie OCR albo nazwa pliku, 51 z numerem
+> - **„Spoza zestawienia"** — 91 pojazdów zna wyłącznie OCR albo nazwa pliku, 52 z numerem
 >   czytanym z nazwy. Przekłamanie o jedną cyfrę tworzy pojazd, który nie istnieje.
-> - **„Odrzucone"** — 266 wartości niepasujących do typu pola, 162 w polach DT-1.
-> - **„Konflikty"** — 2138 rozbieżności, 191 w polach DT-1.
+> - **„Odrzucone"** — 623 wartości niepasujących do typu pola (było 308 — nowe filtry
+>   łapią więcej, nie mniej), 205 w polach DT-1.
+> - **„Konflikty"** — 1914 rozbieżności, 193 w polach DT-1.
 >
 > **Nie używaj tego arkusza do deklaracji bez przejrzenia tych trzech.** Deklaracja z błędną
 > DMC albo liczbą osi wygląda wiarygodnie i nikt jej nie zakwestionuje poza urzędem.
+>
+> **NOWE 24.08: `tools/dr-braki-checklist.js`** — osobny, gotowy do wydruku plik dla
+> **134 pojazdów, których żadne źródło nie wypełniło na tyle, żeby policzyć DT-1** (117
+> bez DMC — kategorii nie da się ustalić wcale; 17 ≥12t z brakiem osi/zawieszenia).
+> Posortowany po ścieżce pliku źródłowego, kolorowany wg typu braku, z pustymi kolumnami
+> na wpisanie z ręki. Sprawdzone przy budowie: 14 z tych wierszy to **przyczepy**
+> (`typ='Przyczepa'`), którym pole marka/przeznaczenie w źródle podaje opis sprzętu
+> zamontowanego na przyczepie (np. „Myjka Ciśnieniowa KRANZLE"), nie markę przyczepy —
+> checklist pokazuje `Typ` i `Przeznaczenie` jako OSOBNE kolumny właśnie dlatego, żeby
+> ta rozbieżność była widoczna, a nie cicho wybrana.
 >
 > ### Ustalenie, które zmienia priorytety: „68/916" to odpowiedź na złe pytanie
 >
@@ -131,17 +188,20 @@ taxorder-pro/
 > istniał w **dwóch rozjechanych kopiach** — `handleAIOCR` (20 pól) i `handleDrOcr` (16 pól,
 > bez przeznaczenia, bez F.2, bez O.1/O.2). Który handler obsłużył dokument, taki zestaw pól
 > wracał, bez śladu w odpowiedzi. Teraz jedna stała `DR_POLA_OCR` — 23 pola, komplet DT-1,
-> pilnowana bramką. **Działa dopiero po deployu** (patrz wyżej), a przy pierwszym przebiegu
-> mierz na kilkunastu dowodach, nie na 1290: darmowy próg CF to 10 000 neuronów na dobę.
+> pilnowana bramką. **Na produkcji od 24.08** (deploy zrobiony, patrz wyżej), a przy
+> pierwszym przebiegu mierz na kilkunastu dowodach, nie na 1290: darmowy próg CF to
+> 10 000 neuronów na dobę.
 >
 > ### Rzeczy techniczne, które zostają
 >
-> 1. **Pakiet minut Actions wyczerpany** (2000/2000), reset **1 września**. Przebiegi
->    padają po 3–5 s z `runner_id: 0` — to NIE jest awaria CI, patrz sekcja CI/CD.
->    Po scaleniu #15 harmonogramy zeszły z 57% do 21% pakietu, więc wrzesień nie
->    powtórzy sierpnia. Do tego czasu **bramki uruchamiaj lokalnie**: `npm run test:gates`
->    (18 plików, 141 asercji, ~20 s, bez sieci i bez zależności poza `node`). Do 18.08
->    `npm run audit:all` uruchamiał tylko 3 z nich — patrz sekcja o narzędziach.
+> 1. ~~**Pakiet minut Actions wyczerpany**~~ — **ODBLOKOWANE 24.08 popołudnie**, patrz
+>    wyżej. Do 24.08 rano przebiegi padały po 3–5 s komunikatem o nieudanych płatnościach
+>    (INNY objaw niż `runner_id: 0` opisany w sekcji CI/CD — tam chodzi o wyczerpanie
+>    2000 min, tu o próbę obciążenia karty), teraz `JS syntax check`/`E2E`/`Health Check`
+>    przechodzą normalnie. **Lokalne bramki nadal warte używania jako pierwsza linia**
+>    (szybsze niż czekanie na CI): `npm run test:gates` (18 plików, 141 asercji, ~20 s,
+>    bez sieci i bez zależności poza `node`). Do 18.08 `npm run audit:all` uruchamiał
+>    tylko 3 z nich — patrz sekcja o narzędziach.
 > 2. **`aztec-decoded-bytes.bin` w `%TEMP%`** (729 B, 30.07) — plik jest BASE64, nie
 >    surowymi bajtami; po zdekodowaniu nagłówek wychodzi 1257, czyli w zakresie.
 >    `node tools/aztec-compare.js --bytes <plik>` rozpoznaje base64 sam. Odpowiada na
