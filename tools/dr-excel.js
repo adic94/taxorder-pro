@@ -316,6 +316,25 @@ function wartoscPasuje(pole, v) {
     }
     if (t.length > 60) return { ok: false, powod: 'tekst dluzszy niz 60 znakow' };
   }
+
+  // --- DZIEDZINA ZAMKNIETA ----------------------------------------------------------
+  // Niektore pola maja skonczony zbior dopuszczalnych wartosci (kategoria homologacyjna,
+  // rodzaj zawieszenia). Reguly ogolne ich nie chronia: „SIA MTOILET" w polu J jest
+  // krotkie, nie jest data i nie zawiera kodu rubryki — a to nazwa spolki z sasiedniej
+  // rubryki, ktora w arkuszu wygladala jak kategoria pojazdu.
+  if (pole.domena) {
+    const n = t.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const trafienie = pole.domenaLuzna
+      ? pole.domena.find(d => n.includes(d) || d.includes(n))
+      : pole.domena.find(d => d === n);
+    if (!trafienie) {
+      // Pola bez kodu z dyrektywy maja kod „—", wiec komunikat nazywa je po nazwie.
+      return { ok: false, powod: `spoza dopuszczalnych wartosci pola ${pole.kod === '—' ? pole.nazwa.toLowerCase() : pole.kod}` };
+    }
+    // Zapis normalizujemy do postaci z katalogu tylko przy dziedzinie SCISLEJ; przy luznej
+    // zostawiamy tekst zrodla, bo niesie wiecej niz sam symbol.
+    return { ok: true, wartosc: pole.domenaLuzna ? t : trafienie };
+  }
   return { ok: true, wartosc: t };
 }
 
