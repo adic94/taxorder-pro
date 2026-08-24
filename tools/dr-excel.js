@@ -342,6 +342,22 @@ function wartoscPasuje(pole, v) {
     return { ok: false, powod: 'nazwa folderu zamiast marki pojazdu' };
   }
 
+  // FRAGMENT INSTRUKCJI Z PROMPTU zamiast wartosci — model odbil czesc WLASNEGO polecenia
+  // (worker/index.js DR_POLA_OCR), nie dane z dokumentu. Rozne od "etykieta=wartosc"
+  // wyzej: tu nie ma znaku "=", a fragment bywa KROTSZY niz limit 60 znakow, wiec
+  // przechodzil. Znalezione na pelnym zbiorze: `przeznaczenie` dla dwoch pojazdow mialo
+  // „RODZAJ POJAZDU / PRZEZNACZENIE z sekcji bezowej, np SAMOCHOD" (59 znakow — obcięty
+  // fragment prawdziwej instrukcji, ktora jest dluzsza). To pole DT-1: decyduje o
+  // zwolnieniu (pojazd specjalny), wiec smiec tutaj nie jest kosmetyczny.
+  const FRAGMENTY_PROMPTU = [
+    'z sekcji bezowej', 'zoltej tabeli', 'adnotacjach urzedowych', 'puste jesli',
+    'nie zgaduj', 'skonczony zbior', 'krotki kod techniczny', 'dokladnie 17 znakow',
+  ];
+  const tNorm = t.toLowerCase();
+  if (FRAGMENTY_PROMPTU.some(f => tNorm.includes(f))) {
+    return { ok: false, powod: 'fragment instrukcji promptu zamiast wartosci' };
+  }
+
   // --- POLA TEKSTOWE TEZ WYMAGAJA KONTROLI ------------------------------------------
   // Do 21.08 kazda niepusta wartosc tekstowa wchodzila do arkusza. Pierwsze scalenie na
   // pelnym zbiorze pokazalo, co przez to przechodzi:
