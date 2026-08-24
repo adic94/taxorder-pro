@@ -193,16 +193,41 @@ function nrZNazwyPliku(nazwa) {
   return null;
 }
 
+/**
+ * Numer rejestracyjny CZYTANY WPROST Z TREŚCI OCR — w przeciwieństwie do wyżej,
+ * ten nie miał ŻADNEJ kontroli kształtu. `nrZNazwyPliku` ogranicza się do 4–8 znaków,
+ * ale to ograniczenie dotyczyło WYŁĄCZNIE ścieżki „numer zgadnięty z nazwy pliku" —
+ * `rek.nrRej` odczytane wprost z pola OCR szło do scalania bez sprawdzenia w ogóle.
+ *
+ * Realny skutek na pełnym zbiorze: 11/100 wierszy w „Spoza zestawienia" miało
+ * „numer rejestracyjny" długości 10 znaków — fragmenty VIN-u (`WDBUF70J41`,
+ * prefiks `WDB` to Mercedes) i fragmenty ŚCIEŻKI PLIKU (`KRAJU2022-`, `WKOŁO2824-`).
+ * Każdy taki wpis tworzy w arkuszu pojazd-widmo z kompletem pól, nieodróżnialny
+ * od prawdziwego wiersza.
+ *
+ * Polska tablica: 2–3 znaki wyróżnika + do 5 znaków numeru, całość 4–8 znaków.
+ * Rekord z numerem POZA tym kształtem traktujemy tak samo, jak brak numeru —
+ * nie zgadujemy, czy to literówka, czy śmieć; po prostu nie wchodzi do scalania.
+ */
+function wygladaJakTablica(nr) {
+  const n = String(nr).toUpperCase().replace(/[\s-]/g, '');
+  return n.length >= 4 && n.length <= 8 && /^[A-Z]{1,3}[A-Z0-9]{2,7}$/.test(n) && /[0-9]/.test(n);
+}
+
 /** Checkpoint OCR kluczowany ścieżką pliku -> tablica rekordów. */
 function zCheckpointu(wpisy, sciezka) {
   const out = [];
-  let bezNumeru = 0, zNazwy = 0;
+  let bezNumeru = 0, zNazwy = 0, zlyKsztalt = 0;
   for (const [klucz, wartosc] of wpisy) {
     // Wartość bywa opakowana — checkpoint zapisuje czasem {pola:{…}, ok:true}.
     const rek = wartosc.pola || wartosc.fields || wartosc.dane || wartosc;
     if (!rek || typeof rek !== 'object' || Array.isArray(rek)) { bezNumeru++; continue; }
     let nr = rek.nrRej || rek.numerRejestracyjny || rek.nr_rej;
     let zrodloNr = null;
+    // Numer odczytany WPROST z tresci OCR nie mial zadnej kontroli ksztaltu — w
+    // przeciwienstwie do numeru zgadywanego z nazwy pliku nizej. Fragment VIN-u
+    // albo sciezki pliku przechodzil jako "numer rejestracyjny" bez zadnego sygnalu.
+    if (nr && !wygladaJakTablica(nr)) { nr = null; zlyKsztalt++; }
     if (!nr) { nr = nrZNazwyPliku(klucz); if (nr) { zNazwy++; zrodloNr = 'folder'; } }
     if (!nr) { bezNumeru++; continue; }
     // Sciezka skanu zostaje przy rekordzie: przy pojezdzie-widmie to jedyny sposob,
@@ -214,6 +239,7 @@ function zCheckpointu(wpisy, sciezka) {
   const nazwa = path.basename(sciezka);
   console.log(D(`  ${nazwa}: checkpoint kluczowany ścieżką pliku — ${out.length} rekordów` +
     (zNazwy ? `, w tym ${zNazwy} z numerem odczytanym z nazwy pliku` : '') +
+    (zlyKsztalt ? `, odrzucono ${zlyKsztalt} numerów o nieprawidłowym kształcie (fragment VIN/ścieżki)` : '') +
     (bezNumeru ? `, pominięto ${bezNumeru} bez numeru rejestracyjnego` : '')));
   return out;
 }
@@ -288,6 +314,32 @@ function wartoscPasuje(pole, v) {
   // a nie wartosc. Wpuszczone do arkusza udaja dane.
   if (/^(m\.?\s*p\.?|---+|-|b\/?d|brak|n\/?d|nie dotyczy)$/i.test(t)) {
     return { ok: false, powod: 'oznaczenie braku danych' };
+  }
+
+  // Nazwa MODELU AI zamiast wartosci pola. Znaleziono na pelnym zbiorze: gdy model
+  // jezykowy nie odczytal np. D.3 (model pojazdu), gdzies w checkpoint DALEJ ladowala
+  // wartosc typu "cf-workers-ai-llama-3.2-11b" — metadane "ktory model czytal skan",
+  // nie dana pojazdu. 30/100 wierszy w "Spoza zestawienia" mialo to w polu Model.
+  // Sprawdzamy KAZDE pole tekstowe, nie tylko `model` — kontaminacja moze trafic gdziekolwiek.
+  if (/^(cf-workers-ai|@cf\/|llama[-\s]?\d|groq|gpt-\d|claude-\d)/i.test(t)) {
+    return { ok: false, powod: 'nazwa modelu AI zamiast wartosci' };
+  }
+
+  // ETYKIETA=WARTOSC sklejone w jeden string. Istniejaca regula nizej lapala TYLKO kod
+  // rubryki w NAWIASIE ("Zamieszenie inne - (V.9) ..."), nie ten wzorzec — znaleziony
+  // osobno na pelnym zbiorze: "D.1=KIA", "D.2=C.2", "RODZAJ POJAZDU = SAMOCHOD". Model
+  // przepisal etykiete razem z wartoscia zamiast samej wartosci. Nie probujemy odzyskac
+  // czesci po "=" — to byloby cichym zgadywaniem, dokladnie to, czego ten plik unika
+  // wszedzie indziej (patrz komentarz przy `konflikty` wyzej).
+  if (/[A-ZŁŚĆŻŹŃÓĘĄ.\d\s]{2,40}=/i.test(t)) {
+    return { ok: false, powod: 'etykieta=wartosc sklejone (zawiera znak =)' };
+  }
+
+  // Nazwa FOLDERU zamiast marki pojazdu. "archiwum" to najczestszy artefakt — pliki
+  // przeniesione do podfolderu `archiwum/` w strukturze projektu, ktorego nazwa trafila
+  // do pola marka zamiast prawdziwej marki auta. 22/100 w "Spoza zestawienia" mialo to.
+  if (pole.klucz === 'marka' && /^(archiwum|dokumentacja|skany?|kopia|stary|nowy|backup)$/i.test(t)) {
+    return { ok: false, powod: 'nazwa folderu zamiast marki pojazdu' };
   }
 
   // --- POLA TEKSTOWE TEZ WYMAGAJA KONTROLI ------------------------------------------

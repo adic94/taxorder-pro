@@ -925,6 +925,22 @@ wykryje. **Nie dodawaj `dotenv` do narzędzi wołających wranglera** — wstrzy
 z `.env` odtworzy dokładnie ten problem. `cf-ocr-test.js` czyta `.env` celowo: woła REST
 bezpośrednio, nie przez wranglera.
 
+**AKTUALIZACJA 24.08 — problem wraca BEZ żadnego `dotenv` w narzędziach.** `wrangler@4.120.1`
+sam wczytuje `.env` z bieżącego katalogu i traktuje `CLOUDFLARE_API_TOKEN` stamtąd jako
+nadpisanie logowania OAuth — dokładnie tak samo, jakby zmienna była ustawiona w systemie.
+Objawy inne niż wyżej: `Remove-Item Env:\CLOUDFLARE_API_TOKEN` mówi „does not exist" (bo
+zmiennej faktycznie nie ma w środowisku), a `wrangler login` kończy się jawnym:
+
+    You are logged in with an API Token. Unset the CLOUDFLARE_API_TOKEN in the environment to log in via OAuth.
+
+Winny jest `.env` w katalogu projektu (token do `cf-ocr-test.js`, patrz `.env.example`) —
+sam jego OBECNOŚĆ z tym kluczem wystarcza, żaden inny proces nie musi go czytać. Naprawa:
+zakomentować linię `CLOUDFLARE_API_TOKEN=` w `.env` (zostawić resztę zmiennych — reszta
+narzędzi, np. Playwright, dalej ich potrzebuje), odkomentowywać tylko na czas realnego
+uruchamiania `cf-ocr-test.js`. Samo przeniesienie/usunięcie `.env` też działa, ale zabiera
+też `TEST_EMAIL`/`TEST_PASS` innym narzędziom — więc lepiej zakomentować jedną linię niż
+ruszać cały plik.
+
 ### npx i npm w PowerShell
 Polityka wykonywania blokuje niepodpisany `npx.ps1` — **i tak samo `npm.ps1`**.
 `npm run <cokolwiek>` kończy się `UnauthorizedAccess`, nie błędem skryptu.
