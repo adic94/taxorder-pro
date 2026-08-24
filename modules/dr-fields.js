@@ -46,7 +46,16 @@
     { kod: 'G',     klucz: 'masaWlKg',         nazwa: 'Masa własna',                         typ: 'liczba', zakres: [100, 100000], pewne: true,  dt1: false, aztec: true,  cepik: ['masa-wlasna', 'masa-pojazdu-gotowego-do-jazdy'], jednostka: 'kg' },
     { kod: 'H',     klucz: 'okresWaznosci',    nazwa: 'Okres ważności dowodu',               typ: 'tekst',  pewne: false, dt1: false, aztec: false, cepik: [] },
     { kod: 'I',     klucz: 'dataWydania',      nazwa: 'Data wydania dowodu',                 typ: 'data',   pewne: true,  dt1: false, aztec: true,  cepik: [] },
-    { kod: 'J',     klucz: 'kategoria',        nazwa: 'Kategoria pojazdu',                   typ: 'tekst',  pewne: true,  dt1: true,  aztec: true,  cepik: ['kategoria-pojazdu'] },
+    // DZIEDZINA ZAMKNIETA. Kategoria homologacyjna to skonczony zbior symboli z dyrektywy
+    // 2007/46/WE — nie ma tu miejsca na wariacje. Bez tej listy do pola J trafialo, co
+    // popadlo: w realnym zbiorze OCR wstawil tam „SIA MTOILET", czyli NAZWE SPOLKI
+    // z sasiedniej rubryki. Krotka, bez daty, bez kodu rubryki — zadna z regul ogolnych
+    // jej nie zatrzymala, a w arkuszu wygladala jak kategoria.
+    { kod: 'J',     klucz: 'kategoria',        nazwa: 'Kategoria pojazdu',                   typ: 'tekst',  pewne: true,  dt1: true,  aztec: true,  cepik: ['kategoria-pojazdu'],
+      domena: ['M1', 'M2', 'M3', 'N1', 'N2', 'N3', 'O1', 'O2', 'O3', 'O4',
+               'L1E', 'L2E', 'L3E', 'L4E', 'L5E', 'L6E', 'L7E',
+               'T1', 'T2', 'T3', 'T4', 'T5', 'C1', 'C2', 'C3', 'C4', 'C5', 'R1', 'R2', 'R3', 'R4',
+               'S1', 'S2', 'T', 'C', 'R', 'S', 'L'] },
     { kod: 'K',     klucz: 'nrHomolog',        nazwa: 'Numer świadectwa homologacji',        typ: 'tekst',  pewne: true,  dt1: false, aztec: false, cepik: [] },
     { kod: 'L',     klucz: 'liczbaOsi',        nazwa: 'Liczba osi',                          typ: 'liczba', zakres: [1, 10], pewne: true,  dt1: true,  aztec: true,  cepik: ['liczba-osi'] },
     { kod: 'O.1',   klucz: 'dmcPrzyczHam',     nazwa: 'Masa przyczepy z hamulcem',           typ: 'liczba', zakres: [0, 100000], pewne: true,  dt1: true,  aztec: false, cepik: ['max-masa-calkowita-przyczepy-z-hamulcem'], jednostka: 'kg' },
@@ -73,7 +82,11 @@
     { kod: '—', klucz: 'rokPierwszejRej', nazwa: 'Rok pierwszej rejestracji',      typ: 'liczba', zakres: [1900, 2100], pewne: true,  dt1: false, aztec: true,  cepik: [] },
     { kod: '—', klucz: 'rokProd',         nazwa: 'Rok produkcji',                  typ: 'liczba', zakres: [1900, 2100], pewne: true,  dt1: false, aztec: false, cepik: ['rok-produkcji'] },
     { kod: '—', klucz: 'seriaDr',       nazwa: 'Seria i numer dowodu',            typ: 'tekst',  pewne: true,  dt1: false, aztec: true,  cepik: [], osobowe: true },
-    { kod: '—', klucz: 'zawieszenie',   nazwa: 'Rodzaj zawieszenia',              typ: 'tekst',  pewne: true,  dt1: true,  aztec: false, cepik: ['rodzaj-zawieszenia'] },
+    // Dla DT-1 licza sie trzy stany, nie dowolny opis: pneumatyczne, uznane za rownowazne
+    // pneumatycznemu, oraz wszystko inne. `dopasujDomene` porownuje po fragmencie, bo
+    // zrodla pisza to rozmaicie („zawieszenie pneumatyczne", „PNEUM.", „rownowazne").
+    { kod: '—', klucz: 'zawieszenie',   nazwa: 'Rodzaj zawieszenia',              typ: 'tekst',  pewne: true,  dt1: true,  aztec: false, cepik: ['rodzaj-zawieszenia'],
+      domena: ['PNEUMATYCZNE', 'ROWNOWAZNE', 'MECHANICZNE', 'RESOROWE', 'INNE'], domenaLuzna: true },
     { kod: '—', klucz: 'nipWlasciciela',nazwa: 'NIP właściciela',                 typ: 'tekst',  pewne: true,  dt1: false, aztec: true,  cepik: [], osobowe: true },
   ];
 
