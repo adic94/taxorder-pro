@@ -50,43 +50,89 @@ taxorder-pro/
 
 > Sekcja aktualizowana ręcznie po zamknięciu tematu lub otwarciu nowego.
 > Generuj zwięzłe podsumowanie do wklejenia w claude.ai: `/status`
-> Ostatnia aktualizacja: 2026-08-18 — **`main` WYPRZEDZA produkcję o dwa commity**
+> Ostatnia aktualizacja: 2026-08-24 — **CEPiK odpada jako źródło; Worker czeka na deploy**
 >
-> ### Czeka na człowieka: jeden deploy Workera i jedna zgoda w panelu Cloudflare
+> ### Czeka na człowieka: dwie komendy w terminalu
 >
-> Baza jest w komplecie i nic w niej nie czeka: `migration_v50` zastosowana, `schema_v45`
-> i `schema_v48` uruchomione ręcznie, cztery tabele potwierdzone w `sqlite_master`.
-> Zero otwartych PR-ów. Na produkcji jest mitygacja CVE-2024-4367 w pdf.js, naprawa
-> bajtów Aztec, render PDF 300 DPI, wydzielony `_decodeAztecPayload`, zrównana ZXing.
+> **1. Deploy Workera.** `main` niesie nowy prompt OCR (`DR_POLA_OCR`), którego NIE MA
+> na produkcji. `wrangler deploy` pada z `Authentication error [code: 10000]` — to NIE
+> jest wygasłe logowanie. `CLOUDFLARE_API_TOKEN` w środowisku (ten wąski, do
+> `cf-ocr-test.js`) **przesłania `wrangler login`**; wrangler sam to podpowiada
+> w komunikacie. Zdjęcie zmiennej działa tylko w bieżącym oknie:
 >
-> **Ale wdrożona wersja Workera to nadal `ad9e932f` z `d9cd6cd` (13.08).** Od tego czasu
-> `worker/index.js` zmieniły dwa scalone PR-y, a `deploy-worker.yml` ich NIE wdrożył —
-> pakiet minut Actions jest wyczerpany, więc przebiegi `32165938087` (dla `16eda51`)
-> i `32173542755` (dla `a2a795c`) padły po kilku sekundach z `runner_id: 0`.
-> To nie jest awaria deployu, tylko brak runnera. Wdrożenie ręczne:
->
->     git pull            # main = a2a795c
+>     Remove-Item Env:\CLOUDFLARE_API_TOKEN
+>     .\node_modules\.bin\wrangler.cmd login
 >     .\node_modules\.bin\wrangler.cmd deploy
 >
-> Co czeka w tych dwóch commitach:
-> - `16eda51` — +5 pól z ładunku DR (data wydania, właściciel, NIP, posiadacz) w `_DR_NEW`
-> - `a2a795c` — powód porażki CF Workers AI dociera do wywołującego, zamiast ginąć po drodze
+> Jeśli `[Environment]::GetEnvironmentVariable('CLOUDFLARE_API_TOKEN','User')` coś zwraca,
+> wpis jest trwały i wróci w każdym nowym oknie.
 >
-> ### Druga rzecz, bez której OCR nie ruszy: licencja modelu w panelu Cloudflare
+> **2. `node tools/aztec-diagnoza.js "<folder z dowodami>"`** — napisane, **nigdy nie
+> uruchomione**. Zero sieci, zero limitów, zero kosztu. Rozstrzyga, czy detekcja Aztec
+> 0/1318 to wina materiału (skany za słabe → przeskanuj w 300 DPI), czy nasza. Aztec to
+> jedyne źródło ze 100% pewnością — dekodowanie mamy potwierdzone end-to-end (17/17 pól).
 >
-> `wrangler tail` pokazał, że CF Workers AI odpowiada **błędem 5016 — „model license not
-> accepted"**. To nie jest awaria sieci ani limit. CF Workers AI stoi **pierwszy**
-> w kaskadzie (`worker/index.js:3059`), więc każdy dokument cicho spadał na Groq i całość
-> wyglądała na problem z Groq — dlatego `a2a795c` przepuszcza powód porażki CF do odpowiedzi.
-> Naprawa jest w panelu, nie w kodzie:
+> ### ⛔ CEPiK: `/pojazdy` najprawdopodobniej IGNORUJE `numer-rejestracyjny`
 >
->     Dashboard → Workers & Pages → AI → Models → llama-3.2-11b-vision-instruct → Accept
+> **Nie buduj na tym niczego, dopóki to nie zostanie rozstrzygnięte.** Dwa pomiary na
+> prawdziwych numerach floty:
 >
-> Zero zmian w kodzie, zero deployu, w pełni odwracalne. **Odrzucona alternatywa:** zejście
-> na `@cf/llava-hf/llava-1.5-7b-hf`. Model jest starszy i wyraźnie słabszy przy ekstrakcji
-> pól ze skanów; przy 1318 dokumentach różnica jakości to setki pól do ręcznej korekty.
-> Usuwanie wycofanych modeli Groq też nie jest odpowiedzią — Groq jest w kaskadzie DRUGI,
-> więc zmiana jego listy nie dotyka przyczyny.
+> | zapytanie | zwrócony pojazd | data pierwszej rejestracji |
+> |---|---|---|
+> | okno 2025–2026, `WGM5973R` | CAN-AM OUTLANDER (quad) | **2025-01-01** |
+> | okno 2026–2026, `WZ003EY` | TOYOTA COROLLA | **2026-01-02** |
+>
+> Za każdym razem rekord z **pierwszych dni okna**. A `WZ003EY` to w naszej flocie
+> **mercedes sprinter z przebiegiem 230 998 km**, nie corolla. To wygląda na zwracanie
+> pierwszego rekordu z województwa i zakresu dat. Przebieg na całej flocie przypisałby
+> cudze dane do 876 pojazdów: 68 pól, poprawne typy, sensowne wartości — bez szansy na
+> wykrycie po fakcie. `cepik-batch` robi teraz samokontrolę przed startem (dwa różne
+> numery, to samo okno) i **odmawia pracy** przy identycznym rekordzie.
+>
+> Co jeszcze ustalone o tym API, żeby nie odtwarzać śledztwa:
+> - **okno dat ma limit DWÓCH LAT KALENDARZOWYCH** — serwer mówi to wprost („Maksymalny
+>   zakres lat to: 2"). Wcześniejsza wersja pytała o 30 lat w jednym zapytaniu, więc
+>   KAŻDE jej zapytanie leciało 400; „bez wyniku" nie oznaczało braku pojazdów w rejestrze;
+> - tablica województw miała **15 kodów zamiast 16** (`C` wskazywało łódzkie zamiast
+>   kujawsko-pomorskiego), więc kod `04` nie występował nigdzie — także w fallbacku;
+> - endpoint jest publiczny, bez `Authorization`; 429 przychodzi szybko, domyślny odstęp
+>   to teraz 900 ms i obowiązuje po KAŻDYM żądaniu, także nieudanym.
+>
+> **Niesprawdzone, warte jednego pomiaru:** mamy **817 numerów VIN** z zestawienia, a VIN
+> identyfikuje pojazd jednoznacznie. Zanim spiszemy rejestr na straty — sonda po VIN-ie.
+>
+> ### Arkusz DR: jest, ale najpierw przeczytaj trzy zakładki
+>
+> `tools/dr-excel.js` buduje arkusz z 34 polami i kodami urzędowymi w nagłówkach.
+> Ostatni przebieg: **916 pojazdów** (zestawienie 816 + checkpoint OCR 1290 rekordów).
+>
+> - **„Spoza zestawienia"** — 100 pojazdów zna wyłącznie OCR albo nazwa pliku, 51 z numerem
+>   czytanym z nazwy. Przekłamanie o jedną cyfrę tworzy pojazd, który nie istnieje.
+> - **„Odrzucone"** — 266 wartości niepasujących do typu pola, 162 w polach DT-1.
+> - **„Konflikty"** — 2138 rozbieżności, 191 w polach DT-1.
+>
+> **Nie używaj tego arkusza do deklaracji bez przejrzenia tych trzech.** Deklaracja z błędną
+> DMC albo liczbą osi wygląda wiarygodnie i nikt jej nie zakwestionuje poza urzędem.
+>
+> ### Ustalenie, które zmienia priorytety: „68/916" to odpowiedź na złe pytanie
+>
+> `TaxEngine.getCat()` czyta liczbę osi i zawieszenie **wyłącznie dla pojazdów od 12 t**.
+> Poniżej progu kategorię wyznacza sama DMC i rodzaj; pojazdy specjalne są zwolnione
+> niezależnie od wszystkiego. „Ile pól jest pustych" i „ile brakuje do policzenia podatku"
+> to dwie różne liczby. Arkusz **DT-1** podaje tę drugą per pojazd — kategorię, status
+> i kolumnę „Czego brakuje" wymieniającą tylko pola, które silnik przy TYM tonażu
+> faktycznie przeczyta. Kategorie liczy produkcyjny `modules/tax-engine.js` przez
+> `window`-shim, nie kopia progów.
+>
+> ### Dlaczego OCR nie dawał zawieszenia: prompt o nie nie pytał
+>
+> Zmierzone pokrycie: `zawieszenie` **0/916** z żadnego źródła, `normaEuro` 55/916 wyłącznie
+> z zestawienia. Przyczyna nie leżała w modelu ani w jakości skanów. Przy okazji: prompt DR
+> istniał w **dwóch rozjechanych kopiach** — `handleAIOCR` (20 pól) i `handleDrOcr` (16 pól,
+> bez przeznaczenia, bez F.2, bez O.1/O.2). Który handler obsłużył dokument, taki zestaw pól
+> wracał, bez śladu w odpowiedzi. Teraz jedna stała `DR_POLA_OCR` — 23 pola, komplet DT-1,
+> pilnowana bramką. **Działa dopiero po deployu** (patrz wyżej), a przy pierwszym przebiegu
+> mierz na kilkunastu dowodach, nie na 1290: darmowy próg CF to 10 000 neuronów na dobę.
 >
 > ### Rzeczy techniczne, które zostają
 >
@@ -94,7 +140,7 @@ taxorder-pro/
 >    padają po 3–5 s z `runner_id: 0` — to NIE jest awaria CI, patrz sekcja CI/CD.
 >    Po scaleniu #15 harmonogramy zeszły z 57% do 21% pakietu, więc wrzesień nie
 >    powtórzy sierpnia. Do tego czasu **bramki uruchamiaj lokalnie**: `npm run test:gates`
->    (13 plików, 83 asercje, ~15 s, bez sieci i bez zależności poza `node`). Do 18.08
+>    (18 plików, 141 asercji, ~20 s, bez sieci i bez zależności poza `node`). Do 18.08
 >    `npm run audit:all` uruchamiał tylko 3 z nich — patrz sekcja o narzędziach.
 > 2. **`aztec-decoded-bytes.bin` w `%TEMP%`** (729 B, 30.07) — plik jest BASE64, nie
 >    surowymi bajtami; po zdekodowaniu nagłówek wychodzi 1257, czyli w zakresie.
@@ -253,6 +299,13 @@ prowadzi do tekstu licencji Meta na GitHubie, a zgodę wyzwala UŻYCIE modelu w 
 | 2026-08-12 | **`vehicles` nie ma płaskich kolumn — 11 zapytań pisanych tak, jakby miała.** Gałąź `claude/vehicles-i-co2`. Realne kolumny: `id, company_id, nr_rej, axles_count, suspension_type, dmc_zespolu, miesiace_podatku, dt1_category, dt1_tax_amount, data, updated_at, branch_id, tacho_*` — reszta siedzi w JSON `data`. **`GET /api/fleet-kpi` zwracał 500 ZAWSZE** (jedyne zapytanie w swoim `Promise.all` bez `.catch()`), więc strona „Dashboard KPI" była martwa. Dziesięć pozostałych miało `.catch()` → **ciche zera**: liczniki floty i udział EV w ESG, wyszukiwarka pojazdów i skany QR, historia serwisowa dla analizy Claude, licznik przeterminowanych przeglądów (kolumna `przeglad_do` **nie istnieje nigdzie w repo** — aplikacja używa `nextInspection`), zapis wyniku CEPiK (dodatkowo `user.company` zamiast `user.company_id`). Definicje „pojazd czynny"/„elektryczny" wyciągnięte do `SQL_VEH_ACTIVE`/`SQL_VEH_IS_EV`. **Bramka `tests/unit/vehicles-columns-test.js`** — wyciąga KAŻDE zapytanie do `vehicles` i przygotowuje je na schemacie; `db.prepare()` w SQLite waliduje nazwy kolumn. Negatywnie: `origin/main` → 11 zapytań po numerze linii, HEAD → 0 przy 49 sprawdzonych. Pierwsza wersja testu używała regexa na literałach, przechodziła przez ich granice i padała **tak samo na starym i nowym kodzie** — wykryła to dopiero kontrola negatywna; ekstrakcja przepisana na skaner od `.prepare(`. Ten skaner znalazł 2 błędy przeoczone w ręcznym przeglądzie (`JOIN vehicles`, nie `FROM`) | — |
 | 2026-08-12 | **Wskaźniki CO2 nie trafiały w wartości zapisywane przez aplikację.** Dług opisywał to jako „rozjazd dwóch tablic" — w rzeczywistości **obie były rozjechane z danymi**. Formularz tankowania (`index.html`, `#fm-ftype`) zapisuje `diesel/pb95/pb98/lpg/cng/elektryk`, a backend szukał po **równości** wśród kluczy `petrol/gasoline/electric`: `pb95`/`pb98` → 2,5 zamiast 2,31 (+8%), `cng` → 2,5 zamiast 2,04 (+23%), **`elektryk` → 2,5 zamiast 0** (pojazd bezemisyjny liczony jak spalinowy). Dodany `co2FactorFor()` dopasowuje po fragmencie (importy i OCR dokładają `benzyna`, `elektryczny`, `hybryda`, `ON`). Front **nie dostał drugiej kopii tablicy** — kilogramy liczy backend, więc backend zwraca użyty wskaźnik w polu `ef`, a `co2-report.js` tylko go wyświetla; wcześniej arkusz eksportu pokazywał 2,68 obok kilogramów z 2,65. Rozjazd jest teraz strukturalnie niemożliwy. Bramka czyta warianty wprost z `<select>` w `index.html`. Test wyłapał mój własny błąd: polskie `elektr` i angielskie `electr` różnią się literą k/c | — |
 | 2026-08-12 | **Kreator raportów — źródło „Pojazdy" zwracało pustą tabelę.** Mapa `COL_EXPR` (nazwa logiczna → wyrażenie SQL) użyta w SELECT (z aliasem), filtrze i `ORDER BY`. Klucze wzięte z aplikacji: `$.marka`, `$.model`, `$.kierowca`, `COALESCE($.oddzial,branch_id)`, `COALESCE($.dmc,$.dmcMax)` — `COALESCE` zachowuje semantykę `??`, więc DMC równe 0 zostaje zerem. `report-sources-test` **rozszerzony, nie osłabiony**: kolumna musi być płaską kolumną albo mieć mapowanie, a samo `COL_EXPR` może odwoływać się wyłącznie do realnych kolumn. Wpięty do `ci-js.yml` | — |
+| 2026-08-21 | **CEPiK — narzędzie zalewało publiczne API państwowe.** `continue` przy 4xx PRZESKAKIWAŁ odstęp (stał na końcu pętli województw, więc wykonywał się tylko po sukcesie), a fallback po 16 województwach był zawsze włączony. Zmierzone kontrolą negatywną na kodzie sprzed naprawy (podmieniona warstwa HTTP w `require.cache`, więc mierzony kod produkcyjny): **45 żądań / min. odstęp 0 ms → 3 żądania / 201 ms**. Odstęp jest teraz po KAŻDYM żądaniu, fallback za `--fallback-woj`, 429 uruchamia wykładnicze wycofywanie zamiast przerywać przebieg. Osobno: tablica województw miała **15 kodów zamiast 16** — `C` wskazywało łódzkie zamiast kujawsko-pomorskiego, więc kod `04` nie występował nigdzie, także w fallbacku; objaw niemy, bo CEPiK na zły kod zwraca pusty wynik, nie błąd | PR #53 |
+| 2026-08-21 | **CEPiK — okno dat ma limit DWÓCH LAT KALENDARZOWYCH.** Serwer mówi to wprost: „Błędny zakres dat. Maksymalny zakres lat to: 2". Poprzednia wersja pytała o 30 lat w JEDNYM zapytaniu, więc każde jej zapytanie leciało 400, zanim doszło do rozważania numeru czy województwa — „bez wyniku 9" było dziewięcioma odrzuconymi zapytaniami, nie brakiem pojazdów w rejestrze. Zakres dzielony na okna po ≤2 lata; domyślnie 2 lata (jedno okno na pojazd), bo pokrycie N lat kosztuje ceil(N/2) okien NA POJAZD — przy 876 pojazdach `--lata 30` to 13 140 żądań wobec 876. Budżet żądań wypisywany przed startem. Bramka `tests/unit/cepik-batch-test.js` (17 asercji) czyta `okna()` i tablicę województw wprost z pliku produkcyjnego | PR #55 |
+| 2026-08-21 | **`dr-excel` — wyniki OCR w ogóle nie trafiały do arkusza.** Narzędzie przyjmowało wyłącznie tablicę rekordów, a checkpoint ekstrakcji DR jest OBIEKTEM KLUCZOWANYM ŚCIEŻKĄ PLIKU. Odmowa była słuszna (alternatywą było zgadywanie), ale cały dorobek OCR leżał nieużyty. Kształt rozpoznawany jawnie: numer z rekordu, a przy jego braku z nazwy pliku — tylko przy dopasowaniu do wąskiego wzorca tablicy i ze źródłem `folder`, czyli najniższą rangą w scalaniu | PR #58 |
+| 2026-08-21 | **`dr-excel` — pola tekstowe przepuszczały wszystko.** Do arkusza wchodziło `przeznaczenie = „2 3 MAR 2004"` (data z sąsiedniej rubryki) i `kategoria = „Zamieszenie inne - (V.9) …"` (sklejka ETYKIET formularza). Trzy reguły: data cyfrowa i słowna w polu, które datą nie jest; odwołanie do kodu rubryki w treści; tekst >60 znaków. Pola długie z natury wyłączone. Osobno **916 pojazdów przy flocie 816** — nadwyżka to numery czytane z nazwy pliku; wierszy nie usuwamy, ale są wymienione w arkuszu „Spoza zestawienia" ze ścieżką skanu | PR #59 |
+| 2026-08-21 | **`dr-excel` — pola o zamkniętej dziedzinie.** `RO6664 J = „SIA MTOILET"` — nazwa spółki z sąsiedniej rubryki przechodziła jako kategoria pojazdu: krótka, nie data, bez kodu rubryki. Widać ją było TYLKO dzięki konfliktowi z drugim skanem; przy jednym weszłaby po cichu. Kategoria homologacyjna ma dziedzinę zamkniętą (2007/46/WE), zawieszenie luźną (dopasowanie po fragmencie). Dziedziny mieszkają w KATALOGU `modules/dr-fields.js`, nie w skrypcie — lista w skrypcie byłaby piątą kopią w tej rodzinie | PR #61 |
+| 2026-08-21 | **Prompt OCR nie pytał o `zawieszenie` ani `normaEuro` — stąd 0/916 i 55/916.** Przyczyna nie leżała w modelu ani w jakości skanów; brak pola w żądanym JSON-ie objawia się pustą kolumną, nie błędem. Przy okazji prompt DR istniał w **dwóch rozjechanych kopiach**: `handleAIOCR` (20 pól, wskazówki do VIN-a) i `handleDrOcr` (16 pól, bez przeznaczenia, bez F.2, bez O.1/O.2). Który handler obsłużył dokument, taki zestaw pól wracał. Jedna stała `DR_POLA_OCR`, 23 pola, komplet DT-1. Bramka `dr-fields-test.js` [2] napisana od nowa — brak stałej to PORAŻKA, nie pominięcie: poprzednia wersja szukała literału regexem i przy nietrafieniu wypisywała „pomijam", czyli przestawała mierzyć cokolwiek i świeciła na zielono | PR #60 |
+| 2026-08-21 | **Arkusz DT-1 — „68/916" to odpowiedź na złe pytanie.** `TaxEngine.getCat()` czyta liczbę osi i zawieszenie wyłącznie dla pojazdów od 12 t. Nowy arkusz podaje per pojazd kategorię, status (podlega / zwolniony jako specjalny / poniżej progu / NIE DA SIĘ USTALIĆ) i tylko te braki, które przy DANYM tonażu faktycznie blokują wyliczenie. Kategorie liczy produkcyjny `modules/tax-engine.js` przez `window`-shim — piąty raz, kiedy ten projekt unika drugiej kopii progów | PR #62 |
 
 ### W toku
 
@@ -820,6 +873,30 @@ Odpowiada na pytanie „która reguła pasuje ostatnia", nie „czy Git to zobac
 echo test > icons/probe.png && git status --short icons/probe.png && rm icons/probe.png
 ```
 
+### Rekord w odpowiedzi nie dowodzi, że Twój filtr zadziałał
+
+API, które nie zna parametru, zwykle go **ignoruje**, a nie odrzuca. Odpowiedź wygląda
+wtedy identycznie jak trafienie: HTTP 200, komplet pól, poprawne typy, sensowne wartości.
+Przy zapytaniu o jeden rekord (`limit=1`) dostajesz po prostu pierwszy rekord ze zbioru
+i nie masz jak tego odróżnić od wyniku wyszukiwania.
+
+Przykład z projektu: `api.cepik.gov.pl/pojazdy` z `numer-rejestracyjny=WZ003EY` zwrócił
+toyotę corollę zarejestrowaną 2026-01-02, podczas gdy pod tym numerem mamy mercedesa
+sprintera z przebiegiem 230 998 km. Drugi numer, inne okno — znowu rekord z pierwszych
+dni okna. 68 pól, zero błędów, dane całkowicie nie te. Przebieg na całej flocie
+przypisałby cudze dane do 876 pojazdów, nie do wykrycia po fakcie.
+
+**Prawdziwy test — jedno dodatkowe zapytanie, dwa warianty:**
+- ten sam zakres, **inna wartość filtra**: identyczny rekord = filtr jest martwy;
+- albo zapytanie **bez filtra**: jeśli zwraca to samo, filtr nic nie zawężał.
+
+Dopiero **różne** rekordy dla różnych wartości dowodzą, że parametr działa. Wynik
+porównaj też z tym, co już wiesz o obiekcie (marka, model, rocznik) — rejestr może
+zwrócić prawdziwe dane **innego** pojazdu, bo tablice bywają przenoszone przy sprzedaży.
+
+Ta kontrola jest wbudowana w `tools/cepik-batch.js`: przed przebiegiem odpytuje dwa różne
+numery i **odmawia pracy**, gdy zwrócą ten sam rekord.
+
 ### Kod HTTP 200 nie dowodzi, że plik istnieje
 Cloudflare Pages ma `not_found_handling = single-page-application` — **każda**
 nieistniejąca ścieżka dostaje `index.html` ze statusem **200**.
@@ -1143,7 +1220,7 @@ npx sg run -p 'el.innerHTML = $X' modules/*.js
 ### Audyt własny (tools/autotest/)
 ```bash
 npm run audit:all       # syntax + XSS + i18n + SW cache + WSZYSTKIE bramki jednostkowe
-npm run test:gates      # same bramki z tests/unit/ (13 plików, 83 asercje, ~15 s)
+npm run test:gates      # same bramki z tests/unit/ (18 plików, 141 asercji, ~20 s)
 npm run xss-audit       # szuka innerHTML bez esc()
 npm run sw-check        # weryfikuje CACHE_NAME po zmianach index.html
 npm run migration-check # sprawdza czy schematy są spójne
