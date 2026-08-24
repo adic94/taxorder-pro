@@ -3842,7 +3842,7 @@ async function handleCepikToken(request, env) {
   }
 }
 
-async function handleCepikPojazdy(request, url) {
+async function handleCepikPojazdy(request, env, user, url) {
   // GET /api/cepik/pojazdy?nr=...&woj=...&rok=...
   // Forwards Bearer token from X-Cepik-Token header
   const token = request.headers.get('X-Cepik-Token') || '';
@@ -3853,6 +3853,26 @@ async function handleCepikPojazdy(request, url) {
   const rok  = url.searchParams.get('rok') || String(new Date().getFullYear());
   if (!nr) return err('Brak parametru nr');
 
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const company = user.company_id;
+
+  // Warunek ustawowy dla teletransmisji CEP wymaga ograniczenia zapytań do własnej
+  // ewidencji pojazdów — bez tego endpoint pozwalał odpytać CEPiK o DOWOLNY polski
+  // numer rejestracyjny, nie tylko flotę firmy wywołującego. Porównanie znormalizowane
+  // (bez spacji/myślników, wielkość liter), bo nr_rej bywa zapisany różnie.
+  const wlasny = await env.DB.prepare(
+    "SELECT id FROM vehicles WHERE company_id=? AND REPLACE(REPLACE(UPPER(nr_rej),' ',''),'-','')=REPLACE(REPLACE(UPPER(?),' ',''),'-','')"
+  ).bind(company, nr).first();
+
+  if (!wlasny) {
+    await logAudit(env, {
+      company_id: company, user_id: user.id, user_email: user.email,
+      action: 'cepik_pojazdy_odmowa', entity_type: 'vehicle', entity_id: nr,
+      details: { nr, woj, rok, powod: 'numer spoza floty firmy' }, ip,
+    });
+    return err('Numer rejestracyjny nie należy do floty tej firmy', 403);
+  }
+
   const apiUrl = `https://api.cepik.gov.pl/pojazdy?numer-rejestracyjny=${encodeURIComponent(nr)}&wojewodztwo=${woj}&data-od=${rok}0101&data-do=${rok}1231&limit=1&pokaz-wszystkie-pola=true`;
   try {
     const resp = await fetch(apiUrl, {
@@ -3862,6 +3882,11 @@ async function handleCepikPojazdy(request, url) {
       },
     });
     const data = await resp.text();
+    await logAudit(env, {
+      company_id: company, user_id: user.id, user_email: user.email,
+      action: 'cepik_pojazdy_odczyt', entity_type: 'vehicle', entity_id: wlasny.id,
+      details: { nr, woj, rok, http_status: resp.status }, ip,
+    });
     return new Response(data, {
       status: resp.status,
       headers: { 'Content-Type': 'application/vnd.api+json', ...CORS },
@@ -9316,7 +9341,7 @@ async function handleRequest(request, env, url, path, ctx) {
 
   // CEPiK proxy — wymaga zalogowania; credentials tylko w env secrets (Worker-side)
   if (path === '/api/cepik/token'    && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleCepikToken(request, env); }
-  if (path === '/api/cepik/pojazdy'  && request.method === 'GET')  { if (!user) return err('Nieautoryzowany', 401); return handleCepikPojazdy(request, url); }
+  if (path === '/api/cepik/pojazdy'  && request.method === 'GET')  { if (!user) return err('Nieautoryzowany', 401); return handleCepikPojazdy(request, env, user, url); }
   if (path === '/api/cepik/kierowca' && request.method === 'GET')  { if (!user) return err('Nieautoryzowany', 401); return handleCepikKierowca(request, url); }
   if (path === '/api/cepik/kierowca-check' && request.method === 'POST') { if (!user) return err('Nieautoryzowany', 401); return handleCepikKierowcaV2(request, env, user); }
 
