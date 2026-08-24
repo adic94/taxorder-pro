@@ -376,8 +376,14 @@ function wartoscPasuje(pole, v) {
   // rubryki, ktora w arkuszu wygladala jak kategoria pojazdu.
   if (pole.domena) {
     const n = t.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    // `d.includes(n)` (domena zawiera nasz fragment) jest bezpieczne tylko przy fragmencie
+    // dlugim na tyle, zeby nie trafic przypadkiem. Znalezione na pelnym zbiorze: pojedyncza
+    // litera „R" (smiec z OCR, prawdopodobnie urwany kod paliwa/homologacji) przechodzila
+    // test zawieszenia, bo „ROWNOWAZNE" zawiera literke R — smiec dlugosci 1 wygladal w
+    // arkuszu jak prawdziwa odpowiedz. Kierunek `n.includes(d)` (nasz tekst zawiera CALE
+    // slowo domeny) nie ma tego problemu — domena ma z gory znane, wystarczajaco dlugie slowa.
     const trafienie = pole.domenaLuzna
-      ? pole.domena.find(d => n.includes(d) || d.includes(n))
+      ? pole.domena.find(d => n.includes(d) || (n.length >= 4 && d.includes(n)))
       : pole.domena.find(d => d === n);
     if (!trafienie) {
       // Pola bez kodu z dyrektywy maja kod „—", wiec komunikat nazywa je po nazwie.

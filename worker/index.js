@@ -3174,7 +3174,10 @@ ${DR_JSON_SZABLON()}`;
     'meta-llama/llama-4-scout-17b-16e-instruct',
     'meta-llama/llama-4-maverick-17b-128e-instruct',
   ];
-  let lastErr = 'Brak działającego modelu vision';
+  // Bledy WSZYSTKICH modeli, nie tylko ostatniego — jedna zmienna nadpisywana w petli
+  // gubila powod porazki kazdego modelu oprocz ostatniego. Przy 2 modelach to jeszcze
+  // znosne, ale diagnoza "ktory model faktycznie zawodzi i dlaczego" wymagala zgadywania.
+  const bledyModeli = [];
   for (const model of visionModels) {
     try {
       const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -3184,23 +3187,24 @@ ${DR_JSON_SZABLON()}`;
       });
       if (!resp.ok) {
         const e = await resp.json().catch(() => ({}));
-        lastErr = `${model}: ${e.error?.message || resp.statusText}`;
+        bledyModeli.push(`${model}: ${e.error?.message || resp.statusText}`);
         continue;
       }
       const data = await resp.json();
       const answer = data.choices?.[0]?.message?.content || '';
       console.log(`[OCR Groq ${model} raw]`, answer.slice(0, 500));
       const jm = answer.match(/\{[\s\S]*\}/);
-      if (!jm) { lastErr = 'AI nie zwróciło JSON: ' + answer.slice(0, 100); continue; }
+      if (!jm) { bledyModeli.push(`${model}: AI nie zwróciło JSON: ` + answer.slice(0, 100)); continue; }
       const parsed = JSON.parse(jm[0]);
       console.log(`[OCR Groq ${model} parsed vin]`, parsed.vin ?? 'BRAK');
       const fields = _sanitizeOcrFields(parsed);
       console.log(`[OCR Groq ${model} after sanitize vin]`, fields.vin ?? 'USUNIĘTY');
       return json({ ok: true, fields, model });
     } catch (e) {
-      lastErr = `${model}: ${e?.message}`;
+      bledyModeli.push(`${model}: ${e?.message}`);
     }
   }
+  const lastErr = bledyModeli.length ? bledyModeli.join(' | ') : 'Brak działającego modelu vision';
   // Obie warstwy w jednym komunikacie — inaczej wywołujący widzi wyłącznie porażkę
   // Groq i szuka przyczyny w warstwie, która była tylko następstwem.
   return err(`Błąd AI Vision. PaddleOCR: ${pyErr || 'pominięte'}. CF Workers AI: ${cfErr || 'pominięte'}. Groq: ${lastErr}`, 502);
