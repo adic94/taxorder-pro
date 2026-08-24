@@ -3167,12 +3167,17 @@ ${DR_JSON_SZABLON()}`;
     ],
   }];
 
-  // Modele `*-vision-preview` usunięte 18.08 — Groq je wycofał, więc każda próba
-  // kosztowała tylko czas i zaciemniała komunikat błędu. `llama-4-*` ZOSTAJĄ: to są
-  // aktualne identyfikatory Groq, nie literówki.
+  // AKTUALIZACJA 24.08: oba modele `llama-4-*` ponizej okazaly sie NIEDOSTEPNE dla tego
+  // konta ("does not exist or you do not have access to it") — zmierzone bezposrednio
+  // przez /api/ai/ocr, nie zalozone. Podmienione na kandydata z oficjalnej dokumentacji
+  // Groq (console.groq.com/docs/vision, potwierdzone dwoma niezaleznymi odczytami z tymi
+  // samymi szczegolami — 131K kontekstu, do 5 obrazow, 20MB/obraz). NIEZWERYFIKOWANE
+  // wprost wywolaniem API (brak dostepu do GROQ_API_KEY z tego srodowiska) — jesli znowu
+  // dostaniesz "does not exist", to znaczy ze i ten identyfikator trzeba sprawdzic w
+  // panelu Groq, nie zgadywac kolejnego. Ksztalt zadania (OpenAI-compatible messages
+  // z image_url) NIE wymaga zmiany przy podmianie modelu — to ta sama warstwa API.
   const visionModels = [
-    'meta-llama/llama-4-scout-17b-16e-instruct',
-    'meta-llama/llama-4-maverick-17b-128e-instruct',
+    'qwen/qwen3.6-27b',
   ];
   // Bledy WSZYSTKICH modeli, nie tylko ostatniego — jedna zmienna nadpisywana w petli
   // gubila powod porazki kazdego modelu oprocz ostatniego. Przy 2 modelach to jeszcze
@@ -3183,7 +3188,13 @@ ${DR_JSON_SZABLON()}`;
       const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + env.GROQ_API_KEY },
-        body: JSON.stringify({ model, messages, max_tokens: 512, temperature: 0.1 }),
+        // `reasoning_effort: 'none'` — qwen3.6-27b jest modelem "thinking": bez tego
+        // odpowiedz zaczyna sie blokiem <think>...</think> z rozumowaniem, a nasze
+        // max_tokens (bylo 512) ucinalo odpowiedz W POLOWIE NAMYSLU, zanim model
+        // dotarl do wlasciwego JSON-a. Zmierzone bezposrednio na realnym dokumencie:
+        // "AI nie zwrocilo JSON: \n<think>\nThe user wants me to extract data...".
+        // Parametr bez znaczenia dla modeli bez trybu thinking (Groq API go ignoruje).
+        body: JSON.stringify({ model, messages, max_tokens: 1024, temperature: 0.1, reasoning_effort: 'none' }),
       });
       if (!resp.ok) {
         const e = await resp.json().catch(() => ({}));
