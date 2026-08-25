@@ -94,5 +94,63 @@ const wSanitize = /function _sanitizeOcrFields\([\s\S]{0,900}?_WZORZEC_MODELU_AI
 ok(wSanitize, wSanitize ? 'bramka stoi w _sanitizeOcrFields (wspólne wąskie gardło)'
                         : 'bramki NIE MA w _sanitizeOcrFields — część warstw kaskady ją ominie');
 
+// ── Druga klasa zanieczyszczenia: model przepisał OPIS POLA z promptu ────────
+//
+// W raporcie DR znalezione trzy: paliwo = „P.3 — D lub B lub G", nrHomolog =
+// „K — nr homologacji np e32*IV18/858*NI15391", model = „D.3 — model np ACTROS
+// lub SPRINTER". Prompt wysyła `JSON.stringify(DR_POLA_OCR)`, więc opis stoi
+// modelowi przed oczami.
+console.log('\nEcho opisu pola z promptu\n');
+
+const mFn = src.match(/function _echoOpisuPola[\s\S]*?\n}/);
+const mPola = src.match(/const DR_POLA_OCR = \{[\s\S]*?\n\};/);
+ok(!!mFn && !!mPola, mFn && mPola ? 'znaleziono _echoOpisuPola i DR_POLA_OCR'
+                                  : 'BRAK _echoOpisuPola albo DR_POLA_OCR w Workerze');
+if (mFn && mPola) {
+  const { DR_POLA_OCR, _echoOpisuPola } =
+    new Function(`${mPola[0]}\n${mFn[0]}\nreturn { DR_POLA_OCR, _echoOpisuPola };`)();
+
+  // Każde pole musi odrzucać własny opis — inaczej bramka nie działa dla
+  // tego pola i nikt się o tym nie dowie.
+  const nieOdrzucone = Object.entries(DR_POLA_OCR)
+    .filter(([k, opis]) => !_echoOpisuPola(opis, opis)).map(([k]) => k);
+  ok(nieOdrzucone.length === 0,
+    nieOdrzucone.length ? `pola, których własny opis przechodzi: ${nieOdrzucone.join(', ')}`
+                        : `wszystkie ${Object.keys(DR_POLA_OCR).length} pól odrzuca własny opis`);
+
+  // ⚠️ TA ASERCJA JEST NAJWAŻNIEJSZA W PLIKU. Opisy pól Z ZAŁOŻENIA wymieniają
+  // poprawne odpowiedzi — `zawieszenie` podaje „pneumatyczne", `przeznaczenie`
+  // podaje „SAMOCHOD CIEZAROWY", a `vin` i `nrHomolog` niosą przykłady, które
+  // realny pojazd może mieć naprawdę. Wersja reguły oparta na „wartość ZAWIERA
+  // SIĘ w opisie" kasowała cztery z tych wartości. Jeśli ta asercja zacznie
+  // padać, ktoś właśnie tak regułę „uogólnił".
+  const POPRAWNE = [
+    ['paliwo', 'D'], ['paliwo', 'B'], ['paliwo', 'G'], ['paliwo', 'ON'],
+    ['model', 'ACTROS'], ['model', 'SPRINTER'], ['model', 'Sprinter 3,5T 2.2 CDI'],
+    ['marka', 'MAN'], ['marka', 'SCANIA'],
+    ['kategoria', 'N1'], ['kategoria', 'N1G'], ['kategoria', 'M1'],
+    ['nrHomolog', 'e32*IV18/858*NI15391'],   // ← DOSŁOWNIE przykład z promptu
+    ['nrHomolog', 'e4*2007/46*0413*14'],
+    ['vin', 'WMA29VUZ7R9018317'],            // ← DOSŁOWNIE przykład z promptu
+    ['typ', 'TGE140'], ['typ', 'R490'],
+    ['przeznaczenie', 'SAMOCHOD CIEZAROWY'], // ← wymienione w opisie pola
+    ['przeznaczenie', 'SAMOCHOD SPECJALNY'],
+    ['zawieszenie', 'pneumatyczne'],         // ← wymienione w opisie pola
+    ['zawieszenie', 'rownowazne pneumatycznemu'], ['zawieszenie', 'inne'],
+    ['normaEuro', 'EURO 6'], ['normaEuro', 'EURO VI'],
+    ['rokProd', '2019'], ['dataRej', '23.01.2020'], ['liczbaOsi', '2'],
+  ];
+  const skasowaneOk = POPRAWNE.filter(([k, v]) => _echoOpisuPola(v, DR_POLA_OCR[k]))
+    .map(([k, v]) => `${k}="${v}"`);
+  ok(skasowaneOk.length === 0,
+    skasowaneOk.length ? `reguła ZA SZEROKA — kasuje poprawne odczyty: ${skasowaneOk.join(', ')}`
+                       : `${POPRAWNE.length} poprawnych odczytów przechodzi nietkniętych`);
+
+  // I musi być faktycznie wywołana w _sanitizeOcrFields.
+  const woh = /function _sanitizeOcrFields[\s\S]{0,1600}?_echoOpisuPola\(/.test(src);
+  ok(woh, woh ? '_echoOpisuPola wywoływane w _sanitizeOcrFields'
+              : '_echoOpisuPola zadeklarowane, ale nieużywane w _sanitizeOcrFields');
+}
+
 console.log(`\n────────────────────────────────────────────\nWynik: ${pass} PASS / ${fail} FAIL\n`);
 process.exit(fail ? 1 : 0);

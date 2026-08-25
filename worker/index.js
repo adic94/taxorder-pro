@@ -2950,12 +2950,56 @@ async function handleAztec(request) {
 // urzędowe. Lista rodzin jest węższa i wystarcza: `qwen/…` łapie się na `qwen`.
 const _WZORZEC_MODELU_AI = /^(cf-workers-ai|@cf\/)|\b(llama-?[0-9]|qwen[0-9]?|gpt-[0-9]|claude-[0-9]|gemma-?[0-9]|mistral-|pixtral|deepseek|phi-[0-9])/i;
 
+// Czy wartość jest przepisanym opisem pola z promptu, a nie odczytem z dokumentu.
+//
+// Dwie reguły, bo model kopiuje na dwa sposoby — cały opis albo jego początek:
+//   [a] wartość zaczyna się od kodu rubryki i myślnika („D.3 — …", „P.3 — …",
+//       „K — …"). Żaden realny odczyt tak nie wygląda: w dokumencie kod rubryki
+//       jest ETYKIETĄ obok pola, nie częścią wartości;
+//   [b] wartość jest całym opisem albo jego długim POCZĄTKIEM (model urwał
+//       kopiowanie w pół zdania). Potrzebne dla pól, których opis nie zaczyna
+//       się od kodu rubryki — np. `rokProd: 'rok produkcji 4 cyfry'`.
+//
+// ⚠️ NIE zmieniaj [b] na „wartość ZAWIERA SIĘ w opisie". Kusi, bo brzmi
+// ogólniej, ale opisy Z ZAŁOŻENIA wymieniają poprawne odpowiedzi: opis
+// `zawieszenie` podaje „pneumatyczne", opis `przeznaczenie` podaje
+// „SAMOCHOD CIEZAROWY", a opisy `vin` i `nrHomolog` zawierają przykłady,
+// które realny pojazd może mieć naprawdę. Sprawdzone: taka wersja kasowała
+// cztery POPRAWNE odczyty na pięć wykrytych ech. Dopasowanie od POCZĄTKU
+// nie ma tej wady — żadna z tych wartości nie stoi na początku swojego opisu.
+function _echoOpisuPola(wartosc, opis) {
+  if (/^[A-Z]{1,3}(\.[0-9])?\s*[—–-]\s/.test(wartosc)) return true;
+  const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const w = norm(wartosc), o = norm(opis);
+  return w === o || (w.length >= 20 && o.startsWith(w));
+}
+
 function _sanitizeOcrFields(f) {
   if (!f || typeof f !== 'object') return f;
 
   for (const [k, v] of Object.entries(f)) {
-    if (typeof v === 'string' && v.trim() && _WZORZEC_MODELU_AI.test(v.trim())) {
-      console.log(`[OCR sanitize] pole ${k} odrzucone — wygląda na identyfikator modelu AI: ${v.slice(0, 60)}`);
+    if (typeof v !== 'string' || !v.trim()) continue;
+    const t = v.trim();
+
+    if (_WZORZEC_MODELU_AI.test(t)) {
+      console.log(`[OCR sanitize] pole ${k} odrzucone — wygląda na identyfikator modelu AI: ${t.slice(0, 60)}`);
+      delete f[k];
+      continue;
+    }
+
+    // Model przepisał OPIS POLA z promptu zamiast odczytać wartość. Znalezione
+    // w raporcie DR: paliwo = „P.3 — D lub B lub G", nrHomolog = „K — nr
+    // homologacji np e32*IV18/858*NI15391", model = „D.3 — model np ACTROS
+    // lub SPRINTER". Prompt wysyła `JSON.stringify(DR_POLA_OCR)`, więc opis
+    // stoi modelowi przed oczami i bywa kopiowany dosłownie.
+    //
+    // Porównanie idzie z SAMYM DR_POLA_OCR, nie z listą przepisaną obok —
+    // dzięki temu zmiana promptu przenosi się na bramkę automatycznie.
+    // Precedens w tym projekcie: dwie tablice CO2 i dwie listy źródeł
+    // kreatora raportów rozjechały się dokładnie przez taką kopię.
+    const opis = DR_POLA_OCR[k];
+    if (opis && _echoOpisuPola(t, opis)) {
+      console.log(`[OCR sanitize] pole ${k} odrzucone — model przepisał opis pola z promptu: ${t.slice(0, 60)}`);
       delete f[k];
     }
   }
