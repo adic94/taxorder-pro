@@ -51,12 +51,28 @@ const POKAZ = argv.includes('--pokaz');
 // zrodlem nawet wtedy, gdy niosa lepsze dane. Dotyczy WSZYSTKICH plikow w tym wywolaniu.
 const iz = argv.indexOf('--zrodlo');
 const ZRODLO_DOMYSLNE = iz >= 0 ? argv[iz + 1] : null;
+// `--zarzad <plik.xlsx>` — DRUGI skoroszyt, prezentacyjny, z TYCH SAMYCH scalonych
+// danych. Nie zastępuje technicznego: tamten służy do pracy nad jakością (Konflikty,
+// Odrzucone, Pokrycie), ten do pokazania ludziom i do wczytania przez inny program.
+//
+// DLACZEGO OSOBNY PLIK, A NIE DODATKOWE ARKUSZE. Odbiorcy są różni i mają sprzeczne
+// potrzeby. Zarząd potrzebuje liczb, na których da się oprzeć decyzję — a więc też
+// UCZCIWEJ informacji, ile z nich jest pewnych. Inny program potrzebuje stabilnych
+// nagłówków i jednego wiersza na pojazd, bez scalonych komórek i bez kolorów niosących
+// znaczenie. Arkusze diagnostyczne w tym samym pliku zachęcałyby do wklejenia całości
+// do prezentacji razem z „447 odrzuconych wartości", co czyta się jak awaria, a jest
+// normalną pracą filtrów.
+const izar = argv.indexOf('--zarzad');
+const WYJSCIE_ZARZAD = izar >= 0 ? argv[izar + 1] : null;
 const iw = argv.indexOf('--wyjscie');
 // `iw >= 0` JEST KONIECZNE. Bez tego przy braku --wyjscie mamy iw === -1, wiec iw+1 === 0
 // i filtr wyrzuca argument numer 0 — czyli jedyny podany plik wejsciowy. Objawialo sie to
 // wypisaniem instrukcji uzycia przy poprawnym wywolaniu.
+// KAZDY parametr przyjmujacy wartosc musi byc tu wykluczony, inaczej jego wartosc
+// wyladuje na liscie plikow wejsciowych i skrypt zglosi „nie ma takiego pliku"
+// przy poprawnym wywolaniu. Dodajac nowy parametr z wartoscia — dopisz go tutaj.
 const wejscia = argv.filter((a, i) => !a.startsWith('--')
-  && !(iw >= 0 && i === iw + 1) && !(iz >= 0 && i === iz + 1));
+  && !(iw >= 0 && i === iw + 1) && !(iz >= 0 && i === iz + 1) && !(izar >= 0 && i === izar + 1));
 const wejscie = wejscia[0];
 const wyjscie = (iw >= 0 ? argv[iw + 1] : null) || path.join(
   process.env.USERPROFILE || process.env.HOME || '.', 'Documents', 'taxorder-backupy',
@@ -476,6 +492,192 @@ const spozaZestawienia = rekordy.filter(r => {
   return uzyte.length > 0 && uzyte.every(z => (ZRODLA[z]?.ranga ?? 0) <= 1);
 });
 
+/**
+ * Skoroszyt PREZENTACYJNY — dla zarządu i do wczytania przez inny program.
+ *
+ * Cztery arkusze, każdy z jednym odbiorcą na uwadze:
+ *   Podsumowanie   — liczby, na których da się oprzeć decyzję, RAZEM z informacją,
+ *                    ile z nich jest pewnych
+ *   Flota          — jeden wiersz na pojazd, stabilne nagłówki, bez scalonych komórek
+ *                    i bez znaczenia niesionego kolorem → nadaje się do importu
+ *   Podatek DT-1   — status podatkowy per pojazd
+ *   Jakość danych  — skąd pochodzi to, co widać, i czego brakuje
+ *
+ * ⚠️ ARKUSZ NIE UDAJE PEWNOŚCI, KTÓREJ NIE MA. Kuszące byłoby pokazać zarządowi
+ * same wypełnione wiersze — wygląda lepiej. Ale część danych pochodzi z OCR skanów,
+ * a numer rejestracyjny czytany z nazwy pliku bywa przekłamany o jeden znak i tworzy
+ * pojazd, który nie istnieje. Dlatego każdy wiersz niesie kolumnę „Pewność", a
+ * Podsumowanie podaje, ile pojazdów zna WYŁĄCZNIE OCR. Deklaracja podatkowa oparta
+ * na takim wierszu wygląda wiarygodnie i nikt jej nie zakwestionuje poza urzędem.
+ */
+async function zapiszDlaZarzadu(cel, rekordy, dt1Wiersze, konflikty, odrzucone, spozaZestawienia) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'TaxOrder Pro';
+  wb.created = new Date();
+
+  const NAGL = { bold: true, color: { argb: 'FFFFFFFF' } };
+  const TLO_NAGL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F4E79' } };
+  const stylujNaglowek = (ws) => {
+    ws.getRow(1).font = NAGL;
+    ws.getRow(1).fill = TLO_NAGL;
+    ws.getRow(1).alignment = { vertical: 'middle', wrapText: true };
+    ws.getRow(1).height = 28;
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
+  };
+
+  // Pewność wiersza: czy pojazd jest potwierdzony przez źródło inne niż OCR/nazwa pliku.
+  const spozaSet = new Set(spozaZestawienia.map(r => r.nrRej));
+  const pewnosc = (r) => {
+    if (r._zNazwy) return 'NISKA — numer z nazwy pliku';
+    if (spozaSet.has(r.nrRej)) return 'ŚREDNIA — tylko OCR';
+    return 'wysoka';
+  };
+
+  // ── 1. Podsumowanie ────────────────────────────────────────────────────────
+  const ws = wb.addWorksheet('Podsumowanie');
+  ws.columns = [{ width: 46 }, { width: 16 }, { width: 62 }];
+  const sekcja = (t) => {
+    const r = ws.addRow([t]);
+    r.font = { bold: true, size: 12, color: { argb: 'FF1F4E79' } };
+    ws.addRow([]);
+  };
+  const poz = (etykieta, wartosc, komentarz) => {
+    const r = ws.addRow([etykieta, wartosc, komentarz || '']);
+    r.getCell(2).alignment = { horizontal: 'right' };
+    r.getCell(3).font = { size: 9, color: { argb: 'FF808080' } };
+    return r;
+  };
+
+  const tytul = ws.addRow(['Flota — stan danych z dowodów rejestracyjnych']);
+  tytul.font = { bold: true, size: 15 };
+  ws.addRow([`Wygenerowano: ${new Date().toLocaleString('pl-PL')}`]).font = { size: 9, color: { argb: 'FF808080' } };
+  ws.addRow([]);
+
+  sekcja('FLOTA');
+  poz('Pojazdów łącznie', rekordy.length);
+  poz('— potwierdzonych zestawieniem', rekordy.length - spozaZestawienia.length);
+  poz('— znanych wyłącznie z OCR lub nazwy pliku', spozaZestawienia.length,
+    'Numer czytany z nazwy pliku bywa przekłamany — te wiersze wymagają potwierdzenia');
+  ws.addRow([]);
+
+  sekcja('PODATEK OD ŚRODKÓW TRANSPORTOWYCH (DT-1)');
+  const podlega = dt1Wiersze.filter(w => w._podlega);
+  const zwolnione = dt1Wiersze.filter(w => w.status.startsWith('zwolniony'));
+  const wymaga12t = dt1Wiersze.filter(w => w._wymaga12t);
+  const brak12t = wymaga12t.filter(w => w.braki);
+  const nieDaSie = dt1Wiersze.filter(w => w.status === 'NIE DA SIE USTALIC');
+  poz('Podlega podatkowi (kategoria ustalona)', podlega.length);
+  poz('Zwolnionych jako pojazdy specjalne', zwolnione.length);
+  poz('Od 12 t — wymaga liczby osi i zawieszenia', wymaga12t.length,
+    'Poniżej 12 t kategorię wyznacza sama DMC — te pola nie są tam potrzebne');
+  poz('— z brakami w tych polach', brak12t.length).getCell(2).font =
+    { bold: true, color: { argb: brak12t.length ? 'FFC00000' : 'FF008000' } };
+  poz('Bez DMC — kategorii nie da się ustalić', nieDaSie.length,
+    'Bez masy całkowitej nie ma podstawy wymiaru — wymaga uzupełnienia ręcznego')
+    .getCell(2).font = { bold: true, color: { argb: nieDaSie.length ? 'FFC00000' : 'FF008000' } };
+  ws.addRow([]);
+
+  sekcja('CO JESZCZE WYMAGA UWAGI');
+  poz('Rozbieżności między źródłami', konflikty.length,
+    'Ta sama rubryka odczytana różnie z różnych dokumentów');
+  poz('— w polach wpływających na podatek', konflikty.filter(k => k.dt1).length,
+    'Te obejrzeć przed złożeniem deklaracji');
+  poz('Wartości odrzuconych przez filtry', odrzucone.length,
+    'NIE są to braki danych — to wartości, które model wstawił w złe pole i zostały zatrzymane');
+  ws.addRow([]);
+  const nota = ws.addRow(['Dane pochodzą ze skanów dowodów rejestracyjnych, kodów Aztec i zestawienia floty.']);
+  nota.font = { italic: true, size: 9, color: { argb: 'FF808080' } };
+  ws.addRow(['Kolumna „Pewność" w arkuszu Flota mówi, na ile źródło danego wiersza jest wiarygodne.'])
+    .font = { italic: true, size: 9, color: { argb: 'FF808080' } };
+
+  // ── 2. Flota — do wczytania przez inny program ─────────────────────────────
+  const wf = wb.addWorksheet('Flota');
+  wf.columns = [
+    { header: 'Nr rejestracyjny', key: 'nrRej', width: 16 },
+    { header: 'Marka', key: 'marka', width: 16 },
+    { header: 'Model', key: 'model', width: 20 },
+    { header: 'Typ (D.2)', key: 'typ', width: 16 },
+    { header: 'Rodzaj pojazdu', key: 'rodzaj', width: 24 },
+    { header: 'VIN', key: 'vin', width: 20 },
+    { header: 'Data 1. rejestracji', key: 'dataRej', width: 16 },
+    { header: 'Rok produkcji', key: 'rokProd', width: 13 },
+    { header: 'Kategoria (J)', key: 'kategoria', width: 13 },
+    { header: 'DMC [kg]', key: 'dmcKg', width: 11 },
+    { header: 'DMC zespołu [kg]', key: 'dmcZespolu', width: 15 },
+    { header: 'Masa własna [kg]', key: 'masaWlKg', width: 15 },
+    { header: 'Liczba osi', key: 'liczbaOsi', width: 10 },
+    { header: 'Zawieszenie', key: 'zawieszenie', width: 18 },
+    { header: 'Paliwo', key: 'paliwo', width: 10 },
+    { header: 'Pojemność [cm3]', key: 'pojSilnika', width: 14 },
+    { header: 'Moc [kW]', key: 'mocKW', width: 10 },
+    { header: 'Miejsca siedzące', key: 'miejscaSied', width: 14 },
+    { header: 'Norma EURO', key: 'normaEuro', width: 12 },
+    { header: 'Nr homologacji', key: 'nrHomolog', width: 22 },
+    { header: 'Pewność', key: 'pewnosc', width: 26 },
+  ];
+  for (const r of [...rekordy].sort((a, b) => String(a.nrRej).localeCompare(String(b.nrRej), 'pl'))) {
+    wf.addRow({
+      nrRej: r.nrRej || '', marka: r.marka || '', model: r.model || '', typ: r.typ || '',
+      rodzaj: r.przeznaczenie || '', vin: r.vin || '', dataRej: r.dataRej || '',
+      rokProd: r.rokProd ?? '', kategoria: r.kategoria || '',
+      dmcKg: r.dmcKg ?? '', dmcZespolu: r.dmcZespolu ?? '', masaWlKg: r.masaWlKg ?? '',
+      liczbaOsi: r.liczbaOsi ?? '', zawieszenie: r.zawieszenie || '', paliwo: r.paliwo || '',
+      pojSilnika: r.pojSilnika ?? '', mocKW: r.mocKW ?? '', miejscaSied: r.miejscaSied ?? '',
+      normaEuro: r.normaEuro || '', nrHomolog: r.nrHomolog || '', pewnosc: pewnosc(r),
+    });
+  }
+  stylujNaglowek(wf);
+  wf.autoFilter = { from: 'A1', to: { row: 1, column: wf.columns.length } };
+
+  // ── 3. Podatek DT-1 ────────────────────────────────────────────────────────
+  const wd = wb.addWorksheet('Podatek DT-1');
+  wd.columns = [
+    { header: 'Nr rejestracyjny', key: 'nrRej', width: 16 },
+    { header: 'Marka', key: 'marka', width: 16 },
+    { header: 'Model', key: 'model', width: 20 },
+    { header: 'Rodzaj pojazdu', key: 'rodzaj', width: 24 },
+    { header: 'DMC [kg]', key: 'dmc', width: 11 },
+    { header: 'DMC zespołu [kg]', key: 'dmcZesp', width: 15 },
+    { header: 'Liczba osi', key: 'osie', width: 10 },
+    { header: 'Zawieszenie', key: 'zawieszenie', width: 18 },
+    { header: 'Kategoria DT-1', key: 'kat', width: 14 },
+    { header: 'Status', key: 'status', width: 26 },
+    { header: 'Czego brakuje', key: 'braki', width: 34 },
+  ];
+  for (const w of [...dt1Wiersze].sort((a, b) => String(a.nrRej).localeCompare(String(b.nrRej), 'pl'))) {
+    const row = wd.addRow(w);
+    if (w.status === 'NIE DA SIE USTALIC') row.getCell('status').font = { bold: true, color: { argb: 'FFC00000' } };
+    else if (w._niepewny) row.getCell('status').font = { color: { argb: 'FFBF8F00' } };
+    else if (w.status.startsWith('zwolniony')) row.getCell('status').font = { color: { argb: 'FF008000' } };
+  }
+  stylujNaglowek(wd);
+  wd.autoFilter = { from: 'A1', to: { row: 1, column: wd.columns.length } };
+
+  // ── 4. Jakość danych ───────────────────────────────────────────────────────
+  const wj = wb.addWorksheet('Jakość danych');
+  wj.columns = [
+    { header: 'Pole', key: 'pole', width: 40 },
+    { header: 'Wypełnionych', key: 'ile', width: 13 },
+    { header: 'Pokrycie', key: 'proc', width: 11 },
+    { header: 'Wpływa na podatek', key: 'dt1', width: 18 },
+  ];
+  for (const p of DR.POLA) {
+    const ile = rekordy.filter(r => r[p.klucz] != null && r[p.klucz] !== '').length;
+    wj.addRow({
+      pole: `${p.kod ? p.kod + ' — ' : ''}${p.nazwa}`,
+      ile, proc: rekordy.length ? Math.round(ile / rekordy.length * 100) / 100 : 0,
+      dt1: p.dt1 ? 'TAK' : '',
+    });
+  }
+  wj.getColumn('proc').numFmt = '0%';
+  stylujNaglowek(wj);
+  wj.autoFilter = { from: 'A1', to: { row: 1, column: wj.columns.length } };
+
+  await wb.xlsx.writeFile(cel);
+  console.log(`  ${G('✓')} skoroszyt dla zarządu: ${cel}`);
+  console.log(D('     arkusze: Podsumowanie, Flota, Podatek DT-1, Jakość danych\n'));
+}
+
 (async () => {
   console.log(B(`\n  Excel z dowodów rejestracyjnych — ${rekordy.length} pojazdów\n`));
 
@@ -737,6 +939,8 @@ const spozaZestawienia = rekordy.filter(r => {
   wl.addRow({ a: '', b: 'Trzymaj poza repozytorium. Nie wysyłaj do zewnętrznych serwisów.' });
 
   await wb.xlsx.writeFile(cel);
+
+  if (WYJSCIE_ZARZAD) await zapiszDlaZarzadu(WYJSCIE_ZARZAD, rekordy, dt1Wiersze, konflikty, odrzucone, spozaZestawienia);
 
   // ── Podsumowanie na terminal ───────────────────────────────────────────────
   const dt1Slabe = kolumny.filter(p => p.dt1 && pokrycie[p.klucz].razem / (rekordy.length || 1) < 0.5);
