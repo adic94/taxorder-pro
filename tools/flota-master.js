@@ -292,6 +292,40 @@ function wiersz(k, nrOryginalny) {
     if (r.nrHomolog && zr.nrHomolog === 'DR' && String(r.nrHomolog).trim().length <= 3)
       powody.push(`nr homologacji „${r.nrHomolog}" jest za krótki`);
 
+    // ── Reguły dopisane po ręcznej kontroli trzech pojazdów, które wypadły
+    //    z opodatkowania. Pierwsze trzy są czysto logiczne: nie wymagają
+    //    wiedzy o modelach, więc nie zestarzeją się razem z flotą.
+
+    // 1. DMC zespołu jest MNIEJSZE niż DMC samego pojazdu — niemożliwe, bo
+    //    zespół to pojazd plus przyczepa. WA6441C miał „125" przy DMC 3500,
+    //    WA5289C „2370" przy 3500. To odczyt sąsiedniej rubryki, nie masa.
+    const dmcZesp = Number(String(r.dmcZespolu || '').replace(/[^\d]/g, ''));
+    if (Number.isFinite(dmcN) && dmcN > 0 && Number.isFinite(dmcZesp) && dmcZesp > 0 && dmcZesp < dmcN)
+      powody.push(`DMC zespołu ${dmcZesp} kg jest mniejsze niż DMC pojazdu ${dmcN} kg`);
+
+    // 2. Liczba osi spoza zakresu spotykanego w tej flocie. Sprinter z „5"
+    //    albo „4" osiami to odczyt z innego pola — a od 12 t liczba osi
+    //    WPROST wyznacza stawkę, więc błąd tutaj zmienia kwotę podatku.
+    const osieN = Number(String(r.liczbaOsi || '').replace(/[^\d]/g, ''));
+    if (Number.isFinite(osieN) && osieN > 0 && (osieN > 4 || (osieN > 2 && dmcN > 0 && dmcN <= 3500)))
+      powody.push(`${osieN} osi przy DMC ${dmcN || '?'} kg — nie pasuje do tego pojazdu`);
+
+    // 3. Oznaczenie modelu niesie tonaż („Sprinter 5.5T", „TGL 8", „ML75E16"),
+    //    a DMC mówi co innego. Producent nie nazywa auta masą, której nie ma.
+    const mTonaz = String(r.model || '').match(/\b(\d{1,2})[.,]?(\d)?\s*T\b/i);
+    if (mTonaz && Number.isFinite(dmcN) && dmcN > 0) {
+      const zModelu = (Number(mTonaz[1]) + (mTonaz[2] ? Number(mTonaz[2]) / 10 : 0)) * 1000;
+      if (zModelu >= 2000 && Math.abs(zModelu - dmcN) > 500)
+        powody.push(`model mówi ${zModelu} kg, a DMC ${dmcN} kg`);
+    }
+
+    // 4. Paliwo przeczy oznaczeniu silnika. CDI/TDI/HDI/dCi/JTD to fabryczne
+    //    oznaczenia DIESLA — „Benzyna" przy nich (WB7521S) to zły odczyt,
+    //    a paliwo wybiera stawkę § 3 uchwały i wskaźnik CO2.
+    if (/benzyn|^pb|\bLPG\b/i.test(String(r.paliwo || '')) &&
+        /\b(cdi|tdi|hdi|dci|jtd|bluetec|d-4d|crdi)\b/i.test(String(r.model || '')))
+      powody.push(`paliwo „${r.paliwo}" przy silniku „${r.model}" — to oznaczenie diesla`);
+
     if (powody.length) podejrzane.push({ nr: r.nrRej, marka: r.marka || '', model: r.model || '',
       kategoria: r.kategoria || '', dmc: r.dmc || '', zrodla: [...r._zrodla].join(', '), powody: powody.join('; ') });
   }

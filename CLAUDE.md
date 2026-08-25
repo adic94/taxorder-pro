@@ -394,6 +394,69 @@ prowadzi do tekstu licencji Meta na GitHubie, a zgodę wyzwala UŻYCIE modelu w 
 | 2026-08-25 | **RapidOCR zastąpił PaddleOCR — 5-8× szybciej (30-80s → 8-11s/dok.), wciąż nie DOSTATECZNIE poniżej limitu 8s.** Znaleziony przeszukaniem GitHuba na wyraźną prośbę właściciela: [RapidAI/RapidOCR](https://github.com/RapidAI/RapidOCR) (7,6k★) to TE SAME modele PP-OCR (w tym `latin_PP-OCRv5_rec_mobile` — polskie znaki), skonwertowane do ONNX i uruchamiane przez `onnxruntime` zamiast frameworka `paddlepaddle` — usuwa akcelerator oneDNN, czyli usuwa źródło OBU crashy z poprzedniego wpisu, jednym ruchem. Nowy moduł `ocr-service/extractors/rapid_fields.py` (parser geometryczny bez zmian — silnikoniezależny). **Pułapka złapana buildem, nie zgadywana:** RapidOCR wymaga wartości Enum (`LangRec.LATIN`, `OCRVersion.PPOCRV5`, `ModelType.MOBILE` z `rapidocr.utils.typings`), gołe stringi („latin", „PP-OCRv5") rzucają `TypeError` na starcie kontenera — zweryfikowane bezpośrednio z surowego pliku enumów na GitHubie, nie z opisu w dokumentacji. **Druga pułapka, poważniejsza — sprawdzona PRZED wdrożeniem, nie po awarii:** RapidOCR ma klasyfikator obrotu WYŁĄCZNIE dla pojedynczej linii tekstu (0°/180°), **nie ma odpowiednika `use_doc_orientation_classify`** (obrót całej strony 0/90/180/270) z PaddleOCR/PaddleX — bez łatki klaster „Toyota Hilux GR" (patrz wpis wyżej) znowu dawałby zero pól. Załatane Tesseract OSD (`osd_rotate_angle`, już istniejący w `preprocessing.py` z ery Tesseracta) jako TANI krok PRZED wywołaniem RapidOCR — potwierdzone na WE6LR80: 10.3s, pola poprawne. **Pomiar jakości na 10 dokumentach wobec poprzedniego przebiegu PaddleOCR na TYCH SAMYCH plikach:** pola współdzielone (dmcKg, masaWlKg, liczbaOsi, miejscaSied) identyczne w niemal każdym przypadku — dobry sygnał, że silnik nie wprowadza systemowego błędu. RapidOCR wyciąga WIĘCEJ pól ogółem (dataRej, paliwo, nrHomolog — wcześniej prawie zawsze puste). Jeden zlokalizowany słaby punkt: pole `przeznaczenie` (dopasowanie „poniżej etykiety", używane tylko przez to pole i `rok_prod`) pomyliło się 2/10 razy — nie naprawione, udokumentowane jako znane ograniczenie w `ocr-service/README.md`. **`PROBA_0_WLACZONA` w Workerze ZOSTAJE `false`** — 8-11s to wciąż zbyt blisko granicy 8s, żeby ryzykować niezawodność żywej ścieżki; wsad (`tools/dr-ocr-batch-cloudrun.js`, bez limitu czasu) korzysta już dziś | — |
 | 2026-08-25 | **Dwa długi bezpieczeństwa SRI zamknięte — sieć okazała się dostępna z tej sesji, wbrew wcześniejszym notatkom o zablokowanym `cdn.sheetjs.com`/`cdnjs.cloudflare.com`.** Nie zakładane — sprawdzone `curl` przed użyciem. **Chart.js 4.4.1**: brakujący `integrity` uzupełniony haszem POBRANYM Z OFICJALNEGO API cdnjs (`api.cdnjs.com/libraries/Chart.js/4.4.1?fields=sri`), nie policzonym samodzielnie z nieufnego źródła — mój niezależnie policzony SHA-512 z pobranego pliku zgodził się co do bajtu z wartością z API, co potwierdza autentyczność. **`xlsx` 0.18.5 → 0.20.3**: cdnjs NIE ma nowszej wersji (API `cdnjs.com/libraries/xlsx` potwierdza — SheetJS faktycznie wycofał się stamtąd, zgodnie z wcześniejszą notatką), więc naprawa wymagała zmiany CDN na `cdn.sheetjs.com` (oficjalne źródło, ma `Access-Control-Allow-Origin: *`, więc SRI nie złamie ładowania). 0.20.3 naprawia obie znane podatności (zanieczyszczenie prototypu z 0.18.5, ReDoS z <0.20.2) — zweryfikowane jako najnowsza wersja przez `package.json` z `cdn.sheetjs.com/xlsx-latest/`. Plik pobrany DWUKROTNIE, niezależnie — bajt w bajt identyczny, zanim hasz trafił do `index.html`. API SheetJS użyte w kodzie (`XLSX.read/write/writeFile/utils.*`) niezmienione w tym zakresie wersji — zero zmian w `app.js`/`modules/*.js`. `tests/unit/cdn-sri-test.js` miał WBUDOWANĄ listę znanych wyjątków (`ZNANE_BEZ_SRI`) właśnie po to, żeby wymusić usunięcie wpisu, gdy luka się zamknie — zrobione, bramka 4/4 | — |
 
+### 💰 DT-1: mamy KWOTĘ — 292 056 zł za 2026, ale nie cała jest gotowa do wysyłki (25.08 noc)
+
+`tools/dt1-wyliczenie.js` przepuszcza arkusz MASTER przez **produkcyjny**
+`modules/tax-engine.js` (przez `window`-shim, nie kopię progów):
+
+| | pojazdów | kwota |
+|---|---|---|
+| dane bez zastrzeżeń | 183 | **219 888 zł** |
+| do sprawdzenia | 49 | 72 168 zł |
+| **razem podlega** | **232** | **292 056 zł** |
+
+**Pierwsza wersja pokazywała 255 912 zł jako „czyste" i było to zawyżone zaufanie.**
+Ręczna kontrola sześciu wierszy pokazała, czego kryteria nie łapały: `„GD"`, `„GDA"`
+dostały kategorię i kwotę (fragmenty tekstu z nazw plików), pojazd **1200 kg trafił
+do kategorii AUTOBUS** (D6, 1488 zł), a 40-tonowy bez liczby osi dostał stawkę
+dwuosiową — bo **od 12 t stawka OD OSI ZALEŻY**, a silnik przyjmuje domyślną.
+Po dodaniu trzech kontroli 36 tys. zł przeszło z „czystych" do weryfikacji: kwota
+się nie zmieniła, zmieniło się to, ile z niej wolno wysłać bez oglądania dokumentu.
+
+**Stawki zweryfikowane u źródła:** uchwała Rady m.st. Warszawy **XXIX/1065/2025**
+(była na dysku, `Program flotowy/`). 11/11 pozycji zgodnych co do złotówki, bramka
+`tests/unit/gminy-rates-test.js` to utrwala.
+
+**⚠️ Znalezione przy okazji, NIE wdrożone:** uchwała ma **§ 3 — stawki dla napędów
+wodorowych, hybrydowych, elektrycznych, CNG i LNG, NIŻSZE O OK. 40%** (ciężarowy
+5,5–9 t: 672 zł zamiast 1128 zł). `gminy-rates.js` nie ma tych kluczy, a `tax-engine`
+nie czyta rodzaju paliwa. Bramka zawiera już właściwe kwoty § 3 i pilnuje, żeby po
+dodaniu były poprawne — ale samo dodanie to zmiana w wyliczaniu podatku, więc decyzja.
+
+### 🗂️ Arkusz MASTER: cztery źródła, EURO z 1/54 do 568/945 (25.08 noc)
+
+`tools/flota-master.js` łączy po numerze rejestracyjnym cztery zbiory, **wszystkie
+znalezione na dysku** — tabele w D1 są puste, ale pliki źródłowe istnieją:
+
+| źródło | plik | co wnosi |
+|---|---|---|
+| DR | `taxorder-backupy/Flota - raport dla zarzadu*.xlsx` | dane urzędowe, podstawa DT-1 |
+| ZSI | `Desktop/Dokumentacja pojazdów/Pulpit/Brak VIN w ZSI.xlsx` | **norma EURO**, przebiegi, kierowca, OC/AC |
+| MyCar | `Downloads/mycar-10-2025-nowe.xls` (UTF-16LE TSV!) | karta paliwowa, polisa, GPS, eToll, leasing |
+| ORLEN | `Downloads/orlen flota numery kart_CSV.csv` | ważność, status, blokady kart |
+
+**`normaEuro` skoczyło z 1/54 do 568/945** — bo, jak ustaliliśmy z Dz.U., na polskim
+dowodzie **nie ma rubryki na normę EURO**, a ZSI ma ją wprost.
+
+**⚠️ NAJWAŻNIEJSZE USTALENIE: „DR ma pierwszeństwo" jest prawdziwe prawnie, ale nasze
+dane DR to OCR SKANU dowodu — i bywa przekłamany.** Zbudowałem scalanie z DR zawsze
+wygrywającym; sprawdzenie realnych rozbieżności z ZSI to obaliło:
+
+- `WA5718C` — DR: marka **„LONDAIS"** (śmieć), DMC 2080. ZSI: Iveco **ML75E16**, 7500.
+  Samo oznaczenie modelu znaczy **7,5 t** — myli się DR.
+- `WA6441C` — DR: Mercedes **ATEGO z kategorią M1** (samochód OSOBOWY), DMC 3500.
+- `WL1668N` — DR: model **„SPRZEDANY"**. To status rekordu, nie model.
+
+Stąd arkusz **„DR do weryfikacji"** — **32 wiersze z wewnętrzną sprzecznością**,
+wykrywaną BEZ porównania ze źródłem zewnętrznym (działa też dla pojazdów spoza ZSI):
+kategoria M1 przy modelu ciężarowym lub DMC > 3500, model będący statusem, marka bez
+samogłoski, numer homologacji krótszy niż 4 znaki. Wśród nich **Sprintery 5,5 t i MAN
+TGL 8 z kategorią M1** — a M1 kontra N2 decyduje, czy podatek się w ogóle należy.
+
+**Drugie:** ZSI zapisuje nieznane DMC jako **`0`** (30 ze 181 wierszy). Traktowanie zera
+jako wartości dawało 28 z 43 „konfliktów podatkowych" — prawdziwy sygnał (5 przypadków)
+ginął w szumie. Zero to brak danych, nie inna wartość.
+
 ### 🔴 Parser DR: odwrócony układ strony dawał CICHĄ KORUPCJĘ, nie puste pola (25.08)
 
 **Najgroźniejsze znalezisko tej sesji. Wzorzec wart zapamiętania, nie tylko sama poprawka.**
