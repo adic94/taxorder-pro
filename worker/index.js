@@ -3068,15 +3068,25 @@ UWAGI KRYTYCZNE:
 Zwroc WYLACZNIE JSON bez markdown:
 ${DR_JSON_SZABLON()}`;
 
-  // ── Próba 0: Python PaddleOCR Service (najdokładniejszy — przestrzenne bounding boxy) ──
-  // Powód porażki tego kroku ginął w pustym `catch`, dokładnie tak samo jak powód
-  // porażki CF Workers AI przed naprawą z 18.08. Skutek jest gorszy niż tam: PaddleOCR
-  // jest krokiem NAJDOKŁADNIEJSZYM (przestrzenne bounding boxy), więc jego cicha śmierć
-  // degraduje jakość ekstrakcji, nie przerywa działania. Usługa uśpiona na Railway,
-  // zmieniony adres, obrócony `OCR_PYTHON_SECRET` — każde z nich wygląda identycznie:
-  // dokument po prostu wychodzi z gorszymi polami i nikt nie wie dlaczego.
+  // ── Próba 0: Python OCR Service (WYŁĄCZONA 24.08 — zmierzona, nie założona porażka) ──
+  //
+  // Ten krok nazywał się kiedyś "najdokładniejszy — przestrzenne bounding boxy". To
+  // NIEPRAWDA, zmierzona bezposrednio po przywroceniu hostingu (byl martwy tygodniami,
+  // wiec nikt tego nie mogl zweryfikowac na swiezo): na realnym dokumencie oba endpointy
+  // serwisu (/ocr i /extract/dowod-rejestracyjny) dały 10-59 SEKUND odpowiedzi (limit
+  // ponizej to 8s) i albo JEDNO BLEDNE pole ("HVZSHYM" jako numer rejestracyjny), albo
+  // ZERO pol. Gorsze niz brak warstwy: gdyby kiedys odpowiedzial W CZASIE, warunek
+  // przyjecia wynikow nizej ("cokolwiek plausibly wyglada") przyjalby te bledne dane
+  // i ZATRZYMAL kaskade — Proba 1/2 (CF/Groq, obie dzialajace dobrze) nigdy by sie nie
+  // wykonaly. Tesseract+regex w extractors/ocr_fallback.py potrzebuje realnej poprawy
+  // jakosci (kandydat: PaddleOCR zamiast Tesseract), zanim ten krok wroci do kaskady.
+  // Hosting (Cloud Run, ocr-service-346215975089.europe-west1.run.app) zostaje ZYWY
+  // i gotowy — to nie problem infrastruktury, tylko jakosci ekstrakcji.
+  const PROBA_0_WLACZONA = false;
   let pyErr = null;
-  if (!env.OCR_PYTHON_URL) {
+  if (!PROBA_0_WLACZONA) {
+    pyErr = 'Próba 0 wyłączona — zmierzona jakość poniżej Prób 1/2, patrz komentarz w kodzie';
+  } else if (!env.OCR_PYTHON_URL) {
     pyErr = 'OCR_PYTHON_URL nieustawiony';
   } else {
     try {
