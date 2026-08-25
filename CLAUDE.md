@@ -423,20 +423,75 @@ wodorowych, hybrydowych, elektrycznych, CNG i LNG, NIŻSZE O OK. 40%** (ciężar
 nie czyta rodzaju paliwa. Bramka zawiera już właściwe kwoty § 3 i pilnuje, żeby po
 dodaniu były poprawne — ale samo dodanie to zmiana w wyliczaniu podatku, więc decyzja.
 
-### 💸 6 pojazdów płaci podatek DWA RAZY — 9 816 zł (25.08 noc)
+### ⛔ SPROSTOWANIE: „6 pojazdów płaci dwa razy" było MOIM BŁĘDEM, nie faktem (26.08)
 
-Najbardziej wymierne znalezisko sesji. **Scalanie idzie po numerze rejestracyjnym,
-a ten się przy przerejestrowaniu ZMIENIA** — pojazd zostaje więc w danych dwa razy
-i podatek liczony per wiersz płaci się dwukrotnie za jedno auto.
+**Wcześniejszy wpis w tym pliku i commit `2956a09` twierdziły, że firma nadpłaca
+9 816 zł podatku. TO NIEPRAWDA.** Odczyt z produkcyjnego D1 to obalił:
 
-| VIN | pojazd | tablice | zbędne |
+```
+SELECT nr_rej, dt1_tax_amount, json_extract(data,'$.vin') FROM vehicles
+WHERE nr_rej IN ('WM1670X','WW1670X','WZ494CU','WGM77268','WM024AF', ...)
+```
+
+Każdy z tych VIN-ów występuje w bazie **dokładnie raz**. Stare tablice
+(`WM1670X`, `WZ494CU`, `WWE5XF3`, `PZ6G386`, `WGM77268`, `WGM85821`, `WM024AF`,
+`WGM85789`, `WGM75025`, `NAL061`) **w produkcji nie istnieją w ogóle**.
+
+**Duplikaty są artefaktem MOJEGO scalania**, nie stanem firmy. `flota-master.js`
+buduje flotę ze SKANÓW DOKUMENTÓW, a w dokumentacji leżą też dowody sprzed
+przerejestrowania — każdy taki stary dowód tworzy dodatkowy wiersz. Produkcyjna
+baza ma 217 pojazdów i tego problemu nie ma.
+
+**Czego to uczy o metodzie:** wykrywanie duplikatów po VIN jest słuszne i zostaje
+— chroni MOJE narzędzie przed zawyżeniem sumy. Błędem było ogłoszenie tego jako
+ustalenia o podatku firmy **bez sprawdzenia w bazie, która ten podatek nalicza**.
+Arkusz zbudowany z dokumentów opisuje dokumenty, nie flotę.
+
+### ✅ Walidacja wyliczenia DT-1 o produkcyjne D1 (26.08)
+
+Jedyne porównanie, które coś znaczy — moje wyliczenie kontra kwoty zapisane
+w bazie (`vehicles.dt1_tax_amount`, 181 pojazdów, **229 656 zł**):
+
+| | pojazdów | kwota |
+|---|---|---|
+| moje wyliczenie razem | 232 | 292 056 zł |
+| — **wspólne z bazą D1** | **184** | **229 104 zł** |
+| — tylko w dokumentach, brak w bazie | 48 | 62 952 zł |
+
+**Na częsci wspólnej różnica to 552 zł, czyli 0,24%.** Na sprawdzonej próbce
+24 pojazdów: 19 kwot **identycznych**, 5 różnych — i wszystkie z JEDNEGO powodu:
+
+    WA2609J  baza D10 4296 zł   ja D8 2184 zł   (mam 0 osi, baza 4)
+    WA4789F  baza D10 2880 zł   ja D8 2184 zł   (mam 2 osie, baza 4)
+    WZ464FY  baza  D9 2760 zł   ja D8 2184 zł   (mam 2 osie, baza 3)
+    WZ621FY  baza  D9 2760 zł   ja D8 2184 zł   (mam 0 osi, baza 3)
+    WZ899GJ  baza  D9 2760 zł   ja D8 2184 zł   (mam 0 osi, baza 3)
+
+Wszystkie to pojazdy 26–32 t. **Od 12 t stawka zależy od LICZBY OSI**, więc brak
+tej liczby zrzuca pojazd do stawki dwuosiowej. Silnik podatkowy liczy poprawnie —
+zawodzą dane wejściowe, dokładnie tam, gdzie arkusz „Do sprawdzenia" to zgłasza.
+
+**48 pojazdów spoza bazy (62 952 zł) to główna otwarta pozycja.** Są wśród nich
+oczywiste śmieci (`GD`, `GDA`, `PY`, `AA08212619`) i tablice zagraniczne. Do
+decyzji człowieka: które z nich to realna flota, a które artefakty dokumentacji.
+
+### 🔁 Duplikaty po VIN w arkuszu MASTER — 26 pojazdów, 53 wiersze (26.08)
+
+**Scalanie idzie po numerze rejestracyjnym, a ten się przy przerejestrowaniu
+ZMIENIA** — pojazd zostaje więc w arkuszu dwa razy i podatek liczony per wiersz
+zawyża sumę. Dotyczy TEGO ARKUSZA, nie produkcji (patrz sprostowanie wyżej).
+
+Wiersze zdublowane w arkuszu (**pogrubiona tablica = jedyna, którą zna produkcja**;
+pozostałe to stare dowody leżące w dokumentacji):
+
+| VIN | pojazd | tablice w arkuszu | zawyżenie sumy arkusza |
 |---|---|---|---|
-| `WMAL87ZZZ3Y113513` | MAN 18.225 | WM1670X + WW1670X | 2 184 zł |
-| `W1V9071551N140624` | Mercedes Sprinter | WL1814U + WWE5XF3 + **WZ494CU** | 1 680 zł |
-| `W09TP28471A006V08` | przyczepa | PZ6G386 + WW117AF | 1 488 zł |
-| `WDB96702310423591` | Mercedes Atego | WGM77268 + WW699AN | 1 488 zł |
-| `W1T96702310437502` | Mercedes Atego | WGM85821 + WW715AR | 1 488 zł |
-| `VASAL214YFGPA8689` | GFOELNER APL 2/4 | WM024AF + WW024AF | 1 488 zł |
+| `WMAL87ZZZ3Y113513` | MAN 18.225 | WM1670X + **WW1670X** | 2 184 zł |
+| `W1V9071551N140624` | Mercedes Sprinter | **WL1814U** + WWE5XF3 + WZ494CU | 1 680 zł |
+| `W09TP28471A006V08` | przyczepa | PZ6G386 + **WW117AF** | 1 488 zł |
+| `WDB96702310423591` | Mercedes Atego | WGM77268 + **WW699AN** | 1 488 zł |
+| `W1T96702310437502` | Mercedes Atego | WGM85821 + **WW715AR** | 1 488 zł |
+| `VASAL214YFGPA8689` | GFOELNER APL 2/4 | WM024AF + **WW024AF** | 1 488 zł |
 
 **ROZSTRZYGA VIN, NIE NAZWA FOLDERU.** Nazwy katalogów (`WW699AN stare WGM77268`)
 wskazały 5 par — za słaby dowód, bo folder może zawierać dokumenty dwóch aut.
