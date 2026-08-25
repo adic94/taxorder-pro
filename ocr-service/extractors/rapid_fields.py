@@ -84,14 +84,52 @@ class Box:
         return self.y1 - self.y0
 
 
-def run_rapid_ocr(pil_img: Image.Image) -> list[Box]:
-    """Prostuje obrót CAŁEJ STRONY (Tesseract OSD), uruchamia RapidOCR, zwraca listę pól z pozycją."""
+def run_rapid_ocr(pil_img: Image.Image) -> tuple[list[Box], int, int]:
+    """
+    Prostuje obrót CAŁEJ STRONY, uruchamia RapidOCR, zwraca (boxy, szerokość, wysokość)
+    obrazu PO PROSTOWANIU.
+
+    ZWRACA WYMIARY, a nie tylko boxy — bo wywołujący nie ma jak ich poznać, a
+    `parse_fields_spatial` liczy z nich dopuszczalne odległości etykieta→wartość.
+    Wcześniejsza wersja zwracała same boxy, a `main.py` podawał wymiary
+    NIEOBRÓCONEGO oryginału — przy obrocie o 90° dawało to zamienione strony
+    (max_gap_x liczony z wysokości, max_gap_y z szerokości).
+
+    ⚠ ORIENTACJA JEST KRYTYCZNA DLA POPRAWNOŚCI, NIE TYLKO POKRYCIA. Zmierzone
+    25.08 na WE6LR80: bez prostowania parser zwracał `dmcKg=1882` — to odczyt
+    z sąsiedniej rubryki „18,82 kN" (nacisk osi), bo etykieta F.1 dopasowała
+    wartość leżącą po ZŁEJ stronie. Prawdziwa DMC to 3210 kg. Wartość błędna,
+    ale w dopuszczalnym zakresie i wiarygodna z wyglądu — trafiłaby do
+    deklaracji DT-1 bez żadnego sygnału. Po obrocie: 3210 kg i 11 pól zamiast 4.
+
+    Dlaczego NIE polegamy na samym Tesseract OSD: na tym dokumencie OSD zwrócił 0°
+    (nie wykrył obrotu), mimo że strona wymagała 90°. OSD liczy orientację ze
+    statystyki kształtów liter i na formularzu z krótkimi, rozproszonymi napisami
+    bywa bezradny. Dlatego pierwszeństwo ma reguła KSZTAŁTU STRONY: euro-dowód
+    (seria DR/BAW) jest fizycznie poziomy, więc portretowy render = strona
+    obrócona o 90°. To reguła domenowa, nie heurystyka ogólna — i właśnie dlatego
+    jest tu niezawodna.
+    """
     from .preprocessing import osd_rotate_angle, rotate_pil
 
-    angle = osd_rotate_angle(pil_img)
-    if angle:
-        logger.info("OSD wykrył obrót strony: %d°, prostuję przed OCR", angle)
-        pil_img = rotate_pil(pil_img, angle)
+    # 1) Kształt strony — reguła domenowa, pierwszeństwo przed OSD (patrz docstring).
+    if pil_img.height > pil_img.width:
+        logger.info("Strona portretowa (%dx%d) — dowód jest poziomy, obracam o -90°",
+                    pil_img.width, pil_img.height)
+        # KIERUNEK MA ZNACZENIE — sprawdzone pomiarem, nie założone. `rotate_pil`
+        # obraca ZGODNIE z ruchem wskazówek, więc potrzebne jest -90 (przeciwnie).
+        # Przy +90 tekst pozostaje czytelny (klasyfikator linii RapidOCR prostuje
+        # pojedyncze linie w obie strony), ale UKŁAD wychodzi lustrzany: etykieta
+        # ląduje po PRAWEJ od swojej wartości, a parser szuka po lewej. Objaw jest
+        # więc cichy — pola puste albo, gorzej, dopasowane do sąsiedniej rubryki.
+        pil_img = rotate_pil(pil_img, -90)
+    else:
+        # 2) Strona już pozioma — zostaje OSD na wypadek obrotu o 180°, którego
+        # reguła kształtu nie wykryje (proporcje się nie zmieniają).
+        angle = osd_rotate_angle(pil_img)
+        if angle:
+            logger.info("OSD wykrył obrót strony: %d°, prostuję przed OCR", angle)
+            pil_img = rotate_pil(pil_img, angle)
 
     arr = np.array(pil_img.convert("RGB"))
     ocr = _get_ocr()
@@ -99,7 +137,7 @@ def run_rapid_ocr(pil_img: Image.Image) -> list[Box]:
 
     boxes: list[Box] = []
     if result is None or result.boxes is None:
-        return boxes
+        return boxes, pil_img.width, pil_img.height
     for poly, text, score in zip(result.boxes, result.txts, result.scores):
         text = (text or "").strip()
         if not text:
@@ -107,7 +145,7 @@ def run_rapid_ocr(pil_img: Image.Image) -> list[Box]:
         xs = [p[0] for p in poly]
         ys = [p[1] for p in poly]
         boxes.append(Box(text=text, x0=float(min(xs)), y0=float(min(ys)), x1=float(max(xs)), y1=float(max(ys)), score=float(score)))
-    return boxes
+    return boxes, pil_img.width, pil_img.height
 
 
 # ── Katalog etykiet euro-dowodu ─────────────────────────────────────────────
@@ -148,9 +186,20 @@ FIELD_LABELS: dict[str, tuple[str, str]] = {
 
 # Pola "kod+wartość mogą trafić w JEDEN box" — próbowane PRZED dopasowaniem
 # geometrycznym, bo tańsze i pewniejsze, gdy się trafi.
+#
+# D.1/D.2/D.3 DOPISANE 25.08 na podstawie pomiaru, nie przypuszczenia: podgląd
+# surowych boxów (`tools/dr-ocr-boxes.js`) pokazał, że OCR zwraca `"D.1 TOYOTA"`
+# i `"D.2 AN1P(EU,N)"` jako POJEDYNCZE boxy — etykieta i wartość nie są
+# rozdzielone, więc ścieżka geometryczna nie miała czego dopasowywać. Stąd
+# pokrycie `marka` 2%, `model` 4% na 54 dokumentach, przy `dmcKg` 54%.
+# Te trzy rubryki leżą w dowodzie ciasno jedna pod drugą, bez separatora — inaczej
+# niż rubryki tabeli żółtej, które detektor rozdziela.
 COMBINED_PATTERNS: dict[str, str] = {
     "numer_rejestracyjny": r"^A[:\s]+([A-Z]{2,3}\s?[A-Z0-9]{3,6})$",
     "data_pierwszej_rej":  r"^B[:\s]+(\d{2}[.\-/]\d{2}[.\-/]\d{4})$",
+    "marka":                r"^D\.?\s*1[:\s]+(.{2,40})$",
+    "typ":                  r"^D\.?\s*2[:\s]+(.{2,40})$",
+    "model":                r"^D\.?\s*3[:\s]+(.{2,40})$",
     "f1_dmc":               r"^F\.?\s*1[:\s]+(\d{3,6})",
     "f2_dmc_ladunek":       r"^F\.?\s*2[:\s]+(\d{3,6})",
     "f3_dmc_zespol":        r"^F\.?\s*3[:\s]+(\d{3,6})",
@@ -167,6 +216,38 @@ NUMERIC_RANGES: dict[str, tuple[int, int]] = {
     "p1_pojemnosc": (50, 20000), "p2_moc_kw": (1, 1000), "s1_miejsca_siedz": (1, 90),
     "s2_miejsca_stojace": (0, 200), "liczba_osi": (1, 10),
 }
+
+# JEDNOSTKA, którą pole MUSI mieć, jeśli w ogóle jakąś podano.
+#
+# DLACZEGO TO ISTNIEJE — zmierzona korupcja danych, nie hipotetyczna. Na WE6LR80
+# parser zwrócił `f1_dmc = 1882`, czytając sąsiednią rubrykę „18,82 kN" (NACISK
+# OSI). Prawdziwa DMC to 3210 kg. Sam zakres tego nie łapie: 1882 mieści się
+# w 400–60000, wygląda wiarygodnie i trafiłoby do deklaracji DT-1 bez sygnału.
+#
+# Zakres odpowiada na pytanie „czy liczba jest sensowna", jednostka na pytanie
+# „czy to w ogóle ta wielkość" — to drugie pytanie jest tu ważniejsze, bo
+# rubryki na dowodzie sąsiadują ze sobą i pomyłka o jedną komórkę jest cicha.
+UNIT_EXPECTED: dict[str, str] = {
+    "f1_dmc": "kg", "f2_dmc_ladunek": "kg", "f3_dmc_zespol": "kg",
+    "g_masa_wlasna": "kg", "o1_przyczepa_ham": "kg", "o2_przyczepa_nieham": "kg",
+    "p1_pojemnosc": "cm3", "p2_moc_kw": "kw",
+}
+# Jednostki występujące na dowodzie, które da się pomylić między rubrykami.
+_UNIT_PATTERNS = [
+    ("kg", r"\bkg\b"),
+    ("kn", r"\bkn\b"),          # nacisk osi — NIE masa
+    ("cm3", r"cm\s*[³3]"),      # pojemność silnika
+    ("kw", r"\bkw\b"),          # moc
+]
+
+
+def _wykryta_jednostka(raw: str) -> Optional[str]:
+    """Zwraca nazwę jednostki obecnej w tekście albo None, gdy żadnej nie podano."""
+    low = raw.lower()
+    for nazwa, wzor in _UNIT_PATTERNS:
+        if re.search(wzor, low):
+            return nazwa
+    return None
 
 
 # Słowa z etykiet WIELOWYRAZOWYCH innych pól (dziś tylko "ROK PRODUKCJI") — jeśli
@@ -228,6 +309,33 @@ def _clean_value(key: str, raw: str) -> Optional[str]:
         return None
 
     if key in NUMERIC_RANGES:
+        # 1) Zła jednostka = zła rubryka. Patrz UNIT_EXPECTED — złapana korupcja
+        # `f1_dmc=1882` z „18,82 kN". Brak jednostki jest DOPUSZCZALNY (wiele
+        # rubryk podaje samą liczbę); zabroniona jest jednostka NIE TA.
+        oczekiwana = UNIT_EXPECTED.get(key)
+        if oczekiwana:
+            faktyczna = _wykryta_jednostka(raw)
+            if faktyczna and faktyczna != oczekiwana:
+                return None
+
+        # 2) Wartości z częścią dziesiętną. Dowód zapisuje pojemność i moc jako
+        # „2755,00 cm³" / „150,00 kW" — trzeba wziąć część CAŁKOWITĄ, nie skleić
+        # cyfr. Zmierzone 25.08: sklejanie dawało 275500 i 15000, obie poza
+        # zakresem, więc pola wypadały jako puste (`pojSilnika` 2%, `mocKW` 4%
+        # na 54 dokumentach).
+        #
+        # Dla MAS przecinek dziesiętny jest natomiast sygnałem BŁĘDU: masy na
+        # dowodzie są całkowite, więc „18,82" znaczy, że czytamy nie tę rubrykę
+        # (patrz UNIT_EXPECTED — to ten sam nacisk osi, złapany drugą, niezależną
+        # regułą na wypadek nieodczytanej jednostki).
+        m_dec = re.search(r"(\d+)\s*[,.]\s*(\d+)", raw)
+        if m_dec:
+            if key in ("p1_pojemnosc", "p2_moc_kw"):
+                v = int(m_dec.group(1))
+                lo, hi = NUMERIC_RANGES[key]
+                return str(v) if lo <= v <= hi else None
+            return None
+
         digits = re.sub(r"[^\d]", "", raw)
         if not digits:
             return None

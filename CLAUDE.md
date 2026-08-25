@@ -377,6 +377,55 @@ prowadzi do tekstu licencji Meta na GitHubie, a zgodę wyzwala UŻYCIE modelu w 
 | 2026-08-25 | **RapidOCR zastąpił PaddleOCR — 5-8× szybciej (30-80s → 8-11s/dok.), wciąż nie DOSTATECZNIE poniżej limitu 8s.** Znaleziony przeszukaniem GitHuba na wyraźną prośbę właściciela: [RapidAI/RapidOCR](https://github.com/RapidAI/RapidOCR) (7,6k★) to TE SAME modele PP-OCR (w tym `latin_PP-OCRv5_rec_mobile` — polskie znaki), skonwertowane do ONNX i uruchamiane przez `onnxruntime` zamiast frameworka `paddlepaddle` — usuwa akcelerator oneDNN, czyli usuwa źródło OBU crashy z poprzedniego wpisu, jednym ruchem. Nowy moduł `ocr-service/extractors/rapid_fields.py` (parser geometryczny bez zmian — silnikoniezależny). **Pułapka złapana buildem, nie zgadywana:** RapidOCR wymaga wartości Enum (`LangRec.LATIN`, `OCRVersion.PPOCRV5`, `ModelType.MOBILE` z `rapidocr.utils.typings`), gołe stringi („latin", „PP-OCRv5") rzucają `TypeError` na starcie kontenera — zweryfikowane bezpośrednio z surowego pliku enumów na GitHubie, nie z opisu w dokumentacji. **Druga pułapka, poważniejsza — sprawdzona PRZED wdrożeniem, nie po awarii:** RapidOCR ma klasyfikator obrotu WYŁĄCZNIE dla pojedynczej linii tekstu (0°/180°), **nie ma odpowiednika `use_doc_orientation_classify`** (obrót całej strony 0/90/180/270) z PaddleOCR/PaddleX — bez łatki klaster „Toyota Hilux GR" (patrz wpis wyżej) znowu dawałby zero pól. Załatane Tesseract OSD (`osd_rotate_angle`, już istniejący w `preprocessing.py` z ery Tesseracta) jako TANI krok PRZED wywołaniem RapidOCR — potwierdzone na WE6LR80: 10.3s, pola poprawne. **Pomiar jakości na 10 dokumentach wobec poprzedniego przebiegu PaddleOCR na TYCH SAMYCH plikach:** pola współdzielone (dmcKg, masaWlKg, liczbaOsi, miejscaSied) identyczne w niemal każdym przypadku — dobry sygnał, że silnik nie wprowadza systemowego błędu. RapidOCR wyciąga WIĘCEJ pól ogółem (dataRej, paliwo, nrHomolog — wcześniej prawie zawsze puste). Jeden zlokalizowany słaby punkt: pole `przeznaczenie` (dopasowanie „poniżej etykiety", używane tylko przez to pole i `rok_prod`) pomyliło się 2/10 razy — nie naprawione, udokumentowane jako znane ograniczenie w `ocr-service/README.md`. **`PROBA_0_WLACZONA` w Workerze ZOSTAJE `false`** — 8-11s to wciąż zbyt blisko granicy 8s, żeby ryzykować niezawodność żywej ścieżki; wsad (`tools/dr-ocr-batch-cloudrun.js`, bez limitu czasu) korzysta już dziś | — |
 | 2026-08-25 | **Dwa długi bezpieczeństwa SRI zamknięte — sieć okazała się dostępna z tej sesji, wbrew wcześniejszym notatkom o zablokowanym `cdn.sheetjs.com`/`cdnjs.cloudflare.com`.** Nie zakładane — sprawdzone `curl` przed użyciem. **Chart.js 4.4.1**: brakujący `integrity` uzupełniony haszem POBRANYM Z OFICJALNEGO API cdnjs (`api.cdnjs.com/libraries/Chart.js/4.4.1?fields=sri`), nie policzonym samodzielnie z nieufnego źródła — mój niezależnie policzony SHA-512 z pobranego pliku zgodził się co do bajtu z wartością z API, co potwierdza autentyczność. **`xlsx` 0.18.5 → 0.20.3**: cdnjs NIE ma nowszej wersji (API `cdnjs.com/libraries/xlsx` potwierdza — SheetJS faktycznie wycofał się stamtąd, zgodnie z wcześniejszą notatką), więc naprawa wymagała zmiany CDN na `cdn.sheetjs.com` (oficjalne źródło, ma `Access-Control-Allow-Origin: *`, więc SRI nie złamie ładowania). 0.20.3 naprawia obie znane podatności (zanieczyszczenie prototypu z 0.18.5, ReDoS z <0.20.2) — zweryfikowane jako najnowsza wersja przez `package.json` z `cdn.sheetjs.com/xlsx-latest/`. Plik pobrany DWUKROTNIE, niezależnie — bajt w bajt identyczny, zanim hasz trafił do `index.html`. API SheetJS użyte w kodzie (`XLSX.read/write/writeFile/utils.*`) niezmienione w tym zakresie wersji — zero zmian w `app.js`/`modules/*.js`. `tests/unit/cdn-sri-test.js` miał WBUDOWANĄ listę znanych wyjątków (`ZNANE_BEZ_SRI`) właśnie po to, żeby wymusić usunięcie wpisu, gdy luka się zamknie — zrobione, bramka 4/4 | — |
 
+### 🔴 Parser DR: odwrócony układ strony dawał CICHĄ KORUPCJĘ, nie puste pola (25.08)
+
+**Najgroźniejsze znalezisko tej sesji. Wzorzec wart zapamiętania, nie tylko sama poprawka.**
+
+Pomiar pokrycia pól na 54 dokumentach pokazał dziwny rozkład: `dmcKg` 54%, ale
+`marka` **2%**, `kategoria` i `rokProd` **0%**. Zamiast zgadywać przyczynę, powstało
+`tools/dr-ocr-boxes.js` — podgląd SUROWYCH boxów OCR. Bez niego nie da się odróżnić
+„OCR nie odczytał" od „odczytał, ale parser nie dopasował", a to zupełnie inne naprawy.
+Jedno uruchomienie na `WE6LR80` wykryło **cztery niezależne błędy naraz**:
+
+**1. Odwrócony układ strony → BŁĘDNE DANE, nie brak danych.** Render PDF wychodził
+portretowy, a euro-dowód jest fizycznie poziomy. Klasyfikator linii RapidOCR prostuje
+czytelność KAŻDEJ linii z osobna, więc tekst wyglądał poprawnie — ale UKŁAD pozostawał
+obrócony: etykieta lądowała po PRAWEJ od swojej wartości. Parser, szukając wartości
+po prawej, brał **sąsiednią rubrykę**. Zmierzony efekt: `dmcKg = 1882` — to odczyt
+z „18,82 kN" (NACISK OSI). Prawdziwa DMC: 3210 kg.
+
+> To jest dokładnie ta klasa błędu, przed którą ostrzega sekcja WERYFIKACJA: wartość
+> mieści się w dopuszczalnym zakresie, wygląda wiarygodnie i **trafiłaby do deklaracji
+> DT-1 bez żadnego sygnału**. Puste pole widać; błędne — nie.
+
+**2. Kierunek obrotu ma znaczenie i NIE jest oczywisty.** Pierwsza poprawka użyła
+`rotate_pil(img, 90)` i **nie zadziałała** — `rotate_pil` obraca ZGODNIE z ruchem
+wskazówek, więc potrzebne było `-90`. Przy złym kierunku tekst nadal jest czytelny
+(klasyfikator linii prostuje w obie strony), a układ wychodzi lustrzany — objaw
+identyczny jak przed poprawką. Bez podglądu boxów wyglądałoby to na „poprawka nie
+pomogła", a nie „poprawka poszła w złą stronę".
+
+**3. `"D.1 TOYOTA"` to JEDEN box, nie etykieta + wartość.** Rubryki D.1/D.2/D.3 leżą
+ciasno jedna pod drugą, bez separatora, więc detektor ich nie rozdziela — ścieżka
+geometryczna nie miała czego dopasowywać. Stąd `marka` 2%. Naprawa: wzorce „kod+wartość
+w jednym boxie" (`COMBINED_PATTERNS`), których te trzy pola wcześniej nie miały.
+
+**4. Sklejanie części dziesiętnych.** `"2755,00 cm³"` → usunięcie nie-cyfr dawało
+`275500`, poza zakresem → pole odrzucane jako puste. Stąd `pojSilnika` 2%, `mocKW` 4%.
+Naprawa bierze część całkowitą — ale TYLKO dla pojemności i mocy. Dla MAS przecinek
+dziesiętny zostaje sygnałem błędu, bo masy na dowodzie są całkowite.
+
+**Zabezpieczenie ogólne, nie łatka: świadomość JEDNOSTEK (`UNIT_EXPECTED`).** Zakres
+odpowiada na pytanie „czy liczba jest sensowna", jednostka na „czy to w ogóle ta
+wielkość". Przy sąsiadujących rubrykach to drugie pytanie jest ważniejsze — samo
+`1882` przechodzi każdy zakres. Pole z jednostką INNĄ niż oczekiwana jest odrzucane;
+brak jednostki pozostaje dopuszczalny.
+
+**Efekt na `WE6LR80`: 4 pola (w tym jedno błędne) → 13 pól, wszystkie poprawne**,
+zweryfikowane z ręcznym odczytem wizualnym dokumentu. 7 nowych asercji w
+`ocr-service/tests/test_rapid_fields.py`, w tym kontrola negatywna odtwarzająca
+dokładny układ boxów, który dawał `1882`.
+
 ### ⛔ KSeF: cała integracja celuje w API, którego JUŻ NIE MA (25.08) — NIE naprawiona, świadomie
 
 **Nie zakładaj, że KSeF w tym projekcie kiedykolwiek działał.** Znalezione przy

@@ -81,6 +81,120 @@ class TestSciezkaPolaczona:
         result = parse_fields_spatial(boxes, w, h)
         assert result["numer_rejestracyjny"][0] == "WZ946KA"
 
+    # D.1/D.2/D.3 — OCR zwraca je jako POJEDYNCZE boxy (etykieta + wartość razem),
+    # potwierdzone podglądem surowych boxów na WE6LR80 25.08. Bez tych wzorców
+    # pokrycie wynosiło `marka` 2%, `model` 4% na 54 dokumentach.
+    def test_marka_d1_w_jednym_boxie(self):
+        boxes = [Box("D.1 TOYOTA", 729, 536, 814, 560, 1.0)]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["marka"][0] == "TOYOTA"
+
+    def test_typ_d2_w_jednym_boxie(self):
+        boxes = [Box("D.2 AN1P(EU,N)", 696, 515, 813, 541, 0.98)]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["typ"][0] == "AN1P(EU,N)"
+
+    def test_model_d3_w_jednym_boxie(self):
+        boxes = [Box("D.3 TOYOTA HILUX", 700, 490, 850, 515, 0.95)]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["model"][0] == "TOYOTA HILUX"
+
+
+class TestOrientacjaIKorupcjaDanych:
+    """
+    Regresja dla najgroźniejszego znaleziska 25.08: na NIEOBRÓCONEJ stronie parser
+    zwracał `f1_dmc=1882` — odczyt z sąsiedniej rubryki „18,82 kN" (nacisk osi),
+    zamiast prawdziwej DMC 3210 kg. Wartość mieściła się w dopuszczalnym zakresie
+    i wyglądała wiarygodnie, więc trafiłaby do deklaracji DT-1 bez sygnału błędu.
+
+    Prostowanie strony robi `run_rapid_ocr` (reguła kształtu: dowód jest poziomy),
+    ale te testy pilnują SAMEGO PARSERA — żeby przy odwróconym layoucie nie
+    wymyślał wartości z sąsiedztwa po złej stronie.
+    """
+
+    def test_wartosc_po_lewej_nie_jest_dopasowana_do_etykiety(self):
+        """Etykieta szuka wartości PO PRAWEJ; leżąca po lewej nie może zostać przyjęta."""
+        boxes = [
+            Box("3210 kg", 1180, 614, 1264, 647, 1.0),   # prawdziwa DMC, ale PO LEWEJ
+            Box("F.1", 1276, 628, 1303, 654, 0.99),
+        ]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["f1_dmc"][0] is None
+
+    def test_nie_bierze_sasiedniej_rubryki_z_prawej_gdy_layout_odwrocony(self):
+        """
+        Dokładny układ z WE6LR80 bez prostowania: F.1 ma po prawej „18,82 kN"
+        (nacisk osi), a prawdziwą DMC po lewej. Parser NIE MOŻE zwrócić 1882.
+        """
+        boxes = [
+            Box("3210 kg", 1180, 614, 1264, 647, 1.0),
+            Box("F.1", 1276, 628, 1303, 654, 0.99),
+            Box("18,82 kN", 1375, 620, 1466, 647, 0.94),
+        ]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["f1_dmc"][0] != "1882", "przyjęto nacisk osi jako DMC — korupcja danych"
+
+    def test_poprawny_layout_daje_poprawna_dmc(self):
+        """Kontrola pozytywna: po wyprostowaniu (wartość PO PRAWEJ) DMC ma się wyciągnąć."""
+        boxes = [
+            Box("F.1", 450, 584, 478, 609, 0.99),
+            Box("3210 kg", 488, 588, 574, 623, 1.0),
+        ]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["f1_dmc"][0] == "3210"
+
+    def test_masa_z_jednostka_kn_odrzucona(self):
+        """Sam zakres tego nie łapie (1882 mieści się w 400-60000) — jednostka tak."""
+        boxes = [
+            Box("G", 450, 584, 470, 609, 0.99),
+            Box("18,82 kN", 488, 588, 574, 623, 0.94),
+        ]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["g_masa_wlasna"][0] is None
+
+
+class TestWartosciDziesietne:
+    """
+    Dowód zapisuje pojemność i moc z częścią dziesiętną („2755,00 cm³").
+    Sklejanie wszystkich cyfr dawało 275500 / 15000 — poza zakresem, więc pole
+    wypadało jako puste. Zmierzone pokrycie przed naprawą: pojSilnika 2%, mocKW 4%.
+    """
+
+    def test_pojemnosc_z_czescia_dziesietna(self):
+        boxes = [
+            Box("P.1", 450, 584, 480, 609, 0.99),
+            Box("2755,00 cm³", 490, 588, 620, 623, 0.92),
+        ]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["p1_pojemnosc"][0] == "2755"
+
+    def test_moc_z_czescia_dziesietna(self):
+        boxes = [
+            Box("P.2", 450, 584, 480, 609, 0.99),
+            Box("150,00 kW", 490, 588, 600, 623, 0.99),
+        ]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["p2_moc_kw"][0] == "150"
+
+    def test_masa_z_czescia_dziesietna_odrzucona(self):
+        """Masy na dowodzie są całkowite — ułamek znaczy, że czytamy nie tę rubrykę."""
+        boxes = [
+            Box("F.1", 450, 584, 478, 609, 0.99),
+            Box("18,82", 488, 588, 574, 623, 0.94),
+        ]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["f1_dmc"][0] is None
+
 
 class TestWolnyTekst:
     def test_norma_euro_znaleziona_w_tekscie(self):

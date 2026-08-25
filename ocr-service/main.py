@@ -90,6 +90,16 @@ from pydantic import BaseModel as _BM
 class OcrRequest(_BM):
     imageBase64: str
     mimeType: str = "image/jpeg"
+    # Zwraca SUROWE boxy (tekst + bbox + pewność) obok sparsowanych pól.
+    # DLACZEGO: pytanie „czemu pole X się nie wyciąga" ma dwie zupełnie różne
+    # odpowiedzi — (a) OCR nie odczytał tekstu, (b) OCR odczytał, ale parser
+    # geometryczny go nie dopasował. Bez surowych boxów nie da się ich odróżnić
+    # i strojenie parsera jest zgadywaniem. Pomiar 25.08 na 54 dokumentach:
+    # `marka` 2%, `kategoria` 0% przy `dmcKg` 54% — bez tej flagi nie wiadomo,
+    # czy winna jest detekcja, czy dopasowanie.
+    # Boxy zawierają pełny tekst dokumentu (VIN, dane właściciela) — endpoint
+    # jest za API_SECRET, ale wyniku NIE zapisuj do repo.
+    debugBoxes: bool = False
 
 @app.post("/ocr")
 async def run_ocr_legacy(
@@ -105,6 +115,23 @@ async def run_ocr_legacy(
         images = _lib(img_bytes)
         if not images:
             return {"ok": False, "error": "Brak obrazów", "fields": {}}
+        if req.debugBoxes:
+            img = images[0]
+            boxes, w, h = run_rapid_ocr(img)
+            parsed = parse_fields_spatial(boxes, float(w), float(h))
+            return {
+                "ok": True,
+                "model": "rapidocr-latin",
+                "rozmiar": [w, h],
+                "rozmiarPrzedObrotem": [img.width, img.height],
+                "boxes": [
+                    {"t": b.text, "x0": round(b.x0), "y0": round(b.y0),
+                     "x1": round(b.x1), "y1": round(b.y1), "s": round(b.score, 2)}
+                    for b in boxes
+                ],
+                "parsed": {k: v for k, (v, _c) in parsed.items() if v},
+                "fields": _legacy_parse(img),
+            }
         fields = _legacy_parse(images[0])
         return {"ok": True, "fields": fields, "model": "rapidocr-latin"}
     except Exception as e:
@@ -113,9 +140,16 @@ async def run_ocr_legacy(
 
 
 def _parse_fields_rapid(pil_img: Image.Image) -> dict[str, tuple]:
-    """Uruchamia RapidOCR + parser geometryczny, zwraca {klucz: (wartość, confidence)}."""
-    boxes = run_rapid_ocr(pil_img)
-    return parse_fields_spatial(boxes, page_w=float(pil_img.width), page_h=float(pil_img.height))
+    """
+    Uruchamia RapidOCR + parser geometryczny, zwraca {klucz: (wartość, confidence)}.
+
+    Wymiary bierze z `run_rapid_ocr`, NIE z `pil_img` — obraz mógł zostać obrócony
+    o 90° w środku, a wtedy wymiary oryginału mają zamienione strony. Parser liczy
+    z nich dopuszczalne odległości etykieta→wartość, więc pomyłka tutaj rozstraja
+    dopasowanie w obu osiach naraz.
+    """
+    boxes, w, h = run_rapid_ocr(pil_img)
+    return parse_fields_spatial(boxes, page_w=float(w), page_h=float(h))
 
 
 def _legacy_parse(pil_img: Image.Image) -> dict:
