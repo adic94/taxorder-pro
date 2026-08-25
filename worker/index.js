@@ -6838,13 +6838,158 @@ async function handleTCO(request, env, user, url, path) {
  *   4. Gęstości — osobne źródło, osobna decyzja, też z podaniem pochodzenia.
  * ══════════════════════════════════════════════════════════════════════════════
  */
-const ENV_FEE_RATE_SETS = [];
+const ENV_FEE_RATE_SETS = [
+  {
+    rok: 2026,
+    zrodlo: 'M.P. 2025 poz. 769, Tabela D (obwieszczenie MKiS z 6.08.2025) - https://monitorpolski.gov.pl/M2025000076901.pdf',
+    jednostka_stawki: 'zl_na_Mg',
+    // GESTOSCI CELOWO PUSTE - obwieszczenie ICH NIE PODAJE (sprawdzone
+    // pelnotekstowo w rocznikach 2025 i 2026: "gestos", "kg/m3", "kg/dm",
+    // "g/cm" - zero trafien). Bez nich nie przeliczy sie litrow na Mg, wiec
+    // computeEnvironmentalFee wstawi KAZDY pojazd na liste `nieustalone`
+    // z powodem "gestosc paliwa". To jest zamierzone: stawki sa zweryfikowane,
+    // gestosci nie - a jedno bez drugiego nie daje kwoty.
+    gestosc_kg_na_litr: {},
+    // Klucz: paliwo|norma|klasa_pojazdu - TRZY wymiary, bo tyle ma Tabela D.
+    // Dwuwymiarowy klucz paliwo|EURO (do 25.08) nie mogl wyrazic roznicy miedzy
+    // klasami, a ta siega 60%: ON EURO 5 to 5,76 zl/Mg dla osobowego i 9,19
+    // dla pojazdu powyzej 3,5 t.
+    //
+    // PRZED_EURO = wiersz bez wymogu dokumentu EURO (rozstrzygany data pierwszej
+    // rejestracji). NIE stosowac jako "domyslnego" - daty progowe roznia sie
+    // miedzy klasami i sa w opisach wierszy Tabeli D.
+    //
+    // BRAK EURO 6 JEST FAKTEM, NIE PRZEOCZENIEM. Tabela D konczy sie na EURO 5.
+    // Pojazd z norma EURO 6 nie ma tu stawki i trafi na liste `nieustalone` -
+    // celowo, bo przypisanie mu stawki EURO 5 byloby INTERPRETACJA przepisu,
+    // nie odczytem. Dotyczy to wiekszosci nowoczesnej floty, wiec wymaga
+    // rozstrzygniecia z ksiegowoscia, zanim funkcja zacznie liczyc.
+    //
+    // Wyciagniete PROGRAMOWO z PDF-a, nie przepisane recznie. Przy pierwszej
+    // probie regex wymagajacy przecinka dziesietnego pominal wiersz 11
+    // (w PDF-ie jest tam "10.01" z KROPKA), przez co wierszowi 11 przypisalo
+    // wartosci wiersza 12 - ciche przesuniecie stawki finansowej o jeden wiersz.
+    // Wykryte przez sprawdzenie kompletnosci numeracji Lp (32/32).
+    stawki: {
+    'bs|PRZED_EURO|osobowy': 116.73,
+    'lpg|PRZED_EURO|osobowy': 74.84,
+    'on|PRZED_EURO|osobowy': 31.88,
+    'bd|PRZED_EURO|osobowy': 26.01,
+    'bs|EURO 1|osobowy': 44.32,
+    'lpg|EURO 1|osobowy': 64.53,
+    'on|EURO 1|osobowy': 18.49,
+    'bd|EURO 1|osobowy': 16.52,
+    'bs|EURO 2|osobowy': 29.64,
+    'lpg|EURO 2|osobowy': 42.43,
+    'on|EURO 2|osobowy': 18.49,
+    'bd|EURO 2|osobowy': 16.52,
+    'bs|EURO 3|osobowy': 19.31,
+    'lpg|EURO 3|osobowy': 27.46,
+    'cng_fabryczny|EURO 3|osobowy': 17.31,
+    'cng_przebudowany|EURO 3|osobowy': 20.48,
+    'on|EURO 3|osobowy': 14.23,
+    'bd|EURO 3|osobowy': 12.67,
+    'bs|EURO 4|osobowy': 10.05,
+    'lpg|EURO 4|osobowy': 13.81,
+    'cng_fabryczny|EURO 4|osobowy': 8.74,
+    'cng_przebudowany|EURO 4|osobowy': 10.39,
+    'on|EURO 4|osobowy': 8.14,
+    'bd|EURO 4|osobowy': 6.75,
+    'bs|EURO 5|osobowy': 8.90,
+    'lpg|EURO 5|osobowy': 12.47,
+    'cng_fabryczny|EURO 5|osobowy': 7.60,
+    'cng_przebudowany|EURO 5|osobowy': 8.81,
+    'on|EURO 5|osobowy': 5.76,
+    'bd|EURO 5|osobowy': 4.65,
+    'bs|PRZED_EURO|do_3_5t_inny_niz_osobowy': 108.31,
+    'lpg|PRZED_EURO|do_3_5t_inny_niz_osobowy': 71.85,
+    'on|PRZED_EURO|do_3_5t_inny_niz_osobowy': 37.70,
+    'bd|PRZED_EURO|do_3_5t_inny_niz_osobowy': 31.95,
+    'bs|EURO 1|do_3_5t_inny_niz_osobowy': 57.22,
+    'lpg|EURO 1|do_3_5t_inny_niz_osobowy': 63.61,
+    'on|EURO 1|do_3_5t_inny_niz_osobowy': 23.12,
+    'bd|EURO 1|do_3_5t_inny_niz_osobowy': 20.87,
+    'bs|EURO 2|do_3_5t_inny_niz_osobowy': 34.20,
+    'lpg|EURO 2|do_3_5t_inny_niz_osobowy': 37.52,
+    'on|EURO 2|do_3_5t_inny_niz_osobowy': 23.12,
+    'bd|EURO 2|do_3_5t_inny_niz_osobowy': 20.87,
+    'bs|EURO 3|do_3_5t_inny_niz_osobowy': 22.10,
+    'lpg|EURO 3|do_3_5t_inny_niz_osobowy': 24.33,
+    'cng_fabryczny|EURO 3|do_3_5t_inny_niz_osobowy': 19.25,
+    'cng_przebudowany|EURO 3|do_3_5t_inny_niz_osobowy': 22.77,
+    'on|EURO 3|do_3_5t_inny_niz_osobowy': 17.45,
+    'bd|EURO 3|do_3_5t_inny_niz_osobowy': 15.83,
+    'bs|EURO 4|do_3_5t_inny_niz_osobowy': 11.58,
+    'lpg|EURO 4|do_3_5t_inny_niz_osobowy': 12.48,
+    'cng_fabryczny|EURO 4|do_3_5t_inny_niz_osobowy': 9.80,
+    'cng_przebudowany|EURO 4|do_3_5t_inny_niz_osobowy': 11.63,
+    'on|EURO 4|do_3_5t_inny_niz_osobowy': 10.01,
+    'bd|EURO 4|do_3_5t_inny_niz_osobowy': 8.51,
+    'bs|EURO 5|do_3_5t_inny_niz_osobowy': 10.80,
+    'lpg|EURO 5|do_3_5t_inny_niz_osobowy': 11.34,
+    'cng_fabryczny|EURO 5|do_3_5t_inny_niz_osobowy': 9.00,
+    'cng_przebudowany|EURO 5|do_3_5t_inny_niz_osobowy': 10.56,
+    'on|EURO 5|do_3_5t_inny_niz_osobowy': 6.82,
+    'bd|EURO 5|do_3_5t_inny_niz_osobowy': 5.71,
+    'bs|PRZED_EURO|powyzej_3_5t': 146.37,
+    'on|PRZED_EURO|powyzej_3_5t': 76.06,
+    'bd|PRZED_EURO|powyzej_3_5t': 70.29,
+    'on|PRZED_EURO|autobus_powyzej_3_5t': 88.25,
+    'bd|PRZED_EURO|autobus_powyzej_3_5t': 79.87,
+    'cng_przebudowany|EURO 1|powyzej_3_5t': 23.35,
+    'on|EURO 1|powyzej_3_5t': 31.89,
+    'bd|EURO 1|powyzej_3_5t': 24.06,
+    'cng_przebudowany|EURO 2|powyzej_3_5t': 18.87,
+    'on|EURO 2|powyzej_3_5t': 24.93,
+    'bd|EURO 2|powyzej_3_5t': 18.65,
+    'cng_fabryczny|EURO 3|powyzej_3_5t': 10.93,
+    'cng_przebudowany|EURO 3|powyzej_3_5t': 15.53,
+    'on|EURO 3|powyzej_3_5t': 18.24,
+    'bd|EURO 3|powyzej_3_5t': 13.04,
+    'cng_fabryczny|EURO 4|powyzej_3_5t': 9.14,
+    'cng_przebudowany|EURO 4|powyzej_3_5t': 11.88,
+    'on|EURO 4|powyzej_3_5t': 13.23,
+    'bd|EURO 4|powyzej_3_5t': 9.00,
+    'cng_fabryczny|EURO 5|powyzej_3_5t': 6.69,
+    'cng_przebudowany|EURO 5|powyzej_3_5t': 7.80,
+    'on|EURO 5|powyzej_3_5t': 9.19,
+    'bd|EURO 5|powyzej_3_5t': 6.16,
+    },
+  },
+];
 
 /** Normalizacja normy EURO z pola `euro` pojazdu („EURO 6", „euro6", „EU6"). */
 function normalizeEuroNorm(raw) {
   const s = String(raw ?? '').toLowerCase().replace(/[\s_-]/g, '');
   const m = s.match(/eu(?:ro)?([1-6])/);
   return m ? `EURO ${m[1]}` : null;
+}
+
+/**
+ * Klasa pojazdu wg Tabeli D — TRZECI wymiar stawki, obok paliwa i normy EURO.
+ *
+ * Zwraca `null`, gdy klasy nie da się ustalić — a wtedy `computeEnvironmentalFee`
+ * wstawia pojazd na listę `nieustalone` zamiast przyjąć jakąkolwiek stawkę.
+ * Zgadywanie klasy jest tu równie kosztowne co zgadywanie normy: różnica między
+ * osobowym a pojazdem powyżej 3,5 t to ~60% należności.
+ *
+ * Granica 3,5 t idzie po DMC (`F.1` z dowodu). Rozróżnienie „osobowy" / „inny niż
+ * osobowy" poniżej tej granicy bierzemy z rodzaju pojazdu — to samo pole, którym
+ * TaxEngine rozstrzyga zwolnienia DT-1.
+ */
+function envFeeVehicleClass(p) {
+  const dmc = Number(p?.dmc ?? p?.dmcKg ?? p?.dmc_kg);
+  const rodzaj = String(p?.rodzaj ?? p?.przeznaczenie ?? p?.typ ?? '').toLowerCase();
+
+  if (/autobus/.test(rodzaj)) {
+    // Autobus poniżej 3,5 t nie ma osobnego wiersza — nie zgadujemy.
+    return Number.isFinite(dmc) && dmc > 3500 ? 'autobus_powyzej_3_5t' : null;
+  }
+  if (!Number.isFinite(dmc) || dmc <= 0) return null;   // bez DMC nie ma progu
+  if (dmc > 3500) return 'powyzej_3_5t';
+  if (/osobow/.test(rodzaj)) return 'osobowy';
+  if (rodzaj) return 'do_3_5t_inny_niz_osobowy';
+  return null;                                          // DMC znane, rodzaj nie — za mało
 }
 
 /** Zestaw stawek obowiązujący dla danego roku; `null`, gdy brak. */
@@ -6870,16 +7015,24 @@ function computeEnvironmentalFee({ year, pozycje }) {
   for (const p of pozycje || []) {
     const paliwo = co2FactorFor(p.fuel_type).key;         // ta sama normalizacja co w CO2
     const euro = normalizeEuroNorm(p.euro);
+    const klasa = envFeeVehicleClass(p);
     const gestosc = zestaw.gestosc_kg_na_litr?.[paliwo];
-    const stawka = euro ? zestaw.stawki?.[`${paliwo}|${euro}`] : undefined;
-    if (!euro || gestosc === undefined || stawka === undefined) {
-      wynik.nieustalone.push({ nr_rej: p.nr_rej, fuel_type: p.fuel_type, euro: p.euro,
-        brakuje: [!euro && 'norma EURO', gestosc === undefined && 'gęstość paliwa', stawka === undefined && 'stawka'].filter(Boolean) });
+    const stawka = (euro && klasa) ? zestaw.stawki?.[`${paliwo}|${euro}|${klasa}`] : undefined;
+    if (!euro || !klasa || gestosc === undefined || stawka === undefined) {
+      wynik.nieustalone.push({ nr_rej: p.nr_rej, fuel_type: p.fuel_type, euro: p.euro, klasa,
+        brakuje: [
+          !euro && 'norma EURO',
+          !klasa && 'klasa pojazdu (DMC + rodzaj)',
+          gestosc === undefined && 'gęstość paliwa',
+          stawka === undefined && (euro && klasa
+            ? `stawka dla ${paliwo}|${euro}|${klasa} (Tabela D kończy się na EURO 5)`
+            : 'stawka'),
+        ].filter(Boolean) });
       continue;
     }
     const mg = (p.liters * gestosc) / 1000;               // litry → kg → Mg
     const pln = mg * stawka;
-    wynik.pozycje.push({ nr_rej: p.nr_rej, paliwo, euro, liters: p.liters,
+    wynik.pozycje.push({ nr_rej: p.nr_rej, paliwo, euro, klasa, liters: p.liters,
       mg: Math.round(mg * 1000) / 1000, stawka, pln: Math.round(pln * 100) / 100 });
     wynik.razem_pln += pln;
   }
