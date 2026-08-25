@@ -7,6 +7,12 @@ on:
       - 'worker/**'
       - 'wrangler.toml'
       - 'package.json'
+  # Ręczne uruchomienie — do zweryfikowania zmian w SAMYM workflow (jak przejście
+  # na cloudflare/wrangler-action), których `paths:` wyżej nie łapie. Bez tego
+  # jedyną drogą sprawdzenia poprawki deployu jest zmiana w worker/** — czyli
+  # testowanie na prawdziwej zmianie produkcyjnej, dokładnie wtedy, gdy nie chcemy
+  # dwóch niewiadomych naraz.
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -15,19 +21,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install Wrangler
-        run: npm install -g wrangler@4.120.1
-
-      - name: Check Wrangler version
-        run: wrangler --version
-
+      # Oficjalna akcja Cloudflare zamiast ręcznego `npm install -g wrangler@X` —
+      # ten manualny wzorzec dwukrotnie psuł deploy (patrz CLAUDE.md, sekcja
+      # Zamknięte: "Rozjazd wersji Wranglera ujednolicony" i "Hotfix: wrangler
+      # wymaga Node.js >=22"): wersja była trzymana ręcznie zsynchronizowana
+      # w trzech plikach workflow, a wymagania Node zmieniały się między
+      # patchami bez ostrzeżenia w ogólnym changelogu migracji. Akcja sama
+      # dobiera zgodny Node — osobny krok setup-node nie jest potrzebny.
       - name: Deploy Worker
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: wrangler deploy
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.120.1'
