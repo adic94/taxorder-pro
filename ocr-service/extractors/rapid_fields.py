@@ -410,10 +410,36 @@ def _clean_value(key: str, raw: str) -> Optional[str]:
         return f"{m.group(1)}.{m.group(2)}.{m.group(3)}" if m else None
 
     if key == "p3_paliwo":
-        m = re.match(r"^([DBGPdbgp])", raw)
-        if not m:
-            return None
-        return {"D": "ON", "B": "PB", "G": "LPG", "P": "PB"}.get(m.group(1).upper(), raw)
+        # ⚠️ NAPĘDY ALTERNATYWNE MAJĄ NIŻSZĄ STAWKĘ PODATKU — do 25.08 wypadały tu
+        # po cichu. Poprzednia wersja żądała, żeby wartość ZACZYNAŁA SIĘ od D/B/G/P:
+        #     re.match(r"^([DBGPdbgp])", raw)
+        # Przez to „CNG", „LNG", „EE" (energia elektryczna) i „H2" nie pasowały wcale,
+        # a „LPG" rozpisane słownie też nie — mapowanie miało klucz „G", ale regex
+        # patrzył na PIERWSZĄ literę, więc trafiał tylko goły „G".
+        #
+        # Dlaczego to kosztuje: uchwała Rady m.st. Warszawy XXIX/1065/2025 § 3 daje
+        # pojazdom wodorowym, hybrydowym, elektrycznym, CNG i LNG stawki niższe
+        # o ok. 40% (np. ciężarowy 5,5–9 t: 672 zł zamiast 1128 zł). Pojazd, któremu
+        # zgubimy rodzaj paliwa, zostanie policzony według stawki podstawowej.
+        #
+        # Kolejność ma znaczenie: dłuższe oznaczenia PRZED jednoliterowymi, inaczej
+        # „LNG" trafiłoby w regułę dla „L".
+        low = _bez_diakrytykow(raw).upper()
+        for wzor, wynik in (
+            (r"\bLNG\b", "LNG"),
+            (r"\bCNG\b|SPREZONY GAZ", "CNG"),
+            (r"\bLPG\b|GAZ PLYNNY|PROPAN", "LPG"),
+            (r"\bH2\b|WODOR", "WODOR"),
+            (r"\bEE\b|ELEKTR|\bBEV\b", "ELEKTRYCZNY"),
+            (r"HYBRYD|\bHEV\b|\bPHEV\b", "HYBRYDA"),
+            (r"\bON\b|OLEJ NAPEDOWY|\bDIESEL\b", "ON"),
+            (r"\bPB\b|BENZYN", "PB"),
+        ):
+            if re.search(wzor, low):
+                return wynik
+        # Jednoliterowe kody z rubryki P.3 — dopiero po sprawdzeniu oznaczeń pełnych
+        m = re.match(r"^([DBGP])", low)
+        return {"D": "ON", "B": "PB", "G": "LPG", "P": "PB"}[m.group(1)] if m else None
 
     if key == "rok_prod":
         return raw if re.fullmatch(r"(19|20)\d{2}", raw) else None

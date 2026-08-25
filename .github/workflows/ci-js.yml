@@ -201,3 +201,9 @@ jobs:
       # konczy sie zla kategoria podatkowa, cicho.
       - name: Spojnosc dziedzin DR — katalog JS vs parser OCR
         run: node tests/unit/dr-domains-sync-test.js
+
+      # Stawki DT-1 trafiaja wprost do deklaracji podatkowej, a modul deklarowal
+      # "Warszawa 2026" bez zadnego sprawdzenia wobec zrodla. Liczba wpisana
+      # z pamieci wyglada w arkuszu identycznie jak odczytana z uchwaly.
+      - name: Stawki DT-1 zgodne z uchwala Rady m.st. Warszawy
+        run: node tests/unit/gminy-rates-test.js

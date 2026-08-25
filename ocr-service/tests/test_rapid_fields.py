@@ -336,6 +336,46 @@ class TestKategoriaIRokProdukcji:
         assert result["rok_prod"][0] is None
 
 
+class TestPaliwoNapedyAlternatywne:
+    """
+    Rubryka P.3 to „rodzaj paliwa LUB ŹRÓDŁA MOCY" — nie tylko trzy paliwa płynne.
+    Do 25.08 parser żądał, żeby wartość ZACZYNAŁA SIĘ od D/B/G/P, więc „CNG",
+    „LNG", „EE" i „H2" wypadały po cichu, a „LPG" rozpisane słownie też nie trafiało
+    (mapowanie miało klucz „G", ale regex patrzył na pierwszą literę).
+
+    To kosztuje pieniądze: uchwała Rady m.st. Warszawy XXIX/1065/2025 § 3 daje
+    pojazdom wodorowym, hybrydowym, elektrycznym, CNG i LNG stawki niższe o ~40%
+    (ciężarowy 5,5–9 t: 672 zł zamiast 1128 zł). Zgubiony rodzaj paliwa = stawka
+    podstawowa.
+    """
+
+    @pytest.mark.parametrize("wejscie,oczekiwane", [
+        ("D", "ON"), ("B", "PB"), ("G", "LPG"), ("P", "PB"),      # kody jednoliterowe
+        ("ON", "ON"), ("PB", "PB"), ("Diesel", "ON"), ("benzyna", "PB"),
+        ("LPG", "LPG"), ("gaz płynny", "LPG"),
+        ("CNG", "CNG"), ("sprężony gaz ziemny", "CNG"),
+        ("LNG", "LNG"),
+        ("EE", "ELEKTRYCZNY"), ("elektryczny", "ELEKTRYCZNY"),
+        ("H2", "WODOR"), ("wodór", "WODOR"),
+        ("hybryda", "HYBRYDA"),
+    ])
+    def test_rozpoznaje_rodzaj_paliwa(self, wejscie, oczekiwane):
+        boxes = [Box("P.3", 450, 584, 480, 609, 0.99), Box(wejscie, 490, 588, 620, 623, 0.95)]
+        w, h = _page()
+        assert parse_fields_spatial(boxes, w, h)["p3_paliwo"][0] == oczekiwane
+
+    def test_lng_nie_wpada_w_regule_dla_l(self):
+        """Kolejność dopasowania: dłuższe oznaczenia przed jednoliterowymi."""
+        boxes = [Box("P.3", 450, 584, 480, 609, 0.99), Box("LNG", 490, 588, 560, 623, 0.95)]
+        w, h = _page()
+        assert parse_fields_spatial(boxes, w, h)["p3_paliwo"][0] == "LNG"
+
+    def test_pusta_rubryka_zostaje_pusta(self):
+        boxes = [Box("P.3", 450, 584, 480, 609, 0.99), Box("---", 490, 588, 540, 623, 0.9)]
+        w, h = _page()
+        assert parse_fields_spatial(boxes, w, h)["p3_paliwo"][0] is None
+
+
 class TestWolnyTekst:
     def test_norma_euro_znaleziona_w_tekscie(self):
         boxes = [Box("ADNOTACJE: EURO 6 silnik diesla", 50, 500, 400, 520, 0.9)]
