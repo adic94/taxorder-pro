@@ -196,6 +196,49 @@ class TestWartosciDziesietne:
         assert result["f1_dmc"][0] is None
 
 
+class TestPrzeznaczenieDziedzinaZamknieta:
+    """
+    `przeznaczenie` decyduje o ZWOLNIENIU z DT-1 (pojazd specjalny), a jego
+    etykieta („RODZAJ POJAZDU") bywa dla OCR nieczytelna — zmierzone na WE6LR80:
+    odczytana jako „ACIZVOd IVZCON" przy pewności 0.69, podczas gdy sama WARTOŚĆ
+    miała 0.93. Dlatego pole szuka wartości po zamkniętej dziedzinie rodzajów,
+    nie przez dopasowanie do etykiety.
+    """
+
+    def test_rodzaj_znaleziony_bez_etykiety(self):
+        boxes = [Box("SAMOCHÓD CIEŽAROWY", 181, 344, 378, 377, 0.93)]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["przeznaczenie"][0] == "SAMOCHÓD CIEŽAROWY"
+
+    def test_specjalny_znaleziony(self):
+        """Najważniejszy przypadek — od tego zależy zwolnienie podatkowe."""
+        boxes = [Box("SAMOCHÓD SPECJALNY", 181, 344, 378, 377, 0.95)]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert "SPECJALNY" in result["przeznaczenie"][0].upper()
+
+    def test_asenizacyjny_znaleziony(self):
+        boxes = [Box("ASENIZACYJNY", 181, 344, 300, 377, 0.9)]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["przeznaczenie"][0] == "ASENIZACYJNY"
+
+    def test_smiec_nie_przechodzi(self):
+        """Kontrola negatywna: fragment MRZ przechodził w poprzedniej wersji."""
+        boxes = [Box("DRP0L1465108BAP0520303147043461<<<<<<0", 100, 300, 500, 330, 0.7)]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["przeznaczenie"][0] is None
+
+    def test_etykieta_innego_pola_nie_przechodzi(self):
+        """„DOPUSZCZALNA" (etykieta ładowności) przechodziła w poprzedniej wersji."""
+        boxes = [Box("DOPUSZCZALNA", 100, 300, 250, 330, 0.9)]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["przeznaczenie"][0] is None
+
+
 class TestWolnyTekst:
     def test_norma_euro_znaleziona_w_tekscie(self):
         boxes = [Box("ADNOTACJE: EURO 6 silnik diesla", 50, 500, 400, 520, 0.9)]

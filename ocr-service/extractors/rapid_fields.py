@@ -261,6 +261,24 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", "", s.strip().upper())
 
 
+def _bez_diakrytykow(s: str) -> str:
+    """
+    Składa znaki diakrytyczne do gołych liter ASCII, żeby porównanie ze słownikiem
+    nie zależało od tego, który wariant znaku wybrał OCR.
+
+    NIE jest to kosmetyka: RapidOCR czyta polskie „Ż" raz jako `Ż` (U+017B, kropka),
+    raz jako `Ž` (U+017D, daszek) — to RÓŻNE punkty kodowe, więc `"cieżarowy" in
+    text.lower()` nie trafiało w „SAMOCHÓD CIEŽAROWY" (zmierzone na WE6LR80).
+    Wyliczanie wariantów w słowniku byłoby walką z nieskończonością; składanie
+    do ASCII rozwiązuje całą klasę naraz — także `Ó`/`O`, `Ł`/`L`, `Ę`/`E`.
+    """
+    import unicodedata
+    rozlozone = unicodedata.normalize("NFKD", s)
+    bez = "".join(c for c in rozlozone if not unicodedata.combining(c))
+    # „ł"/„Ł" nie rozkłada się przez NFKD — trzeba osobno.
+    return bez.replace("ł", "l").replace("Ł", "L")
+
+
 def _vertical_overlap_ratio(a: Box, b: Box) -> float:
     inter = max(0.0, min(a.y1, b.y1) - max(a.y0, b.y0))
     shorter = min(a.h, b.h) or 1.0
@@ -434,7 +452,41 @@ def parse_fields_spatial(boxes: list[Box], page_w: float, page_h: float) -> dict
     for key in COMBINED_PATTERNS:
         result.setdefault(key, (None, 0.0))
 
-    # 3) norma_euro / zawieszenie — brak stałej pozycji (żyją w wolnym tekście
+    # 3) przeznaczenie / rodzaj pojazdu — DZIEDZINA ZAMKNIĘTA, nie geometria.
+    #
+    # DLACZEGO NIE PRZEZ ETYKIETĘ: wartość „SAMOCHÓD CIĘŻAROWY" należy do rubryki
+    # RODZAJ POJAZDU, której etykieta bywa nieczytelna dla OCR (zmierzone na
+    # WE6LR80: odczytana jako „ACIZVOd IVZCON", pewność 0.69). Dopasowanie
+    # etykieta→wartość nie ma wtedy punktu zaczepienia i pole zostaje puste,
+    # choć sama WARTOŚĆ jest odczytana bezbłędnie (pewność 0.93).
+    #
+    # To pole decyduje o ZWOLNIENIU z podatku DT-1 (pojazd specjalny —
+    # patrz TaxEngine.getCat), więc jego utrata jest kosztowna. Rodzaje pojazdu
+    # tworzą krótki, zamknięty zbiór — więc szukamy WARTOŚCI wprost, tak jak
+    # przy kategorii homologacyjnej. Odporne i na nieczytelną etykietę, i na
+    # obrót strony.
+    # Zapisane BEZ diakrytyków — porównanie też idzie przez `_bez_diakrytykow`,
+    # więc jeden wpis pokrywa wszystkie warianty znaków, jakie zwróci OCR.
+    RODZAJE = [
+        "samochod specjalny", "samochod ciezarowy", "samochod osobowy",
+        "ciagnik samochodowy", "ciagnik rolniczy",
+        "przyczepa ciezarowa", "przyczepa lekka", "przyczepa specjalna", "naczepa",
+        "motocykl", "motorower", "autobus", "czterokolowiec",
+        # Przeznaczenia szczegółowe — te decydują o zwolnieniu jako „specjalny"
+        "asenizacyjny", "przewoz wody", "dostawa wody",
+        "szambiarka", "wodolejka", "do czyszczenia",
+    ]
+    if not result.get("przeznaczenie", (None, 0))[0]:
+        for b in boxes:
+            t = b.text.strip()
+            if len(t) > 60:
+                continue
+            low = _bez_diakrytykow(t).lower()
+            if any(r in low for r in RODZAJE):
+                result["przeznaczenie"] = (t, min(0.8, b.score))
+                break
+
+    # 4) norma_euro / zawieszenie — brak stałej pozycji (żyją w wolnym tekście
     # adnotacji urzędowych), więc szukane w CAŁYM tekście strony, nie geometrycznie.
     full_text = " ".join(b.text for b in boxes)
     m = re.search(r"EURO\s*([0-6]|I{1,3}V?|VI{0,3})\b", full_text, re.IGNORECASE)
