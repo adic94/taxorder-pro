@@ -319,6 +319,16 @@ function wiersz(k, nrOryginalny) {
         powody.push(`model mówi ${zModelu} kg, a DMC ${dmcN} kg`);
     }
 
+    // 5. Identyfikator modelu AI zamiast wartości pola. WE129YG (Isuzu D-Max)
+    //    miał model „qwen/qwen3.6-27b"; w checkpointcie DR takich rekordów
+    //    jest 109 z 1318. Worker filtruje to od teraz u źródła, ale dane już
+    //    zebrane pozostają zanieczyszczone — arkusz nie może ich przemilczeć.
+    for (const [pole, wart] of Object.entries(r)) {
+      if (pole.startsWith('_') || typeof wart !== 'string') continue;
+      if (/^(cf-workers-ai|@cf\/)|\b(llama-?[0-9]|qwen[0-9]?|gpt-[0-9]|claude-[0-9]|gemma-?[0-9]|mistral-|pixtral|deepseek)/i.test(wart.trim()))
+        powody.push(`pole „${pole}" zawiera identyfikator modelu AI („${wart.trim().slice(0, 30)}"), nie dane pojazdu`);
+    }
+
     // 4. Paliwo przeczy oznaczeniu silnika. CDI/TDI/HDI/dCi/JTD to fabryczne
     //    oznaczenia DIESLA — „Benzyna" przy nich (WB7521S) to zły odczyt,
     //    a paliwo wybiera stawkę § 3 uchwały i wskaźnik CO2.

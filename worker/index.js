@@ -2930,8 +2930,35 @@ async function handleAztec(request) {
 //
 // Sanityzacja i walidacja pól zwróconych przez AI.
 // Priorytet: zachowaj F.1 (DMC) — to pole kluczowe dla DT-1.
+// Identyfikator modelu AI, który nie ma prawa być wartością pola pojazdu.
+// ZNALEZIONE W DANYCH, nie wymyślone: pojazd WE129YG (Isuzu D-Max) miał model
+// „qwen/qwen3.6-27b", a w checkpointcie ekstrakcji DR takich rekordów jest
+// 109 z 1318 — 8%. Najczęstsza wartość to `cf-workers-ai-llama-3.2-11b`,
+// czyli DOSŁOWNIE literał, który ten plik składa przy odpowiedzi z warstwy CF.
+// Model językowy nie zna tego napisu, więc to nie halucynacja — to wyciek
+// koperty odpowiedzi do pól. Producenta (skrypt wsadowy z wcześniejszej sesji)
+// już nie ma, ale klasa błędu zostaje: KAŻDY konsument, który zrobi
+// `{...odpowiedz}` zamiast `{...odpowiedz.fields}`, odtworzy ją natychmiast.
+//
+// Bramka stoi tutaj, bo `_sanitizeOcrFields` jest jedynym wąskim gardłem,
+// przez które przechodzą wszystkie pola OCR ze wszystkich warstw kaskady.
+// Wzorzec jest CELOWO wąski — „Scout" to nazwa modelu Internationala, a nie
+// tylko `llama-4-scout`, więc samo słowo nie wystarcza do odrzucenia.
+// ⚠️ NIE dopisuj tu ogólnego wzorca „vendor/model" (`^[\w.-]+\/[\w.-]+$`) — kusi,
+// bo łapie `qwen/qwen3.6-27b` bez listy nazw, ale numer homologacji ma postać
+// `e4*2007/46*0413*14`, a D.2 bywa `ATFS-87C/1`. Taka reguła kasowałaby pola
+// urzędowe. Lista rodzin jest węższa i wystarcza: `qwen/…` łapie się na `qwen`.
+const _WZORZEC_MODELU_AI = /^(cf-workers-ai|@cf\/)|\b(llama-?[0-9]|qwen[0-9]?|gpt-[0-9]|claude-[0-9]|gemma-?[0-9]|mistral-|pixtral|deepseek|phi-[0-9])/i;
+
 function _sanitizeOcrFields(f) {
   if (!f || typeof f !== 'object') return f;
+
+  for (const [k, v] of Object.entries(f)) {
+    if (typeof v === 'string' && v.trim() && _WZORZEC_MODELU_AI.test(v.trim())) {
+      console.log(`[OCR sanitize] pole ${k} odrzucone — wygląda na identyfikator modelu AI: ${v.slice(0, 60)}`);
+      delete f[k];
+    }
+  }
 
   // nrRej: usuń spacje; musi zaczynać się od 2-3 wielkich liter i zawierać cyfrę
   // (odrzuca słowa-etykiety jak "POJAZDU", "REJESTRACYJNY" itp.)

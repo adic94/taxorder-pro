@@ -207,3 +207,10 @@ jobs:
       # z pamieci wyglada w arkuszu identycznie jak odczytana z uchwaly.
       - name: Stawki DT-1 zgodne z uchwala Rady m.st. Warszawy
         run: node tests/unit/gminy-rates-test.js
+
+      # 109 z 1318 rekordow DR mialo identyfikator modelu AI w polu pojazdu
+      # (WE129YG: model = "qwen/qwen3.6-27b"). Wyciek koperty odpowiedzi, nie
+      # halucynacja modelu. Bramka pilnuje wzorca z OBU stron: za waski przestaje
+      # lapac modele, za szeroki zaczyna kasowac numery homologacji.
+      - name: Identyfikator modelu AI nie wchodzi do pol pojazdu
+        run: node tests/unit/ocr-model-leak-test.js
