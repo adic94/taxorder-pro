@@ -272,6 +272,49 @@ class TestKategoriaIRokProdukcji:
         result = parse_fields_spatial(boxes, w, h)
         assert result["kategoria"][0] is None
 
+    def test_litera_sekcji_C_nie_jest_kategoria(self):
+        """
+        REGRESJA zmierzona na pełnym przebiegu 58 dokumentów: 43 z 48 „trafień"
+        to była litera sekcji C (dane właściciela: C.1.1, C.2.1), nie kategoria.
+        Formy jednoliterowe („C", „T", „R", „S", „L") są w katalogu poprawnymi
+        kategoriami, ale jako wzorzec do szukania w OCR trafiają na każdej stronie.
+        """
+        boxes = [Box("C", 843, 462, 864, 485, 1.0)]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["kategoria"][0] is None
+
+    def test_litera_sekcji_z_sufiksem_nie_jest_kategoria(self):
+        """„CM" trafiało przez sufiks [A-Z]? doklejony do jednoliterowego „C"."""
+        boxes = [Box("CM", 843, 462, 880, 485, 0.9)]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["kategoria"][0] is None
+
+    def test_dziedzina_obowiazuje_takze_przy_wykrytej_etykiecie(self):
+        """
+        REGRESJA: gdy etykieta „J" ZOSTAJE wykryta, wartość szła ścieżką
+        geometryczną, gdzie kategoria była zwykłym tekstem — bez sprawdzenia
+        dziedziny. Przeciekało „01" (O1 odczytane jako zero-jeden).
+        """
+        boxes = [
+            Box("J", 900, 570, 920, 600, 1.0),
+            Box("01", 940, 575, 975, 600, 0.8),
+        ]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["kategoria"][0] is None
+
+    def test_poprawna_kategoria_przy_wykrytej_etykiecie_przechodzi(self):
+        """Kontrola pozytywna — zawężenie nie może odciąć prawdziwych wartości."""
+        boxes = [
+            Box("J", 900, 570, 920, 600, 1.0),
+            Box("N1G", 940, 575, 990, 600, 1.0),
+        ]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["kategoria"][0] == "N1G"
+
     def test_rok_produkcji_wartosc_po_prawej(self):
         """Układ z WE6LR80: etykieta w dwóch boxach, wartość obok „PRODUKCJI"."""
         boxes = [

@@ -134,6 +134,22 @@ pip install pytest
 pytest tests/ -q
 ```
 
+## Strojenie parsera bez deployu
+
+```bash
+pip install rapidocr onnxruntime pypdfium2
+python stroj_lokalnie.py <plik.pdf> [--boxy] [--json]
+python stroj_lokalnie.py --katalog <folder> --limit 20
+```
+
+**~10 s na dokument zamiast ~14 min** pętli `gcloud run deploy` + przebieg wsadowy.
+Sesja 25.08 pokazała, że to właśnie ta pętla, a nie model ani kod, była wąskim
+gardłem przy siedmiu kolejnych poprawkach parsera.
+
+Render lokalny (`pypdfium2`) i produkcyjny (`pdf.js`) to różne rasteryzatory —
+bezwzględne pokrycie potrafi się różnić o pojedyncze pola. Do porównań
+**względnych** („czy moja zmiana pomogła"), liczby do raportu z przebiegu wsadowego.
+
 ---
 
 ## Ograniczenia znane

@@ -277,12 +277,20 @@ KATEGORIE = [
     "T1", "T2", "T3", "T4", "T5", "C1", "C2", "C3", "C4", "C5",
     "R1", "R2", "R3", "R4", "S1", "S2", "T", "C", "R", "S", "L",
 ]
-# Sufiks G (terenowy, np. „N1G") i inne jednoliterowe rozszerzenia są dopuszczalne —
-# w dowodzie występują, a w katalogu ich nie ma, bo dziedzina wymienia klasy bazowe.
-# Sortowanie po długości malejąco: „L1E" musi być próbowane przed „L".
-_PAT_KATEGORIA = re.compile(
-    r"(?:" + "|".join(sorted((re.escape(k) for k in KATEGORIE), key=len, reverse=True)) + r")[A-Z]?"
-)
+# Wzorzec do wyszukiwania w OCR jest WĘŻSZY niż dziedzina katalogu — CELOWO.
+#
+# Katalog wymienia też formy JEDNOLITEROWE („T", „C", „R", „S", „L" — klasy
+# ciągników i przyczep rolniczych) i są one poprawnymi kategoriami. Ale jako
+# wzorzec do szukania w tekście OCR są katastrofalne: dowód rejestracyjny ma
+# na sobie litery sekcji („C.1.1", „C.2.1" — dane właściciela), więc goła litera
+# „C" trafia się na KAŻDEJ stronie. Zmierzone na pełnym przebiegu 58 dokumentów:
+# 43 z 48 trafień to było właśnie „C", a nie kategoria pojazdu.
+#
+# Wymagamy więc CYFRY różnicującej — to ona niesie informację (N1 vs N3 to inna
+# stawka DT-1). Kategoria zapisana jedną literą zostanie pominięta, i tak ma być:
+# pole puste jest odzyskiwalne z innego źródła, pole BŁĘDNE trafia do deklaracji
+# bez sygnału. Ta sama zasada, która stoi za UNIT_EXPECTED wyżej.
+_PAT_KATEGORIA = re.compile(r"(?:[MNOTCRS][1-5]|L[1-7]E)[A-Z]?")
 
 
 def _norm(s: str) -> str:
@@ -409,6 +417,16 @@ def _clean_value(key: str, raw: str) -> Optional[str]:
 
     if key == "rok_prod":
         return raw if re.fullmatch(r"(19|20)\d{2}", raw) else None
+
+    if key == "kategoria":
+        # Dziedzina obowiązuje NIEZALEŻNIE OD ŚCIEŻKI. Blok „dziedzina zamknięta"
+        # w parse_fields_spatial dotyczy tylko wyszukiwania bez etykiety; gdy
+        # etykieta „J" ZOSTANIE wykryta, wartość szła ścieżką geometryczną i była
+        # traktowana jak zwykły tekst. Zmierzone: przeciekało „01" (O1 odczytane
+        # jako zero-jeden). Kategoria wprost przekłada się na stawkę DT-1, więc
+        # wartość spoza dziedziny musi wypaść — pusta jest odzyskiwalna, błędna nie.
+        v = _norm(raw)
+        return v if _PAT_KATEGORIA.fullmatch(v) else None
 
     if key == "przeznaczenie" and raw.upper() in _OTHER_LABEL_WORDS:
         # Zabezpieczenie przed "przeciekiem" sąsiedniego pola, gdy prawdziwa wartość
