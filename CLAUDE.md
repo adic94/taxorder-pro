@@ -423,6 +423,87 @@ wodorowych, hybrydowych, elektrycznych, CNG i LNG, NIŻSZE O OK. 40%** (ciężar
 nie czyta rodzaju paliwa. Bramka zawiera już właściwe kwoty § 3 i pilnuje, żeby po
 dodaniu były poprawne — ale samo dodanie to zmiana w wyliczaniu podatku, więc decyzja.
 
+### 💸 6 pojazdów płaci podatek DWA RAZY — 9 816 zł (25.08 noc)
+
+Najbardziej wymierne znalezisko sesji. **Scalanie idzie po numerze rejestracyjnym,
+a ten się przy przerejestrowaniu ZMIENIA** — pojazd zostaje więc w danych dwa razy
+i podatek liczony per wiersz płaci się dwukrotnie za jedno auto.
+
+| VIN | pojazd | tablice | zbędne |
+|---|---|---|---|
+| `WMAL87ZZZ3Y113513` | MAN 18.225 | WM1670X + WW1670X | 2 184 zł |
+| `W1V9071551N140624` | Mercedes Sprinter | WL1814U + WWE5XF3 + **WZ494CU** | 1 680 zł |
+| `W09TP28471A006V08` | przyczepa | PZ6G386 + WW117AF | 1 488 zł |
+| `WDB96702310423591` | Mercedes Atego | WGM77268 + WW699AN | 1 488 zł |
+| `W1T96702310437502` | Mercedes Atego | WGM85821 + WW715AR | 1 488 zł |
+| `VASAL214YFGPA8689` | GFOELNER APL 2/4 | WM024AF + WW024AF | 1 488 zł |
+
+**ROZSTRZYGA VIN, NIE NAZWA FOLDERU.** Nazwy katalogów (`WW699AN stare WGM77268`)
+wskazały 5 par — za słaby dowód, bo folder może zawierać dokumenty dwóch aut.
+VIN jest przypisany do nadwozia na stałe i **jako jedyna cecha przeżywa zmianę
+tablicy**. Po VIN-ie wyszło **26 pojazdów pod więcej niż jedną tablicą (53 wiersze)**,
+pięć razy więcej niż z nazw folderów.
+
+Dwie pary różnią się jedną literą (`WM1670X`/`WW1670X`, `WM024AF`/`WW024AF`) — to
+może być pomyłka OCR M↔W, nie przerejestrowanie. Dla wyniku bez różnicy: ten sam
+VIN to jeden pojazd i jedna należność.
+
+Arkusz „Ten sam VIN" w MASTER + uwaga przy każdym takim wierszu w wyliczeniu DT-1.
+**Narzędzie niczego nie odejmuje samo** — który numer jest aktualny, rozstrzyga
+dokument. Efekt: 175 → 160 pojazdów „bez zastrzeżeń", suma 292 056 zł bez zmian.
+
+### 🧹 Dwa wycieki naszej własnej infrastruktury do danych pojazdów (25.08 noc)
+
+Obie klasy znalezione ręcznym oglądaniem rekordów, nie testem. Obie wyglądają
+wiarygodnie i nie ruszają żadnego zakresu liczbowego.
+
+**[1] Identyfikator modelu AI jako wartość pola — 109 z 1318 rekordów DR (8%).**
+Pojazd `WE129YG` (Isuzu D-Max) ma model `qwen/qwen3.6-27b`. Dominująca wartość to
+`cf-workers-ai-llama-3.2-11b`, czyli DOSŁOWNIE literał, który `worker/index.js`
+składa sam — model językowy go nie zna, więc **to nie halucynacja, tylko wyciek
+koperty** `{ok, fields, model}` do pól. Ktoś zrobił `{...odpowiedz}` zamiast
+`{...odpowiedz.fields}`.
+
+**[2] Model przepisał OPIS POLA z promptu.** W raporcie dla zarządu:
+`paliwo = „P.3 — D lub B lub G"`, `nrHomolog = „K — nr homologacji np e32*…"`,
+`model = „D.3 — model np ACTROS lub SPRINTER"`. Prompt wysyła
+`JSON.stringify(DR_POLA_OCR)`, więc opis stoi modelowi przed oczami.
+
+Obie bramki stoją w `_sanitizeOcrFields` — jedynym wąskim gardle wszystkich
+czterech warstw kaskady. Bramka [2] czyta `DR_POLA_OCR`, więc zmiana promptu
+przenosi się na nią sama.
+
+> ⚠️ **NIE „uogólniaj" reguły [2] na „wartość ZAWIERA SIĘ w opisie".** Kusi, bo
+> brzmi szerzej. Opisy pól **z założenia wymieniają poprawne odpowiedzi**: opis
+> `zawieszenie` podaje „pneumatyczne", `przeznaczenie` podaje „SAMOCHOD CIEZAROWY",
+> a `vin` i `nrHomolog` niosą przykłady, które realny pojazd może mieć naprawdę.
+> Zmierzone: taka wersja kasowała SZEŚĆ poprawnych odczytów. Dopasowanie od
+> POCZĄTKU tej wady nie ma. Pilnuje tego `tests/unit/ocr-model-leak-test.js`.
+
+**Ta sama rodzina po stronie parsera pythonowego** (`rapid_fields.py`, bramki
+w `_clean_value`): **kod rubryki jako wartość** (`marka="D.3"`, `model="E"`,
+`nrHomolog="L"` na AH91412) oraz **strefa MRZ jako numer homologacji**
+(`DRP0L1465038BAP2257369382123092<<<<<` na WA6441C — wygląda urzędowo, bo NIM
+JEST, tylko to inny fragment dokumentu). Bramka kodów rubryk **musi mieć wyjątek
+na `p3_paliwo`** — tam „D"/„B"/„G" to poprawne wartości.
+
+### 🔁 `tools/dr-reocr-podejrzane.js` — ponowny OCR sprzecznych wierszy (25.08 noc)
+
+Przepuszcza przez naprawiony parser te dowody, których dane przeczą samym sobie.
+Przebieg na 51 podejrzanych: **35 przetworzonych, 32 ze zmianami, 30 w polach
+podatkowych, 16 BEZ ŻADNEGO SKANU** (niezależne potwierdzenie pojazdów-widm).
+
+  NAL061   marka „ZASTERA", DMC puste  →  MERCEDES-BENZ, DMC 5500, kat. N2
+  WA4789F  DMC 27000, paliwo „benzyna" →  DMC 33000, paliwo ON
+  WA6441C  DMC zespołu 125 kg          →  8600 kg
+  14 pojazdów                          →  kategoria N2 (w DR bywało M1!)
+
+**Narzędzie NIC NIE ZAPISUJE** — wypisuje porównanie i raport JSON. Ten sam
+przebieg pokazał, dlaczego to właściwa granica: `WA9885J` dostał model
+„ACTROS9885" (doklejone cyfry numeru) i DMC zespołu 3122 przy DMC 27000 — dalej
+sprzeczne. OCR, który raz się pomylił, nie staje się wiarygodny przez to, że
+pomylił się inaczej.
+
 ### 🗂️ Arkusz MASTER: cztery źródła, EURO z 1/54 do 568/945 (25.08 noc)
 
 `tools/flota-master.js` łączy po numerze rejestracyjnym cztery zbiory, **wszystkie
