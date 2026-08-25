@@ -193,3 +193,11 @@ jobs:
       # zwraca pusty wynik, nie blad. Bramka czyta funkcje wprost z pliku produkcyjnego.
       - name: Straznik zapytan do CEPiK — limity API i budzet zadan
         run: node tests/unit/cepik-batch-test.js
+
+      # Dziedzina kategorii homologacyjnej istnieje w DWOCH miejscach, bo katalog
+      # jest w JS, a parser OCR w Pythonie (i buduje sie z samego ocr-service/,
+      # wiec dr-fields.js nie trafia nawet do jego obrazu). Kopia jest konieczna —
+      # ta bramka sprawia, ze jest bezpieczna. Kategoria to pole DT-1, wiec rozjazd
+      # konczy sie zla kategoria podatkowa, cicho.
+      - name: Spojnosc dziedzin DR — katalog JS vs parser OCR
+        run: node tests/unit/dr-domains-sync-test.js

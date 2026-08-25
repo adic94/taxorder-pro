@@ -239,6 +239,60 @@ class TestPrzeznaczenieDziedzinaZamknieta:
         assert result["przeznaczenie"][0] is None
 
 
+class TestKategoriaIRokProdukcji:
+    """
+    Oba pola miały pokrycie 0/54 z dwóch RÓŻNYCH powodów — patrz komentarze
+    w rapid_fields.py. Kategoria: etykieta „J" to pojedyncza litera i detektor
+    nie wydziela jej jako osobnego boxu. Rok: OCR rozbija „ROK PRODUKCJI" na
+    dwa boxy jeden pod drugim, a wartość leży PO PRAWEJ, nie pod spodem.
+    """
+
+    def test_kategoria_znaleziona_bez_etykiety(self):
+        boxes = [Box("N1G", 776, 635, 816, 662, 1.0)]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["kategoria"][0] == "N1G"
+
+    def test_kategoria_bez_sufiksu(self):
+        boxes = [Box("M1", 776, 635, 806, 662, 1.0)]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["kategoria"][0] == "M1"
+
+    def test_kategoria_motocyklowa(self):
+        boxes = [Box("L3E", 776, 635, 816, 662, 1.0)]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["kategoria"][0] == "L3E"
+
+    def test_tablica_rejestracyjna_nie_jest_kategoria(self):
+        """Kontrola negatywna — wzorzec musi być na tyle wąski, żeby nie łapać tablic."""
+        boxes = [Box("WE6LR80", 594, 575, 720, 609, 0.94)]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["kategoria"][0] is None
+
+    def test_rok_produkcji_wartosc_po_prawej(self):
+        """Układ z WE6LR80: etykieta w dwóch boxach, wartość obok „PRODUKCJI"."""
+        boxes = [
+            Box("ROK", 168, 496, 197, 514, 1.0),
+            Box("PRODUKCJI", 168, 510, 232, 527, 0.96),
+            Box("2026", 308, 503, 358, 529, 1.0),
+        ]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["rok_prod"][0] == "2026"
+
+    def test_rok_poza_zakresem_odrzucony(self):
+        boxes = [
+            Box("PRODUKCJI", 168, 510, 232, 527, 0.96),
+            Box("981", 308, 503, 358, 529, 1.0),
+        ]
+        w, h = _page()
+        result = parse_fields_spatial(boxes, w, h)
+        assert result["rok_prod"][0] is None
+
+
 class TestWolnyTekst:
     def test_norma_euro_znaleziona_w_tekscie(self):
         boxes = [Box("ADNOTACJE: EURO 6 silnik diesla", 50, 500, 400, 520, 0.9)]

@@ -179,8 +179,15 @@ FIELD_LABELS: dict[str, tuple[str, str]] = {
     "p3_paliwo":             (r"^P\.?\s*3$", "right"),
     "s1_miejsca_siedz":      (r"^S\.?\s*1$", "right"),
     "s2_miejsca_stojace":    (r"^S\.?\s*2$", "right"),
-    # Etykiety opisowe (nie jednoliterowe) — szukane CAŁYM tekstem, wartość zwykle POD spodem
-    "rok_prod":              (r"ROK\s+PRODUKCJI", "below"),
+    # Etykiety opisowe. `rok_prod` — DWIE poprawki naraz, obie wymuszone pomiarem:
+    # (1) OCR rozbija „ROK PRODUKCJI" na DWA boxy jeden pod drugim („ROK" /
+    #     „PRODUKCJI"), więc wzorzec wymagający obu słów w jednym boxie nie
+    #     trafiał nigdy — pokrycie 0/54. Kotwiczymy na każdym z osobna.
+    # (2) Kierunek `any`, nie `below`: na WE6LR80 wartość leży PO PRAWEJ od
+    #     etykiety, ale układ „etykieta nad wartością" też występuje w tej
+    #     kolumnie. `any` próbuje najpierw w prawo, potem pod spodem — obsługuje
+    #     oba, zamiast zakładać jeden na podstawie pojedynczego dokumentu.
+    "rok_prod":              (r"PRODUKCJI|^ROK$", "any"),
     "przeznaczenie":         (r"PRZEZNACZENIE|RODZAJ\s+POJAZDU", "below"),
 }
 
@@ -255,6 +262,27 @@ def _wykryta_jednostka(raw: str) -> Optional[str]:
 # ułożonej kolumnie beżowej) dostanie jedno z tych słów jako wartość, to sygnał
 # przecieku, nie prawdziwa treść pola.
 _OTHER_LABEL_WORDS = {"ROK", "PRODUKCJI"}
+
+# Dziedzina kategorii homologacyjnej (2007/46/WE).
+#
+# ⚠ TO JEST KOPIA `domena` pola „J" z `modules/dr-fields.js` — katalog jest w JS,
+# ten parser w Pythonie, więc importu nie ma. Kopia jest ŚWIADOMA i pilnowana:
+# bramka `tests/unit/dr-domains-sync-test.js` czyta OBA pliki i pada, gdy się
+# rozjadą. Bez niej byłaby to piąta rozjeżdżająca się lista w tej rodzinie
+# (precedensy: dwie tablice CO2, dwie listy źródeł raportów, dwie deklaracje ZXing).
+# Dopisując kategorię — dopisz ją w dr-fields.js, nie tutaj.
+KATEGORIE = [
+    "M1", "M2", "M3", "N1", "N2", "N3", "O1", "O2", "O3", "O4",
+    "L1E", "L2E", "L3E", "L4E", "L5E", "L6E", "L7E",
+    "T1", "T2", "T3", "T4", "T5", "C1", "C2", "C3", "C4", "C5",
+    "R1", "R2", "R3", "R4", "S1", "S2", "T", "C", "R", "S", "L",
+]
+# Sufiks G (terenowy, np. „N1G") i inne jednoliterowe rozszerzenia są dopuszczalne —
+# w dowodzie występują, a w katalogu ich nie ma, bo dziedzina wymienia klasy bazowe.
+# Sortowanie po długości malejąco: „L1E" musi być próbowane przed „L".
+_PAT_KATEGORIA = re.compile(
+    r"(?:" + "|".join(sorted((re.escape(k) for k in KATEGORIE), key=len, reverse=True)) + r")[A-Z]?"
+)
 
 
 def _norm(s: str) -> str:
@@ -486,7 +514,24 @@ def parse_fields_spatial(boxes: list[Box], page_w: float, page_h: float) -> dict
                 result["przeznaczenie"] = (t, min(0.8, b.score))
                 break
 
-    # 4) norma_euro / zawieszenie — brak stałej pozycji (żyją w wolnym tekście
+    # 4) kategoria (J) — DZIEDZINA ZAMKNIĘTA, jak przeznaczenie wyżej.
+    #
+    # Etykieta „J" to POJEDYNCZA litera i detektor nie zawsze wydziela ją jako
+    # osobny box — zmierzone na WE6LR80: wartość „N1G" odczytana z pewnością 1.00,
+    # ale żadnego boxu „J" na stronie. Pokrycie tego pola wynosiło 0/54.
+    #
+    # Kategoria homologacyjna ma dziedzinę zamkniętą (2007/46/WE), więc szukamy
+    # WARTOŚCI wprost — to samo rozwiązanie, które zadziałało dla przeznaczenia.
+    # Ryzyko fałszywego trafienia jest niskie: wzorzec jest krótki i sztywny,
+    # a tablice rejestracyjne i fragmenty VIN są dłuższe.
+    if not result.get("kategoria", (None, 0))[0]:
+        for b in boxes:
+            t = _norm(b.text)
+            if _PAT_KATEGORIA.fullmatch(t):
+                result["kategoria"] = (t, min(0.8, b.score))
+                break
+
+    # 5) norma_euro / zawieszenie — brak stałej pozycji (żyją w wolnym tekście
     # adnotacji urzędowych), więc szukane w CAŁYM tekście strony, nie geometrycznie.
     full_text = " ".join(b.text for b in boxes)
     m = re.search(r"EURO\s*([0-6]|I{1,3}V?|VI{0,3})\b", full_text, re.IGNORECASE)
