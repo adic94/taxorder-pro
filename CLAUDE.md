@@ -1405,10 +1405,20 @@ npx sg run -p 'el.innerHTML = $X' modules/*.js
 `jsconfig.json` w roieniu projektu aktywuje pełne IDE IntelliSense dla plików `.js`
 (podpowiedzi typów, navigation, find references) — działa automatycznie w VS Code.
 
+### Slash commands — spakowane procedury (`.claude/commands/`)
+
+| Komenda | Kiedy |
+|---|---|
+| `/akt-prawny <czego szukasz>` | **Potrzebujesz treści przepisu.** ISAP **odbija automaty** (302 sam na siebie w nieskończoność) — działają `dziennikustaw.gov.pl` / `monitorpolski.gov.pl` + API ELI do sprawdzenia, czy akt **obowiązuje**. Zawiera dwie pułapki wyciągania tabel, obie zmierzone: niekonsekwentny separator dziesiętny i konieczność weryfikacji numeracji Lp |
+| `/ocr-diagnoza <pole albo plik>` | **Pole DR się nie wyciąga.** Najpierw pomiar pokrycia, potem surowe boxy (`tools/dr-ocr-boxes.js`) — bo „OCR nie odczytał" i „parser nie dopasował" wyglądają identycznie, a wymagają innych napraw. Strojenie lokalne (`ocr-service/stroj_lokalnie.py`) skraca pętlę z ~14 min do ~10 s |
+
+Pozostałe: `/audyt`, `/bezpieczenstwo`, `/migracja`, `/modul`, `/przed-mergem`,
+`/status`, `/wdroz`.
+
 ### Audyt własny (tools/autotest/)
 ```bash
 npm run audit:all       # syntax + XSS + i18n + SW cache + WSZYSTKIE bramki jednostkowe
-npm run test:gates      # same bramki z tests/unit/ (18 plików, 141 asercji, ~20 s)
+npm run test:gates      # same bramki z tests/unit/ (19 plików, 154 asercje, ~20 s)
 npm run xss-audit       # szuka innerHTML bez esc()
 npm run sw-check        # weryfikuje CACHE_NAME po zmianach index.html
 npm run migration-check # sprawdza czy schematy są spójne
