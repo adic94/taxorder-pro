@@ -6793,6 +6793,50 @@ async function handleTCO(request, env, user, url, path) {
  * Lista jest CELOWO PUSTA. Nie wpisuję stawek, których nie odczytałem ze źródła —
  * a `computeEnvironmentalFee` przy braku zestawu ODMAWIA wyliczenia zamiast zwrócić
  * zero. Cicha zerowa należność wobec urzędu marszałkowskiego byłaby gorsza niż błąd.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════
+ * ⛔ ŹRÓDŁO ODCZYTANE 25.08.2026 — I OKAZAŁO SIĘ, ŻE TA STRUKTURA GO NIE POMIEŚCI.
+ *
+ * Obwieszczenie jest dostępne i zweryfikowane:
+ *   M.P. 2025 poz. 769 (stawki na 2026) — https://monitorpolski.gov.pl/M2025000076901.pdf
+ *   M.P. 2024 poz. 794 (stawki na 2025) — https://monitorpolski.gov.pl/M2024000079401.pdf
+ *   metadane/status: https://api.sejm.gov.pl/eli/acts/MP/2025/769
+ * Stawki dla pojazdów są w TABELI D („Jednostkowe stawki opłaty za gazy lub pyły
+ * wprowadzane do powietrza z procesów spalania paliw w silnikach spalinowych").
+ *
+ * PROBLEM: tabela ma TRZY wymiary, a `stawki: { 'paliwo|EURO': kwota }` ma DWA.
+ * Brakuje KLASY POJAZDU — a to nie niuans, tylko różnica rzędu 60%. Dla oleju
+ * napędowego EURO 5 (stawki na 2026, zł za Mg):
+ *
+ *     samochód osobowy .......................... 5,76
+ *     do 3,5 Mg, inny niż osobowy ............... 6,82
+ *     powyżej 3,5 Mg, z wyjątkiem autobusów ..... 9,19
+ *
+ * Tabela D ma 32 pozycje: osobowe, do 3,5 Mg inne niż osobowe, powyżej 3,5 Mg,
+ * autobusy powyżej 3,5 Mg, ciągniki i inne — każda z własnym progiem EURO albo
+ * przedziałem daty pierwszej rejestracji. Kolumn paliwa jest SZEŚĆ, nie trzy:
+ * benzyna BS, LPG, CNG w silniku FABRYCZNIE przystosowanym, CNG w silniku
+ * PRZEBUDOWANYM (inna stawka!), olej napędowy ON, biodiesel BD.
+ *
+ * Nasza flota to głównie pojazdy powyżej 3,5 Mg i dostawcze — czyli dokładnie te
+ * klasy, dla których wpisanie stawki „osobowej" zaniżyłoby należność o ok. 40%.
+ * Dlatego NIE wypełniam tej listy w obecnym kształcie: dane byłyby wprowadzone
+ * poprawnie co do liczby i błędnie co do zastosowania, a wynik wyglądałby
+ * wiarygodnie. To ta sama klasa, co `dmcKg=1882` z sąsiedniej rubryki.
+ *
+ * DRUGI BRAK, niezależny: obwieszczenie NIE PODAJE GĘSTOŚCI paliw — sprawdzone
+ * wyszukiwaniem pełnotekstowym w obu rocznikach („gęstoś", „kg/m3", „kg/dm",
+ * „g/cm" — zero trafień). Gęstość, bez której nie przeliczy się litrów na Mg,
+ * pochodzi z innego źródła i musi zostać zadeklarowana osobno.
+ *
+ * CO TRZEBA ZROBIĆ, ZANIM TA FUNKCJA ZACZNIE LICZYĆ (kolejność ma znaczenie):
+ *   1. Rozszerzyć klucz stawki o klasę pojazdu, np. `'ON|EURO 5|powyzej_3_5t'`,
+ *      i dodać rozstrzyganie klasy z DMC + rodzaju pojazdu (mamy oba w katalogu).
+ *   2. Rozdzielić CNG na fabryczny i przebudowany — dziś `co2FactorFor` zwraca
+ *      jeden klucz `cng` i nie odróżni tych dwóch stawek.
+ *   3. Dopiero wtedy przepisać liczby z Tabeli D wraz z `zrodlo` i rokiem.
+ *   4. Gęstości — osobne źródło, osobna decyzja, też z podaniem pochodzenia.
+ * ══════════════════════════════════════════════════════════════════════════════
  */
 const ENV_FEE_RATE_SETS = [];
 

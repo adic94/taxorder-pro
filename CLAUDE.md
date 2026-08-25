@@ -231,12 +231,29 @@ taxorder-pro/
 >   i odrzuca 2,68, ale nie zastępuje odczytu z aktualnej tabeli KOBiZE — dlatego `zrodlo`
 >   nadal mówi „niezweryfikowane". Sprawozdanie w CO2e wymaga OSOBNEGO zestawu z własnym
 >   `od`, nie podmiany tych liczb.
-> - **Stawki opłat środowiskowych** z obwieszczenia — **nadal otwarte i nie do zamknięcia
->   przeze mnie.** `ENV_FEE_RATE_SETS` jest celowo pusta, a `computeEnvironmentalFee`
->   ODMAWIA wyliczenia zamiast zwrócić zero. Wpisanie stawek z pamięci byłoby dokładnie tym
->   błędem, przed którym ten kod się broni: zerowa albo zmyślona należność wobec urzędu
->   marszałkowskiego wygląda wiarygodnie i nikt jej nie zakwestionuje. Potrzebny odczyt
->   ze źródła — wraz z gęstościami paliw, na których stawki oparto.
+> - **Stawki opłat środowiskowych** — **ŹRÓDŁO ODCZYTANE 25.08, ale blokadą jest teraz
+>   STRUKTURA DANYCH, nie brak dostępu.** Obwieszczenia są dostępne i zweryfikowane:
+>   `monitorpolski.gov.pl/M2025000076901.pdf` (M.P. 2025 poz. 769, stawki na 2026)
+>   i `M2024000079401.pdf` (M.P. 2024 poz. 794, na 2025). Stawki dla pojazdów są
+>   w **Tabeli D**.
+>
+>   **Odczyt ujawnił, że `ENV_FEE_RATE_SETS` ma ZŁY KSZTAŁT.** Klucz to dziś
+>   `paliwo|EURO` — dwa wymiary. Tabela D ma **trzy**: brakuje KLASY POJAZDU,
+>   a to różnica rzędu 60%. Olej napędowy EURO 5, stawki na 2026 (zł/Mg):
+>   osobowy **5,76**, do 3,5 t inny niż osobowy **6,82**, powyżej 3,5 t **9,19**.
+>   Nasza flota to głównie te dwie ostatnie klasy — wpisanie stawki „osobowej"
+>   zaniżyłoby należność o ~40%, a wynik wyglądałby wiarygodnie. Tabela ma 32
+>   pozycje i SZEŚĆ kolumn paliwa (osobno CNG fabryczny i CNG przebudowany —
+>   `co2FactorFor` zwraca dziś jeden klucz `cng` i ich nie rozróżni).
+>
+>   **Drugi, niezależny brak: obwieszczenie NIE PODAJE GĘSTOŚCI** — sprawdzone
+>   pełnotekstowo w obu rocznikach, zero trafień na „gęstoś", „kg/m3", „kg/dm",
+>   „g/cm". Bez gęstości nie przeliczy się litrów na Mg; to osobne źródło.
+>
+>   Kolejność prac (opisana szczegółowo przy stałej w `worker/index.js`):
+>   rozszerzyć klucz o klasę pojazdu → rozdzielić CNG → dopiero wtedy przepisać
+>   liczby → gęstości osobno. `computeEnvironmentalFee` nadal ODMAWIA wyliczenia
+>   i tak ma zostać, dopóki wszystkie cztery kroki nie są zrobione.
 >
 > ### Skrót tego, co zamknięto 12–13.08
 >
