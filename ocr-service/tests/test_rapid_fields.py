@@ -8,7 +8,7 @@ Układ współrzędnych zgodny z realnym dokumentem sprawdzonym wizualnie 24-25.
 etykieta w osobnym boxie PO LEWEJ od wartości, ta sama linia.
 """
 import pytest
-from extractors.rapid_fields import Box, parse_fields_spatial, _clean_value
+from extractors.rapid_fields import Box, parse_fields_spatial, _clean_value, _PAT_KATEGORIA
 
 
 def _page():
@@ -460,3 +460,21 @@ class TestKodyRubrykNieSaWartosciami:
         assert _clean_value("vin", "D<<DRP0L1465038BAP22573693<<<<<<") is None
         # a prawdziwa homologacja przechodzi nietknięta
         assert _clean_value("nr_homolog", "e32*2007/46*0465*03") == "e32*2007/46*0465*03"
+
+
+class TestKategoriaSufiksLiterowy:
+    """Sufiks literowy (N1G = terenowy) tylko przy rodzinach M/N/O.
+
+    ZNALEZIONE NA AH91412 (ponowny OCR 26.08): BMW X5 dostało kategorię „C4C".
+    C4 to ciągnik GĄSIENICOWY — poprzedni wzorzec dopuszczał wielką literę po
+    każdej rodzinie. Rodziny T/C/R/S zapisują warianty MAŁĄ literą (T1a, T1b),
+    więc wielki sufiks przy nich zawsze znaczy zły odczyt.
+    """
+
+    def test_realne_kategorie_tej_floty_przechodza(self):
+        for v in ("M1", "M2", "M3", "N1", "N2", "N3", "N1G", "O1", "O4", "L7E", "T3", "C4"):
+            assert _PAT_KATEGORIA.fullmatch(v), f"{v} powinno być poprawną kategorią"
+
+    def test_wielki_sufiks_przy_ciagniku_odrzucony(self):
+        for v in ("C4C", "T3X", "R2A", "S1B"):
+            assert not _PAT_KATEGORIA.fullmatch(v), f"{v} nie jest poprawną kategorią"

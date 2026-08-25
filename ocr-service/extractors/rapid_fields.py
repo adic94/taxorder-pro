@@ -290,7 +290,13 @@ KATEGORIE = [
 # stawka DT-1). Kategoria zapisana jedną literą zostanie pominięta, i tak ma być:
 # pole puste jest odzyskiwalne z innego źródła, pole BŁĘDNE trafia do deklaracji
 # bez sygnału. Ta sama zasada, która stoi za UNIT_EXPECTED wyżej.
-_PAT_KATEGORIA = re.compile(r"(?:[MNOTCRS][1-5]|L[1-7]E)[A-Z]?")
+# Sufiks literowy (N1G = terenowy) występuje w polskiej praktyce WYŁĄCZNIE przy
+# rodzinach M/N/O. Wcześniejsza wersja dopuszczała go po każdej rodzinie i przez
+# to przyjmowała „C4C" jako kategorię BMW X5 (C4 to ciągnik GĄSIENICOWY) —
+# zmierzone na AH91412 przy ponownym OCR 26.08. Rodziny T/C/R/S (ciągniki,
+# przyczepy rolnicze) zostają BEZ sufiksu, bo ich warianty zapisuje się małą
+# literą (T1a, T1b), a nie wielką.
+_PAT_KATEGORIA = re.compile(r"(?:[MNO][1-5][A-Z]?|[TCRS][1-5]|L[1-7]E)")
 
 
 def _norm(s: str) -> str:
