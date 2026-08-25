@@ -80,6 +80,28 @@ if (mPola) {
     brakDt1.length
       ? `prompt OCR nie pyta o pola DT-1: ${brakDt1.join(', ')} — bez nich nie da się wyliczyć podatku`
       : `prompt OCR pyta o wszystkie ${DR.dt1().length} pól DT-1`);
+
+  // Prompt NIE MOŻE podawać kodu rubryki dla pola, które takiego kodu nie ma.
+  //
+  // Do 25.08 prompt kazał modelowi szukać „V.9 — poziom emisji spalin". Ta rubryka
+  // NIE ISTNIEJE w polskim wzorze (zweryfikowane w Dz.U. 2024 poz. 1709 — patrz
+  // nagłówek modules/dr-fields.js). Kazanie modelowi szukać nieistniejącego kodu
+  // to nie tylko zmarnowane pole: model, któremu podaje się kod, szuka czegoś
+  // pasującego do wzorca i w razie potrzeby dopasuje sąsiednią wartość.
+  //
+  // Katalog oznacza takie pola przez `kod: null`. Ta asercja pilnuje, żeby prompt
+  // nie zaczął ich znowu opisywać kodem literowym.
+  const bezKodu = DR.POLA.filter(f => f.kod === null).map(f => f.klucz);
+  const wierszePromptu = mPola[1].split('\n');
+  const zKodemMimoBraku = bezKodu.filter(klucz => {
+    const w = wierszePromptu.find(l => new RegExp(`^\\s*${klucz}\\s*:`).test(l));
+    // Kod rubryki na POCZĄTKU opisu, np. „V.9 — ...", „A — ...", „F.1 — ..."
+    return w && /:\s*'[A-Z]{1,3}(\.\d)?\s*[—-]/.test(w);
+  });
+  ok(zKodemMimoBraku.length === 0,
+    zKodemMimoBraku.length
+      ? `prompt podaje kod rubryki dla pól, które go NIE MAJĄ: ${zKodemMimoBraku.join(', ')} — model będzie szukał nieistniejącej rubryki`
+      : `żadne z ${bezKodu.length} pól bez kodu rubryki nie jest opisane kodem w promptcie`);
 }
 
 // Druga kopia listy pól DR w promptcie = ten sam rozjazd, który właśnie usunęliśmy.

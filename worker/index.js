@@ -3020,10 +3020,28 @@ function _sanitizeOcrFields(f) {
  * wersji ZXing) i wszystkie objawialy sie CICHYMI ZLYMI DANYMI, nie bledem.
  *
  * DWA POLA DOPISANE PO POMIARZE NA 916 POJAZDACH:
- *   V.9  normaEuro   — bylo 55/916, i to wylacznie z zestawienia; OCR o to nie pytal
- *   —    zawieszenie — bylo 0/916, z ZADNEGO zrodla; OCR o to nie pytal
+ *   normaEuro   — bylo 55/916, i to wylacznie z zestawienia; OCR o to nie pytal
+ *   zawieszenie — bylo 0/916, z ZADNEGO zrodla; OCR o to nie pytal
  * Oba sa polami DT-1: rodzaj zawieszenia decyduje o stawce dla pojazdow >= 12 t.
  * Bez nich podatku nie da sie wyliczyc, a ich brak nie zglaszal sie jako blad.
+ *
+ * ⛔ KOD „V.9" USUNIETY Z PROMPTU 25.08 — ZWERYFIKOWANE W DZIENNIKU USTAW.
+ * Do tej daty prompt kazal modelowi szukac „V.9 — poziom emisji spalin". Taka
+ * rubryka NIE ISTNIEJE w polskim wzorze dowodu: ciagi „V.9", „EURO" i „emisj"
+ * nie wystepuja w calym rozporzadzeniu MI z 8.11.2024 (Dz.U. 2024 poz. 1709,
+ * 102 strony, wyszukiwanie pelnotekstowe). Oficjalna lista kodow w zal. 3 lit. C
+ * idzie: A, B, C.*, D.*, E, F.*, G, H, I, J, K, L, O.*, P.*, Q, S.*, X.
+ *
+ * Kazanie modelowi szukac nieistniejacej rubryki to nie tylko marnowanie pola —
+ * to zaproszenie do ZMYSLANIA. Model, ktoremu podaje sie kod, szuka czegos, co
+ * pasuje do wzorca, i w razie potrzeby dopasuje sasiednia wartosc. Norma EURO
+ * na polskim dowodzie bywa WYLACZNIE w adnotacjach urzedowych i tylko tam ma
+ * sens jej szukac — prompt mowi to teraz wprost, razem z informacja, ze kodu
+ * literowego dla tego pola NIE MA.
+ *
+ * Zmierzone pokrycie przed zmiana: normaEuro 1/54 (RapidOCR) i 55/916 (pelny
+ * zbior), przy czym te 55 pochodzilo z ZESTAWIENIA, ani jedno z OCR.
+ * Zrodlo weryfikacji i adresy do pobrania aktu: modules/dr-fields.js, naglowek.
  */
 const DR_POLA_OCR = {
   nrRej: 'A — numer rejestracyjny np WPR0365T lub WA0677L (2-3 wielkie litery + cyfry, BEZ spacji)',
@@ -3047,7 +3065,7 @@ const DR_POLA_OCR = {
   dmcPrzyczHam: 'O.1 — masa przyczepy z hamulcem kg',
   dmcPrzyczNieham: 'O.2 — masa przyczepy bez hamulca kg',
   nrHomolog: 'K — nr homologacji np e32*IV18/858*NI15391',
-  normaEuro: 'V.9 — poziom emisji spalin np EURO 6 lub EURO VI. Szukaj takze w ADNOTACJACH URZEDOWYCH na dole dokumentu, gdzie bywa zapisany slownie (puste jesli nie widoczne)',
+  normaEuro: 'poziom emisji spalin np EURO 6 lub EURO VI. Szukaj WYLACZNIE w ADNOTACJACH URZEDOWYCH (zwykle na dole dokumentu), gdzie bywa zapisany slownie. NIE MA osobnej rubryki z kodem literowym na te dane — jesli w adnotacjach tego nie ma, zwroc puste',
   zawieszenie: 'RODZAJ ZAWIESZENIA OSI JEZDNEJ — zwykle w ADNOTACJACH URZEDOWYCH, np "zawieszenie pneumatyczne" albo "zawieszenie uznane za rownowazne pneumatycznemu". Zwroc "pneumatyczne", "rownowazne pneumatycznemu" albo "inne". Puste jesli dokument o tym nie mowi — NIE ZGADUJ',
 };
 const DR_JSON_SZABLON = () => JSON.stringify(DR_POLA_OCR);
