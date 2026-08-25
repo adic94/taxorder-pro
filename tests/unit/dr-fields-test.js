@@ -127,12 +127,24 @@ ok(brakDt1.length === 0,
     : 'DMC, liczba osi, zawieszenie, kategoria i rodzaj pojazdu oznaczone jako DT-1');
 
 // --- [5] uczciwość katalogu ---------------------------------------------------
-// Pola wpisane z wiedzy ogólnej, a nie z odczytu rozporządzenia, mają to zadeklarowane.
-// Gdyby ktoś oznaczył wszystko jako pewne, katalog przestałby ostrzegać.
-ok(DR.doWeryfikacji().length > 0,
+// Katalog nie może udawać pewności, której nie ma. Do 25.08 test wymagał, żeby
+// ISTNIAŁY pola `pewne: false` — chronił przed hurtowym oznaczeniem wszystkiego
+// jako sprawdzone. Ale weryfikacja u źródła FAKTYCZNIE nastąpiła (Dz.U. 2024
+// poz. 1709, zał. 3 lit. C), więc warunek w tej postaci zaczął padać dokładnie
+// za wykonanie pracy, o którą prosił.
+//
+// Nowy warunek pilnuje tego samego, tylko właściwie: albo są pola jawnie oznaczone
+// do weryfikacji, albo katalog CYTUJE ŹRÓDŁO, na podstawie którego je zamknięto.
+// Samo oznaczenie wszystkiego jako `pewne: true` bez podania aktu nadal nie przejdzie.
+const zrodloWKatalogu = /Dz\.?\s*U\.?\s*20\d\d\s*poz\.\s*\d+/i.test(
+  fs.readFileSync(path.join(ROOT, 'modules', 'dr-fields.js'), 'utf8')
+);
+ok(DR.doWeryfikacji().length > 0 || zrodloWKatalogu,
   DR.doWeryfikacji().length
     ? `${DR.doWeryfikacji().length} kodów jawnie oznaczonych do weryfikacji w Dz.U. — katalog nie udaje pewności`
-    : 'wszystkie kody oznaczone jako pewne — czy na pewno ktoś je sprawdził u źródła?');
+    : (zrodloWKatalogu
+        ? 'wszystkie kody pewne, a katalog podaje akt prawny, z którego je zweryfikowano'
+        : 'wszystkie kody oznaczone jako pewne, ale katalog NIE PODAJE aktu — czym to poparte?'));
 
 console.log(`\n────────────────────────────────────────────\nWynik: ${pass} PASS / ${fail} FAIL\n`);
 process.exit(fail ? 1 : 0);

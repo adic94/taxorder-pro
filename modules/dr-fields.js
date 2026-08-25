@@ -18,14 +18,22 @@
  * tekście rozporządzenia — wpisałem je z wiedzy ogólnej, a nie z odczytu Dz.U., i tak
  * należy je traktować, dopóki ktoś nie zweryfikuje ich u źródła.
  *
- * PRÓBA WERYFIKACJI 25.08 — NIEUDANA, powód wart zapisania. Właściwy akt to
- * rozporządzenie MI z 8.11.2024 (Dz.U. 2024 poz. 1709), kody są w ZAŁĄCZNIKU
- * opisującym wzór dowodu. ISAP **odbija pobieranie automatyczne**: adres
+ * ✅ ZWERYFIKOWANE U ŹRÓDŁA 25.08.2026 — wszystkie `pewne: false` zamknięte.
+ * Źródło: rozporządzenie MI z 8.11.2024, **Dz.U. 2024 poz. 1709**, załącznik nr 3
+ * lit. C „Oznaczenia kodów zastosowanych we wzorze dowodu rejestracyjnego"
+ * (str. 26 dokumentu). Status aktu: obowiązujący (API ELI, sprawdzone).
+ *
+ * ⚠️ SKĄD POBRAĆ, gdyby ktoś wracał do tematu: **NIE z ISAP** — adres
  * `isap.sejm.gov.pl/isap.nsf/download.xsp/WDU20240001709/O/D20241709.pdf`
- * przekierowuje sam na siebie w nieskończoność (302 → ten sam URL), niezależnie
- * od User-Agenta. Nie jest to więc kwestia doboru narzędzia — plik trzeba pobrać
- * ręcznie z przeglądarki. Do sprawdzenia zostaje 7 kodów, w tym **V.9 (normaEuro),
- * które JEST polem DT-1**.
+ * przekierowuje sam na siebie w nieskończoność (302 → identyczny URL), niezależnie
+ * od User-Agenta, więc `curl` i podobne odbijają się od niego. Działa natomiast
+ * bezpośredni serwis Dziennika Ustaw:
+ *     https://dziennikustaw.gov.pl/D2024000170901.pdf        (9,5 MB, 102 strony)
+ *     https://api.sejm.gov.pl/eli/acts/DU/2024/1709          (metadane, status aktu)
+ *
+ * DWA POLA OKAZAŁY SIĘ NIEISTNIEJĄCE w polskim wzorze — patrz komentarze przy
+ * `predkoscMax` i `normaEuro`. To drugie ma skutek pomiarowy: prompt OCR kazał
+ * modelowi szukać kodu, którego na dokumencie nie ma.
  *
  * `dt1: true` oznacza pole wpływające na wymiar podatku od środków transportowych.
  */
@@ -44,7 +52,7 @@
     { kod: 'B',     klucz: 'dataRej',          nazwa: 'Data pierwszej rejestracji',          typ: 'data',   pewne: true,  dt1: false, aztec: true,  cepik: ['data-pierwszej-rejestracji'] },
     { kod: 'C.1.1', klucz: 'posiadacz',        nazwa: 'Posiadacz — nazwisko lub nazwa',      typ: 'tekst',  pewne: true,  dt1: false, aztec: true,  cepik: [], osobowe: true },
     { kod: 'C.2.1', klucz: 'wlasciciel',       nazwa: 'Właściciel — nazwisko lub nazwa',     typ: 'tekst',  pewne: true,  dt1: false, aztec: true,  cepik: [], osobowe: true },
-    { kod: 'C.2.3', klucz: 'adresWlasciciela', nazwa: 'Właściciel — adres',                  typ: 'tekst',  pewne: false, dt1: false, aztec: false, cepik: [], osobowe: true },
+    { kod: 'C.2.3', klucz: 'adresWlasciciela', nazwa: 'Właściciel — adres',                  typ: 'tekst',  pewne: true,  dt1: false, aztec: false, cepik: [], osobowe: true },
     { kod: 'D.1',   klucz: 'marka',            nazwa: 'Marka',                               typ: 'tekst',  pewne: true,  dt1: false, aztec: true,  cepik: ['marka'] },
     { kod: 'D.2',   klucz: 'typ',              nazwa: 'Typ, wariant, wersja',                typ: 'tekst',  pewne: true,  dt1: false, aztec: true,  cepik: ['typ'] },
     { kod: 'D.3',   klucz: 'model',            nazwa: 'Model',                               typ: 'tekst',  pewne: true,  dt1: false, aztec: true,  cepik: ['model'] },
@@ -53,7 +61,7 @@
     { kod: 'F.2',   klucz: 'dmcKg2',           nazwa: 'Dopuszczalna masa całkowita',         typ: 'liczba', zakres: [100, 100000], pewne: true,  dt1: true,  aztec: true,  cepik: ['dopuszczalna-masa-calkowita'], jednostka: 'kg' },
     { kod: 'F.3',   klucz: 'dmcZespolu',       nazwa: 'Dopuszczalna masa całkowita zespołu', typ: 'liczba', zakres: [100, 200000], pewne: true,  dt1: true,  aztec: true,  cepik: ['dopuszczalna-masa-calkowita-zespolu-pojazdow'], jednostka: 'kg' },
     { kod: 'G',     klucz: 'masaWlKg',         nazwa: 'Masa własna',                         typ: 'liczba', zakres: [100, 100000], pewne: true,  dt1: false, aztec: true,  cepik: ['masa-wlasna', 'masa-pojazdu-gotowego-do-jazdy'], jednostka: 'kg' },
-    { kod: 'H',     klucz: 'okresWaznosci',    nazwa: 'Okres ważności dowodu',               typ: 'tekst',  pewne: false, dt1: false, aztec: false, cepik: [] },
+    { kod: 'H',     klucz: 'okresWaznosci',    nazwa: 'Okres ważności dowodu',               typ: 'tekst',  pewne: true,  dt1: false, aztec: false, cepik: [] },
     { kod: 'I',     klucz: 'dataWydania',      nazwa: 'Data wydania dowodu',                 typ: 'data',   pewne: true,  dt1: false, aztec: true,  cepik: [] },
     // DZIEDZINA ZAMKNIETA. Kategoria homologacyjna to skonczony zbior symboli z dyrektywy
     // 2007/46/WE — nie ma tu miejsca na wariacje. Bez tej listy do pola J trafialo, co
@@ -73,10 +81,31 @@
     { kod: 'P.2',   klucz: 'mocKW',            nazwa: 'Maksymalna moc netto silnika',        typ: 'liczba', zakres: [1, 2000], pewne: true,  dt1: false, aztec: true,  cepik: ['moc-netto-silnika'], jednostka: 'kW' },
     { kod: 'P.3',   klucz: 'paliwo',           nazwa: 'Rodzaj paliwa',                       typ: 'tekst',  pewne: true,  dt1: false, aztec: true,  cepik: ['rodzaj-paliwa'] },
     { kod: 'S.1',   klucz: 'miejscaSied',      nazwa: 'Liczba miejsc siedzących',            typ: 'liczba', zakres: [1, 100], pewne: true,  dt1: true,  aztec: true,  cepik: ['liczba-miejsc-siedzacych'] },
-    { kod: 'S.2',   klucz: 'miejscaStoj',      nazwa: 'Liczba miejsc stojących',             typ: 'liczba', zakres: [0, 200], pewne: false, dt1: false, aztec: false, cepik: ['liczba-miejsc-stojacych'] },
-    { kod: 'T',     klucz: 'predkoscMax',      nazwa: 'Prędkość maksymalna',                 typ: 'liczba', zakres: [10, 400], pewne: false, dt1: false, aztec: false, cepik: [], jednostka: 'km/h' },
-    { kod: 'V.9',   klucz: 'normaEuro',        nazwa: 'Norma emisji spalin (EURO)',          typ: 'tekst',  pewne: false, dt1: true,  aztec: false, cepik: [] },
-    { kod: 'X',     klucz: 'nextInspection',   nazwa: 'Termin następnego badania techn.',    typ: 'data',   pewne: false, dt1: false, aztec: false, cepik: [] },
+    { kod: 'S.2',   klucz: 'miejscaStoj',      nazwa: 'Liczba miejsc stojących',             typ: 'liczba', zakres: [0, 200], pewne: true,  dt1: false, aztec: false, cepik: ['liczba-miejsc-stojacych'] },
+    // Q — POTWIERDZONE przy weryfikacji, wcześniej w katalogu NIEOBECNE. Dotyczy
+    // wyłącznie motocykli i motorowerów, więc dla naszej floty marginalne, ale
+    // pilnuje, żeby litera „Q" nie została wzięta za coś innego.
+    { kod: 'Q',     klucz: 'mocDoMasy',        nazwa: 'Stosunek mocy do masy własnej',       typ: 'tekst',  pewne: true,  dt1: false, aztec: false, cepik: [], jednostka: 'kW/kg' },
+    // ⛔ „T" NIE JEST KODEM POLSKIEGO DOWODU. Zweryfikowane 25.08 w Dz.U. 2024
+    // poz. 1709 zał. 3 lit. C: lista kodów idzie A, B, C.*, D.*, E, F.*, G, H, I,
+    // J, K, L, O.*, P.*, Q, S.*, X — bez „T". Prędkość maksymalna pojawia się
+    // w rozporządzeniu tylko przy TARCZACH prędkości (zał. 15), nie jako rubryka
+    // dowodu. Pole zostaje w katalogu, bo bywa w danych z innych źródeł (CEPiK,
+    // zestawienia), ale `kod: null` — nie ma czego szukać na dokumencie.
+    { kod: null,    klucz: 'predkoscMax',      nazwa: 'Prędkość maksymalna (spoza wzoru DR)', typ: 'liczba', zakres: [10, 400], pewne: true, dt1: false, aztec: false, cepik: [], jednostka: 'km/h' },
+    // ⛔ „V.9" NIE ISTNIEJE W POLSKIM WZORZE — ani jako kod, ani w ogóle: ciągi
+    // „V.9", „EURO" i „emisj" NIE WYSTĘPUJĄ w całym Dz.U. 2024 poz. 1709 (102 strony,
+    // sprawdzone wyszukiwaniem pełnotekstowym). To kod z wzorów niektórych innych
+    // państw UE, nie z naszego.
+    //
+    // ⚠️ TO MA SKUTEK POMIAROWY, NIE TYLKO PORZĄDKOWY: `DR_POLA_OCR` w worker/index.js
+    // każe modelowi szukać „V.9 — poziom emisji spalin", czyli rubryki, której na
+    // dokumencie NIE MA. Zmierzone pokrycie `normaEuro`: 1/54 w przebiegu RapidOCR,
+    // 55/916 w pełnym zbiorze i to wyłącznie z zestawienia, nie z OCR. Norma EURO
+    // na polskim dowodzie bywa w ADNOTACJACH URZĘDOWYCH — i tylko tam ma sens jej
+    // szukać. `kod: null`, bo litera do wyszukania nie istnieje.
+    { kod: null,    klucz: 'normaEuro',        nazwa: 'Norma emisji spalin (adnotacje urzędowe)', typ: 'tekst', pewne: true, dt1: true, aztec: false, cepik: [] },
+    { kod: 'X',     klucz: 'nextInspection',   nazwa: 'Termin następnego badania techn.',    typ: 'data',   pewne: true,  dt1: false, aztec: false, cepik: [] },
 
     // Pola BEZ oznaczenia literowego, obecne na polskim wzorze i istotne dla nas.
     // `rodzajPojazdu` decyduje o ZWOLNIENIU z DT-1 (pojazd specjalny) — patrz TaxEngine.
