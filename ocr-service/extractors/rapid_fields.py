@@ -357,9 +357,36 @@ def _find_value_box(label: Box, boxes: list[Box], direction: str, page_w: float,
     return None
 
 
+# Kody rubryk dowodu — „A", „D.3", „F.1", „P.1", „K", „L". To ETYKIETY stojące
+# obok pól, nigdy ich treść. Trafiają do wyniku, gdy detektor dopasuje etykietę
+# do siebie samej albo do sąsiedniej etykiety zamiast do wartości.
+#
+# ZNALEZIONE NA PRAWDZIWYM DOKUMENCIE (AH91412, ponowny OCR 25.08): parser
+# zwrócił marka="D.3", model="E", nr_homolog="L". Wygląda to jak dane —
+# krótkie napisy, żaden zakres liczbowy tego nie odrzuci — a jest spisem
+# etykiet formularza.
+_PAT_KOD_RUBRYKI = re.compile(r"^[A-Z](\.\d{1,2})?$")
+
+# ⚠️ Pola, dla których pojedyncza litera jest POPRAWNĄ wartością — bramka
+# kodów rubryk ich NIE dotyczy. `p3_paliwo` to dosłownie „D" (olej napędowy),
+# „B" (benzyna) albo „G" (gaz); odrzucenie tych wartości skasowałoby pole,
+# które wybiera stawkę § 3 uchwały i wskaźnik CO2.
+_POLA_JEDNOLITEROWE = {"p3_paliwo"}
+
+
 def _clean_value(key: str, raw: str) -> Optional[str]:
     raw = raw.strip()
     if not raw or raw in ("---", "-", "—"):
+        return None
+
+    if key not in _POLA_JEDNOLITEROWE and _PAT_KOD_RUBRYKI.match(raw.upper()):
+        return None
+
+    # Strefa MRZ (maszynowo czytelna, dół dokumentu) — długi ciąg zakończony
+    # znakami wypełniacza „<". ZNALEZIONE NA WA6441C przy ponownym OCR 25.08:
+    # nr_homolog = „DRP0L1465038BAP2257369382123092<<<<<". Wygląda urzędowo,
+    # bo NIM JEST — tylko to inny fragment dokumentu niż rubryka K.
+    if "<<" in raw:
         return None
 
     if key in NUMERIC_RANGES:

@@ -8,7 +8,7 @@ Układ współrzędnych zgodny z realnym dokumentem sprawdzonym wizualnie 24-25.
 etykieta w osobnym boxie PO LEWEJ od wartości, ta sama linia.
 """
 import pytest
-from extractors.rapid_fields import Box, parse_fields_spatial
+from extractors.rapid_fields import Box, parse_fields_spatial, _clean_value
 
 
 def _page():
@@ -405,3 +405,58 @@ class TestWszystkieKluczeObecne:
                     "zawieszenie", "norma_euro", "rok_prod", "przeznaczenie"):
             assert key in result
             assert result[key][0] is None
+
+
+class TestKodyRubrykNieSaWartosciami:
+    """Kod rubryki („D.3", „E", „L") to ETYKIETA obok pola, nigdy jego treść.
+
+    ZNALEZIONE NA PRAWDZIWYM DOKUMENCIE (AH91412, ponowny OCR 25.08): parser
+    zwrócił marka="D.3", model="E", nr_homolog="L". Wygląda to jak dane —
+    krótkie napisy, żaden zakres liczbowy tego nie odrzuci — a jest spisem
+    etykiet formularza. Trafia tam, gdzie detektor dopasuje etykietę do siebie
+    samej albo do sąsiedniej etykiety zamiast do wartości pod nią.
+    """
+
+    def test_kod_rubryki_odrzucony_w_polach_tekstowych(self):
+        for key, raw in (
+            ("marka", "D.3"), ("model", "E"), ("nr_homolog", "L"),
+            ("typ", "F.1"), ("kategoria", "J"), ("przeznaczenie", "P.1"),
+            ("vin", "K"), ("marka", "A"), ("model", "O.2"),
+        ):
+            assert _clean_value(key, raw) is None, f"{key}={raw!r} przeszło jako wartość"
+
+    def test_paliwo_jednoliterowe_NIE_jest_odrzucane(self):
+        """⚠️ Najważniejszy test tej klasy — bramka kodów rubryk musi mieć wyjątek.
+
+        Na dowodzie P.3 to dosłownie jedna litera: „D" (olej napędowy), „B"
+        (benzyna), „G" (gaz). Bramka bez wyjątku skasowałaby POPRAWNY odczyt
+        paliwa — pola, które wybiera stawkę § 3 uchwały Rady m.st. Warszawy
+        i wskaźnik emisji CO2. Awaria byłaby cicha: puste pole, nie błąd.
+        """
+        assert _clean_value("p3_paliwo", "D") == "ON"
+        assert _clean_value("p3_paliwo", "B") == "PB"
+        assert _clean_value("p3_paliwo", "G") == "LPG"
+
+    def test_prawdziwe_wartosci_przechodza(self):
+        for key, raw, oczek in (
+            ("marka", "MERCEDES-BENZ", "MERCEDES-BENZ"),
+            ("model", "SPRINTER", "SPRINTER"),
+            ("kategoria", "N2", "N2"),
+            ("kategoria", "N1G", "N1G"),
+            ("nr_homolog", "e32*2007/46*0465*03", "e32*2007/46*0465*03"),
+            ("typ", "906BA50/Z", "906BA50/Z"),
+            ("vin", "WMA29VUZ7R9018317", "WMA29VUZ7R9018317"),
+        ):
+            assert _clean_value(key, raw) == oczek, f"{key}={raw!r} zostało skasowane"
+
+    def test_strefa_mrz_nie_jest_numerem_homologacji(self):
+        """MRZ (dół dokumentu) wygląda urzędowo, bo NIM JEST — ale to nie rubryka K.
+
+        ZNALEZIONE NA WA6441C (ponowny OCR 25.08): nr_homolog dostał wartość
+        „DRP0L1465038BAP2257369382123092<<<<<". Znak „<" to wypełniacz strefy
+        maszynowo czytelnej i nie występuje w żadnym polu dowodu.
+        """
+        assert _clean_value("nr_homolog", "DRP0L1465038BAP2257369382123092<<<<<") is None
+        assert _clean_value("vin", "D<<DRP0L1465038BAP22573693<<<<<<") is None
+        # a prawdziwa homologacja przechodzi nietknięta
+        assert _clean_value("nr_homolog", "e32*2007/46*0465*03") == "e32*2007/46*0465*03"
