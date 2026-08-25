@@ -3068,20 +3068,27 @@ UWAGI KRYTYCZNE:
 Zwroc WYLACZNIE JSON bez markdown:
 ${DR_JSON_SZABLON()}`;
 
-  // ── Próba 0: Python OCR Service (WYŁĄCZONA 24.08 — zmierzona, nie założona porażka) ──
+  // ── Próba 0: Python OCR Service (WYŁĄCZONA 24.08, PRZYCZYNA ZMIENIŁA SIĘ 25.08) ──
   //
-  // Ten krok nazywał się kiedyś "najdokładniejszy — przestrzenne bounding boxy". To
-  // NIEPRAWDA, zmierzona bezposrednio po przywroceniu hostingu (byl martwy tygodniami,
-  // wiec nikt tego nie mogl zweryfikowac na swiezo): na realnym dokumencie oba endpointy
-  // serwisu (/ocr i /extract/dowod-rejestracyjny) dały 10-59 SEKUND odpowiedzi (limit
-  // ponizej to 8s) i albo JEDNO BLEDNE pole ("HVZSHYM" jako numer rejestracyjny), albo
-  // ZERO pol. Gorsze niz brak warstwy: gdyby kiedys odpowiedzial W CZASIE, warunek
-  // przyjecia wynikow nizej ("cokolwiek plausibly wyglada") przyjalby te bledne dane
-  // i ZATRZYMAL kaskade — Proba 1/2 (CF/Groq, obie dzialajace dobrze) nigdy by sie nie
-  // wykonaly. Tesseract+regex w extractors/ocr_fallback.py potrzebuje realnej poprawy
-  // jakosci (kandydat: PaddleOCR zamiast Tesseract), zanim ten krok wroci do kaskady.
-  // Hosting (Cloud Run, ocr-service-346215975089.europe-west1.run.app) zostaje ZYWY
-  // i gotowy — to nie problem infrastruktury, tylko jakosci ekstrakcji.
+  // 24.08: silnik byl Tesseract+regex, dawal 10-59s i zle/puste pola — jakosc, nie
+  // infrastruktura. NAPRAWIONE 25.08: silnik to teraz PaddleOCR (lang=pl) + parser
+  // GEOMETRYCZNY (patrz ocr-service/extractors/paddle_fields.py) — na dokumencie,
+  // ktory Proba 1/2 (CF/Groq) dwukrotnie oddaly PUSTY (klaster "Toyota Hilux GR",
+  // strona PDF narysowana w orientacji pionowej mimo fizycznie poziomego dowodu),
+  // nowy silnik wyciagnal 8 poprawnych pol (dmcKg, kategoria, nrHomolog...),
+  // potwierdzone zgodnoscia z reczna inspekcja wizualna. JAKOSC PRZESTALA BYC
+  // PROBLEMEM.
+  //
+  // Ciagle WYLACZONA, bo PROBLEM PRZENIOSL SIE NA PREDKOSC: akcelerator CPU
+  // oneDNN pada na Cloud Run TWARDYM crashem procesu (SIGFPE w konwolucji) na
+  // obu sprawdzonych wersjach paddlepaddle (3.3.1 i 3.2.2, dwie ROZNE awarie w
+  // tym samym podsystemie) — wylaczenie go (`enable_mkldnn=False`) usuwa crash,
+  // ale bez sprzetowej akceleracji jeden dokument to ~30-80s na 4 vCPU, daleko
+  // od limitu 8s ponizej. Dla PRZETWARZANIA WSADOWEGO to bez znaczenia — patrz
+  // tools/dr-ocr-batch-cloudrun.js, ktory woła Cloud Run BEZPOSREDNIO (bez tego
+  // limitu) i jest dzis wlasciwa droga dla dokumentow, ktorych CF/Groq nie
+  // odczytaly. Ponowne wlaczenie tej flagi wymaga ALBO naprawy oneDNN (upstream
+  // bug, nie nasz kod) ALBO przejscia na GPU Cloud Run — obie opcje nietkniete.
   const PROBA_0_WLACZONA = false;
   let pyErr = null;
   if (!PROBA_0_WLACZONA) {

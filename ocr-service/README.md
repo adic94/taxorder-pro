@@ -55,7 +55,10 @@ curl -X POST https://ocr.twojadomena.pl/extract/dowod-rejestracyjny \
 
 ### `GET /`
 
-Health check — zwraca wersję Tesseracta.
+Health check — nie ładuje modeli PaddleOCR (te ładują się raz, przy starcie kontenera,
+patrz `_preload_paddle_models`). Zwraca `engine: "paddleocr-pl"` — Tesseract nadal jest
+w obrazie (binarka wypisana jako `tesseract_ver` dla debugowania), ale od 25.08 nie jest
+już aktywnym silnikiem ekstrakcji.
 
 ### `POST /ocr` (legacy)
 
@@ -82,12 +85,15 @@ Etap 1 — Kod Aztec (zxing-cpp)         → source: "aztec", confidence: 1.0
   └─ Korekcja perspektywy (Canny → findContours → warpPerspective) + ponowne próby
        │ (gdy Aztec nieczytelny)
        ▼
-Etap 2 — OCR Tesseract                 → source: "ocr", confidence: 0.3–0.9
-  ├─ OSD (Tesseract) → korekcja obrotu o 0/90/180/270°
-  ├─ Deskew drobnych kątów (minAreaRect, ±15°)
-  ├─ Preprocessing: denoising → adaptive threshold → dylatacja
-  ├─ Dwa przebiegi (PSM 6 i PSM 4), wybór wg avg confidence
-  └─ Parser kotwiczony na kodach euro-pól (A, B, D.1–D.3, E, F.1–F.3, G, P.1–P.3, S.1)
+Etap 2 — PaddleOCR (lang=pl)            → source: "ocr", confidence: 0.3–0.9
+  ├─ use_doc_orientation_classify=True → korekcja CAŁOSTRONICOWEGO obrotu 0/90/180/270°
+  │    (klasyfikator PaddleX, NIE Tesseract OSD — patrz extractors/paddle_fields.py)
+  ├─ Modele "mobile" (latin_PP-OCRv5_mobile_rec — jedyny wariant z polskimi znakami)
+  ├─ enable_mkldnn=False — akcelerator oneDNN pada twardym crashem na CPU Cloud Run
+  │    (SIGFPE), koszt: ~30-80s/dokument zamiast <2s z akceleracją
+  └─ Parser GEOMETRYCZNY — dopasowanie etykieta→wartość po bounding boxach, NIE regex
+       na spłaszczonym tekście (23 pola: A, B, D.1–D.3, E, F.1–F.3, G, J, K, L,
+       O.1–O.2, P.1–P.3, S.1–S.2, + ROK PRODUKCJI/PRZEZNACZENIE/norma EURO/zawieszenie)
        │ (gdy < 5 pól i ANTHROPIC_API_KEY ustawiony)
        ▼
 Etap 3 — Claude Vision (opcjonalny)    → source: "vision", confidence: 0.7
@@ -113,7 +119,8 @@ Walidacja (VIN, nr rej., daty, zakresy mas/mocy/pojemności/miejsc)
 ## Uruchomienie lokalne
 
 ```bash
-# Wymagania systemowe: tesseract-ocr tesseract-ocr-pol poppler-utils
+# Wymagania systemowe: tesseract-ocr tesseract-ocr-pol poppler-utils libgl1 libglib2.0-0
+# (libgl1/libglib2.0-0 — dla `import cv2` ciągniętego przez paddleocr, patrz Dockerfile)
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
@@ -133,3 +140,8 @@ pytest tests/ -q
 - **Dane osobowe właściciela** dekodowane z Aztec są zwracane w polu `owner.fields` z flagą `personal_data: true`; aplikacja konsumująca powinna je traktować zgodnie z RODO.
 - **Zdjęcia R2 (kolory kodu)**: kody Aztec na starych dowodach są czarno-białe, ale od 2016 niektóre mają tło kolorowe — progowanie adaptacyjne radzi sobie z tym poprawnie.
 - **Eksport PDF ze skanerów** z niskim DPI (< 150): dekodowanie Aztec może zawieść; serwis zawsze wróci do OCR.
+- **Wolne CPU inference (~30-80s/dokument).** `enable_mkldnn=False` jest celowe, nie
+  przeoczenie — akcelerator oneDNN pada twardym crashem procesu na tym CPU (dwie różne
+  awarie na dwóch wersjach paddlepaddle, patrz `requirements.txt`). Dla Worker'a
+  (limit 8s w Próbie 0, `PROBA_0_WLACZONA=false`) to za wolno; dla wsadu
+  (`tools/dr-ocr-batch-cloudrun.js`) bez znaczenia.

@@ -4,7 +4,9 @@ TaxOrder OCR Service — ekstrakcja danych z polskich Dowodów Rejestracyjnych
 Kaskada przetwarzania:
   Etap 0 — normalizacja wejścia (EXIF, PDF→obrazy, limit rozmiaru)
   Etap 1 — kod Aztec przez zxing-cpp (confidence 1.0)
-  Etap 2 — OCR Tesseract + parser euro-pól (gdy Aztec nieczytelny)
+  Etap 2 — PaddleOCR (lang=pl) + parser GEOMETRYCZNY, patrz extractors/paddle_fields.py
+           (do 25.08: Tesseract + regex na spłaszczonym tekście — zamienione, bo
+           zakładało sąsiedztwo kodu i wartości w tekście, fałszywe dla layoutu 3-kolumnowego)
   Etap 3 — Claude Vision (opcjonalny, gdy ANTHROPIC_API_KEY ustawiony)
 
 Limity bezpieczeństwa:
@@ -33,7 +35,7 @@ import pytesseract
 from extractors.schema import ExtractionResponse, FieldValue, OwnerFields
 from extractors.preprocessing import load_images_from_bytes
 from extractors.aztec import extract_aztec, PERSONAL_FIELDS
-from extractors.ocr_fallback import run_ocr, parse_fields
+from extractors.paddle_fields import run_paddle_ocr, parse_fields_spatial
 from extractors.validators import (
     validate_vin, validate_nrrej, validate_date,
     validate_mass, validate_capacity, validate_power, validate_seats,
@@ -52,7 +54,7 @@ ALLOWED_MAGIC = {
     b'%PDF':          "application/pdf",
 }
 
-app = FastAPI(title="TaxOrder OCR Service", version="3.0.0")
+app = FastAPI(title="TaxOrder OCR Service", version="4.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -60,6 +62,23 @@ app.add_middleware(
     allow_methods=["POST", "GET"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def _preload_paddle_models():
+    """
+    Ładuje modele PaddleOCR do PAMIĘCI przy starcie kontenera, nie przy pierwszym
+    żądaniu. Wagi są już NA DYSKU (wypieczone w obrazie, patrz Dockerfile) — to
+    tylko ich wczytanie do procesu. Bez tego pierwsze żądanie po zimnym starcie
+    (Cloud Run scale-to-zero) płaciłoby ten koszt NA CZAS Worker'a (limit 8 s,
+    worker/index.js: AbortSignal.timeout(8000)) zamiast na czas startu instancji,
+    który Cloud Run i tak liczy przed oznaczeniem jej jako gotowej.
+    """
+    from extractors.paddle_fields import _get_ocr
+    try:
+        _get_ocr()
+    except Exception:
+        logger.exception("Nie udało się wstępnie załadować modeli PaddleOCR — spróbuje ponownie przy pierwszym żądaniu")
 
 # ── Stary endpoint (kompatybilność wsteczna) ─────────────────────────────────
 
@@ -86,31 +105,57 @@ async def run_ocr_legacy(
         if not images:
             return {"ok": False, "error": "Brak obrazów", "fields": {}}
         fields = _legacy_parse(images[0])
-        return {"ok": True, "fields": fields, "model": "tesseract-server"}
+        return {"ok": True, "fields": fields, "model": "paddleocr-pl"}
     except Exception as e:
         logger.exception("OCR legacy error")
         return {"ok": False, "error": str(e), "fields": {}}
 
 
+def _parse_fields_paddle(pil_img: Image.Image) -> dict[str, tuple]:
+    """Uruchamia PaddleOCR + parser geometryczny, zwraca {klucz: (wartość, confidence)}."""
+    boxes = run_paddle_ocr(pil_img)
+    return parse_fields_spatial(boxes, page_w=float(pil_img.width), page_h=float(pil_img.height))
+
+
 def _legacy_parse(pil_img: Image.Image) -> dict:
-    """Uproszczony parser na potrzeby kompatybilności /ocr."""
-    text, conf, data = run_ocr(pil_img)
-    parsed = parse_fields(text, data)
-    out = {}
+    """
+    Parser dla /ocr (wołany przez Worker jako Próba 0 — patrz `PROBA_0_WLACZONA`
+    w worker/index.js). Mapowanie snake_case (schemat wewnętrzny, patrz
+    extractors/paddle_fields.py) → camelCase (DR_POLA_OCR w Workerze).
+
+    KOMPLETNE, nie częściowe: poprzednia wersja (LEGACY_MAP, usunięta 25.08) miała
+    11 z 23 kluczy zadanych przez Worker — brakowało m.in. `liczbaOsi` i
+    `zawieszenie`, czyli DOKŁADNIE tych dwóch pól DT-1, których brak w promptcie
+    CF/Groq kosztował całą sesję 21.08 (patrz DR_POLA_OCR w worker/index.js).
+    Ta warstwa miałaby ten sam martwy punkt, gdyby mapę skopiować bez uzupełnienia.
+    """
+    parsed = _parse_fields_paddle(pil_img)
     LEGACY_MAP = {
         "numer_rejestracyjny": "nrRej",
         "vin": "vin",
         "marka": "marka",
         "typ": "typ",
         "model": "model",
+        "przeznaczenie": "przeznaczenie",
         "data_pierwszej_rej": "dataRej",
         "f1_dmc": "dmcKg",
+        "f2_dmc_ladunek": "dmcKg2",
+        "f3_dmc_zespol": "dmcZespolu",
         "g_masa_wlasna": "masaWlKg",
+        "liczba_osi": "liczbaOsi",
+        "kategoria": "kategoria",
         "p1_pojemnosc": "pojSilnika",
         "p2_moc_kw": "mocKW",
         "p3_paliwo": "paliwo",
         "s1_miejsca_siedz": "miejscaSied",
+        "rok_prod": "rokProd",
+        "o1_przyczepa_ham": "dmcPrzyczHam",
+        "o2_przyczepa_nieham": "dmcPrzyczNieham",
+        "nr_homolog": "nrHomolog",
+        "norma_euro": "normaEuro",
+        "zawieszenie": "zawieszenie",
     }
+    out = {}
     for new_key, old_key in LEGACY_MAP.items():
         val, _ = parsed.get(new_key, (None, 0))
         if val:
@@ -223,8 +268,9 @@ async def _process_upload(data: bytes) -> ExtractionResponse:
     best_parsed: dict[str, tuple] = {}
     for pil_img in images:
         try:
-            text, avg_conf, tess_data = run_ocr(pil_img)
-            parsed = parse_fields(text, tess_data)
+            parsed = _parse_fields_paddle(pil_img)
+            confs = [c for _, c in parsed.values() if c]
+            avg_conf = sum(confs) / len(confs) if confs else 0.0
             filled = sum(1 for v, _ in parsed.values() if v)
             score = avg_conf + filled * 0.01
             if score > best_conf:
@@ -365,13 +411,19 @@ async def extract_dr(
 
 @app.get("/")
 def health():
+    """
+    Nie ładuje modeli PaddleOCR (kosztowne — patrz `_get_ocr()` w paddle_fields.py).
+    `tesseract_ver` zostaje wypisany bo binarka wciąż jest w obrazie (przydatna do
+    debugowania), ale od 25.08 to NIE jest aktywny silnik ekstrakcji — patrz `engine`.
+    """
     try:
-        ver = str(pytesseract.get_tesseract_version())
+        tess_ver = str(pytesseract.get_tesseract_version())
     except Exception:
-        ver = "unknown"
+        tess_ver = "unknown"
     return {
         "status": "ok",
         "service": "taxorder-ocr",
-        "version": "3.0.0",
-        "engine": f"tesseract-{ver}",
+        "version": "4.0.0",
+        "engine": "paddleocr-pl",
+        "tesseract_ver": tess_ver,
     }
