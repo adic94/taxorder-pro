@@ -78,7 +78,13 @@ function ustaw(k, pole, wartosc, zrodlo) {
 
   if (stare != null && stare !== '' && zrodloStare && zrodloStare !== zrodlo) {
     const norm = (x) => String(x).toUpperCase().replace(/\s+/g, '').replace(',', '.');
-    if (norm(stare) !== norm(w)) {
+    // ZERO TO BRAK DANYCH, NIE INNA WARTOŚĆ. ZSI zapisuje nieznane DMC jako „0"
+    // (30 ze 181 wierszy). Raportowanie tego jako rozbieżności zasypywało listę:
+    // 28 z 43 „konfliktów podatkowych" to było „DR=1887 vs ZSI=0", czyli brak
+    // danych po jednej stronie. Prawdziwy sygnał — 5 przypadków, gdzie obie
+    // strony mają wartość i się różnią — ginął w szumie.
+    const puste = (x) => { const s = String(x).trim(); return s === '' || s === '0' || Number(s) === 0; };
+    if (norm(stare) !== norm(w) && !puste(stare) && !puste(w)) {
       rozbieznosci.push({ nr: rec.nrRej, pole, a: stare, zrodloA: zrodloStare, b: w, zrodloB: zrodlo,
         wybrano: (RANGA[zrodlo] ?? 0) > (RANGA[zrodloStare] ?? 0) ? zrodlo : zrodloStare });
     }
@@ -239,6 +245,57 @@ function wiersz(k, nrOryginalny) {
   } else console.log(`  ${Y('·')} ORLEN — pominięte`);
 
   const rekordy = [...flota.values()].sort((a, b) => String(a.nrRej).localeCompare(String(b.nrRej), 'pl'));
+
+  // ══ WIERSZE DR, KTÓRE SAME SOBIE PRZECZĄ ═══════════════════════════════════
+  //
+  // Dowód rejestracyjny jest dokumentem urzędowym i dlatego ma najwyższe
+  // pierwszeństwo. ALE nasze dane DR to OCR SKANÓW tego dokumentu — a OCR bywa
+  // przekłamany. Ślepe pierwszeństwo wpisuje wtedy błąd do deklaracji, i to
+  // z pełnym autorytetem „danych urzędowych".
+  //
+  // Zmierzone 25.08 na realnych rozbieżnościach z ZSI:
+  //   WA5718C — marka „LONDAIS" (śmieć), DMC 2080; ZSI: Iveco ML75E16, 7500.
+  //             Samo oznaczenie modelu ML75E16 znaczy 7,5 t — DR się myli.
+  //   WA6441C — Mercedes ATEGO z kategorią M1 (samochód OSOBOWY) i DMC 3500.
+  //             Atego jest ciężarówką 7,5–16 t. Kategoria przeczy pojazdowi.
+  //   WL1668N — model „SPRZEDANY". To status rekordu, nie model pojazdu.
+  //
+  // Te sygnały są WEWNĘTRZNE — widać je bez porównywania ze źródłem zewnętrznym,
+  // więc działają też dla pojazdów, których nie ma w ZSI.
+  const STATUS_ZAMIAST_MODELU = /^(sprzedany|zbyty|zlomowany|skasowany|wyrejestrowany|likwidacja|brak)$/i;
+  const CIEZAROWE_MODELE = /\b(atego|actros|axor|arocs|tgl|tgm|tgs|tgx|eurocargo|daily|sprinter|crafter|master|movano|ducato|cf\d*|xf\d*|lf\d*|fh\d*|fm\d*|fl\d*)\b/i;
+  const podejrzane = [];
+  for (const r of rekordy) {
+    const zr = zrodlaKomorek.get(klucz(r.nrRej)) || {};
+    const powody = [];
+
+    if (r.model && STATUS_ZAMIAST_MODELU.test(String(r.model).trim()))
+      powody.push(`model „${r.model}" to status rekordu, nie model pojazdu`);
+
+    // Marka bez samogłoski albo z cyframi — typowy kształt śmiecia z OCR
+    if (r.marka && zr.marka === 'DR') {
+      const m = String(r.marka).trim();
+      if (m.length >= 4 && !/[AEIOUYĄĘÓ]/i.test(m)) powody.push(`marka „${m}" nie wygląda na nazwę`);
+    }
+
+    // Kategoria homologacyjna kontra rodzaj pojazdu: M1 to samochód OSOBOWY.
+    const kat = String(r.kategoria || '').toUpperCase();
+    const dmcN = Number(String(r.dmc || '').replace(/[^\d]/g, ''));
+    if (/^M1/.test(kat)) {
+      if (CIEZAROWE_MODELE.test(String(r.model || '')))
+        powody.push(`kategoria M1 (osobowy) przy modelu „${r.model}" — to pojazd ciężarowy`);
+      else if (Number.isFinite(dmcN) && dmcN > 3500)
+        powody.push(`kategoria M1 (osobowy) przy DMC ${dmcN} kg`);
+    }
+
+    // Numer homologacji to długi kod urzędowy — „2" nim nie jest
+    if (r.nrHomolog && zr.nrHomolog === 'DR' && String(r.nrHomolog).trim().length <= 3)
+      powody.push(`nr homologacji „${r.nrHomolog}" jest za krótki`);
+
+    if (powody.length) podejrzane.push({ nr: r.nrRej, marka: r.marka || '', model: r.model || '',
+      kategoria: r.kategoria || '', dmc: r.dmc || '', zrodla: [...r._zrodla].join(', '), powody: powody.join('; ') });
+  }
+
   console.log(D(`\n     po scaleniu: ${rekordy.length} pojazdów, ${rozbieznosci.length} rozbieżności\n`));
 
   // ══ SKOROSZYT ══════════════════════════════════════════════════════════════
@@ -315,6 +372,22 @@ function wiersz(k, nrOryginalny) {
   ];
   for (const r of rekordy) wf.addRow({ ...r, zrodla: [...r._zrodla].join(', ') });
   naglowek(wf);
+
+  // ── Arkusz: DR do weryfikacji — wiersze, które same sobie przeczą ─────────
+  if (podejrzane.length) {
+    const wsp = out.addWorksheet('DR do weryfikacji');
+    wsp.columns = [
+      { header: 'Nr rejestracyjny', key: 'nr', width: 16 },
+      { header: 'Marka', key: 'marka', width: 18 },
+      { header: 'Model', key: 'model', width: 20 },
+      { header: 'Kategoria', key: 'kategoria', width: 11 },
+      { header: 'DMC', key: 'dmc', width: 10 },
+      { header: 'Źródła', key: 'zrodla', width: 18 },
+      { header: 'Co się nie zgadza', key: 'powody', width: 68 },
+    ];
+    podejrzane.forEach(p => { const r = wsp.addRow(p); r.getCell('powody').font = { color: { argb: 'FFC00000' } }; });
+    naglowek(wsp, 'FF9C0006');
+  }
 
   // ── Arkusz: Podstawa DT-1 — skąd pochodzi każda wartość podatkowa ─────────
   //
@@ -418,9 +491,16 @@ function wiersz(k, nrOryginalny) {
   await out.xlsx.writeFile(cel);
 
   console.log(`  ${G('✓')} zapisano: ${cel}`);
-  console.log(D(`     arkusze: Flota (${rekordy.length}), Podstawa DT-1, Pokrycie źródeł, ` +
+  console.log(D(`     arkusze: Flota (${rekordy.length}), ${podejrzane.length ? `DR do weryfikacji (${podejrzane.length}), ` : ''}Podstawa DT-1, Pokrycie źródeł, ` +
     `${rozbieznosci.length ? `Rozbieżności (${rozbieznosci.length}), ` : ''}` +
     `${kartyBezPojazdu.length ? `Karty bez pojazdu (${kartyBezPojazdu.length})` : ''}\n`));
+
+  if (podejrzane.length) {
+    console.log(R(`  \u26a0 ${podejrzane.length} wierszy DR PRZECZY SAMYM SOBIE`) +
+      D(' \u2014 arkusz \u201eDR do weryfikacji\u201d.'));
+    console.log(D('     Dow\u00f3d jest dokumentem urz\u0119dowym, ale nasze dane DR to OCR jego skanu.'));
+    console.log(D('     Kategoria M1 przy Sprinterze 5,5 t decyduje o tym, czy podatek si\u0119 nale\u017cy.\n'));
+  }
 
   if (zSpozaDowodu) {
     console.log(Y(`  ⚠ ${zSpozaDowodu} pojazdów ma pole podatkowe SPOZA dowodu rejestracyjnego`) +
