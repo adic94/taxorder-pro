@@ -36,7 +36,7 @@ const HTML = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
  *     | openssl dgst -sha384 -binary | openssl base64 -A
  * i wkleić wynik jako integrity="sha384-<wynik>" crossorigin="anonymous".
  */
-const ZNANE_BEZ_SRI = ['cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js'];
+const ZNANE_BEZ_SRI = [];
 
 let pass = 0, fail = 0;
 const ok = (w, m) => { console.log(`  ${w ? '\x1b[32m✓\x1b[0m' : '\x1b[31m✗\x1b[0m'} ${m}`); w ? pass++ : fail++; };

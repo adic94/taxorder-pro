@@ -374,6 +374,8 @@ prowadzi do tekstu licencji Meta na GitHubie, a zgodę wyzwala UŻYCIE modelu w 
 **To przesunęło problem z JAKOŚCI na PRĘDKOŚĆ — i tu jest kompromis, nie pełne zwycięstwo.** Bez oneDNN i z domyślnymi modelami „medium" jeden dokument przekroczył 120s (504 od Cloud Run). Jawne wymuszenie modeli „mobile" (`text_recognition_model_name="latin_PP-OCRv5_mobile_rec"` — jedyny wariant obejmujący polskie znaki, ~10x mniej wag niż medium) + 4 vCPU sprowadziło to do **~30–80s/dokument**. Nadal daleko od limitu **8s**, na który czeka Worker w Próbie 0 (`AbortSignal.timeout(8000)`) — `PROBA_0_WLACZONA` zostaje `false`, ale teraz z innym uzasadnieniem w komentarzu przy tej stałej. Rozwiązanie na DZIŚ: nowe narzędzie `tools/dr-ocr-batch-cloudrun.js` woła Cloud Run **bezpośrednio**, z pominięciem Workera i jego limitu — dla przetwarzania wsadowego (dokładnie ten przypadek: 58 utkniętych dokumentów) 30–80s/dok. nie ma znaczenia. Ponowne włączenie Próby 0 w LIVE ścieżce wymaga albo naprawy oneDNN u źródła (nie nasz kod), albo GPU Cloud Run — obie opcje nietknięte, to osobna decyzja na przyszłość.
 
 **Bramka:** `ocr-service/tests/test_paddle_fields.py` (11 asercji, testuje `parse_fields_spatial()` na spreparowanych bounding boxach — nie wymaga ładowania modeli). Złapała 2 realne błędy PRZED wdrożeniem: literówka w regexie numeru rejestracyjnego (`_norm()` usuwał spację, której wzorzec wymagał) i przeciek etykiety sąsiedniego pola (`"przeznaczenie":"ROK"` zamiast pustej wartości, złapane DOPIERO na żywym dokumencie — dodana asercja `_OTHER_LABEL_WORDS` jako zabezpieczenie ogólne, nie łatka na ten jeden przypadek) | — |
+| 2026-08-25 | **RapidOCR zastąpił PaddleOCR — 5-8× szybciej (30-80s → 8-11s/dok.), wciąż nie DOSTATECZNIE poniżej limitu 8s.** Znaleziony przeszukaniem GitHuba na wyraźną prośbę właściciela: [RapidAI/RapidOCR](https://github.com/RapidAI/RapidOCR) (7,6k★) to TE SAME modele PP-OCR (w tym `latin_PP-OCRv5_rec_mobile` — polskie znaki), skonwertowane do ONNX i uruchamiane przez `onnxruntime` zamiast frameworka `paddlepaddle` — usuwa akcelerator oneDNN, czyli usuwa źródło OBU crashy z poprzedniego wpisu, jednym ruchem. Nowy moduł `ocr-service/extractors/rapid_fields.py` (parser geometryczny bez zmian — silnikoniezależny). **Pułapka złapana buildem, nie zgadywana:** RapidOCR wymaga wartości Enum (`LangRec.LATIN`, `OCRVersion.PPOCRV5`, `ModelType.MOBILE` z `rapidocr.utils.typings`), gołe stringi („latin", „PP-OCRv5") rzucają `TypeError` na starcie kontenera — zweryfikowane bezpośrednio z surowego pliku enumów na GitHubie, nie z opisu w dokumentacji. **Druga pułapka, poważniejsza — sprawdzona PRZED wdrożeniem, nie po awarii:** RapidOCR ma klasyfikator obrotu WYŁĄCZNIE dla pojedynczej linii tekstu (0°/180°), **nie ma odpowiednika `use_doc_orientation_classify`** (obrót całej strony 0/90/180/270) z PaddleOCR/PaddleX — bez łatki klaster „Toyota Hilux GR" (patrz wpis wyżej) znowu dawałby zero pól. Załatane Tesseract OSD (`osd_rotate_angle`, już istniejący w `preprocessing.py` z ery Tesseracta) jako TANI krok PRZED wywołaniem RapidOCR — potwierdzone na WE6LR80: 10.3s, pola poprawne. **Pomiar jakości na 10 dokumentach wobec poprzedniego przebiegu PaddleOCR na TYCH SAMYCH plikach:** pola współdzielone (dmcKg, masaWlKg, liczbaOsi, miejscaSied) identyczne w niemal każdym przypadku — dobry sygnał, że silnik nie wprowadza systemowego błędu. RapidOCR wyciąga WIĘCEJ pól ogółem (dataRej, paliwo, nrHomolog — wcześniej prawie zawsze puste). Jeden zlokalizowany słaby punkt: pole `przeznaczenie` (dopasowanie „poniżej etykiety", używane tylko przez to pole i `rok_prod`) pomyliło się 2/10 razy — nie naprawione, udokumentowane jako znane ograniczenie w `ocr-service/README.md`. **`PROBA_0_WLACZONA` w Workerze ZOSTAJE `false`** — 8-11s to wciąż zbyt blisko granicy 8s, żeby ryzykować niezawodność żywej ścieżki; wsad (`tools/dr-ocr-batch-cloudrun.js`, bez limitu czasu) korzysta już dziś | — |
+| 2026-08-25 | **Dwa długi bezpieczeństwa SRI zamknięte — sieć okazała się dostępna z tej sesji, wbrew wcześniejszym notatkom o zablokowanym `cdn.sheetjs.com`/`cdnjs.cloudflare.com`.** Nie zakładane — sprawdzone `curl` przed użyciem. **Chart.js 4.4.1**: brakujący `integrity` uzupełniony haszem POBRANYM Z OFICJALNEGO API cdnjs (`api.cdnjs.com/libraries/Chart.js/4.4.1?fields=sri`), nie policzonym samodzielnie z nieufnego źródła — mój niezależnie policzony SHA-512 z pobranego pliku zgodził się co do bajtu z wartością z API, co potwierdza autentyczność. **`xlsx` 0.18.5 → 0.20.3**: cdnjs NIE ma nowszej wersji (API `cdnjs.com/libraries/xlsx` potwierdza — SheetJS faktycznie wycofał się stamtąd, zgodnie z wcześniejszą notatką), więc naprawa wymagała zmiany CDN na `cdn.sheetjs.com` (oficjalne źródło, ma `Access-Control-Allow-Origin: *`, więc SRI nie złamie ładowania). 0.20.3 naprawia obie znane podatności (zanieczyszczenie prototypu z 0.18.5, ReDoS z <0.20.2) — zweryfikowane jako najnowsza wersja przez `package.json` z `cdn.sheetjs.com/xlsx-latest/`. Plik pobrany DWUKROTNIE, niezależnie — bajt w bajt identyczny, zanim hasz trafił do `index.html`. API SheetJS użyte w kodzie (`XLSX.read/write/writeFile/utils.*`) niezmienione w tym zakresie wersji — zero zmian w `app.js`/`modules/*.js`. `tests/unit/cdn-sri-test.js` miał WBUDOWANĄ listę znanych wyjątków (`ZNANE_BEZ_SRI`) właśnie po to, żeby wymusić usunięcie wpisu, gdy luka się zamknie — zrobione, bramka 4/4 | — |
 
 ### W toku
 
@@ -646,19 +648,12 @@ zakazujące kopiowania ich bazy.
   pakiet `basic` i nie stanie się nic**, cicho. To ta sama klasa co „ciche zera" w ESG.
   Naprawa = decyzja produktowa o licencjonowaniu modułów (patrz ostrzeżenie niżej), nie łatka.
 
-- **`xlsx@0.18.5` (SheetJS) z cdnjs — podatny, parsuje pliki użytkownika.** Wersja 0.18.5
-  ma znaną podatność na zanieczyszczenie prototypu (naprawioną w 0.19.3) i ReDoS
-  (0.20.2). Parsujemy nią pliki wgrywane przez użytkownika w czterech miejscach
-  produkcyjnych: `modules/import-export.js:169`, `modules/bulk-import.js:198`,
-  `modules/vehicle-import.js:206`, `app.js:7525` — a pola `<input accept=".xlsx,.xls">`
-  przyjmują je wprost od użytkownika.
-  **Dlaczego nie naprawione od razu:** cdnjs nie ma nowszej wersji niż 0.18.5 (SheetJS
-  wycofał się z npm i cdnjs), a właściwe źródło to `https://cdn.sheetjs.com/xlsx-0.20.x/`.
-  Zmiana hosta wymaga policzenia nowego hasza SRI, a to wymaga pobrania pliku —
-  z kontenera deweloperskiego `cdn.sheetjs.com` jest niedostępny (proxy, 403).
-  **Nie dopisuj tej biblioteki bez `integrity`** — to usunęłoby istniejące zabezpieczenie
-  i byłoby gorsze niż stan obecny. Naprawa wymaga policzenia hasza na maszynie z dostępem:
-  `curl -s <url> | openssl dgst -sha384 -binary | openssl base64 -A`
+- ~~`xlsx@0.18.5` (SheetJS) z cdnjs — podatny~~ — **naprawione 25.08.** `cdn.sheetjs.com`
+  okazał się dostępny z tej sesji (sprawdzone `curl`, nie założone — poprzednia notatka
+  o 403 była prawdziwa w innym środowisku/czasie). Podmienione na `cdn.sheetjs.com/
+  xlsx-0.20.3` (najnowsza, naprawia obie znane podatności), plik pobrany dwukrotnie
+  niezależnie i porównany bajt w bajt przed policzeniem hasza. API SheetJS użyte w
+  kodzie niezmienione w tym zakresie wersji — zero zmian w `app.js`/`modules/*.js`.
 
 - **Podniesienie ZXing NIE naprawi zniekształcania bajtów Aztec — sprawdzone.** Kusi,
   żeby uznać `_aztecTextToBytes()` w `app.js` za obejście do usunięcia po aktualizacji
@@ -669,15 +664,11 @@ zakazujące kopiowania ich bazy.
   Produkcja stoi na **0.19.1** (`index.html:4317`), a bramka `zxing-version-test.js`
   pilnuje, żeby narzędzia testowały tę samą wersję.
 
-- **Chart.js jest jedynym skryptem z CDN bez `integrity`** (`index.html:39`, 8 z 9
-  pozostałych ma SRI). Bramka `cdn-sri-test.js` blokuje dokładanie **nowych** skryptów
-  bez SRI, ale tej luki nie zamyka. **Nie zgaduj hasza** — przy niezgodności przeglądarka
-  odmawia wykonania skryptu, więc wszystkie wykresy padają natychmiast; to gorsze niż
-  brak SRI. Hasza nie da się policzyć z kontenera: `cdnjs.cloudflare.com` jest zablokowany
-  przez proxy (403), a npm dla `chart.js@4.4.1` wysyła `dist/chart.umd.js` —
-  **nieminifikowany**, czyli inny plik niż `chart.umd.min.js` z cdnjs. Do zamknięcia
-  na maszynie z siecią:
-  `curl -s <url> | openssl dgst -sha384 -binary | openssl base64 -A`
+- ~~Chart.js jedynym skryptem z CDN bez `integrity`~~ — **naprawione 25.08.** Hasz
+  pobrany z oficjalnego API cdnjs (`api.cdnjs.com/libraries/Chart.js/4.4.1?fields=sri`),
+  nie policzony samodzielnie z nieufnego źródła — własny SHA-512 z pobranego pliku
+  zgodził się co do bajtu z wartością API, co potwierdza autentyczność. `cdn-sri-test.js`
+  9/9 skryptów zabezpieczonych, `ZNANE_BEZ_SRI` wyzerowane.
 
 **Sprawy operacyjne (poza kodem)**
 - Domena e-mail dla Dominika Dymowskiego i Roberta Sasina — do ustalenia.
