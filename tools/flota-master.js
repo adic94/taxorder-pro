@@ -260,20 +260,34 @@ function wiersz(k, nrOryginalny) {
     { header: 'Źródła', key: 'zrodla', width: 20 },
     { header: 'Marka', key: 'marka', width: 15 },
     { header: 'Model', key: 'model', width: 18 },
+    // ── DANE HOMOLOGACYJNE I URZĘDOWE Z DOWODU ──────────────────────────────
+    // Dowód rejestracyjny jest dokumentem urzędowym i to on rozstrzyga wymiar
+    // podatku — ewidencje operacyjne (ZSI, MyCar) są pomocnicze. Dlatego pola
+    // z dowodu stoją NA POCZĄTKU tabeli, z kodami rubryk w nagłówku, i mają
+    // pierwszeństwo przy scalaniu (patrz RANGA).
+    //
+    // D.2 (typ/wariant/wersja) i K (nr świadectwa homologacji) były do 25.08
+    // ZBIERANE, ale NIE WYŚWIETLANE — razem z G, S.1 i datą pierwszej rejestracji.
+    // Pięć pól z dowodu ginęło po drodze, w tym oba homologacyjne.
+    { header: 'D.2 Typ / wariant / wersja', key: 'typ', width: 20 },
     { header: 'Rodzaj', key: 'rodzaj', width: 16 },
     { header: 'Przeznaczenie', key: 'przeznaczenie', width: 18 },
-    { header: 'VIN', key: 'vin', width: 19 },
+    { header: 'E VIN', key: 'vin', width: 19 },
+    { header: 'K Nr homologacji', key: 'nrHomolog', width: 24 },
+    { header: 'J Kategoria', key: 'kategoria', width: 11 },
+    { header: 'B Data 1. rej.', key: 'dataRej', width: 13 },
     { header: 'Rok', key: 'rokProd', width: 7 },
-    { header: 'Kategoria', key: 'kategoria', width: 10 },
-    { header: 'DMC [kg]', key: 'dmc', width: 10 },
-    { header: 'DMC zespołu', key: 'dmcZespolu', width: 12 },
+    { header: 'F.1 DMC [kg]', key: 'dmc', width: 12 },
+    { header: 'F.3 DMC zespołu', key: 'dmcZespolu', width: 14 },
+    { header: 'G Masa własna', key: 'masaWlasna', width: 13 },
     { header: 'Ładowność', key: 'ladownosc', width: 11 },
-    { header: 'Osie', key: 'liczbaOsi', width: 6 },
+    { header: 'L Osie', key: 'liczbaOsi', width: 8 },
     { header: 'Zawieszenie', key: 'zawieszenie', width: 14 },
     { header: 'EURO', key: 'normaEuro', width: 9 },
-    { header: 'Paliwo', key: 'paliwo', width: 9 },
-    { header: 'Poj. [cm3]', key: 'pojemnosc', width: 10 },
-    { header: 'Moc', key: 'moc', width: 8 },
+    { header: 'P.3 Paliwo', key: 'paliwo', width: 11 },
+    { header: 'P.1 Poj. [cm3]', key: 'pojemnosc', width: 12 },
+    { header: 'P.2 Moc [kW]', key: 'moc', width: 12 },
+    { header: 'S.1 Miejsca', key: 'miejsca', width: 11 },
     { header: 'Oddział', key: 'oddzial', width: 9 },
     { header: 'Kierowca', key: 'kierowca', width: 22 },
     { header: 'Właściciel', key: 'wlascicielZsi', width: 14 },
@@ -301,6 +315,53 @@ function wiersz(k, nrOryginalny) {
   ];
   for (const r of rekordy) wf.addRow({ ...r, zrodla: [...r._zrodla].join(', ') });
   naglowek(wf);
+
+  // ── Arkusz: Podstawa DT-1 — skąd pochodzi każda wartość podatkowa ─────────
+  //
+  // PO CO OSOBNY ARKUSZ. Dowód rejestracyjny jest dokumentem urzędowym i to on
+  // rozstrzyga wymiar podatku. Ale gdy dowodu brakuje, scalanie bierze wartość
+  // z ewidencji operacyjnej — i w tabeli „Flota" wygląda ona IDENTYCZNIE jak
+  // urzędowa. To nie jest to samo ryzyko: DMC przepisane ręcznie do ZSI trafia
+  // do deklaracji na tych samych prawach co odczyt z dowodu, tylko bez podstawy.
+  //
+  // Ten arkusz nie ocenia, która wartość jest lepsza — pokazuje, KTÓRA JEST
+  // Z CZEGO, żeby dało się to sprawdzić przed złożeniem deklaracji.
+  const POLA_DT1 = [
+    ['dmc', 'F.1 DMC'], ['liczbaOsi', 'L Liczba osi'], ['zawieszenie', 'Zawieszenie'],
+    ['kategoria', 'J Kategoria'], ['normaEuro', 'EURO'], ['nrHomolog', 'K Homologacja'],
+    ['typ', 'D.2 Typ'],
+  ];
+  const wpd = out.addWorksheet('Podstawa DT-1');
+  wpd.columns = [
+    { header: 'Nr rejestracyjny', key: 'nrRej', width: 16 },
+    ...POLA_DT1.map(([k, n]) => ({ header: n, key: k, width: 16 })),
+    { header: 'Pól spoza dowodu', key: 'spoza', width: 16 },
+  ];
+  let zSpozaDowodu = 0;
+  for (const r of rekordy) {
+    const k = klucz(r.nrRej);
+    const zr = zrodlaKomorek.get(k) || {};
+    const w = { nrRej: r.nrRej };
+    let n = 0;
+    for (const [pole] of POLA_DT1) {
+      const zrodlo = zr[pole];
+      const ma = r[pole] != null && r[pole] !== '';
+      w[pole] = !ma ? '—' : (zrodlo || '?');
+      if (ma && zrodlo && zrodlo !== 'DR') n++;
+    }
+    w.spoza = n || '';
+    if (n) zSpozaDowodu++;
+    const row = wpd.addRow(w);
+    for (const [pole] of POLA_DT1) {
+      const c = row.getCell(pole);
+      const v = String(c.value || '');
+      if (v === 'DR') c.font = { color: { argb: 'FF008000' } };
+      else if (v === '—') c.font = { color: { argb: 'FFBFBFBF' } };
+      else c.font = { bold: true, color: { argb: 'FFC00000' } };   // wartość spoza dowodu
+    }
+    if (n) row.getCell('spoza').font = { bold: true, color: { argb: 'FFC00000' } };
+  }
+  naglowek(wpd, 'FF7B3F00');
 
   // ── Arkusz: Pokrycie źródeł ────────────────────────────────────────────────
   const wp = out.addWorksheet('Pokrycie źródeł');
@@ -357,9 +418,15 @@ function wiersz(k, nrOryginalny) {
   await out.xlsx.writeFile(cel);
 
   console.log(`  ${G('✓')} zapisano: ${cel}`);
-  console.log(D(`     arkusze: Flota (${rekordy.length}), Pokrycie źródeł, ` +
+  console.log(D(`     arkusze: Flota (${rekordy.length}), Podstawa DT-1, Pokrycie źródeł, ` +
     `${rozbieznosci.length ? `Rozbieżności (${rozbieznosci.length}), ` : ''}` +
     `${kartyBezPojazdu.length ? `Karty bez pojazdu (${kartyBezPojazdu.length})` : ''}\n`));
+
+  if (zSpozaDowodu) {
+    console.log(Y(`  ⚠ ${zSpozaDowodu} pojazdów ma pole podatkowe SPOZA dowodu rejestracyjnego`) +
+      D(' — arkusz „Podstawa DT-1”, wartości czerwone.'));
+    console.log(D('     Dowód jest dokumentem urzędowym; ewidencja operacyjna nie jest podstawą wymiaru.\n'));
+  }
 
   const waz = rozbieznosci.filter(r => ['dmc', 'liczbaOsi', 'normaEuro', 'kategoria'].includes(r.pole));
   if (waz.length) {
