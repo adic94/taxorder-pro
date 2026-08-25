@@ -55,10 +55,10 @@ curl -X POST https://ocr.twojadomena.pl/extract/dowod-rejestracyjny \
 
 ### `GET /`
 
-Health check — nie ładuje modeli PaddleOCR (te ładują się raz, przy starcie kontenera,
-patrz `_preload_paddle_models`). Zwraca `engine: "paddleocr-pl"` — Tesseract nadal jest
-w obrazie (binarka wypisana jako `tesseract_ver` dla debugowania), ale od 25.08 nie jest
-już aktywnym silnikiem ekstrakcji.
+Health check — nie ładuje modeli RapidOCR (te ładują się raz, przy starcie kontenera,
+patrz `_preload_rapid_models`). Zwraca `engine: "rapidocr-latin"` — Tesseract nadal jest
+w obrazie (binarka wypisana jako `tesseract_ver` dla debugowania), ale od 25.08 wieczorem
+używana WYŁĄCZNIE do wykrycia obrotu strony (OSD), nie do rozpoznawania tekstu.
 
 ### `POST /ocr` (legacy)
 
@@ -85,12 +85,14 @@ Etap 1 — Kod Aztec (zxing-cpp)         → source: "aztec", confidence: 1.0
   └─ Korekcja perspektywy (Canny → findContours → warpPerspective) + ponowne próby
        │ (gdy Aztec nieczytelny)
        ▼
-Etap 2 — PaddleOCR (lang=pl)            → source: "ocr", confidence: 0.3–0.9
-  ├─ use_doc_orientation_classify=True → korekcja CAŁOSTRONICOWEGO obrotu 0/90/180/270°
-  │    (klasyfikator PaddleX, NIE Tesseract OSD — patrz extractors/paddle_fields.py)
-  ├─ Modele "mobile" (latin_PP-OCRv5_mobile_rec — jedyny wariant z polskimi znakami)
-  ├─ enable_mkldnn=False — akcelerator oneDNN pada twardym crashem na CPU Cloud Run
-  │    (SIGFPE), koszt: ~30-80s/dokument zamiast <2s z akceleracją
+Etap 2 — RapidOCR (ONNX, lang=latin)    → source: "ocr", confidence: 0.3–0.9
+  ├─ Tesseract OSD → korekcja CAŁOSTRONICOWEGO obrotu 0/90/180/270° PRZED OCR-em
+  │    (RapidOCR ma tylko klasyfikator POJEDYNCZEJ LINII 0/180°, nie całej strony —
+  │    OSD wypełnia tę lukę, patrz extractors/rapid_fields.py)
+  ├─ Modele "mobile" (latin_PP-OCRv5_rec_mobile — jedyny wariant z polskimi znakami)
+  ├─ ONNX Runtime, NIE framework paddlepaddle — ~8-11s/dokument, 5-8× szybciej niż
+  │    PaddleOCR na tym samym CPU (który wymagał enable_mkldnn=False z powodu
+  │    twardych crashy procesu w oneDNN, patrz historia requirements.txt)
   └─ Parser GEOMETRYCZNY — dopasowanie etykieta→wartość po bounding boxach, NIE regex
        na spłaszczonym tekście (23 pola: A, B, D.1–D.3, E, F.1–F.3, G, J, K, L,
        O.1–O.2, P.1–P.3, S.1–S.2, + ROK PRODUKCJI/PRZEZNACZENIE/norma EURO/zawieszenie)
@@ -120,7 +122,7 @@ Walidacja (VIN, nr rej., daty, zakresy mas/mocy/pojemności/miejsc)
 
 ```bash
 # Wymagania systemowe: tesseract-ocr tesseract-ocr-pol poppler-utils libgl1 libglib2.0-0
-# (libgl1/libglib2.0-0 — dla `import cv2` ciągniętego przez paddleocr, patrz Dockerfile)
+# (libgl1/libglib2.0-0 — dla `import cv2`; tesseract-ocr — WYŁĄCZNIE do OSD od 25.08 wieczorem)
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
@@ -140,8 +142,15 @@ pytest tests/ -q
 - **Dane osobowe właściciela** dekodowane z Aztec są zwracane w polu `owner.fields` z flagą `personal_data: true`; aplikacja konsumująca powinna je traktować zgodnie z RODO.
 - **Zdjęcia R2 (kolory kodu)**: kody Aztec na starych dowodach są czarno-białe, ale od 2016 niektóre mają tło kolorowe — progowanie adaptacyjne radzi sobie z tym poprawnie.
 - **Eksport PDF ze skanerów** z niskim DPI (< 150): dekodowanie Aztec może zawieść; serwis zawsze wróci do OCR.
-- **Wolne CPU inference (~30-80s/dokument).** `enable_mkldnn=False` jest celowe, nie
-  przeoczenie — akcelerator oneDNN pada twardym crashem procesu na tym CPU (dwie różne
-  awarie na dwóch wersjach paddlepaddle, patrz `requirements.txt`). Dla Worker'a
-  (limit 8s w Próbie 0, `PROBA_0_WLACZONA=false`) to za wolno; dla wsadu
-  (`tools/dr-ocr-batch-cloudrun.js`) bez znaczenia.
+- **Wciąż na granicy limitu 8s Workera (~8-11s/dokument, zmierzone 25.08).** Bez
+  akceleratora sprzętowego (PaddleOCR-owy oneDNN nie jest tu już problemem — RapidOCR
+  jedzie przez ONNX Runtime) samo ONNX inference na CPU rzadko schodzi poniżej 8s
+  niezawodnie. `PROBA_0_WLACZONA` w Workerze zostaje `false` do czasu potwierdzenia
+  STABILNEGO <8s (miary z 10 dokumentów: 5.5-10.7s, mediana ~9.5s) — dla wsadu
+  (`tools/dr-ocr-batch-cloudrun.js`, bez limitu czasu) to bez znaczenia.
+- **Pole `przeznaczenie` bywa niedokładne** — dopasowanie "poniżej etykiety" (używane
+  też dla `rok_prod`) jest mniej odporne niż "po prawej" (większość pozostałych pól),
+  bo box wartości bywa dalej / RapidOCR i PaddleOCR dają nieco inne granice boxów.
+  Zmierzone 25.08: 2/10 dokumentów miało błędne dopasowanie tego jednego pola. Reszta
+  pól (dmcKg, masaWlKg, liczbaOsi, miejscaSied) była identyczna między silnikami na
+  tej samej próbce — problem jest zlokalizowany, nie systemowy.

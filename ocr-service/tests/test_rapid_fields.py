@@ -1,6 +1,6 @@
 """
-Testy parsera GEOMETRYCZNEGO (extractors/paddle_fields.py) na spreparowanych
-bounding boxach — nie wymaga ładowania modeli PaddleOCR (parse_fields_spatial
+Testy parsera GEOMETRYCZNEGO (extractors/rapid_fields.py) na spreparowanych
+bounding boxach — nie wymaga ładowania modeli RapidOCR (parse_fields_spatial
 przyjmuje już wyekstrahowane Box-y, nie obraz).
 
 Układ współrzędnych zgodny z realnym dokumentem sprawdzonym wizualnie 24-25.08
@@ -8,7 +8,7 @@ Układ współrzędnych zgodny z realnym dokumentem sprawdzonym wizualnie 24-25.
 etykieta w osobnym boxie PO LEWEJ od wartości, ta sama linia.
 """
 import pytest
-from extractors.paddle_fields import Box, parse_fields_spatial
+from extractors.rapid_fields import Box, parse_fields_spatial
 
 
 def _page():

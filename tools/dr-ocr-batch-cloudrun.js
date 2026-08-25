@@ -1,20 +1,24 @@
 #!/usr/bin/env node
 /**
- * OCR wsadowy przez serwis PaddleOCR na Cloud Run — BEZPOŚREDNIO, z pominięciem
+ * OCR wsadowy przez serwis RapidOCR na Cloud Run — BEZPOŚREDNIO, z pominięciem
  * Workera i jego limitu 8 s (`AbortSignal.timeout(8000)` w worker/index.js przy
  * Próbie 0, patrz `PROBA_0_WLACZONA`).
  *
  * DLACZEGO OSOBNE NARZĘDZIE, NIE dr-ocr-batch.js. Tamto woła `/api/ai/ocr` na
  * Workerze (kaskada CF/Groq — Próba 0 jest tam WYŁĄCZONA). To narzędzie woła
- * `/ocr` NA SAMYM Cloud Run, więc dotyczy WYŁĄCZNIE nowego silnika PaddleOCR
- * (lang=pl + parser geometryczny, patrz ocr-service/extractors/paddle_fields.py).
+ * `/ocr` NA SAMYM Cloud Run, więc dotyczy WYŁĄCZNIE silnika RapidOCR (lang=latin
+ * + parser geometryczny, patrz ocr-service/extractors/rapid_fields.py — do 25.08
+ * wieczorem był to PaddleOCR, zamieniony na RapidOCR tego samego dnia z powodów
+ * niżej).
  *
- * ZMIERZONA PRĘDKOŚĆ (25.08, realny dokument, 4 vCPU, bez akceleratora oneDNN —
- * pada na tym CPU niezależnie od wersji paddlepaddle, patrz komentarz w
- * ocr-service/requirements.txt): ~60 s / dokument. Za wolno dla synchronicznego
- * Workera, ALE bez znaczenia dla wsadu — stąd ten plik zamiast czekania na
- * optymalizację. Limit `--odstep` mimo to > 0: Cloud Run ma `maxScale: 10`,
- * zbyt agresywne wysyłanie równolegle mogłoby wysycić instancje i podnieść koszt.
+ * ZMIERZONA PRĘDKOŚĆ (25.08 wieczorem, realny dokument, 4 vCPU, ONNX Runtime):
+ * ~8-11 s / dokument — 5-8× szybciej niż PaddleOCR (ten wymagał wyłączenia
+ * akceleratora oneDNN, który padał twardym crashem na tym CPU niezależnie od
+ * wersji paddlepaddle, patrz historia ocr-service/requirements.txt). Wciąż
+ * niedostatecznie poniżej limitu 8 s Workera, ale bez znaczenia dla wsadu —
+ * stąd ten plik zamiast czekania na dalszą optymalizację. Limit `--odstep`
+ * mimo to > 0: Cloud Run ma `maxScale: 10`, zbyt agresywne wysyłanie
+ * równolegle mogłoby wysycić instancje i podnieść koszt.
  *
  *     node tools/dr-ocr-batch-cloudrun.js <cele.json> --wyjscie <checkpoint.json> [--limit 10]
  *
@@ -161,7 +165,7 @@ async function renderujPdf(browser, port, ustawPdf, sciezkaAbs) {
       const d = await r.json();
       const czasS = ((Date.now() - t0) / 1000).toFixed(1);
       if (d.ok && d.fields && Object.keys(d.fields).length) {
-        wynik[plik] = { ...d.fields, nrRej: d.fields.nrRej || nrRej, _plik: plik, _zrodlo: 'ocr', _model: d.model || 'paddleocr-pl' };
+        wynik[plik] = { ...d.fields, nrRej: d.fields.nrRej || nrRej, _plik: plik, _zrodlo: 'ocr', _model: d.model || 'rapidocr-latin' };
         const zawKluczowe = ['dmcKg', 'liczbaOsi', 'zawieszenie'].filter(k => d.fields[k]).join(',') || 'brak DT-1-owych';
         console.log(`  [${i+1}/${doPobrania.length}] ${G('✓')} ${nrRej} (${czasS}s) — ${zawKluczowe}`);
         ok++;

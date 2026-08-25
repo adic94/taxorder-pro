@@ -8,18 +8,21 @@ python-multipart>=0.0.9
 pdf2image>=1.17.0
 zxing-cpp>=2.2.0
 anthropic>=0.28.0
-# PaddleOCR — silnik ekstrakcji od 25.08 (patrz extractors/paddle_fields.py).
-# Zwykłe PyPI, bez niestandardowego indeksu — zweryfikowane (25.08), oba pakiety
-# mają koła manylinux dla cp311/linux_x86_64, zgodne z bazą Dockerfile.
+# RapidOCR — silnik ekstrakcji od 25.08 wieczorem (patrz extractors/rapid_fields.py).
+# ZASTĄPIŁ PaddleOCR (paddlepaddle+paddleocr, historia w git) tego samego dnia:
+# akcelerator CPU oneDNN wymagany przez paddlepaddle padał TWARDYM CRASHEM procesu
+# na Cloud Run — dwie różne awarie (NotImplementedError w 3.3.1, SIGFPE w 3.2.2,
+# patrz PaddlePaddle/Paddle#77340), a wyłączenie go (enable_mkldnn=False) usuwało
+# crash kosztem prędkości (30-90s/dok. zamiast <2s). RapidOCR (github.com/RapidAI/
+# RapidOCR) to TE SAME modele PP-OCR (w tym latin_PP-OCRv5_rec_mobile — polskie
+# znaki), skonwertowane do ONNX i uruchamiane przez onnxruntime — inny silnik
+# wykonawczy, bez frameworka Paddle i bez jego błędów w oneDNN.
 #
-# paddlepaddle 3.3.1 — zmierzone na żywo (25.08), DWIE wersje padały na CPU
-# akceleratorze oneDNN, każda inaczej: 3.3.1 rzucał "NotImplementedError:
-# ConvertPirAttribute2RuntimeAttribute not support" (regresja PIR→oneDNN,
-# PaddlePaddle/Paddle#77340) na KAŻDYM wywołaniu; cofnięcie do 3.2.2 ominęło TEN
-# błąd, ale zamiast niego dało SIGFPE (twardy crash procesu) wewnątrz konwolucji
-# oneDNN. Dwie różne awarie w tym samym podsystemie na dwóch wersjach — poprawka
-# nie jest w wyborze wersji, tylko w wyłączeniu oneDNN w ogóle: patrz
-# `enable_mkldnn=False` w extractors/paddle_fields.py. Zostaje aktualne wydanie.
-paddlepaddle==3.3.1
-paddleocr==3.7.0
+# UWAGA PRZY EWENTUALNYM COFNIĘCIU: RapidOCR nie ma klasyfikatora obrotu CAŁEJ
+# STRONY (0/90/180/270) jak PaddleOCR — tylko linii tekstu (0/180). Ta luka jest
+# załatana Tesseract OSD w extractors/rapid_fields.py (run_rapid_ocr) — usunięcie
+# Tesseracta z tego Dockerfile zepsułoby klaster dokumentów z obróconą stroną
+# (patrz WE6LR80 w CLAUDE.md).
+rapidocr==3.9.2
+onnxruntime>=1.18.0
 # opcjonalnie: nrbf>=0.1.0  # parsowanie NRBF w GZIP-fallback dla starszych DR

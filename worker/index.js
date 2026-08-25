@@ -3068,27 +3068,29 @@ UWAGI KRYTYCZNE:
 Zwroc WYLACZNIE JSON bez markdown:
 ${DR_JSON_SZABLON()}`;
 
-  // ── Próba 0: Python OCR Service (WYŁĄCZONA 24.08, PRZYCZYNA ZMIENIŁA SIĘ 25.08) ──
+  // ── Próba 0: Python OCR Service (WYŁĄCZONA 24.08, PRZYCZYNA ZMIENIŁA SIĘ DWUKROTNIE 25.08) ──
   //
   // 24.08: silnik byl Tesseract+regex, dawal 10-59s i zle/puste pola — jakosc, nie
-  // infrastruktura. NAPRAWIONE 25.08: silnik to teraz PaddleOCR (lang=pl) + parser
-  // GEOMETRYCZNY (patrz ocr-service/extractors/paddle_fields.py) — na dokumencie,
-  // ktory Proba 1/2 (CF/Groq) dwukrotnie oddaly PUSTY (klaster "Toyota Hilux GR",
-  // strona PDF narysowana w orientacji pionowej mimo fizycznie poziomego dowodu),
-  // nowy silnik wyciagnal 8 poprawnych pol (dmcKg, kategoria, nrHomolog...),
-  // potwierdzone zgodnoscia z reczna inspekcja wizualna. JAKOSC PRZESTALA BYC
-  // PROBLEMEM.
+  // infrastruktura. NAPRAWIONE 25.08 rano: PaddleOCR (lang=pl) + parser GEOMETRYCZNY —
+  // na dokumencie, ktory Proba 1/2 (CF/Groq) dwukrotnie oddaly PUSTY (klaster "Toyota
+  // Hilux GR", strona PDF narysowana w orientacji pionowej mimo fizycznie poziomego
+  // dowodu), nowy silnik wyciagnal 8 poprawnych pol. JAKOSC PRZESTALA BYC PROBLEMEM,
+  // ale akcelerator CPU oneDNN wymagany przez paddlepaddle padal TWARDYM crashem
+  // procesu (SIGFPE w konwolucji) na dwoch sprawdzonych wersjach (3.3.1 i 3.2.2, dwie
+  // ROZNE awarie w tym samym podsystemie) — wylaczenie go (`enable_mkldnn=False`)
+  // usuwalo crash, ale bez sprzetowej akceleracji jeden dokument to ~30-80s.
   //
-  // Ciagle WYLACZONA, bo PROBLEM PRZENIOSL SIE NA PREDKOSC: akcelerator CPU
-  // oneDNN pada na Cloud Run TWARDYM crashem procesu (SIGFPE w konwolucji) na
-  // obu sprawdzonych wersjach paddlepaddle (3.3.1 i 3.2.2, dwie ROZNE awarie w
-  // tym samym podsystemie) — wylaczenie go (`enable_mkldnn=False`) usuwa crash,
-  // ale bez sprzetowej akceleracji jeden dokument to ~30-80s na 4 vCPU, daleko
-  // od limitu 8s ponizej. Dla PRZETWARZANIA WSADOWEGO to bez znaczenia — patrz
+  // ZAMIENIONE 25.08 wieczorem na RapidOCR (github.com/RapidAI/RapidOCR) — TE SAME
+  // modele PP-OCR, ONNX Runtime zamiast frameworka paddlepaddle, wiec caly podsystem
+  // oneDNN znika razem z jego awariami. Silnik: patrz ocr-service/extractors/
+  // rapid_fields.py. Predkosc: 8-11s/dokument (5-8x szybciej), ale WCIAZ NIE
+  // DOSTATECZNIE ponizej limitu 8s ponizej, zeby ryzykowac niezawodnosc zywej
+  // sciezki. Dla PRZETWARZANIA WSADOWEGO to bez znaczenia — patrz
   // tools/dr-ocr-batch-cloudrun.js, ktory woła Cloud Run BEZPOSREDNIO (bez tego
-  // limitu) i jest dzis wlasciwa droga dla dokumentow, ktorych CF/Groq nie
-  // odczytaly. Ponowne wlaczenie tej flagi wymaga ALBO naprawy oneDNN (upstream
-  // bug, nie nasz kod) ALBO przejscia na GPU Cloud Run — obie opcje nietkniete.
+  // limitu) i jest dzis wlasciwa droga dla dokumentow, ktorych CF/Groq nie odczytaly.
+  // Ponowne wlaczenie tej flagi wymaga potwierdzenia STABILNEGO czasu <8s na wiekszej
+  // probce (dzisiejszy pomiar: 5.5-10.7s na 10 dokumentach, mediana ~9.5s) — dopiero
+  // wtedy, nie wczesniej.
   const PROBA_0_WLACZONA = false;
   let pyErr = null;
   if (!PROBA_0_WLACZONA) {
@@ -3118,7 +3120,7 @@ ${DR_JSON_SZABLON()}`;
           const sanitized = _sanitizeOcrFields(pyData.fields);
           // Sprawdź po sanityzacji — jeśli kluczowe pola puste, przejdź do Groq
           if (sanitized.nrRej || sanitized.vin || sanitized.marka || sanitized.dmcKg) {
-            return json({ ok: true, fields: sanitized, model: 'paddleocr' });
+            return json({ ok: true, fields: sanitized, model: 'rapidocr-latin' });
           }
           pyErr = 'wynik po sanityzacji pusty (brak nrRej/vin/marka/dmcKg)';
         }

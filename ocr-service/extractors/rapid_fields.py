@@ -1,26 +1,32 @@
 """
-OCR fallback — PaddleOCR (PP-OCRv5, lang="pl") + parser GEOMETRYCZNY.
+OCR fallback — RapidOCR (ONNX Runtime, lang="latin") + parser GEOMETRYCZNY.
 
-DLACZEGO NOWY MODUŁ, NIE POPRAWKA `ocr_fallback.py`. Tamten parser (Tesseract +
-`re.search` na spłaszczonym tekście) zakłada, że kod pola i jego wartość leżą OBOK
-SIEBIE w kolejności czytania. To założenie jest fałszywe dla euro-dowodu: dokument
-ma TRZY kolumny (beżowa/żółta/niebieska) czytane każda z osobna, a Tesseract
-spłaszcza wszystko do jednego strumienia tekstu w kolejności zależnej od layoutu
-wykrytego przez PSM — stąd „HVZSHYM" jako numer rejestracyjny zamiast prawdziwej
-tablicy (zmierzone 24.08, patrz komentarz w worker/index.js przy PROBA_0_WLACZONA).
+DLACZEGO RapidOCR, NIE PaddleOCR (którym ten moduł był do 25.08, patrz historia
+git `paddle_fields.py`). PaddleOCR wymaga frameworka `paddlepaddle`, a jego
+akcelerator CPU oneDNN PADA TWARDYM CRASHEM procesu na Cloud Run — dwie różne
+awarie (SIGFPE, NotImplementedError) na dwóch różnych wersjach paddlepaddle,
+patrz historia `requirements.txt`. Wyłączenie akceleratora (`enable_mkldnn=False`)
+usuwało crash, ale kosztem prędkości — 30-90s/dokument, za wolno na limit 8s
+Workera. RapidOCR (github.com/RapidAI/RapidOCR, 7.5k★) to TE SAME modele PP-OCR
+(w tym `latin_PP-OCRv5_rec_mobile`, obejmujący polskie znaki), skonwertowane do
+ONNX i uruchamiane przez ONNX Runtime — inny silnik wykonawczy, bez frameworka
+Paddle i bez jego błędów w oneDNN.
 
-Ten moduł NIE zgaduje z tekstu — dopasowuje WARTOŚĆ do NAJBLIŻSZEGO GEOMETRYCZNIE
-pola-etykiety (bounding box), dokładnie tak jak czyta to człowiek patrzący na
-formularz. `ocr_fallback.py` zostaje w repo nietknięty (health check nadal zgłasza
-wersję Tesseracta, może się przydać do debugowania), ale od tej zmiany nie jest
-już wołany przez żadną aktywną ścieżkę w `main.py`.
+PUŁAPKA PRZY MIGRACJI: RapidOCR ma klasyfikator kąta TYLKO na poziomie
+POJEDYNCZEJ LINII tekstu (0°/180°, moduł "Cls") — NIE ma odpowiednika
+`use_doc_orientation_classify` z PaddleOCR/PaddleX (klasyfikacja obrotu CAŁEJ
+STRONY 0/90/180/270). Bez tego klaster "Toyota Hilux GR" (strona narysowana
+w orientacji pionowej, patrz WE6LR80 — pierwszy dowód, na którym to wykryto
+25.08) znowu dawałby zero pól. Załatane Tesseract OSD (`osd_rotate_angle` w
+`preprocessing.py`) — TANIE, bo liczy tylko kąt strony ze statystyki kształtów
+liter, nie robi pełnego rozpoznawania tekstu. Ten sam mechanizm był już w
+kodzie PRZED przejściem na PaddleOCR (`ocr_fallback.run_ocr()`) — rozpoznawanie
+tekstu było wtedy złej jakości (regex na spłaszczonym tekście), ale wykrywanie
+KĄTA nigdy nie było zdiagnozowane jako zepsute.
 
-Obrót strony (0/90/180/270) prostuje `use_doc_orientation_classify=True` — model
-klasyfikacji orientacji PaddleX, NIE Tesseract OSD. Znalezisko 25.08: dokumenty
-z klastra "Toyota Hilux GR" mają treść strony narysowaną w orientacji pionowej
-mimo fizycznie poziomego dowodu (obrót zaszyty w macierzy rysowania obrazu na
-stronie PDF, nie we fladze /Rotate) — to dokładnie przypadek, na który
-use_doc_orientation_classify jest zaprojektowany.
+Parser geometryczny (Box, FIELD_LABELS, parse_fields_spatial) jest NIEZALEŻNY
+od silnika OCR — działa na już wyekstrahowanej liście (tekst, bbox, pewność),
+więc migracja dotyka WYŁĄCZNIE `_get_ocr()`/`run_rapid_ocr()` niżej.
 """
 from __future__ import annotations
 
@@ -34,34 +40,29 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-# Instancja PaddleOCR jest CIĘŻKA (ładowanie modeli) — jeden singleton na proces,
-# budowany przy PIERWSZYM wywołaniu, nie przy imporcie modułu (żeby /  (health
-# check) i /ocr bez obrazu nie płaciły kosztu ładowania modeli).
+# Instancja RapidOCR ładuje modele ONNX raz na proces — singleton budowany przy
+# PIERWSZYM wywołaniu, nie przy imporcie (żeby / (health check) nie płacił kosztu).
 _OCR_SINGLETON = None
 
 
 def _get_ocr():
     global _OCR_SINGLETON
     if _OCR_SINGLETON is None:
-        from paddleocr import PaddleOCR
-        logger.info("Ładowanie modeli PaddleOCR (lang=pl)...")
-        _OCR_SINGLETON = PaddleOCR(
-            lang="pl",
-            # `lang="pl"` sam z siebie dobrał modele "medium" (PP-OCRv6_medium_*,
-            # zmierzone w logach 25.08) — bez akceleratora oneDNN (patrz niżej)
-            # jedno zapytanie przekroczyło 120 s. Jawne "mobile" to jedyny wariant
-            # z modelem rozpoznawania faktycznie obejmującym polskie znaki
-            # (grupa "latin", patrz PP-OCRv5_multi_languages) i ~10x mniej wag
-            # niż "medium" (4.7M vs 61M) — dokładnie ten kompromis (mniejsza
-            # dokładność za cenę mieszczenia się w 8 s Workera) jest tu celowy.
-            text_detection_model_name="PP-OCRv5_mobile_det",
-            text_recognition_model_name="latin_PP-OCRv5_mobile_rec",
-            use_doc_orientation_classify=True,   # naprawia całostronicowy obrót 0/90/180/270
-            use_doc_unwarping=False,              # źródło to płaski render PDF, nie zdjęcie — niepotrzebne
-            use_textline_orientation=True,        # pojedyncze odwrócone linie (rzadkie, ale tanie w koszcie)
-            enable_mkldnn=False,                  # patrz komentarz w requirements.txt — oneDNN pada na CPU Cloud Run, dwie różne awarie na dwóch wersjach paddlepaddle
+        from rapidocr import RapidOCR, LangRec, OCRVersion, ModelType
+        logger.info("Ładowanie modeli RapidOCR (Rec.lang_type=LATIN)...")
+        _OCR_SINGLETON = RapidOCR(
+            params={
+                # LangRec.LATIN obejmuje jęz. polski (grupa Latin-script w PP-OCRv5,
+                # ten sam model co poprzednio pod PaddleOCR: latin_PP-OCRv5_rec_mobile).
+                # Wartości MUSZĄ być z enumów (rapidocr.utils.typings), nie gołym
+                # stringiem — "must be Enum Type" zmierzone na buildzie 25.08.
+                # Detekcja (Det) zostaje domyślna — nie jest specyficzna językowo.
+                "Rec.lang_type": LangRec.LATIN,
+                "Rec.ocr_version": OCRVersion.PPOCRV5,
+                "Rec.model_type": ModelType.MOBILE,
+            }
         )
-        logger.info("Modele PaddleOCR załadowane.")
+        logger.info("Modele RapidOCR załadowane.")
     return _OCR_SINGLETON
 
 
@@ -83,28 +84,35 @@ class Box:
         return self.y1 - self.y0
 
 
-def run_paddle_ocr(pil_img: Image.Image) -> list[Box]:
-    """Uruchamia PaddleOCR, zwraca listę wykrytych pól tekstowych z pozycją."""
+def run_rapid_ocr(pil_img: Image.Image) -> list[Box]:
+    """Prostuje obrót CAŁEJ STRONY (Tesseract OSD), uruchamia RapidOCR, zwraca listę pól z pozycją."""
+    from .preprocessing import osd_rotate_angle, rotate_pil
+
+    angle = osd_rotate_angle(pil_img)
+    if angle:
+        logger.info("OSD wykrył obrót strony: %d°, prostuję przed OCR", angle)
+        pil_img = rotate_pil(pil_img, angle)
+
     arr = np.array(pil_img.convert("RGB"))
     ocr = _get_ocr()
-    results = ocr.predict(arr)
+    result = ocr(arr)
+
     boxes: list[Box] = []
-    for res in results:
-        texts = res.get("rec_texts") if isinstance(res, dict) else res.rec_texts
-        scores = res.get("rec_scores") if isinstance(res, dict) else res.rec_scores
-        rboxes = res.get("rec_boxes") if isinstance(res, dict) else res.rec_boxes
-        for t, s, b in zip(texts, scores, rboxes):
-            t = (t or "").strip()
-            if not t:
-                continue
-            x0, y0, x1, y1 = [float(v) for v in b]
-            boxes.append(Box(text=t, x0=x0, y0=y0, x1=x1, y1=y1, score=float(s)))
+    if result is None or result.boxes is None:
+        return boxes
+    for poly, text, score in zip(result.boxes, result.txts, result.scores):
+        text = (text or "").strip()
+        if not text:
+            continue
+        xs = [p[0] for p in poly]
+        ys = [p[1] for p in poly]
+        boxes.append(Box(text=text, x0=float(min(xs)), y0=float(min(ys)), x1=float(max(xs)), y1=float(max(ys)), score=float(score)))
     return boxes
 
 
 # ── Katalog etykiet euro-dowodu ─────────────────────────────────────────────
-# klucz wyjściowy → (regex etykiety w OSOBNYM boxie, regex "kod+wartość w jednym
-# boxie" jako szybsza ścieżka, kierunek szukania wartości: 'right' | 'below' | 'any')
+# klucz wyjściowy → (regex etykiety w OSOBNYM boxie, kierunek szukania wartości:
+# 'right' | 'below' | 'any')
 #
 # Klucze WYJŚCIOWE dokładnie jak w snake_case parserze Tesseracta (ocr_fallback.py)
 # — `main.py` i `extractors/validators.py` są na nie napisane, nie duplikujemy

@@ -4,9 +4,10 @@ TaxOrder OCR Service — ekstrakcja danych z polskich Dowodów Rejestracyjnych
 Kaskada przetwarzania:
   Etap 0 — normalizacja wejścia (EXIF, PDF→obrazy, limit rozmiaru)
   Etap 1 — kod Aztec przez zxing-cpp (confidence 1.0)
-  Etap 2 — PaddleOCR (lang=pl) + parser GEOMETRYCZNY, patrz extractors/paddle_fields.py
-           (do 25.08: Tesseract + regex na spłaszczonym tekście — zamienione, bo
-           zakładało sąsiedztwo kodu i wartości w tekście, fałszywe dla layoutu 3-kolumnowego)
+  Etap 2 — RapidOCR (ONNX, lang=latin) + parser GEOMETRYCZNY, patrz extractors/rapid_fields.py
+           (do 25.08 rano: Tesseract + regex na spłaszczonym tekście — zły layout;
+           do 25.08 wieczorem: PaddleOCR — dobra jakość, ale oneDNN crashował na
+           Cloud Run; RapidOCR to te same modele przez ONNX Runtime, bez tego problemu)
   Etap 3 — Claude Vision (opcjonalny, gdy ANTHROPIC_API_KEY ustawiony)
 
 Limity bezpieczeństwa:
@@ -35,7 +36,7 @@ import pytesseract
 from extractors.schema import ExtractionResponse, FieldValue, OwnerFields
 from extractors.preprocessing import load_images_from_bytes
 from extractors.aztec import extract_aztec, PERSONAL_FIELDS
-from extractors.paddle_fields import run_paddle_ocr, parse_fields_spatial
+from extractors.rapid_fields import run_rapid_ocr, parse_fields_spatial
 from extractors.validators import (
     validate_vin, validate_nrrej, validate_date,
     validate_mass, validate_capacity, validate_power, validate_seats,
@@ -54,7 +55,7 @@ ALLOWED_MAGIC = {
     b'%PDF':          "application/pdf",
 }
 
-app = FastAPI(title="TaxOrder OCR Service", version="4.0.0")
+app = FastAPI(title="TaxOrder OCR Service", version="5.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -65,20 +66,20 @@ app.add_middleware(
 
 
 @app.on_event("startup")
-async def _preload_paddle_models():
+async def _preload_rapid_models():
     """
-    Ładuje modele PaddleOCR do PAMIĘCI przy starcie kontenera, nie przy pierwszym
+    Ładuje modele RapidOCR do PAMIĘCI przy starcie kontenera, nie przy pierwszym
     żądaniu. Wagi są już NA DYSKU (wypieczone w obrazie, patrz Dockerfile) — to
     tylko ich wczytanie do procesu. Bez tego pierwsze żądanie po zimnym starcie
     (Cloud Run scale-to-zero) płaciłoby ten koszt NA CZAS Worker'a (limit 8 s,
     worker/index.js: AbortSignal.timeout(8000)) zamiast na czas startu instancji,
     który Cloud Run i tak liczy przed oznaczeniem jej jako gotowej.
     """
-    from extractors.paddle_fields import _get_ocr
+    from extractors.rapid_fields import _get_ocr
     try:
         _get_ocr()
     except Exception:
-        logger.exception("Nie udało się wstępnie załadować modeli PaddleOCR — spróbuje ponownie przy pierwszym żądaniu")
+        logger.exception("Nie udało się wstępnie załadować modeli RapidOCR — spróbuje ponownie przy pierwszym żądaniu")
 
 # ── Stary endpoint (kompatybilność wsteczna) ─────────────────────────────────
 
@@ -105,15 +106,15 @@ async def run_ocr_legacy(
         if not images:
             return {"ok": False, "error": "Brak obrazów", "fields": {}}
         fields = _legacy_parse(images[0])
-        return {"ok": True, "fields": fields, "model": "paddleocr-pl"}
+        return {"ok": True, "fields": fields, "model": "rapidocr-latin"}
     except Exception as e:
         logger.exception("OCR legacy error")
         return {"ok": False, "error": str(e), "fields": {}}
 
 
-def _parse_fields_paddle(pil_img: Image.Image) -> dict[str, tuple]:
-    """Uruchamia PaddleOCR + parser geometryczny, zwraca {klucz: (wartość, confidence)}."""
-    boxes = run_paddle_ocr(pil_img)
+def _parse_fields_rapid(pil_img: Image.Image) -> dict[str, tuple]:
+    """Uruchamia RapidOCR + parser geometryczny, zwraca {klucz: (wartość, confidence)}."""
+    boxes = run_rapid_ocr(pil_img)
     return parse_fields_spatial(boxes, page_w=float(pil_img.width), page_h=float(pil_img.height))
 
 
@@ -121,7 +122,7 @@ def _legacy_parse(pil_img: Image.Image) -> dict:
     """
     Parser dla /ocr (wołany przez Worker jako Próba 0 — patrz `PROBA_0_WLACZONA`
     w worker/index.js). Mapowanie snake_case (schemat wewnętrzny, patrz
-    extractors/paddle_fields.py) → camelCase (DR_POLA_OCR w Workerze).
+    extractors/rapid_fields.py) → camelCase (DR_POLA_OCR w Workerze).
 
     KOMPLETNE, nie częściowe: poprzednia wersja (LEGACY_MAP, usunięta 25.08) miała
     11 z 23 kluczy zadanych przez Worker — brakowało m.in. `liczbaOsi` i
@@ -129,7 +130,7 @@ def _legacy_parse(pil_img: Image.Image) -> dict:
     CF/Groq kosztował całą sesję 21.08 (patrz DR_POLA_OCR w worker/index.js).
     Ta warstwa miałaby ten sam martwy punkt, gdyby mapę skopiować bez uzupełnienia.
     """
-    parsed = _parse_fields_paddle(pil_img)
+    parsed = _parse_fields_rapid(pil_img)
     LEGACY_MAP = {
         "numer_rejestracyjny": "nrRej",
         "vin": "vin",
@@ -268,7 +269,7 @@ async def _process_upload(data: bytes) -> ExtractionResponse:
     best_parsed: dict[str, tuple] = {}
     for pil_img in images:
         try:
-            parsed = _parse_fields_paddle(pil_img)
+            parsed = _parse_fields_rapid(pil_img)
             confs = [c for _, c in parsed.values() if c]
             avg_conf = sum(confs) / len(confs) if confs else 0.0
             filled = sum(1 for v, _ in parsed.values() if v)
@@ -412,9 +413,10 @@ async def extract_dr(
 @app.get("/")
 def health():
     """
-    Nie ładuje modeli PaddleOCR (kosztowne — patrz `_get_ocr()` w paddle_fields.py).
-    `tesseract_ver` zostaje wypisany bo binarka wciąż jest w obrazie (przydatna do
-    debugowania), ale od 25.08 to NIE jest aktywny silnik ekstrakcji — patrz `engine`.
+    Nie ładuje modeli RapidOCR (kosztowne — patrz `_get_ocr()` w rapid_fields.py).
+    `tesseract_ver` zostaje wypisany bo binarka wciąż jest w obrazie — od 25.08
+    wieczorem TYLKO do wykrywania obrotu strony (OSD), nie do rozpoznawania
+    tekstu — patrz `engine`.
     """
     try:
         tess_ver = str(pytesseract.get_tesseract_version())
@@ -423,7 +425,7 @@ def health():
     return {
         "status": "ok",
         "service": "taxorder-ocr",
-        "version": "4.0.0",
-        "engine": "paddleocr-pl",
+        "version": "5.0.0",
+        "engine": "rapidocr-latin",
         "tesseract_ver": tess_ver,
     }
