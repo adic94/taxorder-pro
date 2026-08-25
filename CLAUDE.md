@@ -377,6 +377,53 @@ prowadzi do tekstu licencji Meta na GitHubie, a zgodę wyzwala UŻYCIE modelu w 
 | 2026-08-25 | **RapidOCR zastąpił PaddleOCR — 5-8× szybciej (30-80s → 8-11s/dok.), wciąż nie DOSTATECZNIE poniżej limitu 8s.** Znaleziony przeszukaniem GitHuba na wyraźną prośbę właściciela: [RapidAI/RapidOCR](https://github.com/RapidAI/RapidOCR) (7,6k★) to TE SAME modele PP-OCR (w tym `latin_PP-OCRv5_rec_mobile` — polskie znaki), skonwertowane do ONNX i uruchamiane przez `onnxruntime` zamiast frameworka `paddlepaddle` — usuwa akcelerator oneDNN, czyli usuwa źródło OBU crashy z poprzedniego wpisu, jednym ruchem. Nowy moduł `ocr-service/extractors/rapid_fields.py` (parser geometryczny bez zmian — silnikoniezależny). **Pułapka złapana buildem, nie zgadywana:** RapidOCR wymaga wartości Enum (`LangRec.LATIN`, `OCRVersion.PPOCRV5`, `ModelType.MOBILE` z `rapidocr.utils.typings`), gołe stringi („latin", „PP-OCRv5") rzucają `TypeError` na starcie kontenera — zweryfikowane bezpośrednio z surowego pliku enumów na GitHubie, nie z opisu w dokumentacji. **Druga pułapka, poważniejsza — sprawdzona PRZED wdrożeniem, nie po awarii:** RapidOCR ma klasyfikator obrotu WYŁĄCZNIE dla pojedynczej linii tekstu (0°/180°), **nie ma odpowiednika `use_doc_orientation_classify`** (obrót całej strony 0/90/180/270) z PaddleOCR/PaddleX — bez łatki klaster „Toyota Hilux GR" (patrz wpis wyżej) znowu dawałby zero pól. Załatane Tesseract OSD (`osd_rotate_angle`, już istniejący w `preprocessing.py` z ery Tesseracta) jako TANI krok PRZED wywołaniem RapidOCR — potwierdzone na WE6LR80: 10.3s, pola poprawne. **Pomiar jakości na 10 dokumentach wobec poprzedniego przebiegu PaddleOCR na TYCH SAMYCH plikach:** pola współdzielone (dmcKg, masaWlKg, liczbaOsi, miejscaSied) identyczne w niemal każdym przypadku — dobry sygnał, że silnik nie wprowadza systemowego błędu. RapidOCR wyciąga WIĘCEJ pól ogółem (dataRej, paliwo, nrHomolog — wcześniej prawie zawsze puste). Jeden zlokalizowany słaby punkt: pole `przeznaczenie` (dopasowanie „poniżej etykiety", używane tylko przez to pole i `rok_prod`) pomyliło się 2/10 razy — nie naprawione, udokumentowane jako znane ograniczenie w `ocr-service/README.md`. **`PROBA_0_WLACZONA` w Workerze ZOSTAJE `false`** — 8-11s to wciąż zbyt blisko granicy 8s, żeby ryzykować niezawodność żywej ścieżki; wsad (`tools/dr-ocr-batch-cloudrun.js`, bez limitu czasu) korzysta już dziś | — |
 | 2026-08-25 | **Dwa długi bezpieczeństwa SRI zamknięte — sieć okazała się dostępna z tej sesji, wbrew wcześniejszym notatkom o zablokowanym `cdn.sheetjs.com`/`cdnjs.cloudflare.com`.** Nie zakładane — sprawdzone `curl` przed użyciem. **Chart.js 4.4.1**: brakujący `integrity` uzupełniony haszem POBRANYM Z OFICJALNEGO API cdnjs (`api.cdnjs.com/libraries/Chart.js/4.4.1?fields=sri`), nie policzonym samodzielnie z nieufnego źródła — mój niezależnie policzony SHA-512 z pobranego pliku zgodził się co do bajtu z wartością z API, co potwierdza autentyczność. **`xlsx` 0.18.5 → 0.20.3**: cdnjs NIE ma nowszej wersji (API `cdnjs.com/libraries/xlsx` potwierdza — SheetJS faktycznie wycofał się stamtąd, zgodnie z wcześniejszą notatką), więc naprawa wymagała zmiany CDN na `cdn.sheetjs.com` (oficjalne źródło, ma `Access-Control-Allow-Origin: *`, więc SRI nie złamie ładowania). 0.20.3 naprawia obie znane podatności (zanieczyszczenie prototypu z 0.18.5, ReDoS z <0.20.2) — zweryfikowane jako najnowsza wersja przez `package.json` z `cdn.sheetjs.com/xlsx-latest/`. Plik pobrany DWUKROTNIE, niezależnie — bajt w bajt identyczny, zanim hasz trafił do `index.html`. API SheetJS użyte w kodzie (`XLSX.read/write/writeFile/utils.*`) niezmienione w tym zakresie wersji — zero zmian w `app.js`/`modules/*.js`. `tests/unit/cdn-sri-test.js` miał WBUDOWANĄ listę znanych wyjątków (`ZNANE_BEZ_SRI`) właśnie po to, żeby wymusić usunięcie wpisu, gdy luka się zamknie — zrobione, bramka 4/4 | — |
 
+### ⛔ KSeF: cała integracja celuje w API, którego JUŻ NIE MA (25.08) — NIE naprawiona, świadomie
+
+**Nie zakładaj, że KSeF w tym projekcie kiedykolwiek działał.** Znalezione przy
+przeglądzie oficjalnego repo Ministerstwa Finansów ([CIRFMF/ksef-api](https://github.com/CIRFMF/ksef-api),
+wskazanego przez właściciela) — dwa niezależne, potwierdzone pomiarem problemy:
+
+**1. Zły host.** Kod używa `https://ksef.mf.gov.pl` / `https://ksef-test.mf.gov.pl`
+(`worker/index.js`, TRZY miejsca: `handleKsef` auth, `_ksefSendInvoice`, `_ksefRetryCompany`).
+Zmierzone `curl`: oba zwracają **`Content-Type: text/html`** — to strony PORTALU, nie API.
+Prawdziwe API wg `open-api.json` z repo MF:
+
+| środowisko | API (z `servers` w open-api.json) | dokumentacja |
+|---|---|---|
+| TEST | `https://api-test.ksef.mf.gov.pl/v2` | `https://api-test.ksef.mf.gov.pl/docs/v2` |
+| DEMO | — (analogicznie `api-demo`) | `https://api-demo.ksef.mf.gov.pl/docs/v2` |
+| PROD | — (analogicznie `api`) | `https://api.ksef.mf.gov.pl/docs/v2` |
+
+Zmierzone: `api-test.ksef.mf.gov.pl/v2` zwraca **`application/json`**. Uwaga na pułapkę:
+`srodowiska.md` podaje adresy z `/docs/v2` (dokumentacja Swagger), a `servers` w samym
+`open-api.json` — **`/v2` bez `/docs`**. To drugie jest bazą dla wywołań.
+
+**2. Zła WERSJA API — poważniejsze niż host.** Kod woła
+`/api/common/Online/Session/AuthorisationChallenge` (KSeF **1.0**). Zmierzone: ta ścieżka
+na `ksef-test.mf.gov.pl` **zrywa połączenie bez odpowiedzi** (TLS wstaje, `curl` dostaje
+„Empty reply from server"). KSeF 2.0 ma zupełnie inny model uwierzytelniania —
+`/auth/challenge` → `/auth/ksef-token` (wymaga `encryptedToken`) albo
+`/auth/xades-signature` → `/auth/token/redeem`, plus osobne
+`/sessions/online` (wymaga `formCode` i `encryption`). 78 ścieżek, inna semantyka sesji,
+inne formaty faktur (FA(3), nie FA(2) poza środowiskiem TEST).
+
+**Dlaczego NIE naprawiłem tego przy okazji:** to nie jest zmiana URL-a, tylko przepisanie
+integracji na inny protokół — z szyfrowaniem tokenów, XAdES i nowym modelem sesji. Dotyczy
+**prawnie wiążących faktur** i pola `ksef_status` w bazie, na którym stoją raporty JPK.
+Rozmiar i stawka wymagają osobnej, świadomej decyzji, nie „przy okazji" pracy nad OCR.
+
+**Co złagadza pilność:** `ksef_config` na produkcji jest najprawdopodobniej pusta (integracja
+nigdy nie została skonfigurowana), a każde wywołanie i tak kończy się `offline_queued`
+zamiast błędem — więc dziś to *martwa funkcja*, nie *aktywnie psujący się przepływ*. Ale
+oznacza to też, że **kolejka `ksef_offline_queue` będzie rosła w nieskończoność**, gdyby ktoś
+tę funkcję włączył: `_ksefRetryCompany` ponawia do 10 razy na fakturę, a każda próba trafia
+w martwy endpoint. Sprawdź `SELECT COUNT(*) FROM ksef_offline_queue` przed włączeniem czegokolwiek.
+
+**Jeśli kiedyś do tego wracamy:** `open-api.json` z repo MF (708 KB, 78 ścieżek) jest
+autorytatywnym źródłem — nie zgaduj kształtu żądań z dokumentacji ani z klientów C#/Java.
+MF nie wydaje klienta JS/TS; są oficjalne `ksef-client-csharp` i `ksef-client-java`,
+oraz społecznościowy `stacking-hq/ksef2` (Python).
+
 ### W toku
 
 **Rozjazd schematu D1 — ZWERYFIKOWANY NA PRODUKCJI 11.08.** Odczyt z `wrangler d1 execute
