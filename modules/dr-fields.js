@@ -18,6 +18,15 @@
  * tekście rozporządzenia — wpisałem je z wiedzy ogólnej, a nie z odczytu Dz.U., i tak
  * należy je traktować, dopóki ktoś nie zweryfikuje ich u źródła.
  *
+ * PRÓBA WERYFIKACJI 25.08 — NIEUDANA, powód wart zapisania. Właściwy akt to
+ * rozporządzenie MI z 8.11.2024 (Dz.U. 2024 poz. 1709), kody są w ZAŁĄCZNIKU
+ * opisującym wzór dowodu. ISAP **odbija pobieranie automatyczne**: adres
+ * `isap.sejm.gov.pl/isap.nsf/download.xsp/WDU20240001709/O/D20241709.pdf`
+ * przekierowuje sam na siebie w nieskończoność (302 → ten sam URL), niezależnie
+ * od User-Agenta. Nie jest to więc kwestia doboru narzędzia — plik trzeba pobrać
+ * ręcznie z przeglądarki. Do sprawdzenia zostaje 7 kodów, w tym **V.9 (normaEuro),
+ * które JEST polem DT-1**.
+ *
  * `dt1: true` oznacza pole wpływające na wymiar podatku od środków transportowych.
  */
 (function (factory) {
