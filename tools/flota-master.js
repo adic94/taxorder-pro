@@ -276,6 +276,12 @@ function wiersz(k, nrOryginalny) {
     if (r.marka && zr.marka === 'DR') {
       const m = String(r.marka).trim();
       if (m.length >= 4 && !/[AEIOUYĄĘÓ]/i.test(m)) powody.push(`marka „${m}" nie wygląda na nazwę`);
+      // Marka będąca TABLICĄ REJESTRACYJNĄ — odczyt z nazwy folderu, nie z dowodu.
+      // WGM77268 ma markę „WW699AN", WGM85789 markę „WW225AR”. Oba to numery
+      // pojazdu PO PRZEREJESTROWANIU, wzięte z nazwy katalogu ze skanami.
+      const mk = m.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (/^[A-Z]{2,3}[A-Z0-9]{3,6}$/.test(mk) && /\d/.test(mk) && mk !== klucz(r.nrRej))
+        powody.push(`marka „${m}" wygląda na tablicę rejestracyjną, nie markę`);
     }
 
     // Kategoria homologacyjna kontra rodzaj pojazdu: M1 to samochód OSOBOWY.
@@ -532,12 +538,66 @@ function wiersz(k, nrOryginalny) {
     naglowek(wk, 'FF7030A0');
   }
 
+  // ── Arkusz: Ten sam pojazd pod dwiema tablicami ────────────────────────────
+  //
+  // Pojazd przerejestrowany zostaje w danych DWA RAZY — pod starym i nowym
+  // numerem — bo scalanie idzie po numerze rejestracyjnym, a ten się zmienił.
+  // Podatek liczony per wiersz płaci się wtedy dwa razy za jedno auto.
+  //
+  // ZMIERZONE, nie przewidziane: Sprinter o VIN W1V9071551N140624 występuje
+  // pod TRZEMA tablicami (WL1814U, WZ494CU, WWE5XF3) i każda dostała 840 zł.
+  //
+  // Rozstrzyga VIN, nie nazwa folderu ani podobieństwo modelu. VIN jest
+  // przypisany do nadwozia na stałe i nie zmienia się przy przerejestrowaniu —
+  // to jedyna cecha, która przeżywa zmianę tablicy.
+  const wgVin = new Map();
+  for (const r of rekordy) {
+    const vin = String(r.vin || '').trim().toUpperCase();
+    if (vin.length !== 17) continue;   // krótszy VIN to zły odczyt, nie tożsamość
+    if (!wgVin.has(vin)) wgVin.set(vin, []);
+    wgVin.get(vin).push(r);
+  }
+  const duplikaty = [...wgVin.entries()].filter(([, lista]) => lista.length > 1);
+  if (duplikaty.length) {
+    const wd = out.addWorksheet('Ten sam VIN');
+    wd.columns = [
+      { header: 'VIN', key: 'vin', width: 20 },
+      { header: 'Tablice', key: 'tablice', width: 34 },
+      { header: 'Ile razy', key: 'ile', width: 9 },
+      { header: 'Marka', key: 'marka', width: 16 },
+      { header: 'Model', key: 'model', width: 22 },
+      { header: 'DMC [kg]', key: 'dmc', width: 10 },
+      { header: 'Rok', key: 'rok', width: 7 },
+      { header: 'Źródła', key: 'zrodla', width: 26 },
+    ];
+    for (const [vin, lista] of duplikaty.sort((a, b) => b[1].length - a[1].length)) {
+      const w = wd.addRow({
+        vin, tablice: lista.map(x => x.nrRej).join(', '), ile: lista.length,
+        marka: lista.find(x => x.marka)?.marka || '',
+        model: lista.find(x => x.model)?.model || '',
+        dmc: lista.find(x => x.dmc)?.dmc || '',
+        rok: lista.find(x => x.rok)?.rok || '',
+        zrodla: [...new Set(lista.flatMap(x => [...x._zrodla]))].join(', '),
+      });
+      if (lista.length > 2) w.font = { bold: true, color: { argb: 'FFC00000' } };
+    }
+    naglowek(wd, 'FFC00000');
+  }
+
   await out.xlsx.writeFile(cel);
 
   console.log(`  ${G('✓')} zapisano: ${cel}`);
   console.log(D(`     arkusze: Flota (${rekordy.length}), ${podejrzane.length ? `DR do weryfikacji (${podejrzane.length}), ` : ''}Podstawa DT-1, Pokrycie źródeł, ` +
     `${rozbieznosci.length ? `Rozbieżności (${rozbieznosci.length}), ` : ''}` +
     `${kartyBezPojazdu.length ? `Karty bez pojazdu (${kartyBezPojazdu.length})` : ''}\n`));
+
+  if (duplikaty.length) {
+    const ileWierszy = duplikaty.reduce((a, [, l]) => a + l.length, 0);
+    console.log(R(`  \u26a0 ${duplikaty.length} pojazd\u00f3w wyst\u0119puje pod WI\u0118CEJ NI\u017b JEDN\u0104 TABLIC\u0104`) +
+      D(` (${ileWierszy} wierszy) \u2014 arkusz \u201eTen sam VIN\u201d.`));
+    console.log(D('     To przerejestrowania. Podatek liczony per wiersz p\u0142aci si\u0119 za jedno auto dwa razy.'));
+    console.log(D('     VIN nie zmienia si\u0119 przy zmianie tablicy \u2014 dlatego rozstrzyga on, nie nazwa folderu.\n'));
+  }
 
   if (podejrzane.length) {
     console.log(R(`  \u26a0 ${podejrzane.length} wierszy DR PRZECZY SAMYM SOBIE`) +

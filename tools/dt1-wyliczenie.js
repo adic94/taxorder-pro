@@ -81,6 +81,23 @@ const liczba = (v) => { const n = Number(String(v ?? '').replace(/[^\d.,-]/g, ''
   const wpd = wb.getWorksheet('Podstawa DT-1');
   wpd?.eachRow((r, i) => { if (i > 1 && r.getCell(wpd.columnCount).value) spozaDowodu.add(String(r.getCell(1).value || '').trim()); });
 
+  // TEN SAM POJAZD POD DWIEMA TABLICAMI — podatek zapłacony dwa razy za jedno auto.
+  //
+  // Przerejestrowany pojazd zostaje w danych pod starym I nowym numerem, bo
+  // scalanie idzie po tablicy, a ta się zmieniła. Zmierzone na tej flocie:
+  // 6 pojazdów opodatkowanych wielokrotnie, w tym Sprinter o VIN
+  // W1V9071551N140624 pod TRZEMA tablicami — łącznie 9 816 zł zbędnej należności.
+  //
+  // Wykrywa to arkusz MASTER (zakładka „Ten sam VIN"), bo VIN jest przypisany
+  // do nadwozia na stałe i przeżywa zmianę tablicy. Tutaj tylko przenosimy
+  // ten sygnał do wyliczenia — żeby stał tam, gdzie stoi kwota.
+  const tenSamVin = new Map();   // tablica → pozostałe tablice tego samego VIN-u
+  wb.getWorksheet('Ten sam VIN')?.eachRow((r, i) => {
+    if (i === 1) return;
+    const tab = String(r.getCell(2).value || '').split(',').map(s => s.trim()).filter(Boolean);
+    for (const t of tab) tenSamVin.set(t, { vin: String(r.getCell(1).value || ''), inne: tab.filter(x => x !== t) });
+  });
+
   const wiersze = [];
   wf.eachRow((r, i) => {
     if (i === 1) return;
@@ -103,6 +120,8 @@ const liczba = (v) => { const n = Number(String(v ?? '').replace(/[^\d.,-]/g, ''
 
     const zrodla = String(g(K.zrodla) || '');
     const uwagi = [];
+    const dupl = tenSamVin.get(nr);
+    if (dupl) uwagi.push(`ten sam VIN co ${dupl.inne.join(', ')} — sprawdź, czy to nie jeden pojazd po przerejestrowaniu`);
     if (podejrzane.has(nr)) uwagi.push('DR przeczy sam sobie');
     if (spozaDowodu.has(nr)) uwagi.push('pole podatkowe spoza dowodu');
     if (!/DR/.test(zrodla)) uwagi.push('brak dowodu rejestracyjnego');
