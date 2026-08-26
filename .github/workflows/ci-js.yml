@@ -222,3 +222,13 @@ jobs:
       # dziesieciokrotnie zawyzona.
       - name: Podstawa DT-1 to F.2, nie F.1
         run: node tests/unit/dmc-podstawa-test.js
+
+      # tools/sync.js synchronizuje dwa komputery „jednym poleceniem" — czyli jest
+      # dokladnie tym rodzajem wygody, przy ktorej ktos kiedys uruchomi ja na `main`.
+      # A push do main w tym repo JEST wdrozeniem na produkcje (deploy-worker.yml dla
+      # worker/**, Cloudflare Pages dla reszty). Bramka pilnuje, ze odmowa istnieje
+      # I ze stoi PRZED pushem — funkcja poprawna, ale wywolana po wysylce, nic nie chroni.
+      # Zweryfikowana negatywnie na dwa tryby awarii: 14/3 po usunieciu main z listy,
+      # 15/2 po przestawieniu pusha przed straznika.
+      - name: Straznik mostu — sync.js nie wysle na main
+        run: node tests/unit/sync-guard-test.js
