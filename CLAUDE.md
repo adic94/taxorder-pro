@@ -1750,7 +1750,17 @@ poza `ci-js.yml`, krok CI bez pliku — każdy daje kod wyjścia 1, a po przywr�
    Do 19.08 ten wpis twierdził, że `ocr-service/` „nie jest podłączony i żaden plik
    aplikacji się do niego nie odwołuje". **To było nieprawdą** i wprowadzało w błąd przy
    każdej diagnozie OCR — analiza kaskady bez Próby 0 opisuje inny system niż działający.
-9. **Izolacja tenanta** — każde zapytanie do tabeli tenantowej musi mieć `company_id=?`.
+10. **`TaxEngine.getCat()` przy braku liczby osi CICHO przyjmuje 2** — `parseInt(v.osie) || 2`
+   (`modules/tax-engine.js:88` i `:199`). Brak danych nie jest błędem: dla pojazdu **od 12 t**
+   daje to kategorię **D8 zamiast D9/D10**, czyli inną stawkę, a kwota wygląda tak samo
+   wiarygodnie. Przy zmierzonym pokryciu `liczba osi 68/916` to nie jest przypadek brzegowy.
+   Ta sama pułapka dotyczy `osie <= 2 ? "D11" : "D12"` (ciągniki) i `"D13"/"D14"/"D15"`
+   (naczepy). **Zanim podasz komukolwiek kwotę podatku, sprawdź, ile pozycji stoi na tym
+   domyśle** — `tools/dr-excel.js` liczy to i wypisuje, a w arkuszu DT-1 kolumna
+   „Możliwe kategorie (brak osi)" pokazuje na czerwono wszystkie kategorie, jakie wychodzą
+   przy 1–4 osiach. Trzy kategorie w jednej komórce znaczą „to nie jest ustalone".
+
+11. **Izolacja tenanta** — każde zapytanie do tabeli tenantowej musi mieć `company_id=?`.
    Wzorzec dla operacji po `id`: najpierw `SELECT ... WHERE id=? AND company_id=?`, przy braku
    wiersza `404`; albo `WHERE id=? AND company_id=?` bezpośrednio w `UPDATE`/`DELETE`
    i sprawdzenie `r.meta.changes === 0`. Audyt: 625 zapytań, 99,4% ze scopem.
