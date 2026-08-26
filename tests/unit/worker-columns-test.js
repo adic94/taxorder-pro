@@ -235,5 +235,88 @@ sprawdzListe('EXPORT_TABLES', mExp ? [...mExp[1].matchAll(/table:\s*'([^']+)'/g)
 const mAll = src.match(/const\s+ALLOWED_TABLES\s*=\s*\[([^\]]*)\]/);
 sprawdzListe('ALLOWED_TABLES', mAll ? [...mAll[1].matchAll(/'([^']+)'/g)].map(x => x[1]) : []);
 
+// ── [5] liczba `?` w zapytaniu kontra liczba argumentów .bind() ──────────────
+// `db.prepare()` waliduje nazwy tabel i kolumn, ale NIE liczbę parametrów — niezgodność
+// wychodzi dopiero przy wykonaniu („Wrong number of parameter bindings"). To osobna
+// klasa od sekcji [2] i nie łapie jej nic innego w tym repo.
+//
+// KOMENTARZE LECĄ PRECZ PRZED POMIAREM. Pierwsza wersja tego skanera zgłosiła fałszywy
+// alarm na kodzie, w którym komentarz WEWNĄTRZ `.bind()` zawierał przecinek i backtick —
+// licznik argumentów rozsypywał się na treści komentarza. Ta sama pomyłka co w pierwszej
+// wersji strażnika mostu, który mierzył prozę zamiast kodu.
+console.log('\n[5] Liczba parametrów: `?` kontra .bind()');
+function bezKomentarzy(kod) {
+  let o = '', q = null;
+  for (let i = 0; i < kod.length; i++) {
+    const c = kod[i];
+    if (q) { o += c; if (c === '\\') { o += kod[i + 1]; i++; continue; } if (c === q) q = null; continue; }
+    if (c === '`' || c === "'" || c === '"') { q = c; o += c; continue; }
+    if (c === '/' && kod[i + 1] === '/') { while (i < kod.length && kod[i] !== '\n') i++; o += '\n'; continue; }
+    if (c === '/' && kod[i + 1] === '*') { i += 2; while (i < kod.length && !(kod[i] === '*' && kod[i + 1] === '/')) i++; i++; continue; }
+    o += c;
+  }
+  return o;
+}
+function czytajLiteral(kod, i) {
+  const q = kod[i];
+  if (q !== '`' && q !== "'" && q !== '"') return null;
+  let j = i + 1, buf = '';
+  while (j < kod.length) {
+    const c = kod[j];
+    if (c === '\\') { buf += kod[j + 1]; j += 2; continue; }
+    if (c === q) break;
+    buf += c; j++;
+  }
+  return { tresc: buf, koniec: j };
+}
+function argumentyNajwyzszegoPoziomu(t) {
+  const out = []; let d = 0, buf = '', q = null;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (q) { if (c === '\\') { buf += c + t[i + 1]; i++; continue; } buf += c; if (c === q) q = null; continue; }
+    if (c === '`' || c === "'" || c === '"') { q = c; buf += c; continue; }
+    if ('([{'.includes(c)) d++;
+    if (')]}'.includes(c)) d--;
+    if (c === ',' && d === 0) { out.push(buf.trim()); buf = ''; continue; }
+    buf += c;
+  }
+  if (buf.trim()) out.push(buf.trim());
+  return out;
+}
+{
+  const kod = bezKomentarzy(src);
+  const reB = /\.prepare\s*\(\s*/g;
+  let mb, sprawdzone = 0, pominiete = 0;
+  const zle = [];
+  while ((mb = reB.exec(kod)) !== null) {
+    const i = mb.index + mb[0].length;
+    const lit = czytajLiteral(kod, i);
+    if (!lit) continue;
+    const sql = lit.tresc;
+    if (!/^\s*(SELECT|UPDATE|DELETE|INSERT|WITH|REPLACE)\b/i.test(sql)) continue;
+    if (/\$\{/.test(sql)) { pominiete++; continue; }   // interpolacja może wnosić własne `?`
+    let k = lit.koniec + 1;
+    while (k < kod.length && /[\s)]/.test(kod[k])) k++;
+    if (kod.slice(k, k + 6) !== '.bind(') continue;
+    let d = 1, j = k + 6, arg = '', q = null;
+    while (j < kod.length && d > 0) {
+      const c = kod[j];
+      if (q) { if (c === '\\') { arg += c + kod[j + 1]; j += 2; continue; } arg += c; if (c === q) q = null; j++; continue; }
+      if (c === '`' || c === "'" || c === '"') { q = c; arg += c; j++; continue; }
+      if ('(['.includes(c) || c === '{') d++;
+      if (')]'.includes(c) || c === '}') d--;
+      if (d === 0) break;
+      arg += c; j++;
+    }
+    if (/\.\.\./.test(arg)) { pominiete++; continue; } // spread — liczby nie znamy statycznie
+    const ile = argumentyNajwyzszegoPoziomu(arg).filter(a => a !== '').length;
+    const znaki = (sql.match(/\?/g) || []).length;
+    sprawdzone++;
+    if (znaki !== ile) zle.push({ linia: kod.slice(0, i).split('\n').length, znaki, ile, sql: sql.replace(/\s+/g, ' ').slice(0, 110) });
+  }
+  if (zle.length) for (const z of zle) bad(`index.js:${z.linia} — ? = ${z.znaki}, .bind() = ${z.ile}`, z.sql);
+  else ok(`${sprawdzone} par prepare/bind zgodnych co do liczby parametrów (${pominiete} pominiętych: interpolacja lub spread)`);
+}
+
 console.log(`\nWynik: ${pass} PASS / ${fail} FAIL\n`);
 process.exit(fail ? 1 : 0);
