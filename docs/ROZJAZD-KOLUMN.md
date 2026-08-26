@@ -148,3 +148,22 @@ teraz też naprawione. Zostaje wyłącznie `alert_events`, świadomie.
 `PUT /api/access-control/config` wstawia `updated_by`, które istnieje wyłącznie w `v33`.
 Nie do naprawy „przy okazji": to decyzja o włączeniu licencjonowania modułów. Pełny
 opis i kolejność kroków — CLAUDE.md, sekcja „Otwarte / znane długi".
+
+## F. Dlaczego nie ruszamy 27 niemych `.catch()` przy zapisach
+
+Po naprawie `handleBulkSavePolicy` naturalnym odruchem było przeszukać worker za
+zapisami, których niepowodzenie jest połykane. Jest ich **27** — `INSERT`/`UPDATE`/
+`DELETE` z `.catch(() => {})`, m.in. kolejka KSeF, log windykacji, log importu paliwa,
+`notification_log`, `last_used_at` kluczy API.
+
+**Nie zmieniamy ich i to jest wniosek, nie zaniechanie.** Niemy `catch` przy zapisie
+jest groźny tylko wtedy, gdy zapytanie może paść — a od tej zmiany **każde zapytanie
+`INSERT`/`UPDATE` do nieistniejącej kolumny lub tabeli wywala bramkę**, niezależnie od
+tego, czy ma `.catch()`. Dokładnie tak wykryliśmy `polisy` i skany QR: nie po objawie,
+tylko przy budowie schematu.
+
+Innymi słowy: ryzyko z niemego `catch` przesunęło się z „ukrywa błąd w zapytaniu" na
+„ukrywa awarię bazy w czasie wykonania" — a to drugie jest przy D1 rzadkie i zwykle
+świadomie tolerowane (telemetria, liczniki użycia). Masowa zamiana 27 miejsc byłaby
+zmianą zachowania bez znalezionego defektu, czyli dokładnie tym, przed czym ostrzega
+sekcja WERYFIKACJA w CLAUDE.md.
