@@ -194,6 +194,7 @@ jobs:
       - name: Straznik zapytan do CEPiK — limity API i budzet zadan
         run: node tests/unit/cepik-batch-test.js
 
+
       # Dziedzina kategorii homologacyjnej istnieje w DWOCH miejscach, bo katalog
       # jest w JS, a parser OCR w Pythonie (i buduje sie z samego ocr-service/,
       # wiec dr-fields.js nie trafia nawet do jego obrazu). Kopia jest konieczna —

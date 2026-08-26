@@ -25,6 +25,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { podstawaDmc } = require(path.join(__dirname, 'lib', 'dt1-podstawa.js'));
 const ExcelJS = require('exceljs');
 
 const G = s => `\x1b[32m${s}\x1b[0m`, R = s => `\x1b[31m${s}\x1b[0m`,
@@ -147,9 +148,12 @@ const liczba = (v) => { const n = Number(String(v ?? '').replace(/[^\d.,-]/g, ''
     // z rubryk — zmierzone na trzech Sprinterach, którym OCR dał F.2 = 37 000
     // przy F.1 = 3 500. Wtedy zostajemy przy F.1 i zgłaszamy sprzeczność,
     // zamiast wpisać do deklaracji dziesięciokrotnie zawyżoną masę.
+    // Regula wyprowadzona do `tools/lib/dt1-podstawa.js`, bo arkusz DT-1 w `dr-excel.js`
+    // mial WLASNA i rozjechana wersje (podawal silnikowi F.1). Jedno miejsce dla obu.
+    // `f1` i `f2` zostaja, bo nizej sprawdzamy osobno, czy F.2 nie przekracza F.1 —
+    // to KONTROLA SPOJNOSCI odczytu, nie druga kopia reguly wyboru.
     const f1 = liczba(g(K.dmc)), f2 = liczba(g(K.dmc2));
-    const uzyjF2 = f2 != null && f2 > 0 && (f1 == null || f2 <= f1);
-    const dmcPodatkowa = uzyjF2 ? f2 : f1;
+    const { masa: dmcPodatkowa } = podstawaDmc(f1, f2);
 
     const v = {
       nrRej: nr,

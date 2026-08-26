@@ -40,6 +40,7 @@ const fs = require('fs');
 const path = require('path');
 const ExcelJS = require('exceljs');
 const DR = require(path.join(__dirname, '..', 'modules', 'dr-fields.js'));
+const { podstawaDmc } = require(path.join(__dirname, 'lib', 'dt1-podstawa.js'));
 
 const G = s => `\x1b[32m${s}\x1b[0m`, R = s => `\x1b[31m${s}\x1b[0m`,
       Y = s => `\x1b[33m${s}\x1b[0m`, B = s => `\x1b[1m${s}\x1b[0m`, D = s => `\x1b[2m${s}\x1b[0m`;
@@ -823,13 +824,18 @@ async function zapiszDlaZarzadu(cel, rekordy, dt1Wiersze, konflikty, odrzucone, 
   const TaxEngine = shim.window.TaxEngine;
 
   const dt1Wiersze = rekordy.map(r => {
+    // PODSTAWA WYMIARU to F.2, nie F.1 — dwie rozne wielkosci, nie dwa odczyty tej samej.
+    // Ta wersja podawala silnikowi F.1, a `tools/dt1-wyliczenie.js` F.2, wiec oba
+    // narzedzia dawaly INNA kategorie dla kazdego pojazdu, w ktorym F.1 != F.2.
+    // Regula mieszka teraz w `tools/lib/dt1-podstawa.js` — jedno miejsce dla obu.
+    const { masa: dmcPodatkowa } = podstawaDmc(r.dmcKg, r.dmcKg2);
     const v = {
-      dmc: r.dmcKg ?? null, dmcMax: r.dmcKg2 ?? null, dmcZespolu: r.dmcZespolu ?? 0,
+      dmc: dmcPodatkowa, dmcMax: dmcPodatkowa, dmcZespolu: r.dmcZespolu ?? 0,
       typ: r.przeznaczenie || r.typ || '', przeznaczenie: r.przeznaczenie || '',
       osie: r.liczbaOsi, miejsca: r.miejscaSied, rok: r.rokProd,
     };
-    const maDmc = r.dmcKg != null || r.dmcKg2 != null;
-    const tonaz = ((r.dmcZespolu || 0) > 0 ? r.dmcZespolu : (r.dmcKg ?? r.dmcKg2 ?? 0)) / 1000;
+    const maDmc = dmcPodatkowa != null;
+    const tonaz = ((r.dmcZespolu || 0) > 0 ? r.dmcZespolu : (dmcPodatkowa ?? 0)) / 1000;
     const specjalny = /specjaln/i.test(v.typ) || /specjaln/i.test(v.przeznaczenie);
     const cat = maDmc ? TaxEngine.getCat(v) : null;
 

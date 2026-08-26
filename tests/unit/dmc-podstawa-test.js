@@ -65,21 +65,41 @@ ok(/kol\('F\.2/.test(wylicz), /kol\('F\.2/.test(wylicz)
   ? 'wyliczenie czyta kolumnę F.2 z arkusza'
   : 'wyliczenie NIE czyta F.2 — podstawą zostaje masa techniczna');
 
-const maWybor = /const uzyjF2 =[\s\S]{0,200}f2 <= f1/.test(wylicz);
-ok(maWybor, maWybor
-  ? 'F.2 ma pierwszeństwo, ale tylko gdy nie przekracza F.1'
-  : 'brak warunku pierwszeństwa F.2 z kontrolą F.2 <= F.1');
+// Reguła wyboru mieszkała do 26.08 W TYM PLIKU jako literał `const uzyjF2 = … f2 <= f1`,
+// a sama decyzja była odtworzona niżej w teście. To znaczyło TRZY kopie jednej reguły:
+// w `dt1-wyliczenie.js`, w tym teście, i — jak się okazało — czwartą, ROZJECHANĄ,
+// w arkuszu DT-1 w `dr-excel.js`, który podawał silnikowi F.1 zamiast F.2. Oba narzędzia
+// używały tego samego produkcyjnego TaxEngine, więc różniła je wyłącznie masa na wejściu:
+// dla każdego pojazdu z F.1 ≠ F.2 dawały inną kategorię i inną kwotę, oba wiarygodnie.
+// Reguła jest teraz w `tools/lib/dt1-podstawa.js` i to ją test sprawdza.
+const { podstawaDmc } = require(path.join(ROOT, 'tools', 'lib', 'dt1-podstawa.js'));
+ok(typeof podstawaDmc === 'function',
+  typeof podstawaDmc === 'function'
+    ? 'reguła wyboru podstawy jest w tools/lib/dt1-podstawa.js'
+    : 'BRAK wspólnej reguły — wróciła kopia w narzędziu');
+
+// Żadne narzędzie liczące podatek nie może mieć WŁASNEGO wyboru między F.1 a F.2.
+// Sygnałem jest sam WYBÓR, nie wystąpienie obu nazw: kontrola spójności „F.2 > F.1"
+// niżej jest w porządku i musi zostać.
+for (const nazwa of ['dr-excel.js', 'dt1-wyliczenie.js']) {
+  const src = fs.readFileSync(path.join(ROOT, 'tools', nazwa), 'utf8');
+  if (!/tax-engine\.js/.test(src)) continue;
+  const wlasna = /uzyjF2|\?\s*f2\s*:\s*f1|dmcMax\s*:\s*r\.dmcKg2/.test(src);
+  const wspolna = /podstawaDmc/.test(src);
+  ok(wspolna && !wlasna, wspolna && !wlasna
+    ? `${nazwa} — bierze podstawę z tools/lib/dt1-podstawa.js`
+    : wlasna ? `${nazwa} — ma WŁASNY wybór między F.1 a F.2`
+             : `${nazwa} — liczy podatek, ale nie importuje podstawaDmc()`);
+}
 
 // [4] ⚠️ NAJWAŻNIEJSZA ASERCJA. Bez kontroli „F.2 <= F.1" bramka byłaby groźna:
 //     OCR potrafi wstawić do F.2 zupełnie obcą liczbę. Zmierzone na trzech
 //     Sprinterach — F.2 = 37 000 przy F.1 = 3 500 / 5 500. Ślepe pierwszeństwo
 //     F.2 wpisałoby do deklaracji masę DZIESIĘCIOKROTNIE zawyżoną, a pojazd
 //     przeskoczyłby z kategorii D1 (840 zł) do przedziału 37-tonowego.
-//     Odtwarzamy tu samą decyzję, nie cały skrypt.
-const wybierz = (f1v, f2v) => {
-  const uzyjF2 = f2v != null && f2v > 0 && (f1v == null || f2v <= f1v);
-  return uzyjF2 ? f2v : f1v;
-};
+//     Wywołujemy PRODUKCYJNĄ regułę, nie jej odtworzenie — kopia w teście przechodziłaby
+//     nawet wtedy, gdyby narzędzia liczyły co innego.
+const wybierz = (f1v, f2v) => podstawaDmc(f1v, f2v).masa;
 const PRZYPADKI = [
   [37000, 32000, 32000, 'WA1697F — Volvo FMX 8x4, F.2 niższa i to ona jest podstawą'],
   [28500, 26000, 26000, 'WW6202Y — F.2 niższa'],
