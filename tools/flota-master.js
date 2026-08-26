@@ -40,6 +40,7 @@ const SCIEZKI = {
   zsi:   path.join(DOM, 'Desktop', 'Dokumentacja pojazdów', 'Pulpit', 'Brak VIN w ZSI.xlsx'),
   mycar: path.join(DOM, 'Downloads', 'mycar-10-2025-nowe.xls'),
   orlen: path.join(DOM, 'Downloads', 'orlen flota numery kart_CSV.csv'),
+  d1osie: path.join(DOM, 'Documents', 'taxorder-backupy', 'd1-osie-2026-08-26.json'),
 };
 
 const argv = process.argv.slice(2);
@@ -67,7 +68,20 @@ const rozbieznosci = [];
 const statystyki = {};
 
 /** Wpisuje wartość, jeśli lepsza rangą; rozbieżność zapisuje zamiast ukrywać. */
-const RANGA = { DR: 4, ZSI: 3, MyCar: 2, ORLEN: 1 };
+// „D1" to produkcyjna baza aplikacji. Stoi NAD dowodem, ale wnosi DOKŁADNIE
+// JEDNO POLE — liczbę osi — i tylko tam, gdzie różni się od domyślnych dwóch.
+//
+// Dlaczego nad dowodem: te wartości ktoś RĘCZNIE POPRAWIŁ (korekta osi 02.08.2026),
+// a nasze dane DR to OCR skanu, który liczby osi prawie nigdy nie odczytuje.
+// Zmierzone: z 28 pojazdów od 12 t aż 17 nie ma liczby osi z żadnego dokumentu,
+// a od 12 t stawka OD NIEJ ZALEŻY — brak zrzuca pojazd do stawki dwuosiowej.
+//
+// ⚠️ Dlaczego TYLKO osie, skoro D1 ma komplet pól: reszta jego danych nie jest
+// lepsza od dokumentu, a `suspension_type` jest wręcz szkodliwe — ma wartość
+// „pneumatyczne" przy WSZYSTKICH 217 pojazdach, łącznie z motocyklem, osobówką
+// i przyczepą z myjką ciśnieniową. To wartość wpisana hurtem, nie pomiar.
+// Wciągnięcie jej wypełniłoby 945 pól wiarygodnie wyglądającą nieprawdą.
+const RANGA = { D1: 5, DR: 4, ZSI: 3, MyCar: 2, ORLEN: 1 };
 function ustaw(k, pole, wartosc, zrodlo) {
   if (wartosc == null || wartosc === '' || String(wartosc).trim() === '') return;
   const w = String(wartosc).trim();
@@ -243,6 +257,41 @@ function wiersz(k, nrOryginalny) {
     statystyki.ORLEN = n;
     console.log(`  ${G('✓')} ORLEN — ${n} kart przypisanych do pojazdu, ${bez} bez numeru rejestracyjnego`);
   } else console.log(`  ${Y('·')} ORLEN — pominięte`);
+
+  // ── D1: liczba osi z produkcyjnej bazy ─────────────────────────────────────
+  // Jedno pole, świadomie. Uzasadnienie przy stałej RANGA wyżej.
+  //
+  // Uwaga na pułapkę: NIE używaj do tego `dt1-verify-d1.json`. Ten plik pochodzi
+  // sprzed korekty osi z 02.08.2026 i przeczy dzisiejszej bazie w 11 z 16
+  // pojazdów ciężkich (WA2609J ma tam 2 osie zamiast 4) — wczytanie go
+  // COFNĘŁOBY tamte poprawki, i to bez żadnego widocznego objawu.
+  if (fs.existsSync(SCIEZKI.d1osie)) {
+    const dane = JSON.parse(fs.readFileSync(SCIEZKI.d1osie, 'utf8'));
+    let n = 0, nowe = 0, nT = 0;
+    for (const [nr, osie] of Object.entries(dane.osie || {})) {
+      const k = klucz(nr);
+      const rec = flota.get(k);
+      if (!rec) continue;             // pojazd spoza dokumentacji — nie tworzymy wiersza
+      if (!rec.liczbaOsi) nowe++;
+      ustaw(k, 'liczbaOsi', String(osie), 'D1');
+      rec._zrodla.add('D1');
+      n++;
+    }
+    // Rodzaj pojazdu — decyduje, którą GAŁĘZIĄ idzie wyliczenie. Przyczepa
+    // dwuosiowa 12–28 t to D14 (1488 zł), a ciężarówka dwuosiowa powyżej 15 t
+    // to D8 (2184 zł): zła gałąź daje kwotę wiarygodną z wyglądu i o 700 zł
+    // nietrafioną. Zmierzone na WA995AL — 22-tonowej przyczepie ANDRE, którą
+    // mój arkusz liczył jak ciężarówkę, bo w dokumencie rodzaj był nieczytelny.
+    for (const [nr, typ] of Object.entries(dane.typ || {})) {
+      const k = klucz(nr);
+      if (!flota.has(k)) continue;
+      ustaw(k, 'rodzaj', typ, 'D1');
+      flota.get(k)._zrodla.add('D1');
+      nT++;
+    }
+    statystyki.D1 = n + nT;
+    console.log(`  ${G('✓')} D1 — liczba osi dla ${n} pojazdów (${nowe} nie miało jej z żadnego dokumentu), rodzaj dla ${nT}`);
+  } else console.log(`  ${Y('·')} D1 — pominięte (brak ${path.basename(SCIEZKI.d1osie)})`);
 
   const rekordy = [...flota.values()].sort((a, b) => String(a.nrRej).localeCompare(String(b.nrRej), 'pl'));
 
