@@ -641,6 +641,7 @@ async function zapiszDlaZarzadu(cel, rekordy, dt1Wiersze, konflikty, odrzucone, 
     { header: 'Liczba osi', key: 'osie', width: 10 },
     { header: 'Zawieszenie', key: 'zawieszenie', width: 18 },
     { header: 'Kategoria DT-1', key: 'kat', width: 14 },
+    { header: 'Możliwe kategorie (brak osi)', key: 'katWarianty', width: 26 },
     { header: 'Status', key: 'status', width: 26 },
     { header: 'Czego brakuje', key: 'braki', width: 34 },
   ];
@@ -841,6 +842,20 @@ async function zapiszDlaZarzadu(cel, rekordy, dt1Wiersze, konflikty, odrzucone, 
       if (!r.zawieszenie) braki.push('zawieszenie');
     }
 
+    // CICHY DOMYSLNY WYBOR — `TaxEngine.getCat()` ma `parseInt(v.osie) || 2` (linie 88 i 199).
+    // Brak liczby osi NIE jest bledem: po cichu staje sie dwojka. Dla pojazdu od 12 t daje
+    // to D8 zamiast D9/D10, czyli INNA STAWKE — a wynik wyglada tak samo wiarygodnie.
+    // Zamiast wypisac jedna kategorie i udawac, ze jest ustalona, pokazujemy WSZYSTKIE,
+    // ktore wychodza przy prawdopodobnych liczbach osi. Kolumna z trzema kategoriami
+    // krzyczy „to nie jest ustalone" mocniej niz przypis w innym arkuszu.
+    let katWarianty = '';
+    if (maDmc && !specjalny && tonaz >= 12 && r.liczbaOsi == null) {
+      const mozliwe = [...new Set([1, 2, 3, 4]
+        .map(n => TaxEngine.getCat({ ...v, osie: n }))
+        .filter(Boolean))];
+      if (mozliwe.length > 1) katWarianty = mozliwe.join(' / ');
+    }
+
     let status;
     if (specjalny) status = 'zwolniony (specjalny)';
     else if (!maDmc) status = 'NIE DA SIE USTALIC';
@@ -852,7 +867,8 @@ async function zapiszDlaZarzadu(cel, rekordy, dt1Wiersze, konflikty, odrzucone, 
       rodzaj: r.przeznaczenie || r.typ || '', dmc: r.dmcKg ?? null,
       dmcZesp: r.dmcZespolu ?? null, osie: r.liczbaOsi ?? null,
       zawieszenie: r.zawieszenie || '', kat: cat || '', status,
-      braki: braki.join(', '), _wymaga12t: maDmc && !specjalny && tonaz >= 12,
+      katWarianty, braki: braki.join(', '), _wymaga12t: maDmc && !specjalny && tonaz >= 12,
+      _katNiepewna: katWarianty !== '',
       _podlega: !!cat, _niepewny: braki.length > 0 && !specjalny,
     };
   });
@@ -868,6 +884,7 @@ async function zapiszDlaZarzadu(cel, rekordy, dt1Wiersze, konflikty, odrzucone, 
     { header: 'L osie', key: 'osie', width: 8 },
     { header: 'Zawieszenie', key: 'zawieszenie', width: 22 },
     { header: 'Kategoria DT-1', key: 'kat', width: 14 },
+    { header: 'Możliwe kategorie (brak osi)', key: 'katWarianty', width: 26 },
     { header: 'Status', key: 'status', width: 26 },
     { header: 'Czego brakuje', key: 'braki', width: 34 },
   ];
@@ -879,6 +896,11 @@ async function zapiszDlaZarzadu(cel, rekordy, dt1Wiersze, konflikty, odrzucone, 
     const wiersz = wd.addRow(w);
     if (w.braki) wiersz.getCell('braki').font = { color: { argb: 'FF9C0006' }, bold: true };
     if (w.status === 'NIE DA SIE USTALIC') wiersz.getCell('status').font = { color: { argb: 'FF9C0006' }, bold: true };
+    if (w.katWarianty) {
+      // Kategoria pokazana w kolumnie obok jest WYNIKIEM DOMYSLNEJ DWOJKI, nie odczytu.
+      wiersz.getCell('kat').font = { color: { argb: 'FF9C0006' }, bold: true };
+      wiersz.getCell('katWarianty').font = { color: { argb: 'FF9C0006' }, bold: true };
+    }
   }
   wd.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: wd.columns.length } };
 
@@ -963,6 +985,18 @@ async function zapiszDlaZarzadu(cel, rekordy, dt1Wiersze, konflikty, odrzucone, 
     console.log(`   ${String(wymaga12t.length).padStart(4)}  od 12 t — tylko TE potrzebuja liczby osi i zawieszenia`);
     console.log(`   ${(brak12t.length ? R : G)(String(brak12t.length).padStart(4))}  z nich ma braki w tych polach`);
     if (nieDaSie.length) console.log(`   ${R(String(nieDaSie.length).padStart(4))}  bez DMC — kategorii nie da sie ustalic wcale`);
+
+    // Najwazniejsza liczba w calym raporcie: ile kwot stoi na CICHYM DOMYSLE.
+    const naDomysle = dt1Wiersze.filter(w => w._katNiepewna);
+    if (naDomysle.length) {
+      console.log(R(`\n   ${String(naDomysle.length).padStart(4)}  pojazdow od 12 t BEZ liczby osi — ich kategoria to DOMYSL, nie odczyt`));
+      console.log(D('         `TaxEngine.getCat()` ma `parseInt(v.osie) || 2` (tax-engine.js:88 i :199),'));
+      console.log(D('         wiec brak osi po cichu staje sie dwojka. Dla pojazdu od 12 t to D8'));
+      console.log(D('         zamiast D9/D10 — inna stawka, a wynik wyglada tak samo wiarygodnie.'));
+      const przyklady = naDomysle.slice(0, 3).map(w => `${w.nrRej} → ${w.katWarianty}`);
+      console.log(D(`         np. ${przyklady.join(' | ')}`));
+      console.log(D('         Arkusz DT-1, kolumna „Możliwe kategorie (brak osi)" — na czerwono.'));
+    }
     console.log(D('\n     Liczba osi „68/916" w raporcie pokrycia myli: silnik czyta ja WYLACZNIE'));
     console.log(D('     dla pojazdow od 12 t. Ponizej progu decyduje sama DMC i rodzaj pojazdu.'));
     console.log(D('     Arkusz DT-1 wymienia braki per pojazd, wiec da sie je uzupelnic recznie.\n'));
