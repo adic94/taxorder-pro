@@ -39,13 +39,42 @@ const stawki = Object.fromEntries(wpisy.map(m => [m[1], Number(m[2])]));
 ok(wpisy.length > 20, `SCHEMA ma ${wpisy.length} pozycji`);
 
 // § 1 (stawki podstawowe) i § 2 (rok produkcji ≥ 2024), przepisane z uchwały.
+//
+// ⚠️ DO 26.08 TA LISTA MIAŁA 11 POZYCJI — same pojazdy PONIŻEJ 12 ton. Stawki
+// od 12 t, czyli NAJWYŻSZE (do 4 296 zł), nie były sprawdzone z żadnym źródłem.
+// Uzupełnione odczytem pełnego tekstu uchwały z PDF-a, punkt po punkcie.
+//
+// Sprawdzone przy okazji i warte zapamiętania: **uchwała NIE różnicuje stawek
+// po RODZAJU ZAWIESZENIA**. Ustawa dopuszcza taki podział dla pojazdów od 12 t
+// (pneumatyczne albo uznane za równoważne kontra inne systemy), ale Warszawa
+// z niego nie skorzystała — zero wystąpień słów „zawieszenie" i „pneumatyczne"
+// w całym tekście. Struktura SCHEMA (klucz: rodzaj + osie + masa) jest więc
+// poprawna, a brak wymiaru zawieszenia NIE jest luką.
 const UCHWALA = {
-  car_lt55_old: 840,  car_lt55_new: 744,     // ciężarowy 3,5–5,5 t
-  car_55_90_old: 1128, car_55_90_new: 1008,  // ciężarowy 5,5–9 t
-  car_90_12_old: 1488, car_90_12_new: 1344,  // ciężarowy 9–12 t
-  ct_lt12_old: 1392,  ct_lt12_new: 1248,     // ciągnik siodłowy 3,5–12 t
-  tr_7_12_old: 1248,  tr_7_12_new: 1128,     // przyczepa/naczepa 7–12 t
-  bus_any_new: 1320,                          // autobus, rok ≥ 2024
+  // § 1 pkt 1 — ciężarowy poniżej 12 t
+  car_lt55_old: 840,  car_lt55_new: 744,     // 3,5–5,5 t
+  car_55_90_old: 1128, car_55_90_new: 1008,  // 5,5–9 t
+  car_90_12_old: 1488, car_90_12_new: 1344,  // 9–12 t
+  // § 1 pkt 2 — ciężarowy o DWÓCH osiach, od 12 t
+  car_2ax_lt13: 1200, car_2ax_13_14: 1488, car_2ax_14_15: 1680, car_2ax_ge15: 2184,
+  // § 1 pkt 3 — ciężarowy o TRZECH osiach
+  car_3ax_lt17: 1488, car_3ax_17_19: 1704, car_3ax_19_21: 1872,
+  car_3ax_21_23: 2136, car_3ax_ge23: 2760,
+  // § 1 pkt 4 — ciężarowy o CZTERECH lub więcej osiach
+  car_4ax_lt25: 1488, car_4ax_25_27: 1824, car_4ax_27_29: 2880, car_4ax_ge29: 4296,
+  // § 1 pkt 5–7 — ciągnik siodłowy/balastowy
+  ct_lt12_old: 1392,  ct_lt12_new: 1248,     // 3,5–12 t zespołu
+  ct_2ax_lt18: 1128, ct_2ax_18_25: 1680, ct_2ax_25_31: 2232,
+  ct_2ax_31_36: 3384, ct_2ax_gt36: 3384,
+  ct_3ax_le36: 2784, ct_3ax_36_40: 2832, ct_3ax_ge40: 4200,
+  // § 1 pkt 8–11 — przyczepa i naczepa
+  tr_7_12_old: 1248,  tr_7_12_new: 1128,     // 7–12 t zespołu
+  tr_1ax_lt18: 744, tr_1ax_18_25: 840, tr_1ax_25_36: 984, tr_1ax_gt36: 1128,
+  tr_2ax_lt28: 1488, tr_2ax_28_33: 1776, tr_2ax_33_38: 2256, tr_2ax_ge38: 2976,
+  tr_3ax_le36: 1872, tr_3ax_36_38: 2040, tr_3ax_ge38: 2232,
+  // § 1 pkt 12 — autobus (oba progi poniżej 30 miejsc mają tę samą stawkę)
+  bus_lt30: 1488, bus_ge30: 1872,
+  bus_any_new: 1320,                          // § 2 pkt 4 — rok ≥ 2024
 };
 
 const rozjazdy = [];
