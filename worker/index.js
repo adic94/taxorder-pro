@@ -6540,7 +6540,18 @@ async function handleDriverScoring(request, env, user, url, path) {
     env.DB.prepare("SELECT id, first_name||' '||last_name AS full_name, email FROM driver_profiles WHERE company_id=? AND status='active'").bind(company),
     env.DB.prepare(`SELECT driver_name, COUNT(*) AS shifts, SUM(overtime_minutes) AS overtime_min FROM driver_shifts WHERE company_id=? AND strftime('%Y',shift_date)=? GROUP BY driver_name`).bind(company, year),
     env.DB.prepare(`SELECT driver_name, COUNT(*) AS cnt, SUM(amount) AS total FROM fines WHERE company_id=? AND strftime('%Y',date)=? GROUP BY driver_name`).bind(company, year),
-    env.DB.prepare(`SELECT driver_name, COUNT(*) AS cnt FROM faults WHERE company_id=? AND strftime('%Y',report_date)=? GROUP BY driver_name`).bind(company, year),
+    // `faults` NIE MA kolumny driver_name — usterka jest przypisana do POJAZDU (nr_rej),
+    // nie do osoby; jedyna kolumna osobowa to `reported_by`, czyli ZGŁASZAJĄCY, co nie
+    // znaczy to samo. Kierowcę wiążemy tak, jak robi to kreator raportów (COL_EXPR
+    // `driver`): przez przypisanie kierowcy do pojazdu w JSON `data`.
+    // Waga naprawy: to `env.DB.batch()`, a batch w D1 jest ATOMOWY — jedno wadliwe
+    // zapytanie odrzucało CAŁĄ partię, więc ranking kierowców zwracał 500 zawsze,
+    // nie ciche zero.
+    env.DB.prepare(`SELECT JSON_EXTRACT(v.data,'$.kierowca') AS driver_name, COUNT(*) AS cnt
+      FROM faults f JOIN vehicles v ON v.nr_rej=f.nr_rej AND v.company_id=f.company_id
+      WHERE f.company_id=? AND strftime('%Y',f.report_date)=?
+        AND COALESCE(JSON_EXTRACT(v.data,'$.kierowca'),'')<>''
+      GROUP BY driver_name`).bind(company, year),
     env.DB.prepare(`SELECT driver_name, SUM(liters) AS liters FROM fuel_fills WHERE company_id=? AND strftime('%Y',fill_date)=? GROUP BY driver_name`).bind(company, year),
   ]);
 
@@ -11421,10 +11432,10 @@ async function handleFleetKpi(req, env, user, url) {
         SUM(CASE WHEN ${SQL_VEH_ACTIVE} AND COALESCE(JSON_EXTRACT(data,'$.status'),'') NOT IN ('w_serwisie','in_service') THEN 1 ELSE 0 END) active,
         SUM(CASE WHEN COALESCE(JSON_EXTRACT(data,'$.status'),'') IN ('w_serwisie','in_service') THEN 1 ELSE 0 END) in_service
       FROM vehicles WHERE company_id=?`).bind(co).first(),
-    env.DB.prepare('SELECT SUM(f.koszt) c FROM fuel f WHERE f.company_id=? AND f.data>=?').bind(co, since).first().catch(()=>null),
-    env.DB.prepare('SELECT SUM(so.cost) c FROM service_orders so WHERE so.company_id=? AND so.date>=?').bind(co, since).first().catch(()=>null),
+    env.DB.prepare('SELECT SUM(f.total_cost) c FROM fuel_fills f WHERE f.company_id=? AND f.fill_date>=?').bind(co, since).first().catch(()=>null),
+    env.DB.prepare('SELECT SUM(so.koszt_rzeczywisty) c FROM service_orders so WHERE so.company_id=? AND so.data_realizacji>=?').bind(co, since).first().catch(()=>null),
     env.DB.prepare('SELECT COUNT(*) c FROM drivers WHERE company_id=?').bind(co).first(),
-    env.DB.prepare('SELECT COUNT(*) c FROM tachograph_violations WHERE company_id=? AND created_at>=?').bind(co, since).first().catch(()=>null),
+    env.DB.prepare('SELECT COUNT(*) c FROM tachograph_violations WHERE company_id=? AND violation_date>=?').bind(co, since).first().catch(()=>null),
     env.DB.prepare('SELECT COUNT(*) cnt, SUM(energy_kwh) kwh FROM ev_charging_sessions WHERE company_id=? AND session_date>=?').bind(co, since).first().catch(()=>null),
     env.DB.prepare('SELECT COUNT(*) c FROM geofence_events WHERE company_id=? AND event_time>=?').bind(co, since).first().catch(()=>null),
     env.DB.prepare('SELECT SUM(gross_pln) g, AVG(margin_pct) mp FROM route_invoices WHERE company_id=? AND invoice_date>=?').bind(co, since).first().catch(()=>null),
@@ -11442,9 +11453,11 @@ async function handleFleetKpi(req, env, user, url) {
        AND JSON_EXTRACT(data,'$.nextInspection') < date('now')`
   ).bind(co).first().catch(()=>null);
   // Top 5 pojazdów wg kosztów paliwa
-  const topVeh = (await env.DB.prepare('SELECT nr_rej vehicle_reg, SUM(f.koszt) total_cost FROM fuel f WHERE f.company_id=? AND f.data>=? GROUP BY nr_rej ORDER BY total_cost DESC LIMIT 5').bind(co,since).all().catch(()=>({results:[]}))).results;
+  const topVeh = (await env.DB.prepare('SELECT nr_rej vehicle_reg, SUM(f.total_cost) total_cost FROM fuel_fills f WHERE f.company_id=? AND f.fill_date>=? GROUP BY nr_rej ORDER BY total_cost DESC LIMIT 5').bind(co,since).all().catch(()=>({results:[]}))).results;
   // Top naruszenia per kierowca
-  const topDrv = (await env.DB.prepare('SELECT driver_name, COUNT(*) violations FROM tachograph_violations WHERE company_id=? AND created_at>=? GROUP BY driver_name ORDER BY violations DESC LIMIT 5').bind(co,since).all().catch(()=>({results:[]}))).results;
+  const topDrv = (await env.DB.prepare(`SELECT TRIM(COALESCE(tf.driver_firstname,'')||' '||COALESCE(tf.driver_surname,'')) driver_name, COUNT(*) violations
+     FROM tachograph_violations tv JOIN tachograph_files tf ON tf.id=tv.file_id
+     WHERE tv.company_id=? AND tv.violation_date>=? AND COALESCE(tf.driver_surname,'')<>'' GROUP BY driver_name ORDER BY violations DESC LIMIT 5`).bind(co,since).all().catch(()=>({results:[]}))).results;
   // Składki ubezpieczeń
   const insSum = await env.DB.prepare('SELECT SUM(premium_pln) c FROM insurance_policies WHERE company_id=? AND status=\'active\'').bind(co).first().catch(()=>null);
   // CPC wygasające ≤90 dni
@@ -12460,7 +12473,7 @@ async function handleJpk(req, env, user, url, path) {
         // fuel_fills (nie fuel_entries — ta nie istnieje), więc kolumna daty to fill_date.
         // Wcześniej .catch() zjadał błąd i eksport JPK_KR/SAF_T nie zawierał ŻADNYCH kosztów paliwa.
         const fuel=(await env.DB.prepare('SELECT * FROM fuel_fills WHERE company_id=? AND strftime(\'%Y\',fill_date)=?').bind(co,String(b.year)).all().catch(()=>({results:[]}))).results||[];
-        const srv=(await env.DB.prepare('SELECT * FROM service_orders WHERE company_id=? AND strftime(\'%Y\',date)=?').bind(co,String(b.year)).all().catch(()=>({results:[]}))).results||[];
+        const srv=(await env.DB.prepare('SELECT * FROM service_orders WHERE company_id=? AND strftime(\'%Y\',data_realizacji)=?').bind(co,String(b.year)).all().catch(()=>({results:[]}))).results||[];
         rows=[...fuel,...srv];
       }
     }catch(e){rows=[];}
@@ -12840,19 +12853,48 @@ async function handleBulkSavePolicy(request, env, user, url) {
   if (!veh) return err('Pojazd nie znaleziony: ' + nr_rej, 404);
 
   const policyType = typ || (data.nrPolisy?.startsWith('AC') ? 'AC' : 'OC');
-  await env.DB.prepare(
-    `INSERT OR IGNORE INTO polisy (vehicle_id, company_id, nr_polisy, typ, towarzystwo, data_od, data_do, skladka_brutto, r2_key, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
-  ).bind(
-    veh.id, companyId,
-    data.nrPolisy || null, policyType,
-    data.towarzystwo || null,
-    data.dataOd || null, data.dataDo || null,
-    data.skladka ?? data.skladka_brutto ?? null,
-    r2Key || null,
-  ).run().catch(e => console.warn('[BulkSavePolicy] polisy insert:', e.message));
 
-  return json({ ok: true, vehicleId: veh.id, policyType });
+  // Było: INSERT do tabeli `polisy`, KTÓREJ NIE TWORZY ŻADEN schema_v*.sql. Zapis padał
+  // przy każdym wywołaniu, `.catch()` odkładał powód do `console.warn`, a handler i tak
+  // zwracał `{ok:true}` — import polis meldował sukces i nie zapisywał NICZEGO. To gorsze
+  // niż 500: użytkownik nie miał żadnego sygnału, że dane przepadły.
+  // Realną tabelą polis jest `insurance_policies` (schema_v32), z nazwami angielskimi.
+  const nrPolisy = data.nrPolisy || null;
+  const dataDo   = data.dataDo || null;
+  // `policy_number` i `end_date` są NOT NULL. Wcześniej brak tych wartości i tak kończył
+  // się cichym niepowodzeniem; teraz mówimy o tym wprost, zamiast udawać zapis.
+  if (!nrPolisy) return err('Brak numeru polisy — nie ma czego zapisać', 400);
+  if (!dataDo)   return err('Brak daty końca polisy (data_do) — kolumna wymagana', 400);
+
+  // Stara wersja używała `INSERT OR IGNORE`, opierając się na ograniczeniu UNIQUE
+  // tabeli `polisy`. `insurance_policies` żadnego UNIQUE nie ma, więc samo przepisanie
+  // zapytania zamieniłoby jedną awarię na drugą: powtórzony import tworzyłby duplikaty
+  // polis. Sprawdzamy wprost — taniej niż migracja dokładająca indeks.
+  const istnieje = await env.DB.prepare(
+    'SELECT id FROM insurance_policies WHERE company_id=? AND policy_number=? LIMIT 1'
+  ).bind(companyId, nrPolisy).first().catch(() => null);
+  if (istnieje) return json({ ok: true, vehicleId: veh.id, policyType, policyNumber: nrPolisy, pominieto: 'polisa o tym numerze już istnieje' });
+
+  const zapis = await env.DB.prepare(
+    `INSERT INTO insurance_policies
+       (company_id, vehicle_id, vehicle_reg, policy_number, policy_type, insurer,
+        start_date, end_date, premium_pln, document_url)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(
+    companyId, veh.id, nr_rej,
+    nrPolisy, policyType,
+    data.towarzystwo || null,
+    data.dataOd || null, dataDo,
+    data.skladka ?? data.skladka_brutto ?? null,
+    // r2Key to klucz obiektu w R2, nie URL — `document_url` jest jedyną kolumną
+    // wskazującą na dokument polisy, a resztę ścieżki dokleja warstwa odczytu.
+    r2Key || null,
+  ).run().catch(e => ({ error: e.message }));
+
+  // BRAK BŁĘDU NIE JEST DOWODEM ZAPISU — poprzednia wersja właśnie na tym poległa.
+  if (zapis && zapis.error) return err('Nie zapisano polisy: ' + zapis.error, 500);
+
+  return json({ ok: true, vehicleId: veh.id, policyType, policyNumber: nrPolisy });
 }
 
 // ─── END BULK IMPORT ──────────────────────────────────────────────────────────
