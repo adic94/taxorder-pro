@@ -33,10 +33,35 @@ const G = s => `\x1b[32m${s}\x1b[0m`, R = s => `\x1b[31m${s}\x1b[0m`,
 const argv = process.argv.slice(2);
 const par = (f, dom) => { const i = argv.indexOf(f); return i >= 0 ? argv[i + 1] : dom; };
 const ROK = Number(par('--rok', new Date().getFullYear()));
-const iw = argv.indexOf('--wyjscie'), ir = argv.indexOf('--rok');
-const wejscie = argv.find((a, i) => !a.startsWith('--') && !(iw >= 0 && i === iw + 1) && !(ir >= 0 && i === ir + 1));
+const iw = argv.indexOf('--wyjscie'), ir = argv.indexOf('--rok'), ib = argv.indexOf('--baza');
+const wejscie = argv.find((a, i) => !a.startsWith('--') &&
+  !(iw >= 0 && i === iw + 1) && !(ir >= 0 && i === ir + 1) && !(ib >= 0 && i === ib + 1));
 const DOM = process.env.USERPROFILE || process.env.HOME || '.';
 const wyjscie = par('--wyjscie', path.join(DOM, 'Documents', 'taxorder-backupy', `DT1 wyliczenie ${ROK}.xlsx`));
+
+// ── Lista tablic znanych PRODUKCYJNEJ BAZIE (opcjonalna) ────────────────────
+//
+// PO CO. Arkusz MASTER buduję ze SKANÓW DOKUMENTÓW, więc zawiera też pojazdy,
+// których firma dziś nie ma: stare dowody sprzed przerejestrowania, auta
+// sprzedane, cudze dokumenty leżące w cudzym folderze. Bez tej listy nie da się
+// odróżnić „pojazd, którego brakuje w systemie" od „artefakt dokumentacji".
+//
+// Zmierzone 26.08: z 232 opodatkowanych 184 zna baza (229 104 zł), a 48 nie
+// (62 952 zł) — i to te 48 jest całą otwartą pozycją, nie cała suma.
+//
+// Plik to zwykły tekst albo JSON z numerami rejestracyjnymi. Wytworzyć go można
+// jednym zapytaniem:
+//   SELECT GROUP_CONCAT(REPLACE(UPPER(nr_rej),' ','')) FROM vehicles
+const bazaPlik = par('--baza', path.join(DOM, 'Documents', 'taxorder-backupy', 'tablice-w-bazie.txt'));
+let TABLICE_BAZY = null;
+if (fs.existsSync(bazaPlik)) {
+  const surowe = fs.readFileSync(bazaPlik, 'utf8');
+  const lista = surowe.trim().startsWith('[') || surowe.trim().startsWith('{')
+    ? JSON.parse(surowe) : surowe.split(/[,\n;]+/);
+  const plaska = Array.isArray(lista) ? lista : Object.values(lista);
+  TABLICE_BAZY = new Set(plaska.map(x => String(typeof x === 'object' ? (x.nr_rej ?? x.nrRej ?? '') : x)
+    .toUpperCase().replace(/[^A-Z0-9]/g, '')).filter(Boolean));
+}
 
 if (!wejscie || !fs.existsSync(wejscie)) {
   console.error(R('\n  Podaj arkusz MASTER (z tools/flota-master.js)\n'));
@@ -120,6 +145,22 @@ const liczba = (v) => { const n = Number(String(v ?? '').replace(/[^\d.,-]/g, ''
 
     const zrodla = String(g(K.zrodla) || '');
     const uwagi = [];
+    // ŚLAD SPRZEDAŻY albo KASACJI w danych pojazdu. Zmierzone: cztery pojazdy
+    // z modelem „SPRZEDANY", „koń SOLD", „Tge Sprzedany", „TGL SPRZEDANY" mają
+    // naliczone razem 5 928 zł, a żadnego z nich nie zna baza produkcyjna.
+    //
+    // ⚠️ To FLAGA, nie automatyczne zwolnienie. Podatek należy się za miesiące
+    // POSIADANIA, więc auto sprzedane w połowie roku ma należność częściową,
+    // a nie zerową. Daty sprzedaży z pola „model" nie da się odczytać, więc
+    // rozstrzyga dokument — narzędzie tylko pokazuje, gdzie patrzeć.
+    const SLAD_ZBYCIA = /\b(sprzedan\w*|sold|zbyt\w*|zlomowan\w*|skasowan\w*|wyrejestrowan\w*|likwidacj\w*)\b/i;
+    const teksty = [g(K.marka), g(K.model), g(K.rodzaj), g(K.przezn)].map(x => String(x || ''));
+    const zbyty = teksty.find(t => SLAD_ZBYCIA.test(t));
+    if (zbyty) uwagi.push(`ślad zbycia w danych („${zbyty.trim().slice(0, 30)}") — podatek należy się za miesiące posiadania`);
+
+    if (TABLICE_BAZY && !TABLICE_BAZY.has(String(nr).toUpperCase().replace(/[^A-Z0-9]/g, '')))
+      uwagi.push('nie ma go w bazie produkcyjnej — sprawdź, czy to realny pojazd firmy');
+
     const dupl = tenSamVin.get(nr);
     if (dupl) uwagi.push(`ten sam VIN co ${dupl.inne.join(', ')} — sprawdź, czy to nie jeden pojazd po przerejestrowaniu`);
     if (podejrzane.has(nr)) uwagi.push('DR przeczy sam sobie');
