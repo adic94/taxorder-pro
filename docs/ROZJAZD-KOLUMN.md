@@ -16,6 +16,36 @@ Skutek zależy wyłącznie od tego, czy zapytanie ma `.catch()`:
 
 Ciche zera są groźniejsze, bo użytkownik dostaje wiarygodnie wyglądający wynik.
 
+## A0. Bramka najpierw ukrywała część własnych znalezisk
+
+Pierwsza wersja `worker-columns-test.js` rozpoznawała brakującą kolumnę **jednym**
+komunikatem SQLite — `no such column: X`. Tymczasem SQLite zgłasza to **dwoma**,
+zależnie od rodzaju zapytania:
+
+| rodzaj | komunikat |
+|---|---|
+| `SELECT` / `UPDATE` | `no such column: X` |
+| `INSERT` | `table T has no column named X` |
+
+Wszystkie zepsute **INSERT-y** trafiały więc do kosza „poza zasięgiem ekstrakcji"
+i były liczone jako ograniczenie narzędzia, nie jako błędy. Po naprawie klasyfikatora
+liczba niezmierzonych zapytań spadła z 20 do 12, a **trzy defekty wyszły z ukrycia**:
+
+| linia | zapytanie | skutek | status |
+|---|---|---|---|
+| 12730 | `INSERT INTO sessions (id, …)` | `sessions` nie ma kolumny `id`; **bez `.catch()` → 500 na ścieżce logowania Clerk** | naprawione |
+| 12453 | `INSERT INTO vehicle_qr_scans(… scanned_at, scanner_ip …)` | `.catch(()=>{})` — skany QR **nigdy się nie zapisywały**, bez żadnego sygnału | naprawione |
+| 12375 | `INSERT INTO report_configs(… filter_col, filter_val, row_limit)` | schemat ma `filters`/`sort_by`; zapis konfiguracji raportu pada | wymaga decyzji |
+
+`sessions` jest wart osobnej uwagi: poprawny wzorzec
+(`INSERT INTO sessions(token, user_id, expires_at)`) stoi **dwa razy w tym samym pliku**
+(linie 363 i 523), a komentarz nad zepsutą wersją deklaruje „taka sama jak przy normalnym
+logowaniu". To była trzecia, rozjechana kopia — ta sama klasa co dwa prompty OCR, dwie
+tablice CO2, dwie listy źródeł raportów i dwie deklaracje wersji ZXing.
+
+`report_configs` dołącza do grupy A: front czyta `filter_col`/`filter_val`, więc kod
+i frontend zgadzają się ze sobą, a odmieńcem jest schemat.
+
 ## A. Pięć tabel, których kształt nikt nie używa (`schema_v35`)
 
 `cmr_documents`, `sent_records`, `messages`, `edoreczenia_items`, `driver_work_sessions`

@@ -63,6 +63,7 @@ const ZNANE_ROZJAZDY = {
   'cmr_documents.cmr_number':            'v35 dał document_number — kolumna martwa, nikt jej nie używa',
   'sent_records.departure_date':         'v35 dał planned_start — martwa',
   'sent_records.sent_number':            'v35 dał notification_number — martwa',
+  'report_configs.filter_col':           'schemat ma filters/sort_by; front czyta filter_col — ta sama klasa co tabele z v35',
   'messages.parent_id':                  'brak; wątkowanie wiadomości nie działa',
   'edoreczenia_items.sent_date':         'v35 dał received_at — martwa',
   'edoreczenia_items.title':             'v35 dał subject',
@@ -151,6 +152,20 @@ for (const z of zapytania) {
     const msg = String(e.message);
     const t = msg.match(/no such table:\s*(?:main\.)?(\w+)/);
     if (t) { if (!brakTabeli.has(t[1])) brakTabeli.set(t[1], []); brakTabeli.get(t[1]).push(z.linia); continue; }
+    // SQLite zgłasza brakującą kolumnę DWOMA różnymi komunikatami, zależnie od rodzaju
+    // zapytania: SELECT/UPDATE dają „no such column: X", a INSERT — „table T has no
+    // column named X". Pierwsza wersja tej bramki znała tylko pierwszy wzorzec, więc
+    // WSZYSTKIE zepsute INSERT-y lądowały w koszu „poza zasięgiem ekstrakcji" i były
+    // liczone jako ograniczenie narzędzia, nie jako błędy. Ukryło to m.in. zapis sesji
+    // w handleClerkSignin (kolumna `id`, której `sessions` nie ma) — bez `.catch()`,
+    // czyli 500 na ścieżce logowania.
+    const ins = msg.match(/table\s+(\w+)\s+has no column named\s+(\w+)/);
+    if (ins) {
+      const klucz = `${ins[1]}.${ins[2]}`;
+      if (!brakKolumny.has(klucz)) brakKolumny.set(klucz, []);
+      brakKolumny.get(klucz).push(z.linia);
+      continue;
+    }
     const k = msg.match(/no such column:\s*(?:\w+\.)?(\w+)/);
     if (k) {
       // Nazwa tabeli z zapytania — bierzemy pierwszą po FROM/UPDATE/INTO.
@@ -187,7 +202,11 @@ for (const k of Object.keys(ZNANE_ROZJAZDY))
 // ── [3] ograniczenie ekstrakcji ──────────────────────────────────────────────
 // Zapytania składane z fragmentów, których podstawienie nie odtwarza wiernie. Nie są
 // dowodem błędu, ale liczba nie może rosnąć — inaczej bramka po cichu przestaje mierzyć.
-const LIMIT_NIESPARSOWANYCH = 40;
+// Zapadka: było 40 przy 20 niesparsowanych, ale po naprawie klasyfikatora INSERT-ów
+// zeszliśmy do 12. Limit trzymany tuż nad stanem faktycznym — luźny limit pozwala
+// bramce po cichu przestać mierzyć backend, a to dokładnie ta awaria, którą właśnie
+// wykryliśmy (zepsute INSERT-y liczone jako „ograniczenie narzędzia").
+const LIMIT_NIESPARSOWANYCH = 15;
 console.log('\n[3] Zapytania poza zasięgiem ekstrakcji');
 if (niesparsowane <= LIMIT_NIESPARSOWANYCH)
   ok(`${niesparsowane} zapytań składanych dynamicznie (limit ${LIMIT_NIESPARSOWANYCH})`);

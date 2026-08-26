@@ -12449,8 +12449,12 @@ async function handleVehicleQr(req, env, user, url, path) {
     const vehicle=await env.DB.prepare('SELECT * FROM vehicles WHERE id=? AND company_id=?').bind(id,co).first().catch(()=>null);
     if(!vehicle)return err('Pojazd nie znaleziony',404);
     const scanId=crypto.randomUUID();
-    const ip=req.headers.get('CF-Connecting-IP')||req.headers.get('X-Forwarded-For')||'unknown';
-    await env.DB.prepare('INSERT INTO vehicle_qr_scans(id,company_id,vehicle_id,scanned_at,scanner_ip,action) VALUES(?,?,?,?,?,?)').bind(scanId,co,id,new Date().toISOString(),ip,'view').run().catch(()=>{});
+    // Tabela `vehicle_qr_scans` nie ma kolumn `scanned_at` ani `scanner_ip`: czas zapisuje
+    // `created_at` z wartością domyślną, a adresu IP schemat nie przewiduje w ogóle
+    // (jest `scanned_by_name`). Cały INSERT padał, więc do tej pory nie zapisywało się
+    // NIC — zapis bez adresu IP jest ściśle lepszy niż brak zapisu. Gdyby IP było
+    // potrzebne, wymaga migracji, a to osobna decyzja (dane osobowe).
+    await env.DB.prepare('INSERT INTO vehicle_qr_scans(id,company_id,vehicle_id,vehicle_reg,action) VALUES(?,?,?,?,?)').bind(scanId,co,id,vehicle.nr_rej||null,'view').run().catch(()=>{});
     return json({vehicle});
   }
   return err('Nieznana operacja',404);
@@ -12726,9 +12730,13 @@ async function handleClerkSignin(request, env) {
   // Utwórz sesję D1 (taka sama jak przy normalnym logowaniu)
   const token = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  // Tabela `sessions` (schema_v1) ma `token TEXT PRIMARY KEY` i NIE MA kolumny `id`.
+  // Komentarz wyżej deklaruje „taka sama jak przy normalnym logowaniu", ale zapytanie
+  // było TRZECIĄ, rozjechaną kopią — poprawny wzorzec stoi dwa razy w tym samym pliku
+  // (linie 363 i 523). Bez `.catch()` oznaczało to 500 na tej ścieżce logowania.
   await env.DB.prepare(
-    'INSERT INTO sessions (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)'
-  ).bind(crypto.randomUUID(), user.id, token, expiresAt).run();
+    'INSERT INTO sessions(token, user_id, expires_at) VALUES(?, ?, ?)'
+  ).bind(token, user.id, expiresAt).run();
   return json({
     ok: true,
     token,
