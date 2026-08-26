@@ -214,5 +214,26 @@ else
   bad(`${niesparsowane} zapytań poza zasięgiem — powyżej limitu ${LIMIT_NIESPARSOWANYCH}`,
       'Bramka mierzy coraz mniejszą część backendu. Popraw rozwin() zamiast podnosić limit.');
 
+// ── [4] białe listy nazw tabel wstawianych do SQL ────────────────────────────
+// Te zapytania mają nazwę tabeli w interpolacji (`FROM ${table}`), więc ekstrakcja
+// literałów ich nie sprawdzi — trzeba zweryfikować same listy. Stawka jest wyższa niż
+// przy zwykłym zapytaniu: pętla w `handleExport` NIE MA `.catch()`, więc jedna
+// nieistniejąca tabela wywraca CAŁY eksport danych firmy. `ALLOWED_TABLES` (kreator
+// raportów) rozjechało się już raz ze schematem — patrz CLAUDE.md, naprawa źródeł.
+console.log('\n[4] Białe listy tabel wstawianych do SQL');
+const istniejace = new Set(
+  db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name)
+);
+function sprawdzListe(nazwa, tabele) {
+  if (!tabele.length) { bad(`${nazwa} — nie udało się odczytać listy z worker/index.js`); return; }
+  const brak = tabele.filter(t => !istniejace.has(t));
+  if (brak.length) bad(`${nazwa} — tabel nie ma w schemacie: ${brak.join(', ')}`);
+  else ok(`${nazwa} — ${tabele.length}/${tabele.length} tabel istnieje w schemacie`);
+}
+const mExp = src.match(/const\s+EXPORT_TABLES\s*=\s*\[([\s\S]*?)\];/);
+sprawdzListe('EXPORT_TABLES', mExp ? [...mExp[1].matchAll(/table:\s*'([^']+)'/g)].map(x => x[1]) : []);
+const mAll = src.match(/const\s+ALLOWED_TABLES\s*=\s*\[([^\]]*)\]/);
+sprawdzListe('ALLOWED_TABLES', mAll ? [...mAll[1].matchAll(/'([^']+)'/g)].map(x => x[1]) : []);
+
 console.log(`\nWynik: ${pass} PASS / ${fail} FAIL\n`);
 process.exit(fail ? 1 : 0);
