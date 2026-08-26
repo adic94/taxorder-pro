@@ -3122,8 +3122,18 @@ const DR_POLA_OCR = {
   model: 'D.3 — model np ACTROS lub SPRINTER',
   przeznaczenie: 'RODZAJ POJAZDU / PRZEZNACZENIE z sekcji bezowej, np SAMOCHOD SPECJALNY lub SAMOCHOD CIEZAROWY (puste jesli nie widoczne)',
   vin: 'E — dokladnie 17 znakow VIN np WMA29VUZ7R9018317 (litery A-H J-N P R-Z i cyfry 0-9, NIGDY I O Q, NIGDY gwiazdki)',
-  dmcKg: 'F.1 — DMC kg z ZOLTEJ tabeli (jesli dwie wartosci wybierz WIEKSZA)',
-  dmcKg2: 'F.2 — DMC z ladunkiem kg',
+  // ⚠️ F.1 i F.2 TO DWIE RÓŻNE WIELKOŚCI, nie dwa odczyty tej samej.
+  // F.1 = maksymalna masa technicznie dopuszczalna (możliwości konstrukcji).
+  // F.2 = DOPUSZCZALNA masa całkowita, czyli ta zarejestrowana w kraju — i to
+  // JEJ używa ustawa o podatkach i opłatach lokalnych jako podstawy DT-1.
+  // Zawsze F.2 <= F.1; na dowodzie WA1697F stoi F.1=37000 przy F.2=32000.
+  //
+  // Poprzednia wersja tego opisu mówiła „jesli dwie wartosci wybierz WIEKSZA",
+  // czyli kazała modelowi wpisać do `dmcKg` wartość TECHNICZNĄ — zawyżoną
+  // podstawę podatku. Drugi opis nazywał F.2 „DMC z ladunkiem", co jest po
+  // prostu inną wielkością i mogło skłaniać model do zgadywania.
+  dmcKg: 'F.1 — maksymalna masa calkowita TECHNICZNIE dopuszczalna, kg',
+  dmcKg2: 'F.2 — DOPUSZCZALNA masa calkowita kg (podstawa podatku, zawsze <= F.1)',
   dmcZespolu: 'F.3 — DMC zespolu kg (>= F.1)',
   masaWlKg: 'G — masa wlasna kg (mniejsza niz F.1)',
   liczbaOsi: 'L — liczba osi 1-5',

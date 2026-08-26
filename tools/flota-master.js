@@ -280,7 +280,7 @@ function wiersz(k, nrOryginalny) {
     const MAPA = {
       marka: 'marka', model: 'model', typ: 'typ', przeznaczenie: 'przeznaczenie',
       vin: 'vin', nrHomolog: 'nrHomolog', kategoria: 'kategoria', dataRej: 'dataRej',
-      rokProd: 'rokProd', dmcKg: 'dmc', dmcZespolu: 'dmcZespolu', masaWlKg: 'masaWlasna',
+      rokProd: 'rokProd', dmcKg: 'dmc', dmcKg2: 'dmc2', dmcZespolu: 'dmcZespolu', masaWlKg: 'masaWlasna',
       liczbaOsi: 'liczbaOsi', zawieszenie: 'zawieszenie', paliwo: 'paliwo',
       pojSilnika: 'pojemnosc', mocKW: 'moc', miejscaSied: 'miejsca', normaEuro: 'normaEuro',
     };
@@ -478,6 +478,7 @@ function wiersz(k, nrOryginalny) {
     { header: 'B Data 1. rej.', key: 'dataRej', width: 13 },
     { header: 'Rok', key: 'rokProd', width: 7 },
     { header: 'F.1 DMC [kg]', key: 'dmc', width: 12 },
+    { header: 'F.2 Dop. masa całk.', key: 'dmc2', width: 16 },
     { header: 'F.3 DMC zespołu', key: 'dmcZespolu', width: 14 },
     { header: 'G Masa własna', key: 'masaWlasna', width: 13 },
     { header: 'Ładowność', key: 'ladownosc', width: 11 },

@@ -93,7 +93,7 @@ const liczba = (v) => { const n = Number(String(v ?? '').replace(/[^\d.,-]/g, ''
   const K = {
     nr: 1, zrodla: kol('Źródła'), marka: kol('Marka'), model: kol('Model'),
     rodzaj: kol('Rodzaj'), przezn: kol('Przeznaczenie'), kat: kol('J Kategoria'),
-    dmc: kol('F.1 DMC [kg]'), dmcZesp: kol('F.3 DMC zespołu'), osie: kol('L Osie'),
+    dmc: kol('F.1 DMC [kg]'), dmc2: kol('F.2 Dop. masa całk.'), dmcZesp: kol('F.3 DMC zespołu'), osie: kol('L Osie'),
     zaw: kol('Zawieszenie'), rok: kol('Rok'), paliwo: kol('P.3 Paliwo'),
     miejsca: kol('S.1 Miejsca'), dt1Status: kol('DT-1 status'),
   };
@@ -130,9 +130,30 @@ const liczba = (v) => { const n = Number(String(v ?? '').replace(/[^\d.,-]/g, ''
     if (!nr) return;
     const g = (c) => c > 0 ? r.getCell(c).value : null;
 
+    // PODSTAWĄ PODATKU JEST F.2, NIE F.1 — to dwie różne wielkości, nie dwa
+    // odczyty tej samej. F.1 to maksymalna masa TECHNICZNIE dopuszczalna
+    // (możliwości konstrukcji), F.2 to DOPUSZCZALNA masa całkowita, czyli ta
+    // zarejestrowana w kraju. Ustawa o podatkach i opłatach lokalnych posługuje
+    // się tym drugim terminem, a katalog `modules/dr-fields.js` (weryfikowany
+    // wobec Dz.U.) nazywa je dokładnie tak.
+    //
+    // Zmierzone na dowodzie WA1697F: F.1 = 37 000, F.2 = 32 000. Volvo FMX 8x4
+    // jest sztywną ciężarówką, a te nie przekraczają w Polsce 32 t — więc to
+    // F.2 opisuje pojazd, jakim on jeździ. Produkcyjne D1 ma tam 32 000, czyli
+    // ktokolwiek je wypełniał, sięgnął po właściwą rubrykę.
+    //
+    // ⚠️ SANITY: F.2 <= F.1 ZAWSZE, bo masa zarejestrowana nie może przekroczyć
+    // technicznie dopuszczalnej. Odwrotna relacja znaczy zły odczyt jednej
+    // z rubryk — zmierzone na trzech Sprinterach, którym OCR dał F.2 = 37 000
+    // przy F.1 = 3 500. Wtedy zostajemy przy F.1 i zgłaszamy sprzeczność,
+    // zamiast wpisać do deklaracji dziesięciokrotnie zawyżoną masę.
+    const f1 = liczba(g(K.dmc)), f2 = liczba(g(K.dmc2));
+    const uzyjF2 = f2 != null && f2 > 0 && (f1 == null || f2 <= f1);
+    const dmcPodatkowa = uzyjF2 ? f2 : f1;
+
     const v = {
       nrRej: nr,
-      dmc: liczba(g(K.dmc)), dmcMax: liczba(g(K.dmc)),
+      dmc: dmcPodatkowa, dmcMax: dmcPodatkowa,
       dmcZespolu: liczba(g(K.dmcZesp)) || 0,
       typ: String(g(K.rodzaj) || ''), przeznaczenie: String(g(K.przezn) || ''),
       osie: liczba(g(K.osie)), miejsca: liczba(g(K.miejsca)),
@@ -157,6 +178,9 @@ const liczba = (v) => { const n = Number(String(v ?? '').replace(/[^\d.,-]/g, ''
     // model mówi wprost „Scania koń SOLD" („koń" to w żargonie ciągnik siodłowy).
     // Liczone dziś jako D8 po 2 184 zł; jako ciągnik dwuosiowy powyżej 36 t
     // stawka wynosi 3 384 zł, a przy trzech osiach i 40 t — 4 200 zł.
+    if (f1 != null && f2 != null && f2 > f1)
+      uwagi.push(`F.2 (${f2} kg) większe niż F.1 (${f1} kg) — niemożliwe, jedna z rubryk źle odczytana`);
+
     const rodzajTxt = String(g(K.rodzaj) || '') + ' ' + String(g(K.przezn) || '');
     if (v.dmc != null && v.dmc > 32000 && !/ci[ąa]gnik|naczep|przyczep/i.test(rodzajTxt))
       uwagi.push(`DMC ${v.dmc} kg przy rodzaju „${String(g(K.rodzaj) || '—').trim()}" — sztywna ciężarówka nie przekracza 32 t, sprawdź, czy to nie ciągnik siodłowy`);
