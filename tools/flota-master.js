@@ -41,6 +41,7 @@ const SCIEZKI = {
   mycar: path.join(DOM, 'Downloads', 'mycar-10-2025-nowe.xls'),
   orlen: path.join(DOM, 'Downloads', 'orlen flota numery kart_CSV.csv'),
   d1osie: path.join(DOM, 'Documents', 'taxorder-backupy', 'd1-osie-2026-08-26.json'),
+  dr2:    path.join(DOM, 'Documents', 'taxorder-backupy', 'dr-checkpoint-reocr-2026-08-26.json'),
 };
 
 const argv = process.argv.slice(2);
@@ -81,7 +82,12 @@ const statystyki = {};
 // „pneumatyczne" przy WSZYSTKICH 217 pojazdach, łącznie z motocyklem, osobówką
 // i przyczepą z myjką ciśnieniową. To wartość wpisana hurtem, nie pomiar.
 // Wciągnięcie jej wypełniłoby 945 pól wiarygodnie wyglądającą nieprawdą.
-const RANGA = { D1: 5, DR: 4, ZSI: 3, MyCar: 2, ORLEN: 1 };
+const RANGA = { D1: 5, DR2: 4.5, DR: 4, ZSI: 3, MyCar: 2, ORLEN: 1 };
+
+// Które źródła SĄ dowodem rejestracyjnym. Arkusz „Podstawa DT-1" liczy pola
+// pochodzące spoza dokumentu urzędowego — a `DR2` to ten sam dowód, tylko
+// odczytany ponownie po naprawach parsera, więc należy do tej rodziny.
+const ZRODLA_DOWODU = new Set(['DR', 'DR2']);
 function ustaw(k, pole, wartosc, zrodlo) {
   if (wartosc == null || wartosc === '' || String(wartosc).trim() === '') return;
   const w = String(wartosc).trim();
@@ -257,6 +263,44 @@ function wiersz(k, nrOryginalny) {
     statystyki.ORLEN = n;
     console.log(`  ${G('✓')} ORLEN — ${n} kart przypisanych do pojazdu, ${bez} bez numeru rejestracyjnego`);
   } else console.log(`  ${Y('·')} ORLEN — pominięte`);
+
+  // ── DR2: ponowny OCR naprawionym parserem ──────────────────────────────────
+  //
+  // Ten sam typ dokumentu co „DR", ale odczytany PO naprawach parsera z 25–26.08
+  // (obrót strony, kontrola jednostek, rozpoznawanie paliwa, kody rubryk, MRZ).
+  // Stary checkpoint powstał PRZED nimi, więc gdzie oba mają wartość, nowszy
+  // odczyt jest lepszy — stąd ranga wyżej niż DR, ale niżej niż D1, bo osie
+  // w D1 poprawił człowiek, a tu nadal czyta je maszyna.
+  //
+  // Zmierzone pokrycie na 218 dokumentach: liczbaOsi 93 (wcześniej praktycznie
+  // zero), dmcKg 131, kategoria 155, przeznaczenie 203, paliwo 176.
+  if (fs.existsSync(SCIEZKI.dr2)) {
+    const dane = JSON.parse(fs.readFileSync(SCIEZKI.dr2, 'utf8'));
+    // Nazwy pól checkpointu OCR → nazwy kolumn arkusza.
+    const MAPA = {
+      marka: 'marka', model: 'model', typ: 'typ', przeznaczenie: 'przeznaczenie',
+      vin: 'vin', nrHomolog: 'nrHomolog', kategoria: 'kategoria', dataRej: 'dataRej',
+      rokProd: 'rokProd', dmcKg: 'dmc', dmcZespolu: 'dmcZespolu', masaWlKg: 'masaWlasna',
+      liczbaOsi: 'liczbaOsi', zawieszenie: 'zawieszenie', paliwo: 'paliwo',
+      pojSilnika: 'pojemnosc', mocKW: 'moc', miejscaSied: 'miejsca', normaEuro: 'normaEuro',
+    };
+    let n = 0, nowePola = 0;
+    for (const rec of Object.values(dane)) {
+      const k = klucz(rec.nrRej);
+      if (!k || !flota.has(k)) continue;   // nie tworzymy wierszy — to ma być poprawka, nie nowa flota
+      const cel = flota.get(k);
+      for (const [zrodlowe, docelowe] of Object.entries(MAPA)) {
+        const v = rec[zrodlowe];
+        if (v == null || v === '') continue;
+        if (!cel[docelowe]) nowePola++;
+        ustaw(k, docelowe, v, 'DR2');
+      }
+      cel._zrodla.add('DR2');
+      n++;
+    }
+    statystyki.DR2 = n;
+    console.log(`  ${G('✓')} DR2   — ponowny OCR: ${n} pojazdów, ${nowePola} pól wypełnionych po raz pierwszy`);
+  } else console.log(`  ${Y('·')} DR2   — pominięte (brak ${path.basename(SCIEZKI.dr2)})`);
 
   // ── D1: liczba osi z produkcyjnej bazy ─────────────────────────────────────
   // Jedno pole, świadomie. Uzasadnienie przy stałej RANGA wyżej.
@@ -519,7 +563,11 @@ function wiersz(k, nrOryginalny) {
       const zrodlo = zr[pole];
       const ma = r[pole] != null && r[pole] !== '';
       w[pole] = !ma ? '—' : (zrodlo || '?');
-      if (ma && zrodlo && zrodlo !== 'DR') n++;
+      // „DR2" to TEN SAM dowód rejestracyjny, odczytany ponownie naprawionym
+      // parserem — nie jest wartością spoza dokumentu. Bez tego wyjątku liczba
+      // pól „spoza dowodu" skoczyła z 29 do 178, bo re-OCR wypełnił 1138 pól
+      // i wszystkie zostały policzone jako pochodzące z ewidencji.
+      if (ma && zrodlo && !ZRODLA_DOWODU.has(zrodlo)) n++;
     }
     w.spoza = n || '';
     if (n) zSpozaDowodu++;
@@ -527,7 +575,7 @@ function wiersz(k, nrOryginalny) {
     for (const [pole] of POLA_DT1) {
       const c = row.getCell(pole);
       const v = String(c.value || '');
-      if (v === 'DR') c.font = { color: { argb: 'FF008000' } };
+      if (ZRODLA_DOWODU.has(v)) c.font = { color: { argb: 'FF008000' } };
       else if (v === '—') c.font = { color: { argb: 'FFBFBFBF' } };
       else c.font = { bold: true, color: { argb: 'FFC00000' } };   // wartość spoza dowodu
     }
