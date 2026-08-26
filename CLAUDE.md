@@ -423,6 +423,87 @@ wodorowych, hybrydowych, elektrycznych, CNG i LNG, NIŻSZE O OK. 40%** (ciężar
 nie czyta rodzaju paliwa. Bramka zawiera już właściwe kwoty § 3 i pilnuje, żeby po
 dodaniu były poprawne — ale samo dodanie to zmiana w wyliczaniu podatku, więc decyzja.
 
+### ✅ Stawki DT-1: CAŁA tabela zweryfikowana u źródła — 45/45 (26.08)
+
+Do 26.08 bramka sprawdzała **11 stawek i wszystkie dotyczyły pojazdów poniżej
+12 ton**. Stawki od 12 t — czyli najwyższe, do 4 296 zł — nie były porównane
+z niczym, a dotyczą 28 pojazdów tej floty. Uzupełnione odczytem pełnego tekstu
+uchwały XXIX/1065/2025 z PDF-a: **45 z 45 zgodnych co do złotówki**.
+
+**⚠️ ZAMKNIĘTE PYTANIE: uchwała NIE różnicuje stawek po RODZAJU ZAWIESZENIA.**
+Ustawa na to pozwala dla pojazdów od 12 t (pneumatyczne / równoważne kontra inne),
+więc brak tego wymiaru w `SCHEMA` wyglądał na lukę tej samej klasy co brakująca
+klasa pojazdu w `ENV_FEE_RATE_SETS`. Zmierzone: **zero wystąpień słów
+„zawieszenie" i „pneumatyczne"** w całym tekście uchwały. Struktura klucza
+(rodzaj + osie + masa) jest poprawna, a `getCat()` słusznie zawieszenia nie czyta.
+
+To ma znaczenie praktyczne, bo **tego pola nie ma NIKT**: OCR wyciągnął je 0 razy
+z 945 dowodów, a D1 ma `suspension_type='pneumatyczne'` przy **wszystkich 217**
+pojazdach — łącznie z motocyklem Aprilia, Skodą Karoq i przyczepą z myjką
+ciśnieniową. To wartość wpisana hurtem, nie pomiar.
+
+**§ 3 (napędy alternatywne) — ŚWIADOMIE NIEWDROŻONE.** Uchwała daje dla wodoru,
+hybryd, elektryków, CNG i LNG stawki niższe o ~40%. Sprawdzone przed budową:
+**zero pojazdów tej floty się kwalifikuje** (całość na ON i benzynie). Kwoty
+stoją w bramce, więc pierwszy taki pojazd dostanie poprawną stawkę.
+
+### 🔧 D1 jako PIĄTE źródło scalania — dwa pola, świadomie (26.08)
+
+Z 28 pojazdów od 12 t **siedemnaście nie miało liczby osi z żadnego dokumentu**,
+a od 12 t stawka od niej zależy — silnik przyjmuje wtedy 2 osie, czyli najniższą
+stawkę w przedziale. Baza produkcyjna te dane MA (ręczna korekta osi 02.08.2026).
+
+`RANGA = { D1: 5, DR: 4, ZSI: 3, MyCar: 2, ORLEN: 1 }` — D1 stoi NAD dowodem,
+ale wnosi **dokładnie dwa pola**: `liczbaOsi` (12 pojazdów) i `rodzaj` (30, tylko
+przyczepy i osobowe). Rodzaj decyduje, którą GAŁĘZIĄ idzie `getCat()`: przyczepa
+dwuosiowa 12–28 t to D14 (1488 zł), ciężarówka dwuosiowa powyżej 15 t to D8
+(2184 zł). Zmierzone na `WA995AL` — 22-tonowej przyczepie liczonej jak ciężarówka.
+
+**Reszty z D1 NIE bierzemy**, a `suspension_type` byłoby wręcz szkodliwe (patrz
+wyżej — jedna wartość przy wszystkich 217 pojazdach).
+
+> ⚠️ **NIE używaj `dt1-verify-d1.json` jako źródła osi.** Leży w backupach, ma
+> dokładnie potrzebne pola i wygląda na gotowe źródło — ale pochodzi sprzed
+> korekty z 02.08 i **przeczy dzisiejszej bazie w 11 z 16 pojazdów ciężkich**
+> (`WA2609J` ma tam 2 osie zamiast 4). Wczytanie COFNĘŁOBY tamte poprawki,
+> bez żadnego widocznego objawu. Aktualne dane: `d1-osie-2026-08-26.json`.
+
+Efekt: **292 056 → 298 200 zł**. Walidacja na próbce 30 pojazdów wspólnych
+z bazą: **30 kwot identycznych** (przed zmianą 19 zgodnych, 5 różnych).
+
+### ⚖️ Sztywna ciężarówka nie przekracza 32 t — 4 pojazdy po 40 t (26.08)
+
+Rozporządzenie o warunkach technicznych daje sztywnej ciężarówce maksimum 18 t
+(2 osie), 25–26 t (3 osie), 32 t (4 osie). Dopiero ZESPÓŁ ciągnika z naczepą
+sięga 40 t. Cztery pojazdy floty mają **DMC 40 000 przy rodzaju „Ciężarowy"**
+(`LU 079HU`, `LU 25380`, `WK60103`, `WK64541` — przy ostatnim model mówi wprost
+„Scania **koń** SOLD", a „koń" to w żargonie ciągnik siodłowy).
+
+To inna tabela stawek: dziś D8 po 2 184 zł, a jako ciągnik dwuosiowy powyżej
+36 t — 3 384 zł, przy trzech osiach i 40 t — 4 200 zł.
+
+### 📅 „SPRZEDANY" w nazwie folderu ≠ nieposiadany w danym roku (26.08)
+
+Cztery pojazdy mają w nazwie katalogu „SPRZEDANY"/„SOLD" i naliczone 5 928 zł.
+Kuszące było potraktować to jako zwolnienie. **Ważność polisy mówi co innego:**
+
+    WU3556J   PZU do 22.07.2026    posiadany w rozliczanym roku
+    WGM85789  PZU do 30.03.2026    posiadany co najmniej do marca
+    WK64541   PZU do 26.02.2026    posiadany co najmniej do lutego
+    WL8054M   PZU do 30.05.2023    ostatni ślad trzy lata temu
+
+Nazwa katalogu opisuje stan NA DZIŚ, polisa — stan W DANYM ROKU. Podatek liczy
+się za miesiące POSIADANIA, więc dla trzech pierwszych należność istnieje.
+`tools/dt1-checklist.js` wyciąga najpóźniejszy rocznik z nazw plików pojazdu
+właśnie po to, żeby ta różnica była widoczna.
+
+### 🧰 Dwa nowe narzędzia (26.08)
+
+| narzędzie | po co |
+|---|---|
+| `tools/dr-cele.js` | wybiera cele ponownego OCR: **235 dokumentów zamiast 1318**. Opodatkowane + graniczne (DMC dokładnie 3500 przy modelu ciężarowym, brak DMC przy ciężarowym) — czyli tam, gdzie dane przekładają się na kwotę |
+| `tools/dt1-checklist.js` | zamienia 89 flag w listę zadań: ścieżka do skanu, KTÓRA RUBRYKA do sprawdzenia, ostatni ślad w dokumentacji. Posortowane od najdroższych |
+
 ### ⛔ SPROSTOWANIE: „6 pojazdów płaci dwa razy" było MOIM BŁĘDEM, nie faktem (26.08)
 
 **Wcześniejszy wpis w tym pliku i commit `2956a09` twierdziły, że firma nadpłaca
