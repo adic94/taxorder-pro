@@ -145,6 +145,22 @@ const liczba = (v) => { const n = Number(String(v ?? '').replace(/[^\d.,-]/g, ''
 
     const zrodla = String(g(K.zrodla) || '');
     const uwagi = [];
+    // SZTYWNA CIĘŻARÓWKA NIE MOŻE WAŻYĆ WIĘCEJ NIŻ 32 TONY.
+    //
+    // Rozporządzenie o warunkach technicznych pojazdów daje maksima: 18 t przy
+    // dwóch osiach, 25–26 t przy trzech, 32 t przy czterech. Dopiero ZESPÓŁ
+    // ciągnika z naczepą sięga 40 t. Jeśli więc pojazd oznaczony jako „ciężarowy"
+    // ma DMC 40 000, to albo jest ciągnikiem siodłowym i pole niesie masę zespołu,
+    // albo odczyt jest błędny — a to RÓŻNE TABELE STAWEK.
+    //
+    // Zmierzone na tej flocie: cztery takie pojazdy, wszystkie 40 t. Przy jednym
+    // model mówi wprost „Scania koń SOLD" („koń" to w żargonie ciągnik siodłowy).
+    // Liczone dziś jako D8 po 2 184 zł; jako ciągnik dwuosiowy powyżej 36 t
+    // stawka wynosi 3 384 zł, a przy trzech osiach i 40 t — 4 200 zł.
+    const rodzajTxt = String(g(K.rodzaj) || '') + ' ' + String(g(K.przezn) || '');
+    if (v.dmc != null && v.dmc > 32000 && !/ci[ąa]gnik|naczep|przyczep/i.test(rodzajTxt))
+      uwagi.push(`DMC ${v.dmc} kg przy rodzaju „${String(g(K.rodzaj) || '—').trim()}" — sztywna ciężarówka nie przekracza 32 t, sprawdź, czy to nie ciągnik siodłowy`);
+
     // ŚLAD SPRZEDAŻY albo KASACJI w danych pojazdu. Zmierzone: cztery pojazdy
     // z modelem „SPRZEDANY", „koń SOLD", „Tge Sprzedany", „TGL SPRZEDANY" mają
     // naliczone razem 5 928 zł, a żadnego z nich nie zna baza produkcyjna.
