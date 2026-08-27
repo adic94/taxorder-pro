@@ -46,7 +46,21 @@ tablice CO2, dwie listy źródeł raportów i dwie deklaracje wersji ZXing.
 `report_configs` dołącza do grupy A: front czyta `filter_col`/`filter_val`, więc kod
 i frontend zgadzają się ze sobą, a odmieńcem jest schemat.
 
-## A. Pięć tabel, których kształt nikt nie używa (`schema_v35`)
+## A. Pięć tabel, których kształt nikt nie używa (`schema_v35`) — ✅ NAPRAWIONE
+
+> **Rozstrzygnięte 27.08 migracją `worker/migration_v51_martwe_tabele.sql`.**
+> Decyzję odblokował pomiar na produkcyjnym D1: **wszystkie sześć tabel (pięć z v35
+> plus `report_configs`) ma ZERO WIERSZY**, więc migracja jest bezstratna z definicji
+> i wybór „ożywić czy usunąć" przestał być wyborem w ciemno. Dodane 42 kolumny
+> i 4 indeksy; stare, nieużywane kolumny zostają nietknięte — ich usunięcie wymaga
+> przebudowy tabeli i jest osobną decyzją.
+>
+> ⚠️ Nazwa `migration_v51_`, nie `schema_v51_`, jest celowa: nocny automat uruchamia
+> glob `schema_v*.sql`, a migracje strukturalne trzymamy poza nim. **Scalenie PR-a
+> NIE stosuje tej migracji** — trzeba ją uruchomić ręcznie:
+> `wrangler d1 execute taxorder-pro --remote --file=worker/migration_v51_martwe_tabele.sql`
+
+### Stan przed naprawą (zachowane dla kontekstu)
 
 `cmr_documents`, `sent_records`, `messages`, `edoreczenia_items`, `driver_work_sessions`
 dostały w `schema_v35` kształt, do którego **nie odwołuje się żaden kod**. Zmierzone:
