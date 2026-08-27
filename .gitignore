@@ -73,6 +73,13 @@ SYSTEM_BRIEF_FOR_AI.md
 # MCP — lokalna konfiguracja z account ID (nie commitować)
 .mcp.json
 
+# Obsidian trzyma konfiguracje, wtyczki i stan okien w .obsidian/ WEWNATRZ vaulta.
+# Vault na katalogu repozytorium (np. docs/) wrzucilby to do gita. Regula stoi tu
+# ZANIM ktokolwiek zainstaluje Obsidiana, bo .gitignore nie dziala wstecz — plik
+# dodany przed powstaniem reguly zostaje sledzony i `git status` tego NIE zglosi.
+# Precedens: .vscode/mcp.json sledzony od 03.06 mimo reguly, z jawnym project_ref.
+.obsidian/
+
 # VS Code temp files (random session IDs)
 .vscode/*.txt
 

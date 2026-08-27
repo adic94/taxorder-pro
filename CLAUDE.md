@@ -1495,6 +1495,23 @@ Nie przełącza brancha i nie nadpisuje niepowiązanych zmian. **Nie używać** 
 
 ---
 
+## TRZY MOSTY — KOD, claude.ai↔KOMPUTER, SESJA↔SESJA
+
+> Pełny runbook: **`docs/MOST-DWA-KOMPUTERY.md`**. Skrót, żeby nie mylić kanałów:
+>
+> | Chcę… | Most | Polecenie |
+> |---|---|---|
+> | przenieść kod HP ↔ MT0268 | git | `node tools/sync.js --pobierz` / `--wyslij` |
+> | sterować sesją na komputerze z przeglądarki/telefonu | Remote Control | `claude --rc` albo `/rc` |
+> | przekazać ustalenia między sesją w chmurze a sesją na komputerze | Routine | `fire_trigger` (niżej) |
+>
+> **Od 26.08 komputery są DWA:** dotychczasowy **MT0268**
+> (`...\Desktop\Program flotowy\taxorder-pro`) i **HP** (`C:\Users\HP\Projekty\taxorder-pro`,
+> środowisko postawione od zera: Node 24.19, git 2.55, VS Code 1.134, Claude Code 2.1.246).
+>
+> `tools/sync.js` **odmawia wysyłki na `main`** — push do main jest wdrożeniem na produkcję.
+> Nie ma i nie będzie automatu synchronizującego w tle z tego samego powodu.
+
 ## DWIE SESJE NA JEDNYM PROJEKCIE — STAŁY KANAŁ
 
 Projekt jest prowadzony równolegle przez sesję w chmurze (`claude.ai/code`) i sesję

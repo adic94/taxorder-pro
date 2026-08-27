@@ -222,3 +222,22 @@ jobs:
       # dziesieciokrotnie zawyzona.
       - name: Podstawa DT-1 to F.2, nie F.1
         run: node tests/unit/dmc-podstawa-test.js
+
+      # tools/sync.js synchronizuje dwa komputery „jednym poleceniem" — czyli jest
+      # dokladnie tym rodzajem wygody, przy ktorej ktos kiedys uruchomi ja na `main`.
+      # A push do main w tym repo JEST wdrozeniem na produkcje (deploy-worker.yml dla
+      # worker/**, Cloudflare Pages dla reszty). Bramka pilnuje, ze odmowa istnieje
+      # I ze stoi PRZED pushem — funkcja poprawna, ale wywolana po wysylce, nic nie chroni.
+      # Zweryfikowana negatywnie na dwa tryby awarii: 14/3 po usunieciu main z listy,
+      # 15/2 po przestawieniu pusha przed straznika.
+      - name: Straznik mostu — sync.js nie wysle na main
+        run: node tests/unit/sync-guard-test.js
+
+      # Uogolnienie straznika kolumn `vehicles` na CALY backend. Pierwsze uruchomienie
+      # na 862 zapytaniach znalazlo 16 odwolan do nieistniejacych kolumn i 3 do tabel,
+      # ktorych zaden schema_v* nie tworzy — w tabelach, ktorych tamta bramka nie
+      # ogladala. Skutek zalezy od `.catch()`: z nim ciche zera i puste listy, bez niego
+      # 500. Ciche zera sa grozniejsze, bo wygladaja jak poprawny wynik.
+      # Listy ZNANE_* moga wylacznie malec — wpis oznacza endpoint, ktory dzis nie dziala.
+      - name: Straznik kolumn — WSZYSTKIE zapytania workera kontra schemat
+        run: node tests/unit/worker-columns-test.js

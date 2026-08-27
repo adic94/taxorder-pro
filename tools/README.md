@@ -9,6 +9,12 @@ Wymagają: `sharp`, `zxing-wasm`, `playwright` — zainstalowane w `node_modules
 |--------|---------|
 | `uruchom-wszystko.js` | **Jedno polecenie na start.** `npm.cmd run uruchom` sprawdza środowisko, poświadczenia wranglera, aktualność kodu, bramki jednostkowe, niewdrożone commity Workera i listę modeli AI — po czym wypisuje, **czego nie potrafi zrobić za człowieka** (akceptacja licencji modelu, `wrangler login`). Domyślnie **niczego nie zmienia**; `--wykonaj` dodatkowo wdraża Workera. Wdrożenie jest wstrzymywane, gdy bramki nie przechodzą. Każdy krok potwierdza wynik odczytem, nie brakiem błędu |
 
+## Praca na dwóch komputerach
+
+| Skrypt | Co robi |
+|--------|---------|
+| `sync.js` | **Most między HP a MT0268 — jedno polecenie w każdą stronę.** `node tools/sync.js` daje raport (zmiany lokalne, rozjazd z origin w obie strony, czego git NIE przenosi: `.env`, `node_modules`, katalog backupów). `--pobierz` robi `pull --ff-only` — przy rozjeździe ODMAWIA zamiast po cichu tworzyć commit scalający. `--wyslij` uruchamia bramki, commituje i pcha, po czym **potwierdza odczytem** — porównuje lokalny SHA z `origin/<gałąź>`, bo `git push` potrafi zakończyć się zerem przy zdalnej gałęzi wskazującej gdzie indziej. **Na `main` nie wyśle w ogóle**: push do main to wdrożenie na produkcję (`deploy-worker.yml` dla `worker/**`, Cloudflare Pages dla reszty), więc narzędzie synchronizujące dwa komputery nie ma tam wstępu — pilnuje tego `tests/unit/sync-guard-test.js`, zweryfikowany negatywnie na dwa tryby awarii. Celowo **nie działa w tle**: automat pchający zmiany co zapis wypychałby stany pośrednie na żywy system podatkowy. Pełny runbook trzech mostów (kod / claude.ai↔komputer / sesja↔sesja): `docs/MOST-DWA-KOMPUTERY.md` |
+
 ## Konfiguracja lokalna
 
 | Skrypt | Co robi |
