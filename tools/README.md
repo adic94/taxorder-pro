@@ -71,6 +71,7 @@ Wymagają: `sharp`, `zxing-wasm`, `playwright` — zainstalowane w `node_modules
 | Skrypt | Co robi |
 |--------|---------|
 | `autotest/d1-schema-diff.js` | Porównuje **produkcyjne D1** z definicjami w `worker/schema_v*.sql`. Wykrywa: tabele nigdy nieutworzone, tabele stojące na starszej definicji (cichy no-op `CREATE TABLE IF NOT EXISTS`), tabele w bazie bez definicji w repo. `npm run d1-diff` (wymaga `wrangler login`), `npm run d1-diff:offline` (tylko analiza plików), `--strict` = kod wyjścia 1 przy rozjeździe, `--fixture <json>` = test logiki bez dostępu do bazy |
+| `autotest/d1-flota-check.js` | Pyta o co innego niż wiersz wyżej: nie o KSZTAŁT bazy, tylko o to, czy stoją w niej takie **dane**, żeby podatek dało się policzyć. Wykrywa: duplikaty po VIN (ten sam pojazd pod dwiema tablicami — podatek policzy się dwa razy), pojazdy bez DMC (cicho wypadają z podstawy opodatkowania), pojazdy od 12 t bez liczby osi (silnik przyjmuje wtedy 2, czyli najniższą stawkę), oraz rozjazd zapisanych kolumn `dt1_*` z **produkcyjnym** `tax-engine.js`. `npm run flota-check`, `--strict` = kod wyjścia 1, `--z-pliku <json>` = bez wranglera. **Niczego nie zapisuje.** |
 
 > **To NIE to samo co `npm run migration-check`.** Tamten porównuje pliki schema między sobą
 > („czy migracje są spójne w repo"), ten porównuje repo z bazą („czy baza wygląda tak, jak

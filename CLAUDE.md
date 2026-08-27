@@ -513,6 +513,153 @@ nie rośnie) — to jest ten pomiar, który sekcja o KSeF zaleca przed włączen
 czegokolwiek. `company_packages` też 0, więc licencjonowanie modułów jest bezwładne
 i każda firma dostaje `allowed=['*']`.
 
+### 🚛 Trzy pojazdy wypadają z podstawy opodatkowania — nowa kontrola (27.08)
+
+`tools/autotest/d1-flota-check.js` pyta o co innego niż `d1-schema-diff.js`. Tamten
+sprawdza **kształt** bazy; ten — czy stoją w niej takie **dane**, żeby podatek dało się
+policzyć. Kształt może być bez zarzutu, a pojazd i tak płaci zero, bo ma puste jedno pole.
+
+Wszystkie cztery kontrole wykrywają ten sam rodzaj awarii: **brak, który nie jest błędem**.
+Pojazd z pustą DMC nie generuje wyjątku ani ostrzeżenia — po prostu nie ma kategorii
+i wypada z sumy.
+
+Pierwszy przebieg na 217 pojazdach:
+
+| pojazd | znalezisko | skutek |
+|---|---|---|
+| `WZ481KK` + `WA0677L` | **ten sam VIN** `YS2R6X2000548xxxx`, obie Scania R490 „Szambiarka" | obie z pustą DMC, obie **0 zł** |
+| `WA995AL` | dane komplet, baza trzyma pustą kategorię | silnik liczy **D14 / 1488 zł** |
+| `895` (myjka Kränzle) | nie jest pojazdem — brak tablicy i VIN-u | na liście `ZNANE` |
+
+Reszta bazy jest kompletna: **0 pojazdów bez liczby osi, 0 bez rodzaju**, 3 bez DMC.
+Sekcja [4] potwierdza też rzecz dobrą: **216/217 zapisanych kwot zgadza się z produkcyjnym
+silnikiem** — snapshot `dt1_*` nie rozjeżdża się systemowo.
+
+> ⚠️ **Różna liczba osi przy tym samym VIN (2 kontra 3) to nie jest szczegół.** Albo jeden
+> wiersz to stara tablica po przerejestrowaniu — wtedy podatek policzy się DWA RAZY — albo
+> VIN wklejono przez pomyłkę i jeden pojazd ma cudze dane. Rozstrzyga dowód, nie kod.
+
+**Narzędzie niczego nie zapisuje**, i to jest właściwa granica: poprawa kwoty podatku na
+produkcji to decyzja właściciela, nie skutek uboczny kontroli. Wpięte w `nightly-report.yml`
+obok `d1-schema-diff` (wymaga poświadczeń do produkcji, więc nie należy do `test:gates`,
+które muszą działać bez sieci).
+
+Lista `ZNANE` ma zapadkę w drugą stronę: wpis, który przestał występować, **musi zniknąć** —
+inaczej lista rosłaby w nieskończoność i narzędzie przestałoby cokolwiek mierzyć.
+
+Zweryfikowane trzema kontrolami negatywnymi: dane naprawione → kod 0 i „bez zastrzeżeń";
+dane produkcyjne → kod 1 i cztery znaleziska; wpis-sierotka na liście `ZNANE` → kod 1
+ze wskazaniem po nazwie. Przy okazji narzędzie złapało **mój własny zły domysł** — przy
+budowie danych kontrolnych przypisałem 26-tonowej Scanii kategorię D9, a przy 2 osiach
+silnik daje D8.
+
+### 🧾 Eksport JPK nigdy nie zadziałał — tabela mówi innym słownikiem niż handler (27.08)
+
+**Znalezione przy audycie zapytań składanych dynamicznie, nie przy awarii.** `handleJpk`
+trzyma nazwę tabeli w stałej (`const TABLE='jpk_exports'`), więc strażnik kolumn
+podstawiał w to miejsce zaślepkę `1=1`, dostawał błąd składni i wrzucał całe zapytanie
+do kosza „poza zasięgiem ekstrakcji" — zamiast do sekcji [2] jako rozjazd kolumny.
+**Cały handler wypadał z pomiaru.**
+
+Odczyt z produkcyjnego D1 (`SELECT sql FROM sqlite_master`):
+
+| tabela ma | INSERT wymienia |
+|---|---|
+| `export_type`, `period_from`, `period_to`, `xml_hash`, `sent_at`, `notes` | `jpk_type`, `year`, `month`, `quarter`, `period_label`, `r2_key`, `row_count` |
+
+Siedem kolumn nie istnieje, a ten INSERT (`index.js:12560`) jest **jako jedyny
+w handlerze bez `.catch()`** → `POST /api/jpk/generate` pada 500 przy każdym wywołaniu.
+`SELECT COUNT(*) FROM jpk_exports` = **0** potwierdza niezależnie: nic nigdy nie zapisało
+wiersza.
+
+**Kierunek naprawy rozstrzyga front, nie gust.** `modules/jpk.js:68,69` czyta
+`e.jpk_type` i `e.period_label`, ścieżka pobrania czyta `rec.r2_key` — słownikiem
+handlera mówi więc też UI. Kolumn `export_type`/`period_from`/`period_to` nie czyta
+ani nie pisze nic. Tabela ustępuje handlerowi.
+
+`worker/migration_v53_jpk_exports.sql` **przebudowuje** tabelę, nie rozszerza jej —
+i to jest różnica wobec `migration_v51`. Ścieżka przyrostowa jest tu zamknięta:
+`export_type`, `period_from`, `period_to` są NOT NULL bez wartości domyślnej, więc
+po samym `ALTER ADD COLUMN` INSERT nadal by padał. Drugie wyjście — dopisanie
+handlerowi tych trzech pól — dałoby **dwie kolumny na tę samą treść** (`jpk_type`
+obok `export_type`), czyli wzorzec, który w tym projekcie rozjeżdżał się już pięć razy.
+Przebudowa **nie zakłada pustej tabeli**: istniejące wiersze przenosi z odwzorowaniem
+starego słownika na nowy. Sprawdzone na wierszu testowym — przeżywa z poprawnym
+`jpk_type`, rokiem wyciętym z `period_from` i sklejonym `period_label`.
+
+**Bramka rozszerzona, żeby ta klasa była mierzona na stałe:** ekstraktor podstawia teraz
+także nazwy tabel trzymanych w stałych (`const NAZWA = 'identyfikator'`), wyłącznie
+literały wyglądające jak identyfikator — nic, co mogłoby wnieść fragment SQL.
+Niesparsowanych 12 → 7, zapadka 15 → 9. Zweryfikowane negatywnie: bez
+`migration_v53` bramka wskazuje `jpk_exports.jpk_type` po nazwie.
+
+### 🔐 `company_packages` — konflikt v33/v48 domknięty, licencjonowanie NADAL wyłączone (27.08)
+
+Produkcja stoi na kształcie z `schema_v33` (potwierdzone `sqlite_master`): `company_id
+TEXT PRIMARY KEY`, `updated_by`, **bez `active`**. Odczyt `resolveModuleAccess`
+(`index.js:14133`) wymaga `AND active=1`, więc padał na `no such column`, leciał
+w `catch` i zwracał `allowed=['*']`. Skutek: **admin mógł zapisać pakiet `basic`
+i nie działo się nic** — cicho.
+
+`worker/migration_v52_company_packages.sql` dodaje `active INTEGER NOT NULL DEFAULT 1`.
+
+> ⚠️ **To jest behawioralnie obojętne, i to celowo.** Zmierzone przed napisaniem:
+> `SELECT COUNT(*) FROM company_packages` = **0**. Przy pustej tabeli zapytanie
+> z `active=1` nie zwraca wiersza, więc `if (!row)` daje `allowed=['*']` — dokładnie
+> to samo, co dziś daje `catch`. Zmienia się PRZYCZYNA pełnego dostępu, nie zachowanie.
+>
+> ⚠️ **Pierwszy `INSERT` do tej tabeli WŁĄCZA licencjonowanie modułów.**
+> `_packageModules('basic')` zwraca pustą listę. Kolejność: migracja →
+> `wrangler secret put MODULE_ENFORCEMENT` → `off` → dopiero wiersze → zdjęcie kill
+> switcha świadomie, po sprawdzeniu na jednej firmie.
+
+Wpis `company_packages.active` zdjęty z `ZNANE_ROZJAZDY`. Zweryfikowane negatywnie:
+bez migracji bramka zgłasza go jako NOWY rozjazd.
+
+### 💰 DT-1 w bazie kontra silnik: 216/217 zgodnych, jeden pojazd nie płaci (27.08)
+
+Przeliczenie **całej produkcyjnej floty** produkcyjnym `modules/tax-engine.js`
+(przez `window`-shim) i porównanie z kolumnami `dt1_category`/`dt1_tax_amount`:
+
+| | |
+|---|---|
+| pojazdów | 217 |
+| zgodnych | **216** |
+| rozbieżnych | **1** |
+| suma wg bazy | 229 656 zł |
+| suma wg silnika | **231 144 zł** |
+
+    WA995AL   baza: kategoria PUSTA, 0 zł   |   silnik: D14, 1488 zł
+              ANDRE 2152N, przyczepa, DMC 22 000, 2 osie, 12 miesięcy
+
+**To nie jest wyłączenie z tytułu leasingu.** Sprawdzone: `leasingCompany` nie jest
+ustawione u ŻADNEGO z 217 pojazdów, a status `Leasing` ma 132 pojazdy, z czego 122 są
+opodatkowane. Zero przy `WA995AL` to przeoczenie, nie polityka.
+
+**Dobra wiadomość jest równie ważna jak zła:** kolumny `dt1_*` to zapisany snapshot,
+nie wyliczenie na żywo — a mimo to dryf wynosi jeden pojazd na 217. Cache nie rozjeżdża
+się systemowo.
+
+**NIE poprawiłem tego zapisem do bazy** — to zmiana kwoty podatku na produkcji, więc
+decyzja właściciela, nie skutek uboczny audytu.
+
+### 🔎 Zapytania z nazwą tabeli w zmiennej — 12 przejrzanych ręcznie, 11 czystych (27.08)
+
+Pełny przegląd wszystkich zapytań, których strażnik nie odtwarzał. Pod kątem
+wstrzyknięcia SQL **wszystkie są bezpieczne**, i warto wiedzieć dlaczego, żeby nie
+odtwarzać tego przeglądu:
+
+| miejsce | skąd nazwa tabeli / kolumn |
+|---|---|
+| `handleExport` / `handleImport` (2423, 2510–2523) | `EXPORT_TABLES` — stała; kolumny z ciała żądania, ale przez whitelistę `/^[a-z_][a-z0-9_]*$/` |
+| `POST /api/companies` (3511) | `COMPANY_FIELDS` — stała, 16/16 kolumn istnieje |
+| `handleDriverPerformance` (5838, 5843) | fragment to stały literał `AND driver_name=?`, wartość bindowana |
+| `handleJpk` (12527–12570) | `const TABLE='jpk_exports'` — stała **(tu siedział martwy INSERT, patrz wyżej)** |
+
+Wniosek metodyczny: zaślepka w miejscu nazwy tabeli nie jest neutralna — **wypycha
+zapytanie z pomiaru zamiast je pominąć**. Każdy kosz „poza zasięgiem" trzeba raz
+przejrzeć ręcznie, bo zapadka pilnuje tylko, żeby nie rósł.
+
 ### ⚖️ Widełki ustawowe stawek DT-1 — struktura gotowa, kwoty do odczytu (27.08)
 
 Rada gminy **nie uchwala stawki dowolnie** — uchwala ją w widełkach **dwustronnych**:
@@ -617,13 +764,28 @@ Każdy z tych VIN-ów występuje w bazie **dokładnie raz**. Stare tablice
 
 **Duplikaty są artefaktem MOJEGO scalania**, nie stanem firmy. `flota-master.js`
 buduje flotę ze SKANÓW DOKUMENTÓW, a w dokumentacji leżą też dowody sprzed
-przerejestrowania — każdy taki stary dowód tworzy dodatkowy wiersz. Produkcyjna
-baza ma 217 pojazdów i tego problemu nie ma.
+przerejestrowania — każdy taki stary dowód tworzy dodatkowy wiersz.
+
+> ⛔ **SPROSTOWANIE 27.08: zdanie „produkcyjna baza tego problemu nie ma" było ZA MOCNE.**
+> Pomiar całej bazy (`tools/autotest/d1-flota-check.js`, sekcja [1]) znalazł **jedną parę**:
+> `WZ481KK` i `WA0677L`, obie Scania R490 „Szambiarka", ten sam VIN `YS2R6X2000548xxxx`,
+> **obie z pustą DMC i obie płacące 0 zł**. Różna liczba osi (2 kontra 3) przy tym samym
+> VIN znaczy, że albo jeden wiersz to stara tablica po przerejestrowaniu, albo VIN
+> wklejono przez pomyłkę — rozstrzyga dokument, nie kod.
+>
+> Reszta akapitu wyżej zostaje prawdziwa: dziesięć wymienionych tablic w produkcji nie
+> istnieje, a 26 par z arkusza MASTER to faktycznie artefakt scalania. Błędem było
+> uogólnienie „zero" na całą bazę na podstawie sprawdzenia **sześciu wybranych VIN-ów**.
+> To ta sama pomyłka co ta, którą ten wpis prostuje, tylko w drugą stronę.
 
 **Czego to uczy o metodzie:** wykrywanie duplikatów po VIN jest słuszne i zostaje
 — chroni MOJE narzędzie przed zawyżeniem sumy. Błędem było ogłoszenie tego jako
 ustalenia o podatku firmy **bez sprawdzenia w bazie, która ten podatek nalicza**.
 Arkusz zbudowany z dokumentów opisuje dokumenty, nie flotę.
+
+**A drugi błąd — sprostowany 27.08 — polegał na czymś odwrotnym: sprawdzenie sześciu
+VIN-ów uznałem za pomiar całej bazy.** Stąd bierze się `d1-flota-check.js`: kontrola
+uruchamiana na WSZYSTKICH wierszach, nie na tych, o które akurat zapytałem.
 
 ### ✅ Walidacja wyliczenia DT-1 o produkcyjne D1 (26.08)
 

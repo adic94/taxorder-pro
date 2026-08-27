@@ -41,6 +41,7 @@
     "migration-check": "node tools/autotest/migration-check.js",
     "d1-diff": "node tools/autotest/d1-schema-diff.js",
     "d1-diff:offline": "node tools/autotest/d1-schema-diff.js --offline",
+    "flota-check": "node tools/autotest/d1-flota-check.js",
     "verify:v44": "node tools/autotest/verify-v44.js",
     "audit:all": "node tools/autotest/syntax-check.js && node tools/autotest/xss-audit.js && node tools/autotest/i18n-check.js && node tools/autotest/sw-cache-bump.js --check && node tools/autotest/run-gates.js",
     "lint:worker": "eslint worker/index.js",

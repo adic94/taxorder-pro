@@ -4241,6 +4241,49 @@ async function handleGpsWebhook(req, env, user, url) {
 }
 
 // ─── FUEL CARD WEBHOOK ────────────────────────────────────────────────────────
+/**
+ * WYBÓR KOLUMNY KWOTY z nagłówków raportu paliwowego — JEDNO miejsce dla trzech parserów.
+ *
+ * DLACZEGO OSOBNA FUNKCJA. Ten plik ma TRZY parsery CSV paliwowego (`_parseFuelCsv`,
+ * `parseFuelCsv`, `_parseFuelCsvScheduled`) i każdy wybierał kolumnę kwoty inaczej —
+ * a raport ORLEN ma OBIE: „Wartość netto" i „Wartość brutto". Zmierzone na realistycznym
+ * nagłówku:
+ *   _parseFuelCsv           brał OSTATNIĄ pasującą  → netto, gdy brutto stało wcześniej
+ *   parseFuelCsv            brał PIERWSZĄ pasującą  → netto, gdy netto stało wcześniej
+ *   _parseFuelCsvScheduled  dopasowywał DOKŁADNIE   → „wartość brutto" nie trafiało nigdzie,
+ *                                                     kwota zawsze null
+ * Żaden nie odróżniał brutto od netto ZNACZENIEM — dwa zgadywały po kolejności kolumn.
+ * Różnica to stawka VAT: 250,00 zamiast 307,50. Obie liczby wyglądają wiarygodnie,
+ * a stąd idą wprost do raportów ESG i eksportu JPK.
+ *
+ * ZASADA: kolumna jawnie oznaczona jako brutto wygrywa zawsze. Kolumna jawnie netto NIE
+ * jest brana, dopóki istnieje jakakolwiek inna — bo import kwot netto jako kosztu paliwa
+ * zaniża go cicho. Gdy jest WYŁĄCZNIE netto, zwracamy ją, ale z `rodzaj:'netto'`, żeby
+ * warstwa wyżej mogła to pokazać zamiast udawać, że wszystko się zgadza.
+ *
+ * Zwraca `{ idx, rodzaj }`, gdzie rodzaj to 'brutto' | 'ogolna' | 'netto' | null.
+ */
+function _fuelAmountColumn(headers) {
+  const norm = h => String(h ?? '').toLowerCase().trim()
+    .replace(/[ąĄ]/g, 'a').replace(/[ćĆ]/g, 'c').replace(/[ęĘ]/g, 'e')
+    .replace(/[łŁ]/g, 'l').replace(/[ńŃ]/g, 'n').replace(/[óÓ]/g, 'o')
+    .replace(/[śŚ]/g, 's').replace(/[źżŹŻ]/g, 'z').replace(/["'`]/g, '');
+  const h = (headers || []).map(norm);
+  const jestNetto = x => x.includes('netto') || /\bnet\b/.test(x);
+
+  const i1 = h.findIndex(x => x.includes('brutto') || x.includes('gross'));
+  if (i1 !== -1) return { idx: i1, rodzaj: 'brutto' };
+
+  const OGOLNE = ['kwota', 'koszt', 'wartosc', 'suma', 'total', 'amount', 'cost', 'pln'];
+  const i2 = h.findIndex(x => !jestNetto(x) && OGOLNE.some(c => x.includes(c)));
+  if (i2 !== -1) return { idx: i2, rodzaj: 'ogolna' };
+
+  const i3 = h.findIndex(jestNetto);
+  if (i3 !== -1) return { idx: i3, rodzaj: 'netto' };
+
+  return { idx: -1, rodzaj: null };
+}
+
 function _parseFuelCsv(text) {
   const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
   if (lines.length < 2) return [];
@@ -4274,6 +4317,17 @@ function _parseFuelCsv(text) {
         fieldMap[i] = canonical;
     }
   });
+  // Aliasy `totalGross` zawieraja ogolne 'wartosc'/'kwota', wiec kolumna „Wartość netto"
+  // tez je spelnia — a rekord bral WARTOSC Z OSTATNIEGO pasujacego indeksu, czyli zalezal
+  // od KOLEJNOSCI kolumn w pliku. Wspolny wybor rozstrzyga to znaczeniem, nie pozycja.
+  {
+    const w = _fuelAmountColumn(headers);
+    if (w.idx >= 0) {
+      for (const i of Object.keys(fieldMap)) if (fieldMap[i] === 'totalGross') delete fieldMap[i];
+      fieldMap[w.idx] = 'totalGross';
+    }
+  }
+
   const PRODUCT_MAP = {
     on:'diesel','on evo':'diesel',diesel:'diesel',dieselevo:'diesel',
     pb95:'pb95',pb98:'pb98',benzyna:'pb95',
@@ -7468,7 +7522,10 @@ function parseFuelCsv(csvText, separator, colMap) {
     dateIdx   = ci('data','date','dzien','dzień');
     nrIdx     = ci('nr_rej','rejestr','tablica','pojazd','plate','vehicle');
     litersIdx = ci('liter','ilosc','ilość','quantity','volume','litry');
-    costIdx   = ci('kwota','koszt','cost','amount','wartosc','wartość','brutto','pln');
+    // Kolumnę kwoty wybiera wspólny `_fuelAmountColumn` — poprzednio `ci(...)` brał
+    // PIERWSZE dopasowanie, więc przy nagłówku „Wartość netto; Wartość brutto"
+    // wchodziło netto, zaniżając koszt o stawkę VAT. Cicho.
+    costIdx   = _fuelAmountColumn(header).idx;
     statIdx   = ci('stacja','station','miejsce');
   }
 
@@ -13091,6 +13148,10 @@ function _parseFuelCsvScheduled(text, provider) {
 
   const idxMap = {};
   for (const field of Object.keys(ALIASES)) idxMap[field] = colIdx(field);
+  // `colIdx` porównuje nagłówki DOKŁADNIE, więc „wartość brutto" (z ogonkami) nie
+  // trafiało w żaden alias i kwota wychodziła null przy każdym raporcie ORLEN.
+  // Wspólny wybór kolumny radzi sobie z ogonkami i z parą netto/brutto.
+  { const w = _fuelAmountColumn(headers); if (w.idx >= 0) idxMap.total_cost = w.idx; }
 
   const records = [];
   for (let i = 1; i < lines.length; i++) {

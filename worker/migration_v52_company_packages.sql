@@ -1,0 +1,41 @@
+-- migration_v52: company_packages — domknięcie konfliktu v33 kontra v48
+--
+-- STAN PRZED (potwierdzony odczytem `SELECT sql FROM sqlite_master` na produkcyjnym D1,
+-- nie wnioskowaniem z plików): tabela ma kształt z schema_v33 — `company_id TEXT PRIMARY
+-- KEY`, `updated_by`, BEZ kolumny `active`. `CREATE TABLE IF NOT EXISTS` z schema_v48 był
+-- tam cichym no-opem.
+--
+-- Kod celuje w OBIE struktury naraz:
+--   odczyt  resolveModuleAccess (index.js:14133)  — wymaga `... AND active=1`
+--   zapis   PUT /api/access-control/config (11612) — wstawia `updated_by`
+-- Dziś odczyt pada na `no such column: active`, leci w `catch` i zwraca `allowed=['*']`.
+-- Skutek: admin może zapisać pakiet `basic` i NIE STANIE SIĘ NIC — cicho. To ta sama
+-- klasa co „ciche zera": operacja melduje sukces, a nie robi tego, co obiecuje.
+--
+-- ⚠️ TA MIGRACJA JEST BEHAWIORALNIE OBOJĘTNA, I TO CELOWO.
+-- Zmierzone przed napisaniem: `SELECT COUNT(*) FROM company_packages` = 0.
+-- Przy pustej tabeli zapytanie z `active=1` nie zwraca wiersza, więc `if (!row)` daje
+-- `allowed=['*']` — dokładnie to samo, co dziś daje `catch`. Zmienia się PRZYCZYNA
+-- pełnego dostępu (brak wiersza zamiast błędu SQL), nie zachowanie.
+--
+-- ⚠️ PIERWSZY `INSERT` DO TEJ TABELI WŁĄCZA LICENCJONOWANIE MODUŁÓW.
+-- `_packageModules('basic')` zwraca PUSTĄ LISTĘ, więc wiersz z pakietem `basic` odetnie
+-- firmie wszystkie moduły spoza `MODULE_EXEMPT`. To wdrożenie funkcji, nie naprawa błędu.
+-- Kolejność, gdyby kiedyś do tego wracać:
+--   1. ta migracja,
+--   2. `wrangler secret put MODULE_ENFORCEMENT` → `off`  (kill switch, PRZED wierszami),
+--   3. dopiero wtedy wiersze,
+--   4. zdjęcie kill switcha świadomie, po sprawdzeniu na jednej firmie.
+--
+-- Nazwa `migration_v52_`, nie `schema_v52_`, jest celowa — nocny automat uruchamia glob
+-- `schema_v*.sql`, a migracje strukturalne trzymamy poza nim. Uruchomienie jest ręczne:
+--   wrangler d1 execute taxorder-pro --remote --file=worker/migration_v52_company_packages.sql
+--
+-- Przyrostowe `ALTER ADD COLUMN` — poprawne także na bazie z danymi. Nie przebudowujemy
+-- tabeli: `updated_by` z v33 zostaje (używa go zapis), `id`/`created_at` z v48 NIE są
+-- dodawane, bo nie czyta ich żadne zapytanie w workerze (sprawdzone: `SELECT *` w dwóch
+-- miejscach, jawna lista kolumn w trzecim).
+
+ALTER TABLE company_packages ADD COLUMN active INTEGER NOT NULL DEFAULT 1;
+
+CREATE INDEX IF NOT EXISTS idx_company_packages_active ON company_packages(company_id, active);

@@ -241,3 +241,13 @@ jobs:
       # Listy ZNANE_* moga wylacznie malec — wpis oznacza endpoint, ktory dzis nie dziala.
       - name: Straznik kolumn — WSZYSTKIE zapytania workera kontra schemat
         run: node tests/unit/worker-columns-test.js
+
+      # worker/index.js ma TRZY parsery CSV paliwowego, bo powstawaly osobno. Raport ORLEN
+      # ma OBIE kolumny kwoty — „Wartosc netto" i „Wartosc brutto" — a zaden z parserow nie
+      # odrozznial ich ZNACZENIEM: dwa zgadywaly po kolejnosci kolumn (jeden bral pierwsza
+      # pasujaca, drugi ostatnia), trzeci porownywal naglowki doslownie i nie znajdowal nic,
+      # wiec kwota wychodzila null. Roznica to stawka VAT, a kwota idzie wprost do raportow
+      # ESG i eksportu JPK. Bramka sprawdza wszystkie trzy na tej samej tablicy przypadkow —
+      # dopoki istnieja trzy kopie, to jedyne, co nie pozwoli im sie znowu rozjechac.
+      - name: Straznik importu paliwa — kwota brutto, nie netto
+        run: node tests/unit/fuel-csv-test.js
