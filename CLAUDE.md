@@ -231,31 +231,46 @@ taxorder-pro/
 >   i odrzuca 2,68, ale nie zastępuje odczytu z aktualnej tabeli KOBiZE — dlatego `zrodlo`
 >   nadal mówi „niezweryfikowane". Sprawozdanie w CO2e wymaga OSOBNEGO zestawu z własnym
 >   `od`, nie podmiany tych liczb.
-> - **Stawki opłat środowiskowych** — **ŹRÓDŁO ODCZYTANE 25.08, ale blokadą jest teraz
->   STRUKTURA DANYCH, nie brak dostępu.** Obwieszczenia są dostępne i zweryfikowane:
->   `monitorpolski.gov.pl/M2025000076901.pdf` (M.P. 2025 poz. 769, stawki na 2026)
->   i `M2024000079401.pdf` (M.P. 2024 poz. 794, na 2025). Stawki dla pojazdów są
->   w **Tabeli D**.
->
->   **Odczyt ujawnił, że `ENV_FEE_RATE_SETS` ma ZŁY KSZTAŁT.** Klucz to dziś
->   `paliwo|EURO` — dwa wymiary. Tabela D ma **trzy**: brakuje KLASY POJAZDU,
->   a to różnica rzędu 60%. Olej napędowy EURO 5, stawki na 2026 (zł/Mg):
->   osobowy **5,76**, do 3,5 t inny niż osobowy **6,82**, powyżej 3,5 t **9,19**.
->   Nasza flota to głównie te dwie ostatnie klasy — wpisanie stawki „osobowej"
->   zaniżyłoby należność o ~40%, a wynik wyglądałby wiarygodnie. Tabela ma 32
->   pozycje i SZEŚĆ kolumn paliwa (osobno CNG fabryczny i CNG przebudowany —
->   `co2FactorFor` zwraca dziś jeden klucz `cng` i ich nie rozróżni).
->
->   **Drugi, niezależny brak: obwieszczenie NIE PODAJE GĘSTOŚCI** — sprawdzone
->   pełnotekstowo w obu rocznikach, zero trafień na „gęstoś", „kg/m3", „kg/dm",
->   „g/cm". Bez gęstości nie przeliczy się litrów na Mg; to osobne źródło.
->
->   Kolejność prac (opisana szczegółowo przy stałej w `worker/index.js`):
->   rozszerzyć klucz o klasę pojazdu → rozdzielić CNG → dopiero wtedy przepisać
->   liczby → gęstości osobno. `computeEnvironmentalFee` nadal ODMAWIA wyliczenia
->   i tak ma zostać, dopóki wszystkie cztery kroki nie są zrobione.
->
-> ### Skrót tego, co zamknięto 12–13.08
+> - **Stawki opłat środowiskowych** — **TRZY Z CZTERECH KROKÓW ZROBIONE (27.08).
+  Zostaje wyłącznie GĘSTOŚĆ.** Poprzednia wersja tego wpisu opisywała temat jako
+  nietknięty i była nieaktualna — kod ma dziś 83 stawki z Tabeli D, klucz
+  trójwymiarowy `paliwo|norma|klasa_pojazdu` i CNG rozdzielony na fabryczny
+  i przebudowany.
+
+  Źródło: `monitorpolski.gov.pl/M2025000076901.pdf` (M.P. 2025 poz. 769, stawki
+  na 2026), Tabela D. Klasy: `osobowy`, `do_3_5t_inny_niz_osobowy`, `powyzej_3_5t`,
+  `autobus_powyzej_3_5t`. Paliwa: `bs`, `lpg`, `cng_fabryczny`, `cng_przebudowany`,
+  `on`, `bd`. Normy: PRZED_EURO oraz EURO 1–5.
+
+  **`computeEnvironmentalFee` nadal nie podaje kwot — i to jest poprawne.**
+  Powód jest już tylko jeden: `gestosc_kg_na_litr` jest puste, więc każdy pojazd
+  trafia na listę `nieustalone` z powodem „gęstość paliwa". Obwieszczenie gęstości
+  NIE PODAJE (sprawdzone pełnotekstowo w obu rocznikach), więc pochodzi z innego
+  źródła i wymaga osobnej decyzji z podaniem pochodzenia.
+
+  > ⚠️ **Dostęp do źródeł rządowych bywa zablokowany polityką sieci.** Zmierzone
+  > 27.08 z sesji w chmurze: `api.sejm.gov.pl`, `dziennikustaw.gov.pl`,
+  > `monitorpolski.gov.pl` i `eli.gov.pl` odpowiadają **403 na CONNECT**. 25.08 te
+  > same adresy działały. Nie zakładaj więc, że „skoro raz się udało, uda się znowu"
+  > — i nie wpisuj liczb z pamięci, gdy nie ma dostępu.
+
+  **Dwie rzeczy do rozstrzygnięcia przy okazji gęstości:**
+  - **CNG sprzedaje się na KILOGRAMY, nie na litry**, więc `litry × gęstość` jest
+    dla niego bez sensu — wejściem powinna być masa. Wpisanie mu „gęstości" da
+    liczbę wyglądającą poprawnie i błędną.
+  - **Autobusy powyżej 3,5 t mają w kodzie wyłącznie wiersz PRZED_EURO** (on 88,25;
+    bd 79,87). Autobus EURO 1–5 nie dostanie stawki. Nie wiadomo, czy to wierne
+    odwzorowanie Tabeli D, czy luka ekstrakcji — do sprawdzenia przy następnym
+    dostępie do PDF-a.
+
+  **Wiarygodność stawek potwierdzona dwiema kontrolami niewymagającymi PDF-a**
+  (utrwalone w `tests/unit/env-fee-test.js`, każda zweryfikowana negatywnie):
+  monotoniczność (w 16 seriach paliwo×klasa stawka ani razu nie rośnie wraz z normą
+  EURO — a udokumentowany tryb awarii ekstrakcji, przesunięcie wiersza o jeden, tę
+  własność by złamał) oraz trzy kotwice ON EURO 5 (5,76 / 6,82 / 9,19 zł/Mg) zgodne
+  co do grosza z odczytem zapisanym niezależnie w tym pliku.
+
+### Skrót tego, co zamknięto 12–13.08
 >
 > Aztec: przyczyna zniekształcenia bajtów `0x80`–`0x9F` znaleziona (WHATWG mapuje
 > etykietę „ISO-8859-1" na **windows-1252**) i naprawiona; `--selftest` przechodzi całą

@@ -198,5 +198,75 @@ if (!mSets) {
   else ok('normalizacja normy EURO obsługuje warianty zapisu z danych');
 }
 
+// ── 6. WEWNĘTRZNA SPÓJNOŚĆ TABELI STAWEK ─────────────────────────────────────
+// Jedyna weryfikacja stawek dostępna BEZ dostępu do PDF-a obwieszczenia — a dostęp
+// bywa zablokowany polityką sieci (zmierzone 27.08: api.sejm.gov.pl,
+// dziennikustaw.gov.pl, monitorpolski.gov.pl i eli.gov.pl odpowiadają 403 na CONNECT).
+//
+// Udokumentowany tryb awarii przy wyciąganiu Tabeli D to PRZESUNIĘCIE WIERSZA
+// o jeden: w M.P. 2025 poz. 769 jedna komórka ma separator dziesiętny w postaci
+// KROPKI („10.01"), reszta przecinki, więc regex wymagający przecinka pominął wiersz
+// i przypisał mu wartości następnego. Kwota wychodzi wtedy sensowna i całkowicie zła.
+{
+  // Ta sama ścieżka ekstrakcji co w sekcji 1 (`mSets` jest w zasięgu zewnętrznym),
+  // żeby bramka nie miała drugiej, mogącej się rozjechać kopii odczytu.
+  const zestaw = mSets ? eval(mSets[1])[0] : null; // eslint-disable-line no-eval
+  const ORDER = ['PRZED_EURO', 'EURO 1', 'EURO 2', 'EURO 3', 'EURO 4', 'EURO 5'];
+
+  // [a] Kształt klucza: dokładnie trzy części, znane słowniki paliw i klas.
+  const PALIWA = ['bs', 'lpg', 'cng_fabryczny', 'cng_przebudowany', 'on', 'bd'];
+  const KLASY  = ['osobowy', 'do_3_5t_inny_niz_osobowy', 'powyzej_3_5t', 'autobus_powyzej_3_5t'];
+  const zle = Object.keys(zestaw?.stawki || {}).filter(k => {
+    const cz = k.split('|');
+    return cz.length !== 3 || !PALIWA.includes(cz[0]) || !ORDER.includes(cz[1]) || !KLASY.includes(cz[2]);
+  });
+  if (zle.length) bad(`klucze stawek poza słownikiem: ${zle.slice(0, 4).join(', ')}`);
+  else ok(`wszystkie ${Object.keys(zestaw?.stawki || {}).length} kluczy stawek ma kształt paliwo|norma|klasa`);
+
+  // [b] Monotoniczność: im wyższa norma EURO, tym niższa stawka. Przesunięcie
+  // wiersza o jeden niemal na pewno tę własność łamie.
+  const grupy = {};
+  for (const [k, v] of Object.entries(zestaw?.stawki || {})) {
+    const [p, n, kl] = k.split('|');
+    (grupy[`${p}|${kl}`] ||= {})[n] = v;
+  }
+  const naruszenia = [];
+  let serie = 0;
+  for (const [g, m] of Object.entries(grupy)) {
+    const obecne = ORDER.filter(n => m[n] !== undefined);
+    if (obecne.length < 2) continue;
+    serie++;
+    for (let i = 1; i < obecne.length; i++)
+      if (m[obecne[i]] > m[obecne[i - 1]])
+        naruszenia.push(`${g}: ${obecne[i - 1]}=${m[obecne[i - 1]]} → ${obecne[i]}=${m[obecne[i]]}`);
+  }
+  if (naruszenia.length)
+    bad(`stawka rośnie wraz z normą EURO w ${naruszenia.length} miejscach`, naruszenia.slice(0, 3).join(' | '));
+  else ok(`monotoniczność stawek zachowana w ${serie} seriach paliwo×klasa`);
+
+  // [c] Trzy kotwice odczytane z Tabeli D i zapisane NIEZALEŻNIE w CLAUDE.md.
+  // Jedyny punkt zaczepienia o źródło, jaki mamy bez PDF-a.
+  const KOTWICE = {
+    'on|EURO 5|osobowy': 5.76,
+    'on|EURO 5|do_3_5t_inny_niz_osobowy': 6.82,
+    'on|EURO 5|powyzej_3_5t': 9.19,
+  };
+  const rozjazd = Object.entries(KOTWICE).filter(([k, v]) => zestaw?.stawki?.[k] !== v);
+  if (rozjazd.length)
+    bad(`kotwice ON EURO 5 nie zgadzają się ze źródłem: ${rozjazd.map(([k, v]) => `${k} = ${zestaw?.stawki?.[k]} zamiast ${v}`).join('; ')}`);
+  else ok('trzy kotwice ON EURO 5 (5,76 / 6,82 / 9,19 zł/Mg) zgodne z odczytem Tabeli D');
+
+  // [d] Znana luka: autobusy powyżej 3,5 t mają WYŁĄCZNIE wiersz PRZED_EURO.
+  // Nie wiadomo, czy to wierne odwzorowanie Tabeli D, czy luka ekstrakcji.
+  // Asercja utrwala stan, żeby zmiana nie przeszła niezauważona — w OBIE strony:
+  // uzupełnienie luki też ma zmusić do świadomej aktualizacji tego wpisu.
+  const autobusy = Object.keys(zestaw?.stawki || {}).filter(k => k.endsWith('|autobus_powyzej_3_5t'));
+  const autobusyEuro = autobusy.filter(k => !k.includes('|PRZED_EURO|'));
+  if (autobusyEuro.length === 0)
+    ok(`autobusy >3,5 t: nadal tylko ${autobusy.length} wiersze PRZED_EURO — luka niezmieniona (do sprawdzenia w PDF-ie)`);
+  else
+    bad(`autobusy >3,5 t dostały stawki EURO (${autobusyEuro.length}) — zweryfikuj w Tabeli D i zaktualizuj ten wpis`);
+}
+
 console.log(`\n${'─'.repeat(52)}\nWynik: ${pass} PASS / ${fail} FAIL\n`);
 process.exit(fail ? 1 : 0);
