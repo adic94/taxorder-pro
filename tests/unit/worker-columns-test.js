@@ -65,7 +65,6 @@ const ZNANE_BRAKI_TABEL = {
 const ZNANE_ROZJAZDY = {
   'tachograph_vehicles_used.vehicle_id': 'tabela wiąże pojazd numerem rejestracyjnym (vehicle_reg), nie identyfikatorem',
   'users.telefon':                       'users nie ma kolumny telefonu — powiadomienia SMS nie mogą działać',
-  'company_packages.active':             'v33 kontra v48 — udokumentowany konflikt, decyzja produktowa',
 };
 
 // ── budowa bazy ──────────────────────────────────────────────────────────────
@@ -120,6 +119,16 @@ const src = fs.readFileSync(WORKER, 'utf8');
 const stale = {};
 for (const m of src.matchAll(/const\s+(SQL_\w+)\s*=\s*(`[\s\S]*?`|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')\s*;/g))
   stale[m[1]] = m[2].slice(1, -1);
+
+// Nazwy tabel trzymane w stałych (`const TABLE='jpk_exports'`) też podstawiamy treścią.
+// BEZ TEGO CAŁY HANDLER WYPADAŁ Z POMIARU: zaślepka `1=1` w miejscu nazwy tabeli daje
+// błąd składni, więc zapytanie lądowało w koszu „poza zasięgiem ekstrakcji" — a nie
+// w [2] jako rozjazd kolumny. Tak właśnie ukrył się `jpk_exports`: INSERT wymieniał
+// siedem nieistniejących kolumn i padał 500 przy każdym wywołaniu, a bramka świeciła
+// na zielono. Podstawiamy WYŁĄCZNIE literały wyglądające jak identyfikator tabeli —
+// nic, co mogłoby wnieść do zapytania fragment SQL.
+for (const m of src.matchAll(/\bconst\s+([A-Z_][A-Z0-9_]*)\s*=\s*'([a-z_][a-z0-9_]*)'\s*;/g))
+  if (!stale[m[1]]) stale[m[1]] = m[2];
 
 function rozwin(sql) {
   let o = sql;
@@ -199,11 +208,12 @@ for (const k of Object.keys(ZNANE_ROZJAZDY))
 // ── [3] ograniczenie ekstrakcji ──────────────────────────────────────────────
 // Zapytania składane z fragmentów, których podstawienie nie odtwarza wiernie. Nie są
 // dowodem błędu, ale liczba nie może rosnąć — inaczej bramka po cichu przestaje mierzyć.
-// Zapadka: było 40 przy 20 niesparsowanych, ale po naprawie klasyfikatora INSERT-ów
-// zeszliśmy do 12. Limit trzymany tuż nad stanem faktycznym — luźny limit pozwala
+// Zapadka: 40 → 15 → 9. Ostatnie zejście (12 → 7) po podstawianiu nazw tabel trzymanych
+// w stałych — to właśnie te zapytania kryły martwy INSERT do `jpk_exports`.
+// Limit trzymany tuż nad stanem faktycznym — luźny limit pozwala
 // bramce po cichu przestać mierzyć backend, a to dokładnie ta awaria, którą właśnie
 // wykryliśmy (zepsute INSERT-y liczone jako „ograniczenie narzędzia").
-const LIMIT_NIESPARSOWANYCH = 15;
+const LIMIT_NIESPARSOWANYCH = 9;
 console.log('\n[3] Zapytania poza zasięgiem ekstrakcji');
 if (niesparsowane <= LIMIT_NIESPARSOWANYCH)
   ok(`${niesparsowane} zapytań składanych dynamicznie (limit ${LIMIT_NIESPARSOWANYCH})`);
