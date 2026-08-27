@@ -178,12 +178,29 @@ if (zakleszczone.length) {
 }
 
 // ── 3. bramka d1-schema-diff nie generuje fałszywych alarmów na zdrowej bazie ──
-// Sekcja [5] („nie pasuje do ŻADNEJ definicji") musi być pusta dla bazy zbudowanej
-// wprost z tych plików. Zanim narzędzie zaczęło uwzględniać ALTER TABLE ADD COLUMN,
-// wychodziło tu 14 rozjazdów i `--strict` świecił czerwono co noc bez powodu.
+// Sekcja [5] („nie pasuje do ŻADNEJ definicji") musi być pusta dla ZDROWEJ bazy.
+// Zanim narzędzie zaczęło uwzględniać ALTER TABLE ADD COLUMN, wychodziło tu
+// 14 rozjazdów i `--strict` świecił czerwono co noc bez powodu.
+//
+// ⚠️ TA JEDNA ASERCJA UŻYWA INNEJ BAZY NIŻ RESZTA PLIKU, i to celowo.
+// Reszta modeluje NOCNY AUTOMAT, który uruchamia wyłącznie glob `schema_v*.sql` —
+// i o to właśnie pyta: czy automat gubi tabele. Tutaj pytanie jest inne: czy bramka
+// nie krzyczy na ZDROWEJ produkcji. A zdrowa produkcja ma zastosowane RÓWNIEŻ pliki
+// `migration_v*`, uruchamiane ręcznie (v51/v52/v53 — 27.08.2026). Budowanie fixture
+// z samych plików schema kazałoby bramce raportować 9 tabel jako rozjechane, choć
+// różnica pochodzi wyłącznie z migracji, których ta baza nie dostała.
+const dbPelna = new DatabaseSync(':memory:');
+const migracje = fs.readdirSync(SCHEMA)
+  .filter(f => /^migration_v\d+.*\.sql$/.test(f) && !/_ROLLBACK/i.test(f))
+  .sort((a, b) => Number(a.match(/_v(\d+)/)[1]) - Number(b.match(/_v(\d+)/)[1]));
+for (const f of [...files, ...migracje]) {
+  // Transakcyjność per plik, jak w imporcie D1 — patrz komentarz przy budowie `db`.
+  try { dbPelna.exec(fs.readFileSync(path.join(SCHEMA, f), 'utf8')); } catch { /* plik wycofany w całości */ }
+}
+
 const fixture = path.join(os.tmpdir(), `d1-fixture-${process.pid}.json`);
 fs.writeFileSync(fixture, JSON.stringify(
-  db.prepare("SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all()
+  dbPelna.prepare("SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all()
 ));
 try {
   const out = execFileSync(process.execPath,

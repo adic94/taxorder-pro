@@ -101,12 +101,41 @@ const hasCheck = sql => /\bCHECK\s*\(/i.test(sql);
 // ─── Wczytanie definicji z repo ───────────────────────────────────────────────
 
 function schemaFiles() {
-  return fs.readdirSync(SCHEMA)
-    .filter(f => /^schema.*\.sql$/.test(f) && !/_ROLLBACK/i.test(f))
-    .sort((a, b) => {
-      const n = s => (s.match(/schema_v(\d+)/) || [, '0'])[1];
-      return Number(n(a)) - Number(n(b));
-    });
+  const numer = s => Number((s.match(/_v(\d+)/) || [, '0'])[1]);
+  const wg = re => fs.readdirSync(SCHEMA)
+    .filter(f => re.test(f) && !/_ROLLBACK/i.test(f))
+    .sort((a, b) => numer(a) - numer(b));
+  // Pliki `migration_v*` IDĄ PO plikach `schema_v*` i to jest istotne: ich ALTER-y
+  // i przebudowy mają nadpisywać wcześniejsze definicje, nie odwrotnie.
+  //
+  // DLACZEGO W OGÓLE JE CZYTAMY (zmiana 27.08). Wcześniej narzędzie ich celowo nie
+  // widziało — z założeniem, że migracje strukturalne są rzadkie i ręczne. Po
+  // zastosowaniu v51/v52/v53 na produkcji założenie przestało się bronić: SIEDEM
+  // tabel legalnie rozszerzonych migracją zaczęło być raportowanych jako „nie pasuje
+  // do żadnej definicji", a bramka `--strict` w nocnym workflow zapalałaby się
+  // czerwono KAŻDEJ nocy niezależnie od stanu bazy. To ta sama awaria, przed którą
+  // ostrzega komentarz przy parseAlters — tylko wywołana z drugiej strony.
+  return [...wg(/^schema.*\.sql$/), ...wg(/^migration_v\d+.*\.sql$/)];
+}
+
+/**
+ * Przebudowy tabel z plików migration_*: `DROP TABLE x` + `ALTER TABLE y RENAME TO x`.
+ *
+ * Bez tego tabela przebudowana migracją (jpk_exports w v53, esg_targets w v50) wygląda
+ * na rozjechaną z każdą definicją w repo — bo jej prawdziwa definicja stoi pod nazwą
+ * roboczą (`jpk_exports_v53`), której D1 już nie zna. Zwracamy mapę: nazwa docelowa ->
+ * nazwa robocza, żeby parseRepo mógł podstawić właściwą definicję.
+ */
+function parseRenames(files) {
+  const zmiany = new Map(); // docelowa -> { z, fileIdx }
+  files.forEach((f, fileIdx) => {
+    if (!/^migration_/.test(f)) return;
+    const src = stripComments(fs.readFileSync(path.join(SCHEMA, f), 'utf8'));
+    const re = /ALTER\s+TABLE\s+["`[]?(\w+)["`\]]?\s+RENAME\s+TO\s+["`[]?(\w+)/gi;
+    let m;
+    while ((m = re.exec(src))) zmiany.set(m[2], { z: m[1], fileIdx });
+  });
+  return zmiany;
 }
 
 /**
@@ -166,6 +195,17 @@ function parseRepo() {
       e.columns = [...e.created, ...e.altered];
     }
   }
+  // Przebudowy: definicja tabeli docelowej to definicja tabeli roboczej z migracji.
+  // Podmieniamy CAŁY wpis, nie doklejamy kolumn — przebudowa może kolumny USUNĄĆ
+  // (v53 zdejmuje export_type/period_from/period_to), a doklejanie tego nie odda.
+  for (const [docelowa, { z, fileIdx }] of parseRenames(files)) {
+    const robocza = defs.get(z);
+    if (!robocza || !robocza.length) continue;
+    const ostatnia = robocza[robocza.length - 1];
+    defs.set(docelowa, [{ ...ostatnia, file: files[fileIdx], fileIdx }]);
+    defs.delete(z); // nazwa robocza nie istnieje po migracji — nie zgłaszaj jej jako brakującej
+  }
+
   return defs;
 }
 
@@ -355,10 +395,14 @@ function main() {
   // `push_subscriptions` pochodzi z `schema.sql`, którego nocny automat nie uruchamia).
   // Odtworzenie z plików daje INNY zbiór tabel na starszej definicji — jeśli kiedyś
   // zechcesz zweryfikować tę listę, zrób to raportem z produkcji, nie lokalnie.
+  // `esg_targets` zdjęte 27.08: migration_v50 przebudowała tabelę, a narzędzie czyta
+  // teraz pliki `migration_v*`, więc widzi ją na definicji AKTUALNEJ, nie starszej.
+  // `company_packages` zostaje — v52 dodała jej kolumnę `active`, ale sama tabela
+  // nadal stoi na kształcie z schema_v33, nie v48.
   const ZNANY_DLUG_STALE = new Set([
     'push_subscriptions', 'reservations', 'trips', 'geofences', 'geofence_events',
     'company_packages', 'gdpr_records', 'predictive_alerts', 'warranties_recalls',
-    'disposal_records', 'esg_targets',
+    'disposal_records',
   ]);
 
   const staleNowe = stale.filter(s => !ZNANY_DLUG_STALE.has(s.name));
