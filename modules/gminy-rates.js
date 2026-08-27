@@ -69,6 +69,77 @@ window.GminyRates = (function () {
   const SCHEMA_MAP = Object.fromEntries(SCHEMA.map(s => [s.key, s]));
   const WARSZAWA_DEFAULTS = Object.fromEntries(SCHEMA.map(s => [s.key, s.default]));
 
+  // ── WIDEŁKI USTAWOWE ────────────────────────────────────────────────────────
+  //
+  // Rada gminy NIE uchwala stawki dowolnie — uchwala ją w widełkach, i to
+  // DWUSTRONNYCH:
+  //   • górna granica dotyczy WSZYSTKICH środków transportowych i wynika
+  //     z obwieszczenia Ministra Finansów (waloryzacja, Monitor Polski);
+  //   • stawka MINIMALNA dotyczy WYŁĄCZNIE pojazdów od 12 t i wynika
+  //     z załączników do ustawy o podatkach i opłatach lokalnych, również
+  //     waloryzowanych obwieszczeniem MF. Bierze się stąd, że stawki dla
+  //     ciężkiego transportu są związane prawem unijnym, więc gmina nie może
+  //     ich dowolnie obniżyć.
+  //
+  // Ta flota ma 28 pojazdów od 12 t — czyli dolne ograniczenie jej dotyczy,
+  // i to przy pozycjach o najwyższych kwotach (do 4 296 zł).
+  //
+  // ⛔ `widelki` JEST CELOWO PUSTE. Kwot nie ma, bo nie zostały odczytane ze
+  // źródła — a wpisanie ich z pamięci dałoby kontrolę, która wygląda na
+  // działającą i przepuszcza błędne stawki. Do czasu odczytu `sprawdzWidelki()`
+  // ODMAWIA orzeczenia (`ok: false`), zamiast zwracać zielone światło.
+  // Ta sama zasada co przy gęstościach paliw w `ENV_FEE_RATE_SETS`.
+  //
+  // Uzupełniając: obwieszczenie MF publikowane jest w Monitorze Polskim, więc
+  // pobiera się je tym samym wzorcem co inne akty — patrz `.claude/commands/`,
+  // polecenie `/akt-prawny`. Każdy zestaw musi nieść `zrodlo` z rokiem i pozycją.
+  const LIMITY_USTAWOWE = [
+    {
+      rok: 2026,
+      zrodlo: '',   // do wypełnienia: obwieszczenie MF, M.P. rok/pozycja + adres PDF
+      // klucz SCHEMA -> { max: <zł>, min: <zł albo null gdy ustawa nie określa> }
+      widelki: {},
+    },
+  ];
+
+  function limityDlaRoku(rok) {
+    const y = Number(rok) || new Date().getFullYear();
+    return LIMITY_USTAWOWE.find(l => Number(l.rok) === y) || null;
+  }
+
+  /**
+   * Czy stawki gminy mieszczą się w widełkach ustawowych.
+   *
+   * BRAK DANYCH TO NIE JEST ZGODNOŚĆ. Pozycja bez widełek trafia na listę
+   * `nieustalone`, a `ok` wymaga pustych OBU list — inaczej wynik „ok: true"
+   * przy pustej tablicy limitów oznaczałby, że każda stawka jest legalna.
+   */
+  function sprawdzWidelki(stawki, rok) {
+    const zestaw = limityDlaRoku(rok);
+    if (!zestaw || !zestaw.zrodlo) {
+      return { ok: false, powod: 'BRAK_LIMITOW', rok: Number(rok) || null,
+        opis: 'Brak odczytanych widełek ustawowych dla tego roku. Górne granice ogłasza '
+            + 'obwieszczenie Ministra Finansów (Monitor Polski), a stawki minimalne dla '
+            + 'pojazdów od 12 t wynikają z załączników do ustawy. Bez nich nie da się '
+            + 'orzec, czy stawka gminy jest zgodna z prawem.',
+        naruszenia: [], nieustalone: [] };
+    }
+    const naruszenia = [], nieustalone = [];
+    for (const [key, kwota] of Object.entries(stawki || {})) {
+      const w = zestaw.widelki[key];
+      if (!w) { nieustalone.push({ key, powod: 'brak widełek dla tej pozycji' }); continue; }
+      const k = Number(kwota);
+      if (!Number.isFinite(k)) { nieustalone.push({ key, powod: 'stawka nie jest liczbą' }); continue; }
+      // `??` a nie `||` — limit równy 0 jest wartością, nie brakiem.
+      const max = w.max ?? null, min = w.min ?? null;
+      if (max !== null && k > max) naruszenia.push({ key, kwota: k, limit: max, rodzaj: 'powyżej maksimum ustawowego' });
+      if (min !== null && k < min) naruszenia.push({ key, kwota: k, limit: min, rodzaj: 'poniżej minimum ustawowego (pojazd od 12 t)' });
+    }
+    return { ok: naruszenia.length === 0 && nieustalone.length === 0,
+      rok: zestaw.rok, zrodlo: zestaw.zrodlo, naruszenia, nieustalone };
+  }
+
+
   // ── Persistence ──────────────────────────────────────────────────────────
 
   function _load() {
@@ -97,6 +168,17 @@ window.GminyRates = (function () {
 
   function saveGminaRates(name, rates) {
     if (!name || name === 'Warszawa') return;
+    // Kontrola OSTRZEGA, nie blokuje: dopóki widełki nie są odczytane, blokada
+    // uniemożliwiłaby dodanie jakiejkolwiek gminy. Gdy kwoty się pojawią, to jest
+    // miejsce, w którym błędna stawka wchodzi do systemu — literówka `2280`
+    // zamiast `2880` daje deklarację wyglądającą wiarygodnie i niezgodną z prawem.
+    const kontrola = sprawdzWidelki(rates, new Date().getFullYear());
+    if (kontrola.naruszenia.length) {
+      const opis = kontrola.naruszenia
+        .map(n => `${n.key}: ${n.kwota} zł ${n.rodzaj} (${n.limit} zł)`).join('; ');
+      console.warn(`[GminyRates] Stawki gminy ${name} poza widełkami ustawowymi — ${opis}`);
+      if (typeof toast === 'function') toast(`⚠ ${kontrola.naruszenia.length} stawek poza widełkami ustawowymi — sprawdź przed złożeniem deklaracji`);
+    }
     const data = _load();
     data[name] = rates;
     _persist(data);
@@ -247,7 +329,7 @@ window.GminyRates = (function () {
         <i class="ti ti-map-pin" style="color:var(--blue);font-size:14px"></i>
         <span style="flex:1;font-weight:600;font-size:13px">${esc(g)}</span>
         ${g === 'Warszawa'
-          ? '<span style="font-size:11px;color:var(--text3)">wbudowane (max MF 2026)</span>'
+          ? '<span style="font-size:11px;color:var(--text3)">wbudowane (Warszawa 2026, uchwała XXIX/1065/2025)</span>'
           : `<button class="btn btn-gray" style="font-size:11px" data-gmina="${esc(g)}" onclick="GminyRates.openModal(this.dataset.gmina)"><i class="ti ti-pencil"></i>${t('btn.edit')}</button>
              <button class="btn btn-red" style="font-size:11px" data-gmina="${esc(g)}" onclick="GminyRates._del(this.dataset.gmina)"><i class="ti ti-trash"></i></button>`
         }
@@ -415,7 +497,7 @@ window.GminyRates = (function () {
   }
 
   return {
-    SCHEMA, WARSZAWA_DEFAULTS,
+    SCHEMA, WARSZAWA_DEFAULTS, LIMITY_USTAWOWE, sprawdzWidelki,
     getRateKey, getGminaRate, getGminaRates,
     listGminy, saveGminaRates, deleteGmina, copyFrom,
     calcFleetTaxForGmina, renderComparison,

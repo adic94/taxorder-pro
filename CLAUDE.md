@@ -490,6 +490,37 @@ hybryd, elektryków, CNG i LNG stawki niższe o ~40%. Sprawdzone przed budową:
 **zero pojazdów tej floty się kwalifikuje** (całość na ON i benzynie). Kwoty
 stoją w bramce, więc pierwszy taki pojazd dostanie poprawną stawkę.
 
+### ⚖️ Widełki ustawowe stawek DT-1 — struktura gotowa, kwoty do odczytu (27.08)
+
+Rada gminy **nie uchwala stawki dowolnie** — uchwala ją w widełkach **dwustronnych**:
+
+| ograniczenie | czego dotyczy | źródło |
+|---|---|---|
+| górna granica | wszystkich środków transportowych | obwieszczenie Ministra Finansów (Monitor Polski) |
+| **stawka minimalna** | **wyłącznie pojazdów od 12 t** | załączniki do ustawy o podatkach i opłatach lokalnych, też waloryzowane obwieszczeniem MF |
+
+Dolne ograniczenie bierze się ze związania prawem unijnym dla ciężkiego transportu.
+**Ta flota ma 28 pojazdów od 12 t**, czyli dotyczy jej i to przy pozycjach
+o najwyższych kwotach (do 4 296 zł).
+
+**Naprawiony realny błąd:** interfejs opisywał wbudowane stawki jako
+„wbudowane (**max MF 2026**)" — czyli twierdził, że to maksymalne stawki ministra.
+To są stawki z **uchwały Rady m.st. Warszawy XXIX/1065/2025**, zweryfikowane 45/45.
+Gmina uchwala w widełkach, więc jej stawki nie są tożsame z górną granicą,
+a użytkownik z innej gminy brał je za „bezpieczne maksimum".
+
+**`LIMITY_USTAWOWE` w `modules/gminy-rates.js` jest CELOWO PUSTE.** `sprawdzWidelki()`
+przy braku kwot **odmawia orzeczenia** (`ok:false`, `powod:'BRAK_LIMITOW'`) zamiast
+zwracać zielone światło — ta sama zasada co przy gęstościach paliw. Kontrola jest
+wpięta w `saveGminaRates()`, czyli tam, gdzie błędna stawka wchodzi do systemu;
+**ostrzega, nie blokuje**, bo blokada przy pustych widełkach uniemożliwiłaby dodanie
+jakiejkolwiek gminy.
+
+**Do uzupełnienia z HP** (sieć w chmurze blokuje `monitorpolski.gov.pl`): wypełnić
+`zrodlo` i `widelki` w `LIMITY_USTAWOWE` kwotami z obwieszczenia MF na 2026, kluczami
+z `SCHEMA`. Bramka ma już komplet asercji z kontrolą negatywną na syntetycznych
+widełkach, więc po wpisaniu kwot sprawdzi je od razu.
+
 ### 🔧 D1 jako PIĄTE źródło scalania — dwa pola, świadomie (26.08)
 
 Z 28 pojazdów od 12 t **siedemnaście nie miało liczby osi z żadnego dokumentu**,
