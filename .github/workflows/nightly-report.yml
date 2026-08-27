@@ -86,6 +86,17 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: node tools/autotest/d1-schema-diff.js --strict
 
+      # Inne pytanie niż krok wyżej: tamten sprawdza KSZTAŁT bazy, ten — czy w niej
+      # stoją takie DANE, żeby podatek dało się policzyć. Kształt może być bez zarzutu,
+      # a pojazd i tak płaci zero, bo ma puste jedno pole. `if: always()` bo wynik jest
+      # niezależny od tamtego i chcemy oba raporty, nawet gdy pierwszy padnie.
+      - name: Kontrola podstawy opodatkowania (bramka)
+        if: always()
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node tools/autotest/d1-flota-check.js --strict
+
   # ─── Job 2: Raport JS syntax check ──────────────────────────────────────────
   syntax-check:
     name: Nocna weryfikacja składni JS

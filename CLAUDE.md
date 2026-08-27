@@ -513,6 +513,46 @@ nie rośnie) — to jest ten pomiar, który sekcja o KSeF zaleca przed włączen
 czegokolwiek. `company_packages` też 0, więc licencjonowanie modułów jest bezwładne
 i każda firma dostaje `allowed=['*']`.
 
+### 🚛 Trzy pojazdy wypadają z podstawy opodatkowania — nowa kontrola (27.08)
+
+`tools/autotest/d1-flota-check.js` pyta o co innego niż `d1-schema-diff.js`. Tamten
+sprawdza **kształt** bazy; ten — czy stoją w niej takie **dane**, żeby podatek dało się
+policzyć. Kształt może być bez zarzutu, a pojazd i tak płaci zero, bo ma puste jedno pole.
+
+Wszystkie cztery kontrole wykrywają ten sam rodzaj awarii: **brak, który nie jest błędem**.
+Pojazd z pustą DMC nie generuje wyjątku ani ostrzeżenia — po prostu nie ma kategorii
+i wypada z sumy.
+
+Pierwszy przebieg na 217 pojazdach:
+
+| pojazd | znalezisko | skutek |
+|---|---|---|
+| `WZ481KK` + `WA0677L` | **ten sam VIN** `YS2R6X2000548xxxx`, obie Scania R490 „Szambiarka" | obie z pustą DMC, obie **0 zł** |
+| `WA995AL` | dane komplet, baza trzyma pustą kategorię | silnik liczy **D14 / 1488 zł** |
+| `895` (myjka Kränzle) | nie jest pojazdem — brak tablicy i VIN-u | na liście `ZNANE` |
+
+Reszta bazy jest kompletna: **0 pojazdów bez liczby osi, 0 bez rodzaju**, 3 bez DMC.
+Sekcja [4] potwierdza też rzecz dobrą: **216/217 zapisanych kwot zgadza się z produkcyjnym
+silnikiem** — snapshot `dt1_*` nie rozjeżdża się systemowo.
+
+> ⚠️ **Różna liczba osi przy tym samym VIN (2 kontra 3) to nie jest szczegół.** Albo jeden
+> wiersz to stara tablica po przerejestrowaniu — wtedy podatek policzy się DWA RAZY — albo
+> VIN wklejono przez pomyłkę i jeden pojazd ma cudze dane. Rozstrzyga dowód, nie kod.
+
+**Narzędzie niczego nie zapisuje**, i to jest właściwa granica: poprawa kwoty podatku na
+produkcji to decyzja właściciela, nie skutek uboczny kontroli. Wpięte w `nightly-report.yml`
+obok `d1-schema-diff` (wymaga poświadczeń do produkcji, więc nie należy do `test:gates`,
+które muszą działać bez sieci).
+
+Lista `ZNANE` ma zapadkę w drugą stronę: wpis, który przestał występować, **musi zniknąć** —
+inaczej lista rosłaby w nieskończoność i narzędzie przestałoby cokolwiek mierzyć.
+
+Zweryfikowane trzema kontrolami negatywnymi: dane naprawione → kod 0 i „bez zastrzeżeń";
+dane produkcyjne → kod 1 i cztery znaleziska; wpis-sierotka na liście `ZNANE` → kod 1
+ze wskazaniem po nazwie. Przy okazji narzędzie złapało **mój własny zły domysł** — przy
+budowie danych kontrolnych przypisałem 26-tonowej Scanii kategorię D9, a przy 2 osiach
+silnik daje D8.
+
 ### 🧾 Eksport JPK nigdy nie zadziałał — tabela mówi innym słownikiem niż handler (27.08)
 
 **Znalezione przy audycie zapytań składanych dynamicznie, nie przy awarii.** `handleJpk`
@@ -724,13 +764,28 @@ Każdy z tych VIN-ów występuje w bazie **dokładnie raz**. Stare tablice
 
 **Duplikaty są artefaktem MOJEGO scalania**, nie stanem firmy. `flota-master.js`
 buduje flotę ze SKANÓW DOKUMENTÓW, a w dokumentacji leżą też dowody sprzed
-przerejestrowania — każdy taki stary dowód tworzy dodatkowy wiersz. Produkcyjna
-baza ma 217 pojazdów i tego problemu nie ma.
+przerejestrowania — każdy taki stary dowód tworzy dodatkowy wiersz.
+
+> ⛔ **SPROSTOWANIE 27.08: zdanie „produkcyjna baza tego problemu nie ma" było ZA MOCNE.**
+> Pomiar całej bazy (`tools/autotest/d1-flota-check.js`, sekcja [1]) znalazł **jedną parę**:
+> `WZ481KK` i `WA0677L`, obie Scania R490 „Szambiarka", ten sam VIN `YS2R6X2000548xxxx`,
+> **obie z pustą DMC i obie płacące 0 zł**. Różna liczba osi (2 kontra 3) przy tym samym
+> VIN znaczy, że albo jeden wiersz to stara tablica po przerejestrowaniu, albo VIN
+> wklejono przez pomyłkę — rozstrzyga dokument, nie kod.
+>
+> Reszta akapitu wyżej zostaje prawdziwa: dziesięć wymienionych tablic w produkcji nie
+> istnieje, a 26 par z arkusza MASTER to faktycznie artefakt scalania. Błędem było
+> uogólnienie „zero" na całą bazę na podstawie sprawdzenia **sześciu wybranych VIN-ów**.
+> To ta sama pomyłka co ta, którą ten wpis prostuje, tylko w drugą stronę.
 
 **Czego to uczy o metodzie:** wykrywanie duplikatów po VIN jest słuszne i zostaje
 — chroni MOJE narzędzie przed zawyżeniem sumy. Błędem było ogłoszenie tego jako
 ustalenia o podatku firmy **bez sprawdzenia w bazie, która ten podatek nalicza**.
 Arkusz zbudowany z dokumentów opisuje dokumenty, nie flotę.
+
+**A drugi błąd — sprostowany 27.08 — polegał na czymś odwrotnym: sprawdzenie sześciu
+VIN-ów uznałem za pomiar całej bazy.** Stąd bierze się `d1-flota-check.js`: kontrola
+uruchamiana na WSZYSTKICH wierszach, nie na tych, o które akurat zapytałem.
 
 ### ✅ Walidacja wyliczenia DT-1 o produkcyjne D1 (26.08)
 
