@@ -76,6 +76,11 @@ jobs:
             sleep 1
           done
 
+      # TEST_EMAIL_NONADMIN/TEST_PASS_NONADMIN tutaj (a nie tylko w kroku izolacji tenantów
+      # niżej) włączają projekt `nonadmin` w playwright.config.js — bez nich Playwright
+      # widzi tylko projekt `chromium`, dokładnie jak dziś. Konto działa na localhost,
+      # nie na produkcji, więc w przeciwieństwie do testu izolacji tenantów nie jest
+      # uzależnione od `vars.PROD_WORKER_URL`.
       - name: Testy E2E (login + in-browser suite + kokpit + karta pojazdu)
         run: npm run test:e2e
         env:
@@ -83,6 +88,9 @@ jobs:
           TEST_EMAIL:   ${{ secrets.TEST_EMAIL || '' }}
           TEST_PASS:    ${{ secrets.TEST_PASS || '' }}
           TEST_COMPANY: ${{ secrets.TEST_COMPANY || '' }}
+          TEST_EMAIL_NONADMIN:   ${{ secrets.TEST_EMAIL_NONADMIN || '' }}
+          TEST_PASS_NONADMIN:    ${{ secrets.TEST_PASS_NONADMIN || '' }}
+          TEST_COMPANY_NONADMIN: gcon
 
       - name: Testy API (tylko gdy podano TEST_URL produkcyjny)
         if: ${{ vars.PROD_WORKER_URL != '' }}
