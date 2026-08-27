@@ -141,9 +141,15 @@ taxorder-pro/
 > VIN-u w odpowiedzi. Nie próbuj tego ponownie bez nowej przesłanki. Efekt uboczny, który
 > to jednak potwierdziło: pełna lista pól MA `liczba-osi` i `rodzaj-zawieszenia` — CEPiK
 > dalej jest właściwym źródłem tych dwóch pól DT-1, TYLKO filtr po numerze trzeba naprawić
-> albo obejść (patrz gałąź `claude/cepik-synergy-access-letter-f9lnoi` — szkic pisma
-> o teletransmisję CEP, czyli oficjalny dostęp z `CEPIK_KEY`/`CEPIK_SECRET` zamiast
-> zepsutego endpointu open-data; niescalona, nieprzejrzana).
+> albo obejść — patrz `docs/cepik/` (szkic pisma o teletransmisję CEP, czyli oficjalny
+> dostęp z `CEPIK_KEY`/`CEPIK_SECRET` zamiast zepsutego endpointu open-data).
+>
+> **AKTUALIZACJA 27.08: obie techniczne blokady, które ten szkic wymieniał jako warunek
+> przed wysyłką, są zamknięte.** `handleCepikPojazdy` ogranicza zapytania do własnej floty
+> i woła `logAudit()` przy każdym dostępie (commit `e87de14`) — zweryfikowane odczytem
+> z produkcyjnego `audit_logs`, nie brakiem błędu. Zostają wyłącznie pola do ręcznego
+> uzupełnienia w samym piśmie (REGON, adres e-Doręczeń, osoba reprezentująca, data) —
+> dane rejestrowe spółki, nie coś do wyprodukowania kodem.
 >
 > ### Arkusz DR: jest, ale najpierw przeczytaj trzy zakładki
 >
