@@ -490,6 +490,29 @@ hybryd, elektryków, CNG i LNG stawki niższe o ~40%. Sprawdzone przed budową:
 **zero pojazdów tej floty się kwalifikuje** (całość na ON i benzynie). Kwoty
 stoją w bramce, więc pierwszy taki pojazd dostanie poprawną stawkę.
 
+### 🗃️ Sześć martwych tabel — migracja gotowa, NIE zastosowana (27.08)
+
+Pomiar na produkcyjnym D1 odblokował decyzję, która stała otwarta: `cmr_documents`,
+`sent_records`, `messages`, `edoreczenia_items`, `driver_work_sessions`
+i `report_configs` mają **zero wierszy**. Te funkcje nigdy nie działały — schemat
+z `schema_v35` ma inne nazwy kolumn niż handlery, a front mówi tym samym słownikiem
+co handlery.
+
+`worker/migration_v51_martwe_tabele.sql` dodaje **42 kolumny i 4 indeksy**
+(`ALTER ADD COLUMN`, przyrostowo — poprawne także na bazie z danymi). Plik ROLLBACK
+obok. Strażnik kolumn skurczył się o osiem pozycji.
+
+> ⚠️ **Nazwa `migration_v51_`, nie `schema_v51_`, jest celowa** — nocny automat
+> uruchamia glob `schema_v*.sql`, a migracje strukturalne trzymamy poza nim. Scalenie
+> PR-a NIE stosuje tej migracji. Uruchomienie jest ręczne i świadome:
+> `wrangler d1 execute taxorder-pro --remote --file=worker/migration_v51_martwe_tabele.sql`
+
+**Przy okazji zmierzone i warte zapamiętania:** `ksef_config` **0 wierszy**
+(integracja nigdy nie skonfigurowana) i `ksef_offline_queue` **0 wierszy** (kolejka
+nie rośnie) — to jest ten pomiar, który sekcja o KSeF zaleca przed włączeniem
+czegokolwiek. `company_packages` też 0, więc licencjonowanie modułów jest bezwładne
+i każda firma dostaje `allowed=['*']`.
+
 ### ⚖️ Widełki ustawowe stawek DT-1 — struktura gotowa, kwoty do odczytu (27.08)
 
 Rada gminy **nie uchwala stawki dowolnie** — uchwala ją w widełkach **dwustronnych**:

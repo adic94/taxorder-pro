@@ -49,6 +49,11 @@ const ZNANE_BRAKI_TABEL = {
 
 /**
  * Zapytania odwołujące się do NIEISTNIEJĄCYCH KOLUMN — stan zastany, do naprawy.
+ *
+ * SKURCZYŁA SIĘ 27.08 o osiem pozycji: `migration_v51_martwe_tabele.sql` dodaje kolumny,
+ * których żądały handlery sześciu tabel z `schema_v35`. Zostają wyłącznie te pozycje,
+ * gdzie pojęcia NIE MA w schemacie wcale (kierowca w `faults`, telefon w `users`) albo
+ * gdzie rozstrzygnięcie jest decyzją produktową (`company_packages.active`).
  * Klucz: `tabela.kolumna`. Wartość: co jest naprawdę w schemacie i jaka jest waga.
  *
  * Pięć tabel z `schema_v35` (cmr_documents, sent_records, messages,
@@ -60,14 +65,6 @@ const ZNANE_BRAKI_TABEL = {
 const ZNANE_ROZJAZDY = {
   'tachograph_vehicles_used.vehicle_id': 'tabela wiąże pojazd numerem rejestracyjnym (vehicle_reg), nie identyfikatorem',
   'users.telefon':                       'users nie ma kolumny telefonu — powiadomienia SMS nie mogą działać',
-  'cmr_documents.cmr_number':            'v35 dał document_number — kolumna martwa, nikt jej nie używa',
-  'sent_records.departure_date':         'v35 dał planned_start — martwa',
-  'sent_records.sent_number':            'v35 dał notification_number — martwa',
-  'report_configs.filter_col':           'schemat ma filters/sort_by; front czyta filter_col — ta sama klasa co tabele z v35',
-  'messages.parent_id':                  'brak; wątkowanie wiadomości nie działa',
-  'edoreczenia_items.sent_date':         'v35 dał received_at — martwa',
-  'edoreczenia_items.title':             'v35 dał subject',
-  'driver_work_sessions.work_date':      'v35 dał session_date',
   'company_packages.active':             'v33 kontra v48 — udokumentowany konflikt, decyzja produktowa',
 };
 
