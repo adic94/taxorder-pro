@@ -20,12 +20,20 @@
  * (np. ręcznie `npx playwright test nonadmin-permissions.spec.js` bez `--project`).
  */
 const { test, expect } = require('@playwright/test');
+const { login } = require('./helpers');
 
 test.describe('Gating uprawnień — rola kierownik', () => {
 
   test.beforeEach(async ({ page }) => {
     if (!process.env.TEST_EMAIL_NONADMIN) test.skip();
-    await page.goto('/');
+    // login() ma dwie ścieżki: jeśli storageState już przywrócił sesję, wraca od razu
+    // (#login-screen znika w 5s bez żadnego żądania); jeśli nie — robi pełne logowanie
+    // formularzem. Bez tej odporności (sam page.goto('/') + czekanie na #page-dash)
+    // test wisi na timeout 10s, gdy tylko przywrócenie sesji z .auth-state-nonadmin.json
+    // się nie powiedzie — dokładnie to zaobserwowane na CI: wszystkie 3 testy padły
+    // identycznie na '#page-dash' pozostającym ukrytym, bo ekran logowania się nie
+    // zamknął. Każdy inny plik *.spec.js w tym repo woła login() z tego samego powodu.
+    await login(page, process.env.TEST_EMAIL_NONADMIN, process.env.TEST_PASS_NONADMIN);
     await page.waitForSelector('#page-dash', { state: 'visible', timeout: 10_000 });
   });
 
