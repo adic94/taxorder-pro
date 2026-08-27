@@ -263,6 +263,34 @@ taxorder-pro/
     odwzorowanie Tabeli D, czy luka ekstrakcji — do sprawdzenia przy następnym
     dostępie do PDF-a.
 
+  ### ⛔ EURO 6 to nie przypadek brzegowy — to 80% floty (zmierzone 27.08 na D1)
+
+  Zapytanie do produkcyjnego D1 (`vehicles`, 217 pojazdów):
+
+  | norma | do 3,5 t | powyżej 3,5 t | brak DMC | razem |
+  |---|---|---|---|---|
+  | **EURO 6** | 10 | **163** | — | **173** |
+  | brak normy | 22 | 11 | 3 | 36 |
+  | EURO 5 | — | 5 | — | 5 |
+  | EURO 3 | — | 2 | — | 2 |
+  | EURO 1 | — | 1 | — | 1 |
+
+  **Stawkę w Tabeli D ma OSIEM pojazdów z 217 — 3,7% floty.** Uzupełnienie gęstości
+  (jedyny formalnie brakujący krok) odblokowałoby wyliczenie dla ośmiu aut. Wąskim
+  gardłem jest EURO 6, nie gęstość — i to trzeba rozstrzygnąć jako pierwsze.
+
+  **Od czego zależy rozstrzygnięcie:** od DOSŁOWNEGO brzmienia opisów wierszy
+  Tabeli D. Jeśli wiersz mówi „spełniające wymagania EURO 5" — pojazd EURO 6 nie ma
+  stawki. Jeśli „EURO 5 i nowsze" albo „co najmniej EURO 5" — ma. Tej różnicy NIE DA
+  SIĘ zgadnąć, a kod celowo odmawia zamiast podstawić stawkę EURO 5, bo podstawienie
+  byłoby interpretacją przepisu.
+
+  **Do sprawdzenia z księgowością, zanim ktokolwiek wyliczy kwotę** (pytania, nie
+  ustalenia — nie weryfikowane w tej sesji): czy opłata za wprowadzanie gazów
+  z eksploatacji pojazdów w ogóle nadal obciąża spółkę, oraz czy nie znosi jej próg
+  kwotowy poniżej którego opłaty się nie wnosi. Odpowiedź „nie dotyczy" czyni cały
+  ten temat bezprzedmiotowym — taniej to sprawdzić niż dokończyć implementację.
+
   **Wiarygodność stawek potwierdzona dwiema kontrolami niewymagającymi PDF-a**
   (utrwalone w `tests/unit/env-fee-test.js`, każda zweryfikowana negatywnie):
   monotoniczność (w 16 seriach paliwo×klasa stawka ani razu nie rośnie wraz z normą
