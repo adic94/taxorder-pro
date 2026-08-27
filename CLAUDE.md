@@ -490,7 +490,7 @@ hybryd, elektryków, CNG i LNG stawki niższe o ~40%. Sprawdzone przed budową:
 **zero pojazdów tej floty się kwalifikuje** (całość na ON i benzynie). Kwoty
 stoją w bramce, więc pierwszy taki pojazd dostanie poprawną stawkę.
 
-### 🗃️ Sześć martwych tabel — migracja gotowa, NIE zastosowana (27.08)
+### 🗃️ Sześć martwych tabel — migracja ZASTOSOWANA NA PRODUKCJI (27.08)
 
 Pomiar na produkcyjnym D1 odblokował decyzję, która stała otwarta: `cmr_documents`,
 `sent_records`, `messages`, `edoreczenia_items`, `driver_work_sessions`
@@ -504,14 +504,70 @@ obok. Strażnik kolumn skurczył się o osiem pozycji.
 
 > ⚠️ **Nazwa `migration_v51_`, nie `schema_v51_`, jest celowa** — nocny automat
 > uruchamia glob `schema_v*.sql`, a migracje strukturalne trzymamy poza nim. Scalenie
-> PR-a NIE stosuje tej migracji. Uruchomienie jest ręczne i świadome:
-> `wrangler d1 execute taxorder-pro --remote --file=worker/migration_v51_martwe_tabele.sql`
+> PR-a NIE stosuje takiej migracji; uruchomienie jest ręczne i świadome.
+>
+> ✅ **ZASTOSOWANA 27.08 na produkcyjnym D1** — razem z v52 i v53. Potwierdzone
+> odczytem `pragma_table_info` dla wszystkich sześciu tabel plus czterech indeksów,
+> nie brakiem błędu.
 
 **Przy okazji zmierzone i warte zapamiętania:** `ksef_config` **0 wierszy**
 (integracja nigdy nie skonfigurowana) i `ksef_offline_queue` **0 wierszy** (kolejka
 nie rośnie) — to jest ten pomiar, który sekcja o KSeF zaleca przed włączeniem
 czegokolwiek. `company_packages` też 0, więc licencjonowanie modułów jest bezwładne
 i każda firma dostaje `allowed=['*']`.
+
+### ✅ Migracje v51–v53 zastosowane — i to odsłoniło wadę w nocnej bramce (27.08)
+
+Wszystkie trzy uruchomione na produkcyjnym D1, każda zweryfikowana odczytem, nie
+brakiem błędu:
+
+| migracja | co robi | potwierdzenie |
+|---|---|---|
+| v51 | 42 kolumny + 4 indeksy w sześciu martwych tabelach | `pragma_table_info` dla każdej z sześciu |
+| v52 | `active` w `company_packages` | kolumna istnieje, `WHERE active=1` wykonuje się, 0 wierszy |
+| v53 | przebudowa `jpk_exports` na słownik handlera | `EXPLAIN` produkcyjnego INSERT-u kompiluje się bez błędu |
+
+**Najmocniejsze potwierdzenie v53:** `EXPLAIN` na DOKŁADNIE tym `INSERT`, który
+do tej pory padał 500 (`index.js:12560`, 11 kolumn) — kompiluje się, wszystkie nazwy
+się rozwiązują, `rows_written: 0`. To odpowiada na pytanie „czy handler zadziała"
+bez zapisywania czegokolwiek do produkcji.
+
+> ⚠️ **Wykonanie migracji przez API D1 nie jest transakcyjne per plik**, inaczej niż
+> `wrangler d1 execute --file`. Przy v53 (`DROP` + `RENAME`) szło to krokami
+> z weryfikacją między nimi. Przy pustej tabeli ryzyko było zerowe; przy niepustej
+> użyj wranglera.
+
+### ⛔ Zastosowanie migracji zapaliłoby nocną bramkę na 8 fałszywych alarmach
+
+**Znalezione przez sprawdzenie skutku ubocznego, nie przez awarię.**
+`d1-schema-diff.js` **celowo nie czytał plików `migration_v*`** — z założeniem, że
+migracje strukturalne są rzadkie i ręczne. Po zastosowaniu v51/v52/v53 założenie
+przestało się bronić: siedem tabel legalnie rozszerzonych migracją zaczęło być
+raportowanych jako „nie pasuje do ŻADNEJ definicji", a `--strict` w `nightly-report.yml`
+świeciłby czerwono **każdej nocy niezależnie od stanu bazy**. To dokładnie ta awaria,
+przed którą ostrzega komentarz w tym samym pliku — tylko wywołana z drugiej strony.
+
+Naprawa: `schemaFiles()` czyta teraz także `migration_v*` (PO plikach schema, bo ich
+zmiany mają nadpisywać wcześniejsze), a nowy `parseRenames()` rozumie przebudowę
+`DROP TABLE x` + `ALTER TABLE y RENAME TO x` — bez tego tabela przebudowana migracją
+wygląda na rozjechaną, bo jej prawdziwa definicja stoi pod nazwą roboczą.
+**Podmieniamy CAŁY wpis, nie doklejamy kolumn**: przebudowa może kolumny USUNĄĆ
+(v53 zdejmuje `export_type`/`period_from`/`period_to`).
+
+Sekcja [5] na faktycznym stanie produkcji: **8 → 0**, kod wyjścia 1 → 0.
+`esg_targets` zdjęte z `ZNANY_DLUG_STALE` — po uwzględnieniu `migration_v50` stoi na
+definicji aktualnej. `company_packages` **zostaje** na liście: v52 dodała jej `active`,
+ale sama tabela nadal ma kształt z `schema_v33`, nie `v48`.
+
+**`migration-apply-test.js` używa teraz DWÓCH baz, i to celowo.** Reszta pliku modeluje
+**nocny automat**, który uruchamia wyłącznie glob `schema_v*.sql` — i o to pyta: czy
+automat gubi tabele. Asercja o bramce pyta o co innego: czy bramka nie krzyczy na
+**zdrowej produkcji**, a zdrowa produkcja ma zastosowane również `migration_v*`.
+
+Zweryfikowane dwiema kontrolami negatywnymi: stare narzędzie na tej samej bazie →
+8 rozjazdów i kod 1; kolumna-widmo wstrzyknięta do `jpk_exports` → bramka ją wskazuje
+po nazwie i podaje **właściwy plik źródłowy** (`migration_v53`), nie przypadkowy
+`schema_v35`.
 
 ### 🚛 Trzy pojazdy wypadają z podstawy opodatkowania — nowa kontrola (27.08)
 
