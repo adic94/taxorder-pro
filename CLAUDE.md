@@ -231,31 +231,74 @@ taxorder-pro/
 >   i odrzuca 2,68, ale nie zastępuje odczytu z aktualnej tabeli KOBiZE — dlatego `zrodlo`
 >   nadal mówi „niezweryfikowane". Sprawozdanie w CO2e wymaga OSOBNEGO zestawu z własnym
 >   `od`, nie podmiany tych liczb.
-> - **Stawki opłat środowiskowych** — **ŹRÓDŁO ODCZYTANE 25.08, ale blokadą jest teraz
->   STRUKTURA DANYCH, nie brak dostępu.** Obwieszczenia są dostępne i zweryfikowane:
->   `monitorpolski.gov.pl/M2025000076901.pdf` (M.P. 2025 poz. 769, stawki na 2026)
->   i `M2024000079401.pdf` (M.P. 2024 poz. 794, na 2025). Stawki dla pojazdów są
->   w **Tabeli D**.
->
->   **Odczyt ujawnił, że `ENV_FEE_RATE_SETS` ma ZŁY KSZTAŁT.** Klucz to dziś
->   `paliwo|EURO` — dwa wymiary. Tabela D ma **trzy**: brakuje KLASY POJAZDU,
->   a to różnica rzędu 60%. Olej napędowy EURO 5, stawki na 2026 (zł/Mg):
->   osobowy **5,76**, do 3,5 t inny niż osobowy **6,82**, powyżej 3,5 t **9,19**.
->   Nasza flota to głównie te dwie ostatnie klasy — wpisanie stawki „osobowej"
->   zaniżyłoby należność o ~40%, a wynik wyglądałby wiarygodnie. Tabela ma 32
->   pozycje i SZEŚĆ kolumn paliwa (osobno CNG fabryczny i CNG przebudowany —
->   `co2FactorFor` zwraca dziś jeden klucz `cng` i ich nie rozróżni).
->
->   **Drugi, niezależny brak: obwieszczenie NIE PODAJE GĘSTOŚCI** — sprawdzone
->   pełnotekstowo w obu rocznikach, zero trafień na „gęstoś", „kg/m3", „kg/dm",
->   „g/cm". Bez gęstości nie przeliczy się litrów na Mg; to osobne źródło.
->
->   Kolejność prac (opisana szczegółowo przy stałej w `worker/index.js`):
->   rozszerzyć klucz o klasę pojazdu → rozdzielić CNG → dopiero wtedy przepisać
->   liczby → gęstości osobno. `computeEnvironmentalFee` nadal ODMAWIA wyliczenia
->   i tak ma zostać, dopóki wszystkie cztery kroki nie są zrobione.
->
-> ### Skrót tego, co zamknięto 12–13.08
+> - **Stawki opłat środowiskowych** — **TRZY Z CZTERECH KROKÓW ZROBIONE (27.08).
+  Zostaje wyłącznie GĘSTOŚĆ.** Poprzednia wersja tego wpisu opisywała temat jako
+  nietknięty i była nieaktualna — kod ma dziś 83 stawki z Tabeli D, klucz
+  trójwymiarowy `paliwo|norma|klasa_pojazdu` i CNG rozdzielony na fabryczny
+  i przebudowany.
+
+  Źródło: `monitorpolski.gov.pl/M2025000076901.pdf` (M.P. 2025 poz. 769, stawki
+  na 2026), Tabela D. Klasy: `osobowy`, `do_3_5t_inny_niz_osobowy`, `powyzej_3_5t`,
+  `autobus_powyzej_3_5t`. Paliwa: `bs`, `lpg`, `cng_fabryczny`, `cng_przebudowany`,
+  `on`, `bd`. Normy: PRZED_EURO oraz EURO 1–5.
+
+  **`computeEnvironmentalFee` nadal nie podaje kwot — i to jest poprawne.**
+  Powód jest już tylko jeden: `gestosc_kg_na_litr` jest puste, więc każdy pojazd
+  trafia na listę `nieustalone` z powodem „gęstość paliwa". Obwieszczenie gęstości
+  NIE PODAJE (sprawdzone pełnotekstowo w obu rocznikach), więc pochodzi z innego
+  źródła i wymaga osobnej decyzji z podaniem pochodzenia.
+
+  > ⚠️ **Dostęp do źródeł rządowych bywa zablokowany polityką sieci.** Zmierzone
+  > 27.08 z sesji w chmurze: `api.sejm.gov.pl`, `dziennikustaw.gov.pl`,
+  > `monitorpolski.gov.pl` i `eli.gov.pl` odpowiadają **403 na CONNECT**. 25.08 te
+  > same adresy działały. Nie zakładaj więc, że „skoro raz się udało, uda się znowu"
+  > — i nie wpisuj liczb z pamięci, gdy nie ma dostępu.
+
+  **Dwie rzeczy do rozstrzygnięcia przy okazji gęstości:**
+  - **CNG sprzedaje się na KILOGRAMY, nie na litry**, więc `litry × gęstość` jest
+    dla niego bez sensu — wejściem powinna być masa. Wpisanie mu „gęstości" da
+    liczbę wyglądającą poprawnie i błędną.
+  - **Autobusy powyżej 3,5 t mają w kodzie wyłącznie wiersz PRZED_EURO** (on 88,25;
+    bd 79,87). Autobus EURO 1–5 nie dostanie stawki. Nie wiadomo, czy to wierne
+    odwzorowanie Tabeli D, czy luka ekstrakcji — do sprawdzenia przy następnym
+    dostępie do PDF-a.
+
+  ### ⛔ EURO 6 to nie przypadek brzegowy — to 80% floty (zmierzone 27.08 na D1)
+
+  Zapytanie do produkcyjnego D1 (`vehicles`, 217 pojazdów):
+
+  | norma | do 3,5 t | powyżej 3,5 t | brak DMC | razem |
+  |---|---|---|---|---|
+  | **EURO 6** | 10 | **163** | — | **173** |
+  | brak normy | 22 | 11 | 3 | 36 |
+  | EURO 5 | — | 5 | — | 5 |
+  | EURO 3 | — | 2 | — | 2 |
+  | EURO 1 | — | 1 | — | 1 |
+
+  **Stawkę w Tabeli D ma OSIEM pojazdów z 217 — 3,7% floty.** Uzupełnienie gęstości
+  (jedyny formalnie brakujący krok) odblokowałoby wyliczenie dla ośmiu aut. Wąskim
+  gardłem jest EURO 6, nie gęstość — i to trzeba rozstrzygnąć jako pierwsze.
+
+  **Od czego zależy rozstrzygnięcie:** od DOSŁOWNEGO brzmienia opisów wierszy
+  Tabeli D. Jeśli wiersz mówi „spełniające wymagania EURO 5" — pojazd EURO 6 nie ma
+  stawki. Jeśli „EURO 5 i nowsze" albo „co najmniej EURO 5" — ma. Tej różnicy NIE DA
+  SIĘ zgadnąć, a kod celowo odmawia zamiast podstawić stawkę EURO 5, bo podstawienie
+  byłoby interpretacją przepisu.
+
+  **Do sprawdzenia z księgowością, zanim ktokolwiek wyliczy kwotę** (pytania, nie
+  ustalenia — nie weryfikowane w tej sesji): czy opłata za wprowadzanie gazów
+  z eksploatacji pojazdów w ogóle nadal obciąża spółkę, oraz czy nie znosi jej próg
+  kwotowy poniżej którego opłaty się nie wnosi. Odpowiedź „nie dotyczy" czyni cały
+  ten temat bezprzedmiotowym — taniej to sprawdzić niż dokończyć implementację.
+
+  **Wiarygodność stawek potwierdzona dwiema kontrolami niewymagającymi PDF-a**
+  (utrwalone w `tests/unit/env-fee-test.js`, każda zweryfikowana negatywnie):
+  monotoniczność (w 16 seriach paliwo×klasa stawka ani razu nie rośnie wraz z normą
+  EURO — a udokumentowany tryb awarii ekstrakcji, przesunięcie wiersza o jeden, tę
+  własność by złamał) oraz trzy kotwice ON EURO 5 (5,76 / 6,82 / 9,19 zł/Mg) zgodne
+  co do grosza z odczytem zapisanym niezależnie w tym pliku.
+
+### Skrót tego, co zamknięto 12–13.08
 >
 > Aztec: przyczyna zniekształcenia bajtów `0x80`–`0x9F` znaleziona (WHATWG mapuje
 > etykietę „ISO-8859-1" na **windows-1252**) i naprawiona; `--selftest` przechodzi całą
@@ -446,6 +489,37 @@ ciśnieniową. To wartość wpisana hurtem, nie pomiar.
 hybryd, elektryków, CNG i LNG stawki niższe o ~40%. Sprawdzone przed budową:
 **zero pojazdów tej floty się kwalifikuje** (całość na ON i benzynie). Kwoty
 stoją w bramce, więc pierwszy taki pojazd dostanie poprawną stawkę.
+
+### ⚖️ Widełki ustawowe stawek DT-1 — struktura gotowa, kwoty do odczytu (27.08)
+
+Rada gminy **nie uchwala stawki dowolnie** — uchwala ją w widełkach **dwustronnych**:
+
+| ograniczenie | czego dotyczy | źródło |
+|---|---|---|
+| górna granica | wszystkich środków transportowych | obwieszczenie Ministra Finansów (Monitor Polski) |
+| **stawka minimalna** | **wyłącznie pojazdów od 12 t** | załączniki do ustawy o podatkach i opłatach lokalnych, też waloryzowane obwieszczeniem MF |
+
+Dolne ograniczenie bierze się ze związania prawem unijnym dla ciężkiego transportu.
+**Ta flota ma 28 pojazdów od 12 t**, czyli dotyczy jej i to przy pozycjach
+o najwyższych kwotach (do 4 296 zł).
+
+**Naprawiony realny błąd:** interfejs opisywał wbudowane stawki jako
+„wbudowane (**max MF 2026**)" — czyli twierdził, że to maksymalne stawki ministra.
+To są stawki z **uchwały Rady m.st. Warszawy XXIX/1065/2025**, zweryfikowane 45/45.
+Gmina uchwala w widełkach, więc jej stawki nie są tożsame z górną granicą,
+a użytkownik z innej gminy brał je za „bezpieczne maksimum".
+
+**`LIMITY_USTAWOWE` w `modules/gminy-rates.js` jest CELOWO PUSTE.** `sprawdzWidelki()`
+przy braku kwot **odmawia orzeczenia** (`ok:false`, `powod:'BRAK_LIMITOW'`) zamiast
+zwracać zielone światło — ta sama zasada co przy gęstościach paliw. Kontrola jest
+wpięta w `saveGminaRates()`, czyli tam, gdzie błędna stawka wchodzi do systemu;
+**ostrzega, nie blokuje**, bo blokada przy pustych widełkach uniemożliwiłaby dodanie
+jakiejkolwiek gminy.
+
+**Do uzupełnienia z HP** (sieć w chmurze blokuje `monitorpolski.gov.pl`): wypełnić
+`zrodlo` i `widelki` w `LIMITY_USTAWOWE` kwotami z obwieszczenia MF na 2026, kluczami
+z `SCHEMA`. Bramka ma już komplet asercji z kontrolą negatywną na syntetycznych
+widełkach, więc po wpisaniu kwot sprawdzi je od razu.
 
 ### 🔧 D1 jako PIĄTE źródło scalania — dwa pola, świadomie (26.08)
 

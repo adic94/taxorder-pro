@@ -108,5 +108,70 @@ const zle = wpisy.filter(m => Number(m[2]) <= 0).map(m => m[1]);
 ok(zle.length === 0,
   zle.length ? `stawki zerowe lub ujemne: ${zle.join(', ')}` : 'każda stawka jest dodatnia');
 
+// ── WIDEŁKI USTAWOWE ─────────────────────────────────────────────────────────
+// Rada gminy uchwala stawkę w widełkach DWUSTRONNYCH: górna granica z obwieszczenia
+// Ministra Finansów (Monitor Polski) dla wszystkich pojazdów, a dla pojazdów OD 12 t
+// dodatkowo stawka MINIMALNA z załączników do ustawy (związanie prawem unijnym).
+// Ta flota ma 28 pojazdów od 12 t, więc dolne ograniczenie jej dotyczy — i to przy
+// pozycjach o najwyższych kwotach.
+{
+  console.log('');
+  // Moduł jest przeglądarkowy (IIFE na `window`), więc uruchamiamy go w atrapie okna.
+  const okno = { localStorage: { getItem: () => '{}', setItem: () => {} }, console };
+  // eslint-disable-next-line no-new-func
+  const GR = new Function('window', 'localStorage', 'esc', `${src}; return window.GminyRates;`)(
+    okno, okno.localStorage, x => String(x)
+  );
+
+  ok(typeof GR?.sprawdzWidelki === 'function', 'moduł eksportuje sprawdzWidelki()');
+  ok(Array.isArray(GR?.LIMITY_USTAWOWE), 'moduł eksportuje LIMITY_USTAWOWE');
+
+  // [1] BRAK DANYCH TO NIE JEST ZGODNOŚĆ — najważniejsza asercja tej sekcji.
+  // Gdyby pusta tablica limitów dawała `ok: true`, kontrola orzekałaby, że każda
+  // stawka jest legalna. To ta sama zasada, co odmowa przy braku gęstości paliw.
+  const pusty = GR.sprawdzWidelki({ car_4ax_ge29: 999999 }, 2026);
+  ok(pusty.ok === false, 'brak odczytanych widełek → ODMOWA orzeczenia, nie zielone światło');
+  ok(pusty.powod === 'BRAK_LIMITOW', 'odmowa niesie powód BRAK_LIMITOW, nie samo `false`');
+
+  // [2] Kontrola działa, gdy dane są — na syntetycznych widełkach.
+  // Bez tego [1] przechodziłoby także dla funkcji, która ZAWSZE odmawia.
+  const zBudkami = new Function('window', 'localStorage', 'esc', `
+    ${src.replace(/widelki: \{\},/, "widelki: { car_4ax_ge29: { max: 4296, min: 3000 }, bus_lt30: { max: 2000, min: null } },")
+         .replace(/zrodlo: '',/, "zrodlo: 'TEST — widełki syntetyczne',")};
+    return window.GminyRates;`)(okno, okno.localStorage, x => String(x));
+
+  const ponad = zBudkami.sprawdzWidelki({ car_4ax_ge29: 5000 }, 2026);
+  ok(ponad.naruszenia.some(n => n.rodzaj.includes('powyżej')),
+    'stawka ponad maksimum ustawowe zostaje wykryta');
+
+  const ponizej = zBudkami.sprawdzWidelki({ car_4ax_ge29: 2500 }, 2026);
+  ok(ponizej.naruszenia.some(n => n.rodzaj.includes('poniżej')),
+    'stawka poniżej minimum (pojazd od 12 t) zostaje wykryta');
+
+  const wSam = zBudkami.sprawdzWidelki({ car_4ax_ge29: 4000 }, 2026);
+  ok(wSam.ok === true && wSam.naruszenia.length === 0,
+    'stawka wewnątrz widełek przechodzi bez zastrzeżeń');
+
+  // Pozycja bez minimum (poniżej 12 t) nie może dostać naruszenia „poniżej minimum".
+  const bezMin = zBudkami.sprawdzWidelki({ bus_lt30: 1 }, 2026);
+  ok(!bezMin.naruszenia.some(n => n.rodzaj.includes('poniżej')),
+    'pozycja bez stawki minimalnej nie jest karana za niską kwotę');
+
+  // [3] Pozycja spoza widełek trafia na `nieustalone`, nie jest cicho przepuszczana.
+  const nieznana = zBudkami.sprawdzWidelki({ tr_1ax_lt18: 700 }, 2026);
+  ok(nieznana.nieustalone.some(n => n.key === 'tr_1ax_lt18') && nieznana.ok === false,
+    'pozycja bez odczytanych widełek trafia na „nieustalone", a wynik nie jest ok');
+}
+
+// ── ETYKIETA WBUDOWANYCH STAWEK ──────────────────────────────────────────────
+// Interfejs opisywał wiersz Warszawy jako „wbudowane (max MF 2026)", czyli mówił
+// użytkownikowi, że to MAKSYMALNE stawki Ministra Finansów. To nieprawda: to stawki
+// z uchwały Rady m.st. Warszawy, zweryfikowane wyżej co do złotówki. Gmina uchwala
+// stawki W WIDEŁKACH, więc jej stawki nie są tożsame z górną granicą — a użytkownik
+// z innej gminy, przekonany że widzi maksimum, użyłby ich jako bezpiecznego domyślnego.
+ok(!/max MF/.test(src), 'brak mylącej etykiety „max MF" przy stawkach z uchwały Warszawy');
+ok(/uchwała XXIX\/1065\/2025|uchwala XXIX\/1065\/2025/.test(src),
+  'wbudowane stawki opisane swoim faktycznym źródłem (uchwała Warszawy)');
+
 console.log(`\n────────────────────────────────────────────\nWynik: ${pass} PASS / ${fail} FAIL\n`);
 process.exit(fail ? 1 : 0);

@@ -6887,47 +6887,51 @@ async function handleTCO(request, env, user, url, path) {
  * zero. Cicha zerowa należność wobec urzędu marszałkowskiego byłaby gorsza niż błąd.
  *
  * ══════════════════════════════════════════════════════════════════════════════
- * ⛔ ŹRÓDŁO ODCZYTANE 25.08.2026 — I OKAZAŁO SIĘ, ŻE TA STRUKTURA GO NIE POMIEŚCI.
+ * ══════════════════════════════════════════════════════════════════════════════
+ * ŹRÓDŁO ODCZYTANE, STRUKTURA PRZEBUDOWANA — zostaje JEDNA rzecz: GĘSTOŚCI.
  *
- * Obwieszczenie jest dostępne i zweryfikowane:
+ * Obwieszczenie:
  *   M.P. 2025 poz. 769 (stawki na 2026) — https://monitorpolski.gov.pl/M2025000076901.pdf
- *   M.P. 2024 poz. 794 (stawki na 2025) — https://monitorpolski.gov.pl/M2024000079401.pdf
  *   metadane/status: https://api.sejm.gov.pl/eli/acts/MP/2025/769
  * Stawki dla pojazdów są w TABELI D („Jednostkowe stawki opłaty za gazy lub pyły
  * wprowadzane do powietrza z procesów spalania paliw w silnikach spalinowych").
  *
- * PROBLEM: tabela ma TRZY wymiary, a `stawki: { 'paliwo|EURO': kwota }` ma DWA.
- * Brakuje KLASY POJAZDU — a to nie niuans, tylko różnica rzędu 60%. Dla oleju
- * napędowego EURO 5 (stawki na 2026, zł za Mg):
+ * Tabela ma TRZY wymiary i klucz stawki też ma trzy: `paliwo|norma|klasa_pojazdu`.
+ * Klasa nie jest niuansem — dla oleju napędowego EURO 5 różnica sięga 60%:
+ *     osobowy 5,76 · do 3,5 Mg inny niż osobowy 6,82 · powyżej 3,5 Mg 9,19 zł/Mg.
+ * Kolumn paliwa jest SZEŚĆ: bs, lpg, cng_fabryczny, cng_przebudowany (inna stawka
+ * niż fabryczny!), on, bd.
  *
- *     samochód osobowy .......................... 5,76
- *     do 3,5 Mg, inny niż osobowy ............... 6,82
- *     powyżej 3,5 Mg, z wyjątkiem autobusów ..... 9,19
+ * CO ZOSTAŁO: `gestosc_kg_na_litr` jest PUSTE i to jedyny powód, dla którego
+ * `computeEnvironmentalFee` nie podaje kwot — wstawia każdy pojazd na listę
+ * `nieustalone` z powodem „gęstość paliwa". Obwieszczenie gęstości NIE PODAJE
+ * (sprawdzone pełnotekstowo w rocznikach 2025 i 2026: „gęstoś", „kg/m3", „kg/dm",
+ * „g/cm" — zero trafień), więc pochodzą z innego źródła i wymagają osobnej decyzji
+ * wraz z podaniem pochodzenia. Do tego czasu odmowa jest zachowaniem właściwym.
  *
- * Tabela D ma 32 pozycje: osobowe, do 3,5 Mg inne niż osobowe, powyżej 3,5 Mg,
- * autobusy powyżej 3,5 Mg, ciągniki i inne — każda z własnym progiem EURO albo
- * przedziałem daty pierwszej rejestracji. Kolumn paliwa jest SZEŚĆ, nie trzy:
- * benzyna BS, LPG, CNG w silniku FABRYCZNIE przystosowanym, CNG w silniku
- * PRZEBUDOWANYM (inna stawka!), olej napędowy ON, biodiesel BD.
+ * ⚠️ CNG WYMAGA ODDZIELNEGO ROZSTRZYGNIĘCIA, NIE SAMEJ GĘSTOŚCI. CNG sprzedaje się
+ * na KILOGRAMY, nie na litry, więc przeliczenie `litry × gęstość` jest dla niego
+ * bez sensu — dla tych dwóch paliw wejściem powinna być masa. Wpisanie im
+ * jakiejkolwiek „gęstości" dałoby liczbę wyglądającą poprawnie i błędną.
  *
- * Nasza flota to głównie pojazdy powyżej 3,5 Mg i dostawcze — czyli dokładnie te
- * klasy, dla których wpisanie stawki „osobowej" zaniżyłoby należność o ok. 40%.
- * Dlatego NIE wypełniam tej listy w obecnym kształcie: dane byłyby wprowadzone
- * poprawnie co do liczby i błędnie co do zastosowania, a wynik wyglądałby
- * wiarygodnie. To ta sama klasa, co `dmcKg=1882` z sąsiedniej rubryki.
+ * ⚠️ AUTOBUSY POWYŻEJ 3,5 t MAJĄ W KODZIE WYŁĄCZNIE WIERSZ PRZED_EURO (on 88,25;
+ * bd 79,87). Autobus z normą EURO 1–5 nie dostanie stawki i trafi na „nieustalone".
+ * Nie wiadomo, czy to wierne odwzorowanie Tabeli D, czy luka ekstrakcji — do
+ * sprawdzenia przy następnym dostępie do PDF-a. Odmowa jest tu bezpieczna, ale
+ * jeśli flota ma autobusy, ta luka blokuje ich rozliczenie.
  *
- * DRUGI BRAK, niezależny: obwieszczenie NIE PODAJE GĘSTOŚCI paliw — sprawdzone
- * wyszukiwaniem pełnotekstowym w obu rocznikach („gęstoś", „kg/m3", „kg/dm",
- * „g/cm" — zero trafień). Gęstość, bez której nie przeliczy się litrów na Mg,
- * pochodzi z innego źródła i musi zostać zadeklarowana osobno.
+ * WIARYGODNOŚĆ SAMYCH STAWEK — zweryfikowana dwiema kontrolami niewymagającymi PDF-a,
+ * utrwalonymi w `tests/unit/env-fee-test.js`:
+ *   • monotoniczność: w 16 seriach paliwo×klasa stawka ani razu nie rośnie wraz
+ *     z normą EURO. Udokumentowany tryb awarii ekstrakcji to przesunięcie wiersza
+ *     o jeden — takie przesunięcie niemal na pewno złamałoby monotoniczność;
+ *   • trzy kotwice ON EURO 5 (5,76 / 6,82 / 9,19) zgadzają się co do grosza
+ *     z odczytem zapisanym niezależnie w CLAUDE.md.
  *
- * CO TRZEBA ZROBIĆ, ZANIM TA FUNKCJA ZACZNIE LICZYĆ (kolejność ma znaczenie):
- *   1. Rozszerzyć klucz stawki o klasę pojazdu, np. `'ON|EURO 5|powyzej_3_5t'`,
- *      i dodać rozstrzyganie klasy z DMC + rodzaju pojazdu (mamy oba w katalogu).
- *   2. Rozdzielić CNG na fabryczny i przebudowany — dziś `co2FactorFor` zwraca
- *      jeden klucz `cng` i nie odróżni tych dwóch stawek.
- *   3. Dopiero wtedy przepisać liczby z Tabeli D wraz z `zrodlo` i rokiem.
- *   4. Gęstości — osobne źródło, osobna decyzja, też z podaniem pochodzenia.
+ * BRAK EURO 6 JEST FAKTEM, NIE PRZEOCZENIEM — Tabela D kończy się na EURO 5.
+ * Pojazd EURO 6 trafia na „nieustalone" celowo: podstawienie mu stawki EURO 5
+ * byłoby INTERPRETACJĄ przepisu, nie odczytem. Dotyczy większości nowoczesnej
+ * floty, więc wymaga rozstrzygnięcia z księgowością.
  * ══════════════════════════════════════════════════════════════════════════════
  */
 const ENV_FEE_RATE_SETS = [
