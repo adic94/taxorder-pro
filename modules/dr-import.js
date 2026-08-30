@@ -53,11 +53,65 @@ window.TaxOrderDrImport = (function () {
     });
   }
 
+  function _toInt(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.trunc(n) : null;
+  }
+
+  function _sanitizeDrFields(rawFields = {}) {
+    const out = {};
+    const set = (key, value, opts = {}) => {
+      if (value === undefined || value === null) return;
+      let v = String(value).trim();
+      if (!v) return;
+      if (opts.upper) v = v.toUpperCase();
+      if (opts.int) {
+        const n = _toInt(v);
+        if (n === null || n <= 0) return;
+        out[key] = n;
+        return;
+      }
+      out[key] = v;
+    };
+
+    set('nrRej', rawFields.nrRej ?? rawFields.nr_rej, { upper: true });
+    set('marka', rawFields.marka);
+    set('typ', rawFields.typ);
+    set('vin', rawFields.vin, { upper: true });
+    set('paliwo', rawFields.paliwo);
+    set('dataRej', rawFields.dataRej);
+    set('kategoria', rawFields.kategoria);
+    set('przeznaczenie', rawFields.przeznaczenie);
+    set('dmcKg', rawFields.dmcKg, { int: true });
+    set('dmcZespolu', rawFields.dmcZespolu, { int: true });
+    set('masaWlKg', rawFields.masaWlKg, { int: true });
+    set('liczbaOsi', rawFields.liczbaOsi, { int: true });
+    set('pojSilnika', rawFields.pojSilnika, { int: true });
+    set('mocKW', rawFields.mocKW, { int: true });
+    set('miejscaSied', rawFields.miejscaSied, { int: true });
+
+    return out;
+  }
+
   async function _saveDr(nr_rej, fields, r2Key, unarchive, createIfMissing) {
+    const safeFields = _sanitizeDrFields(fields);
+    const manifest = {
+      source: 'dr-import',
+      sourceType: 'controlled-import',
+      reviewed: true,
+      importedAt: new Date().toISOString(),
+      rejected: Object.keys(fields || {}).filter(key => {
+        const raw = fields[key];
+        if (raw === undefined || raw === null || raw === '') return false;
+        const safe = safeFields[key] ?? safeFields[key.replace(/_/g, '')];
+        return safe === undefined && raw !== undefined;
+      }),
+    };
+
     const r = await fetch(`${API()}/api/dr-save?company=${company()}`, {
       method: 'POST',
       headers: { ...hdrs(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nr_rej, fields, r2Key, unarchive, createIfMissing }),
+      body: JSON.stringify({ nr_rej, fields: safeFields, r2Key, unarchive, createIfMissing, sourceMeta: manifest }),
     });
     return r.ok ? await r.json() : null;
   }
@@ -395,6 +449,10 @@ window.TaxOrderDrImport = (function () {
         </div>
         <div style="font-size:11px;color:var(--text2);margin-bottom:12px">${esc(fileName)}</div>
 
+        <div style="background:#f8fafc;border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:11px;color:var(--text2);margin-bottom:14px">
+          <i class="ti ti-shield-check" style="color:var(--green)"></i> Import jest kontrolowany: niezweryfikowane lub puste pola są pomijane, a zapis wymaga jawnego manifestu źródła.
+        </div>
+
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:16px">
           ${badge}
           ${statusBadge}
@@ -464,6 +522,12 @@ window.TaxOrderDrImport = (function () {
       kategoria:  g('kategoria'),
       pojSilnika: g('pojSilnika'),
     };
+
+    const safeFields = _sanitizeDrFields(fields);
+    if (!safeFields.nrRej || Object.keys(safeFields).length <= 1) {
+      window.toast?.('Brak wystarczająco zweryfikowanych danych do zapisu — usuń niepewne pola');
+      return;
+    }
 
     const unarchive = isArchived && (document.getElementById('dri-unarchive')?.checked ?? true);
     const createIfMissing = isNew && (document.getElementById('dri-create')?.checked ?? true);

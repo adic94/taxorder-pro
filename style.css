@@ -84,6 +84,12 @@ body.sidebar-basic .sidebar-mode-toggle{background:var(--blue-light);color:var(-
 
 /* TRYB PROSTY — ukryj przyciski bez tnb-basic */
 body.sidebar-basic .tnb:not(.tnb-basic){display:none!important}
+/* W trybie prostym sidebar jest jedyną nawigacją; pokazuj podstawowe pozycje
+   ze wszystkich obszarów zamiast wymagać przełączania drugiego paska zakładek. */
+body.sidebar-basic .section-tabs-bar{display:none!important}
+body.sidebar-basic .sidebar-section-items.s-hidden{display:contents!important}
+body.sidebar-basic .sidebar-label{display:flex!important}
+body.sidebar-basic #dash-quick-actions .dash-quick-secondary{display:none!important}
 
 /* CONTENT */
 .content{flex:1;padding:1.5rem;overflow-y:auto;min-width:0}

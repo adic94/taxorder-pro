@@ -13,6 +13,7 @@
     "test:dash": "playwright test tests/e2e/dashboard.spec.js",
     "test:veh": "playwright test tests/e2e/vehicle-card.spec.js",
     "test:cols": "playwright test tests/e2e/fleet-columns.spec.js",
+    "test:a11y": "playwright test tests/e2e/accessibility.spec.js",
     "test:apik": "playwright test tests/e2e/api-keys.spec.js",
     "test:api": "node tests/api/api-test.js",
     "test:isolation": "node tests/api/tenant-isolation-test.js",
@@ -58,6 +59,7 @@
     "@ast-grep/cli": "^0.44.1",
     "@playwright/mcp": "^0.0.78",
     "@playwright/test": "^1.61.1",
+    "axe-core": "^4.13.0",
     "dotenv": "^17.4.2",
     "eslint": "^8.57.0",
     "exceljs": "^4.4.0",
@@ -65,5 +67,12 @@
     "pdfjs-dist": "^6.2.108",
     "playwright": "^1.61.1",
     "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@zxing/library": "0.19.1",
+    "dexie": "^4.4.5",
+    "zxing-wasm": "^3.1.3"
   }
 }

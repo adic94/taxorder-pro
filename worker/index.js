@@ -3877,54 +3877,70 @@ async function handleDrSave(req, env, user, url) {
   if (user.role !== 'admin' && user.role !== 'kierownik') return err('Brak uprawnień', 403);
   const company = url.searchParams.get('company');
   if (!company) return err('Wymagane: company');
+
   let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
-  const { nr_rej, fields, r2Key, unarchive, createIfMissing } = body;
+  const { nr_rej, fields, r2Key, unarchive, createIfMissing, sourceMeta } = body;
   if (!nr_rej || !fields) return err('Wymagane: nr_rej, fields');
+  if (!sourceMeta || sourceMeta.source !== 'dr-import' || sourceMeta.reviewed !== true) {
+    return err('Import DR wymaga jawnego manifestu kontroli — wycofano zapis niezweryfikowanych danych', 400);
+  }
+
+  const normalizeInt = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
+  };
+
+  const sanitize = (raw) => {
+    if (raw === undefined || raw === null) return null;
+    const s = String(raw).trim();
+    if (!s) return null;
+    return s;
+  };
 
   const nrRej = nr_rej.trim().toUpperCase().replace(/\s/g, '');
   const vehRow = await env.DB.prepare('SELECT * FROM vehicles WHERE company_id=? AND nr_rej=?').bind(company, nrRej).first();
 
   let data = {};
-  let axles = 2;
-  let dmc_zespolu = 0;
+  let axles = vehRow?.axles_count ?? null;
+  let dmc_zespolu = vehRow?.dmc_zespolu ?? null;
   if (vehRow) {
     try { data = typeof vehRow.data === 'string' ? JSON.parse(vehRow.data) : (vehRow.data || {}); } catch {}
-    axles = vehRow.axles_count || 2;
-    dmc_zespolu = vehRow.dmc_zespolu || 0;
   }
 
-  if (fields.marka)        data.marka        = fields.marka;
-  if (fields.typ)          data.model         = fields.typ;
-  if (fields.vin)          data.vin           = fields.vin;
-  if (fields.paliwo)       data.paliwo        = fields.paliwo;
-  if (fields.dataRej)      data.dataRej       = fields.dataRej;
-  if (fields.kategoria)    data.katPojazdu    = fields.kategoria;
-  if (fields.przeznaczenie) data.przeznaczenie = fields.przeznaczenie;
-  if (fields.dmcKg)        { data.dmc = parseInt(fields.dmcKg); data.dmcMax = parseInt(fields.dmcKg); }
-  if (fields.dmcKg2)       data.dmcKg2        = parseInt(fields.dmcKg2);
-  if (fields.dmcZespolu)   { data.dmcZespolu = parseInt(fields.dmcZespolu); dmc_zespolu = parseInt(fields.dmcZespolu); }
-  if (fields.masaWlKg)     data.masaWlasna    = parseInt(fields.masaWlKg);
-  if (fields.liczbaOsi)    { data.osie = parseInt(fields.liczbaOsi); axles = parseInt(fields.liczbaOsi); }
-  if (fields.pojSilnika)   data.pojSilnika    = parseInt(fields.pojSilnika);
-  if (fields.mocKW)        data.mocKW         = parseInt(fields.mocKW);
-  if (fields.miejscaSied)  data.miejscaSied   = parseInt(fields.miejscaSied);
+  const marka = sanitize(fields.marka); if (marka) data.marka = marka;
+  const typ = sanitize(fields.typ); if (typ) data.model = typ;
+  const vin = sanitize(fields.vin); if (vin) data.vin = vin.toUpperCase();
+  const paliwo = sanitize(fields.paliwo); if (paliwo) data.paliwo = paliwo;
+  const dataRej = sanitize(fields.dataRej); if (dataRej) data.dataRej = dataRej;
+  const kategoria = sanitize(fields.kategoria); if (kategoria) data.katPojazdu = kategoria;
+  const przeznaczenie = sanitize(fields.przeznaczenie); if (przeznaczenie) data.przeznaczenie = przeznaczenie;
+
+  const dmcKg = normalizeInt(fields.dmcKg); if (dmcKg) { data.dmc = dmcKg; data.dmcMax = dmcKg; }
+  const dmcZespolu = normalizeInt(fields.dmcZespolu); if (dmcZespolu) { data.dmcZespolu = dmcZespolu; dmc_zespolu = dmcZespolu; }
+  const masaWlKg = normalizeInt(fields.masaWlKg); if (masaWlKg) data.masaWlasna = masaWlKg;
+  const liczbaOsi = normalizeInt(fields.liczbaOsi); if (liczbaOsi) { data.osie = liczbaOsi; axles = liczbaOsi; }
+  const pojSilnika = normalizeInt(fields.pojSilnika); if (pojSilnika) data.pojSilnika = pojSilnika;
+  const mocKW = normalizeInt(fields.mocKW); if (mocKW) data.mocKW = mocKW;
+  const miejscaSied = normalizeInt(fields.miejscaSied); if (miejscaSied) data.miejscaSied = miejscaSied;
 
   if (unarchive) { data.is_active = null; data.archivedAt = null; data.archivedReason = null; }
 
   if (vehRow) {
     await env.DB.prepare(
       "UPDATE vehicles SET data=?, axles_count=?, dmc_zespolu=?, updated_at=datetime('now') WHERE company_id=? AND nr_rej=?"
-    ).bind(JSON.stringify(data), axles, dmc_zespolu, company, nrRej).run();
+    ).bind(JSON.stringify(data), axles ?? 2, dmc_zespolu ?? 0, company, nrRej).run();
   } else if (createIfMissing) {
+    const insertAxles = axles ?? null;
+    const insertDmc = dmc_zespolu ?? null;
     await env.DB.prepare(
       "INSERT INTO vehicles(company_id,nr_rej,axles_count,suspension_type,dmc_zespolu,miesiace_podatku,data,updated_at) VALUES(?,?,?,?,?,?,?,datetime('now'))"
-    ).bind(company, nrRej, axles, 'pneumatyczne', dmc_zespolu, 12, JSON.stringify(data)).run();
+    ).bind(company, nrRej, insertAxles, null, insertDmc, null, JSON.stringify(data)).run();
   } else {
-    return err('Pojazd nie istnieje — użyj createIfMissing:true aby dodać nowy');
+    return err('Pojazd nie istnieje — użyj createIfMissing:true aby dodać nowy po zatwierdzeniu manifestu');
   }
 
   if (r2Key && r2Key.startsWith(`dr-import/${company}/`)) await env.DOCS.delete(r2Key).catch(() => {});
-  return json({ ok: true, created: !vehRow, nr_rej: nrRej });
+  return json({ ok: true, created: !vehRow, nr_rej: nrRej, review: sourceMeta });
 }
 
 // ─── CEPIK PROXY ─────────────────────────────────────────────────────────────
@@ -9510,8 +9526,8 @@ async function handleRequest(request, env, url, path, ctx) {
   // Egzekwowanie licencji modułów (serwerowo). Kill switch: wrangler secret put MODULE_ENFORCEMENT → off
   // MUSI stać PO guardach firmy powyżej: enforceModuleAccess czyta ?company= z URL, więc
   // uruchamiane wcześniej odpowiadało na pytanie o pakiet OBCEJ firmy (402 vs przepuszczenie
-  // = kanał boczny ujawniający jej moduły). Dziś nieaktywny tylko dlatego, że resolveModuleAccess
-  // zawsze zwraca ['*'] — patrz dług: company_packages bez kolumny `active`.
+  // = kanał boczny ujawniający jej moduły). Przy błędzie odczytu pakietu endpoint jest
+  // blokowany kodem 503 zamiast uzyskiwać pełny dostęp.
   if (user) {
     const denied = await enforceModuleAccess(env, user, url, path);
     if (denied) return denied;
@@ -14133,7 +14149,7 @@ async function resolveModuleAccess(env, companyId) {
       'SELECT package_name, modules_add, modules_remove, valid_until FROM company_packages WHERE company_id=? AND active=1'
     ).bind(companyId).first();
     if (!row) {
-      allowed = ['*']; // brak wpisu = nieograniczony dostęp (backward compat przed wdrożeniem pakietów)
+      allowed = _packageModules('basic');
     } else {
       const expired = row.valid_until && new Date(row.valid_until) < new Date();
       const pkg = expired ? 'basic' : (row.package_name || 'basic');
@@ -14142,9 +14158,9 @@ async function resolveModuleAccess(env, companyId) {
       const rem = JSON.parse(row.modules_remove || '[]');
       allowed = [...new Set([...allowed, ...add])].filter(m => !rem.includes(m));
     }
-  } catch {
-    // Tabela nie istnieje (przed migracją) lub błąd DB — przepuść wszystko
-    allowed = ['*'];
+  } catch (e) {
+    await captureException(e, env, { operation: 'resolveModuleAccess', companyId });
+    return null;
   }
 
   try { await env.PREFS.put(cacheKey, JSON.stringify(allowed), { expirationTtl: 60 }); } catch { /* ignore */ }
@@ -14158,6 +14174,7 @@ async function enforceModuleAccess(env, user, url, path) {
   if (!mod) return null;
   const companyId = url.searchParams.get('company') || user.company_id || '';
   const allowed = await resolveModuleAccess(env, companyId);
+  if (!allowed) return err('Nie można zweryfikować dostępu do modułu', 503);
   if (allowed.includes('*') || allowed.includes(mod)) return null;
   return json({ error: 'Moduł nieaktywny w Twoim pakiecie', module: mod, upgrade_required: true }, 402);
 }

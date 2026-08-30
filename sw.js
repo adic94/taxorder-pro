@@ -3,7 +3,7 @@
  * Cache-first dla assetów, network-first dla danych
  * Obsługuje: install, activate, fetch, push, notificationclick
  */
-const CACHE_NAME = 'taxorder-v81';
+const CACHE_NAME = 'taxorder-v82';
 const STATIC_ASSETS = [
   '/',
   '/app.js',
@@ -11,6 +11,9 @@ const STATIC_ASSETS = [
   '/fontkit.umd.min.js',
   '/index.html',
   '/manifest.json',
+  '/vendor/dexie.min.js',
+  '/vendor/zxing/reader.js',
+  '/vendor/zxing/zxing_reader.wasm',
   '/pdf-lib.min.js',
   '/style.css',
   '/modules/access-control.js',
@@ -143,6 +146,8 @@ const STATIC_ASSETS = [
   '/modules/smart-forms.js',
   '/modules/spare-parts.js',
   '/modules/storage.js',
+  '/modules/offline-store.js',
+  '/modules/zxing-cpp-fallback.js',
   '/modules/supplier-invoices.js',
   '/modules/suppliers.js',
   '/modules/tacho.js',

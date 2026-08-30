@@ -14,6 +14,7 @@
  * Użycie:
  *   node tools/autotest/migration-check.js
  *   node tools/autotest/migration-check.js --local   (lokalna D1, nie remote)
+ *   node tools/autotest/migration-check.js --allow-offline (raport bez połączenia z D1)
  */
 
 const { execSync }  = require('child_process');
@@ -23,6 +24,7 @@ const path = require('path');
 const ROOT   = path.resolve(__dirname, '../..');
 const SCHEMA_DIR = path.join(ROOT, 'worker');
 const LOCAL  = process.argv.includes('--local');
+const ALLOW_OFFLINE = process.argv.includes('--allow-offline');
 const DB_NAME = 'taxorder-pro';
 
 // Wrangler — szukaj w node_modules lub PATH
@@ -107,7 +109,7 @@ if (wranglerError) {
   }
   console.log('\nAby sprawdzić D1 ręcznie:');
   console.log(`  ${WRANGLER} d1 execute ${DB_NAME} --remote --command "SELECT name FROM sqlite_master WHERE type='table'"\n`);
-  process.exit(0); // brak wranglera — nie traktuj jako błąd CI
+  process.exit(ALLOW_OFFLINE ? 0 : 1);
 }
 
 // Porównanie repo vs D1

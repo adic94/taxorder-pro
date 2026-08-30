@@ -77,6 +77,39 @@ window.TaxOrderAztecDetector = (function () {
     return out;
   }
 
+  // Delikatne wyostrzenie krawędzi pomaga przy miękkich zdjęciach, ale nie tworzy
+  // danych, których aparat nie zarejestrował.
+  function _sharpen(src) {
+    const ctx = src.getContext('2d');
+    const id = ctx.getImageData(0, 0, src.width, src.height);
+    const d = id.data;
+    const out = document.createElement('canvas');
+    out.width = src.width; out.height = src.height;
+    const octx = out.getContext('2d');
+    const od = octx.createImageData(src.width, src.height);
+    const op = od.data;
+    const w = src.width, h = src.height;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        if (x === 0 || y === 0 || x === w - 1 || y === h - 1) {
+          op[i] = d[i]; op[i + 1] = d[i + 1]; op[i + 2] = d[i + 2]; op[i + 3] = 255;
+          continue;
+        }
+        const n = ((y - 1) * w + x) * 4;
+        const s = ((y + 1) * w + x) * 4;
+        const e = (y * w + x + 1) * 4;
+        const q = (y * w + x - 1) * 4;
+        for (let c = 0; c < 3; c++) {
+          op[i + c] = Math.max(0, Math.min(255, 5 * d[i + c] - d[n + c] - d[s + c] - d[e + c] - d[q + c]));
+        }
+        op[i + 3] = 255;
+      }
+    }
+    octx.putImageData(od, 0, 0);
+    return out;
+  }
+
   // ── Binaryzacja Otsu ──────────────────────────────────────────────────────────
   function _otsu(src) {
     const ctx = src.getContext('2d');
@@ -246,6 +279,13 @@ window.TaxOrderAztecDetector = (function () {
       if (r) return _finish(r);
     }
 
+    // Zdjęcia z telefonu bywają nieostre mimo poprawnego obrotu i kontrastu.
+    const sharp = _sharpen(canvas);
+    for (const deg of MAIN_ROTS) {
+      r = _attempt(_rotate(sharp, deg), ZXing.HybridBinarizer, `S3b:sharp-hybrid:rot${deg}`);
+      if (r) return _finish(r);
+    }
+
     // S4a — obroty pośrednie + HybridBinarizer (4 prób)
     for (const deg of EXTRA_ROTS) {
       r = _attempt(_rotate(canvas, deg), ZXing.HybridBinarizer, `S4a:hybrid:rot${deg}`);
@@ -273,6 +313,13 @@ window.TaxOrderAztecDetector = (function () {
     // S5c — powiększenie ×2 + HybridBinarizer (1 próba) → łącznie max 42
     r = _attempt(_scale2x(canvas), ZXing.HybridBinarizer, 'S5c:2x');
     if (r) return _finish(r);
+
+    if (window.TaxOrderZxingCpp && Date.now() - t0 <= budget) {
+      try {
+        const text = await window.TaxOrderZxingCpp.decode(canvas);
+        if (text) return _finish({ text, strategy: 'S6:zxing-cpp-wasm' });
+      } catch { /* fallback opcjonalny; główny dekoder zakończył kaskadę */ }
+    }
 
     return null;
 

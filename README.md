@@ -16,8 +16,25 @@ System deklaracji podatku od środków transportowych (DT-1 / DT-1/A) dla 6 firm
 | `DT1Azalacznik.pdf` | Oryginalny załącznik MF DT-1/A(5) |
 | `Roboto.ttf` | Czcionka z polskimi znakami |
 
-## Uruchomienie
-Otwórz `index.html` w Chrome. Wszystkie pliki muszą być w tym samym folderze.
+## Uruchomienie lokalne
+
+Nie otwieraj `index.html` przez `file://`. Aplikacja korzysta z zasobów HTTP i CSP.
+
+```powershell
+npm.cmd ci
+npm.cmd run serve
+```
+
+Następnie otwórz `http://localhost:3000`.
+
+Pełne środowisko Worker + lokalne D1 uruchom poleceniem:
+
+```powershell
+.\dev.ps1
+```
+
+Wymaga ono skonfigurowanego Wranglera i udostępnia frontend na `http://localhost:3000`
+oraz Worker na `http://localhost:8787`.
 
 ## Stawki 2026
 Uchwała XXIX/1065/2025 Rady m.st. Warszawy z 20.11.2025 r.

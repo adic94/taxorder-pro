@@ -14,7 +14,7 @@
 </script>
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
-  script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://eu-assets.i.posthog.com https://npm.clerk.com;
+  script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://eu-assets.i.posthog.com https://npm.clerk.com;
   style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
   img-src 'self' data: blob: https:;
   font-src 'self' https://cdn.jsdelivr.net data:;
@@ -67,6 +67,10 @@ window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 </script>
 <script src="pdf-lib.min.js"></script>
 <script src="fontkit.umd.min.js"></script>
+<script src="vendor/dexie.min.js"></script>
+<script src="modules/offline-store.js"></script>
+<script src="vendor/zxing/reader.js"></script>
+<script src="modules/zxing-cpp-fallback.js"></script>
 <script src="modules/companies-readonly.js"></script>
 <script src="modules/companies-auto-render.js"></script>
 <script src="modules/company-create.js"></script>
@@ -246,6 +250,9 @@ window._initPostHog=function(apiKey,host){
 <nav class="sidebar" id="main-sidebar">
   <button class="sidebar-collapse-btn" id="sidebar-collapse-btn" onclick="toggleSidebarIconOnly()" title="Zwiń / rozwiń sidebar">
     <i class="ti ti-layout-sidebar-left-collapse"></i><span>Zwiń</span>
+  </button>
+  <button class="sidebar-mode-toggle" onclick="setSidebarMode()" title="Przełącz liczbę widocznych modułów">
+    <i class="ti ti-adjustments-horizontal"></i><span id="sidebar-mode-label">Pełny widok</span>
   </button>
   <button class="tnb active" id="tnb-dash" onclick="showPage('dash')"><i class="ti ti-home"></i><span data-i18n="nav.pulpit">Pulpit</span></button>
 
@@ -437,9 +444,9 @@ window._initPostHog=function(apiKey,host){
     <button class="btn btn-gray" style="font-size:12px" onclick="FinesModule.open()"><i class="ti ti-ticket"></i>Mandat</button>
     <button class="btn btn-gray" style="font-size:12px" onclick="showPage('formularze')"><i class="ti ti-file-text"></i>DT-1</button>
     <button class="btn btn-gray" style="font-size:12px" onclick="showPage('raporty')"><i class="ti ti-chart-bar"></i>Raporty</button>
-    <button class="btn btn-gray" style="font-size:12px" onclick="showPage('mapa')"><i class="ti ti-map-2"></i>Mapa floty</button>
-    <button class="btn btn-gray" style="font-size:12px" onclick="showPage('dr-import')"><i class="ti ti-scan"></i>Skan DR</button>
-    <button class="btn btn-gray" style="font-size:12px" onclick="BulkImport.open()"><i class="ti ti-folder-open"></i>Import masowy</button>
+    <button class="btn btn-gray dash-quick-secondary" style="font-size:12px" onclick="showPage('mapa')"><i class="ti ti-map-2"></i>Mapa floty</button>
+    <button class="btn btn-gray dash-quick-secondary" style="font-size:12px" onclick="showPage('dr-import')"><i class="ti ti-scan"></i>Skan DR</button>
+    <button class="btn btn-gray dash-quick-secondary" style="font-size:12px" onclick="BulkImport.open()"><i class="ti ti-folder-open"></i>Import masowy</button>
   </div>
 
   <!-- Co teraz? — pasek alertów akcji -->

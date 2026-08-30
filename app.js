@@ -331,7 +331,9 @@ function _updateSidebarSectionVisibility() {
 }
 
 function initSidebarMode() {
-  if (localStorage.getItem('sidebarMode') === 'basic') {
+  const savedMode = localStorage.getItem('sidebarMode');
+  const useBasic = savedMode === null || savedMode === 'basic';
+  if (useBasic) {
     document.body.classList.add('sidebar-basic');
     const lbl = document.getElementById('sidebar-mode-label');
     if (lbl) lbl.textContent = 'Pełny widok';
@@ -9051,10 +9053,10 @@ const CEPIK_LABELS = {
 };
 
 // State
-let cepikConsumerKey    = localStorage.getItem('dt1_cepik_key')    || '';
-let cepikConsumerSecret = localStorage.getItem('dt1_cepik_secret') || '';
-let cepikToken          = localStorage.getItem('dt1_cepik_token')||'';
-let cepikTokenExpires   = parseInt(localStorage.getItem('dt1_cepik_token_exp')||'0');
+let cepikConsumerKey    = '';
+let cepikConsumerSecret = '';
+let cepikToken          = '';
+let cepikTokenExpires   = 0;
 let cepikProxy          = localStorage.getItem('dt1_cepik_proxy')||'';
 let cepikSettings       = JSON.parse(localStorage.getItem('dt1_cepik_settings')||'{"autoEnable":false,"autoHour":6,"notify":"dmc"}');
 let cepikCache          = JSON.parse(localStorage.getItem('dt1_cepik_cache')||'{}');
@@ -9148,14 +9150,12 @@ async function cepikConnect() {
     const expIn  = data.expires_in || 3600;
     const expAt  = Date.now() + expIn*1000;
 
-    // Opcjonalnie zapisz credentials użytkownika (nie używane do auth — Worker używa env secrets)
-    if(key) { cepikConsumerKey = key; localStorage.setItem('dt1_cepik_key', key); }
-    if(secret) { cepikConsumerSecret = secret; localStorage.setItem('dt1_cepik_secret', secret); }
+    // Klucze i token pozostają wyłącznie w pamięci; Worker używa własnych sekretów.
+    if(key) cepikConsumerKey = key;
+    if(secret) cepikConsumerSecret = secret;
     cepikToken          = token;
     cepikTokenExpires   = expAt;
     cepikProxy          = proxy;
-    localStorage.setItem('dt1_cepik_token',  token);
-    localStorage.setItem('dt1_cepik_token_exp', String(expAt));
     if(proxy) localStorage.setItem('dt1_cepik_proxy', proxy);
 
     cepikLog(`✅ Token wygenerowany! Wygasa za ${Math.floor(expIn/60)} min.`,'ok');
@@ -9183,8 +9183,6 @@ async function cepikRefreshToken() {
     const data  = await cepikGetToken();
     cepikToken  = data.access_token;
     cepikTokenExpires = Date.now() + (data.expires_in||3600)*1000;
-    localStorage.setItem('dt1_cepik_token',  cepikToken);
-    localStorage.setItem('dt1_cepik_token_exp', String(cepikTokenExpires));
     showTokenBox(cepikToken, data.expires_in||3600);
     updateCepikStatus('ok');
     scheduleTokenRefresh((data.expires_in||3600) - 300);
@@ -9249,8 +9247,6 @@ async function getValidToken() {
   const data = await cepikGetToken();
   cepikToken = data.access_token;
   cepikTokenExpires = Date.now() + (data.expires_in||3600)*1000;
-  localStorage.setItem('dt1_cepik_token',  cepikToken);
-  localStorage.setItem('dt1_cepik_token_exp', String(cepikTokenExpires));
   scheduleTokenRefresh((data.expires_in||3600) - 300);
   return cepikToken;
 }
@@ -9684,12 +9680,12 @@ function saveCepikProxyInline() {
 
 // --- Inicjalizacja CEPiK przy otwarciu zakładki ---
 function initCepikPage() {
-  // Zawsze wstaw klucze do pól formularza
+  // Klucze są celowo ulotne i nie są odtwarzane z localStorage.
   const keyInp  = document.getElementById('cepik-key');
   const secInp  = document.getElementById('cepik-secret');
   const proxyInp= document.getElementById('cepik-proxy');
-  if(keyInp)   keyInp.value   = cepikConsumerKey    || localStorage.getItem('dt1_cepik_key')    || '';
-  if(secInp)   secInp.value   = cepikConsumerSecret || localStorage.getItem('dt1_cepik_secret') || '';
+  if(keyInp)   keyInp.value   = cepikConsumerKey || '';
+  if(secInp)   secInp.value   = cepikConsumerSecret || '';
   if(proxyInp) proxyInp.value = cepikProxy          || localStorage.getItem('dt1_cepik_proxy')  || '';
 
   // Status połączenia

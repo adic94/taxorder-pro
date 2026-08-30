@@ -7,15 +7,19 @@
 - HTML5
 - CSS3
 - JavaScript ES2023
-- Cloudflare Pages
+- Cloudflare Pages (statyczny frontend SPA)
 
 ### Backend
 
-- Supabase
+- Cloudflare Worker (`worker/index.js`)
+- Cloudflare Queues (powiadomienia)
+- Cloudflare R2 (dokumenty)
+- Cloudflare KV (preferencje, cache i limity)
 
 ### Baza danych
 
-- PostgreSQL
+- Cloudflare D1 (SQLite)
+- Migracje: `worker/schema_vN.sql`
 
 ### Moduły
 

@@ -42,10 +42,10 @@ const Storage = {
 
   getCepikSettings() {
     return {
-      key: localStorage.getItem("dt1_cepik_key") || "",
-      secret: localStorage.getItem("dt1_cepik_secret") || "",
-      token: localStorage.getItem("dt1_cepik_token") || "",
-      tokenExp: localStorage.getItem("dt1_cepik_token_exp") || "",
+      key: "",
+      secret: "",
+      token: "",
+      tokenExp: "",
       proxy: localStorage.getItem("dt1_cepik_proxy") || "",
       settings: this.getJson("dt1_cepik_settings", {}),
       cache: this.getJson("dt1_cepik_cache", {}),
@@ -54,10 +54,7 @@ const Storage = {
   },
 
   saveCepikSettings(data) {
-    if (data.key !== undefined) localStorage.setItem("dt1_cepik_key", data.key);
-    if (data.secret !== undefined) localStorage.setItem("dt1_cepik_secret", data.secret);
-    if (data.token !== undefined) localStorage.setItem("dt1_cepik_token", data.token);
-    if (data.tokenExp !== undefined) localStorage.setItem("dt1_cepik_token_exp", data.tokenExp);
+    // Sekrety i tokeny są obsługiwane wyłącznie w pamięci/Workerze.
     if (data.proxy !== undefined) localStorage.setItem("dt1_cepik_proxy", data.proxy);
     if (data.settings !== undefined) this.setJson("dt1_cepik_settings", data.settings);
     if (data.cache !== undefined) this.setJson("dt1_cepik_cache", data.cache);
