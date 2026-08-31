@@ -131,10 +131,12 @@ przepisanie jest miejscem powstania błędu w deklaracji podatkowej składanej o
 podatkowemu. Błąd w liczbie osi lub rodzaju zawieszenia pojazdu o DMC ≥ 12 t skutkuje
 zaniżeniem albo zawyżeniem zobowiązania podatkowego wobec gminy.
 
-Przeprowadzony przez Wnioskodawcę w lipcu 2026 r. audyt 17 pojazdów o DMC ≥ 12 t wykazał
-**11 pozycji wymagających korekty**, o łącznym wpływie 7 728 zł rocznie. Audyt objął
-niespełna 8% floty. Jest to bezpośredni, wymierny dowód, że obecne źródło danych nie
-zapewnia prawidłowości rozliczeń podatkowych.
+Przeprowadzony przez Wnioskodawcę w lipcu 2026 r. audyt objął 17 pojazdów o DMC ≥ 12 t
+z ówczesnego stanu floty (skład floty w tej kategorii zmienił się od tego czasu — stan na
+20.08.2026 podaje tabela w pkt III.1) i wykazał **11 pozycji wymagających korekty**,
+o łącznym wpływie 7 728 zł rocznie. Audyt objął niespełna 8% ówczesnej floty. Jest to
+bezpośredni, wymierny dowód, że obecne źródło danych nie zapewnia prawidłowości rozliczeń
+podatkowych.
 
 ### 4. Dostęp jednostkowy nie jest rozwiązaniem adekwatnym
 

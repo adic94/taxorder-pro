@@ -45,8 +45,10 @@ technicznej możliwości wywołania API CEP:
   przeglądarkę zanim opuści ono urządzenie użytkownika;
 - poświadczenia dostępowe (identyfikator i klucz) przechowywane są wyłącznie jako sekrety
   środowiska wykonawczego warstwy serwerowej, wprowadzane kanałem administracyjnym.
-  **Nie występują w kodzie źródłowym, w repozytorium ani po stronie klienta** — jest to
-  weryfikowane automatycznym skanem repozytorium.
+  **Nie występują w kodzie źródłowym, w repozytorium ani po stronie klienta** — potwierdzone
+  ręcznym przeglądem repozytorium (`worker/index.js`, `wrangler.toml`); repozytorium nie ma
+  dziś skonfigurowanego automatycznego skanera sekretów (brak takiego kroku w CI, brak
+  GitHub Advanced Security) — do rozważenia jako uzupełnienie kontroli.
 
 Token dostępowy przechowywany jest w pamięci podręcznej o ograniczonym czasie życia
 i odnawiany automatycznie, co ogranicza liczbę operacji uwierzytelniania.
@@ -121,7 +123,7 @@ funkcji zapytania o dowolny numer rejestracyjny spoza ewidencji.
 | Obszar | Rozwiązanie |
 |---|---|
 | Poufność w transmisji | TLS na wszystkich połączeniach |
-| Poufność poświadczeń | sekrety środowiska wykonawczego; skan repozytorium pod kątem sekretów |
+| Poufność poświadczeń | sekrety środowiska wykonawczego; brak sekretów w repozytorium potwierdzony ręcznym przeglądem |
 | Integralność danych | ograniczenia i klucze w schemacie bazy; migracje wersjonowane, z plikami wycofania |
 | Dostępność | infrastruktura rozproszona; automatyczny monitoring dostępności |
 | Autentyczność | uwierzytelnianie tokenem sesji; operacje zapisu wyłącznie dla ról uprawnionych |
