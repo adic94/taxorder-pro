@@ -1756,6 +1756,9 @@ window._initPostHog=function(apiKey,host){
     <button class="btn btn-blue" onclick="DocumentsModule.openGlobalUpload()">
       <i class="ti ti-upload"></i>Wgraj dokument
     </button>
+    <button class="btn btn-gray" onclick="DocumentsModule.exportDrXlsx()" title="Zbiorczy XLSX z pól dowodów rejestracyjnych odczytanych przez OCR">
+      <i class="ti ti-file-spreadsheet"></i>Eksportuj dane DR → XLSX
+    </button>
     <input id="dm-global-search" type="text" class="fi" placeholder="Szukaj nazwy, nr rej., VIN…"
       style="width:220px;font-size:12px" oninput="DocumentsModule._renderGlobalPage()">
     <select id="dm-global-filter-type" class="fi" style="width:170px;font-size:12px"
@@ -4366,6 +4369,7 @@ window._initPostHog=function(apiKey,host){
   <script src="modules/global-search.js"></script>
   <script src="modules/keyboard-shortcuts.js"></script>
   <script src="modules/budget.js"></script>
+  <script src="modules/dr-fields.js"></script>
   <script src="modules/document-manager.js"></script>
   <script src="modules/doc-workflow.js"></script>
   <script src="modules/driver-pwa.js"></script>

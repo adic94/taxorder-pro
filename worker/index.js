@@ -836,6 +836,22 @@ function _extractVin(text) {
 }
 
 // ─── DOCUMENTS ────────────────────────────────────────────────────────────────
+// `ocr_fields` istnieje dopiero po ręcznym uruchomieniu migration_v54_documents_inbox.sql.
+// Dopóki ktoś jej nie zaaplikuje na produkcji, SELECT z tą kolumną pada na "no such
+// column" — a to jest odczyt UŻYWANY JUŻ DZIŚ (karta pojazdu, globalna lista dokumentów),
+// więc bez fallbacku sam merge tego kodu do main (auto-deploy Workera) zepsułby GET
+// /api/docs w oknie między mergem a ręczną migracją. Fallback utrzymuje stare zachowanie.
+async function _docsSelect(env, sqlWithOcr, sqlWithout, binds) {
+  try {
+    const rows = await env.DB.prepare(sqlWithOcr).bind(...binds).all();
+    return (rows.results || []).map(r => ({ ...r, ocr_fields: r.ocr_fields ? JSON.parse(r.ocr_fields) : null }));
+  } catch (e) {
+    if (!/no such column/i.test(e.message || '')) throw e;
+    const rows = await env.DB.prepare(sqlWithout).bind(...binds).all();
+    return (rows.results || []).map(r => ({ ...r, ocr_fields: null }));
+  }
+}
+
 async function handleDocs(req, env, user, url, path) {
   const segs = path.split('/').filter(Boolean); // ['api','docs',...]
 
@@ -846,21 +862,25 @@ async function handleDocs(req, env, user, url, path) {
     const nrRej   = url.searchParams.get('nrRej');
     const vin     = url.searchParams.get('vin');
     const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
+    const COLS    = 'id,nr_rej,vin,name,mime_type,doc_type,detected_vin,vehicle_id,file_size,notes,expiry_date,doc_number,uploaded_at,uploaded_by';
     let rows;
     if (nrRej) {
-      rows = await env.DB.prepare(
-        'SELECT id,nr_rej,vin,name,mime_type,doc_type,detected_vin,vehicle_id,file_size,notes,expiry_date,doc_number,uploaded_at,uploaded_by FROM documents WHERE nr_rej=? AND company_id=? ORDER BY uploaded_at DESC'
-      ).bind(nrRej, company).all();
+      rows = await _docsSelect(env,
+        `SELECT ${COLS},ocr_fields FROM documents WHERE nr_rej=? AND company_id=? ORDER BY uploaded_at DESC`,
+        `SELECT ${COLS} FROM documents WHERE nr_rej=? AND company_id=? ORDER BY uploaded_at DESC`,
+        [nrRej, company]);
     } else if (vin) {
-      rows = await env.DB.prepare(
-        'SELECT id,nr_rej,vin,name,mime_type,doc_type,detected_vin,vehicle_id,file_size,notes,expiry_date,doc_number,uploaded_at,uploaded_by FROM documents WHERE vin=? AND company_id=? ORDER BY uploaded_at DESC'
-      ).bind(vin, company).all();
+      rows = await _docsSelect(env,
+        `SELECT ${COLS},ocr_fields FROM documents WHERE vin=? AND company_id=? ORDER BY uploaded_at DESC`,
+        `SELECT ${COLS} FROM documents WHERE vin=? AND company_id=? ORDER BY uploaded_at DESC`,
+        [vin, company]);
     } else {
-      rows = await env.DB.prepare(
-        'SELECT id,nr_rej,vin,name,mime_type,doc_type,detected_vin,vehicle_id,file_size,notes,expiry_date,doc_number,uploaded_at,uploaded_by FROM documents WHERE company_id=? ORDER BY uploaded_at DESC LIMIT 500'
-      ).bind(company).all();
+      rows = await _docsSelect(env,
+        `SELECT ${COLS},ocr_fields FROM documents WHERE company_id=? ORDER BY uploaded_at DESC LIMIT 500`,
+        `SELECT ${COLS} FROM documents WHERE company_id=? ORDER BY uploaded_at DESC LIMIT 500`,
+        [company]);
     }
-    return json(rows.results || []);
+    return json(rows);
   }
 
   // POST /api/docs/upload — smart upload z auto-klasyfikacją i detekcją VIN
@@ -897,16 +917,28 @@ async function handleDocs(req, env, user, url, path) {
     await env.DOCS.put(r2Key, file.stream(), {
       httpMetadata: { contentType: file.type || 'application/octet-stream' },
     });
-    await env.DB.prepare(
-      `INSERT INTO documents(id,nr_rej,company_id,name,mime_type,r2_key,vin,doc_type,detected_vin,vehicle_id,file_size,notes,uploaded_by,expiry_date,doc_number,ocr_fields)
-       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
-    ).bind(
+    const insertVals = [
       docId, nrRej || null, company, file.name,
       file.type || 'application/octet-stream', r2Key,
       vin, doc_type, detected_vin,
       vehicleId || null, file.size || 0, notesIn || null,
-      user?.email || null, expiryDate, docNumber, ocrFieldsIn,
-    ).run();
+      user?.email || null, expiryDate, docNumber,
+    ];
+    try {
+      await env.DB.prepare(
+        `INSERT INTO documents(id,nr_rej,company_id,name,mime_type,r2_key,vin,doc_type,detected_vin,vehicle_id,file_size,notes,uploaded_by,expiry_date,doc_number,ocr_fields)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      ).bind(...insertVals, ocrFieldsIn).run();
+    } catch (e) {
+      // Patrz komentarz przy _docsSelect — ta sama usterka kolejności merge/migracja,
+      // tylko po stronie zapisu. Bez fallbacku KAŻDY upload (funkcja używana już dziś)
+      // padłby 500 w oknie między mergem tego kodu a ręcznym uruchomieniem migration_v54.
+      if (!/no such column/i.test(e.message || '')) throw e;
+      await env.DB.prepare(
+        `INSERT INTO documents(id,nr_rej,company_id,name,mime_type,r2_key,vin,doc_type,detected_vin,vehicle_id,file_size,notes,uploaded_by,expiry_date,doc_number)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      ).bind(...insertVals).run();
+    }
 
     return json({ ok: true, id: docId, key: r2Key, doc_type, detected_vin, vin, expiry_date: expiryDate, doc_number: docNumber });
   }

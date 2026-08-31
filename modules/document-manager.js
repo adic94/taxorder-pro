@@ -928,12 +928,75 @@
     }
   }
 
+  // ─── Eksport zebranych danych DR do jednego XLSX ────────────────────────────
+  // Źródło: `documents.ocr_fields` — JSON wyniku OCR zapisywany od migration_v54
+  // (worker/index.js: handleFmIngest, POST /api/docs/upload). Dopóki dokumenty nie
+  // przechodzą przez którąś z tych ścieżek, arkusz będzie pusty — to nie błąd eksportu,
+  // tylko brak danych wejściowych. `tools/dr-excel.js` (lokalny skrypt czytający skany
+  // z dysku) robi znacznie więcej — wykrywanie sprzeczności między czterema źródłami,
+  // kolorowanie wg pochodzenia — to jest lżejsza wersja działająca na tym, co już
+  // wpłynęło do chmury przez skrzynkę dokumentów.
+  async function exportDrXlsx() {
+    if (!window.XLSX)   { toast('⚠ Brak biblioteki XLSX'); return; }
+    if (!window.DrFields) { toast('⚠ Brak katalogu pól DR (modules/dr-fields.js)'); return; }
+
+    const docs = (await fetchDocs({})).filter(d => d.doc_type === 'dowod_rej' && d.ocr_fields);
+    if (!docs.length) {
+      toast('Brak dowodów rejestracyjnych z odczytanymi danymi w skrzynce dokumentów');
+      return;
+    }
+
+    // Dokumenty przychodzą posortowane malejąco po dacie wgrania (GET /api/docs) —
+    // pierwsze trafienie na klucz to najnowszy skan tego pojazdu.
+    const byVeh = {};
+    for (const d of docs) {
+      const key = d.vin || d.nr_rej || d.id;
+      if (!byVeh[key]) byVeh[key] = d;
+    }
+
+    const pola = window.DrFields; // katalog 35 pól, {kod,klucz,nazwa,dt1,...}
+    const rows = Object.values(byVeh).map(d => {
+      const f = d.ocr_fields || {};
+      const veh = (window.vehs || []).find(v => (d.vin && v.vin === d.vin) || v.nrRej === d.nr_rej);
+      const row = {
+        'Nr rej. (dokument)': d.nr_rej || '',
+        'VIN (dokument)': d.vin || '',
+        'W bazie floty': veh ? 'tak' : 'nie',
+        'Kat. DT-1 (baza)': veh?.cat || '',
+        'Podatek (baza)': veh?.amount > 0 ? veh.amount : '',
+        'Skan': d.name || '',
+        'Data wgrania': formatDate(d.uploaded_at),
+      };
+      for (const p of pola) row[`${p.kod} — ${p.nazwa}`] = f[p.klucz] ?? '';
+      return row;
+    });
+
+    const pokrycie = pola.map(p => {
+      const wypelnione = rows.filter(r => (r[`${p.kod} — ${p.nazwa}`] || '') !== '').length;
+      return {
+        'Kod': p.kod,
+        'Pole': p.nazwa,
+        'DT-1': p.dt1 ? 'tak' : '',
+        'Wypełnione': wypelnione,
+        'Razem': rows.length,
+        'Pokrycie %': rows.length ? Math.round((wypelnione / rows.length) * 100) : 0,
+      };
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows),     'Pojazdy DR');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pokrycie), 'Pokrycie');
+    XLSX.writeFile(wb, 'dr-skrzynka-' + new Date().toISOString().slice(0,10) + '.xlsx');
+    toast(`✓ Wyeksportowano dane DR dla ${rows.length} pojazdów`);
+  }
+
   // ─── Public API ───────────────────────────────────────────────────────────
   window.DocumentsModule = {
     renderForVehicle,
     loadForVehicle,
     openGlobalUpload,
     _renderGlobalPage,
+    exportDrXlsx,
     _openUpload,
     _closeUpload,
     _submitUpload,
