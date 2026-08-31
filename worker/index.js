@@ -13473,8 +13473,11 @@ async function handleExternalAccess(request, env, user, url, path) {
   // Reszta endpointów wymaga zalogowanego admina — komentarz to obiecywał, kod tego
   // nie sprawdzał: dowolna rola (mechanik, kierowca) mogła wygenerować token
   // zewnętrznego dostępu do zamówień/faktur/dokumentów firmy. Wzorzec jak przy /api/cfm-*.
+  // 'superadmin' MUSI być na tej liście — linia niżej (już wcześniej istniejąca,
+  // nie dodana przez ten guard) zakłada, że superadmin przechodzi cross-tenant.
+  // Bez tego wpisu ten guard odcinałby superadmina, zanim dotarłby do tamtej reguły.
   if (!user) return err('Nieautoryzowany', 401);
-  if (!['admin', 'kierownik'].includes(user.role)) return err('Brak uprawnień do zarządzania dostępem zewnętrznym', 403);
+  if (!['admin', 'kierownik', 'superadmin'].includes(user.role)) return err('Brak uprawnień do zarządzania dostępem zewnętrznym', 403);
   const company = url.searchParams.get('company') || user.company_id;
   if (!company) return err('Brak company');
   if (user.company_id && user.company_id !== company && user.role !== 'superadmin') return err('Brak dostępu', 403);
