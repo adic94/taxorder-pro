@@ -855,12 +855,14 @@ async function _docsSelect(env, sqlWithOcr, sqlWithout, binds) {
 async function handleDocs(req, env, user, url, path) {
   const segs = path.split('/').filter(Boolean); // ['api','docs',...]
 
-  // GET /api/docs?nrRej=XX&company=YY — lista dla pojazdu
-  // GET /api/docs?company=YY            — lista wszystkich (global view)
-  // GET /api/docs?vin=VIN&company=YY   — lista wg VIN
+  // GET /api/docs?nrRej=XX&company=YY   — lista dla pojazdu
+  // GET /api/docs?company=YY            — lista wszystkich (global view, ograniczona do 500 najnowszych)
+  // GET /api/docs?vin=VIN&company=YY    — lista wg VIN
+  // GET /api/docs?docType=XX&company=YY — lista wg typu dokumentu (np. eksport DR — patrz exportDrXlsx)
   if (req.method === 'GET' && segs.length === 2) {
     const nrRej   = url.searchParams.get('nrRej');
     const vin     = url.searchParams.get('vin');
+    const docType = url.searchParams.get('docType');
     const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
     const COLS    = 'id,nr_rej,vin,name,mime_type,doc_type,detected_vin,vehicle_id,file_size,notes,expiry_date,doc_number,uploaded_at,uploaded_by';
     let rows;
@@ -874,6 +876,16 @@ async function handleDocs(req, env, user, url, path) {
         `SELECT ${COLS},ocr_fields FROM documents WHERE vin=? AND company_id=? ORDER BY uploaded_at DESC`,
         `SELECT ${COLS} FROM documents WHERE vin=? AND company_id=? ORDER BY uploaded_at DESC`,
         [vin, company]);
+    } else if (docType) {
+      // Bez tej gałęzi eksport filtrowany po typie (np. tylko "dowod_rej") jechałby przez
+      // gałąź "bez filtra" niżej i byłby po cichu ucięty do 500 NAJNOWSZYCH dokumentów
+      // WSZYSTKICH typów łącznie — przy firmie z >500 dokumentami (polisy, faktury, DR razem)
+      // starsze skany DR wypadałyby z eksportu bez żadnego sygnału. Limit tu wyższy, bo
+      // filtr zawęża już po stronie SQL, nie po pobraniu.
+      rows = await _docsSelect(env,
+        `SELECT ${COLS},ocr_fields FROM documents WHERE doc_type=? AND company_id=? ORDER BY uploaded_at DESC LIMIT 5000`,
+        `SELECT ${COLS} FROM documents WHERE doc_type=? AND company_id=? ORDER BY uploaded_at DESC LIMIT 5000`,
+        [docType, company]);
     } else {
       rows = await _docsSelect(env,
         `SELECT ${COLS},ocr_fields FROM documents WHERE company_id=? ORDER BY uploaded_at DESC LIMIT 500`,

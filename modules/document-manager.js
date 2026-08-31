@@ -938,9 +938,9 @@
   // wpłynęło do chmury przez skrzynkę dokumentów.
   async function exportDrXlsx() {
     if (!window.XLSX)   { toast('⚠ Brak biblioteki XLSX'); return; }
-    if (!window.DrFields) { toast('⚠ Brak katalogu pól DR (modules/dr-fields.js)'); return; }
+    if (!window.DrFields?.POLA) { toast('⚠ Brak katalogu pól DR (modules/dr-fields.js)'); return; }
 
-    const docs = (await fetchDocs({})).filter(d => d.doc_type === 'dowod_rej' && d.ocr_fields);
+    const docs = (await fetchDocs({ docType: 'dowod_rej' })).filter(d => d.doc_type === 'dowod_rej' && d.ocr_fields);
     if (!docs.length) {
       toast('Brak dowodów rejestracyjnych z odczytanymi danymi w skrzynce dokumentów');
       return;
@@ -954,7 +954,7 @@
       if (!byVeh[key]) byVeh[key] = d;
     }
 
-    const pola = window.DrFields; // katalog 35 pól, {kod,klucz,nazwa,dt1,...}
+    const pola = window.DrFields.POLA; // katalog 35 pól, {kod,klucz,nazwa,dt1,...}
     const rows = Object.values(byVeh).map(d => {
       const f = d.ocr_fields || {};
       const veh = (window.vehs || []).find(v => (d.vin && v.vin === d.vin) || v.nrRej === d.nr_rej);
