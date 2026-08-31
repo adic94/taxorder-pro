@@ -221,7 +221,10 @@
             await window.TaxOrderFleetCloud?.saveVehicle(existing);
             if (typeof renderVeh === 'function') renderVeh();
           } else {
-            if (typeof toast === 'function') toast(`ℹ DR: pojazd ${nrRej} nie w bazie — dodaj go ręcznie`);
+            // Plik i wynik OCR są już bezpieczne w skrzynce dokumentów (zapisane przy wejściu
+            // do kolejki, worker/index.js:handleFmIngest) — ten toast dotyczy WYŁĄCZNIE tego,
+            // że nie da się jeszcze dopisać pól do pojazdu, którego nie ma we flocie.
+            if (typeof toast === 'function') toast(`ℹ DR: pojazd ${nrRej} nie w bazie — skan zapisany w skrzynce dokumentów, dodaj pojazd i przypisz go ręcznie`);
           }
         }
       } else if (qItem.type === 'paliwo') {
