@@ -41,7 +41,12 @@ async function pinujWidokIZapisz(context, page, authPath, company) {
 module.exports = async function globalSetup(config) {
   const hasToken = !!process.env.TEST_TOKEN;
   const hasEmail = !!process.env.TEST_EMAIL;
-  if (!hasToken && !hasEmail) return;
+  // Bramka musi znać też poświadczenia nie-admina — inaczej konfiguracja "tylko
+  // TEST_EMAIL_NONADMIN/TEST_PASS_NONADMIN, bez konta admina" wraca z tej funkcji
+  // na starcie i playwright.config.js dostaje projekt `nonadmin` bez pliku
+  // .auth-state-nonadmin.json, którego nikt nie zapisał (crash na starcie testów).
+  const hasNonAdminCreds = !!(process.env.TEST_EMAIL_NONADMIN && process.env.TEST_PASS_NONADMIN);
+  if (!hasToken && !hasEmail && !hasNonAdminCreds) return;
 
   const baseURL =
     process.env.TEST_URL ||
@@ -50,7 +55,9 @@ module.exports = async function globalSetup(config) {
 
   const authPath = path.join(process.cwd(), 'tests/e2e/.auth-state.json');
 
-  // Tryb 1: TEST_TOKEN — zapisz bezpośrednio do auth-state bez otwierania przeglądarki
+  // Konto admina logujemy tylko gdy mamy dla niego poświadczenia — sesja może być
+  // uruchomiona z samymi TEST_EMAIL_NONADMIN/TEST_PASS_NONADMIN (patrz wyżej), wtedy
+  // cały poniższy blok admina jest pomijany i lecimy prosto do konta nie-admina.
   if (hasToken) {
     const company = process.env.TEST_COMPANY || '';
     const authState = {
@@ -71,7 +78,7 @@ module.exports = async function globalSetup(config) {
     fs.mkdirSync(path.dirname(authPath), { recursive: true });
     fs.writeFileSync(authPath, JSON.stringify(authState, null, 2));
     console.log('[globalSetup] Auth state zapisany z TEST_TOKEN (bez logowania przez formularz).');
-  } else {
+  } else if (hasEmail) {
     // Tryb 2: TEST_EMAIL + TEST_PASS — pełne logowanie przez formularz
     const browser = await chromium.launch();
     const context = await browser.newContext({ baseURL });
@@ -93,9 +100,9 @@ module.exports = async function globalSetup(config) {
     await browser.close();
   }
 
-  // Drugie konto (nie-admin) — niezależne od tego, którym trybem zalogował się admin.
-  // Zawsze przez formularz: to konto nie ma odpowiednika TEST_TOKEN.
-  const hasNonAdminCreds = !!(process.env.TEST_EMAIL_NONADMIN && process.env.TEST_PASS_NONADMIN);
+  // Drugie konto (nie-admin) — niezależne od tego, którym trybem zalogował się admin
+  // (albo czy w ogóle się zalogował — patrz wyżej). Zawsze przez formularz: to konto
+  // nie ma odpowiednika TEST_TOKEN.
   if (hasNonAdminCreds) {
     const authPathNonAdmin = path.join(process.cwd(), 'tests/e2e/.auth-state-nonadmin.json');
     const browser = await chromium.launch();

@@ -23,8 +23,12 @@ module.exports = defineConfig({
   expect: { timeout: 8_000 },
 
   // Uruchom logowanie raz przed całą sesją — wynik zapisany w .auth-state.json
-  // Akceptuje TEST_TOKEN (token z localStorage) LUB TEST_EMAIL+TEST_PASS
-  globalSetup: (process.env.TEST_EMAIL || process.env.TEST_TOKEN) ? './tests/e2e/global-setup.js' : undefined,
+  // Akceptuje TEST_TOKEN (token z localStorage) LUB TEST_EMAIL+TEST_PASS. Musi też
+  // liczyć się z HAS_NONADMIN — bez tego trzeciego warunku, konfiguracja z samymi
+  // TEST_EMAIL_NONADMIN/TEST_PASS_NONADMIN (bez konta admina) włączałaby niżej projekt
+  // `nonadmin` ze storageState wskazującym na .auth-state-nonadmin.json, ale globalSetup
+  // nigdy by go nie zapisał — crash na starcie testów (ENOENT), nie pominięcie.
+  globalSetup: (process.env.TEST_EMAIL || process.env.TEST_TOKEN || HAS_NONADMIN) ? './tests/e2e/global-setup.js' : undefined,
 
   reporter: [
     ['list'],
