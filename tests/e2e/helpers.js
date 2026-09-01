@@ -15,8 +15,12 @@ const TEST_COMPANY  = process.env.TEST_COMPANY  || '';
  *
  * Kiedy storageState nie jest ustawiony (brak TEST_EMAIL), wykonuje pełne logowanie.
  * Rzuca błąd z czytelnym komunikatem gdy login API zwróci błąd.
+ *
+ * `email`/`pass` opcjonalne — domyślnie konto admina z .env. Parametryzacja istnieje
+ * wyłącznie po to, żeby `global-setup.js` mógł zalogować DRUGIE konto (nie-admin) tym
+ * samym kodem, zamiast drugą kopią — patrz tam sekcja o `.auth-state-nonadmin.json`.
  */
-async function login(page) {
+async function login(page, email = TEST_EMAIL, pass = TEST_PASSWORD) {
   await page.goto('/');
 
   // Daj SPA do 5s na auto-restore sesji z sessionStorage (zapisanego przez globalSetup).
@@ -29,11 +33,11 @@ async function login(page) {
   if (alreadyIn) return;
 
   // Login-screen nadal widoczny — wykonaj pełne logowanie przez formularz.
-  if (!TEST_EMAIL) throw new Error('TEST_EMAIL nie ustawiony — ustaw zmienną środowiskową lub dodaj do .env');
+  if (!email) throw new Error('TEST_EMAIL nie ustawiony — ustaw zmienną środowiskową lub dodaj do .env');
 
   await page.waitForSelector('#login-email', { timeout: 8_000 });
-  await page.fill('#login-email', TEST_EMAIL);
-  await page.fill('#login-pass', TEST_PASSWORD);
+  await page.fill('#login-email', email);
+  await page.fill('#login-pass', pass);
 
   // Zaczekaj na odpowiedź API zanim sprawdzisz UI — inaczej waitForSelector może
   // trafić w okienko gdy JS jeszcze nie zdążył ukryć login-screen po otrzymaniu tokenu.
