@@ -6015,7 +6015,7 @@ async function handleServiceContracts(req, env, user, url, path) {
     const row = await env.DB.prepare('SELECT * FROM service_contracts WHERE id=? AND company_id=?').bind(id,company).first();
     if (!row) return err('Nie znaleziono', 404);
     // Faktury powiązane z tym kontraktem
-    const invoices = (await env.DB.prepare('SELECT id,invoice_number,invoice_date,total_gross,status FROM supplier_invoices WHERE service_contract_id=? ORDER BY invoice_date DESC LIMIT 20').bind(id).all()).results||[];
+    const invoices = (await env.DB.prepare('SELECT id,invoice_number,invoice_date,total_gross,status FROM supplier_invoices WHERE service_contract_id=? AND company_id=? ORDER BY invoice_date DESC LIMIT 20').bind(id,company).all()).results||[];
     return json({ ...row, invoices });
   }
   if (method === 'GET') {
@@ -6096,13 +6096,21 @@ async function handleSupplierInvoices(req, env, user, url, path) {
   if (method === 'POST') {
     let d; try { d = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
     if (!d.invoice_number || !d.supplier_name || !d.invoice_date) return err('Wymagane: invoice_number, supplier_name, invoice_date', 400);
+    // service_contract_id musi wskazywać na kontrakt TEJ SAMEJ firmy — bez tej walidacji
+    // faktura mogła zostać podpięta pod cudzy kontrakt i pojawić się w jego widoku
+    // (handleServiceContracts GET), bo tamto zapytanie ufało samemu service_contract_id.
+    let serviceContractId = d.service_contract_id ?? null;
+    if (serviceContractId) {
+      const contractOk = await env.DB.prepare('SELECT id FROM service_contracts WHERE id=? AND company_id=?').bind(serviceContractId, company).first().catch(() => null);
+      if (!contractOk) return err('Kontrakt serwisowy nie istnieje', 404);
+    }
     const nid = crypto.randomUUID();
     await env.DB.prepare(`INSERT INTO supplier_invoices
       (id,company_id,invoice_number,supplier_name,invoice_date,due_date,invoice_type,total_net,total_vat,total_gross,status,service_contract_id,gl_account,notes)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
       .bind(nid,company,d.invoice_number,d.supplier_name,d.invoice_date,d.due_date??null,
         d.invoice_type||'service',d.total_net??null,d.total_vat??null,d.total_gross??null,
-        d.status||'pending',d.service_contract_id??null,d.gl_account??null,d.notes??null).run();
+        d.status||'pending',serviceContractId,d.gl_account??null,d.notes??null).run();
     if (Array.isArray(d.items) && d.items.length) {
       const stmts = d.items.map(it => env.DB.prepare(`INSERT INTO supplier_invoice_items (invoice_id,nr_rej,description,quantity,unit_price,total,cost_type) VALUES(?,?,?,?,?,?,?)`)
         .bind(nid,it.nr_rej??null,it.description,it.quantity??1,it.unit_price??null,it.total??null,it.cost_type??null));
@@ -12478,12 +12486,23 @@ async function handleMessenger(req, env, user, url, path) {
     const q=url.searchParams.get('q')||'';
     const where=['(to_user_id=? OR from_user_id=?)','company_id=?'];const params=[user.id,user.id,co];
     if(q){where.push('(subject LIKE ? OR body LIKE ?)');params.push('%'+q+'%','%'+q+'%');}
-    const rows=(await env.DB.prepare(`SELECT m.*,(SELECT COUNT(*) FROM messages r WHERE r.parent_id=m.id) thread_count FROM messages m WHERE ${where.join(' AND ')} AND m.parent_id IS NULL ORDER BY m.created_at DESC LIMIT 100`).bind(...params).all().catch(()=>({results:[]}))).results||[];
+    const rows=(await env.DB.prepare(`SELECT m.*,(SELECT COUNT(*) FROM messages r WHERE r.parent_id=m.id AND r.company_id=m.company_id) thread_count FROM messages m WHERE ${where.join(' AND ')} AND m.parent_id IS NULL ORDER BY m.created_at DESC LIMIT 100`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     return json({messages:rows});
   }
   if(method==='GET'&&id&&sub==='thread'){const rows=(await env.DB.prepare('SELECT * FROM messages WHERE (id=? OR parent_id=?) AND company_id=? ORDER BY created_at ASC LIMIT 50').bind(id,id,co).all().catch(()=>({results:[]}))).results||[];return json({thread:rows});}
   if(method==='POST'&&id&&sub==='read'){await env.DB.prepare('UPDATE messages SET read_at=? WHERE id=? AND company_id=?').bind(new Date().toISOString(),id,co).run();return json({ok:true});}
-  if(method==='POST'&&!id){const b=await req.json().catch(()=>({}));if(!b.body)return err('Brak treści wiadomości');const rid=crypto.randomUUID();await env.DB.prepare('INSERT INTO messages(id,company_id,from_user_id,to_user_id,parent_id,subject,body,vehicle_reg) VALUES(?,?,?,?,?,?,?,?)').bind(rid,co,user.id,b.to_user||null,b.parent_id||null,b.subject||null,b.body,b.vehicle_reg||null).run();return json({ok:true,id:rid});}
+  if(method==='POST'&&!id){
+    const b=await req.json().catch(()=>({}));if(!b.body)return err('Brak treści wiadomości');
+    // parent_id musi wskazywać na wiadomość TEJ SAMEJ firmy — bez tej walidacji
+    // wiadomość mogła zostać dopięta jako "odpowiedź" do cudzego wątku (podbijając
+    // jego thread_count), mimo że treść i tak zostaje poprawnie scope'owana przy odczycie.
+    let parentId=b.parent_id||null;
+    if(parentId){
+      const parentOk=await env.DB.prepare('SELECT id FROM messages WHERE id=? AND company_id=?').bind(parentId,co).first().catch(()=>null);
+      if(!parentOk)return err('Wiadomość nadrzędna nie istnieje',404);
+    }
+    const rid=crypto.randomUUID();await env.DB.prepare('INSERT INTO messages(id,company_id,from_user_id,to_user_id,parent_id,subject,body,vehicle_reg) VALUES(?,?,?,?,?,?,?,?)').bind(rid,co,user.id,b.to_user||null,parentId,b.subject||null,b.body,b.vehicle_reg||null).run();return json({ok:true,id:rid});
+  }
   if(method==='DELETE'&&id){await env.DB.prepare('DELETE FROM messages WHERE id=? AND company_id=? AND from_user_id=?').bind(id,co,user.id).run();return json({ok:true});}
   return err('Nieznana operacja',404);
 }
@@ -13451,8 +13470,14 @@ async function handleExternalAccess(request, env, user, url, path) {
     return json(data);
   }
 
-  // Reszta endpointów wymaga zalogowanego admina
+  // Reszta endpointów wymaga zalogowanego admina — komentarz to obiecywał, kod tego
+  // nie sprawdzał: dowolna rola (mechanik, kierowca) mogła wygenerować token
+  // zewnętrznego dostępu do zamówień/faktur/dokumentów firmy. Wzorzec jak przy /api/cfm-*.
+  // 'superadmin' MUSI być na tej liście — linia niżej (już wcześniej istniejąca,
+  // nie dodana przez ten guard) zakłada, że superadmin przechodzi cross-tenant.
+  // Bez tego wpisu ten guard odcinałby superadmina, zanim dotarłby do tamtej reguły.
   if (!user) return err('Nieautoryzowany', 401);
+  if (!['admin', 'kierownik', 'superadmin'].includes(user.role)) return err('Brak uprawnień do zarządzania dostępem zewnętrznym', 403);
   const company = url.searchParams.get('company') || user.company_id;
   if (!company) return err('Brak company');
   if (user.company_id && user.company_id !== company && user.role !== 'superadmin') return err('Brak dostępu', 403);
