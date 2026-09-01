@@ -741,10 +741,10 @@ window.TaxOrderVehicleDetail = {
           ${field('ocPremium','Składka OC (zł)', v.ocPremium,'number')}
         </div>
         <div style="margin-bottom:18px">
-          <button class="btn btn-gray" style="font-size:11px" onclick="window.open('https://www.ufg.pl/inf_o_ubezpieczeniu/','_blank')" title="Sprawdź ubezpieczenie OC w UFG">
+          <button class="btn btn-gray" style="font-size:11px" onclick="window.open('https://www.ufg.pl/','_blank')" title="Sprawdź ubezpieczenie OC w UFG">
             <i class="ti ti-external-link" style="color:#059669"></i>Weryfikuj OC w UFG
           </button>
-          <span style="font-size:10px;color:var(--text3);margin-left:8px">Otwiera portal UFG — wpisz nr rej: <strong style="font-family:var(--mono)">${esc(v.nrRej||'')}</strong></span>
+          <span style="font-size:10px;color:var(--text3);margin-left:8px">Otwiera portal UFG — kliknij „Sprawdź OC/AC" i wpisz nr rej: <strong style="font-family:var(--mono)">${esc(v.nrRej||'')}</strong></span>
         </div>
         <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
           <i class="ti ti-shield-half"></i> AC / Casco — Ubezpieczenie dobrowolne
