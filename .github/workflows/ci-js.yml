@@ -251,3 +251,11 @@ jobs:
       # dopoki istnieja trzy kopie, to jedyne, co nie pozwoli im sie znowu rozjechac.
       - name: Straznik importu paliwa — kwota brutto, nie netto
         run: node tests/unit/fuel-csv-test.js
+
+      # Audyt 01.09.2026: 708 zapytan SELECT/UPDATE/DELETE w workerze, 84 bez
+      # `company_id` w tresci. Kazde zweryfikowane recznie z pelnym kontekstem
+      # funkcji (PRE-CHECK/PRE-SCOPED/WLASNY-ZAPIS/TOKEN/DYNAMIC-WHERE/ADMIN/CRON —
+      # patrz naglowek pliku) — zero realnych luk. Lista ZNANE_BEZPIECZNE moze
+      # tylko malec; nowe zapytanie bez company_id i bez wpisu na liscie to porazka.
+      - name: Straznik izolacji tenanta — company_id w kazdym zapytaniu
+        run: node tests/unit/tenant-scope-test.js
