@@ -836,31 +836,63 @@ function _extractVin(text) {
 }
 
 // ─── DOCUMENTS ────────────────────────────────────────────────────────────────
+// `ocr_fields` istnieje dopiero po ręcznym uruchomieniu migration_v54_documents_inbox.sql.
+// Dopóki ktoś jej nie zaaplikuje na produkcji, SELECT z tą kolumną pada na "no such
+// column" — a to jest odczyt UŻYWANY JUŻ DZIŚ (karta pojazdu, globalna lista dokumentów),
+// więc bez fallbacku sam merge tego kodu do main (auto-deploy Workera) zepsułby GET
+// /api/docs w oknie między mergem a ręczną migracją. Fallback utrzymuje stare zachowanie.
+async function _docsSelect(env, sqlWithOcr, sqlWithout, binds) {
+  try {
+    const rows = await env.DB.prepare(sqlWithOcr).bind(...binds).all();
+    return (rows.results || []).map(r => ({ ...r, ocr_fields: r.ocr_fields ? JSON.parse(r.ocr_fields) : null }));
+  } catch (e) {
+    if (!/no such column/i.test(e.message || '')) throw e;
+    const rows = await env.DB.prepare(sqlWithout).bind(...binds).all();
+    return (rows.results || []).map(r => ({ ...r, ocr_fields: null }));
+  }
+}
+
 async function handleDocs(req, env, user, url, path) {
   const segs = path.split('/').filter(Boolean); // ['api','docs',...]
 
-  // GET /api/docs?nrRej=XX&company=YY — lista dla pojazdu
-  // GET /api/docs?company=YY            — lista wszystkich (global view)
-  // GET /api/docs?vin=VIN&company=YY   — lista wg VIN
+  // GET /api/docs?nrRej=XX&company=YY   — lista dla pojazdu
+  // GET /api/docs?company=YY            — lista wszystkich (global view, ograniczona do 500 najnowszych)
+  // GET /api/docs?vin=VIN&company=YY    — lista wg VIN
+  // GET /api/docs?docType=XX&company=YY — lista wg typu dokumentu (np. eksport DR — patrz exportDrXlsx)
   if (req.method === 'GET' && segs.length === 2) {
     const nrRej   = url.searchParams.get('nrRej');
     const vin     = url.searchParams.get('vin');
+    const docType = url.searchParams.get('docType');
     const company = url.searchParams.get('company') || user.company_id || 'mtoilet';
+    const COLS    = 'id,nr_rej,vin,name,mime_type,doc_type,detected_vin,vehicle_id,file_size,notes,expiry_date,doc_number,uploaded_at,uploaded_by';
     let rows;
     if (nrRej) {
-      rows = await env.DB.prepare(
-        'SELECT id,nr_rej,vin,name,mime_type,doc_type,detected_vin,vehicle_id,file_size,notes,expiry_date,doc_number,uploaded_at,uploaded_by FROM documents WHERE nr_rej=? AND company_id=? ORDER BY uploaded_at DESC'
-      ).bind(nrRej, company).all();
+      rows = await _docsSelect(env,
+        `SELECT ${COLS},ocr_fields FROM documents WHERE nr_rej=? AND company_id=? ORDER BY uploaded_at DESC`,
+        `SELECT ${COLS} FROM documents WHERE nr_rej=? AND company_id=? ORDER BY uploaded_at DESC`,
+        [nrRej, company]);
     } else if (vin) {
-      rows = await env.DB.prepare(
-        'SELECT id,nr_rej,vin,name,mime_type,doc_type,detected_vin,vehicle_id,file_size,notes,expiry_date,doc_number,uploaded_at,uploaded_by FROM documents WHERE vin=? AND company_id=? ORDER BY uploaded_at DESC'
-      ).bind(vin, company).all();
+      rows = await _docsSelect(env,
+        `SELECT ${COLS},ocr_fields FROM documents WHERE vin=? AND company_id=? ORDER BY uploaded_at DESC`,
+        `SELECT ${COLS} FROM documents WHERE vin=? AND company_id=? ORDER BY uploaded_at DESC`,
+        [vin, company]);
+    } else if (docType) {
+      // Bez tej gałęzi eksport filtrowany po typie (np. tylko "dowod_rej") jechałby przez
+      // gałąź "bez filtra" niżej i byłby po cichu ucięty do 500 NAJNOWSZYCH dokumentów
+      // WSZYSTKICH typów łącznie — przy firmie z >500 dokumentami (polisy, faktury, DR razem)
+      // starsze skany DR wypadałyby z eksportu bez żadnego sygnału. Limit tu wyższy, bo
+      // filtr zawęża już po stronie SQL, nie po pobraniu.
+      rows = await _docsSelect(env,
+        `SELECT ${COLS},ocr_fields FROM documents WHERE doc_type=? AND company_id=? ORDER BY uploaded_at DESC LIMIT 5000`,
+        `SELECT ${COLS} FROM documents WHERE doc_type=? AND company_id=? ORDER BY uploaded_at DESC LIMIT 5000`,
+        [docType, company]);
     } else {
-      rows = await env.DB.prepare(
-        'SELECT id,nr_rej,vin,name,mime_type,doc_type,detected_vin,vehicle_id,file_size,notes,expiry_date,doc_number,uploaded_at,uploaded_by FROM documents WHERE company_id=? ORDER BY uploaded_at DESC LIMIT 500'
-      ).bind(company).all();
+      rows = await _docsSelect(env,
+        `SELECT ${COLS},ocr_fields FROM documents WHERE company_id=? ORDER BY uploaded_at DESC LIMIT 500`,
+        `SELECT ${COLS} FROM documents WHERE company_id=? ORDER BY uploaded_at DESC LIMIT 500`,
+        [company]);
     }
-    return json(rows.results || []);
+    return json(rows);
   }
 
   // POST /api/docs/upload — smart upload z auto-klasyfikacją i detekcją VIN
@@ -880,9 +912,15 @@ async function handleDocs(req, env, user, url, path) {
     const doc_type     = docTypeIn || _classifyDoc(file.name, textHint);
     const detected_vin = _extractVin(textHint + ' ' + file.name);
     const vin          = vinParam || detected_vin || null;
+    // nrRej może być puste — dokument bez jeszcze dopasowanego pojazdu (skrzynka
+    // dokumentów, VIN nierozpoznany) musi dać się zapisać. Do migration_v54
+    // `nr_rej` było NOT NULL i ten przypadek zawsze padał na zapisie.
     const anchor       = vin || nrRej || 'global';
     const expiryDate   = (fd.get('expiry_date') || '').trim() || null;
     const docNumber    = (fd.get('doc_number')   || '').slice(0, 100).trim() || null;
+    // JSON pełnego wyniku ekstrakcji (DR_POLA_OCR / faktura) — opcjonalny, wysyłany
+    // przez ścieżki, które same zrobiły OCR (import ze skrzynki dokumentów).
+    const ocrFieldsIn  = (fd.get('ocr_fields') || '').slice(0, 20000).trim() || null;
 
     const docId = crypto.randomUUID();
     const ext   = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : 'bin';
@@ -891,16 +929,28 @@ async function handleDocs(req, env, user, url, path) {
     await env.DOCS.put(r2Key, file.stream(), {
       httpMetadata: { contentType: file.type || 'application/octet-stream' },
     });
-    await env.DB.prepare(
-      `INSERT INTO documents(id,nr_rej,company_id,name,mime_type,r2_key,vin,doc_type,detected_vin,vehicle_id,file_size,notes,uploaded_by,expiry_date,doc_number)
-       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
-    ).bind(
+    const insertVals = [
       docId, nrRej || null, company, file.name,
       file.type || 'application/octet-stream', r2Key,
       vin, doc_type, detected_vin,
       vehicleId || null, file.size || 0, notesIn || null,
       user?.email || null, expiryDate, docNumber,
-    ).run();
+    ];
+    try {
+      await env.DB.prepare(
+        `INSERT INTO documents(id,nr_rej,company_id,name,mime_type,r2_key,vin,doc_type,detected_vin,vehicle_id,file_size,notes,uploaded_by,expiry_date,doc_number,ocr_fields)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      ).bind(...insertVals, ocrFieldsIn).run();
+    } catch (e) {
+      // Patrz komentarz przy _docsSelect — ta sama usterka kolejności merge/migracja,
+      // tylko po stronie zapisu. Bez fallbacku KAŻDY upload (funkcja używana już dziś)
+      // padłby 500 w oknie między mergem tego kodu a ręcznym uruchomieniem migration_v54.
+      if (!/no such column/i.test(e.message || '')) throw e;
+      await env.DB.prepare(
+        `INSERT INTO documents(id,nr_rej,company_id,name,mime_type,r2_key,vin,doc_type,detected_vin,vehicle_id,file_size,notes,uploaded_by,expiry_date,doc_number)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      ).bind(...insertVals).run();
+    }
 
     return json({ ok: true, id: docId, key: r2Key, doc_type, detected_vin, vin, expiry_date: expiryDate, doc_number: docNumber });
   }
@@ -3362,15 +3412,16 @@ async function handleFmIngest(request, env, user) {
   if (dup) return json({ ok: true, id: dup.id, duplicate: true });
 
   // Uruchom OCR (async — wynik trafia do kolejki)
-  let ocrResult = null, ocrModel = null, ocrError = null;
+  let ocrResult = null, ocrFields = null, ocrModel = null, ocrError = null;
   try {
     // Wywołaj handleAIOCRDoc inline z tym samym body
     const mockReq = { method: 'POST', json: async () => ({ imageBase64: fileBase64, mimeType, docType }) };
     const ocrResp = await handleAIOCRDoc(mockReq, env);
     if (ocrResp.status === 200) {
       const d = await ocrResp.json();
-      ocrResult = JSON.stringify(d.fields || {});
-      ocrModel  = d.model || '';
+      ocrFields  = d.fields || {};
+      ocrResult  = JSON.stringify(ocrFields);
+      ocrModel   = d.model || '';
     } else {
       ocrError = 'HTTP ' + ocrResp.status;
     }
@@ -3386,7 +3437,47 @@ async function handleFmIngest(request, env, user) {
     ocrResult, ocrModel, ocrError, agentName
   ).run();
 
-  return json({ ok: true, id, status: ocrResult ? 'ocr_done' : 'error' }, 201);
+  // Zapis pliku do R2/`documents` NIEZALEŻNIE od tego, czy OCR się powiódł i czy
+  // ktokolwiek kiedykolwiek kliknie "Importuj" w kolejce. Do 27.08 skrzynka dokumentów
+  // (agent Node.js) OCR-owała plik i go WYRZUCAŁA — po zamknięciu kolejki oryginalny
+  // skan znikał bezpowrotnie, a `folder_monitor_queue` (0 wierszy na produkcji) i tak
+  // nigdy nie było używane. To naprawia obie rzeczy naraz: skan jest bezpieczny od razu,
+  // a pole "vin"/"nrRej" z OCR pozwala od razu podłączyć dokument pod właściwy pojazd.
+  let docId = null;
+  try {
+    const nrRejOcr = (ocrFields?.nrRej || '').toString().trim().toUpperCase() || null;
+    const vinOcr   = docType === 'dr' ? ((ocrFields?.vin || '').toString().trim().toUpperCase() || null) : null;
+    const anchor   = vinOcr || nrRejOcr || 'global';
+    const ext      = filename.includes('.') ? filename.split('.').pop().toLowerCase() : 'bin';
+    docId = crypto.randomUUID();
+    const r2Key = `docs/${companyId}/vin/${anchor}/${docId}.${ext}`;
+
+    const DOC_TYPE_MAP = { polisa: 'ubezp', dr: 'dowod_rej', paliwo: 'faktura', serwis: 'serwis' };
+    const bytes = Uint8Array.from(atob(fileBase64), c => c.charCodeAt(0));
+    await env.DOCS.put(r2Key, bytes, { httpMetadata: { contentType: mimeType } });
+
+    let vehicleId = null;
+    if (nrRejOcr) {
+      const v = await env.DB.prepare('SELECT id FROM vehicles WHERE company_id=? AND nr_rej=?').bind(companyId, nrRejOcr).first().catch(() => null);
+      vehicleId = v?.id || null;
+    }
+
+    await env.DB.prepare(
+      `INSERT INTO documents(id,nr_rej,company_id,name,mime_type,r2_key,vin,doc_type,detected_vin,vehicle_id,file_size,notes,uploaded_by,ocr_fields)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(
+      docId, nrRejOcr, companyId, filename, mimeType, r2Key,
+      vinOcr, DOC_TYPE_MAP[docType] || 'inne', vinOcr,
+      vehicleId, bytes.length, `Skrzynka dokumentów — agent ${agentName}`,
+      null, ocrResult,
+    ).run();
+  } catch (e) {
+    // Zapis do documents/R2 nie może zablokować odpowiedzi dla agenta — kolejka
+    // (folder_monitor_queue) i tak ma wynik OCR, więc ręczny import wciąż zadziała.
+    console.log('[folder-monitor] Zapis dokumentu do skrzynki nie powiódł się:', e.message);
+  }
+
+  return json({ ok: true, id, docId, status: ocrResult ? 'ocr_done' : 'error' }, 201);
 }
 
 // GET /api/folder-monitor/queue?company=...&status=...&limit=50

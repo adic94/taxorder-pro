@@ -3,7 +3,7 @@
  * Cache-first dla assetów, network-first dla danych
  * Obsługuje: install, activate, fetch, push, notificationclick
  */
-const CACHE_NAME = 'taxorder-v81';
+const CACHE_NAME = 'taxorder-v82';
 const STATIC_ASSETS = [
   '/',
   '/app.js',
@@ -54,6 +54,7 @@ const STATIC_ASSETS = [
   '/modules/doc-workflow.js',
   '/modules/document-manager.js',
   '/modules/documents.js',
+  '/modules/dr-fields.js',
   '/modules/dr-import.js',
   '/modules/driver-panel.js',
   '/modules/driver-performance.js',
