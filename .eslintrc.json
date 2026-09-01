@@ -21,6 +21,7 @@
     "TaxEngine": "readonly",
     "TaxOrderTests": "readonly",
     "GminyRates": "readonly",
+    "VehicleDictionaries": "readonly",
     "I18n": "readonly",
     "UserPrefs": "readonly",
     "DT1Generator": "readonly",
