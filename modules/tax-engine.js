@@ -74,8 +74,28 @@ const STAWKI_2026 = {
   ciezar_ge12_4os_ge29: 4296,
 };
 
+/**
+ * Pojazd zarejestrowany poza Polską nie podlega podatkowi od środków transportowych
+ * (ustawa o podatkach i opłatach lokalnych dotyczy pojazdów zarejestrowanych w Polsce).
+ * Ustalone z właścicielem 01.09.2026 — dotyczy m.in. floty litewskiej.
+ *
+ * Pole `krajRejestracji` (karta pojazdu, `modules/vehicle-detail.js`) jest wolnym
+ * tekstem i w ZDECYDOWANEJ WIĘKSZOŚCI pojazdów puste — bo dotąd nic go nie czytało,
+ * a dla floty krajowej nikt nie miał powodu go wypełniać. Dlatego puste pole
+ * oznacza Polskę (opodatkowany), NIE brak ustalenia — inaczej ta zmiana zwolniłaby
+ * z dnia na dzień całą flotę, której nikt tego pola nie wypełnił.
+ */
+function isForeignRegistered(v) {
+  const kraj = String(v.krajRejestracji || '').trim();
+  if (!kraj) return false;
+  return !/^(polska|pl|poland)$/i.test(kraj);
+}
+
 const TaxEngine = {
+  isForeignRegistered,
+
   getRate(v) {
+    if (isForeignRegistered(v)) return null;
     if (window.GminyRates) {
       const r = window.GminyRates.getGminaRate(v);
       if (r != null) return r;
@@ -183,6 +203,9 @@ const TaxEngine = {
   },
 
   getCat(v) {
+    // Pojazd zarejestrowany poza Polską nie podlega DT-1 — patrz isForeignRegistered() wyżej.
+    if (isForeignRegistered(v)) return null;
+
     // Leasing aktywny → podatek po stronie leasingodawcy, nie firmy (poza rokiem zakończenia)
     if (v.leasingCompany?.trim()) {
       const yr = v._taxYear || new Date().getFullYear();

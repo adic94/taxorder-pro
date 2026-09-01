@@ -67,6 +67,11 @@ function getCat(v) {
   if (v.dmc == null && v.dmcMax == null) return null;
   const dT=(v.dmc??v.dmcMax??0)/1000, dzT=(v.dmcZespolu||0)/1000, refZ=dzT>0?dzT:dT;
   const typ=(v.typ||'').toLowerCase(), osie=parseInt(v.osie||v.liczbaOsi)||2;
+  // Pojazd zarejestrowany poza Polską nie podlega DT-1 (puste pole = Polska,
+  // patrz uzasadnienie przy isForeignRegistered() w modules/tax-engine.js —
+  // to jest tylko fallback awaryjny, gdy tax-engine.js się nie załaduje)
+  const kraj = String(v.krajRejestracji||'').trim();
+  if (kraj && !/^(polska|pl|poland)$/i.test(kraj)) return null;
   // Pojazdy specjalne są zwolnione z podatku DT-1
   if(typ.includes('specjaln')||(v.przeznaczenie||'').toLowerCase().includes('specjaln')) return null;
   if(typ.includes('autobus')) return (parseInt(v.miejsca)||0)<22?'D6':'D7';

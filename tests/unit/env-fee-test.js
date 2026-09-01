@@ -32,6 +32,7 @@ const zrodloFunkcji = [
   wytnij(/function\s+co2FactorSetFor\s*\([\s\S]*?\n\}/, 'co2FactorSetFor'),
   wytnij(/function\s+co2FactorFor\s*\([\s\S]*?\n\}/, 'co2FactorFor'),
   wytnij(/function\s+normalizeEuroNorm\s*\([\s\S]*?\n\}/, 'normalizeEuroNorm'),
+  wytnij(/function\s+envFeeRateEuro\s*\([\s\S]*?\n\}/, 'envFeeRateEuro'),
   wytnij(/function\s+envFeeVehicleClass\s*\([\s\S]*?\n\}/, 'envFeeVehicleClass'),
   wytnij(/function\s+envFeeRateSetForYear\s*\([\s\S]*?\n\}/, 'envFeeRateSetForYear'),
   wytnij(/function\s+computeEnvironmentalFee\s*\([\s\S]*?\n\}/, 'computeEnvironmentalFee'),
@@ -43,7 +44,7 @@ function zbuduj(zestawy) {
   return new Function(`
     const ENV_FEE_RATE_SETS = ${JSON.stringify(zestawy)};
     ${zrodloFunkcji}
-    return { computeEnvironmentalFee, normalizeEuroNorm, envFeeRateSetForYear, envFeeVehicleClass };
+    return { computeEnvironmentalFee, normalizeEuroNorm, envFeeRateEuro, envFeeRateSetForYear, envFeeVehicleClass };
   `)();
 }
 
@@ -91,11 +92,14 @@ if (!mSets) {
   const zestaw = [{
     rok: 2026, zrodlo: 'FIKCYJNY ZESTAW TESTOWY', jednostka_stawki: 'pln_na_Mg',
     gestosc_kg_na_litr: { diesel: 0.84, petrol: 0.75 },
-    stawki: { 'diesel|EURO 6|powyzej_3_5t': 10, 'petrol|EURO 4|osobowy': 20 },
+    // Klucz to 'EURO 5', mimo że pojazd niżej ma 'EURO 6' — tabela (jak produkcyjna)
+    // nie ma wiersza EURO 6, więc to jednocześnie test przeliczenia litry→Mg
+    // I test mapowania envFeeRateEuro('EURO 6') -> 'EURO 5'.
+    stawki: { 'diesel|EURO 5|powyzej_3_5t': 10, 'petrol|EURO 4|osobowy': 20 },
   }];
   const { computeEnvironmentalFee } = zbuduj(zestaw);
   const r = computeEnvironmentalFee({ year: 2026, pozycje: [
-    // 840 kg = 0.84 Mg × 10 = 8.40
+    // 840 kg = 0.84 Mg × 10 = 8.40 -- euro pojazdu 'EURO 6' musi trafić w wiersz 'EURO 5'
     { nr_rej: 'WX1', fuel_type: 'diesel', liters: 1000, euro: 'EURO 6', dmc: 18000, rodzaj: 'samochód ciężarowy' },
     // 1500 kg = 1.5 Mg × 20 = 30.00
     { nr_rej: 'WX2', fuel_type: 'pb95',   liters: 2000, euro: 'euro4',  dmc: 1800,  rodzaj: 'samochód osobowy' },
@@ -173,19 +177,82 @@ if (!mSets) {
   }
 }
 
-// ── 4c. EURO 6 NIE MA STAWKI W TABELI D — i nie wolno jej podstawić ──────────
-// Tabela D kończy się na EURO 5. Przypisanie EURO 6 stawki EURO 5 byłoby
-// INTERPRETACJĄ przepisu, nie odczytem — a dotyczy większości nowoczesnej floty.
+// ── 4c. TABELA nie ma wiersza EURO 6 — mapowanie jest w LOOKUPIE, nie w danych ──
+// Tabela D kończy się na EURO 5. Ustalone z właścicielem 01.09.2026: „EURO 5
+// i nowsze zastosujmy według przepisu" — więc EURO 6 dostaje stawkę wiersza
+// EURO 5, ale przez `envFeeRateEuro()` w czasie wyszukania, nie przez dopisanie
+// zmyślonego wiersza „EURO 6" do samej tabeli (który wyglądałby jak odczyt z PDF-a).
 {
   const mSets2 = src.match(/const\s+ENV_FEE_RATE_SETS\s*=\s*(\[[\s\S]*?\n\];)/);
   const prod = mSets2 ? eval(mSets2[1].replace(/;$/, '')) : []; // eslint-disable-line no-eval
   const zEuro6 = prod.flatMap(z => Object.keys(z.stawki || {})).filter(k => /EURO 6/.test(k));
   if (zEuro6.length === 0) {
-    ok('brak stawek EURO 6 w kodzie — zgodnie z Tabelą D, która kończy się na EURO 5');
+    ok('tabela stawek nadal nie ma wiersza EURO 6 — mapowanie żyje wyłącznie w envFeeRateEuro()');
   } else {
     bad(`w kodzie są stawki EURO 6: ${zEuro6.slice(0, 3).join(', ')}`,
-      'Tabela D nie ma wiersza EURO 6. Skąd te liczby? Podstawienie stawki EURO 5\n      ' +
-      'jest interpretacją przepisu i wymaga rozstrzygnięcia z księgowością, nie domysłu w kodzie.');
+      'Tabela D nie ma wiersza EURO 6 — dopisanie go tutaj wyglądałoby jak odczyt z PDF-a,\n      ' +
+      'a to interpretacja przez envFeeRateEuro(). Trzymaj mapowanie w kodzie, nie w danych.');
+  }
+}
+
+// ── 4d. envFeeRateEuro — EURO 5 i nowsze mapują się na wiersz EURO 5 ─────────
+{
+  const { envFeeRateEuro } = zbuduj([]);
+  const przypadki = [['EURO 5', 'EURO 5'], ['EURO 6', 'EURO 5'], ['EURO 4', 'EURO 4'],
+    ['PRZED_EURO', 'PRZED_EURO'], [null, null]];
+  const zle = przypadki.filter(([we, ocz]) => envFeeRateEuro(we) !== ocz);
+  if (zle.length) bad(`envFeeRateEuro źle mapuje: ${zle.map(z => JSON.stringify(z[0])).join(', ')}`);
+  else ok('envFeeRateEuro: EURO 5 i wyższe -> wiersz EURO 5, niższe normy i PRZED_EURO bez zmian');
+}
+
+// ── 4e. CNG wyrażamy w kg — bez gęstości, `liters` traktowane wprost jako masa ──
+// Ustalone z właścicielem 01.09.2026. CNG sprzedaje się na kg; przeliczenie
+// litry×gęstość byłoby dla niego bez sensu, więc gałąź CNG pomija gęstość
+// całkowicie i dzieli wprost przez 1000 (kg -> Mg).
+{
+  const zestaw = [{
+    rok: 2026, zrodlo: 'FIKCYJNY', jednostka_stawki: 'pln_na_Mg',
+    gestosc_kg_na_litr: {}, // celowo BEZ cng_fabryczny — CNG nie powinno jej szukać
+    stawki: { 'cng_fabryczny|EURO 5|osobowy': 10 },
+  }];
+  const { computeEnvironmentalFee } = zbuduj(zestaw);
+  // 500 "litrow" wejsciowych dla CNG = 500 kg = 0.5 Mg x 10 = 5.00 zl.
+  // paliwo_stawka podane jawnie -- patrz ZNALEZISKO w komentarzu produkcyjnym:
+  // samo fuel_type='cng' normalizuje się (przez co2FactorFor) do 'cng', a Tabela D
+  // rozróżnia fabryczne/przebudowane pod innymi kluczami, więc bez jawnego
+  // paliwo_stawka funkcja SŁUSZNIE odmawia (sekcja 4f niżej to sprawdza).
+  const r = computeEnvironmentalFee({ year: 2026, pozycje: [
+    { nr_rej: 'CNG1', fuel_type: 'cng', paliwo_stawka: 'cng_fabryczny', liters: 500, euro: 'EURO 5', dmc: 1800, rodzaj: 'samochód osobowy' },
+  ] });
+  const poz = r.pozycje?.find(p => p.nr_rej === 'CNG1');
+  if (r.ok && poz && Math.abs(poz.mg - 0.5) < 0.001 && Math.abs(poz.pln - 5) < 0.001) {
+    ok('CNG: wartość z fuel_fills.liters potraktowana wprost jako kg, bez szukania gęstości');
+  } else {
+    bad(`CNG policzone błędnie: ${JSON.stringify(r)}`,
+      'Dla CNG mg powinno wyjść z liters/1000 (kg->Mg), bez mnożenia przez gęstość.');
+  }
+}
+
+// ── 4f. CNG bez jawnego rodzaju instalacji ODMAWIA, nie zgaduje ─────────────
+// `co2FactorFor` normalizuje CNG do klucza 'cng', ale Tabela D ma dwa różne
+// wiersze (fabryczny/przebudowany) pod innymi kluczami. System dziś nigdzie nie
+// zapisuje rodzaju instalacji, więc samo fuel_type='cng' (bez paliwo_stawka)
+// MUSI trafić na `nieustalone` z jawnym powodem, nie zgadnąć jednej z dwóch stawek.
+{
+  const zestaw = [{
+    rok: 2026, zrodlo: 'FIKCYJNY', jednostka_stawki: 'pln_na_Mg',
+    gestosc_kg_na_litr: {},
+    stawki: { 'cng_fabryczny|EURO 5|osobowy': 10, 'cng_przebudowany|EURO 5|osobowy': 15 },
+  }];
+  const { computeEnvironmentalFee } = zbuduj(zestaw);
+  const r = computeEnvironmentalFee({ year: 2026, pozycje: [
+    { nr_rej: 'CNG2', fuel_type: 'cng', liters: 500, euro: 'EURO 5', dmc: 1800, rodzaj: 'samochód osobowy' },
+  ] });
+  if (r.ok && r.nieustalone?.length === 1 && r.nieustalone[0].brakuje.some(b => /instalacji CNG/.test(b))) {
+    ok('CNG bez rodzaju instalacji trafia na „nieustalone" z jawnym powodem, nie dostaje zgadniętej stawki');
+  } else {
+    bad(`CNG bez rodzaju instalacji obsłużony niepoprawnie: ${JSON.stringify(r.nieustalone)}`,
+      'Dwie różne stawki (fabryczny/przebudowany) — zgadnięcie jednej byłoby błędem finansowym.');
   }
 }
 
