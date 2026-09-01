@@ -223,6 +223,14 @@ jobs:
       - name: Podstawa DT-1 to F.2, nie F.1
         run: node tests/unit/dmc-podstawa-test.js
 
+      # Ustalone z wlascicielem 01.09.2026: pojazd zarejestrowany poza Polska nie
+      # podlega DT-1 (dotyczy floty litewskiej). Pole krajRejestracji istnialo juz
+      # w karcie pojazdu, ale TaxEngine go nie czytal. Pulapka: pole jest wolnym
+      # tekstem i w wiekszosci floty PUSTE - puste MUSI oznaczac Polske (opodatkowany),
+      # inaczej zmiana zwolnilaby cala krajowa flote z dnia na dzien.
+      - name: DT-1 — pojazd zarejestrowany poza Polską nie jest opodatkowany
+        run: node tests/unit/dt1-foreign-plate-test.js
+
       # tools/sync.js synchronizuje dwa komputery „jednym poleceniem" — czyli jest
       # dokladnie tym rodzajem wygody, przy ktorej ktos kiedys uruchomi ja na `main`.
       # A push do main w tym repo JEST wdrozeniem na produkcje (deploy-worker.yml dla

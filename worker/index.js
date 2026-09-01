@@ -7062,11 +7062,6 @@ async function handleTCO(request, env, user, url, path) {
  * „g/cm" — zero trafień), więc pochodzą z innego źródła i wymagają osobnej decyzji
  * wraz z podaniem pochodzenia. Do tego czasu odmowa jest zachowaniem właściwym.
  *
- * ⚠️ CNG WYMAGA ODDZIELNEGO ROZSTRZYGNIĘCIA, NIE SAMEJ GĘSTOŚCI. CNG sprzedaje się
- * na KILOGRAMY, nie na litry, więc przeliczenie `litry × gęstość` jest dla niego
- * bez sensu — dla tych dwóch paliw wejściem powinna być masa. Wpisanie im
- * jakiejkolwiek „gęstości" dałoby liczbę wyglądającą poprawnie i błędną.
- *
  * ⚠️ AUTOBUSY POWYŻEJ 3,5 t MAJĄ W KODZIE WYŁĄCZNIE WIERSZ PRZED_EURO (on 88,25;
  * bd 79,87). Autobus z normą EURO 1–5 nie dostanie stawki i trafi na „nieustalone".
  * Nie wiadomo, czy to wierne odwzorowanie Tabeli D, czy luka ekstrakcji — do
@@ -7081,10 +7076,18 @@ async function handleTCO(request, env, user, url, path) {
  *   • trzy kotwice ON EURO 5 (5,76 / 6,82 / 9,19) zgadzają się co do grosza
  *     z odczytem zapisanym niezależnie w CLAUDE.md.
  *
- * BRAK EURO 6 JEST FAKTEM, NIE PRZEOCZENIEM — Tabela D kończy się na EURO 5.
- * Pojazd EURO 6 trafia na „nieustalone" celowo: podstawienie mu stawki EURO 5
- * byłoby INTERPRETACJĄ przepisu, nie odczytem. Dotyczy większości nowoczesnej
- * floty, więc wymaga rozstrzygnięcia z księgowością.
+ * ✅ ROZSTRZYGNIĘTE 01.09.2026, na polecenie właściciela: „EURO 5 i nowsze
+ * zastosujmy według przepisu". Tabela D kończy się na wierszu EURO 5, ale sam
+ * przepis obejmuje EURO 5 i wszystko nowsze — więc pojazd EURO 6 (i każdy
+ * przyszły EURO 7+) dostaje stawkę wiersza EURO 5, zamiast trafiać na
+ * „nieustalone". Patrz `envFeeRateEuro()` niżej — jedyne miejsce tej reguły.
+ *
+ * ✅ CNG ROZSTRZYGNIĘTE 01.09.2026: „CNG wyrażamy w kg". CNG sprzedaje się na
+ * kilogramy, nie na litry, więc przeliczenie `litry × gęstość` było dla niego
+ * bez sensu. Dla `cng_fabryczny`/`cng_przebudowany` wartość w `fuel_fills.liters`
+ * jest odtąd traktowana WPROST jako kilogramy (paragon ze stacji CNG i tak podaje
+ * kg, więc liczba wpisywana do systemu już nią była) — gęstość jest pomijana,
+ * nie wyszukiwana. Patrz gałąź `jestCng` w `computeEnvironmentalFee()`.
  * ══════════════════════════════════════════════════════════════════════════════
  */
 const ENV_FEE_RATE_SETS = [
@@ -7215,6 +7218,19 @@ function normalizeEuroNorm(raw) {
 }
 
 /**
+ * Norma EURO do WYSZUKANIA STAWKI w Tabeli D — różna od normy pojazdu.
+ * Tabela D kończy się wierszem EURO 5, ale przepis obejmuje „EURO 5 i nowsze"
+ * (rozstrzygnięte z właścicielem 01.09.2026) — więc EURO 6 i każda przyszła
+ * norma wyższa mapuje się na wiersz EURO 5. `PRZED_EURO` przechodzi bez zmian.
+ */
+function envFeeRateEuro(euro) {
+  if (!euro) return null;
+  const m = euro.match(/^EURO (\d+)$/);
+  if (!m) return euro;
+  return Number(m[1]) >= 5 ? 'EURO 5' : euro;
+}
+
+/**
  * Klasa pojazdu wg Tabeli D — TRZECI wymiar stawki, obok paliwa i normy EURO.
  *
  * Zwraca `null`, gdy klasy nie da się ustalić — a wtedy `computeEnvironmentalFee`
@@ -7262,24 +7278,41 @@ function computeEnvironmentalFee({ year, pozycje }) {
   const wynik = { ok: true, rok: zestaw.rok, zrodlo: zestaw.zrodlo, jednostka: zestaw.jednostka_stawki,
     pozycje: [], nieustalone: [], razem_pln: 0 };
   for (const p of pozycje || []) {
-    const paliwo = co2FactorFor(p.fuel_type).key;         // ta sama normalizacja co w CO2
+    // `p.paliwo_stawka` pozwala wołającemu podać dokładny klucz Tabeli D
+    // ('cng_fabryczny'/'cng_przebudowany'), gdy go zna (patrz ZNALEZISKO niżej);
+    // domyślnie używamy tej samej normalizacji co w CO2 (`co2FactorFor` -> 'cng').
+    const paliwo = p.paliwo_stawka || co2FactorFor(p.fuel_type).key;
     const euro = normalizeEuroNorm(p.euro);
+    const euroStawka = envFeeRateEuro(euro);              // EURO 6+ -> wiersz EURO 5 (patrz komentarz wyżej)
     const klasa = envFeeVehicleClass(p);
-    const gestosc = zestaw.gestosc_kg_na_litr?.[paliwo];
-    const stawka = (euro && klasa) ? zestaw.stawki?.[`${paliwo}|${euro}|${klasa}`] : undefined;
-    if (!euro || !klasa || gestosc === undefined || stawka === undefined) {
+    // CNG sprzedaje się na kg, nie na litry — `fuel_fills.liters` dla CNG jest
+    // wprost masą w kg (paragon ze stacji CNG i tak podaje kg), więc gęstość
+    // jest tu pomijana, nie wyszukiwana. Ustalone z właścicielem 01.09.2026.
+    const jestCng = paliwo === 'cng_fabryczny' || paliwo === 'cng_przebudowany';
+    const gestosc = jestCng ? null : zestaw.gestosc_kg_na_litr?.[paliwo];
+    const stawka = (euroStawka && klasa) ? zestaw.stawki?.[`${paliwo}|${euroStawka}|${klasa}`] : undefined;
+    // ZNALEZISKO PRZY OKAZJI (01.09.2026): dla zwykłego `fuel_type='cng'` (bez
+    // `paliwo_stawka` podanego przez wołającego) `paliwo` wyjdzie 'cng' — a Tabela D
+    // rozróżnia CNG fabryczne/przebudowane (inna stawka) pod kluczami
+    // 'cng_fabryczny'/'cng_przebudowany', więc `stawka` będzie `undefined` i pojazd
+    // trafi na `nieustalone` z powodem "stawka". System dziś nigdzie nie zapisuje
+    // rodzaju instalacji gazowej — dopóki się to nie zmieni (nowe pole w danych DR/
+    // pojazdu), CNG bez jawnie podanego `paliwo_stawka` pozostaje nierozliczalny,
+    // ŚWIADOMIE: zgadnięcie któregoś z dwóch wierszy byłoby dokładnie tym błędem,
+    // przed którym ta funkcja ma chronić.
+    if (!euro || !klasa || stawka === undefined || (!jestCng && gestosc === undefined)) {
       wynik.nieustalone.push({ nr_rej: p.nr_rej, fuel_type: p.fuel_type, euro: p.euro, klasa,
         brakuje: [
           !euro && 'norma EURO',
           !klasa && 'klasa pojazdu (DMC + rodzaj)',
-          gestosc === undefined && 'gęstość paliwa',
-          stawka === undefined && (euro && klasa
-            ? `stawka dla ${paliwo}|${euro}|${klasa} (Tabela D kończy się na EURO 5)`
-            : 'stawka'),
+          (!jestCng && gestosc === undefined) && 'gęstość paliwa',
+          stawka === undefined && (paliwo === 'cng'
+            ? 'rodzaj instalacji CNG (fabryczna/przebudowana) — system tego dziś nie zapisuje'
+            : (euroStawka && klasa ? `stawka dla ${paliwo}|${euroStawka}|${klasa}` : 'stawka')),
         ].filter(Boolean) });
       continue;
     }
-    const mg = (p.liters * gestosc) / 1000;               // litry → kg → Mg
+    const mg = jestCng ? (p.liters / 1000) : ((p.liters * gestosc) / 1000); // CNG: kg -> Mg; inne: litry -> kg -> Mg
     const pln = mg * stawka;
     wynik.pozycje.push({ nr_rej: p.nr_rej, paliwo, euro, klasa, liters: p.liters,
       mg: Math.round(mg * 1000) / 1000, stawka, pln: Math.round(pln * 100) / 100 });
