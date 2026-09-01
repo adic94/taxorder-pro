@@ -6,7 +6,8 @@
  *   wrangler d1 create taxorder-pro
  *   wrangler r2 bucket create taxorder-docs
  *   wrangler kv namespace create PREFS
- *   wrangler d1 execute taxorder-pro --file=worker/schema.sql
+ *   Inicjalizacja bazy: NIE worker/schema.sql (przestarzały, 7 tabel) —
+ *   pełna procedura (schema_v1..v49 + migration_v*) opisana w CLOUDFLARE_DEPLOY.md, Krok 4.
  *   wrangler deploy
  */
 

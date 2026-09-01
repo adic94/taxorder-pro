@@ -51,13 +51,41 @@ id = "WKLEJ_TUTAJ_KV_ID"
 
 ## Krok 4 — Inicjalizuj bazę danych
 
+⚠️ **NIE używaj `worker/schema.sql`** — to przestarzały plik z pierwszej wersji
+projektu (7 tabel: `users`, `sessions`, `vehicles`, `company_states`, `user_prefs`,
+`documents`, `push_subscriptions`). Baza ma dziś **49 plików `schema_v*.sql`**
+(kolejne migracje) plus kilka `migration_v*.sql` (przebudowy strukturalne).
+Wdrożenie samym `schema.sql` da bazę bez firm, KSeF, tachografów, floty
+rezerwacji i dziesiątek innych tabel — Worker zacznie padać na `no such table`
+przy pierwszym użyciu czegokolwiek poza podstawowym CRUD-em pojazdów.
+
+Zastosuj wszystkie pliki schematu **w kolejności numerycznej**, z pominięciem
+plików `_ROLLBACK` (to jest ta sama zasada, której pilnuje `nightly-report.yml`):
+
 ```bash
 # Lokalna (do testów)
-wrangler d1 execute taxorder-pro --file=worker/schema.sql
+for f in $(ls worker/schema_v*.sql | grep -v ROLLBACK | sort -V); do
+  wrangler d1 execute taxorder-pro --file="$f"
+done
 
 # Zdalna (produkcja)
-wrangler d1 execute taxorder-pro --file=worker/schema.sql --remote
+for f in $(ls worker/schema_v*.sql | grep -v ROLLBACK | sort -V); do
+  wrangler d1 execute taxorder-pro --file="$f" --remote
+done
 ```
+
+Następnie zastosuj migracje strukturalne (nie wchodzą przez nocny automat,
+zawsze ręcznie — każda zawiera w nagłówku uzasadnienie, dlaczego jest osobno):
+
+```bash
+for f in $(ls worker/migration_v*.sql | grep -v ROLLBACK | sort -V); do
+  wrangler d1 execute taxorder-pro --file="$f" --remote
+done
+```
+
+Po każdym kroku warto sprawdzić realny stan zamiast ufać brakowi błędu:
+`wrangler d1 execute taxorder-pro --remote --command "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"`
+— docelowo powinno wyjść ok. 130+ tabel.
 
 ---
 
