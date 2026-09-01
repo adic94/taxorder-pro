@@ -947,29 +947,58 @@
     }
 
     // Dokumenty przychodzą posortowane malejąco po dacie wgrania (GET /api/docs) —
-    // pierwsze trafienie na klucz to najnowszy skan tego pojazdu.
+    // grupujemy WSZYSTKIE skany danego pojazdu (nie tylko najnowszy), żeby móc
+    // wykryć, kiedy dwa skany tego samego VIN/nr rej. dają różne odczyty tego
+    // samego pola — dokładnie ten sygnał, który poprzednia wersja tego eksportu
+    // po cichu gubiła, biorąc zawsze tylko pierwszy (najnowszy) wpis.
     const byVeh = {};
     for (const d of docs) {
       const key = d.vin || d.nr_rej || d.id;
-      if (!byVeh[key]) byVeh[key] = d;
+      (byVeh[key] ??= []).push(d);
     }
 
     const pola = window.DrFields.POLA; // katalog 35 pól, {kod,klucz,nazwa,dt1,...}
-    const rows = Object.values(byVeh).map(d => {
+    const rows = [];
+    const konflikty = [];
+    for (const grupa of Object.values(byVeh)) {
+      const d = grupa[0]; // najnowszy — ten trafia do głównego wiersza
       const f = d.ocr_fields || {};
       const veh = (window.vehs || []).find(v => (d.vin && v.vin === d.vin) || v.nrRej === d.nr_rej);
       const row = {
         'Nr rej. (dokument)': d.nr_rej || '',
         'VIN (dokument)': d.vin || '',
+        'Liczba skanów': grupa.length,
         'W bazie floty': veh ? 'tak' : 'nie',
         'Kat. DT-1 (baza)': veh?.cat || '',
         'Podatek (baza)': veh?.amount > 0 ? veh.amount : '',
-        'Skan': d.name || '',
+        'Skan (najnowszy)': d.name || '',
         'Data wgrania': formatDate(d.uploaded_at),
       };
       for (const p of pola) row[`${p.kod} — ${p.nazwa}`] = f[p.klucz] ?? '';
-      return row;
-    });
+      rows.push(row);
+
+      if (grupa.length < 2) continue;
+      for (const p of pola) {
+        // Wartości puste nie liczą się jako sprzeczność — brak odczytu w jednym
+        // skanie to co innego niż inny odczyt tej samej rubryki.
+        const warianty = new Map(); // wartość -> [nazwy skanów]
+        for (const doc of grupa) {
+          const v = (doc.ocr_fields?.[p.klucz] ?? '').toString().trim();
+          if (!v) continue;
+          if (!warianty.has(v)) warianty.set(v, []);
+          warianty.get(v).push(doc.name || doc.id);
+        }
+        if (warianty.size > 1) {
+          konflikty.push({
+            'Nr rej. (dokument)': d.nr_rej || '',
+            'VIN (dokument)': d.vin || '',
+            'Pole': `${p.kod} — ${p.nazwa}`,
+            'DT-1': p.dt1 ? 'tak' : '',
+            'Warianty': [...warianty.entries()].map(([v, ss]) => `${v} (${ss.join(', ')})`).join(' | '),
+          });
+        }
+      }
+    }
 
     const pokrycie = pola.map(p => {
       const wypelnione = rows.filter(r => (r[`${p.kod} — ${p.nazwa}`] || '') !== '').length;
@@ -986,8 +1015,12 @@
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows),     'Pojazdy DR');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pokrycie), 'Pokrycie');
+    // Arkusz Konflikty dopisany tylko gdy jest co pokazać — pusty arkusz nie niesie
+    // informacji, a jego brak w skoroszycie jest tu czytelnym sygnałem "zero sprzeczności",
+    // nie przeoczeniem (ten sam wzorzec co w tools/dr-excel.js).
+    if (konflikty.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(konflikty), 'Konflikty');
     XLSX.writeFile(wb, 'dr-skrzynka-' + new Date().toISOString().slice(0,10) + '.xlsx');
-    toast(`✓ Wyeksportowano dane DR dla ${rows.length} pojazdów`);
+    toast(`✓ Wyeksportowano dane DR dla ${rows.length} pojazdów` + (konflikty.length ? ` — ${konflikty.length} sprzeczności do sprawdzenia` : ''));
   }
 
   // ─── Public API ───────────────────────────────────────────────────────────
