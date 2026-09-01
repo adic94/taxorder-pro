@@ -89,6 +89,9 @@ jobs:
       - name: Straznik oplat srodowiskowych — brak stawek nie moze dac zera
         run: node tests/unit/env-fee-test.js
 
+      - name: DT-1 — zapis PDF/ePUAP w programie + organ wg gminy siedziby
+        run: node tests/unit/dt1-epuap-test.js
+
       # claude.yml dostaje `contents: write` i ANTHROPIC_API_KEY, a wyzwalaczem jest
       # TRESC komentarza. Bez sprawdzenia autora wystarczy napisac "@claude ...", zeby
       # dostac agenta z prawem zapisu — a push do worker/** to deploy na produkcje.

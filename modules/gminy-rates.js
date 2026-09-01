@@ -69,6 +69,37 @@ window.GminyRates = (function () {
   const SCHEMA_MAP = Object.fromEntries(SCHEMA.map(s => [s.key, s]));
   const WARSZAWA_DEFAULTS = Object.fromEntries(SCHEMA.map(s => [s.key, s.default]));
 
+  // ── URZĘDY PODATKOWE PER GMINA ──────────────────────────────────────────
+  //
+  // Pole 5 deklaracji DT-1 ("Nazwa i adres siedziby organu podatkowego") ma
+  // wynikać z gminy, w której zarejestrowana jest siedziba podatnika — NIE
+  // z nazwy spółki ani z dzielnicy wpisanej ręcznie przy zakładaniu firmy
+  // w tym programie. Dla Warszawy adres jest SCENTRALIZOWANY — każda
+  // dzielnica składa DT-1 w to samo miejsce — co potwierdza wzorcowa
+  // deklaracja pobrana z systemu Moja Warszawa 01.09.2026:
+  // „PREZYDENT M.ST. WARSZAWY, CENTRUM OBSŁUGI PODATNIKA UL. OBOZOWA 57
+  // 01-161 WARSZAWA". Wcześniej `COMPANIES` w app.js miało dla różnych
+  // spółek różne „Dzielnica Białołęka" / „Dzielnica Rembertów" itd. —
+  // to było błędne dla podatku od środków transportowych (deklaracja idzie
+  // do jednego centralnego punktu, nie do urzędu dzielnicy).
+  //
+  // Adresy innych gmin CELOWO nie są tu wpisane, dopóki nie zostaną
+  // zweryfikowane u źródła — ta sama zasada co przy `LIMITY_USTAWOWE`
+  // i gęstościach paliw w opłacie środowiskowej: brak danych nie jest
+  // zerem, jest brakiem danych. `getUrzad()` zwraca `null`, gdy gminy nie
+  // ma w słowniku — wywołujący ma wtedy spaść na ręczny wpis, a nie zgadnąć
+  // adres.
+  const URZEDY_GMIN = {
+    'Warszawa': 'PREZYDENT M.ST. WARSZAWY, CENTRUM OBSŁUGI PODATNIKA, UL. OBOZOWA 57, 01-161 WARSZAWA',
+  };
+
+  const URZEDY_GMIN_LC = Object.fromEntries(Object.entries(URZEDY_GMIN).map(([k, v]) => [k.toLowerCase(), v]));
+
+  function getUrzad(gmina) {
+    if (!gmina) return null;
+    return URZEDY_GMIN_LC[String(gmina).trim().toLowerCase()] || null;
+  }
+
   // ── WIDEŁKI USTAWOWE ────────────────────────────────────────────────────────
   //
   // Rada gminy NIE uchwala stawki dowolnie — uchwala ją w widełkach, i to
@@ -498,6 +529,7 @@ window.GminyRates = (function () {
 
   return {
     SCHEMA, WARSZAWA_DEFAULTS, LIMITY_USTAWOWE, sprawdzWidelki,
+    URZEDY_GMIN, getUrzad,
     getRateKey, getGminaRate, getGminaRates,
     listGminy, saveGminaRates, deleteGmina, copyFrom,
     calcFleetTaxForGmina, renderComparison,

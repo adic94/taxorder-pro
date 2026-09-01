@@ -1840,6 +1840,18 @@ function autoAssignCategories() {
 }
 
 // ==================== DT-1 PER FIRMA ====================
+
+// Adres organu podatkowego wynika z gminy siedziby podatnika, nie z nazwy
+// spółki wpisanej ręcznie. Kolejność: ręczna korekta w formularzu (tp-organ)
+// > zweryfikowany adres z GminyRates.URZEDY_GMIN dla gminy siedziby > stara
+// wartość zapisana przy firmie (fallback dla gmin spoza słownika, np. Serock).
+function _dt1ResolveOrgan(tpOrgan, co) {
+  if (tpOrgan) return tpOrgan;
+  const gmina = (co && (co.gmina || co.miasto)) || '';
+  const zGminy = (window.GminyRates && typeof GminyRates.getUrzad === 'function') ? GminyRates.getUrzad(gmina) : null;
+  return zGminy || (co && co.organ) || '';
+}
+
 async function generujDt1PerFirma() {
   if (typeof DT1Generator === 'undefined') { toast('⚠ Moduł DT1Generator niedostępny'); return; }
 
@@ -1869,7 +1881,7 @@ async function generujDt1PerFirma() {
 
   const baseTaxpayer = {
     nip:    tp('tp-nip')  || co.nip  || '',
-    organ:  tp('tp-organ')|| co.organ|| '',
+    organ:  _dt1ResolveOrgan(tp('tp-organ'), co),
     ulica:  tp('tp-ulica')|| '', dom: tp('tp-dom')||'', lokal: tp('tp-lokal')||'',
     kod:    tp('tp-kod')  || '', miasto: tp('tp-miasto')||'', woj: tp('tp-woj')||'',
     imie:   tp('tp-imie') || '', nazwisko: tp('tp-nazwisko')||'',
@@ -5120,7 +5132,7 @@ async function generujDt1Multi() {
   const taxpayerData = {
     nip:    tp('tp-nip')      || co.nip      || '',
     nazwa:  tp('tp-nazwa')    || co.name      || '',
-    organ:  tp('tp-organ')    || co.organ     || '',
+    organ:  _dt1ResolveOrgan(tp('tp-organ'), co),
     ulica:  tp('tp-ulica')    || co.street    || '',
     dom:    tp('tp-dom')      || co.building  || '',
     lokal:  tp('tp-lokal')    || co.flat      || '',
@@ -5135,15 +5147,16 @@ async function generujDt1Multi() {
 
   toast(`⏳ Generuję DT-1 dla ${allTaxable.length} pojazdów...`);
   try {
-    await DT1Generator.generate(taxpayerData, allTaxable, { rok: parseInt(yr) });
+    const result = await DT1Generator.generate(taxpayerData, allTaxable, { rok: parseInt(yr) });
 
-    // Zapisz do archiwum deklaracji
+    // Zapisz do archiwum deklaracji + sam wygenerowany PDF (1:1 z tym, co poszło do
+    // druku), żeby deklaracja zostawała w programie, a nie tylko jako snapshot JSON.
     if (window.Dt1Declarations?.saveDeclaration) {
       const totalTax = allTaxable.reduce((s, v) => {
         const t = typeof calcTax === 'function' ? calcTax(v) : {};
         return s + (t.amount || v.amount || 0);
       }, 0);
-      await window.Dt1Declarations.saveDeclaration({
+      const declId = await window.Dt1Declarations.saveDeclaration({
         rok:           parseInt(yr),
         total_tax:     Math.round(totalTax * 100) / 100,
         vehicle_count: allTaxable.length,
@@ -5153,6 +5166,9 @@ async function generujDt1Multi() {
           return { nrRej: v.nrRej, marka: v.marka, model: v.model, cat: t.cat||v.cat, miesiacePodatku: v.miesiacePodatku ?? 12, amount: t.amount||v.amount||0 };
         }),
       });
+      if (declId && result?.pdfBytes && typeof window.Dt1Declarations.uploadPdf === 'function') {
+        await window.Dt1Declarations.uploadPdf(declId, result.pdfBytes);
+      }
     }
   } catch(e) {
     toast('❌ ' + e.message);
