@@ -1,5 +1,14 @@
--- TaxOrder Pro — Cloudflare D1 Schema
--- Uruchom: wrangler d1 execute taxorder-pro --file=worker/schema.sql
+-- ⚠️ PRZESTARZAŁE — NIE UŻYWAJ TEGO PLIKU.
+-- To bootstrap z pierwszej wersji projektu: 7 tabel (users, sessions, vehicles,
+-- company_states, user_prefs, documents, push_subscriptions). Baza ma dziś
+-- 49 plików schema_v*.sql (kolejne migracje) plus kilka migration_v*.sql
+-- (przebudowy strukturalne) — wdrożenie samym tym plikiem da bazę bez firm,
+-- KSeF, tachografów, rezerwacji floty i dziesiątek innych tabel; Worker
+-- zacznie padać na "no such table" przy pierwszym użyciu czegokolwiek poza
+-- podstawowym CRUD-em pojazdów.
+-- Pełna procedura inicjalizacji: CLOUDFLARE_DEPLOY.md, Krok 4.
+--
+-- TaxOrder Pro — Cloudflare D1 Schema (wersja pierwotna, zachowana jako archiwum)
 
 -- ===================== UŻYTKOWNICY =====================
 CREATE TABLE IF NOT EXISTS users (
