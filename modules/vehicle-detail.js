@@ -48,6 +48,7 @@ window.TaxOrderVehicleDetail = {
     this._currentVehId = vehId;
     this._dirty = false;
     this._render(v);
+    this._refreshDicts(v);
     // Aktywuj super-tab (pamięta ostatnio wybrany) i aktywuj pierwszą zakładkę w grupie
     this._superTab(this._activeSuperTab || 'przeglad');
     document.getElementById('vd-modal').style.display = 'flex';
@@ -475,10 +476,10 @@ window.TaxOrderVehicleDetail = {
     const isRental  = own === 'rental';
     const isArchived = v.is_active === false;
 
-    const field = (id, label, val, type='text', hint='') => `
+    const field = (id, label, val, type='text', hint='', listId='', extraAttrs='') => `
       <div class="vdf">
         <label class="vdl">${label}${hint ? `<span class="vdh">${hint}</span>` : ''}</label>
-        <input id="vd-${id}" type="${type}" class="fi" value="${esc(val) ?? ''}" autocomplete="off">
+        <input id="vd-${id}" type="${type}" class="fi" value="${esc(val) ?? ''}" autocomplete="off" ${listId?`list="${listId}"`:''} ${extraAttrs}>
       </div>`;
 
     const sel = (id, label, options, val) => `
@@ -486,6 +487,18 @@ window.TaxOrderVehicleDetail = {
         <label class="vdl">${label}</label>
         <select id="vd-${id}" class="fi">
           ${options.map(([v2,l]) => `<option value="${v2}" ${v2===val?'selected':''}>${l}</option>`).join('')}
+        </select>
+      </div>`;
+
+    // Select ze słownikiem rozszerzalnym o własne wartości (typ nadwozia, oznaczenie
+    // osi) — ostatnia opcja "+ Dodaj inny…" jest obsługiwana przez
+    // VehicleDictionaries.handleCustomSelect() w onchange.
+    const selDict = (id, label, pairs, val, addKind) => `
+      <div class="vdf">
+        <label class="vdl">${label}</label>
+        <select id="vd-${id}" class="fi" onchange="TaxOrderVehicleDetail._onDictSelectChange(this,'${addKind}')">
+          ${window.VehicleDictionaries ? VehicleDictionaries.buildSelectOptions(pairs, val) :
+            pairs.map(([v2,l]) => `<option value="${v2}" ${v2===val?'selected':''}>${l}</option>`).join('')}
         </select>
       </div>`;
 
@@ -598,11 +611,11 @@ window.TaxOrderVehicleDetail = {
         </div>
         <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Identyfikacja pojazdu</div>
         <div class="vdfg" style="margin-bottom:18px">
-          ${field('marka','D.1 — Marka', v.marka)}
-          ${field('model','Model', v.model)}
+          ${field('marka','D.1 — Marka', v.marka, 'text', '', 'vd-marka-list', "oninput=\"TaxOrderVehicleDetail._onMarkaInput(this.value)\"")}
+          ${field('model','Model', v.model, 'text', '', 'vd-model-list')}
           ${field('rok','Rok produkcji', v.rok,'number')}
           ${field('vin','E — VIN / nr identyfikacyjny', v.vin)}
-          ${field('typ','Typ pojazdu', v.typ)}
+          ${field('typ','Typ pojazdu', v.typ, 'text', '', 'vd-typ-list')}
         </div>
         <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Identyfikacja dokumentu</div>
         <div class="vdfg" style="margin-bottom:18px">
@@ -628,26 +641,9 @@ window.TaxOrderVehicleDetail = {
         </div>
         <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Konfiguracja osi</div>
         <div class="vdfg" style="margin-bottom:18px">
-          ${sel('konfiguracjaOsi','Oznaczenie osi (układ napędowy)',[
-            ['','— nie określono —'],
-            ['4x2','4×2 — solówka / ciągnik siodłowy (1 oś napędowa, 1 skrętna)'],
-            ['4x4','4×4 — napęd na 4 koła (PSP, terenowe, lekkie wywrotki)'],
-            ['6x2','6×2 — 3 osie, 1 napędowa, tylna wleczona nieskrętna'],
-            ['6x2*4','6×2*4 — ostatnia oś wleczona SKRĘTNA (śmieciarka, dystrybucja)'],
-            ['6x2/4','6×2/4 — oś pchana przed napędem skrętna (ciągniki UK)'],
-            ['6x4','6×4 — klasyczny budowlany: 2 tylne napędowe (wywrotki, gruszki)'],
-            ['6x6','6×6 — pełny napęd terenowy (wojsko, energetyka)'],
-            ['8x2/4','8×2/4 — 4 osie, 2 przednie skrętne, 1 napędowa, 1 wleczona'],
-            ['8x2*6','8×2*6 — 3 osie skrętne, żurawie HDS miejskie (Scania G500)'],
-            ['8x4','8×4 — standardowa wywrotka 4-osiowa (2 napędowe z tyłu)'],
-            ['8x4/4','8×4/4 — 8×4 z 4 kołami sterowanymi z przodu'],
-            ['8x4*4','8×4*4 — tridem: ostatnia oś wleczona skrętna, dobra zwrotność'],
-            ['8x8','8×8 — pełny napęd, pojazdy pustyniowe / kopalniane'],
-            ['10x4','10×4 — 5 osi, pompy do betonu powyżej 50 m'],
-            ['10x4*6','10×4*6 — ciężkie tridem, ostatnia oś skrętna'],
-            ['10x6*4','10×6*4 — 3 osie napędowe, 2 skrętne'],
-            ['10x6*2','10×6*2 — spec. holenderskie (Ginaf, Terberg), kopalniane'],
-          ], v.konfiguracjaOsi||'')}
+          ${selDict('konfiguracjaOsi','Oznaczenie osi (układ napędowy)',
+            [['','— nie określono —'], ...(window.VehicleDictionaries ? VehicleDictionaries.getOsie() : [])],
+            v.konfiguracjaOsi||'', 'osie')}
         </div>
         <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Silnik i nadwozie</div>
         <div class="vdfg" style="margin-bottom:18px">
@@ -675,11 +671,9 @@ window.TaxOrderVehicleDetail = {
             ['','— nie określono —'],['2x4','2×4'],['4x4','4×4 (AWD/4WD)'],
             ['6x4','6×4'],['6x2','6×2'],['8x4','8×4'],['elektryczny','Elektryczny'],
           ], v.drivetype)}
-          ${sel('bodyType','Typ nadwozia',[
-            ['','— nie określono —'],['sedan','Sedan'],['kombi','Kombi'],['suv','SUV / Terenowy'],
-            ['van','Van / Bus'],['pickup','Pickup'],['ciezarowka','Ciężarówka'],
-            ['naczepa','Naczepa'],['przyczepa','Przyczepa'],['inne','Inne'],
-          ], v.bodyType)}
+          ${selDict('bodyType','Typ nadwozia',
+            [['','— nie określono —'], ...(window.VehicleDictionaries ? VehicleDictionaries.getNadwozia() : [])],
+            v.bodyType||'', 'nadwozia')}
           ${field('miejscaSied','S.1 — Miejsca siedzące', v.miejscaSied,'number')}
           ${field('miejscaStoj','S.2 — Miejsca stojące', v.miejscaStoj,'number')}
         </div>
@@ -698,6 +692,11 @@ window.TaxOrderVehicleDetail = {
         <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
           <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px">Podatek DT-1</div>
           <div id="vd-dt1-box">${this._renderDt1Box(v)}</div>
+          <div class="vdfg" style="margin-top:8px">
+            ${field('purchaseDate','Data nabycia pojazdu', v.purchaseDate||v.dataNabycia,'date','','','onchange="TaxOrderVehicleDetail._autoCalcMiesiace('+v.id+')"')}
+            ${field('saleDate','Data zbycia / sprzedaży', v.saleDate||v.dataZbycia,'date','','','onchange="TaxOrderVehicleDetail._autoCalcMiesiace('+v.id+')"')}
+            ${field('dataWycofania','Data wycofania z ruchu', v.dataWycofania,'date','(jeśli dotyczy)','','onchange="TaxOrderVehicleDetail._autoCalcMiesiace('+v.id+')"')}
+          </div>
           <div class="vdfg" style="margin-top:8px">
             <div class="vdf">
               <label class="vdl">Gmina (stawki) <span style="font-weight:400;font-size:10px;color:var(--text3)">— zacznij pisać</span></label>
@@ -1422,14 +1421,13 @@ window.TaxOrderVehicleDetail = {
       <!-- TAB: ZAKUP / SPRZEDAŻ -->
       <div id="vd-tab-purchase-content" class="vd-tab-content" style="display:none">
         <div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:10px"><i class="ti ti-shopping-cart"></i> Nabycie pojazdu <span style="font-weight:400;font-size:10px;color:var(--text3)">(DT-1/A poz. 8)</span></div>
+        <div class="ibox" style="margin-bottom:10px;font-size:11px">Data nabycia i data zbycia/wycofania — zakładka <strong>Przegląd → Podatek DT-1</strong> (wpływają na wyliczenie miesięcy podatkowych).</div>
         <div class="vdfg">
-          ${field('purchaseDate','Data nabycia / zakupu', v.purchaseDate||v.dataNabycia,'date')}
           ${field('purchasePrice','Cena zakupu netto (zł)', v.purchasePrice,'number')}
           ${field('purchaseInvoice','Nr faktury zakupu', v.purchaseInvoice)}
         </div>
         <div style="font-size:12px;font-weight:600;color:var(--red);margin:20px 0 10px"><i class="ti ti-cash"></i> Sprzedaż / Zbycie pojazdu <span style="font-weight:400;font-size:10px;color:var(--text3)">(DT-1/A poz. 9)</span></div>
         <div class="vdfg">
-          ${field('saleDate','Data zbycia / sprzedaży', v.saleDate||v.dataZbycia,'date')}
           ${field('saleInvoice','Nr faktury sprzedaży', v.saleInvoice)}
           ${field('saleBuyer','Nabywca (nazwa)', v.saleBuyer)}
           <div class="vdf">
@@ -1449,10 +1447,10 @@ window.TaxOrderVehicleDetail = {
         </div>
         <div style="font-size:12px;font-weight:600;color:var(--amber);margin:20px 0 10px"><i class="ti ti-car-off"></i> Zmiany stanu w ruchu <span style="font-weight:400;font-size:10px;color:var(--text3)">(DT-1/A poz. 10–12)</span></div>
         <div class="vdfg">
-          ${field('dataWycofania','10. Data czasowego wycofania z ruchu', v.dataWycofania,'date')}
           ${field('dataDopuszczenia','11. Data ponownego dopuszczenia do ruchu', v.dataDopuszczenia,'date')}
           ${field('dataWyrejestrowania','12. Data wyrejestrowania', v.dataWyrejestrowania,'date')}
         </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:-4px;margin-bottom:8px">10. Data czasowego wycofania z ruchu — zakładka Podatek DT-1.</div>
         <div style="font-size:12px;font-weight:600;color:var(--text2);margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
           <i class="ti ti-chart-bar"></i> Wartość i finanse
         </div>
@@ -3373,6 +3371,33 @@ td:last-child{font-weight:600;color:#1e293b}
   },
 
   // ── Auto-obliczanie miesięcy podatkowych z dat pojazdu ───────────────────
+  // Podpowiedzi marki/modelu/typu (jak na Otomoto) — podpięte po _render(), bo
+  // datalisty żyją poza elementem, którego innerHTML jest za każdym razem nadpisywane.
+  _refreshDicts(v) {
+    if (!window.VehicleDictionaries) return;
+    VehicleDictionaries.attachDatalist('vd-marka', VehicleDictionaries.getMarki(), 'vd-marka-list');
+    VehicleDictionaries.attachDatalist('vd-model', VehicleDictionaries.getModele(v.marka), 'vd-model-list');
+    VehicleDictionaries.attachDatalist('vd-typ',   VehicleDictionaries.getTypy(),  'vd-typ-list');
+  },
+
+  _onMarkaInput(marka) {
+    if (!window.VehicleDictionaries) return;
+    VehicleDictionaries.attachDatalist('vd-model', VehicleDictionaries.getModele(marka), 'vd-model-list');
+  },
+
+  // Obsługa "+ Dodaj inny…" w słownikowych <select> (typ nadwozia, oznaczenie osi).
+  _onDictSelectChange(selectEl, kind) {
+    const addFn = kind === 'osie'
+      ? (val) => VehicleDictionaries.addCustomPair('osie', val, val)
+      : (val) => VehicleDictionaries.addCustomPair('nadwozia', val, val);
+    VehicleDictionaries.handleCustomSelect(selectEl, kind, addFn, (key) => {
+      const opt = document.createElement('option');
+      opt.value = key; opt.textContent = key; opt.selected = true;
+      selectEl.insertBefore(opt, selectEl.lastElementChild); // przed "+ Dodaj inny…"
+    });
+    this._dirty = true;
+  },
+
   _autoCalcMiesiace(vehId) {
     if (typeof window.calcMiesiacePodatku !== 'function') return;
     const v = (window.vehs || []).find(x => x.id === vehId);
