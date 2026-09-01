@@ -40,6 +40,77 @@ window.Dt1Declarations = (function () {
     return null;
   }
 
+  // ── Zapis wygenerowanego PDF do R2 (żeby deklaracja zostawała w programie
+  //    1:1 z tym, co poszło do druku/urzędu, nie tylko jako snapshot JSON) ──
+  async function uploadPdf(id, pdfBytes) {
+    const apiBase = window.CF_WORKER_URL || '';
+    if (!apiBase || !pdfBytes) return false;
+    try {
+      const company = window.currentCompanyId || 'mtoilet';
+      const token   = localStorage.getItem('cf_token') || '';
+      // Uint8Array -> base64 kawałkami, żeby nie przepełnić stosu na dużych PDF-ach.
+      let binary = '';
+      const chunk = 0x8000;
+      for (let i = 0; i < pdfBytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, pdfBytes.subarray(i, i + chunk));
+      }
+      const pdfBase64 = btoa(binary);
+      const r = await fetch(`${apiBase}/api/dt1-declarations/${id}/pdf?company=${encodeURIComponent(company)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ pdfBase64 }),
+      });
+      if (r.ok) { await load(); return true; }
+    } catch (e) { console.error('[DT1] uploadPdf error:', e); }
+    return false;
+  }
+
+  // ── Pobranie zapisanego PDF ─────────────────────────────────────────────
+  async function downloadPdf(id) {
+    const apiBase = window.CF_WORKER_URL || '';
+    if (!apiBase) return;
+    const company = window.currentCompanyId || 'mtoilet';
+    const token   = localStorage.getItem('cf_token') || '';
+    try {
+      const r = await fetch(`${apiBase}/api/dt1-declarations/${id}/pdf?company=${encodeURIComponent(company)}`,
+        { headers: { Authorization: 'Bearer ' + token } });
+      if (!r.ok) { if (typeof toast === 'function') toast('PDF niedostępny dla tej deklaracji'); return; }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `DT-1_${id}.pdf`; a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      if (typeof toast === 'function') toast('Błąd sieci — nie można pobrać PDF');
+      console.error('[DT1] downloadPdf error:', e);
+    }
+  }
+
+  // ── Oznacz jako wysłane przez ePUAP — bez logowania do Moja Warszawa,
+  //    program tylko zapamiętuje datę i numer referencyjny wpisany ręcznie ──
+  async function markEpuapSent(id) {
+    const dateStr = prompt('Data wysyłki przez ePUAP (RRRR-MM-DD):', new Date().toISOString().slice(0, 10));
+    if (!dateStr) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) { if (typeof toast === 'function') toast('Nieprawidłowy format daty — użyj RRRR-MM-DD'); return; }
+    const ref = prompt('Numer UPD / identyfikator ePUAP (opcjonalnie):', '') || '';
+    const apiBase = window.CF_WORKER_URL || '';
+    if (!apiBase) return;
+    const company = window.currentCompanyId || 'mtoilet';
+    const token   = localStorage.getItem('cf_token') || '';
+    try {
+      const r = await fetch(`${apiBase}/api/dt1-declarations/${id}?company=${encodeURIComponent(company)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ epuap_sent_at: dateStr, epuap_reference: ref || null }),
+      });
+      if (r.ok) { if (typeof toast === 'function') toast('✓ Oznaczono jako wysłane przez ePUAP'); await load(); }
+      else if (typeof toast === 'function') toast('Błąd zapisu daty wysyłki');
+    } catch (e) {
+      if (typeof toast === 'function') toast('Błąd sieci — nie można zapisać daty wysyłki');
+      console.error('[DT1] markEpuapSent error:', e);
+    }
+  }
+
   // ── Usuń ──────────────────────────────────────────────────────────────────
   async function deleteDecl(id) {
     if (!confirm('Usunąć tę deklarację z archiwum?')) return;
@@ -103,6 +174,13 @@ window.Dt1Declarations = (function () {
           </div>
         </div>
         ${decl.notes ? `<div style="background:var(--bg2);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--text2)"><i class="ti ti-note"></i> ${_e(decl.notes)}</div>` : ''}
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:12px">
+          ${decl.epuap_sent_at
+            ? `<span style="color:var(--green,#16a34a)"><i class="ti ti-circle-check"></i> Wysłano przez ePUAP ${_e(new Date(decl.epuap_sent_at).toLocaleDateString('pl-PL'))}${decl.epuap_reference ? ' · '+_e(decl.epuap_reference) : ''}</span>`
+            : `<span style="color:var(--text3)"><i class="ti ti-circle-dashed"></i> Nie oznaczono jako wysłane przez ePUAP</span>`}
+          <button class="btn btn-gray" style="font-size:11px;margin-left:auto" data-id="${_e(decl.id)}" onclick="Dt1Declarations.markEpuapSent(this.dataset.id)"><i class="ti ti-send"></i> ${decl.epuap_sent_at?'Zmień datę':'Oznacz wysłanie'}</button>
+          ${decl.pdf_r2_key ? `<button class="btn btn-gray" style="font-size:11px" data-id="${_e(decl.id)}" onclick="Dt1Declarations.downloadPdf(this.dataset.id)"><i class="ti ti-file-download"></i> PDF</button>` : ''}
+        </div>
         <div style="max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius)">
           <table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead>
@@ -165,11 +243,18 @@ window.Dt1Declarations = (function () {
             <div style="flex:1;min-width:0">
               <div style="font-weight:600;font-size:13px">DT-1 ${d.rok} — ${esc(d.gmina||'gmina')}</div>
               <div style="font-size:11px;color:var(--text3)">${dt} ${tm} · ${esc(d.created_by||'—')} · ${d.vehicle_count} pojazdów</div>
+              <div style="font-size:11px;margin-top:2px">${d.epuap_sent_at
+                ? `<span style="color:var(--green,#16a34a)"><i class="ti ti-circle-check"></i> ePUAP: ${esc(new Date(d.epuap_sent_at).toLocaleDateString('pl-PL'))}${d.epuap_reference ? ' · '+esc(d.epuap_reference) : ''}</span>`
+                : `<span style="color:var(--text3)"><i class="ti ti-circle-dashed"></i> nie wysłano przez ePUAP</span>`}</div>
             </div>
             <div style="text-align:right;flex-shrink:0">
               <div style="font-weight:700;color:var(--blue);font-size:15px">${Number(d.total_tax||0).toLocaleString('pl-PL',{minimumFractionDigits:2})} zł</div>
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0">
+              ${d.has_pdf ? `<button class="btn btn-gray" title="Pobierz zapisany PDF" style="padding:5px 10px;font-size:11px" data-id="${esc(d.id)}" onclick="Dt1Declarations.downloadPdf(this.dataset.id)"><i class="ti ti-file-download"></i></button>` : ''}
+              <button class="btn btn-gray" title="${d.epuap_sent_at ? 'Zmień datę wysyłki ePUAP' : 'Oznacz jako wysłane przez ePUAP'}" style="padding:5px 10px;font-size:11px" data-id="${esc(d.id)}" onclick="Dt1Declarations.markEpuapSent(this.dataset.id)">
+                <i class="ti ti-send"></i>
+              </button>
               <button class="btn btn-gray" style="padding:5px 10px;font-size:11px" data-id="${esc(d.id)}" onclick="Dt1Declarations.showDetail(this.dataset.id)">
                 <i class="ti ti-eye"></i>
               </button>
@@ -182,5 +267,5 @@ window.Dt1Declarations = (function () {
       </div>`).join('');
   }
 
-  return { load, renderPage, saveDeclaration, deleteDecl, showDetail };
+  return { load, renderPage, saveDeclaration, deleteDecl, showDetail, uploadPdf, downloadPdf, markEpuapSent };
 })();

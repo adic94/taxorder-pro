@@ -2067,18 +2067,19 @@ async function handleApiKeys(req, env, user, url, path) {
 
 // ─── HISTORIA DEKLARACJI DT-1 ────────────────────────────────────────────────
 async function handleDt1Declarations(req, env, user, url, path) {
-  const segs = path.split('/').filter(Boolean); // ['api','dt1-declarations',id?]
+  const segs = path.split('/').filter(Boolean); // ['api','dt1-declarations',id?,sub?]
   const company = url.searchParams.get('company') || user.company_id;
   const declId  = segs[2] || null;
+  const sub     = segs[3] || null;
 
   if (req.method === 'GET' && !declId) {
     const rows = await env.DB.prepare(
-      'SELECT id,company_id,rok,total_tax,vehicle_count,gmina,created_by,created_at,notes FROM dt1_declarations WHERE company_id=? ORDER BY rok DESC,created_at DESC'
+      'SELECT id,company_id,rok,total_tax,vehicle_count,gmina,created_by,created_at,notes,epuap_sent_at,epuap_reference,(pdf_r2_key IS NOT NULL) AS has_pdf FROM dt1_declarations WHERE company_id=? ORDER BY rok DESC,created_at DESC'
     ).bind(company).all();
     return json(rows.results || []);
   }
 
-  if (req.method === 'POST') {
+  if (req.method === 'POST' && !declId) {
     let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
     const id = crypto.randomUUID();
     await env.DB.prepare(
@@ -2089,13 +2090,65 @@ async function handleDt1Declarations(req, env, user, url, path) {
     return json({ ok:true, id });
   }
 
-  if (req.method === 'DELETE' && declId) {
-    await env.DB.prepare('DELETE FROM dt1_declarations WHERE id=? AND company_id=?').bind(declId, company).run();
+  // PUT /api/dt1-declarations/:id — oznaczenie wysyłki przez ePUAP (data + nr referencyjny).
+  // Bez logowania do Moja Warszawa — data i identyfikator wpisywane ręcznie po wysyłce
+  // przez ePUAP, program tylko je przechowuje.
+  if (req.method === 'PUT' && declId && !sub) {
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const sets = [], vals = [];
+    if (body.epuap_sent_at !== undefined) {
+      if (body.epuap_sent_at !== null && !/^\d{4}-\d{2}-\d{2}$/.test(String(body.epuap_sent_at))) {
+        return err('Data wysyłki ePUAP musi być w formacie RRRR-MM-DD', 400);
+      }
+      sets.push('epuap_sent_at=?'); vals.push(body.epuap_sent_at);
+    }
+    if (body.epuap_reference !== undefined) { sets.push('epuap_reference=?'); vals.push(body.epuap_reference || null); }
+    if (!sets.length) return err('Brak pól do zapisania', 400);
+    vals.push(declId, company);
+    const r = await env.DB.prepare(`UPDATE dt1_declarations SET ${sets.join(',')} WHERE id=? AND company_id=?`).bind(...vals).run();
+    if (!r.meta.changes) return err('Nie znaleziono', 404);
     return json({ ok:true });
   }
 
-  // GET /api/dt1-declarations/:id/vehicles — zwraca snapshot pojazdów
-  if (req.method === 'GET' && declId) {
+  // POST /api/dt1-declarations/:id/pdf — zapis wygenerowanego PDF do R2 (żeby deklaracja
+  // zostawała w programie 1:1 z tym, co poszło do urzędu, nie tylko jako JSON snapshot).
+  if (req.method === 'POST' && declId && sub === 'pdf') {
+    const owns = await env.DB.prepare('SELECT id FROM dt1_declarations WHERE id=? AND company_id=?').bind(declId, company).first();
+    if (!owns) return err('Nie znaleziono', 404);
+    let body; try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    if (!body.pdfBase64) return err('Brak pliku PDF', 400);
+    let bytes;
+    try { bytes = Uint8Array.from(atob(body.pdfBase64), c => c.charCodeAt(0)); }
+    catch { return err('Nieprawidłowy PDF (base64)', 400); }
+    if (!env.DOCS) return err('Magazyn plików niedostępny', 500);
+    const r2Key = `dt1/${company}/${declId}.pdf`;
+    await env.DOCS.put(r2Key, bytes, { httpMetadata: { contentType: 'application/pdf' } });
+    await env.DB.prepare('UPDATE dt1_declarations SET pdf_r2_key=? WHERE id=? AND company_id=?').bind(r2Key, declId, company).run();
+    return json({ ok:true });
+  }
+
+  // GET /api/dt1-declarations/:id/pdf — pobranie zapisanego PDF z R2
+  if (req.method === 'GET' && declId && sub === 'pdf') {
+    const row = await env.DB.prepare('SELECT pdf_r2_key,rok FROM dt1_declarations WHERE id=? AND company_id=?').bind(declId, company).first();
+    if (!row || !row.pdf_r2_key) return err('PDF niedostępny', 404);
+    const obj = env.DOCS ? await env.DOCS.get(row.pdf_r2_key).catch(() => null) : null;
+    if (!obj) return err('PDF niedostępny', 404);
+    return new Response(obj.body, { headers: {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="DT-1_${row.rok}_${declId}.pdf"`,
+    }});
+  }
+
+  if (req.method === 'DELETE' && declId && !sub) {
+    const row = await env.DB.prepare('SELECT pdf_r2_key FROM dt1_declarations WHERE id=? AND company_id=?').bind(declId, company).first();
+    await env.DB.prepare('DELETE FROM dt1_declarations WHERE id=? AND company_id=?').bind(declId, company).run();
+    if (row?.pdf_r2_key && env.DOCS) { await env.DOCS.delete(row.pdf_r2_key).catch(() => {}); }
+    return json({ ok:true });
+  }
+
+  // GET /api/dt1-declarations/:id — zwraca snapshot pojazdów (musi być PO trasach /pdf,
+  // inaczej przechwyciłaby ich żądania jako "id" bez sub)
+  if (req.method === 'GET' && declId && !sub) {
     const row = await env.DB.prepare('SELECT * FROM dt1_declarations WHERE id=? AND company_id=?').bind(declId, company).first();
     if (!row) return err('Nie znaleziono', 404);
     let vehicles = [];
@@ -3645,6 +3698,75 @@ async function handleCompanies(req, env, user, url, path) {
   }
 
   return err('Metoda nieobsługiwana', 405);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DANE REJESTROWE SPÓŁKI — GET /api/company-registry?krs=...
+//
+// Wszystkie spółki w tym programie są sp. z o.o., więc właściwym rejestrem
+// jest KRS (Krajowy Rejestr Sądowy), nie CEIDG — CEIDG obejmuje wyłącznie
+// jednoosobowe działalności gospodarcze osób fizycznych, żadnej z naszych
+// spółek by w nim nie było. GUS (rejestr REGON, API BIR1.1) obejmowałby też
+// spółki, ale wymaga płatnej/darmowej rejestracji klucza API
+// (`GUS_API_KEY`), którego to konto dziś nie ma — stąd KRS, nie GUS.
+//
+// API Ministerstwa Sprawiedliwości (api-krs.ms.gov.pl) jest publiczne i nie
+// wymaga klucza — korzystamy z numeru KRS już zapisanego przy każdej firmie.
+//
+// ⛔ TEN HANDLER NIE ZOSTAŁ ZWERYFIKOWANY ŻYWYM WYWOŁANIEM. Sesja, w której
+// powstał, ma zablokowaną sieć do domen *.gov.pl (polityka proxy piaskownicy
+// — potwierdzone `curl` kończącym się na starcie połączenia), więc kształt
+// odpowiedzi JSON API KRS jest odtworzony z pamięci, nie z pomiaru. Parsowanie
+// jest napisane obronnie (kilka wariantów nazw pól), ale zgodnie z zasadą
+// „zmierzone, nie zgadywane" z tego projektu — potraktuj to jako kod do
+// zweryfikowania na pierwszym prawdziwym numerze KRS, nie jako gotowe.
+async function handleCompanyRegistry(req, env, user, url, path) {
+  if (req.method !== 'GET') return err('Metoda nieobsługiwana', 405);
+  const krs = String(url.searchParams.get('krs') || '').replace(/\D/g, '').padStart(10, '0');
+  if (!krs || krs === '0000000000') return err('Podaj poprawny numer KRS', 400);
+
+  let resp;
+  try {
+    resp = await fetch(`https://api-krs.ms.gov.pl/api/krs/OdpisAktualny/${krs}?rejestr=P&format=json`, {
+      headers: { Accept: 'application/json' },
+    });
+  } catch (e) {
+    return err('Brak połączenia z API KRS (api-krs.ms.gov.pl): ' + e.message, 502);
+  }
+  if (resp.status === 404) return err('Nie znaleziono podmiotu o tym numerze KRS', 404);
+  if (!resp.ok) return err(`API KRS odpowiedziało błędem (HTTP ${resp.status})`, 502);
+
+  let body;
+  try { body = await resp.json(); } catch { return err('API KRS zwróciło nieprawidłowy JSON', 502); }
+
+  const dzial1 = body?.odpis?.dane?.dzial1 || {};
+  const podmiot = dzial1.danePodmiotu || {};
+  const adresBlok = dzial1.siedzibaIAdres || {};
+  // Różne odpisy KRS mieszczą adres pod `adres` albo bezpośrednio pod `siedziba` —
+  // stąd dwa warianty, nie jeden. Brak obu = odmowa, nie zgadywanie pustych pól.
+  const siedziba = adresBlok.siedziba || {};
+  const adres = adresBlok.adres || siedziba;
+
+  if (!podmiot.nazwa && !adres.miejscowosc) {
+    return err('Odpowiedź API KRS nie ma oczekiwanego kształtu (nazwa/adres) — wymaga ręcznej weryfikacji', 502);
+  }
+
+  return json({
+    ok: true,
+    krs,
+    nazwa: podmiot.nazwa || '',
+    nip: podmiot.identyfikatory?.nip || podmiot.nip || '',
+    regon: podmiot.identyfikatory?.regon || podmiot.regon || '',
+    kraj: siedziba.kraj || 'POLSKA',
+    woj: siedziba.wojewodztwo || '',
+    powiat: siedziba.powiat || '',
+    gmina: siedziba.gmina || '',
+    miasto: adres.miejscowosc || siedziba.miejscowosc || '',
+    ulica: adres.ulica || adres.nazwaUlicy || '',
+    dom: adres.nrDomu || '',
+    lokal: adres.nrLokalu || '',
+    kod: adres.kodPocztowy || '',
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -9747,6 +9869,10 @@ async function handleRequest(request, env, url, path, ctx) {
     if (!user) return err('Nieautoryzowany', 401);
     if (path.match(/^\/api\/users\/\d+\/permissions/)) return handleUserPermissions(request, env, user, url, path);
     return handleUsers(request, env, user, url, path);
+  }
+  if (path.startsWith('/api/company-registry')) {
+    if (!user) return err('Nieautoryzowany', 401);
+    return handleCompanyRegistry(request, env, user, url, path);
   }
   if (path.startsWith('/api/companies')) {
     if (!user) return err('Nieautoryzowany', 401);

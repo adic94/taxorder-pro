@@ -752,7 +752,7 @@ window.DT1Generator = {
       woj:   taxpayerData.woj || '',
       gmina: taxpayerData.gmina || taxpayerData.miasto || '',
       powiat: taxpayerData.powiat || '',
-      kraj:  'Polska',
+      kraj:  taxpayerData.kraj || 'PL',
       cel:   taxpayerData.cel || 'DEKLARACJA SKLADANA DO 15 LUTEGO',
       imie:  taxpayerData.imie || '',
       nazwisko: taxpayerData.nazwisko || '',
@@ -781,7 +781,9 @@ window.DT1Generator = {
     URL.revokeObjectURL(url);
 
     if(typeof toast === 'function') toast(`✓ Wygenerowano DT-1 za ${data.rok} — ${vehicles.length} pojazdów`);
-    return { ok: true, pages: 3 + catData.attachments };
+    // pdfBytes zwracane, żeby wywołujący mógł zapisać TEN SAM plik w programie
+    // (R2, przez Dt1Declarations.uploadPdf) — nie tylko wywołać pobranie do przeglądarki.
+    return { ok: true, pages: 3 + catData.attachments, pdfBytes };
   },
 };
 

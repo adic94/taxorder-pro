@@ -97,7 +97,7 @@ for (const wf of workflows) {
 test('pliki _ROLLBACK zawierają DROP — więc ich przypadkowe uruchomienie kasuje dane', () => {
   const rollbacks = fs.readdirSync(SQL).filter(f => /_ROLLBACK\.sql$/i.test(f));
   assert(rollbacks.length > 0, 'brak plików ROLLBACK — test straciłby sens, zaktualizuj go');
-  const harmless = rollbacks.filter(f => !/DROP\s+(TABLE|INDEX)/i.test(fs.readFileSync(path.join(SQL, f), 'utf8')));
+  const harmless = rollbacks.filter(f => !/DROP\s+(TABLE|INDEX|COLUMN)/i.test(fs.readFileSync(path.join(SQL, f), 'utf8')));
   assert(harmless.length === 0, `pliki ROLLBACK bez DROP (podejrzane): ${harmless.join(', ')}`);
 });
 
