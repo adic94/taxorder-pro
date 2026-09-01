@@ -6922,13 +6922,56 @@ let _qavVinDebounce = null;
 
 function openQuickAddVehicle() {
   _qavTab('scan');
+  _qavPopulateTypSelect();
   _qavClearForm();
-  document.getElementById('quick-add-veh-modal').classList.remove('hidden');
+  _qavRefreshMarkaDatalist();
+  const modal = document.getElementById('quick-add-veh-modal');
+  modal.classList.remove('hidden');
+  // Wymuszenie reflow — na wypadek gdyby przeglądarka użytkownika (starszy silnik,
+  // rozszerzenie ingerujące w CSSOM) nie przemalowała tła od razu po samym
+  // zdjęciu klasy .hidden. Nie kosztuje nic tam, gdzie i tak działa poprawnie.
+  void modal.offsetHeight;
   document.getElementById('qav-scan-status').style.display = 'none';
   document.getElementById('qav-cepik-status').innerHTML = '';
   document.getElementById('qav-insurance-found').innerHTML = '';
   document.getElementById('qav-ins-scan-status').textContent = '';
   _qavMatchedPolicies = [];
+}
+
+// Podpowiedzi marki — jak na Otomoto: lista startowa + to, co już jest we flocie.
+function _qavRefreshMarkaDatalist() {
+  if (!window.VehicleDictionaries) return;
+  VehicleDictionaries.attachDatalist('qav-marka', VehicleDictionaries.getMarki(), 'qav-marka-list');
+}
+
+// Model zależny od aktualnie wpisanej marki — odświeża się przy każdej zmianie pola.
+function _qavMarkaChange(marka) {
+  if (!window.VehicleDictionaries) return;
+  VehicleDictionaries.attachDatalist('qav-model', VehicleDictionaries.getModele(marka), 'qav-model-list');
+}
+
+function _qavPopulateTypSelect(selected) {
+  const sel = document.getElementById('qav-typ');
+  if (!sel || !window.VehicleDictionaries) return;
+  const pairs = VehicleDictionaries.getTypy().map(t => [t, t]);
+  sel.innerHTML = VehicleDictionaries.buildSelectOptions(pairs, selected || 'Ciężarowy');
+}
+
+// Wybór "+ Dodaj inny…" w typie pojazdu — dopisuje do słownika i zaznacza nową pozycję.
+function _qavTypChange(sel) {
+  VehicleDictionaries.handleCustomSelect(sel, 'typy',
+    (val) => VehicleDictionaries.addCustomSimple('typy', val),
+    (key) => { _qavPopulateTypSelect(key); });
+}
+
+// Pole "Leasingodawca / Wynajmujący" tylko przy statusie Leasing/Wynajęty.
+function _qavStatusChange(status) {
+  const wrap = document.getElementById('qav-leasing-company-wrap');
+  if (!wrap) return;
+  const show = status === 'Leasing' || status === 'Wynajęty';
+  wrap.style.display = show ? '' : 'none';
+  const lbl = wrap.querySelector('div');
+  if (lbl) lbl.textContent = status === 'Wynajęty' ? 'Wynajmujący (nazwa firmy)' : 'Leasingodawca (nazwa firmy)';
 }
 
 function closeQuickAddVehicle() {
@@ -6952,13 +6995,14 @@ function _qavTab(tab) {
 }
 
 function _qavClearForm() {
-  ['nrRej', 'marka', 'model', 'rok', 'dmc', 'vin', 'norma'].forEach(id => {
+  ['nrRej', 'marka', 'model', 'rok', 'dmc', 'vin', 'norma', 'leasingCompany'].forEach(id => {
     const el = document.getElementById('qav-' + id);
     if (el) el.value = '';
   });
   document.getElementById('qav-typ').value    = 'Ciężarowy';
   document.getElementById('qav-paliwo').value = 'Diesel';
   document.getElementById('qav-status').value = 'Własny';
+  _qavStatusChange('Własny');
   ['qav-dr-file', 'qav-ins-file'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
@@ -7194,6 +7238,10 @@ function saveQuickAddVehicle() {
 
   const dmc   = gf('dmc') ?? 0;
   const norma = gf('norma');
+  const status = g('status') || 'Własny';
+  const ownershipMap = { 'Leasing': 'leasing', 'Wynajęty': 'rental' };
+  const ownership_type = ownershipMap[status] || 'own';
+  const leasingCompanyVal = g('leasingCompany');
 
   const newVeh = {
     id: Date.now(),
@@ -7205,7 +7253,13 @@ function saveQuickAddVehicle() {
     dmcMax:          dmc,
     paliwo:          g('paliwo'),
     vin:             g('vin'),
-    status:          g('status') || 'Własny',
+    status,
+    ownership_type,
+    // Jedno pole w formularzu, dwa różne miejsca zapisu w karcie pojazdu —
+    // leasingCompany/rentalCompany to osobne pola czytane przez odpowiednie
+    // zakładki karty pojazdu (patrz modules/vehicle-detail.js, zakładka WŁASNOŚĆ).
+    leasingCompany:  status === 'Leasing'   ? leasingCompanyVal : null,
+    rentalCompany:   status === 'Wynajęty'  ? leasingCompanyVal : null,
     wlasciciel:      'mToilet',
     miesiacePodatku: 12,
     normaSpalania:   norma,

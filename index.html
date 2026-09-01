@@ -4320,6 +4320,7 @@ window._initPostHog=function(apiKey,host){
   <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js" integrity="sha384-NyKHkzm0aj4yWFC3Hh4cp1VflBgCLfStVlAK6WJOdXAht/pj6RHbMcZgUj48rcAs" crossorigin="anonymous"></script>
   <script src="modules/aztec-detector.js"></script>
   <script src="modules/aztec-scanner.js"></script>
+  <script src="modules/vehicle-dictionaries.js"></script>
   <script src="modules/vehicle-detail.js"></script>
   <script src="modules/zsia-importer.js"></script>
   <script src="modules/import-export.js"></script>
@@ -4941,22 +4942,15 @@ function doLogin() {
           </label>
           <label>
             <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Marka *</div>
-            <input id="qav-marka" class="fi" style="width:100%;text-transform:uppercase" placeholder="np. MERCEDES">
+            <input id="qav-marka" class="fi" style="width:100%;text-transform:uppercase" placeholder="np. MERCEDES" autocomplete="off" oninput="_qavMarkaChange(this.value)">
           </label>
           <label>
             <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Model</div>
-            <input id="qav-model" class="fi" style="width:100%" placeholder="np. Actros 1845">
+            <input id="qav-model" class="fi" style="width:100%" placeholder="np. Actros 1845" autocomplete="off">
           </label>
           <label>
             <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Typ pojazdu</div>
-            <select id="qav-typ" class="fi" style="width:100%">
-              <option value="Ciężarowy">Ciężarowy</option>
-              <option value="Ciągnik siodłowy">Ciągnik siodłowy</option>
-              <option value="Przyczepa">Przyczepa</option>
-              <option value="Naczepa">Naczepa</option>
-              <option value="Autobus">Autobus</option>
-              <option value="Dostawczy">Dostawczy</option>
-            </select>
+            <select id="qav-typ" class="fi" style="width:100%" onchange="_qavTypChange(this)"></select>
           </label>
           <label>
             <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Rok produkcji</div>
@@ -4989,11 +4983,15 @@ function doLogin() {
           </label>
           <label>
             <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Status</div>
-            <select id="qav-status" class="fi" style="width:100%">
+            <select id="qav-status" class="fi" style="width:100%" onchange="_qavStatusChange(this.value)">
               <option value="Własny">Własny</option>
               <option value="Leasing">Leasing</option>
               <option value="Wynajęty">Wynajęty</option>
             </select>
+          </label>
+          <label id="qav-leasing-company-wrap" style="display:none;grid-column:1/-1">
+            <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Leasingodawca / Wynajmujący (nazwa firmy)</div>
+            <input id="qav-leasingCompany" class="fi" style="width:100%" placeholder="np. Santander Leasing, ALD Automotive…">
           </label>
         </div>
       </div>

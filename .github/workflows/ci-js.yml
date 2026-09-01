@@ -92,6 +92,9 @@ jobs:
       - name: DT-1 — zapis PDF/ePUAP w programie + organ wg gminy siedziby
         run: node tests/unit/dt1-epuap-test.js
 
+      - name: Słowniki pojazdów — marka/model/typ/nadwozie/osie, dopisywanie własnych wartości
+        run: node tests/unit/vehicle-dictionaries-test.js
+
       # claude.yml dostaje `contents: write` i ANTHROPIC_API_KEY, a wyzwalaczem jest
       # TRESC komentarza. Bez sprawdzenia autora wystarczy napisac "@claude ...", zeby
       # dostac agenta z prawem zapisu — a push do worker/** to deploy na produkcje.
