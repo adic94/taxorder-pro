@@ -65,6 +65,44 @@ function wyciagnijZapytania(src) {
       znalezione.push({ sql: buf, offset: i });
     }
   }
+  znalezione.push(...wyciagnijZapytaniaZeZmiennej(src));
+  return znalezione;
+}
+
+// Wariant pośredni: `let sql = '...'; ...; sql += ' AND ...'; ...; .prepare(sql)`.
+// Ten sam handler (handleTCO) budował zapytanie w zmiennej i pierwsza wersja tego
+// testu tego nie widziała — `.prepare(` był wywoływany na IDENTYFIKATORZE, nie
+// literale, więc pętla wyżej po prostu pomijała go (pierwszy znak po `.prepare(`
+// to litera, nie cudzysłów). Efekt: `v.make`/`v.model`/`v.year` (kolumny, których
+// `vehicles` nie ma) przeszły przez tę bramkę niezauważone przez całą sesję audytu,
+// mimo że bramka istniała od dawna i miała je złapać. Naprawa: dla `.prepare(IDENT)`
+// znajdź najbliższą WCZEŚNIEJSZĄ deklarację `let/const IDENT = '...'` w obrębie tej
+// samej funkcji i doklej wszystkie `IDENT += '...'` między deklaracją a wywołaniem.
+function wyciagnijZapytaniaZeZmiennej(src) {
+  const znalezione = [];
+  const rePrepareVar = /\.prepare\s*\(\s*([a-zA-Z_$][\w$]*)\s*\)/g;
+  let m;
+  while ((m = rePrepareVar.exec(src)) !== null) {
+    const ident = m[1];
+    const wywolanie = m.index;
+    // Granica funkcji: nie schodź przed najbliższe wcześniejsze "function" —
+    // zmienne o tej samej nazwie w innych handlerach nie mają tu znaczenia.
+    const funStart = Math.max(src.lastIndexOf('function', wywolanie), 0);
+    const zakres = src.slice(funStart, wywolanie);
+    const identEsc = ident.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const reDecl = new RegExp(`(?:let|const|var)\\s+${identEsc}\\s*=\\s*(['"\`])((?:\\\\.|(?!\\1).)*)\\1`, 'g');
+    let ostatnia = null, dm;
+    while ((dm = reDecl.exec(zakres)) !== null) ostatnia = dm; // najbliższa poprzedzająca deklaracja
+    if (!ostatnia) continue;
+    let sql = ostatnia[2];
+    const poDeklaracji = zakres.slice(ostatnia.index + ostatnia[0].length);
+    const reConcat = new RegExp(`${identEsc}\\s*\\+=\\s*(['"\`])((?:\\\\.|(?!\\1).)*)\\1`, 'g');
+    let cm;
+    while ((cm = reConcat.exec(poDeklaracji)) !== null) sql += cm[2];
+    if (/\bvehicles\b/i.test(sql) && /^\s*(SELECT|UPDATE|DELETE|INSERT|WITH)\b/i.test(sql)) {
+      znalezione.push({ sql, offset: wywolanie });
+    }
+  }
   return znalezione;
 }
 

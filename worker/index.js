@@ -7075,7 +7075,11 @@ async function handleTCO(request, env, user, url, path) {
 
   if (request.method === 'GET') {
     const vehicle_id = url.searchParams.get('vehicle_id') || segs[3];
-    let sql = 'SELECT t.*, v.make, v.model, v.year AS vehicle_year FROM tco_config t LEFT JOIN vehicles v ON t.vehicle_id=v.id WHERE t.company_id=?';
+    // Było: v.make, v.model, v.year — kolumny, których `vehicles` NIE MA (dane pojazdu
+    // poza nr_rej/id siedzą w JSON `data`, ten sam błąd co reszta zapytań tego repo
+    // do tej tabeli — patrz tests/unit/vehicles-columns-test.js). Bez .catch() ten
+    // SELECT rzucał na KAŻDYM wywołaniu — GET /api/tco był martwy zawsze, nie czasami.
+    let sql = "SELECT t.*, JSON_EXTRACT(v.data,'$.marka') AS make, JSON_EXTRACT(v.data,'$.model') AS model, JSON_EXTRACT(v.data,'$.rok') AS vehicle_year FROM tco_config t LEFT JOIN vehicles v ON t.vehicle_id=v.id WHERE t.company_id=?";
     const binds = [company];
     if (vehicle_id) { sql += ' AND t.vehicle_id=?'; binds.push(vehicle_id); }
     const { results: configs } = await env.DB.prepare(sql).bind(...binds).all();
@@ -7103,7 +7107,13 @@ async function handleTCO(request, env, user, url, path) {
       const insMon   = (insMap[c.nr_rej]  ?? 0) / 12;
       const leasMon  = c.monthly_leasing ?? 0;
       const tcoMon   = deprMon + leasMon + fuelMon + svcMon + insMon;
-      return { ...c, costs: { fuel_12m: fuelMap[c.vehicle_id] ?? 0, service_12m: svcMap[c.vehicle_id] ?? 0, insurance_12m: insMap[c.vehicle_id] ?? 0, depreciation_monthly: Math.round(deprMon * 100) / 100, tco_monthly: Math.round(tcoMon * 100) / 100, tco_annual: Math.round(tcoMon * 12 * 100) / 100 } };
+      // Mapy są kluczowane po nr_rej (patrz fuelMap/svcMap/insMap wyżej — to samo
+      // widać w fuelMon/svcMon/insMon kilka linii wyżej, które czytają poprawnie).
+      // Tu czytano po c.vehicle_id — inny identyfikator, więc rozbicie kosztów
+      // w odpowiedzi (fuel_12m/service_12m/insurance_12m) było ZAWSZE zerem, mimo
+      // że suma (tco_monthly) była policzona poprawnie. Silny fałszywy sygnał:
+      // total wygląda wiarygodnie, rozbicie na kategorie kłamie.
+      return { ...c, costs: { fuel_12m: fuelMap[c.nr_rej] ?? 0, service_12m: svcMap[c.nr_rej] ?? 0, insurance_12m: insMap[c.nr_rej] ?? 0, depreciation_monthly: Math.round(deprMon * 100) / 100, tco_monthly: Math.round(tcoMon * 100) / 100, tco_annual: Math.round(tcoMon * 12 * 100) / 100 } };
     });
     return json(vehicle_id ? (result[0] || null) : result);
   }
