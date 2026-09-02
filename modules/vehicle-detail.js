@@ -218,6 +218,7 @@ window.TaxOrderVehicleDetail = {
       grupaPojazdow:         g('grupaPojazdow'),
       podtypPojazdu:         g('podtypPojazdu'),
       wlascicielPojazdu:     g('wlascicielPojazdu'),
+      wlascicielPojazduNip:  g('wlascicielPojazduNip'),
       opiekun:               g('opiekun'),
       obszarPojazdu:         g('obszarPojazdu'),
       pojazdUprzywilejowany: gb('pojazdUprzywilejowany'),
@@ -349,6 +350,7 @@ window.TaxOrderVehicleDetail = {
       osobaPotwierdzajaca:        g('osobaPotwierdzajaca'),
       iloscTagow:                 gi('iloscTagow'),
       // === WŁASNOŚĆ ===
+      status:            g('status'),
       ownership_type:    g('ownershipType'),
       leasingCompany:      g('leasingCompany'),
       leasingUser:         g('leasingUser'),
@@ -370,8 +372,11 @@ window.TaxOrderVehicleDetail = {
       rentalPolicyNo:      g('rentalPolicyNo'),
       // === ZAKUP / SPRZEDAŻ ===
       purchaseDate:   g('purchaseDate'),
+      purchaseType:   g('purchaseType'),
       purchasePrice:  gf('purchasePrice'),
       purchaseInvoice:g('purchaseInvoice'),
+      purchaseSeller:     g('purchaseSeller'),
+      purchaseSellerNip:  g('purchaseSellerNip'),
       dataNabycia:    g('purchaseDate'),
       saleDate:       g('saleDate'),
       saleInvoice:    g('saleInvoice'),
@@ -1074,6 +1079,18 @@ window.TaxOrderVehicleDetail = {
         </div>
         <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px">Status i identyfikacja</div>
         <div class="vdfg" style="margin-bottom:18px">
+          <div class="vdf">
+            <label class="vdl">Status własności</label>
+            <select id="vd-status" class="fi" onchange="TaxOrderVehicleDetail._onStatusChange(this,${v.id})">
+              <option value="Własny"   ${v.status==='Własny'?'selected':''}>Własny</option>
+              <option value="Leasing"  ${v.status==='Leasing'?'selected':''}>Leasing</option>
+              <option value="Wynajęty" ${v.status==='Wynajęty'?'selected':''}>Wynajęty</option>
+              <option value="Sprzedany"${v.status==='Sprzedany'?' selected':''}>🔴 Sprzedany</option>
+            </select>
+            <div id="vd-status-sold-hint" style="display:${v.status==='Sprzedany'?'block':'none'};margin-top:6px;font-size:11px;color:var(--amber,#f59e0b)">
+              💡 Uzupełnij <a href="#" onclick="TaxOrderVehicleDetail._tab('dr');document.getElementById('vd-saleDate')?.focus();return false" style="color:inherit;text-decoration:underline">datę zbycia</a> w zakładce Dowód rejestracyjny — od niej liczą się miesiące podatku DT-1.
+            </div>
+          </div>
           ${sel('statusPojazdu','Status pojazdu',[
             ['dostepny','✅ Dostępny'],
             ['w_serwisie','🔧 W serwisie'],
@@ -1154,7 +1171,10 @@ window.TaxOrderVehicleDetail = {
           ${field('mpkKonto','Konto MPK / centrum kosztów', v.mpkKonto)}
           ${field('grupaPojazdow','Grupa pojazdu (MyCar)', v.grupaPojazdow,undefined,'np. Ciężarowe, Dostawcze…')}
           ${field('podtypPojazdu','Podtyp pojazdu', v.podtypPojazdu,undefined,'np. Asenizacyjny, Dostawczy…')}
-          ${field('wlascicielPojazdu','Właściciel prawny pojazdu', v.wlascicielPojazdu,undefined,'np. G-CON, SANTANDER Leasing…')}
+          <!-- wlascicielPojazdu usunięte stąd 02.09.2026 — ten sam id vd-wlascicielPojazdu
+               był renderowany DRUGI RAZ w zakładce Własność (patrz niżej), więc getElementById
+               zawsze trafiał w TĘ kopię, a wpis w zakładce Własność (widoczna użytkownikowi)
+               nigdy się nie zapisywał. Pole zostaje wyłącznie w zakładce Własność. -->
           ${field('opiekun','Opiekun pojazdu', v.opiekun)}
           ${field('obszarPojazdu','Obszar / baza pojazdu', v.obszarPojazdu,undefined,'np. Baza Warszawa…')}
         </div>
@@ -1373,6 +1393,19 @@ window.TaxOrderVehicleDetail = {
             ['own','Własność własna'],['leasing','Leasing'],['rental','Wynajem'],
             ['leaseback','Leasing zwrotny'],['service_loan','Pojazd zastępczy']
           ], own)}
+          <div class="vdf">
+            <label class="vdl">NIP właściciela<span class="vdh">(auto-uzupełni nazwę z Białej Listy MF)</span></label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input id="vd-wlascicielPojazduNip" type="text" class="fi" value="${esc(v.wlascicielPojazduNip||'')}"
+                placeholder="10 cyfr" maxlength="13" style="flex:1"
+                oninput="this.value=this.value.replace(/[^0-9-]/g,'')">
+              <button type="button" class="btn btn-gray" style="padding:4px 8px;font-size:11px;white-space:nowrap"
+                onclick="TaxOrderVehicleDetail._nipLookup(document.getElementById('vd-wlascicielPojazduNip').value,'vd-wlascicielPojazdu','vd-wlp-nip-status')">
+                <i class="ti ti-search"></i>Zaczytaj
+              </button>
+            </div>
+            <div id="vd-wlp-nip-status" style="font-size:10px;color:var(--blue);margin-top:2px"></div>
+          </div>
           ${field('wlascicielPojazdu','Właściciel prawny pojazdu', v.wlascicielPojazdu,undefined,'np. G-CON Sp. z o.o., SANTANDER Leasing…')}
         </div>
         <div id="vd-leasing-section" style="${isLeasing?'':'display:none'}">
@@ -1423,8 +1456,26 @@ window.TaxOrderVehicleDetail = {
         <div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:10px"><i class="ti ti-shopping-cart"></i> Nabycie pojazdu <span style="font-weight:400;font-size:10px;color:var(--text3)">(DT-1/A poz. 8)</span></div>
         <div class="ibox" style="margin-bottom:10px;font-size:11px">Data nabycia i data zbycia/wycofania — zakładka <strong>Przegląd → Podatek DT-1</strong> (wpływają na wyliczenie miesięcy podatkowych).</div>
         <div class="vdfg">
+          ${sel('purchaseType','Rodzaj zakupu',[
+            ['faktura','Faktura'],
+            ['umowa','Umowa cywilno-prawna'],
+          ], v.purchaseType||'faktura')}
           ${field('purchasePrice','Cena zakupu netto (zł)', v.purchasePrice,'number')}
           ${field('purchaseInvoice','Nr faktury zakupu', v.purchaseInvoice)}
+          ${field('purchaseSeller','Sprzedający (nazwa)', v.purchaseSeller)}
+          <div class="vdf">
+            <label class="vdl">NIP sprzedającego</label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input id="vd-purchaseSellerNip" type="text" class="fi" value="${esc(v.purchaseSellerNip||'')}"
+                placeholder="10 cyfr" maxlength="13" style="flex:1"
+                oninput="this.value=this.value.replace(/[^0-9-]/g,'')">
+              <button type="button" class="btn btn-gray" style="padding:4px 8px;font-size:11px;white-space:nowrap"
+                onclick="TaxOrderVehicleDetail._nipLookup(document.getElementById('vd-purchaseSellerNip').value,'vd-purchaseSeller','vd-purchase-nip-status')">
+                <i class="ti ti-search"></i>Zaczytaj
+              </button>
+            </div>
+            <div id="vd-purchase-nip-status" style="font-size:10px;color:var(--blue);margin-top:2px"></div>
+          </div>
         </div>
         <div style="font-size:12px;font-weight:600;color:var(--red);margin:20px 0 10px"><i class="ti ti-cash"></i> Sprzedaż / Zbycie pojazdu <span style="font-weight:400;font-size:10px;color:var(--text3)">(DT-1/A poz. 9)</span></div>
         <div class="vdfg">
@@ -3383,6 +3434,15 @@ td:last-child{font-weight:600;color:#1e293b}
   _onMarkaInput(marka) {
     if (!window.VehicleDictionaries) return;
     VehicleDictionaries.attachDatalist('vd-model', VehicleDictionaries.getModele(marka), 'vd-model-list');
+  },
+
+  // Status "Sprzedany" bez daty zbycia da poprawną kategorię, ale błędną liczbę
+  // miesięcy podatku (_autoCalcMiesiace liczy do dziś, nie do dnia sprzedaży) —
+  // podpowiedź prowadzi wprost do pola, zamiast liczyć na to, że użytkownik sam
+  // skojarzy zmianę statusu z zakładką DR.
+  _onStatusChange(selectEl, vehId) {
+    const hint = document.getElementById('vd-status-sold-hint');
+    if (hint) hint.style.display = selectEl.value === 'Sprzedany' ? 'block' : 'none';
   },
 
   // Obsługa "+ Dodaj inny…" w słownikowych <select> (typ nadwozia, oznaczenie osi).

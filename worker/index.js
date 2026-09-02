@@ -969,7 +969,10 @@ async function handleDocs(req, env, user, url, path) {
       return err('Brak dostępu', 403);
     }
     const obj = await env.DOCS.get(r2Key);
-    if (!obj) return err('Dokument nie znaleziony', 404);
+    // Wpis w D1 istnieje (docMeta powyżej), ale sam plik zniknął z R2 — inny
+    // przypadek niż "nie ma takiego dokumentu wcale". Osobny komunikat, bo
+    // dla admina to sygnał uszkodzonych danych, nie literówki w adresie.
+    if (!obj) return err('Plik nie istnieje w magazynie (uszkodzony wpis dokumentu)', 404);
     const safeName = (docMeta?.name || r2Key.split('/').pop() || 'dokument').replace(/[^\w.\-]/g, '_');
     return new Response(obj.body, {
       headers: {
@@ -1155,14 +1158,14 @@ async function handleTires(req, env, user, url, path) {
     const id = crypto.randomUUID();
     const historia = [{ data: new Date().toISOString(), akcja: 'UTWORZONA', nrRej: null, pozycja: null }];
     await env.DB.prepare(`
-      INSERT INTO tires(id,company_id,status,nr_rej,pozycja,rozmiar,marka,dot,bieznik_mm,sezon,lokalizacja_magazyn,data_zakupu,uwagi,historia)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      INSERT INTO tires(id,company_id,status,nr_rej,pozycja,rozmiar,marka,dot,bieznik_mm,sezon,lokalizacja_magazyn,data_zakupu,uwagi,historia,nr_faktury,dostawca)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
     ).bind(
       id, company, 'MAGAZYN', null, null,
       body.rozmiar || null, body.marka || null, body.dot || null,
       body.bieznik_mm != null ? Number(body.bieznik_mm) : null, body.sezon || null,
       body.lokalizacja_magazyn || null, body.data_zakupu || null, body.uwagi || null,
-      JSON.stringify(historia)
+      JSON.stringify(historia), body.nr_faktury || null, body.dostawca || null
     ).run();
     return json({ ok: true, id });
   }
@@ -1197,13 +1200,13 @@ async function handleTires(req, env, user, url, path) {
 
     // Zwykła edycja pól (bez zmiany statusu/pozycji)
     await env.DB.prepare(`
-      UPDATE tires SET rozmiar=?, marka=?, dot=?, bieznik_mm=?, sezon=?, lokalizacja_magazyn=?, data_zakupu=?, uwagi=?, updated_at=datetime('now')
+      UPDATE tires SET rozmiar=?, marka=?, dot=?, bieznik_mm=?, sezon=?, lokalizacja_magazyn=?, data_zakupu=?, uwagi=?, nr_faktury=?, dostawca=?, updated_at=datetime('now')
       WHERE id=?`
     ).bind(
       body.rozmiar ?? row.rozmiar, body.marka ?? row.marka, body.dot ?? row.dot,
       body.bieznik_mm != null ? Number(body.bieznik_mm) : row.bieznik_mm, body.sezon ?? row.sezon,
       body.lokalizacja_magazyn ?? row.lokalizacja_magazyn, body.data_zakupu ?? row.data_zakupu,
-      body.uwagi ?? row.uwagi, segs[2]
+      body.uwagi ?? row.uwagi, body.nr_faktury ?? row.nr_faktury, body.dostawca ?? row.dostawca, segs[2]
     ).run();
     return json({ ok: true });
   }

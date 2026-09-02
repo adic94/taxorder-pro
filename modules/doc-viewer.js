@@ -34,7 +34,14 @@ window.DocViewer = (function () {
     try {
       const tok = localStorage.getItem('cf_token') || localStorage.getItem('session_token') || '';
       const r = await fetch(url, tok ? { headers: { 'Authorization': 'Bearer ' + tok } } : {});
-      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (!r.ok) {
+        // Backend zwraca czytelny komunikat w {error:"..."} (np. "Dokument nie
+        // znaleziony" gdy wiersz w D1 istnieje, ale plik zniknął z R2) — poprzednia
+        // wersja go odrzucała i pokazywała gołe "HTTP 404" zamiast tego tekstu.
+        let msg = 'HTTP ' + r.status;
+        try { const body = await r.clone().json(); if (body?.error) msg = body.error; } catch (_) {}
+        throw new Error(msg);
+      }
       const blob = await r.blob();
       _render(blob, mimeType || blob.type || 'application/octet-stream');
     } catch (e) {

@@ -102,7 +102,7 @@ function calcTax(v) {
 
 const CAT_COLORS = {D1:'pill-blue',D2:'pill-green',D3:'pill-amber',D4:'pill-amber',D5:'pill-green',D6:'pill-blue',D7:'pill-blue',D8:'pill-red',D9:'pill-red',D10:'pill-red',D11:'pill-red',D12:'pill-red',D13:'pill-amber',D14:'pill-amber',D15:'pill-amber'};
 const CAT_LABELS = {D1:'Sam.cięż. 3,5–5,5t',D2:'Sam.cięż. 5,5–9t',D3:'Sam.cięż. 9–12t',D4:'Ciągnik <12t',D5:'Przyczepa 7–12t',D6:'Autobus <22m.',D7:'Autobus ≥22m.',D8:'Ciężarowy ≥12t 2os.',D9:'Ciężarowy ≥12t 3os.',D10:'Ciężarowy ≥12t 4+',D11:'Ciągnik ≥12t 2os.',D12:'Ciągnik ≥12t 3+',D13:'Przyczepa ≥12t 1oś',D14:'Przyczepa ≥12t 2os.',D15:'Przyczepa ≥12t 3+'};
-const STAT_LABELS = {Własny:'pill-green',Leasing:'pill-blue',Wynajęty:'pill-amber'};
+const STAT_LABELS = {Własny:'pill-green',Leasing:'pill-blue',Wynajęty:'pill-amber',Sprzedany:'pill-gray'};
 
 function fmt2(n) { return Number(n).toFixed(2).replace('.',','); }
 function fmtZl(n) { return Math.round(n).toLocaleString('pl-PL'); }
@@ -1454,7 +1454,21 @@ function bulkEditField() {
   if (modal) {
     document.getElementById('bulk-edit-count').textContent = sel.length;
     modal.style.display = 'flex';
+    _bulkEditFieldChange(document.getElementById('bulk-edit-field')?.value);
   }
+}
+
+// Podpowiedzi w polu "Nowa wartość" — wartości, które to pole już ma gdziekolwiek
+// w całej flocie, żeby nie trzeba było zgadywać pisowni (np. nazwa gminy,
+// istniejąca wartość "paliwo"). Ten sam mechanizm datalist co marka/model
+// pojazdu (modules/vehicle-dictionaries.js) — bez osobnej kopii logiki.
+function _bulkEditFieldChange(fieldKey) {
+  if (!fieldKey || !window.VehicleDictionaries) return;
+  const values = [...new Set((vehs || [])
+    .map(v => v[fieldKey])
+    .filter(v => v !== undefined && v !== null && String(v).trim() !== '')
+    .map(String))].sort();
+  VehicleDictionaries.attachDatalist('bulk-edit-value', values, 'bulk-edit-value-list');
 }
 
 function bulkEditApply() {
@@ -2752,16 +2766,71 @@ function bulkExportTXT() {
   toast('✓ Wyeksportowano ' + sel.length + ' pojazdów do TXT');
 }
 
+// Lista "właścicieli" (etykieta wewnątrz firmy-najemcy, np. spółka z grupy) —
+// źródłem jest window.COMPANIES (D1, po hydrateCompaniesFromApi), nie osobna
+// zaszyta na sztywno tablica. Poprzednia wersja miała DWIE takie tablice
+// (tu i w filtrze #f-wl), obie niekompletne (brakowało G-Rental/NWK Invest/
+// Wolund) i rozjechane ze sobą — ten sam wzorzec „dwóch kopii tej samej listy",
+// co CO2 factors czy źródła kreatora raportów w historii tego projektu.
+function _getOwnersList() {
+  const fromCompanies = Object.values(window.COMPANIES || {}).map(c => c.wlasciciel).filter(Boolean);
+  const fromFleet = (vehs || []).map(v => v.wlasciciel).filter(Boolean);
+  return [...new Set([...fromCompanies, ...fromFleet])].sort();
+}
+
+function _populateOwnerFilter() {
+  const sel = document.getElementById('f-wl');
+  if (!sel) return;
+  const current = sel.value;
+  sel.querySelectorAll('option:not([value=""])').forEach(o => o.remove());
+  _getOwnersList().forEach(w => sel.insertAdjacentHTML('beforeend', `<option value="${esc(w)}">${esc(w)}</option>`));
+  if ([...sel.options].some(o => o.value === current)) sel.value = current;
+}
+
 function bulkAssignCompany() {
   const sel = getSel();
-  if (!sel.length) return;
-  const companies = ['mToilet', 'GCON', 'KJR Supply', 'G-Rental', 'NWK Invest', 'Wolund'];
-  const choice = prompt('Przypisz firmę dla ' + sel.length + ' pojazdów:\n' + companies.map((c,i)=>(i+1)+'. '+c).join('\n') + '\n\nWpisz numer:');
-  const idx = parseInt(choice) - 1;
-  if (isNaN(idx) || idx < 0 || idx >= companies.length) return;
-  const company = companies[idx];
+  if (!sel.length) { toast('Zaznacz pojazdy do przypisania'); return; }
+  const owners = _getOwnersList();
+  const modal = document.createElement('div');
+  modal.id = 'bulk-assign-company-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:5500;display:flex;align-items:center;justify-content:center;padding:16px';
+  modal.innerHTML = `
+    <div style="background:var(--bg);border-radius:var(--radius-lg);width:min(380px,100%);box-shadow:0 8px 40px rgba(0,0,0,.3);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border)">
+        <i class="ti ti-building" style="font-size:18px;color:var(--blue)"></i>
+        <strong>Przypisz firmę dla ${sel.length} pojazdów</strong>
+        <button onclick="document.getElementById('bulk-assign-company-modal').remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2);line-height:1">×</button>
+      </div>
+      <div style="padding:18px;display:flex;flex-direction:column;gap:12px">
+        <div>
+          <label class="vdl">Właściciel</label>
+          <select id="bac-select" class="fi" onchange="document.getElementById('bac-new-wrap').style.display=this.value==='__nowa__'?'':'none'">
+            ${owners.map(w => `<option value="${esc(w)}">${esc(w)}</option>`).join('')}
+            <option value="__nowa__">+ Inna (wpisz nazwę)…</option>
+          </select>
+        </div>
+        <div id="bac-new-wrap" style="display:none">
+          <label class="vdl">Nazwa nowego właściciela</label>
+          <input id="bac-new-name" class="fi" type="text" placeholder="np. Nowa Spółka Sp. z o.o.">
+        </div>
+        <button class="btn btn-blue" style="justify-content:center;padding:10px" onclick="_bulkAssignCompanyApply()">
+          <i class="ti ti-check"></i>Zastosuj dla ${sel.length} pojazdów
+        </button>
+      </div>
+    </div>`;
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+function _bulkAssignCompanyApply() {
+  const sel = getSel();
+  const selEl = document.getElementById('bac-select');
+  const isNew = selEl?.value === '__nowa__';
+  const company = (isNew ? document.getElementById('bac-new-name')?.value.trim() : selEl?.value) || '';
+  if (!company) { toast('⚠ Podaj nazwę właściciela'); return; }
   sel.forEach(v => { v.wlasciciel = company; window.TaxOrderFleetCloud?.saveVehicle?.(v); });
-  renderVeh(); updateCounters();
+  document.getElementById('bulk-assign-company-modal')?.remove();
+  renderVeh(); updateCounters(); _populateOwnerFilter();
   toast('✓ Przypisano „' + company + '" dla ' + sel.length + ' pojazdów');
 }
 
@@ -2790,10 +2859,12 @@ function bulkChangeStatus() {
 }
 
 function bulkCompare() {
-  const ids = getSel();
-  if (ids.size < 2) { toast('Zaznacz co najmniej 2 pojazdy do porównania'); return; }
-  const vList = [...ids].slice(0, 4).map(id => (window.vehs || []).find(v => v.id === id)).filter(Boolean);
-  if (vList.length < 2) return;
+  // getSel() zwraca TABLICĘ obiektów pojazdów (nie Set id) — poprzednia wersja
+  // traktowała ją jak Set (`.size`, potem `.find(v => v.id === id)` z całym
+  // obiektem jako `id`), więc warunek nigdy się nie uruchamiał, a dopasowanie
+  // zawsze dawało 0 wyników. Efekt: przycisk nic nie robił, bez błędu.
+  const vList = getSel().slice(0, 4);
+  if (vList.length < 2) { toast('Zaznacz co najmniej 2 pojazdy do porównania'); return; }
 
   const yr = String(new Date().getFullYear());
   const _days = ds => { if (!ds) return null; const d = new Date(ds + 'T00:00:00'); return isNaN(d) ? null : Math.round((d - Date.now()) / 86400000); };
@@ -7914,6 +7985,7 @@ async function doLogin(){
   renderVeh();
   updateCounters();
 
+  _populateOwnerFilter(); // z lokalnego COMPANIES — hydrateCompaniesFromApi() odświeży, jeśli D1 odpowie
   // Synchronizacja listy firm z D1 (schema_v44) — w tle, nie blokuje UI.
   // Przy niepowodzeniu zostaje lista zaszyta w COMPANIES.
   hydrateCompaniesFromApi().catch(e => console.warn('[Companies] hydratacja:', e.message));
@@ -8891,7 +8963,7 @@ async function hydrateCompaniesFromApi(){
     }
 
     // Odswiez widoki zalezne od listy firm (jesli juz wyrenderowane)
-    for(const fn of ['renderCompanyOverview','renderAllCompaniesSummary']){
+    for(const fn of ['renderCompanyOverview','renderAllCompaniesSummary','_populateOwnerFilter']){
       if(typeof window[fn] === 'function'){ try{ window[fn](); }catch(_){} }
     }
     console.log('[Companies] Zsynchronizowano ' + valid.length + ' firm z D1');
