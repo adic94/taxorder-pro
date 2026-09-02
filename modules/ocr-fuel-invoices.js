@@ -146,18 +146,18 @@ window.OcrFuelInvoices = (function () {
           <i class="ti ti-cloud-upload"></i>
           <p>Przeciągnij plik lub wybierz z dysku / aparatu</p>
           <label class="btn btn-outline">
-            <input type="file" id="ocr-file" accept="image/*,application/pdf"
+            <input type="file" id="ocrfuel-file" accept="image/*,application/pdf"
               onchange="OcrFuelInvoices.handleFile(this.files[0])" style="display:none">
             <i class="ti ti-folder-open"></i> Wybierz plik
           </label>
           <label class="btn btn-outline">
-            <input type="file" id="ocr-camera" accept="image/*" capture="environment"
+            <input type="file" id="ocrfuel-camera" accept="image/*" capture="environment"
               onchange="OcrFuelInvoices.handleFile(this.files[0])" style="display:none">
             <i class="ti ti-camera"></i> Kamera
           </label>
         </div>
-        <div id="ocr-preview" style="display:none"></div>
-        <div id="ocr-result"  style="display:none"></div>
+        <div id="ocrfuel-preview" style="display:none"></div>
+        <div id="ocrfuel-result"  style="display:none"></div>
       </div>`;
 
     // Drag-and-drop wiring
@@ -179,8 +179,8 @@ window.OcrFuelInvoices = (function () {
   /* ------------------------------------------------------------------ */
   async function handleFile(file) {
     if (!file) return;
-    const preview = document.getElementById('ocr-preview');
-    const result  = document.getElementById('ocr-result');
+    const preview = document.getElementById('ocrfuel-preview');
+    const result  = document.getElementById('ocrfuel-result');
     if (!preview || !result) return;
 
     preview.style.display = 'block';
@@ -206,7 +206,7 @@ window.OcrFuelInvoices = (function () {
   }
 
   async function _extractWithAI(base64, mimeType) {
-    const result = document.getElementById('ocr-result');
+    const result = document.getElementById('ocrfuel-result');
     if (!result) return;
     result.style.display = 'block';
     result.innerHTML = '<div class="spinner"></div> AI analizuje fakturę...';
@@ -234,7 +234,7 @@ window.OcrFuelInvoices = (function () {
   }
 
   function _renderForm(d) {
-    const result = document.getElementById('ocr-result');
+    const result = document.getElementById('ocrfuel-result');
     if (!result) return;
 
     const vehicleOptions = _vehicles.map(v =>

@@ -26,6 +26,18 @@
  * na raz — żaden taki przypadek nie jest dziś znany, lista zaczyna pusta).
  * Wpis, który przestał występować, MUSI zniknąć — inaczej lista rosłaby
  * w nieskończoność i bramka przestałaby cokolwiek mierzyć.
+ *
+ * SEKCJA [4] — MIĘDZYMODUŁOWA. [1] i [2] łapią duplikat WEWNĄTRZ jednego pliku;
+ * nie widzą, że DWA RÓŻNE pliki (index.html + moduł, albo dwa moduły) użyły
+ * tego samego literału. To jest realna, osobna kategoria awarii — ten sam
+ * `getElementById` po cichu trafia w element z zupełnie innej, niepowiązanej
+ * funkcjonalnie części aplikacji. Znaleziona 02.09.2026 ręcznym skanem
+ * Python/regex (index.html + wszystkie modules/*.js): `pm-modal`/`pm-modal-title`
+ * (statyczny modal "MODAL: POLISA" w index.html kontra modal wstrzykiwany przez
+ * predictive-maintenance.js), `ocr-file`/`ocr-preview`/`ocr-result` (statyczna
+ * strona "Skanuj DR" w index.html kontra ocr-fuel-invoices.js), `tpl-name`
+ * (doc-workflow.js kontra notification-settings.js, oba wstrzykują modal przez
+ * insertAdjacentHTML). Wszystkie trzy naprawione przemianowaniem.
  */
 const fs = require('fs');
 const path = require('path');
@@ -40,6 +52,13 @@ const ROOT = path.join(__dirname, '..', '..');
 
 const ZNANE_WYJATKI = {
   // 'index.html': ['jakis-id'],
+};
+
+// Para (id, [plik1, plik2, ...]) świadomie bezpieczna mimo współdzielenia id
+// między plikami — dziś pusta, bo wszystkie trzy znalezione przypadki naprawiono
+// przemianowaniem zamiast dopisywaniem wyjątku.
+const ZNANE_WYJATKI_MIEDZYMODULOWE = {
+  // 'jakis-id': ['index.html', 'modules/przyklad.js'],
 };
 
 function liczOd(wpisy) {
@@ -97,6 +116,46 @@ function filtrujDuplikaty(plik, licznik) {
       const n = (tresc.match(new RegExp(`id=["']${id}["']`, 'g')) || []).length;
       ok(n > 1, `ZNANE_WYJATKI["${plik}"] ma "${id}", ale występuje ${n}x — wpis martwy, USUŃ z listy`);
     }
+  }
+}
+
+// --- [4] międzymodułowe: ten sam literalny id w DWÓCH RÓŻNYCH plikach --------
+// index.html + KAŻDY modules/*.js (w tym vehicle-detail.js — tu chodzi o jego
+// WŁASNE literalne id="...", nie o field()/sel()/selDict(), które [2] już
+// pokrywa osobno). Ten sam ekstraktor co [1]: id CAŁKOWICIE statyczne.
+{
+  const idToFiles = {}; // id -> Set<plik>
+  const pliki = ['index.html', ...fs.readdirSync(path.join(ROOT, 'modules'))
+    .filter(f => f.endsWith('.js'))
+    .map(f => `modules/${f}`)];
+  ok(pliki.length > 50, `[4]: znaleziono tylko ${pliki.length} plików do sprawdzenia (index.html + modules/*.js) — oczekiwano >50, coś się rozjechało z listą katalogu`);
+
+  const re = /id=["']([a-zA-Z][a-zA-Z0-9_-]*)["']/g;
+  for (const plik of pliki) {
+    const tresc = fs.readFileSync(path.join(ROOT, plik), 'utf8');
+    const seen = new Set();
+    let m; while ((m = re.exec(tresc))) seen.add(m[1]);
+    for (const id of seen) {
+      (idToFiles[id] = idToFiles[id] || new Set()).add(plik);
+    }
+  }
+
+  const dupy = Object.entries(idToFiles)
+    .filter(([id, files]) => files.size > 1)
+    .filter(([id, files]) => {
+      const wyjatek = ZNANE_WYJATKI_MIEDZYMODULOWE[id];
+      if (!wyjatek) return true;
+      const takieSame = wyjatek.length === files.size && wyjatek.every(f => files.has(f));
+      return !takieSame;
+    });
+  ok(dupy.length === 0,
+    `międzymodułowy duplikat id — ${dupy.map(([id, files]) => `${id}(${[...files].join(', ')})`).join(' | ')}`);
+
+  for (const [id, oczekiwanePliki] of Object.entries(ZNANE_WYJATKI_MIEDZYMODULOWE)) {
+    const faktycznePliki = idToFiles[id] ? [...idToFiles[id]] : [];
+    const takieSame = oczekiwanePliki.length === faktycznePliki.length &&
+      oczekiwanePliki.every(f => faktycznePliki.includes(f));
+    ok(takieSame, `ZNANE_WYJATKI_MIEDZYMODULOWE["${id}"] nie odpowiada już rzeczywistości (${faktycznePliki.join(', ') || 'brak duplikatu'}) — wpis martwy, USUŃ z listy`);
   }
 }
 
