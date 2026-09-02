@@ -1454,7 +1454,21 @@ function bulkEditField() {
   if (modal) {
     document.getElementById('bulk-edit-count').textContent = sel.length;
     modal.style.display = 'flex';
+    _bulkEditFieldChange(document.getElementById('bulk-edit-field')?.value);
   }
+}
+
+// Podpowiedzi w polu "Nowa wartość" — wartości, które to pole już ma gdziekolwiek
+// w całej flocie, żeby nie trzeba było zgadywać pisowni (np. nazwa gminy,
+// istniejąca wartość "paliwo"). Ten sam mechanizm datalist co marka/model
+// pojazdu (modules/vehicle-dictionaries.js) — bez osobnej kopii logiki.
+function _bulkEditFieldChange(fieldKey) {
+  if (!fieldKey || !window.VehicleDictionaries) return;
+  const values = [...new Set((vehs || [])
+    .map(v => v[fieldKey])
+    .filter(v => v !== undefined && v !== null && String(v).trim() !== '')
+    .map(String))].sort();
+  VehicleDictionaries.attachDatalist('bulk-edit-value', values, 'bulk-edit-value-list');
 }
 
 function bulkEditApply() {

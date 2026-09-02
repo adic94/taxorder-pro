@@ -75,11 +75,28 @@ window.TaxOrderTires = (function () {
     document.getElementById('opm-sezon').value = t?.sezon || '';
     document.getElementById('opm-lokalizacja').value = t?.lokalizacja_magazyn || '';
     document.getElementById('opm-zakup').value = t?.data_zakupu || '';
+    document.getElementById('opm-faktura').value = t?.nr_faktury || '';
+    document.getElementById('opm-dostawca').value = t?.dostawca || '';
     document.getElementById('opm-uwagi').value = t?.uwagi || '';
+    // Ilość i "od razu zamontowana" mają sens tylko przy dodawaniu nowych opon —
+    // edycja dotyczy zawsze JEDNEJ już istniejącej.
+    document.getElementById('opm-qty-wrap').style.display = t ? 'none' : '';
+    document.getElementById('opm-qty').value = 1;
+    document.getElementById('opm-already-mounted').closest('.f').style.display = t ? 'none' : '';
+    document.getElementById('opm-already-mounted').checked = false;
+    _toggleAlreadyMounted(false);
+    const dl = document.getElementById('opm-add-veh-list');
+    if (dl) dl.innerHTML = (window.vehs || []).map(v => `<option value="${esc(v.nrRej)}">${esc(v.nrRej)} — ${esc(v.marka)} ${esc(v.model)}</option>`).join('');
+    const supDl = document.getElementById('opm-dostawca-list');
+    if (supDl) supDl.innerHTML = [...new Set(list.map(x => x.dostawca).filter(Boolean))].sort().map(d => `<option value="${esc(d)}">`).join('');
     document.getElementById('opona-modal').classList.remove('hidden');
   }
 
   function closeModal() { document.getElementById('opona-modal').classList.add('hidden'); }
+
+  function _toggleAlreadyMounted(checked) {
+    document.getElementById('opm-mount-fields-wrap').style.display = checked ? '' : 'none';
+  }
 
   async function save() {
     const body = {
@@ -91,14 +108,37 @@ window.TaxOrderTires = (function () {
       sezon: document.getElementById('opm-sezon').value,
       lokalizacja_magazyn: document.getElementById('opm-lokalizacja').value.trim(),
       data_zakupu: document.getElementById('opm-zakup').value || null,
+      nr_faktury: document.getElementById('opm-faktura').value.trim(),
+      dostawca: document.getElementById('opm-dostawca').value.trim(),
       uwagi: document.getElementById('opm-uwagi').value.trim(),
     };
+    const alreadyMounted = !editId && document.getElementById('opm-already-mounted').checked;
+    const nrRej   = document.getElementById('opm-add-nrrej').value.trim().toUpperCase();
+    const pozycja = document.getElementById('opm-add-pozycja').value;
+    if (alreadyMounted && !nrRej) { toast('⚠ Wybierz pojazd dla zamontowanej opony'); return; }
+    const qty = editId ? 1 : Math.min(20, Math.max(1, parseInt(document.getElementById('opm-qty').value) || 1));
+
     try {
-      const resp = editId
-        ? await fetch(`${_cfApi()}/api/tires/${editId}`, { method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) })
-        : await fetch(`${_cfApi()}/api/tires`, { method: 'POST', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      toast('✓ Opona zapisana');
+      if (editId) {
+        const resp = await fetch(`${_cfApi()}/api/tires/${editId}`, { method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      } else {
+        // Sekwencyjnie, nie Promise.all — endpoint nie ma trybu wsadowego,
+        // a przy 20 kolejnych POST-ach równolegle łatwiej trafić w limit API.
+        for (let i = 0; i < qty; i++) {
+          const resp = await fetch(`${_cfApi()}/api/tires`, { method: 'POST', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          const created = await resp.json();
+          if (alreadyMounted && created.id) {
+            const mountResp = await fetch(`${_cfApi()}/api/tires/${created.id}`, {
+              method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }),
+              body: JSON.stringify({ akcja: 'ZAMONTUJ', nr_rej: nrRej, pozycja }),
+            });
+            if (!mountResp.ok) throw new Error('Utworzono, ale montaż nie powiódł się (HTTP ' + mountResp.status + ')');
+          }
+        }
+      }
+      toast(qty > 1 ? `✓ Dodano ${qty} opon` : '✓ Opona zapisana');
       closeModal();
       await load();
     } catch (e) {
@@ -174,5 +214,5 @@ window.TaxOrderTires = (function () {
 
   function closeHistory() { document.getElementById('opona-history-modal').classList.add('hidden'); }
 
-  return { load, render, openModal, closeModal, save, openMountModal, closeMountModal, confirmMount, unmount, scrap, showHistory, closeHistory, POZYCJE };
+  return { load, render, openModal, closeModal, _toggleAlreadyMounted, save, openMountModal, closeMountModal, confirmMount, unmount, scrap, showHistory, closeHistory, POZYCJE };
 })();

@@ -115,7 +115,7 @@ const ZNANE_BEZPIECZNE = {
   "tires|UPDATE tires SET status='ZAMONTOWANA', nr_rej=?, pozycja=?, historia=?, updated_at=datetime('now') WHERE id=?": "[PRE-CHECK] poprzedzone SELECT * FROM tires WHERE id=? AND company_id=? na początku PUT /api/tires/:id",
   "tires|UPDATE tires SET status='MAGAZYN', nr_rej=NULL, pozycja=NULL, lokalizacja_magazyn=?, historia=?, updated_at=datetime('now') WHERE id=?": "[PRE-CHECK] jak wyżej — jedna wspólna weryfikacja na początku handlera PUT /api/tires/:id",
   "tires|UPDATE tires SET status='ZLOMOWANA', nr_rej=NULL, pozycja=NULL, historia=?, updated_at=datetime('now') WHERE id=?": "[PRE-CHECK] jak wyżej",
-  "tires|UPDATE tires SET rozmiar=?, marka=?, dot=?, bieznik_mm=?, sezon=?, lokalizacja_magazyn=?, data_zakupu=?, uwagi=?, updated_at=datetime('now') WHERE id=?": "[PRE-CHECK] jak wyżej — gałąź „zwykła edycja pól\"",
+  "tires|UPDATE tires SET rozmiar=?, marka=?, dot=?, bieznik_mm=?, sezon=?, lokalizacja_magazyn=?, data_zakupu=?, uwagi=?, nr_faktury=?, dostawca=?, updated_at=datetime('now') WHERE id=?": "[PRE-CHECK] jak wyżej — gałąź „zwykła edycja pól\"",
   "service_orders|UPDATE service_orders SET status='AUTORYZOWANE', autoryzowal=?, data_autoryzacji=datetime('now'), updated_at=datetime('now') WHERE id=?": "[PRE-CHECK] poprzedzone SELECT * FROM service_orders WHERE id=? AND company_id=? na początku PUT",
   "service_orders|UPDATE service_orders SET status='ODRZUCONE', powod_odrzucenia=?, updated_at=datetime('now') WHERE id=?": "[PRE-CHECK] jak wyżej",
   "service_orders|UPDATE service_orders SET status='ZREALIZOWANE', data_realizacji=?, km_realizacji=?, koszt_rzeczywisty=?, nastepny_termin=?, nastepny_km=?, updated_at=datetime('now') WHERE id=?": "[PRE-CHECK] jak wyżej",

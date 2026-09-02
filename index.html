@@ -3239,7 +3239,35 @@ window._initPostHog=function(apiKey,host){
         </div>
         <div class="f"><label>Lokalizacja w magazynie</label><input id="opm-lokalizacja" class="fi" placeholder="np. Regał A3"></div>
         <div class="f"><label>Data zakupu</label><input id="opm-zakup" type="date" class="fi"></div>
+        <div class="f"><label>Nr faktury zakupu</label><input id="opm-faktura" class="fi" placeholder="np. FV/123/2026"></div>
+        <div class="f"><label>Dostawca</label><input id="opm-dostawca" class="fi" placeholder="np. Opony.pl Sp. z o.o." list="opm-dostawca-list"><datalist id="opm-dostawca-list"></datalist></div>
         <div class="f full"><label>Uwagi</label><input id="opm-uwagi" class="fi"></div>
+        <div class="f" id="opm-qty-wrap"><label>Ilość identycznych opon do dodania</label><input id="opm-qty" type="number" min="1" max="20" value="1" class="fi"></div>
+        <div class="f full">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="opm-already-mounted" onchange="TaxOrderTires._toggleAlreadyMounted(this.checked)">
+            Pojazd już wyposażony w te opony (zamontuj od razu)
+          </label>
+        </div>
+        <div id="opm-mount-fields-wrap" style="display:none;grid-column:1/-1">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="f"><label>Pojazd (nr rej.)</label>
+              <input id="opm-add-nrrej" class="fi" placeholder="np. WPR0365T" list="opm-add-veh-list">
+              <datalist id="opm-add-veh-list"></datalist>
+            </div>
+            <div class="f"><label>Pozycja</label>
+              <select id="opm-add-pozycja" class="fi">
+                <option value="FL">Przód lewy (FL)</option>
+                <option value="FR">Przód prawy (FR)</option>
+                <option value="RL">Tył lewy (RL)</option>
+                <option value="RR">Tył prawy (RR)</option>
+                <option value="RLi">Tył lewy wew. (RLi)</option>
+                <option value="RRi">Tył prawy wew. (RRi)</option>
+                <option value="SP">Zapasowa (SP)</option>
+              </select>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:10px">
@@ -4289,7 +4317,7 @@ window._initPostHog=function(apiKey,host){
     <div style="padding:18px;display:flex;flex-direction:column;gap:12px">
       <div>
         <label class="vdl">Pole do edycji</label>
-        <select id="bulk-edit-field" class="fi">
+        <select id="bulk-edit-field" class="fi" onchange="_bulkEditFieldChange(this.value)">
           <option value="kierowca">Kierowca</option>
           <option value="gmina">Gmina (DT-1)</option>
           <option value="miesiacePodatku">Miesiące podatku (1–12)</option>
@@ -4301,8 +4329,8 @@ window._initPostHog=function(apiKey,host){
         </select>
       </div>
       <div>
-        <label class="vdl">Nowa wartość</label>
-        <input id="bulk-edit-value" class="fi" type="text" placeholder="Wpisz wartość...">
+        <label class="vdl">Nowa wartość<span style="font-weight:400;color:var(--text3);font-size:10px"> (podpowiedzi z istniejących wartości floty)</span></label>
+        <input id="bulk-edit-value" class="fi" type="text" placeholder="Wpisz wartość..." list="bulk-edit-value-list" autocomplete="off">
       </div>
       <button class="btn btn-blue" style="justify-content:center;padding:10px" onclick="bulkEditApply()">
         <i class="ti ti-check"></i>Zastosuj dla wszystkich zaznaczonych
