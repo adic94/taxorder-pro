@@ -95,6 +95,9 @@ jobs:
       - name: Słowniki pojazdów — marka/model/typ/nadwozie/osie, dopisywanie własnych wartości
         run: node tests/unit/vehicle-dictionaries-test.js
 
+      - name: Zduplikowane id= w index.html i karcie pojazdu
+        run: node tests/unit/duplicate-dom-ids-test.js
+
       # claude.yml dostaje `contents: write` i ANTHROPIC_API_KEY, a wyzwalaczem jest
       # TRESC komentarza. Bez sprawdzenia autora wystarczy napisac "@claude ...", zeby
       # dostac agenta z prawem zapisu — a push do worker/** to deploy na produkcje.
