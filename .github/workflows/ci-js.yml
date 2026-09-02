@@ -98,6 +98,9 @@ jobs:
       - name: Zduplikowane id= w index.html i karcie pojazdu
         run: node tests/unit/duplicate-dom-ids-test.js
 
+      - name: RAG chat — SQL wygenerowane przez AI musi mieć filtr company_id i dozwoloną tabelę
+        run: node tests/unit/rag-chat-sql-guard-test.js
+
       # claude.yml dostaje `contents: write` i ANTHROPIC_API_KEY, a wyzwalaczem jest
       # TRESC komentarza. Bez sprawdzenia autora wystarczy napisac "@claude ...", zeby
       # dostac agenta z prawem zapisu — a push do worker/** to deploy na produkcje.
