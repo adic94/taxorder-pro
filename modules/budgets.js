@@ -61,7 +61,7 @@
     const b = id ? _budgets.find(x => String(x.id) === String(id)) : null;
     const modal = document.getElementById('budget-modal');
     if (!modal) return;
-    document.getElementById('bm-id').value       = b?.id || '';
+    document.getElementById('budget-mid').value       = b?.id || '';
     document.getElementById('bm-category').value = b?.category || 'fuel';
     document.getElementById('bm-nr-rej').value   = b?.nr_rej || '';
     document.getElementById('bm-year').value      = b?.year || _year;
@@ -76,7 +76,7 @@
   }
 
   async function saveBudget() {
-    const id = document.getElementById('bm-id').value;
+    const id = document.getElementById('budget-mid').value;
     const amount = parseFloat(document.getElementById('bm-amount').value);
     if (!amount) { alert('Wpisz kwotę budżetu'); return; }
     const body = {

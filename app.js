@@ -2717,7 +2717,10 @@ function updateAll() { updateCounters(); renderKalkulator(); }
 
 // ==================== BULK ACTIONS ====================
 function bulkExportSelected() {
-  const sel = getSel();
+  // getSelTax(), nie getSel() — v.cat/v.amount na surowym obiekcie pojazdu to
+  // migawka z jednorazowego "Auto-przypisz kategorie" (autoAssignCategories()),
+  // nigdy nieaktualizowana przy zmianie DMC/osi. calcTax() liczy na żywo.
+  const sel = getSelTax();
   if (!sel.length) return;
   if (!window.XLSX) { toast('⚠ Brak biblioteki XLSX'); return; }
   const rows = sel.map(v => ({
@@ -2741,7 +2744,7 @@ function bulkExportSelected() {
 }
 
 function bulkExportCSV() {
-  const sel = getSel();
+  const sel = getSelTax(); // patrz komentarz w bulkExportSelected — cat/amount na żywo, nie migawka
   if (!sel.length) return;
   const header = ['Nr rej.','Marka','Model','Rok','Typ','DMC (kg)','Status','Kierowca','VIN','Kat. DT-1','Podatek'].join(';');
   const rows = sel.map(v => [
@@ -2847,13 +2850,37 @@ function bulkSetTaxMonths() {
 
 function bulkChangeStatus() {
   const sel = getSel();
-  if (!sel.length) return;
-  const statuses = ['Własny', 'Leasing', 'Wynajęty'];
-  const choice = prompt('Zmień status dla ' + sel.length + ' pojazdów:\n1. Własny\n2. Leasing\n3. Wynajęty\n\nWpisz numer:');
-  const idx = parseInt(choice) - 1;
-  if (isNaN(idx) || idx < 0 || idx >= statuses.length) return;
-  const status = statuses[idx];
+  if (!sel.length) { toast('Zaznacz pojazdy do zmiany statusu'); return; }
+  const statuses = ['Własny', 'Leasing', 'Wynajęty', 'Sprzedany'];
+  const modal = document.createElement('div');
+  modal.id = 'bulk-status-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:5500;display:flex;align-items:center;justify-content:center;padding:16px';
+  modal.innerHTML = `
+    <div style="background:var(--bg);border-radius:var(--radius-lg);width:min(340px,100%);box-shadow:0 8px 40px rgba(0,0,0,.3);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border)">
+        <i class="ti ti-tag" style="font-size:18px;color:var(--blue)"></i>
+        <strong>Zmień status dla ${sel.length} pojazdów</strong>
+        <button onclick="document.getElementById('bulk-status-modal').remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text2);line-height:1">×</button>
+      </div>
+      <div style="padding:18px;display:flex;flex-direction:column;gap:12px">
+        <select id="bcs-select" class="fi">
+          ${statuses.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}
+        </select>
+        <button class="btn btn-blue" style="justify-content:center;padding:10px" onclick="_bulkChangeStatusApply()">
+          <i class="ti ti-check"></i>Zastosuj dla ${sel.length} pojazdów
+        </button>
+      </div>
+    </div>`;
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+function _bulkChangeStatusApply() {
+  const sel = getSel();
+  const status = document.getElementById('bcs-select')?.value;
+  if (!status) return;
   sel.forEach(v => { v.status = status; window.TaxOrderFleetCloud?.saveVehicle?.(v); });
+  document.getElementById('bulk-status-modal')?.remove();
   renderVeh(); updateCounters();
   toast('✓ Zmieniono status na „' + status + '" dla ' + sel.length + ' pojazdów');
 }
