@@ -259,7 +259,6 @@
           const el = document.getElementById('tp-' + k);
           if (el && tp[k] !== undefined) el.value = tp[k];
         });
-        window._triggerNipHint?.();
       } catch (e) { console.warn('[CF State] applyFromCloud:', e.message); }
     },
   };

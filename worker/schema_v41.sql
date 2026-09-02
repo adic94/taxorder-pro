@@ -1,5 +1,9 @@
 -- schema_v41: Tabele dla 8 modułów szarej strefy
 
+-- ⚠️ ZDUBLOWANA DEFINICJA (audyt 02.09.2026): `predictive_alerts` istnieje już
+-- w schema_v35.sql z INNYM zestawem kolumn. `CREATE TABLE IF NOT EXISTS` wykonuje
+-- pierwszą napotkaną definicję (v35, bo pliki idą numerycznie) i CICHO IGNORUJE tę.
+-- Kod w worker/index.js jest pisany pod v35. Prawdziwe źródło to schema_v35.sql.
 CREATE TABLE IF NOT EXISTS predictive_alerts (
   id               TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
   company_id       TEXT NOT NULL,
@@ -40,6 +44,10 @@ CREATE TABLE IF NOT EXISTS video_telematics_events (
 CREATE INDEX IF NOT EXISTS idx_vt_co         ON video_telematics_events(company_id, event_at);
 CREATE INDEX IF NOT EXISTS idx_vt_co_reg     ON video_telematics_events(company_id, vehicle_reg);
 
+-- ⚠️ ZDUBLOWANA DEFINICJA (audyt 02.09.2026): `gdpr_records` istnieje już
+-- w schema_v34.sql z INNYM zestawem kolumn. `CREATE TABLE IF NOT EXISTS` wykonuje
+-- pierwszą napotkaną definicję (v34) i CICHO IGNORUJE tę. Kod w worker/index.js
+-- jest pisany pod v34. Prawdziwe źródło to schema_v34.sql.
 CREATE TABLE IF NOT EXISTS gdpr_records (
   id             TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
   company_id     TEXT NOT NULL,
@@ -118,6 +126,10 @@ CREATE TABLE IF NOT EXISTS internal_rentals (
 CREATE INDEX IF NOT EXISTS idx_irent_co       ON internal_rentals(company_id, status);
 CREATE INDEX IF NOT EXISTS idx_irent_co_start ON internal_rentals(company_id, start_datetime);
 
+-- ⚠️ ZDUBLOWANA DEFINICJA (audyt 02.09.2026): `disposal_records` istnieje już
+-- w schema_v35.sql z INNYM zestawem kolumn. `CREATE TABLE IF NOT EXISTS` wykonuje
+-- pierwszą napotkaną definicję (v35) i CICHO IGNORUJE tę. Kod w worker/index.js
+-- jest pisany pod v35. Prawdziwe źródło to schema_v35.sql.
 CREATE TABLE IF NOT EXISTS disposal_records (
   id              TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
   company_id      TEXT NOT NULL,
@@ -138,6 +150,10 @@ CREATE TABLE IF NOT EXISTS disposal_records (
 CREATE INDEX IF NOT EXISTS idx_disp_co        ON disposal_records(company_id, status);
 CREATE INDEX IF NOT EXISTS idx_disp_co_reg    ON disposal_records(company_id, vehicle_reg);
 
+-- ⚠️ ZDUBLOWANA DEFINICJA (audyt 02.09.2026): `warranties_recalls` istnieje już
+-- w schema_v35.sql z INNYM zestawem kolumn. `CREATE TABLE IF NOT EXISTS` wykonuje
+-- pierwszą napotkaną definicję (v35) i CICHO IGNORUJE tę. Kod w worker/index.js
+-- jest pisany pod v35. Prawdziwe źródło to schema_v35.sql.
 CREATE TABLE IF NOT EXISTS warranties_recalls (
   id              TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
   company_id      TEXT NOT NULL,

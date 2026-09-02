@@ -1362,9 +1362,9 @@ function exportServiceHistoryCsv() {
 }
 
 function exportFinesCsv() {
-  const fines = window.TaxOrderFines?.getAllSync() || [];
+  const fines = window.FinesModule?.getAllSync() || [];
   if (!fines.length) { toast('Brak mandatów do eksportu'); return; }
-  const FINE_TYPES = window.TaxOrderFines?.FINE_TYPES || {};
+  const FINE_TYPES = window.FinesModule?.FINE_TYPES || {};
   const HEADERS = ['Nr rej.','Kierowca','Data','Typ','Kwota (zł)','Termin płatności','Zapłacono','Data zapłaty','Opis','Nr mandatu','Wystawił','Punkty'];
   const rows = fines.map(f => [
     f.nr_rej||'', f.driver_name||'', f.date||'',
@@ -3419,6 +3419,7 @@ async function _handlePzHashCallback() {
     }
 
     currentUser = { id: u.id, email: u.email, name: u.name || u.email, role: u.role || 'kierowca', active: true, _loginViaPZ: true };
+    window.currentUser = currentUser;
     window.currentUserId = u.id || null;
 
     document.getElementById('login-screen').style.display = 'none';
@@ -7882,6 +7883,7 @@ async function doLogin(){
   }
 
   currentUser=u;
+  window.currentUser = currentUser;
   window.currentUserId = u.id || null;
 
   // PostHog: identyfikuj użytkownika po zalogowaniu
@@ -8085,6 +8087,7 @@ async function handlePasswordRecoveryUrl() {
 
 function doLogout(){
   currentUser=null;
+  window.currentUser = null;
   closeUserMenu();
   sessionStorage.removeItem('dt1_user_email');
   document.getElementById('app').style.display='none';
@@ -8785,6 +8788,9 @@ let COMPANIES = {
   nwkinvest:{id:'nwkinvest',shortName:'NWK Invest',name:'NWK INVEST SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',nip:'5361920285',regon:'362208763',krs:'0000573479',ulica:'MACIEJKI',dom:'3',lokal:'',kod:'05-140',miasto:'JACHRANKA',woj:'MAZOWIECKIE',organ:'Burmistrz Gminy Serock',color:'#A32D2D',wlasciciel:'NWK Invest'},
   wolund:{id:'wolund',shortName:'Wolund',name:'WOLUND SYNERGY SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',nip:'5253006751',regon:'',krs:'0001111249',ulica:'ADAMA MICKIEWICZA',dom:'37',lokal:'58',kod:'01-625',miasto:'WARSZAWA',woj:'MAZOWIECKIE',organ:'Prezydent m.st. Warszawy — Dzielnica Żoliborz',color:'#0891B2',wlasciciel:'Wolund'}
 };
+// `hydrateCompaniesFromApi()` mutuje ten obiekt w miejscu (nie przypisuje nowego) —
+// referencja na window pozostaje aktualna bez potrzeby odświeżania.
+window.COMPANIES = COMPANIES;
 let currentCompanyId=localStorage.getItem('dt1_current_company')||'mtoilet';
 window.currentCompanyId = currentCompanyId;
 let companyStates=JSON.parse(localStorage.getItem('dt1_company_states')||'{}');
@@ -9844,9 +9850,6 @@ window.addEventListener('online', () => {
 // ==================== INIT ====================
 
 window.addEventListener('load', async () => {
-  if(window.TaxOrderCompanies){
-  await window.TaxOrderCompanies.syncToApp();
-}
   // Obsługa callback z Profilu Zaufanego (hash: #pz_token=... lub #pz_error=...)
   if (window.location.hash.includes('pz_token=') || window.location.hash.includes('pz_error=')) {
     const handled = await _handlePzHashCallback();
@@ -9859,6 +9862,7 @@ window.addEventListener('load', async () => {
     const u=users.find(x=>x.email===savedEmail&&x.active);
     if(u){
       currentUser=u;
+      window.currentUser = currentUser;
       window.currentUserId = u.id || null;
       document.getElementById('login-screen').style.display='none';
       document.getElementById('app').style.display='flex';
