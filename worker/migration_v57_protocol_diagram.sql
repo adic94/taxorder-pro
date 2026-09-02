@@ -1,0 +1,11 @@
+-- Migracja v57: diagram uszkodzeń pojazdu w protokole zdawczo-odbiorczym.
+-- Zgłoszenie użytkownika (#11): protokół miał tylko pole tekstowe "Opis
+-- uszkodzeń" — brakowało wizualnego schematu pojazdu do zaznaczania miejsc
+-- uszkodzeń, standardowego elementu papierowych protokołów zdawczo-odbiorczych.
+--
+-- Nazwa `migration_v57_`, nie `schema_v57_` — nocny automat uruchamia
+-- wyłącznie `schema_v*.sql`. Uruchomienie tego pliku jest ręczne i świadome.
+--
+-- ALTER ADD COLUMN jest przyrostowy — bezpieczny także wtedy, gdy tabela ma
+-- już wiersze (istniejące protokoły dostają pustą tablicę '[]').
+ALTER TABLE handover_protocols ADD COLUMN uszkodzenia_diagram TEXT DEFAULT '[]';

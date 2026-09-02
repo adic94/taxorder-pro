@@ -8,7 +8,19 @@ window.TaxOrderHandoverProtocol = (function () {
   let editId = null;
   let pendingPhotos = [];
   let equipment = [];
+  let damageMarks = []; // [{x, y, opis}] — x/y w % względem diagramu
   const DEFAULT_EQUIPMENT = ['Gaśnica', 'Trójkąt ostrzegawczy', 'Apteczka', 'Koło zapasowe / zestaw naprawczy', 'Kluczyk zapasowy', 'Dokumenty pojazdu'];
+
+  // Uproszczona sylwetka pojazdu widziana z boku (ciężarówka/dostawczy —
+  // wspólny mianownik dla floty). Współrzędne w viewBox 0 0 400 150.
+  const VEHICLE_SILHOUETTE_SVG = `
+    <svg viewBox="0 0 400 150" style="width:100%;display:block;pointer-events:none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M20 110 L20 70 L60 70 L80 40 L140 40 L140 70 L280 70 L280 50 L380 50 L380 110 Z"
+        fill="none" stroke="var(--text3)" stroke-width="2"/>
+      <circle cx="70" cy="115" r="14" fill="none" stroke="var(--text3)" stroke-width="2"/>
+      <circle cx="330" cy="115" r="14" fill="none" stroke="var(--text3)" stroke-width="2"/>
+      <line x1="60" y1="70" x2="80" y2="40" stroke="var(--text3)" stroke-width="1.5"/>
+    </svg>`;
 
   function _cfApi() { return window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev'; }
   function _token() { return localStorage.getItem('cf_token'); }
@@ -64,6 +76,7 @@ window.TaxOrderHandoverProtocol = (function () {
     pendingPhotos = [];
     const p = id ? list.find(x => x.id === id) : null;
     equipment = p?.wyposazenie?.length ? p.wyposazenie : DEFAULT_EQUIPMENT.map(nazwa => ({ nazwa, obecne: true }));
+    damageMarks = Array.isArray(p?.uszkodzenia_diagram) ? p.uszkodzenia_diagram : [];
 
     document.getElementById('prm-title').textContent = p ? 'Edytuj protokół' : 'Nowy protokół zdawczo-odbiorczy';
     document.getElementById('prm-nrrej').value = p?.nr_rej || presetNrRej || '';
@@ -81,6 +94,7 @@ window.TaxOrderHandoverProtocol = (function () {
     document.getElementById('prm-uwagi').value = p?.uwagi || '';
     document.getElementById('prm-photo-btn').style.display = p ? 'inline-flex' : 'none';
     _renderEquipment();
+    _renderDamageDiagram();
     _renderPhotos(p?.photos || []);
     _clearSignaturePad('wydajacy');
     _clearSignaturePad('odbierajacy');
@@ -110,6 +124,46 @@ window.TaxOrderHandoverProtocol = (function () {
     equipment.push({ nazwa: val, obecne: true });
     document.getElementById('prm-equip-new').value = '';
     _renderEquipment();
+  }
+
+  // ── Diagram uszkodzeń — klik na sylwetce pojazdu dodaje ponumerowany znacznik ──
+  function _renderDamageDiagram() {
+    const el = document.getElementById('prm-damage-diagram');
+    if (!el) return;
+    const marks = damageMarks.map((m, i) => `
+      <div title="${esc(m.opis)}" onclick="event.stopPropagation();TaxOrderHandoverProtocol._removeDamageMark(${i})"
+        style="position:absolute;top:${m.y}%;left:${m.x}%;transform:translate(-50%,-50%);
+        width:20px;height:20px;border-radius:50%;background:var(--red);color:#fff;
+        display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;
+        cursor:pointer;box-shadow:0 0 0 2px #fff">${i + 1}</div>`).join('');
+    const legend = damageMarks.map((m, i) => `<div style="font-size:11px;padding:2px 0">
+      <strong style="color:var(--red)">${i + 1}.</strong> ${esc(m.opis)}
+      <button type="button" onclick="TaxOrderHandoverProtocol._removeDamageMark(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;margin-left:4px">×</button>
+    </div>`).join('') || '<div style="font-size:11px;color:var(--text3)">Kliknij na sylwetce, żeby zaznaczyć miejsce uszkodzenia</div>';
+    el.innerHTML = `
+      <div id="prm-damage-svg-wrap" onclick="TaxOrderHandoverProtocol._addDamageMark(event)"
+        style="position:relative;border:1px solid var(--border);border-radius:6px;background:var(--bg2);cursor:crosshair;padding:8px">
+        ${VEHICLE_SILHOUETTE_SVG}
+        ${marks}
+      </div>
+      <div style="margin-top:6px">${legend}</div>`;
+  }
+
+  function _addDamageMark(evt) {
+    const wrap = document.getElementById('prm-damage-svg-wrap');
+    if (!wrap) return;
+    const opis = prompt('Krótki opis uszkodzenia (np. rysa, wgniecenie):');
+    if (!opis || !opis.trim()) return;
+    const rect = wrap.getBoundingClientRect();
+    const x = Math.min(98, Math.max(2, (evt.clientX - rect.left) / rect.width * 100));
+    const y = Math.min(96, Math.max(4, (evt.clientY - rect.top) / rect.height * 100));
+    damageMarks.push({ x, y, opis: opis.trim() });
+    _renderDamageDiagram();
+  }
+
+  function _removeDamageMark(i) {
+    damageMarks.splice(i, 1);
+    _renderDamageDiagram();
   }
 
   // ── Podpis elektroniczny (własny canvas, bez zewnętrznej biblioteki) ──
@@ -182,6 +236,7 @@ window.TaxOrderHandoverProtocol = (function () {
       stan_paliwa: document.getElementById('prm-paliwo').value,
       wyposazenie: equipment,
       uszkodzenia_opis: document.getElementById('prm-uszkodzenia').value.trim(),
+      uszkodzenia_diagram: damageMarks,
       uwagi: document.getElementById('prm-uwagi').value.trim(),
       podpis_wydajacy: _getSignature('wydajacy'),
       podpis_odbierajacy: _getSignature('odbierajacy'),
@@ -255,6 +310,16 @@ window.TaxOrderHandoverProtocol = (function () {
     const w = window.open('', '_blank');
     const equip = (p.wyposazenie || []).map(e => `<li>${e.obecne ? '☑' : '☐'} ${esc(e.nazwa)}</li>`).join('');
     const safeSig = s => s && s.startsWith('data:image/') ? s : null;
+    const marks = (p.uszkodzenia_diagram || []);
+    const diagramHtml = marks.length ? `
+      <strong>Schemat uszkodzeń:</strong>
+      <div style="position:relative;border:1px solid #ccc;border-radius:6px;padding:8px;max-width:400px;margin-top:6px">
+        ${VEHICLE_SILHOUETTE_SVG}
+        ${marks.map((m, i) => `<div style="position:absolute;top:${m.y}%;left:${m.x}%;transform:translate(-50%,-50%);
+          width:18px;height:18px;border-radius:50%;background:#dc2626;color:#fff;font-size:10px;font-weight:700;
+          display:flex;align-items:center;justify-content:center">${i + 1}</div>`).join('')}
+      </div>
+      <ol style="font-size:12px">${marks.map(m => `<li>${esc(m.opis)}</li>`).join('')}</ol>` : '';
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Protokół ${esc(p.nr_rej)}</title>
       <style>body{font-family:sans-serif;padding:30px;max-width:700px;margin:0 auto}
       h1{font-size:18px}table{width:100%;border-collapse:collapse;margin:14px 0}
@@ -272,6 +337,7 @@ window.TaxOrderHandoverProtocol = (function () {
         <tr><td>Uwagi</td><td>${esc(p.uwagi || '—')}</td></tr>
       </table>
       <strong>Wyposażenie:</strong><ul>${equip}</ul>
+      ${diagramHtml}
       <div class="sig">
         <div>Podpis wydającego<br>${safeSig(p.podpis_wydajacy) ? `<img src="${p.podpis_wydajacy}">` : '— brak —'}</div>
         <div>Podpis odbierającego<br>${safeSig(p.podpis_odbierajacy) ? `<img src="${p.podpis_odbierajacy}">` : '— brak —'}</div>
@@ -281,5 +347,5 @@ window.TaxOrderHandoverProtocol = (function () {
     w.document.close();
   }
 
-  return { load, render, openModal, closeModal, save, uploadPhotos, remove, print, addEquip, clearSignature, _toggleEquip, _removeEquip };
+  return { load, render, openModal, closeModal, save, uploadPhotos, remove, print, addEquip, clearSignature, _toggleEquip, _removeEquip, _addDamageMark, _removeDamageMark };
 })();
