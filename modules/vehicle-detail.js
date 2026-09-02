@@ -1,6 +1,34 @@
 // ==================== VEHICLE DETAIL MODAL ====================
 // Karta pojazdu z pełnymi danymi DR, leasingiem, archiwizacją, kartami flotowymi
 
+// Domyślne pozycje pól nałożonych na skan dowodu rejestracyjnego (Podgląd DR).
+// UWAGA: to są przybliżenia oparte na typowym układzie zharmonizowanego wzoru
+// UE (rubryki w dwóch kolumnach, kolejność jak w _renderDrFacsimile) — NIE
+// zostały skalibrowane względem realnego skanu, bo ta sesja nie ma dostępu do
+// żadnego. Stąd tryb "Kalibruj pozycje": użytkownik z prawdziwym dokumentem
+// przed oczami przeciąga etykiety raz, a `_saveDrOverlayPositions()` zapisuje
+// wynik do localStorage — wzór DR jest ten sam dla każdego pojazdu, więc
+// kalibracja robiona jest jednorazowo, nie per pojazd.
+const DR_OVERLAY_DEFAULTS = {
+  'B':   { top: 10, left: 8  },
+  'D.1': { top: 22, left: 8  },
+  'D.2': { top: 28, left: 8  },
+  'D.3': { top: 34, left: 8  },
+  'E':   { top: 42, left: 8  },
+  'J':   { top: 50, left: 8  },
+  'K':   { top: 56, left: 8  },
+  'F.1': { top: 22, left: 55 },
+  'F.2': { top: 28, left: 55 },
+  'F.3': { top: 34, left: 55 },
+  'G':   { top: 40, left: 55 },
+  'O.1': { top: 46, left: 55 },
+  'O.2': { top: 52, left: 55 },
+  'P.1': { top: 60, left: 55 },
+  'P.2': { top: 66, left: 55 },
+  'P.3': { top: 72, left: 55 },
+  'S.1': { top: 78, left: 55 },
+};
+
 // Wszystkie zakładki karty pojazdu — kolejność domyślna
 const VD_TABS = [
   { id: 'dr',           label: '📋 DR',           i18n: 'vd.tab.dr' },
@@ -49,6 +77,7 @@ window.TaxOrderVehicleDetail = {
     this._dirty = false;
     this._render(v);
     this._refreshDicts(v);
+    this._loadDrScanOverlay(vehId);
     // Aktywuj super-tab (pamięta ostatnio wybrany) i aktywuj pierwszą zakładkę w grupie
     this._superTab(this._activeSuperTab || 'przeglad');
     document.getElementById('vd-modal').style.display = 'flex';
@@ -2360,7 +2389,7 @@ window.TaxOrderVehicleDetail = {
   _refreshDrView(vehId) {
     const v = (window.vehs || []).find(x => x.id === vehId);
     const el = document.getElementById('vd-dr-view');
-    if (v && el) el.innerHTML = this._renderDrView(v);
+    if (v && el) { el.innerHTML = this._renderDrView(v); this._loadDrScanOverlay(vehId); }
   },
 
   _toggleDrView(showView) {
@@ -2383,7 +2412,142 @@ window.TaxOrderVehicleDetail = {
     }
   },
 
+  // Punkt wejścia wołany przez _toggleDrView/_refreshDrView — pokazuje od razu
+  // facsimile (renderowane synchronicznie z danych w systemie) i doczepia pod
+  // spodem kontener na prawdziwy skan, wypełniany asynchronicznie po fetchu.
   _renderDrView(v) {
+    return this._renderDrFacsimile(v) + `
+      <div id="vd-dr-scan-overlay-${v.id}" style="margin-top:14px">
+        <div style="padding:14px;text-align:center;color:var(--text3);font-size:11px"><i class="ti ti-loader-2"></i> Szukam zeskanowanego dowodu rejestracyjnego…</div>
+      </div>`;
+  },
+
+  async _loadDrScanOverlay(vehId) {
+    const v = (window.vehs || []).find(x => x.id === vehId);
+    const box = document.getElementById('vd-dr-scan-overlay-' + vehId);
+    if (!v || !box) return;
+    const api = window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
+    const token = localStorage.getItem('cf_token');
+    const co = window.currentCompanyId || 'mtoilet';
+    try {
+      const r = await fetch(`${api}/api/docs?nrRej=${encodeURIComponent(v.nrRej)}&company=${encodeURIComponent(co)}&docType=dowod_rej`,
+        { headers: token ? { Authorization: 'Bearer ' + token } : {} });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const docs = await r.json();
+      if (!Array.isArray(docs) || !docs.length) { box.innerHTML = ''; return; } // brak skanu — samo facsimile wystarczy
+      const doc = docs[0]; // GET /api/docs sortuje po uploaded_at DESC
+      const fileResp = await fetch(`${api}/api/docs/file/${encodeURIComponent(doc.r2_key)}`, { headers: token ? { Authorization: 'Bearer ' + token } : {} });
+      if (!fileResp.ok) throw new Error('HTTP ' + fileResp.status);
+      const blob = await fileResp.blob();
+      const imgSrc = await this._blobToDisplayableImage(blob, doc.mime_type || blob.type);
+      box.innerHTML = this._buildDrOverlayHtml(v, imgSrc, doc.uploaded_at);
+    } catch (e) {
+      box.innerHTML = `<div style="padding:10px;font-size:11px;color:var(--text3)">Brak podglądu skanu (${esc(e.message)}) — dane poniżej pochodzą wyłącznie z formularza.</div>`;
+    }
+  },
+
+  // PDF → obraz pierwszej strony (pdfjsLib, ten sam silnik co lokalny OCR w
+  // _openOcrScan) — zwraca dataURL gotowy do <img src>. Zdjęcie/skan w formacie
+  // obrazu idzie bezpośrednio jako blob URL, bez konwersji.
+  async _blobToDisplayableImage(blob, mimeType) {
+    const isPdf = (mimeType || '').includes('pdf');
+    if (!isPdf) return URL.createObjectURL(blob);
+    if (!window.pdfjsLib) throw new Error('PDF.js niedostępny');
+    const buf = await blob.arrayBuffer();
+    const pdfDoc = await pdfjsLib.getDocument({ data: buf, isEvalSupported: false }).promise;
+    const page = await pdfDoc.getPage(1);
+    const viewport = page.getViewport({ scale: 2 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    return canvas.toDataURL('image/png');
+  },
+
+  _loadDrOverlayPositions() {
+    try { return { ...DR_OVERLAY_DEFAULTS, ...JSON.parse(localStorage.getItem('taxDrOverlayPositions') || '{}') }; }
+    catch { return { ...DR_OVERLAY_DEFAULTS }; }
+  },
+
+  _buildDrOverlayHtml(v, imgSrc, uploadedAt) {
+    const pos = this._loadDrOverlayPositions();
+    const fields = [
+      ['B', v.dataRejestracji], ['D.1', v.marka], ['D.2', v.wariant], ['D.3', v.model],
+      ['E', v.vin], ['J', v.katPojazdu], ['K', v.homologacja],
+      ['F.1', v.dmcMax], ['F.2', v.ladownosc], ['F.3', v.dmcZespolu], ['G', v.masaWlasna],
+      ['O.1', v.masaPrzyczepyZHam], ['O.2', v.masaPrzyczepyBezHam],
+      ['P.1', v.pojSilnika], ['P.2', v.mocKW], ['P.3', v.paliwo], ['S.1', v.miejscaSied],
+    ];
+    const labels = fields.map(([code, val]) => {
+      const p = pos[code] || DR_OVERLAY_DEFAULTS[code];
+      const shown = (val == null || val === '') ? '—' : esc(String(val));
+      return `<div class="dr-ov-label" data-code="${code}" style="position:absolute;top:${p.top}%;left:${p.left}%;
+        background:rgba(255,235,59,.82);border:1px solid #b8940a;border-radius:3px;padding:1px 5px;
+        font-size:10px;font-family:var(--mono);font-weight:700;color:#3a2f00;white-space:nowrap;
+        cursor:default;user-select:none;z-index:2">${code}: ${shown}</div>`;
+    }).join('');
+    const when = uploadedAt ? new Date(uploadedAt).toLocaleString('pl-PL') : '';
+    return `
+      <div style="font-size:9px;color:var(--text3);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">
+        <span>Skan dokumentu${when ? ' — wgrany ' + esc(when) : ''} — żółte etykiety to dane z systemu, nie OCR na żywo</span>
+        <button type="button" class="btn btn-gray" style="font-size:9px;padding:2px 6px" onclick="TaxOrderVehicleDetail._toggleDrCalibrate(${v.id})" id="dr-calib-btn-${v.id}">
+          <i class="ti ti-adjustments"></i> Kalibruj pozycje
+        </button>
+      </div>
+      <div id="dr-ov-wrap-${v.id}" style="position:relative;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#111">
+        <img src="${imgSrc}" style="width:100%;display:block" draggable="false">
+        ${labels}
+      </div>`;
+  },
+
+  _toggleDrCalibrate(vehId) {
+    const wrap = document.getElementById('dr-ov-wrap-' + vehId);
+    const btn = document.getElementById('dr-calib-btn-' + vehId);
+    if (!wrap) return;
+    const on = wrap.dataset.calibrating !== '1';
+    wrap.dataset.calibrating = on ? '1' : '0';
+    if (btn) btn.innerHTML = on
+      ? '<i class="ti ti-device-floppy"></i> Zapisz pozycje'
+      : '<i class="ti ti-adjustments"></i> Kalibruj pozycje';
+    if (on) {
+      this._attachDrDrag(wrap);
+    } else {
+      this._saveDrOverlayPositions(wrap);
+    }
+  },
+
+  // Przeciąganie bez zewnętrznej biblioteki — etykiety mają position:absolute
+  // z top/left w %, więc przeliczenie z px na % wymaga tylko rozmiaru kontenera.
+  _attachDrDrag(wrap) {
+    wrap.querySelectorAll('.dr-ov-label').forEach(el => {
+      el.style.cursor = 'move';
+      el.onmousedown = (e) => {
+        e.preventDefault();
+        const rect = wrap.getBoundingClientRect();
+        const move = (ev) => {
+          const leftPct = Math.min(96, Math.max(0, (ev.clientX - rect.left) / rect.width * 100));
+          const topPct  = Math.min(97, Math.max(0, (ev.clientY - rect.top)  / rect.height * 100));
+          el.style.left = leftPct + '%';
+          el.style.top  = topPct + '%';
+        };
+        const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+      };
+    });
+  },
+
+  _saveDrOverlayPositions(wrap) {
+    const saved = this._loadDrOverlayPositions();
+    wrap.querySelectorAll('.dr-ov-label').forEach(el => {
+      saved[el.dataset.code] = { top: parseFloat(el.style.top), left: parseFloat(el.style.left) };
+      el.style.cursor = 'default';
+      el.onmousedown = null;
+    });
+    localStorage.setItem('taxDrOverlayPositions', JSON.stringify(saved));
+    if (typeof toast === 'function') toast('✓ Pozycje zapisane — obowiązują dla wszystkich pojazdów');
+  },
+
+  _renderDrFacsimile(v) {
     const f = (val, unit = '') => {
       if (val == null || val === '' || val === 0) return '<span style="color:var(--text3)">—</span>';
       return `<strong>${esc(String(val))}</strong>${unit ? ' <span style="color:var(--text3);font-size:10px">' + unit + '</span>' : ''}`;
@@ -2478,36 +2642,7 @@ window.TaxOrderVehicleDetail = {
             style="position:absolute;opacity:0;inset:0;cursor:pointer"
             onchange="(function(f,vid){AztecScanner.open(vid);if(f)AztecScanner._handleFile(f)})(this.files[0],${v.id})">
         </label>
-      </div>
-      ${window.AztecScanner?._lastScanDataUrl ? `
-      <!-- Wariant B: side-by-side ze skanem -->
-      <div style="margin-top:14px;padding-top:10px;border-top:1px dashed #c8b89a">
-        <div style="font-size:9px;color:#7a6a55;margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Ostatni skan dokumentu</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start">
-          <div>
-            <img src="${window.AztecScanner._lastScanDataUrl}"
-              style="width:100%;border-radius:6px;border:1px solid #c8b89a;object-fit:contain;max-height:220px;background:#fff"
-              alt="Skan DR">
-          </div>
-          <div style="font-size:9.5px;color:var(--text2);padding:4px">
-            <div style="font-weight:700;color:var(--text);margin-bottom:6px">Dane w systemie vs. skan</div>
-            <div style="display:flex;flex-direction:column;gap:3px">
-              ${[
-                ['A', 'Nr rej.', v.nrRej],
-                ['D.1', 'Marka', v.marka],
-                ['E', 'VIN', v.vin ? v.vin.slice(0,8)+'…' : null],
-                ['F.1', 'DMC', v.dmcMax ? v.dmcMax+' kg' : null],
-                ['G', 'Masa wł.', v.masaWlasna ? v.masaWlasna+' kg' : null],
-                ['P.3', 'Paliwo', v.paliwo],
-              ].map(([code, label, val]) => `<div style="display:flex;gap:4px;align-items:baseline">
-                <span style="font-size:8px;font-weight:700;color:#7a6a55;min-width:24px">${code}</span>
-                <span style="min-width:52px">${label}:</span>
-                <span style="font-weight:600;color:${val ? 'var(--text)' : 'var(--text3)'}">${val ? esc(String(val)) : '—'}</span>
-              </div>`).join('')}
-            </div>
-          </div>
-        </div>
-      </div>` : ''}`;
+      </div>`;
   },
 
   _attachTerytGmina(el, vehId) {
