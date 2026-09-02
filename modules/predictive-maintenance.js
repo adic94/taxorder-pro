@@ -38,9 +38,9 @@
         <thead><tr><th>Pojazd</th><th>Typ serwisu</th><th>Trigger</th><th>Ostatni serwis</th><th>Następny (data/km)</th><th>Status</th><th>Akcje</th></tr></thead>
         <tbody id="pm-tbody"><tr><td colspan="7" class="loading-row">Ładowanie...</td></tr></tbody>
       </table></div>
-      <div id="pm-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this)window.PredictiveMaintenance._closeModal()">
+      <div id="predmaint-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this)window.PredictiveMaintenance._closeModal()">
         <div class="modal-box" style="max-width:540px">
-          <div class="modal-header"><h3 id="pm-modal-title">Alert serwisowy</h3><button class="modal-close" onclick="window.PredictiveMaintenance._closeModal()">×</button></div>
+          <div class="modal-header"><h3 id="predmaint-modal-title">Alert serwisowy</h3><button class="modal-close" onclick="window.PredictiveMaintenance._closeModal()">×</button></div>
           <div class="modal-body" id="pm-modal-body"></div>
         </div>
       </div>`;
@@ -82,9 +82,9 @@
   }
 
   async function _openModal(id) {
-    const modal = document.getElementById('pm-modal');
+    const modal = document.getElementById('predmaint-modal');
     const body  = document.getElementById('pm-modal-body');
-    document.getElementById('pm-modal-title').textContent = id ? 'Edytuj alert' : 'Nowy alert serwisowy';
+    document.getElementById('predmaint-modal-title').textContent = id ? 'Edytuj alert' : 'Nowy alert serwisowy';
     let a = { trigger_type:'mileage' };
     if (id) { const d = await api(`/${id}`); a = d.alert || a; }
     body.innerHTML = `<form id="pm-form" data-id="${esc(id||'')}" onsubmit="window.PredictiveMaintenance._save(event,this.dataset.id)">
@@ -147,7 +147,7 @@
     _load();
   }
 
-  function _closeModal() { const m=document.getElementById('pm-modal'); if(m) m.style.display='none'; }
+  function _closeModal() { const m=document.getElementById('predmaint-modal'); if(m) m.style.display='none'; }
   window.PredictiveMaintenance = { renderPredictiveMaintenance, _load, _openModal, _save, _markDone, _recalculate, _delete, _closeModal };
 })();
 

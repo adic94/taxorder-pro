@@ -662,42 +662,42 @@ window.TaxOrderNotifSettings = (function () {
 
     const typeOpts = _alertTypes.map(a => `<option value="${esc(a.id)}">${esc(CATEGORIES[a.category]?.label||a.category)} — ${esc(a.name)}</option>`).join('');
 
-    const html = `<div id="tpl-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:5000;display:flex;align-items:center;justify-content:center"
+    const html = `<div id="ns-tpl-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:5000;display:flex;align-items:center;justify-content:center"
       onclick="if(event.target===this)this.remove()">
       <div style="background:var(--bg);border-radius:var(--radius-lg);width:600px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:0 8px 40px rgba(0,0,0,.25)">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
           <i class="ti ti-template" style="font-size:20px;color:var(--blue)"></i>
           <strong style="font-size:16px">${tpl ? 'Edytuj szablon' : 'Nowy szablon'}</strong>
-          <button onclick="document.getElementById('tpl-modal').remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px">×</button>
+          <button onclick="document.getElementById('ns-tpl-modal').remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px">×</button>
         </div>
         <div class="f" style="margin-bottom:10px">
           <label>Nazwa szablonu</label>
-          <input id="tpl-name" class="fi" value="${esc(tpl?.name||'')}" placeholder="np. MAN TGL — pakiet roczny">
+          <input id="ns-tpl-name" class="fi" value="${esc(tpl?.name||'')}" placeholder="np. MAN TGL — pakiet roczny">
         </div>
         <div class="f" style="margin-bottom:16px">
           <label>Opis (opcjonalny)</label>
-          <input id="tpl-desc" class="fi" value="${esc(tpl?.description||'')}" placeholder="Krótki opis...">
+          <input id="ns-tpl-desc" class="fi" value="${esc(tpl?.description||'')}" placeholder="Krótki opis...">
         </div>
         <div style="font-size:13px;font-weight:600;margin-bottom:8px">Elementy konserwacji:</div>
-        <div id="tpl-items">${itemRows()}</div>
+        <div id="ns-tpl-items">${itemRows()}</div>
         <div style="display:flex;gap:6px;align-items:center;margin-top:10px;margin-bottom:16px">
-          <select id="tpl-add-type" class="fi" style="flex:1">${typeOpts}</select>
+          <select id="ns-tpl-add-type" class="fi" style="flex:1">${typeOpts}</select>
           <button class="btn btn-gray" style="font-size:11px" onclick="TaxOrderNotifSettings._addTplItem()">
             <i class="ti ti-plus"></i>Dodaj
           </button>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:8px">
-          <button class="btn btn-gray" onclick="document.getElementById('tpl-modal').remove()">Anuluj</button>
+          <button class="btn btn-gray" onclick="document.getElementById('ns-tpl-modal').remove()">Anuluj</button>
           <button class="btn btn-blue" onclick="TaxOrderNotifSettings._saveTpl('${tpl?.id||''}')"><i class="ti ti-check"></i>Zapisz</button>
         </div>
       </div>
     </div>`;
-    document.getElementById('tpl-modal')?.remove();
+    document.getElementById('ns-tpl-modal')?.remove();
     document.body.insertAdjacentHTML('beforeend', html);
   }
 
   function _refreshTplItems() {
-    const el = document.getElementById('tpl-items');
+    const el = document.getElementById('ns-tpl-items');
     if (!el) return;
     const items = window._tplItem || [];
     el.innerHTML = items.map((item, i) => {
@@ -716,7 +716,7 @@ window.TaxOrderNotifSettings = (function () {
   }
 
   function _addTplItem() {
-    const typeId = document.getElementById('tpl-add-type')?.value;
+    const typeId = document.getElementById('ns-tpl-add-type')?.value;
     if (!typeId) return;
     window._tplItem = window._tplItem || [];
     const at = _alertTypes.find(a => a.id === typeId);
@@ -725,8 +725,8 @@ window.TaxOrderNotifSettings = (function () {
   }
 
   async function _saveTpl(existingId) {
-    const name = document.getElementById('tpl-name')?.value?.trim();
-    const desc = document.getElementById('tpl-desc')?.value?.trim();
+    const name = document.getElementById('ns-tpl-name')?.value?.trim();
+    const desc = document.getElementById('ns-tpl-desc')?.value?.trim();
     if (!name) { alert('Podaj nazwę szablonu'); return; }
     const body = { name, description: desc || null, items: window._tplItem || [] };
     if (existingId) {
@@ -734,7 +734,7 @@ window.TaxOrderNotifSettings = (function () {
     } else {
       await fetch(`${API()}/api/maintenance-templates?company=${company()}`, { method: 'POST', headers: hdrs(), body: JSON.stringify(body) });
     }
-    document.getElementById('tpl-modal')?.remove();
+    document.getElementById('ns-tpl-modal')?.remove();
     await _loadTemplates();
     _renderSzablony(document.getElementById('ns-content'));
     window.toast?.(t('ns.toast.template.saved'));
