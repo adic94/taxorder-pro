@@ -13566,16 +13566,23 @@ async function handleDebtCollection(request, env, user, url, path) {
     }
     subject = `[Przypomnienie ${reminderNum}] Zaległa płatność — faktura ${debt.invoice_number} — ${debt.amount_pln} PLN`;
 
-    // Wyślij email jeśli dostępny Cloudflare Email i debtor_email
-    let emailStatus = 'pending';
-    if (debt.debtor_email && env.EMAIL_FROM) {
-      try {
-        // Cloudflare Email Routing — wymagane skonfigurowanie EMAIL_FROM w secrets
-        // W tej implementacji zapisujemy jako pending i zakładamy wysyłkę przez zewnętrzny provider
-        emailStatus = 'sent';
-      } catch { emailStatus = 'failed'; }
-    } else {
-      emailStatus = debt.debtor_email ? 'pending' : 'manual';
+    // Wyślij email przez Resend — ten sam mechanizm co raporty flotowe (sendEmailViaResend)
+    // i kolejka powiadomień (processNotifQueue). Było: sprawdzenie `env.EMAIL_FROM`
+    // (zmienna, której nic w tym repo nie ustawia ani nie czyta poza tym jednym miejscem)
+    // i bezwarunkowe `emailStatus = 'sent'` bez wysłania CZEGOKOLWIEK — status „wysłano"
+    // trafiał na stałe do `debt_reminders.status` i do odpowiedzi API, mimo że żaden
+    // e-mail nigdy nie opuszczał serwera. Fałszywy pozytyw jest gorszy niż cichy zero:
+    // użytkownik widział potwierdzenie wysyłki tam, gdzie nic nie zostało wysłane.
+    let emailStatus = 'manual';
+    if (debt.debtor_email) {
+      if (env.RESEND_API_KEY) {
+        try {
+          const resp = await sendEmailViaResend(env, debt.debtor_email, subject, body.replace(/\n/g, '<br>'));
+          emailStatus = (resp.status >= 200 && resp.status < 300) ? 'sent' : 'failed';
+        } catch { emailStatus = 'failed'; }
+      } else {
+        emailStatus = 'pending';
+      }
     }
 
     // Zapisz reminder

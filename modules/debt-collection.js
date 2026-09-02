@@ -26,6 +26,15 @@ window.DebtCollection = (function () {
     written_off: { lbl: 'Umorzone',     color: 'var(--text3)'  },
   };
 
+  // Status pojedynczego przypomnienia (debt_reminders.status) — inny słownik niż
+  // status samego zadłużenia (STATUS_CFG powyżej).
+  const REM_STATUS_CFG = {
+    sent:    { lbl: '✓ wysłane',        color: 'var(--green)'  },
+    failed:  { lbl: '✗ błąd wysyłki',   color: 'var(--red)'    },
+    pending: { lbl: '⏳ oczekuje',       color: 'var(--orange)' },
+    manual:  { lbl: '✋ ręcznie',        color: 'var(--text3)'  },
+  };
+
   function _daysOverdue(dueDate) {
     if (!dueDate) return 0;
     return Math.max(0, Math.floor((Date.now() - new Date(dueDate + 'T00:00:00').getTime()) / 86400000));
@@ -165,10 +174,16 @@ ${filtered.map(d => {
       </button>
     </div>
     ${expd && hist.length ? `<div style="margin-top:8px;font-size:11px;background:var(--bg2);padding:8px;border-radius:6px;max-width:280px">
-      ${hist.slice(0,5).map(r => `<div style="margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid var(--border)">
+      ${hist.slice(0,5).map(r => {
+        // Status per przypomnienie — bez tego historia pokazywała datę i temat, ale
+        // nie mówiła, czy e-mail faktycznie wyszedł (sent/failed/pending/manual).
+        const remSt = REM_STATUS_CFG[r.status] || { lbl: e(r.status||'—'), color: 'var(--text3)' };
+        return `<div style="margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid var(--border)">
         <span style="color:var(--text3)">${new Date(r.sent_at).toLocaleString('pl-PL')}</span>
         <span style="margin-left:6px">${e(r.subject||'Przypomnienie')}</span>
-      </div>`).join('')}
+        <span style="margin-left:6px;color:${remSt.color};font-weight:600">${remSt.lbl}</span>
+      </div>`;
+      }).join('')}
     </div>` : ''}
   </td>
 </tr>`;
@@ -320,7 +335,19 @@ ${filtered.map(d => {
       const r = await fetch(`${API()}/api/debt-collection/${id}/remind?company=${encodeURIComponent(co)}`, { method: 'POST', headers: H() });
       const d = await r.json();
       if (d.ok) {
-        if(typeof toast==='function') toast(`Przypomnienie #${d.reminder_count} wysłane`);
+        // Backend zwraca faktyczny status wysyłki (sent/failed/pending/manual) — nie
+        // zakładaj sukcesu tylko dlatego, że żądanie się wykonało. Wcześniej ten toast
+        // zawsze mówił "wysłane", nawet gdy e-mail się nie wysłał albo dłużnik nie miał
+        // adresu — użytkownik nie miał jak się zorientować, że nic nie dotarło.
+        if (typeof toast === 'function') {
+          const msgByStatus = {
+            sent:    `Przypomnienie #${d.reminder_count} wysłane e-mailem`,
+            failed:  `Przypomnienie #${d.reminder_count} zapisane, ale wysyłka e-mail nie powiodła się`,
+            pending: `Przypomnienie #${d.reminder_count} zapisane (wysyłka e-mail nieskonfigurowana)`,
+            manual:  `Przypomnienie #${d.reminder_count} zapisane — brak e-maila dłużnika, skontaktuj się ręcznie`,
+          };
+          toast(msgByStatus[d.status] || `Przypomnienie #${d.reminder_count} zapisane`, d.status === 'failed' ? 'error' : undefined);
+        }
         renderDebtCollection();
       } else {
         throw new Error(d.error || 'Błąd');
