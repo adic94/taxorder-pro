@@ -1333,7 +1333,7 @@ async function handleProtocols(req, env, user, url, path) {
       ).bind(...ids).all();
       const byProtocol = {};
       (photoRows.results || []).forEach(p => { (byProtocol[p.protocol_id] ||= []).push(p); });
-      protocols.forEach(p => { p.photos = byProtocol[p.id] || []; p.wyposazenie = JSON.parse(p.wyposazenie || '[]'); });
+      protocols.forEach(p => { p.photos = byProtocol[p.id] || []; p.wyposazenie = JSON.parse(p.wyposazenie || '[]'); p.uszkodzenia_diagram = JSON.parse(p.uszkodzenia_diagram || '[]'); });
     }
     return json(protocols);
   }
@@ -1346,13 +1346,14 @@ async function handleProtocols(req, env, user, url, path) {
     const id = crypto.randomUUID();
     await env.DB.prepare(`
       INSERT INTO handover_protocols(id,company_id,nr_rej,typ,data,osoba_wydajaca,osoba_odbierajaca,
-        stan_licznika,stan_paliwa,wyposazenie,uszkodzenia_opis,uwagi,podpis_wydajacy,podpis_odbierajacy)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+        stan_licznika,stan_paliwa,wyposazenie,uszkodzenia_opis,uszkodzenia_diagram,uwagi,podpis_wydajacy,podpis_odbierajacy)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
     ).bind(
       id, company, body.nr_rej, body.typ || 'WYDANIE', body.data || new Date().toISOString(),
       body.osoba_wydajaca || null, body.osoba_odbierajaca || null,
       body.stan_licznika != null ? Number(body.stan_licznika) : null, body.stan_paliwa || null,
-      JSON.stringify(body.wyposazenie || []), body.uszkodzenia_opis || null, body.uwagi || null,
+      JSON.stringify(body.wyposazenie || []), body.uszkodzenia_opis || null,
+      JSON.stringify(body.uszkodzenia_diagram || []), body.uwagi || null,
       body.podpis_wydajacy || null, body.podpis_odbierajacy || null
     ).run();
     return json({ ok: true, id });
@@ -1386,7 +1387,7 @@ async function handleProtocols(req, env, user, url, path) {
     if (!row) return err('Protokół nie znaleziony', 404);
     await env.DB.prepare(`
       UPDATE handover_protocols SET typ=?, data=?, osoba_wydajaca=?, osoba_odbierajaca=?, stan_licznika=?,
-        stan_paliwa=?, wyposazenie=?, uszkodzenia_opis=?, uwagi=?, podpis_wydajacy=?, podpis_odbierajacy=?
+        stan_paliwa=?, wyposazenie=?, uszkodzenia_opis=?, uszkodzenia_diagram=?, uwagi=?, podpis_wydajacy=?, podpis_odbierajacy=?
       WHERE id=?`
     ).bind(
       body.typ ?? row.typ, body.data ?? row.data, body.osoba_wydajaca ?? row.osoba_wydajaca,
@@ -1394,7 +1395,9 @@ async function handleProtocols(req, env, user, url, path) {
       body.stan_licznika != null ? Number(body.stan_licznika) : row.stan_licznika,
       body.stan_paliwa ?? row.stan_paliwa,
       body.wyposazenie ? JSON.stringify(body.wyposazenie) : row.wyposazenie,
-      body.uszkodzenia_opis ?? row.uszkodzenia_opis, body.uwagi ?? row.uwagi,
+      body.uszkodzenia_opis ?? row.uszkodzenia_opis,
+      body.uszkodzenia_diagram ? JSON.stringify(body.uszkodzenia_diagram) : row.uszkodzenia_diagram,
+      body.uwagi ?? row.uwagi,
       body.podpis_wydajacy ?? row.podpis_wydajacy, body.podpis_odbierajacy ?? row.podpis_odbierajacy,
       segs[2]
     ).run();
@@ -2252,7 +2255,7 @@ const EXPORT_TABLES = [
   { key: 'damages',      table: 'damage_reports',     jsonCols: [] },
   { key: 'tires',        table: 'tires',               jsonCols: ['historia'] },
   { key: 'serviceOrders',table: 'service_orders',       jsonCols: [] },
-  { key: 'protocols',    table: 'handover_protocols',   jsonCols: ['wyposazenie'] },
+  { key: 'protocols',    table: 'handover_protocols',   jsonCols: ['wyposazenie', 'uszkodzenia_diagram'] },
   { key: 'cfmClients',   table: 'cfm_clients',          jsonCols: [] },
   { key: 'cfmContracts', table: 'cfm_contracts',        jsonCols: [] },
   { key: 'cfmInvoices',  table: 'cfm_invoices',         jsonCols: ['pozycje'] },
