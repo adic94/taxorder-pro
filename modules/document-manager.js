@@ -127,7 +127,7 @@
     if (!v) return false;
     v[fieldMap.field] = expiryDate;
     try {
-      const res = await window.FleetCloud?.saveVehicle(v);
+      const res = await window.TaxOrderFleetCloud?.saveVehicle(v);
       if (res?.ok) {
         window.toast?.(`✓ Zaktualizowano "${fieldMap.label}" → ${expiryDate}`);
         return true;
@@ -206,7 +206,7 @@
     if (!v.serviceHistory) v.serviceHistory = [];
     v.serviceHistory.push(entry);
     try {
-      const res = await window.FleetCloud?.saveVehicle(v);
+      const res = await window.TaxOrderFleetCloud?.saveVehicle(v);
       if (res?.ok) {
         window.toast?.(`✓ Dodano wpis serwisowy z faktury (${(invoiceData.amount || 0).toFixed(2)} zł)`);
         return true;

@@ -44,7 +44,7 @@ window.TaxOrderBudget = (function () {
       ['ocPremium','acPremium'].forEach(f => { if (v[f] && (v.ocStart||'').startsWith(pfx.slice(0,4))) c += +v[f]; });
       return c;
     })();
-    const allFines = window.TaxOrderFines?.getAllSync?.() || [];
+    const allFines = window.FinesModule?.getAllSync?.() || [];
     const fines    = allFines.filter(f => (f.nr_rej||'') === v.nrRej && (f.date||'').startsWith(pfx.slice(0,4))).reduce((s,f) => s + (f.amount||0), 0);
     const tax      = typeof calcTax === 'function' ? (calcTax(v).amount || 0) : 0;
     return { fuel, service, insur, fines, tax, tco: fuel + service + insur + fines + tax };

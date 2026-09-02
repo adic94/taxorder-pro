@@ -178,7 +178,7 @@ window.FleetReports = (function () {
     const fmt2 = n => (+n||0).toFixed(2).replace('.', ',');
 
     // Mandaty per nr_rej dla danego roku
-    const allFines = window.TaxOrderFines?.getAllSync?.() || [];
+    const allFines = window.FinesModule?.getAllSync?.() || [];
     const finesByNr = {};
     allFines.filter(f => (f.date||'').startsWith(pfx)).forEach(f => {
       finesByNr[f.nr_rej] = (finesByNr[f.nr_rej]||0) + (f.amount||0);
@@ -282,7 +282,7 @@ window.FleetReports = (function () {
       const ins   = (v.ocPremium&&(v.ocStart||'').startsWith(pfx)?+v.ocPremium:0)+(v.acPremium&&(v.acStart||'').startsWith(pfx)?+v.acPremium:0);
       const leasing = (v.leasingRate&&(v.leasingStart||'')<=pfx+'-12'&&(v.leasingEnd||'')>=pfx+'-01')?(+v.leasingRate*12):0;
       const tax   = (typeof calcTax==='function')?(calcTax(v).amount||0):0;
-      const allFinesX = window.TaxOrderFines?.getAllSync?.() || [];
+      const allFinesX = window.FinesModule?.getAllSync?.() || [];
       const finesX = allFinesX.filter(f=>(f.date||'').startsWith(pfx)&&(f.nr_rej===v.nrRej||f.nr_rej===v.nr_rej)).reduce((s,f)=>s+(f.amount||0),0);
       const total = fuel+svc+ins+leasing+tax+finesX;
       return [v.nrRej,v.marka,v.model,v.rok||'',+fuel.toFixed(2),+svc.toFixed(2),+ins.toFixed(2),+leasing.toFixed(2),+tax.toFixed(2),+finesX.toFixed(2),+total.toFixed(2)];

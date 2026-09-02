@@ -16,6 +16,11 @@ CREATE INDEX IF NOT EXISTS idx_res_co_start ON reservations(company_id, start);
 CREATE INDEX IF NOT EXISTS idx_res_co_reg   ON reservations(company_id, nr_rej);
 
 -- Przejazdy prywatne / służbowe (trip-private.js)
+-- ⚠️ ZDUBLOWANA DEFINICJA (audyt 02.09.2026): `trips` istnieje już w schema_v31.sql
+-- z INNYM zestawem kolumn. `CREATE TABLE IF NOT EXISTS` wykonuje pierwszą napotkaną
+-- definicję (v31, bo pliki idą numerycznie) i CICHO IGNORUJE tę — kolumny poniżej
+-- nigdy nie powstają w produkcji. Kod w worker/index.js jest pisany pod v31.
+-- Nie edytować tej definicji jako "aktualnej" — prawdziwe źródło to schema_v31.sql.
 CREATE TABLE IF NOT EXISTS trips (
   id             TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
   company_id     TEXT NOT NULL,
@@ -37,6 +42,10 @@ CREATE INDEX IF NOT EXISTS idx_trips_co_date ON trips(company_id, trip_date);
 CREATE INDEX IF NOT EXISTS idx_trips_co_reg  ON trips(company_id, vehicle_reg);
 
 -- Strefy geofencing (geofencing.js)
+-- ⚠️ ZDUBLOWANA DEFINICJA (audyt 02.09.2026): `geofences` istnieje już w schema_v31.sql
+-- z INNYM zestawem kolumn. `CREATE TABLE IF NOT EXISTS` wykonuje pierwszą napotkaną
+-- definicję (v31) i CICHO IGNORUJE tę — kolumny poniżej nigdy nie powstają w produkcji.
+-- Kod w worker/index.js jest pisany pod v31. Prawdziwe źródło to schema_v31.sql.
 CREATE TABLE IF NOT EXISTS geofences (
   id          TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
   company_id  TEXT NOT NULL,
@@ -55,6 +64,10 @@ CREATE TABLE IF NOT EXISTS geofences (
 CREATE INDEX IF NOT EXISTS idx_gf_co ON geofences(company_id, active);
 
 -- Zdarzenia geofencing (wejście/wyjście)
+-- ⚠️ ZDUBLOWANA DEFINICJA (audyt 02.09.2026): `geofence_events` istnieje już
+-- w schema_v31.sql z INNYM zestawem kolumn. `CREATE TABLE IF NOT EXISTS` wykonuje
+-- pierwszą napotkaną definicję (v31) i CICHO IGNORUJE tę. Kod w worker/index.js
+-- jest pisany pod v31. Prawdziwe źródło to schema_v31.sql.
 CREATE TABLE IF NOT EXISTS geofence_events (
   id          TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
   company_id  TEXT NOT NULL,

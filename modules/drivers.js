@@ -313,7 +313,7 @@ window.TaxOrderDrivers = (function () {
       return;
     }
 
-    const allFines = window.TaxOrderFines?.getAllSync?.() || [];
+    const allFines = window.FinesModule?.getAllSync?.() || [];
     const rows = [];
 
     names.forEach(name => {
