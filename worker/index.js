@@ -969,7 +969,10 @@ async function handleDocs(req, env, user, url, path) {
       return err('Brak dostępu', 403);
     }
     const obj = await env.DOCS.get(r2Key);
-    if (!obj) return err('Dokument nie znaleziony', 404);
+    // Wpis w D1 istnieje (docMeta powyżej), ale sam plik zniknął z R2 — inny
+    // przypadek niż "nie ma takiego dokumentu wcale". Osobny komunikat, bo
+    // dla admina to sygnał uszkodzonych danych, nie literówki w adresie.
+    if (!obj) return err('Plik nie istnieje w magazynie (uszkodzony wpis dokumentu)', 404);
     const safeName = (docMeta?.name || r2Key.split('/').pop() || 'dokument').replace(/[^\w.\-]/g, '_');
     return new Response(obj.body, {
       headers: {

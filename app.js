@@ -102,7 +102,7 @@ function calcTax(v) {
 
 const CAT_COLORS = {D1:'pill-blue',D2:'pill-green',D3:'pill-amber',D4:'pill-amber',D5:'pill-green',D6:'pill-blue',D7:'pill-blue',D8:'pill-red',D9:'pill-red',D10:'pill-red',D11:'pill-red',D12:'pill-red',D13:'pill-amber',D14:'pill-amber',D15:'pill-amber'};
 const CAT_LABELS = {D1:'Sam.cięż. 3,5–5,5t',D2:'Sam.cięż. 5,5–9t',D3:'Sam.cięż. 9–12t',D4:'Ciągnik <12t',D5:'Przyczepa 7–12t',D6:'Autobus <22m.',D7:'Autobus ≥22m.',D8:'Ciężarowy ≥12t 2os.',D9:'Ciężarowy ≥12t 3os.',D10:'Ciężarowy ≥12t 4+',D11:'Ciągnik ≥12t 2os.',D12:'Ciągnik ≥12t 3+',D13:'Przyczepa ≥12t 1oś',D14:'Przyczepa ≥12t 2os.',D15:'Przyczepa ≥12t 3+'};
-const STAT_LABELS = {Własny:'pill-green',Leasing:'pill-blue',Wynajęty:'pill-amber'};
+const STAT_LABELS = {Własny:'pill-green',Leasing:'pill-blue',Wynajęty:'pill-amber',Sprzedany:'pill-gray'};
 
 function fmt2(n) { return Number(n).toFixed(2).replace('.',','); }
 function fmtZl(n) { return Math.round(n).toLocaleString('pl-PL'); }
@@ -2790,10 +2790,12 @@ function bulkChangeStatus() {
 }
 
 function bulkCompare() {
-  const ids = getSel();
-  if (ids.size < 2) { toast('Zaznacz co najmniej 2 pojazdy do porównania'); return; }
-  const vList = [...ids].slice(0, 4).map(id => (window.vehs || []).find(v => v.id === id)).filter(Boolean);
-  if (vList.length < 2) return;
+  // getSel() zwraca TABLICĘ obiektów pojazdów (nie Set id) — poprzednia wersja
+  // traktowała ją jak Set (`.size`, potem `.find(v => v.id === id)` z całym
+  // obiektem jako `id`), więc warunek nigdy się nie uruchamiał, a dopasowanie
+  // zawsze dawało 0 wyników. Efekt: przycisk nic nie robił, bez błędu.
+  const vList = getSel().slice(0, 4);
+  if (vList.length < 2) { toast('Zaznacz co najmniej 2 pojazdy do porównania'); return; }
 
   const yr = String(new Date().getFullYear());
   const _days = ds => { if (!ds) return null; const d = new Date(ds + 'T00:00:00'); return isNaN(d) ? null : Math.round((d - Date.now()) / 86400000); };
