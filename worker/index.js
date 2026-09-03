@@ -1714,6 +1714,13 @@ async function handleUsers(req, env, user, url, path) {
       const res = await env.DB.prepare(
         'INSERT INTO users(email,name,password_hash,salt,role,company_id) VALUES(?,?,?,?,?,?)'
       ).bind(email.trim().toLowerCase(), (name || email).trim(), hash, salt, role || 'viewer', company_id || null).run();
+      // Nadawanie roli/firmy nowemu kontu jest jedyną ścieżką eskalacji uprawnień w tym
+      // handlerze (patrz CLAUDE.md, sekcja BEZPIECZEŃSTWO) — bez logu nie da się później
+      // ustalić, kto i kiedy przyznał komu rolę admina, dokładnie ten sam blind spot,
+      // który dla RAG chat naprawiono 02.09.2026.
+      await logAudit(env, { company_id: company_id || null, user_id: user.id, user_email: user.email,
+        action: 'uzytkownik_utworzony', entity_type: 'user', entity_id: res.meta.last_row_id,
+        details: { email: email.trim().toLowerCase(), role: role || 'viewer' } });
       return json({ ok: true, id: res.meta.last_row_id });
     } catch (e) {
       if (e.message.includes('UNIQUE')) return err('Email już istnieje', 409);
@@ -1730,6 +1737,8 @@ async function handleUsers(req, env, user, url, path) {
     if (nameErr) return err(nameErr);
     if (body.password && String(body.password).length < 6) return err('Hasło zbyt krótkie (min 6 znaków)');
     if (body.password && String(body.password).length > 128) return err('Hasło zbyt długie (max 128 znaków)');
+    const existing = await env.DB.prepare('SELECT company_id, email FROM users WHERE id=?').bind(userId).first();
+    if (!existing) return err('Użytkownik nie istnieje', 404);
     const sets = [], vals = [];
     if (body.name)              { sets.push('name=?');          vals.push(body.name.trim()); }
     if (body.role)              { sets.push('role=?');          vals.push(body.role); }
@@ -1739,12 +1748,21 @@ async function handleUsers(req, env, user, url, path) {
     if (!sets.length) return err('Brak pól do aktualizacji');
     vals.push(userId);
     await env.DB.prepare(`UPDATE users SET ${sets.join(',')} WHERE id=?`).bind(...vals).run();
+    const zmiany = {};
+    for (const f of ['name', 'role', 'active', 'company_id']) if (body[f] !== undefined) zmiany[f] = body[f];
+    if (body.password) zmiany.password = '(zmienione)';
+    await logAudit(env, { company_id: body.company_id !== undefined ? (body.company_id || null) : existing.company_id,
+      user_id: user.id, user_email: user.email, action: 'uzytkownik_zmieniony', entity_type: 'user',
+      entity_id: userId, details: { email: existing.email, zmiany } });
     return json({ ok: true });
   }
 
   if (req.method === 'DELETE' && userId) {
     if (userId === user.id) return err('Nie możesz usunąć własnego konta');
+    const existing = await env.DB.prepare('SELECT company_id, email FROM users WHERE id=?').bind(userId).first();
     await env.DB.prepare('DELETE FROM users WHERE id=?').bind(userId).run();
+    await logAudit(env, { company_id: existing?.company_id ?? null, user_id: user.id, user_email: user.email,
+      action: 'uzytkownik_usuniety', entity_type: 'user', entity_id: userId, details: { email: existing?.email } });
     return json({ ok: true });
   }
 
@@ -2028,9 +2046,14 @@ async function handleApiKeys(req, env, user, url, path) {
   const keyId = segs[2] || null;
 
   if (req.method === 'GET' && !keyId) {
+    // BEZ filtra company_id, celowo — patrz uzasadnienie w POST niżej: admin wystawia
+    // klucze dla DOWOLNEJ firmy (dropdown w modules/api-keys.js), więc scoping do
+    // user.company_id ukrywałby na zawsze klucze wystawione dla innych firm. Ten sam
+    // model zaufania co GET /api/companies dla admina (zero scopingu, bo handler
+    // wymaga user.role==='admin' na wejściu — patrz linia wyżej).
     const rows = await env.DB.prepare(
-      'SELECT id,company_id,name,scope,active,created_at,last_used_at FROM api_keys WHERE company_id=? ORDER BY created_at DESC'
-    ).bind(user.company_id).all();
+      'SELECT id,company_id,name,scope,active,created_at,last_used_at FROM api_keys ORDER BY created_at DESC'
+    ).all();
     return json(rows.results || []);
   }
 
@@ -2046,6 +2069,9 @@ async function handleApiKeys(req, env, user, url, path) {
     await env.DB.prepare(
       'INSERT INTO api_keys(id,company_id,name,key_hash,scope,created_by) VALUES(?,?,?,?,?,?)'
     ).bind(id, company_id, name, hash, finalScope, user.id).run();
+    await logAudit(env, { company_id, user_id: user.id, user_email: user.email,
+      action: 'klucz_api_utworzony', entity_type: 'api_key', entity_id: id,
+      details: { name, scope: finalScope } });
     // Token w postaci jawnej zwracany jest tylko raz, tutaj — nigdy więcej nie da się go odtworzyć (przechowywany jest tylko hash).
     return json({ ok: true, id, key: plaintext });
   }
@@ -2053,18 +2079,31 @@ async function handleApiKeys(req, env, user, url, path) {
   if (req.method === 'PUT' && keyId) {
     let body;
     try { body = await req.json(); } catch { return err('Nieprawidłowe JSON'); }
+    // Do 03.09.2026 to zapytanie wymagało "AND company_id=?" bindowanego do
+    // user.company_id — więc klucz wystawiony DLA INNEJ firmy (patrz POST) nigdy nie dał
+    // się później dezaktywować ani zmienić przez UI: żywy, nieodwoływalny sekret.
+    // Ten SELECT istnieje głównie po to, żeby zalogować, do której firmy klucz należał.
+    const existing = await env.DB.prepare('SELECT company_id FROM api_keys WHERE id=?').bind(keyId).first();
+    if (!existing) return err('Klucz nie istnieje', 404);
     const sets = [], vals = [];
     if (body.name !== undefined)   { sets.push('name=?');   vals.push(body.name); }
     if (body.scope !== undefined)  { sets.push('scope=?');  vals.push(body.scope === 'read_write' ? 'read_write' : 'read'); }
     if (body.active !== undefined) { sets.push('active=?'); vals.push(body.active ? 1 : 0); }
     if (!sets.length) return err('Brak pól do aktualizacji');
-    vals.push(keyId, user.company_id);
-    await env.DB.prepare(`UPDATE api_keys SET ${sets.join(',')} WHERE id=? AND company_id=?`).bind(...vals).run();
+    vals.push(keyId);
+    await env.DB.prepare(`UPDATE api_keys SET ${sets.join(',')} WHERE id=?`).bind(...vals).run();
+    await logAudit(env, { company_id: existing.company_id, user_id: user.id, user_email: user.email,
+      action: 'klucz_api_zmieniony', entity_type: 'api_key', entity_id: keyId, details: body });
     return json({ ok: true });
   }
 
   if (req.method === 'DELETE' && keyId) {
-    await env.DB.prepare('DELETE FROM api_keys WHERE id=? AND company_id=?').bind(keyId, user.company_id).run();
+    // Ten sam powód braku "AND company_id=?" co w PUT wyżej.
+    const existing = await env.DB.prepare('SELECT company_id FROM api_keys WHERE id=?').bind(keyId).first();
+    if (!existing) return err('Klucz nie istnieje', 404);
+    await env.DB.prepare('DELETE FROM api_keys WHERE id=?').bind(keyId).run();
+    await logAudit(env, { company_id: existing.company_id, user_id: user.id, user_email: user.email,
+      action: 'klucz_api_usuniety', entity_type: 'api_key', entity_id: keyId });
     return json({ ok: true });
   }
 
@@ -3669,6 +3708,9 @@ async function handleCompanies(req, env, user, url, path) {
     ).bind(user.id, slug, user.email || null).run();
 
     const row = await env.DB.prepare('SELECT * FROM companies WHERE id=?').bind(slug).first();
+    await logAudit(env, { company_id: slug, user_id: user.id, user_email: user.email,
+      action: 'firma_utworzona', entity_type: 'company', entity_id: slug,
+      details: { short_name: b.short_name, name: b.name } });
     return json({ ok: true, company: row }, 201);
   }
 
@@ -3690,6 +3732,11 @@ async function handleCompanies(req, env, user, url, path) {
 
     await env.DB.prepare(`UPDATE companies SET ${sets.join(',')} WHERE id=?`).bind(...binds).run();
     const upd = await env.DB.prepare('SELECT * FROM companies WHERE id=?').bind(id).first();
+    const zmiany = {};
+    for (const f of COMPANY_FIELDS) if (b[f] !== undefined) zmiany[f] = b[f];
+    if (b.active !== undefined) zmiany.active = b.active ? 1 : 0;
+    await logAudit(env, { company_id: id, user_id: user.id, user_email: user.email,
+      action: 'firma_zmieniona', entity_type: 'company', entity_id: id, details: zmiany });
     return json({ ok: true, company: upd });
   }
 
@@ -3700,6 +3747,8 @@ async function handleCompanies(req, env, user, url, path) {
       "UPDATE companies SET active=0, updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=?"
     ).bind(id).run();
     if (!r.meta || r.meta.changes === 0) return err('Firma nie znaleziona', 404);
+    await logAudit(env, { company_id: id, user_id: user.id, user_email: user.email,
+      action: 'firma_dezaktywowana', entity_type: 'company', entity_id: id });
     return json({ ok: true, deactivated: id });
   }
 
