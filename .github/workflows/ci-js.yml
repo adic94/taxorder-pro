@@ -101,6 +101,9 @@ jobs:
       - name: RAG chat — SQL wygenerowane przez AI musi mieć filtr company_id i dozwoloną tabelę
         run: node tests/unit/rag-chat-sql-guard-test.js
 
+      - name: Klucze API — klucz innej firmy musi dać się zobaczyć i odwołać
+        run: node tests/unit/api-keys-scope-test.js
+
       # claude.yml dostaje `contents: write` i ANTHROPIC_API_KEY, a wyzwalaczem jest
       # TRESC komentarza. Bez sprawdzenia autora wystarczy napisac "@claude ...", zeby
       # dostac agenta z prawem zapisu — a push do worker/** to deploy na produkcje.

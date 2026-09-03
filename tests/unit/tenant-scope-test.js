@@ -109,6 +109,8 @@ function sygnatura(tabela, sql) {
 const ZNANE_BEZPIECZNE = {
   "api_keys|SELECT * FROM api_keys WHERE key_hash = ? AND active = 1": "[TOKEN] key_hash to nieodgadywalny sekret; company_id przychodzi z row.company_id po dopasowaniu",
   "api_keys|UPDATE api_keys SET last_used_at = datetime('now') WHERE id = ?": "[TOKEN] row.id pochodzi z dopasowania key_hash powyżej, nie z parametru żądania",
+  "api_keys|UPDATE api_keys SET ${sets.join(',')} WHERE id=?": "[ADMIN] handleApiKeys wymaga user.role==='admin' na wejściu; BRAK company_id jest tu celowy (naprawa 03.09.2026) — admin wystawia klucze dla dowolnej firmy (dropdown w modules/api-keys.js), więc filtr do company_id ADMINA uniemożliwiał zarządzanie kluczem wystawionym dla innej firmy",
+  "api_keys|DELETE FROM api_keys WHERE id=?": "[ADMIN] jak wyżej — ta sama naprawa 03.09.2026, ten sam handler wymagający roli admin",
   "damage_photos|SELECT id, damage_id, r2_key, mime_type FROM damage_photos WHERE damage_id IN (${placeholders})": "[PRE-SCOPED] ids z `reports` = SELECT * FROM damage_reports WHERE company_id=? kilka linii wyżej",
   "damage_photos|DELETE FROM damage_photos WHERE id=?": "[PRE-CHECK] poprzedzone SELECT JOIN damage_reports WHERE dp.id=? AND dr.company_id=?",
   "damage_photos|SELECT r2_key FROM damage_photos WHERE damage_id=?": "[PRE-CHECK] poprzedzone SELECT id FROM damage_reports WHERE id=? AND company_id=?, 404 gdy brak",
