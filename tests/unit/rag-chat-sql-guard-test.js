@@ -54,8 +54,8 @@ function wyciagnijWalidator() {
 
 const { RAG_ALLOWED_TABLES, validateRagSql } = wyciagnijWalidator();
 
-ok(RAG_ALLOWED_TABLES instanceof Set && RAG_ALLOWED_TABLES.size >= 5,
-  `RAG_ALLOWED_TABLES ma tylko ${RAG_ALLOWED_TABLES?.size ?? 0} wpisów — ekstraktor prawdopodobnie się rozjechał (oczekiwano >=5)`);
+ok(RAG_ALLOWED_TABLES instanceof Set && RAG_ALLOWED_TABLES.size >= 8,
+  `RAG_ALLOWED_TABLES ma tylko ${RAG_ALLOWED_TABLES?.size ?? 0} wpisów — ekstraktor prawdopodobnie się rozjechał (oczekiwano >=8, po dodaniu policies/drivers/fines 03.09.2026)`);
 
 const CO = 'mtoilet';
 
@@ -66,6 +66,10 @@ const CO = 'mtoilet';
     `SELECT nr_rej FROM vehicles WHERE company_id="${CO}" AND JSON_EXTRACT(data,'$.dmc') > 3500`,
     `SELECT v.nr_rej FROM vehicles v JOIN damage_reports d ON d.nr_rej=v.nr_rej WHERE v.company_id='${CO}' AND d.company_id='${CO}'`,
     `select * from fuel_fills where company_id = '${CO}'`,
+    // Dodane 03.09.2026 — policies/drivers/fines w RAG_ALLOWED_TABLES.
+    `SELECT insurer, end_date FROM policies WHERE company_id = '${CO}' AND type = 'oc'`,
+    `SELECT name, license_expiry FROM drivers WHERE company_id = '${CO}'`,
+    `SELECT nr_rej, amount FROM fines WHERE company_id = '${CO}' AND paid = 0`,
   ];
   for (const sql of legalne) {
     const r = validateRagSql(sql, CO);

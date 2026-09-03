@@ -13998,7 +13998,9 @@ async function handleRouteProfitability(request, env, user, url, path) {
 // bezpieczeństwa w handleRagChat. Prawdziwe nazwy tabel/kolumn (wcześniej `damages` i
 // `fuel_records` nie istniały w ogóle — patrz worker/schema_v2.sql/v24.sql; realne to
 // damage_reports/fuel_fills, ta sama pomyłka co w handleReportBuilder przed jego naprawą).
-const RAG_ALLOWED_TABLES = new Set(['vehicles', 'damage_reports', 'fuel_fills', 'service_orders', 'ksef_invoices', 'driver_trips']);
+// `policies`/`drivers`/`fines` dodane 03.09.2026 — nazwy i kolumny wzięte wprost
+// z schema_v21.sql/v11.sql/v10.sql, nie wymyślone (ta sama zasada co reszta tej listy).
+const RAG_ALLOWED_TABLES = new Set(['vehicles', 'damage_reports', 'fuel_fills', 'service_orders', 'ksef_invoices', 'driver_trips', 'policies', 'drivers', 'fines']);
 
 // Wydzielone z handleRagChat, żeby bramka testowa uruchamiała TEN kod, nie kopię —
 // dokładnie ten sam powód co _decodeAztecPayload (worker/index.js, sekcja Aztec).
@@ -14044,7 +14046,10 @@ async function handleRagChat(request, env, user, url, path) {
     fuel_fills(id,company_id,nr_rej,driver_name,fill_date,liters,price_per_liter,total_cost,odometer,station,fuel_type),
     service_orders(id,company_id,nr_rej,typ,opis,status,warsztat,koszt_szacowany,koszt_rzeczywisty,data_realizacji,km_realizacji),
     ksef_invoices(id,company_id,invoice_number,ksef_number,ksef_status,seller_nip,buyer_nip,gross_pln,ksef_date),
-    driver_trips(id,company_id,driver_id,driver_name,vehicle_reg,start_km,end_km,start_at,end_at,status).
+    driver_trips(id,company_id,driver_id,driver_name,vehicle_reg,start_km,end_km,start_at,end_at,status),
+    policies(id,company_id,nr_rej,vin,type,policy_number,insurer,premium,installments,start_date,end_date,notes),
+    drivers(id,company_id,name,phone,email,license_no,license_expiry,notes),
+    fines(id,company_id,nr_rej,driver_name,type,date,amount,deadline,description,fine_no,issuer,points,paid,paid_date).
     KAŻDE zapytanie MUSI zawierać warunek company_id = '${co}' — to jedyna firma, do której masz dostęp.
     Zwróć JSON: {sql: "SELECT ...", answer_template: "..."}`;
 
