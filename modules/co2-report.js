@@ -96,7 +96,7 @@ ${r.by_vehicle?.length ? r.by_vehicle.map(v => `<tr>
     for (const v of _report.by_vehicle) rows.push([v.nr_rej||'', v.fuel_type||'', v.liters, v.kg, v.pct]);
     rows.push(['SUMA','','',_report.total_kg,'100']);
     const csv = rows.map(r => r.join(';')).join('\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([`﻿${  csv}`], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `co2_${_report.year || ''}.csv`; a.click();
   }

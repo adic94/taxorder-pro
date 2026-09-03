@@ -24,7 +24,7 @@ window.DocumentsModule = (function () {
 
   function _mkid() { return String(Date.now()) + String(Math.random()).slice(2,8); }
   function _fmtDate(d) { if (!d) return '—'; const [y,m,dd]=d.split('-'); return `${dd}.${m}.${y}`; }
-  function _days(ds) { if (!ds) return null; const d = new Date(ds.includes('T') ? ds : ds + 'T00:00:00'); if (isNaN(d)) return null; const t = new Date(); t.setHours(0,0,0,0); return Math.round((d-t)/86400000); }
+  function _days(ds) { if (!ds) return null; const d = new Date(ds.includes('T') ? ds : `${ds  }T00:00:00`); if (isNaN(d)) return null; const t = new Date(); t.setHours(0,0,0,0); return Math.round((d-t)/86400000); }
 
   // ── Render dla vehicle-detail tab ─────────────────────────────────────────
   function renderForVehicle(v) {
@@ -55,7 +55,7 @@ window.DocumentsModule = (function () {
               <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">${esc(d.name||'—')}</td>
               <td style="font-family:var(--mono);white-space:nowrap">${_fmtDate(d.issued)}</td>
               <td style="font-family:var(--mono);white-space:nowrap;color:${expiryColor};font-weight:${dl!==null&&dl<=30?'700':'400'}">
-                ${d.expiry ? _fmtDate(d.expiry)+(dl!==null?` (${dl<0?Math.abs(dl)+' dni temu':'za '+dl+' dni'})`:'') : '—'}
+                ${d.expiry ? _fmtDate(d.expiry)+(dl!==null?` (${dl<0?`${Math.abs(dl)} dni temu`:`za ${dl} dni`})`:'') : '—'}
               </td>
               <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis">
                 ${d.url && (d.url.startsWith('https://') || d.url.startsWith('http://')) ? `<a href="${esc(d.url)}" target="_blank" rel="noopener" style="color:var(--blue);font-size:10px"><i class="ti ti-external-link"></i> Otwórz</a>` : d.url ? esc(d.url) : '—'}
@@ -173,7 +173,7 @@ window.DocumentsModule = (function () {
       btn.closest('[style*=fixed]').remove();
       if (window.TaxOrderVehicleDetail?.refresh) window.TaxOrderVehicleDetail.refresh(vehId);
     } catch(e) {
-      toast('⚠ Błąd zapisu: '+e.message);
+      toast(`⚠ Błąd zapisu: ${e.message}`);
       btn.disabled=false; btn.textContent='Zapisz';
     }
   }
@@ -189,7 +189,7 @@ window.DocumentsModule = (function () {
       toast('Dokument usunięty');
       if (window.TaxOrderVehicleDetail?.refresh) window.TaxOrderVehicleDetail.refresh(vehId);
     } catch(e) {
-      toast('⚠ Błąd: '+e.message);
+      toast(`⚠ Błąd: ${e.message}`);
       btn.disabled=false;
     }
   }
@@ -198,7 +198,7 @@ window.DocumentsModule = (function () {
   function getDocAlerts(v, days=30) {
     return (v.documents||[])
       .filter(d => d.expiry && _days(d.expiry) !== null && _days(d.expiry) <= days)
-      .map(d => ({ field:'doc_'+d.id, label:(DOC_TYPES[d.type]?.label||'Dokument')+': '+d.name, date:d.expiry }));
+      .map(d => ({ field:`doc_${d.id}`, label:`${DOC_TYPES[d.type]?.label||'Dokument'}: ${d.name}`, date:d.expiry }));
   }
 
   return { DOC_TYPES, renderForVehicle, add, edit, save, remove, getDocAlerts };

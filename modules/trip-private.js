@@ -5,14 +5,14 @@
   const Co  = () => window._cfCo?.()   || '';
   const e   = s => typeof esc === 'function' ? esc(s) : String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const fmtN = (v, d=0) => v != null ? parseFloat(v).toLocaleString('pl-PL', {minimumFractionDigits:d,maximumFractionDigits:d}) : '—';
-  const fmtD = s => s ? new Date(s+'T00:00:00').toLocaleDateString('pl-PL') : '—';
+  const fmtD = s => s ? new Date(`${s}T00:00:00`).toLocaleDateString('pl-PL') : '—';
 
   const CAT_LBL = { business:'Służbowa', private:'Prywatna' };
   const CAT_CLR = { business:'#16a34a', private:'#6366f1' };
 
   let _trips = [];
   let _summary = {};
-  let _activeTab = 'list';
+  const _activeTab = 'list';
 
   async function renderTripPrivate() {
     const co   = Co();
@@ -98,7 +98,7 @@
   <tbody>
     ${_trips.length === 0 ? '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:20px">Brak przejazdów w wybranym okresie</td></tr>' :
       _trips.map(t => `<tr>
-        <td style="font-size:12px;white-space:nowrap">${fmtD(t.trip_date)}${t.start_time?'<br><span style="color:var(--text3)">' + e(t.start_time) + (t.end_time?' – '+e(t.end_time):'') + '</span>':''}</td>
+        <td style="font-size:12px;white-space:nowrap">${fmtD(t.trip_date)}${t.start_time?`<br><span style="color:var(--text3)">${  e(t.start_time)  }${t.end_time?` – ${e(t.end_time)}`:''  }</span>`:''}</td>
         <td style="font-size:12px;font-weight:600">${e(t.vehicle_reg||'—')}</td>
         <td style="font-size:12px">${e(t.driver_name||'—')}</td>
         <td style="font-size:12px">
@@ -111,7 +111,7 @@
           </span>
         </td>
         <td style="font-size:12px;max-width:150px;overflow:hidden;text-overflow:ellipsis">${e(t.purpose||'—')}</td>
-        <td style="text-align:right;font-size:12px">${(t.cost_total??0)>0?fmtN(t.cost_total,2)+' PLN':'—'}</td>
+        <td style="text-align:right;font-size:12px">${(t.cost_total??0)>0?`${fmtN(t.cost_total,2)} PLN`:'—'}</td>
         <td>
           <div style="display:flex;gap:4px">
             <button class="btn btn-sm" data-id="${e(t.id)}" data-cat="${e(t.category)}"
@@ -273,9 +273,9 @@
     const rows = [['Data','Pojazd','Kierowca','Skąd','Dokąd','Km','Kategoria','Cel','Koszt PLN']];
     _trips.forEach(t => rows.push([t.trip_date, t.vehicle_reg, t.driver_name, t.start_location, t.end_location,
       t.distance_km, t.category, t.purpose, t.cost_total]));
-    const csv = rows.map(r => r.map(c => '"'+(String(c??'').replace(/"/g,'""'))+'"').join(',')).join('\n');
+    const csv = rows.map(r => r.map(c => `"${String(c??'').replace(/"/g,'""')}"`).join(',')).join('\n');
     const a = document.createElement('a');
-    a.href = 'data:text/csv;charset=utf-8,﻿' + encodeURIComponent(csv);
+    a.href = `data:text/csv;charset=utf-8,﻿${  encodeURIComponent(csv)}`;
     a.download = `przejazdy_${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
   }

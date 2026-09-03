@@ -29,7 +29,7 @@
   let _trendData = [];
   let _uploadResults = [];
   let _selectedFileId = null;
-  let _driverFilter = '';
+  const _driverFilter = '';
   let _driversList = []; // kierowcy z kartoteki do powiązania
 
   // ── utils ──────────────────────────────────────────────────────────────────
@@ -41,7 +41,7 @@
 
   function _fmtDate(d) {
     if (!d) return '—';
-    try { return new Date(d + 'T00:00:00Z').toLocaleDateString('pl-PL'); } catch { return d; }
+    try { return new Date(`${d  }T00:00:00Z`).toLocaleDateString('pl-PL'); } catch { return d; }
   }
 
   function _fmtMin(min) {
@@ -238,7 +238,7 @@ ${recentViols.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń</p>' 
           <div style="font-weight:600">${e(r.file)}</div>
           ${r.ok ? `
             <div style="font-size:12px;color:var(--text3)">
-              Kierowca: <strong>${r.driver ? e(r.driver.surname + ' ' + (r.driver.firstName||'')) : '?'}</strong>
+              Kierowca: <strong>${r.driver ? e(`${r.driver.surname  } ${  r.driver.firstName||''}`) : '?'}</strong>
               · Dni: <strong>${r.days}</strong>
               · Naruszenia: <strong style="color:${r.violations>0?'#dc2626':'inherit'}">${r.violations}</strong>
               ${r.driverLinked ? `· <span style="color:#16a34a"><i class="ti ti-check"></i> Powiązano z kierowcą</span>` : ''}
@@ -413,9 +413,9 @@ ${recentViols.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń</p>' 
       const overdue    = daysSince > 28;
       const statusColor = overdue ? '#dc2626' : '#16a34a';
       const statusLabel = overdue
-        ? `Przeterminowane (${daysSince > 900 ? 'brak danych' : daysSince + ' dni temu'})`
+        ? `Przeterminowane (${daysSince > 900 ? 'brak danych' : `${daysSince  } dni temu`})`
         : `OK (${daysSince} dni temu)`;
-      const driverKey = encodeURIComponent((d.driver_surname||'') + '|' + (d.driver_firstname||''));
+      const driverKey = encodeURIComponent(`${d.driver_surname||''  }|${  d.driver_firstname||''}`);
 
       // CPC expiry status
       let cpcHtml = '<span style="color:var(--text3);font-size:11px">—</span>';
@@ -423,14 +423,14 @@ ${recentViols.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń</p>' 
         const daysLeft = Math.round((new Date(d.cpc_expiry_date) - new Date()) / 86400000);
         const cpcColor = daysLeft < 0 ? '#dc2626' : daysLeft < 60 ? '#d97706' : '#16a34a';
         cpcHtml = `<span style="font-size:11px;color:${cpcColor};font-weight:600">${_fmtDate(d.cpc_expiry_date)}</span>
-          <br><span style="font-size:10px;color:${cpcColor}">${daysLeft < 0 ? 'WYGASŁA' : daysLeft < 60 ? 'za '+daysLeft+'d' : 'ważna'}</span>
+          <br><span style="font-size:10px;color:${cpcColor}">${daysLeft < 0 ? 'WYGASŁA' : daysLeft < 60 ? `za ${daysLeft}d` : 'ważna'}</span>
           ${d.cpc_training_hours ? `<br><span style="font-size:10px;color:var(--text3)">${e(String(d.cpc_training_hours))}/35h</span>` : ''}`;
       }
 
       return `<tr>
         <td>
           <strong style="cursor:pointer;color:var(--blue)" data-dkey="${e(driverKey)}" data-dname="${e(name)}" onclick="window.TachographModule._showDriverFiles(this.dataset.dkey,this.dataset.dname)">${e(name)}</strong>
-          <br><span style="font-size:11px;color:var(--text3)">${e(d.driver_birth_date ? 'Ur. ' + _fmtDate(d.driver_birth_date) : '')}</span>
+          <br><span style="font-size:11px;color:var(--text3)">${e(d.driver_birth_date ? `Ur. ${  _fmtDate(d.driver_birth_date)}` : '')}</span>
         </td>
         <td style="font-size:12px;font-family:monospace">${e(d.card_number || '—')}</td>
         <td style="font-size:12px">${_fmtDate(d.driver_birth_date)}</td>
@@ -513,7 +513,7 @@ ${files.length === 0 ? '<p style="color:var(--text3)">Brak plików</p>' : `
     </tr>`).join('')}
   </tbody>
 </table>`}`);
-    } catch (ex) { _closeModal(); alert('Błąd: ' + ex.message); }
+    } catch (ex) { _closeModal(); alert(`Błąd: ${  ex.message}`); }
   }
 
   // ── POJAZDY ────────────────────────────────────────────────────────────────
@@ -546,7 +546,7 @@ ${files.length === 0 ? '<p style="color:var(--text3)">Brak plików</p>' : `
         const daysLeft = Math.round((new Date(v.tacho_calibration_next) - new Date()) / 86400000);
         const cc = daysLeft < 0 ? '#dc2626' : daysLeft < 30 ? '#d97706' : '#16a34a';
         calibHtml = `<span style="font-size:11px;color:${cc};font-weight:600">${_fmtDate(v.tacho_calibration_next)}</span>
-          <br><span style="font-size:10px;color:${cc}">${daysLeft < 0 ? 'PRZETERMINOWANA' : daysLeft < 30 ? 'za '+daysLeft+'d' : 'OK'}</span>`;
+          <br><span style="font-size:10px;color:${cc}">${daysLeft < 0 ? 'PRZETERMINOWANA' : daysLeft < 30 ? `za ${daysLeft}d` : 'OK'}</span>`;
       }
       // VU download overdue
       let vuHtml = '<span style="color:var(--text3);font-size:11px">—</span>';
@@ -554,7 +554,7 @@ ${files.length === 0 ? '<p style="color:var(--text3)">Brak plików</p>' : `
         const daysSince = Math.round((new Date() - new Date(v.tacho_vu_last_download)) / 86400000);
         const vc = daysSince > 90 ? '#dc2626' : daysSince > 75 ? '#d97706' : '#16a34a';
         vuHtml = `<span style="font-size:11px;color:${vc};font-weight:600">${_fmtDate(v.tacho_vu_last_download)}</span>
-          <br><span style="font-size:10px;color:${vc}">${daysSince > 90 ? 'PRZETERMINOWANE!' : daysSince + ' dni temu'}</span>`;
+          <br><span style="font-size:10px;color:${vc}">${daysSince > 90 ? 'PRZETERMINOWANE!' : `${daysSince  } dni temu`}</span>`;
       }
       return `<tr>
       <td><strong>${e(v.vehicle_reg || '—')}</strong></td>
@@ -684,12 +684,12 @@ ${_violData.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń. Wczyta
     const df  = document.getElementById('viol-df')?.value || '';
     const dt  = document.getElementById('viol-dt')?.value || '';
     try {
-      let url = `violations`;
+      const url = `violations`;
       const ps = [];
-      if (sev) ps.push('severity=' + encodeURIComponent(sev));
-      if (df)  ps.push('date_from=' + df);
-      if (dt)  ps.push('date_to=' + dt);
-      const qStr = ps.length ? '&' + ps.join('&') : '';
+      if (sev) ps.push(`severity=${  encodeURIComponent(sev)}`);
+      if (df)  ps.push(`date_from=${  df}`);
+      if (dt)  ps.push(`date_to=${  dt}`);
+      const qStr = ps.length ? `&${  ps.join('&')}` : '';
       const r = await fetch(`${API()}/api/tacho-ddd/violations?company=${encodeURIComponent(Co())}${qStr}`, { headers: H() });
       if (r.ok) _violData = await r.json();
     } catch {}
@@ -725,7 +725,7 @@ ${_violData.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń. Wczyta
       <th style="padding:4px 2px;text-align:left;background:var(--bg2)">Ostatnie dane</th>
       <th style="padding:4px 2px;text-align:center;background:var(--bg2)">Dni</th>
       ${days.map(d => {
-        const dt = new Date(d + 'T00:00:00Z');
+        const dt = new Date(`${d  }T00:00:00Z`);
         const label = dt.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', timeZone: 'UTC' });
         const isToday = d === today;
         return `<th style="padding:2px 1px;width:22px;text-align:center;font-size:10px;${isToday ? 'color:var(--blue);font-weight:700' : 'color:var(--text3)'}">${label}</th>`;
@@ -778,7 +778,7 @@ ${_violData.length === 0 ? '<p style="color:var(--text3)">Brak naruszeń. Wczyta
       if (!r.ok) { _closeModal(); alert('Błąd pobierania danych'); return; }
       const data = await r.json();
       _renderFileModal(data);
-    } catch (ex) { _closeModal(); alert('Błąd: ' + ex.message); }
+    } catch (ex) { _closeModal(); alert(`Błąd: ${  ex.message}`); }
   }
 
   function _renderFileModal(f) {
@@ -891,7 +891,7 @@ ${f.vehicles?.length > 0 ? `
       if (!r.ok) { alert('Błąd usuwania'); return; }
       await _loadAll();
       _setTab('files');
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   // ── MODAL ─────────────────────────────────────────────────────────────────
@@ -926,7 +926,7 @@ ${f.vehicles?.length > 0 ? `
     // Pobieramy status dla max 12 kierowców (najaktywniejszych)
     const toCheck = _driversData.slice(0, 12);
     const results = await Promise.all(toCheck.map(async d => {
-      const key = encodeURIComponent((d.driver_surname||'') + '|' + (d.driver_firstname||''));
+      const key = encodeURIComponent(`${d.driver_surname||''  }|${  d.driver_firstname||''}`);
       try {
         const r = await fetch(`${API()}/api/tacho-ddd/remaining/${key}?company=${encodeURIComponent(Co())}`, { headers: H() });
         return r.ok ? { ...(await r.json()), _name: _driverName(d) } : null;
@@ -1050,7 +1050,7 @@ ${f.vehicles?.length > 0 ? `
         <td style="text-align:center;color:#b91c1c">${e(String(d.very_serious??0))}</td>
         <td style="text-align:center;color:#b45309">${e(String(d.serious??0))}</td>
         <td style="text-align:center;color:#0369a1">${e(String(d.minor??0))}</td>
-        <td style="text-align:right;font-weight:700;color:${(d.penalty_total||0)>0?'#dc2626':'inherit'}">${(d.penalty_total||0)>0?(d.penalty_total).toLocaleString('pl-PL')+' PLN':'—'}</td>
+        <td style="text-align:right;font-weight:700;color:${(d.penalty_total||0)>0?'#dc2626':'inherit'}">${(d.penalty_total||0)>0?`${(d.penalty_total).toLocaleString('pl-PL')} PLN`:'—'}</td>
         <td>
           ${ok
             ? '<span style="color:#16a34a;font-size:11px;font-weight:600"><i class="ti ti-check"></i> Zgodny</span>'
@@ -1343,10 +1343,10 @@ ${f.vehicles?.length > 0 ? `
   <tr><td style="padding:4px 8px;border:1px solid var(--border);background:var(--bg2);font-weight:600;width:40%">Kierowca</td><td style="padding:4px 8px;border:1px solid var(--border)">${e(driverName)}</td></tr>
   <tr><td style="padding:4px 8px;border:1px solid var(--border);background:var(--bg2);font-weight:600">Łączny czas jazdy (28 dni)</td><td style="padding:4px 8px;border:1px solid var(--border)">${_fmtMin(s.driving_total??0)}</td></tr>
   <tr><td style="padding:4px 8px;border:1px solid var(--border);background:var(--bg2);font-weight:600">Czas pracy (28 dni)</td><td style="padding:4px 8px;border:1px solid var(--border)">${_fmtMin((s.driving_total??0)+(s.work_total??0))}</td></tr>
-  <tr><td style="padding:4px 8px;border:1px solid var(--border);background:var(--bg2);font-weight:600">Naruszenia (28 dni)</td><td style="padding:4px 8px;border:1px solid var(--border);color:${(s.violations_total??0)>0?'#dc2626':'#16a34a'};font-weight:700">${s.violations_total??0} ${(s.penalty_total??0)>0?'('+s.penalty_total+' PLN kary)':''}</td></tr>
+  <tr><td style="padding:4px 8px;border:1px solid var(--border);background:var(--bg2);font-weight:600">Naruszenia (28 dni)</td><td style="padding:4px 8px;border:1px solid var(--border);color:${(s.violations_total??0)>0?'#dc2626':'#16a34a'};font-weight:700">${s.violations_total??0} ${(s.penalty_total??0)>0?`(${s.penalty_total} PLN kary)`:''}</td></tr>
   ${rem?.data_available ? `
   <tr><td style="padding:4px 8px;border:1px solid var(--border);background:var(--bg2);font-weight:600">Jazda dziś</td><td style="padding:4px 8px;border:1px solid var(--border)">${_fmtMin(rem.driving_today)} / ${_fmtMin(rem.daily_limit)} (pozostało: ${_fmtMin(rem.remaining_daily)})</td></tr>
-  <tr><td style="padding:4px 8px;border:1px solid var(--border);background:var(--bg2);font-weight:600">Status przerwy</td><td style="padding:4px 8px;border:1px solid var(--border);color:${rem.needs_break_now?'#dc2626':'#16a34a'}">${rem.needs_break_now?'⚠ PRZERWA WYMAGANA TERAZ':'Przerwa za '+_fmtMin(rem.break_needed_in)}</td></tr>
+  <tr><td style="padding:4px 8px;border:1px solid var(--border);background:var(--bg2);font-weight:600">Status przerwy</td><td style="padding:4px 8px;border:1px solid var(--border);color:${rem.needs_break_now?'#dc2626':'#16a34a'}">${rem.needs_break_now?'⚠ PRZERWA WYMAGANA TERAZ':`Przerwa za ${_fmtMin(rem.break_needed_in)}`}</td></tr>
   ` : ''}
 </table>
 
@@ -1364,7 +1364,7 @@ ${allViols.length>0 ? `
       <td style="padding:4px 8px;border:1px solid var(--border)">${_fmtDate(v.violation_date)}</td>
       <td style="padding:4px 8px;border:1px solid var(--border)">${e(v.description||v.violation_type)}</td>
       <td style="padding:4px 8px;border:1px solid var(--border)">${_sevChip(v.severity)}</td>
-      <td style="padding:4px 8px;border:1px solid var(--border)">${(v.penalty_pln??0)>0?e(String(v.penalty_pln))+' PLN':'—'}</td>
+      <td style="padding:4px 8px;border:1px solid var(--border)">${(v.penalty_pln??0)>0?`${e(String(v.penalty_pln))} PLN`:'—'}</td>
     </tr>`).join('')}
   </tbody>
 </table>` : '<p style="color:#16a34a;font-size:12px"><i class="ti ti-check"></i> Brak naruszeń w ostatnich 28 dniach</p>'}
@@ -1373,7 +1373,7 @@ ${allViols.length>0 ? `
   <div style="text-align:center"><div style="width:180px;border-top:1px solid #333;padding-top:6px;font-size:10px;color:var(--text3)">Podpis kierowcy</div></div>
   <div style="text-align:center"><div style="width:180px;border-top:1px solid #333;padding-top:6px;font-size:10px;color:var(--text3)">Podpis inspektora</div></div>
 </div>`);
-    } catch (ex) { _closeModal(); alert('Błąd: ' + ex.message); }
+    } catch (ex) { _closeModal(); alert(`Błąd: ${  ex.message}`); }
   }
 
   // ── TREND ─────────────────────────────────────────────────────────────────
@@ -1461,7 +1461,7 @@ ${allViols.length>0 ? `
 
   function _renderComparison() {
     const options = _driversData.map(d =>
-      `<option value="${e((d.driver_surname||'')+'|'+(d.driver_firstname||''))}">${e(_driverName(d))}</option>`
+      `<option value="${e(`${d.driver_surname||''}|${d.driver_firstname||''}`)}">${e(_driverName(d))}</option>`
     ).join('');
 
     return `
@@ -1535,7 +1535,7 @@ ${allViols.length>0 ? `
       ['Odpoczynek łącznie',   'rest_total',           _fmtMin],
       ['Dyspozycja łącznie',   'availability_total',   _fmtMin],
       ['Liczba naruszeń',      'violations',           null],
-      ['Łączne kary PLN',      'penalty_total',        v => v.toLocaleString('pl-PL') + ' PLN'],
+      ['Łączne kary PLN',      'penalty_total',        v => `${v.toLocaleString('pl-PL')  } PLN`],
     ];
 
     return `
@@ -1558,7 +1558,7 @@ ${allViols.length>0 ? `
     if (d1.violations > d2.violations) items.push(`<strong>${e(d1.name)}</strong> ma więcej naruszeń (+${d1.violations - d2.violations})`);
     else if (d2.violations > d1.violations) items.push(`<strong>${e(d2.name)}</strong> ma więcej naruszeń (+${d2.violations - d1.violations})`);
     if (!items.length) return '<p style="color:var(--text3);font-size:13px">Wyniki porównywalne.</p>';
-    return '<ul style="font-size:13px;margin:0;padding-left:16px">' + items.map(i => `<li>${i}</li>`).join('') + '</ul>';
+    return `<ul style="font-size:13px;margin:0;padding-left:16px">${  items.map(i => `<li>${i}</li>`).join('')  }</ul>`;
   }
 
   // ── PDF RAPORT ─────────────────────────────────────────────────────────────
@@ -1573,7 +1573,7 @@ ${allViols.length>0 ? `
       const r = await _api(`report-data/${fileId}`);
       if (!r.ok) throw new Error('API error');
       f = await r.json();
-    } catch (ex) { alert('Błąd pobierania danych: ' + ex.message); return; }
+    } catch (ex) { alert(`Błąd pobierania danych: ${  ex.message}`); return; }
 
     const doc   = await PDFDocument.create();
     const font  = await doc.embedFont(StandardFonts.Helvetica);
@@ -1640,7 +1640,7 @@ ${allViols.length>0 ? `
       addPageIfNeeded(20);
       const total = Object.values(tots).reduce((s, v) => s + v, 0);
       const row = [
-        new Date(date + 'T00:00:00Z').toLocaleDateString('pl-PL'),
+        new Date(`${date  }T00:00:00Z`).toLocaleDateString('pl-PL'),
         _fmtMin(tots.driving), _fmtMin(tots.work), _fmtMin(tots.availability),
         _fmtMin(tots.rest), _fmtMin(total),
       ];
@@ -1662,9 +1662,9 @@ ${allViols.length>0 ? `
       for (const v of f.violations) {
         addPageIfNeeded(32);
         const sev = SEVERITY[v.severity] || SEVERITY.minor;
-        drawText(`• ${new Date((v.violation_date||'2000-01-01') + 'T00:00:00Z').toLocaleDateString('pl-PL')} — ${v.description || v.violation_type}`, { size: 9 });
+        drawText(`• ${new Date(`${v.violation_date||'2000-01-01'  }T00:00:00Z`).toLocaleDateString('pl-PL')} — ${v.description || v.violation_type}`, { size: 9 });
         y += 2;
-        drawText(`  ${v.regulation || ''}  |  ${sev.label}${(v.penalty_pln||0)>0?' | Kara: '+v.penalty_pln+' PLN':''}`, { size: 8, color: gray, lineH: 16 });
+        drawText(`  ${v.regulation || ''}  |  ${sev.label}${(v.penalty_pln||0)>0?` | Kara: ${v.penalty_pln} PLN`:''}`, { size: 8, color: gray, lineH: 16 });
         y -= 4;
       }
     }
@@ -1759,7 +1759,7 @@ ${allViols.length>0 ? `
       _closeModal();
       await _loadAll();
       _setTab('drivers');
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   // ── ANALIZA WIELOPLIKOWA KIEROWCY ─────────────────────────────────────────
@@ -1770,7 +1770,7 @@ ${allViols.length>0 ? `
       const dt = new Date().toISOString().slice(0,10);
       const df = new Date(Date.now()-90*86400000).toISOString().slice(0,10);
       const r  = await _api(`driver-analysis/${encodeURIComponent(driverKey)}&date_from=${df}&date_to=${dt}`);
-      if (!r.ok) throw new Error('API ' + r.status);
+      if (!r.ok) throw new Error(`API ${  r.status}`);
       const data = await r.json();
       const s    = data.summary || {};
       const viols= data.violations || [];
@@ -1810,7 +1810,7 @@ ${allViols.length>0 ? `
     <div class="tach-stat-lbl"><i class="ti ti-alert-triangle"></i> Naruszenia</div>
   </div>
   <div class="tach-stat">
-    <div class="tach-stat-val" style="color:${penTotal>0?'#dc2626':'inherit'}">${penTotal>0?penTotal.toLocaleString('pl-PL')+' PLN':'—'}</div>
+    <div class="tach-stat-val" style="color:${penTotal>0?'#dc2626':'inherit'}">${penTotal>0?`${penTotal.toLocaleString('pl-PL')} PLN`:'—'}</div>
     <div class="tach-stat-lbl"><i class="ti ti-receipt"></i> Łączne kary</div>
   </div>
 </div>
@@ -1845,7 +1845,7 @@ ${Object.keys(violsBySev).length>0?`<div style="margin-bottom:16px;display:flex;
       ${files.length?files.map(f=>`
       <div style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px;display:flex;justify-content:space-between;align-items:center">
         <div>
-          <div style="font-weight:600">${e(f.file_name||f.period_start+' – '+f.period_end)}</div>
+          <div style="font-weight:600">${e(f.file_name||`${f.period_start} – ${f.period_end}`)}</div>
           <div style="color:var(--text3)">${_fmtDate(f.period_start)} – ${_fmtDate(f.period_end)}</div>
         </div>
         <div style="text-align:right">
@@ -1886,7 +1886,7 @@ ${viols.length>0?`
       <td style="font-size:11px">${_fmtDate(v.violation_date)}</td>
       <td style="font-size:11px">${e(v.description||v.violation_type)}</td>
       <td>${_sevChip(v.severity)}</td>
-      <td style="text-align:right;font-size:11px">${(v.penalty_pln??0)>0?e(String(v.penalty_pln))+' PLN':'—'}</td>
+      <td style="text-align:right;font-size:11px">${(v.penalty_pln??0)>0?`${e(String(v.penalty_pln))} PLN`:'—'}</td>
     </tr>`).join('')}
   </tbody>
 </table>
@@ -1898,7 +1898,7 @@ ${viols.length>50?`<div style="font-size:11px;color:var(--text3);padding:6px">Po
   <button class="btn btn-sm" onclick="window.TachographModule._exportCSV('violations')"><i class="ti ti-table-export"></i> Eksport CSV</button>
   <button class="btn btn-sm" onclick="window.TachographModule._closeModal()">Zamknij</button>
 </div>`);
-    } catch(ex) { _closeModal(); alert('Błąd analizy: ' + ex.message); }
+    } catch(ex) { _closeModal(); alert(`Błąd analizy: ${  ex.message}`); }
   }
 
   // ── ZAŚWIADCZENIE ─────────────────────────────────────────────────────────
@@ -1912,7 +1912,7 @@ ${viols.length>50?`<div style="font-size:11px;color:var(--text3);padding:6px">Po
       if (!files.length) { _showModal('<div style="padding:20px"><p>Brak plików DDD dla tego kierowcy.</p><button class="btn" onclick="window.TachographModule._closeModal()">Zamknij</button></div>'); return; }
       const latest = files[0];
       await _showStatementFromFile(driverName, latest.period_start, latest.period_end, latest.id);
-    } catch (ex) { _closeModal(); alert('Błąd: ' + ex.message); }
+    } catch (ex) { _closeModal(); alert(`Błąd: ${  ex.message}`); }
   }
 
   async function _showStatementFromFile(driverName, periodStart, periodEnd, fileId) {
@@ -1935,7 +1935,7 @@ ${viols.length>50?`<div style="font-size:11px;color:var(--text3);padding:6px">Po
     const tableRows = Object.entries(byDate).sort(([a],[b])=>a.localeCompare(b)).map(([date, tots]) => {
       const total = Object.values(tots).reduce((s,v)=>s+v,0);
       return `<tr style="font-size:12px">
-        <td style="padding:5px 8px;border:1px solid #ccc">${new Date(date+'T00:00:00Z').toLocaleDateString('pl-PL')}</td>
+        <td style="padding:5px 8px;border:1px solid #ccc">${new Date(`${date}T00:00:00Z`).toLocaleDateString('pl-PL')}</td>
         <td style="padding:5px 8px;border:1px solid #ccc;text-align:center">${_fmtMin(tots.driving??0)}</td>
         <td style="padding:5px 8px;border:1px solid #ccc;text-align:center">${_fmtMin(tots.work??0)}</td>
         <td style="padding:5px 8px;border:1px solid #ccc;text-align:center">${_fmtMin(tots.availability??0)}</td>

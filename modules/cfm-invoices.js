@@ -11,7 +11,7 @@ window.TaxOrderCfmInvoices = (function () {
   function _token() { return localStorage.getItem('cf_token'); }
   function _headers(extra) {
     const t = _token();
-    return { ...(t ? { 'Authorization': 'Bearer ' + t } : {}), ...(extra || {}) };
+    return { ...(t ? { 'Authorization': `Bearer ${  t}` } : {}), ...(extra || {}) };
   }
   function _company() { return window.currentCompanyId || 'mtoilet'; }
 
@@ -27,7 +27,7 @@ window.TaxOrderCfmInvoices = (function () {
   async function load() {
     try {
       const resp = await fetch(`${_cfApi()}/api/cfm-invoices?company=${encodeURIComponent(_company())}`, { headers: _headers() });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       list = await resp.json();
     } catch (e) {
       console.warn('[CfmInvoices] load error:', e.message);
@@ -70,7 +70,7 @@ window.TaxOrderCfmInvoices = (function () {
     if (extSel) extSel.innerHTML = (window.TaxOrderCfmClients?.getAll() || []).map(cl => `<option value="${esc(cl.id)}">${esc(cl.nazwa)}</option>`).join('');
     document.getElementById('cfmg-client-type').value = 'COMPANY';
     _toggleGenClientType();
-    document.getElementById('cfmg-okres').value = (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))(new Date());
+    document.getElementById('cfmg-okres').value = (d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`)(new Date());
     document.getElementById('cfm-generate-modal').classList.remove('hidden');
   }
   function closeGenerateModal() { document.getElementById('cfm-generate-modal').classList.add('hidden'); }
@@ -97,7 +97,7 @@ window.TaxOrderCfmInvoices = (function () {
       });
       if (!resp.ok) {
         const e = await resp.json().catch(() => ({}));
-        throw new Error(e.error || 'HTTP ' + resp.status);
+        throw new Error(e.error || `HTTP ${  resp.status}`);
       }
       const data = await resp.json();
       toast(t('cfminv.toast.generated').replace('{0}', data.nr_faktury).replace('{1}', Number(data.suma_brutto).toLocaleString('pl-PL')));
@@ -111,11 +111,11 @@ window.TaxOrderCfmInvoices = (function () {
   async function markPaid(id) {
     try {
       const resp = await fetch(`${_cfApi()}/api/cfm-invoices/${id}`, { method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ status: 'OPLACONA' }) });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       toast('✓ Faktura oznaczona jako opłacona');
       await load();
     } catch (e) {
-      toast('⚠ Błąd: ' + e.message);
+      toast(`⚠ Błąd: ${  e.message}`);
     }
   }
 
@@ -123,11 +123,11 @@ window.TaxOrderCfmInvoices = (function () {
     if (!confirm('Usunąć fakturę?')) return;
     try {
       const resp = await fetch(`${_cfApi()}/api/cfm-invoices/${id}`, { method: 'DELETE', headers: _headers() });
-      if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || 'HTTP ' + resp.status); }
+      if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.error || `HTTP ${  resp.status}`); }
       toast('✓ Faktura usunięta');
       await load();
     } catch (e) {
-      toast('⚠ Błąd usuwania: ' + e.message);
+      toast(`⚠ Błąd usuwania: ${  e.message}`);
     }
   }
 
@@ -232,7 +232,7 @@ window.TaxOrderCfmInvoices = (function () {
     const wiersze = (inv.pozycje || []).map((p, i) => `
     <FaWiersz>
       <NrWierszaFa>${i + 1}</NrWierszaFa>
-      <P_7>${esc(p.opis)}${p.nrRej ? ' (' + esc(p.nrRej) + ')' : ''}</P_7>
+      <P_7>${esc(p.opis)}${p.nrRej ? ` (${  esc(p.nrRej)  })` : ''}</P_7>
       <P_8A>szt</P_8A>
       <P_8B>${p.ilosc ?? 1}</P_8B>
       <P_9A>${(p.cena_netto ?? 0).toFixed(2)}</P_9A>
@@ -302,9 +302,9 @@ window.TaxOrderCfmInvoices = (function () {
         inv.status,
       ];
     });
-    const csv = '﻿' + [headers, ...rows]
+    const csv = `﻿${  [headers, ...rows]
       .map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';'))
-      .join('\r\n');
+      .join('\r\n')}`;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);

@@ -33,12 +33,12 @@ window.DocViewer = (function () {
     _openModal();
     try {
       const tok = localStorage.getItem('cf_token') || localStorage.getItem('session_token') || '';
-      const r = await fetch(url, tok ? { headers: { 'Authorization': 'Bearer ' + tok } } : {});
+      const r = await fetch(url, tok ? { headers: { 'Authorization': `Bearer ${  tok}` } } : {});
       if (!r.ok) {
         // Backend zwraca czytelny komunikat w {error:"..."} (np. "Dokument nie
         // znaleziony" gdy wiersz w D1 istnieje, ale plik zniknął z R2) — poprzednia
         // wersja go odrzucała i pokazywała gołe "HTTP 404" zamiast tego tekstu.
-        let msg = 'HTTP ' + r.status;
+        let msg = `HTTP ${  r.status}`;
         try { const body = await r.clone().json(); if (body?.error) msg = body.error; } catch (_) {}
         throw new Error(msg);
       }
@@ -139,7 +139,7 @@ window.DocViewer = (function () {
     const base   = (window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev').replace(/\/$/, '');
     const company= window._currentCompany || window.currentCompanyId || 'mtoilet';
     const tok    = localStorage.getItem('cf_token') || '';
-    const H      = { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' };
+    const H      = { 'Authorization': `Bearer ${  tok}`, 'Content-Type': 'application/json' };
 
     let docs = [], policies = [];
     try {
@@ -163,7 +163,7 @@ window.DocViewer = (function () {
     function fmtDate(d) {
       if (!d) return '—';
       try {
-        const dt = new Date(d.includes('T') ? d : d + 'T00:00:00');
+        const dt = new Date(d.includes('T') ? d : `${d  }T00:00:00`);
         return dt.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' });
       } catch(_) { return d; }
     }
@@ -234,7 +234,7 @@ body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#1e293b;backgro
     ${field('Model', v.model)}
     ${field('Rok produkcji', v.rok)}
     ${field('Typ', v.typ)}
-    ${field('DMC (kg)', v.dmc ? (v.dmc).toLocaleString('pl-PL') + ' kg' : '—')}
+    ${field('DMC (kg)', v.dmc ? `${(v.dmc).toLocaleString('pl-PL')  } kg` : '—')}
     ${field('Paliwo', v.paliwo)}
     ${field('Norma emisji', v.euro)}
     ${field('Właściciel', v.wlasciciel)}
@@ -259,7 +259,7 @@ ${tax.cat ? `<div class="section">
     </div>
     <div style="text-align:right;padding-left:20px">
       <div style="font-size:9px;color:#64748b;text-transform:uppercase;margin-bottom:4px">Kwota podatku</div>
-      <div class="tax-amount">${tax.amount != null ? Math.round(tax.amount).toLocaleString('pl-PL') + ' zł' : '—'}</div>
+      <div class="tax-amount">${tax.amount != null ? `${Math.round(tax.amount).toLocaleString('pl-PL')  } zł` : '—'}</div>
       <div style="font-size:9px;color:#64748b">rocznie</div>
     </div>
   </div>
@@ -272,13 +272,13 @@ ${policies.length ? `<div class="section">
     const typeLabel = p.type || p.typ || p.rodzaj || 'Polisa';
     let daysLeft = null;
     if (expiry) {
-      const d = new Date(expiry.includes('T') ? expiry : expiry + 'T00:00:00');
+      const d = new Date(expiry.includes('T') ? expiry : `${expiry  }T00:00:00`);
       daysLeft = Math.round((d - now) / 86400000);
     }
     const color = daysLeft === null ? '#64748b' : daysLeft < 0 ? '#dc2626' : daysLeft <= 30 ? '#d97706' : '#16a34a';
     return `<div class="policy-row">
       <div><strong>${esc(typeLabel)}</strong>${p.towarzystwo || p.insurer ? ` &bull; ${esc(p.towarzystwo || p.insurer)}` : ''}</div>
-      <div style="color:${color};font-weight:600;font-size:11px">${expiry ? `Ważna do: ${fmtDate(expiry)}${daysLeft !== null ? ` (${daysLeft < 0 ? Math.abs(daysLeft)+' dni temu' : 'za '+daysLeft+' dni'})` : ''}` : '—'}</div>
+      <div style="color:${color};font-weight:600;font-size:11px">${expiry ? `Ważna do: ${fmtDate(expiry)}${daysLeft !== null ? ` (${daysLeft < 0 ? `${Math.abs(daysLeft)} dni temu` : `za ${daysLeft} dni`})` : ''}` : '—'}</div>
     </div>`;
   }).join('')}
 </div>` : ''}
@@ -293,7 +293,7 @@ ${(docs.length || moduleDocs.length) ? `<div class="section">
     ${moduleDocs.map(d => {
       const expiry = d.expiry;
       let ds = null;
-      if (expiry) { const dt = new Date(expiry + 'T00:00:00'); ds = Math.round((dt-now)/86400000); }
+      if (expiry) { const dt = new Date(`${expiry  }T00:00:00`); ds = Math.round((dt-now)/86400000); }
       const col = ds === null ? '#64748b' : ds < 0 ? '#dc2626' : ds <= 30 ? '#d97706' : '#16a34a';
       return `<li>
         <span>${esc(d.name || '—')}${d.type ? ` &bull; ${esc(d.type)}` : ''}</span>

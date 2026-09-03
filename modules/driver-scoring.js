@@ -82,7 +82,7 @@ ${sorted.length ? sorted.map((d, i) => `<tr>
   </td>
   <td><span class="pill ${d.score >= 80 ? 'ok' : d.score >= 60 ? 'warn' : 'danger'}">${e(d.category)}</span></td>
   <td class="${d.fine_cnt > 2 ? 'danger' : d.fine_cnt > 0 ? 'warn' : ''}">${d.fine_cnt || 0}</td>
-  <td>${d.fine_amount ? fmtN(d.fine_amount, 2) + ' PLN' : '—'}</td>
+  <td>${d.fine_amount ? `${fmtN(d.fine_amount, 2)  } PLN` : '—'}</td>
   <td class="${d.fault_cnt > 3 ? 'danger' : d.fault_cnt > 0 ? 'warn' : ''}">${d.fault_cnt || 0}</td>
   <td>${d.shifts || 0}</td>
   <td>${d.overtime_min ? fmtMin(d.overtime_min) : '—'}</td>

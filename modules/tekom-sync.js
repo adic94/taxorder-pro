@@ -10,7 +10,7 @@ window.TekomSync = (function () {
   function _co() { return window.currentCompanyId || 'mtoilet'; }
   function _hdrs(extra) {
     const t = _token();
-    return { ...(t ? { Authorization: 'Bearer ' + t } : {}), ...(extra || {}) };
+    return { ...(t ? { Authorization: `Bearer ${  t}` } : {}), ...(extra || {}) };
   }
   function _url(path) { return `${_api()}${path}?company=${_co()}`; }
 
@@ -57,7 +57,7 @@ window.TekomSync = (function () {
               ${cfg.serverName ? `<span style="color:var(--text3)">Serwer:</span><span>${esc(cfg.serverName)}</span>` : ''}
               ${cfg.dbName     ? `<span style="color:var(--text3)">Baza:</span><span>${esc(cfg.dbName)}</span>` : ''}
               <span style="color:var(--text3)">Ostatni sync:</span>
-              <span>${cfg.lastSync ? _fmtDate(cfg.lastSync) + ` (${cfg.lastSyncVehicles||0} pojazdów)` : 'Nigdy'}</span>
+              <span>${cfg.lastSync ? `${_fmtDate(cfg.lastSync)  } (${cfg.lastSyncVehicles||0} pojazdów)` : 'Nigdy'}</span>
             </div>
           </div>` : ''}
 
@@ -257,7 +257,7 @@ window.TekomSync = (function () {
             <span style="font-weight:500;font-family:var(--mono);min-width:80px">${plate}</span>
             ${deviceId ? `<span style="font-size:10px;color:var(--text3)">${deviceId}</span>` : ''}
             <span style="margin-left:auto;font-weight:700;color:${low ? 'var(--red)' : 'var(--text1)'}">
-              ${balance !== null ? Number(balance).toFixed(2) + ' zł' : '—'}
+              ${balance !== null ? `${Number(balance).toFixed(2)  } zł` : '—'}
               ${low ? ' ⚠ Niskie saldo!' : ''}
             </span>
             ${status ? `<span style="font-size:10px;color:var(--text3)">${status}</span>` : ''}

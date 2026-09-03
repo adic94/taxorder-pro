@@ -378,13 +378,13 @@ ${rows.map(({ v, fuelLiters, gpsKm, avgConsumption, expectedLiters, discrepancy,
     <td style="text-align:right">${fuelLiters.toFixed(1)} L</td>
     <td style="text-align:right">
       ${gpsKm > 0
-        ? gpsKm.toLocaleString('pl-PL') + ' km'
+        ? `${gpsKm.toLocaleString('pl-PL')  } km`
         : '<span style="color:var(--text3)">brak GPS</span>'}
     </td>
     <td style="text-align:right">${avgConsumption.toFixed(1)} l/100km</td>
-    <td style="text-align:right">${expectedLiters > 0 ? expectedLiters.toFixed(1) + ' L' : '—'}</td>
+    <td style="text-align:right">${expectedLiters > 0 ? `${expectedLiters.toFixed(1)  } L` : '—'}</td>
     <td style="text-align:right;${isAlert ? 'color:#dc2626;font-weight:700' : 'color:#16a34a'}">
-      ${discrepancy > 0 ? discrepancy + '%' : '—'}
+      ${discrepancy > 0 ? `${discrepancy  }%` : '—'}
     </td>
     <td>
       ${isAlert
@@ -487,7 +487,7 @@ ${needsUrl ? `<div style="margin-bottom:12px">
         alert(`Synchronizacja zakończona: ${data.vehicles ?? 0} pojazdów, ${data.positions ?? 0} pozycji`);
         await renderGpsIntegrations();
       } else {
-        alert('Błąd synchronizacji: ' + JSON.stringify(data.errors || []));
+        alert(`Błąd synchronizacji: ${  JSON.stringify(data.errors || [])}`);
       }
     } catch (ex) { alert(ex.message); }
     finally { if (btn) btn.disabled = false; }

@@ -12,14 +12,14 @@ window.TaxOrderDamages = (function () {
   function _token() { return localStorage.getItem('cf_token'); }
   function _headers(extra) {
     const t = _token();
-    return { ...(t ? { 'Authorization': 'Bearer ' + t } : {}), ...(extra || {}) };
+    return { ...(t ? { 'Authorization': `Bearer ${  t}` } : {}), ...(extra || {}) };
   }
   function _company() { return window.currentCompanyId || 'mtoilet'; }
 
   async function load() {
     try {
       const resp = await fetch(`${_cfApi()}/api/damages?company=${encodeURIComponent(_company())}`, { headers: _headers() });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       list = await resp.json();
     } catch (e) {
       console.warn('[Damages] load error:', e.message);
@@ -48,7 +48,7 @@ window.TaxOrderDamages = (function () {
       <td style="font-size:12px">${d.data_zdarzenia ? new Date(d.data_zdarzenia).toLocaleDateString('pl-PL') : '—'}</td>
       <td style="font-size:12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.opis || '—')}</td>
       <td><span class="pill ${pillCls[d.status] || 'pill-gray'}">${pillLbl[d.status] || esc(d.status)}</span></td>
-      <td style="font-family:var(--mono)">${d.koszt != null ? Number(d.koszt).toLocaleString('pl-PL') + ' zł' : '—'}</td>
+      <td style="font-family:var(--mono)">${d.koszt != null ? `${Number(d.koszt).toLocaleString('pl-PL')  } zł` : '—'}</td>
       <td style="text-align:center">${(d.photos || []).length ? `<i class="ti ti-photo"></i> ${d.photos.length}` : '—'}</td>
       <td>
         <div style="display:flex;gap:4px">
@@ -111,10 +111,10 @@ window.TaxOrderDamages = (function () {
       let id = editId;
       if (id) {
         const resp = await fetch(`${_cfApi()}/api/damages/${id}`, { method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       } else {
         const resp = await fetch(`${_cfApi()}/api/damages`, { method: 'POST', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
         const data = await resp.json();
         id = data.id;
         // Wyślij zdjęcia dodane przed zapisem (nowe zgłoszenie nie miało jeszcze id)
@@ -165,7 +165,7 @@ window.TaxOrderDamages = (function () {
     if (!confirm(t('dmg.confirm.del.photo'))) return;
     try {
       const delResp = await fetch(`${_cfApi()}/api/damages/photo/${photoId}`, { method: 'DELETE', headers: _headers() });
-      if (!delResp.ok) throw new Error('HTTP ' + delResp.status);
+      if (!delResp.ok) throw new Error(`HTTP ${  delResp.status}`);
       const resp = await fetch(`${_cfApi()}/api/damages?company=${encodeURIComponent(_company())}`, { headers: _headers() });
       const fresh = await resp.json();
       list = fresh;
@@ -180,7 +180,7 @@ window.TaxOrderDamages = (function () {
     if (!confirm(t('dmg.confirm.del'))) return;
     try {
       const resp = await fetch(`${_cfApi()}/api/damages/${id}`, { method: 'DELETE', headers: _headers() });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       toast(t('dmg.toast.deleted'));
       await load();
     } catch (e) {

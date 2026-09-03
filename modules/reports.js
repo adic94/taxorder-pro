@@ -132,10 +132,10 @@ window.FleetReports = (function () {
     }).filter(r=>r.liters>0);
 
     const headers = ['Nr rej.','Marka','Model','Rok','Paliwo (l)','CO2 (kg)','CO2 (t)'];
-    const csv = '﻿' + [headers, ...rows.map(r=>[
+    const csv = `﻿${  [headers, ...rows.map(r=>[
       r.v.nrRej,r.v.marka,r.v.model,r.v.rok||'',
       r.liters.toFixed(1),r.co2.toFixed(3),(r.co2/1000).toFixed(6),
-    ])].map(row=>row.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+    ])].map(row=>row.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n')}`;
     const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href=url; a.download=`kobize_co2_${yr}.csv`;
@@ -188,7 +188,7 @@ window.FleetReports = (function () {
       const fuel  = (v.fuelHistory||[]).filter(h=>(h.date||'').startsWith(pfx)).reduce((s,h)=>s+(h.totalGross||0),0);
       const svc   = (v.serviceHistory||[]).filter(h=>(h.date||'').startsWith(pfx)).reduce((s,h)=>s+(h.cost||0),0);
       const ins   = (v.ocPremium&&(v.ocStart||'').startsWith(pfx)?+v.ocPremium:0)+(v.acPremium&&(v.acStart||'').startsWith(pfx)?+v.acPremium:0);
-      const leasing = (v.leasingRate && (v.leasingStart||'') <= pfx+'-12' && (v.leasingEnd||'') >= pfx+'-01')
+      const leasing = (v.leasingRate && (v.leasingStart||'') <= `${pfx}-12` && (v.leasingEnd||'') >= `${pfx}-01`)
         ? (+v.leasingRate * 12) : 0;
       const tax   = (typeof calcTax === 'function') ? (calcTax(v).amount||0) : 0;
       const fines = finesByNr[v.nrRej] || finesByNr[v.nr_rej] || 0;
@@ -280,7 +280,7 @@ window.FleetReports = (function () {
       const fuel  = (v.fuelHistory||[]).filter(h=>(h.date||'').startsWith(pfx)).reduce((s,h)=>s+(h.totalGross||0),0);
       const svc   = (v.serviceHistory||[]).filter(h=>(h.date||'').startsWith(pfx)).reduce((s,h)=>s+(h.cost||0),0);
       const ins   = (v.ocPremium&&(v.ocStart||'').startsWith(pfx)?+v.ocPremium:0)+(v.acPremium&&(v.acStart||'').startsWith(pfx)?+v.acPremium:0);
-      const leasing = (v.leasingRate&&(v.leasingStart||'')<=pfx+'-12'&&(v.leasingEnd||'')>=pfx+'-01')?(+v.leasingRate*12):0;
+      const leasing = (v.leasingRate&&(v.leasingStart||'')<=`${pfx}-12`&&(v.leasingEnd||'')>=`${pfx}-01`)?(+v.leasingRate*12):0;
       const tax   = (typeof calcTax==='function')?(calcTax(v).amount||0):0;
       const allFinesX = window.FinesModule?.getAllSync?.() || [];
       const finesX = allFinesX.filter(f=>(f.date||'').startsWith(pfx)&&(f.nr_rej===v.nrRej||f.nr_rej===v.nr_rej)).reduce((s,f)=>s+(f.amount||0),0);
@@ -300,7 +300,7 @@ window.FleetReports = (function () {
     if (!el) return;
     const now   = new Date(); now.setHours(0, 0, 0, 0);
     const fd    = d => d ? new Date(d).toLocaleDateString('pl-PL') : '—';
-    const days  = d => d ? Math.round((new Date(d.includes('T') ? d : d + 'T00:00:00') - now) / 86400000) : null;
+    const days  = d => d ? Math.round((new Date(d.includes('T') ? d : `${d  }T00:00:00`) - now) / 86400000) : null;
     const pill  = d => {
       const n = days(d);
       if (n == null) return '<span style="color:var(--text3)">—</span>';
@@ -309,7 +309,7 @@ window.FleetReports = (function () {
       if (n <= 60) return `<span class="pill pill-amber" title="Za ${n} dni">${fd(d)}</span>`;
       return `<span style="font-size:11px;color:var(--text2)">${fd(d)}</span>`;
     };
-    const fmt  = n => n ? (+n).toLocaleString('pl-PL', {minimumFractionDigits:2,maximumFractionDigits:2})+' zł' : '—';
+    const fmt  = n => n ? `${(+n).toLocaleString('pl-PL', {minimumFractionDigits:2,maximumFractionDigits:2})} zł` : '—';
 
     // Zbierz wszystkie polisy (OC + AC + Ass)
     const policies = [];
@@ -404,7 +404,7 @@ window.FleetReports = (function () {
     const yr = now.getFullYear();
     const prefix = String(yr);
     const vehs = window.vehs || [];
-    const today = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+    const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
     // KPIs
     let totalFuel = 0, totalSvc = 0, totalTax = 0, dt1Count = 0;
@@ -429,9 +429,9 @@ window.FleetReports = (function () {
     const soon30 = [];
     vehs.forEach(v => {
       ['oc','ac','ass'].forEach(t => {
-        const end = v[t+'End'];
+        const end = v[`${t}End`];
         if (!end) return;
-        const days = Math.round((new Date(end.includes('T') ? end : end + 'T00:00:00') - now) / 86400000);
+        const days = Math.round((new Date(end.includes('T') ? end : `${end  }T00:00:00`) - now) / 86400000);
         if (days >= 0 && days <= 30) soon30.push({ nrRej: v.nrRej, type: t.toUpperCase(), end, days });
       });
     });
@@ -527,7 +527,7 @@ window.FleetReports = (function () {
 
     const now = new Date();
     const curYr = now.getFullYear();
-    const curMo = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    const curMo = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 
     el.innerHTML = `
       <!-- Selektor okresu -->
@@ -659,7 +659,7 @@ window.FleetReports = (function () {
               <td style="text-align:right;font-family:var(--mono)">${r.co2?r.co2.toFixed(0):'-'}</td>
               <td style="text-align:right;font-family:var(--mono)">${r.service?_fmt2(r.service):'-'}</td>
               <td style="text-align:right;font-family:var(--mono)">${r.insur?_fmt2(r.insur):'-'}</td>
-              <td style="text-align:right;font-family:var(--mono);color:${r.costPerKm!=null?'var(--blue)':'var(--text3)'}" title="${r.kmDriven?r.kmDriven.toLocaleString('pl-PL')+' km w okresie':''}">${r.costPerKm!=null?r.costPerKm.toFixed(2):'-'}</td>
+              <td style="text-align:right;font-family:var(--mono);color:${r.costPerKm!=null?'var(--blue)':'var(--text3)'}" title="${r.kmDriven?`${r.kmDriven.toLocaleString('pl-PL')} km w okresie`:''}">${r.costPerKm!=null?r.costPerKm.toFixed(2):'-'}</td>
               <td style="text-align:right;font-family:var(--mono);font-weight:700">${_fmt2(r.total)}</td>
             </tr>`).join('')}
         </tbody>
@@ -719,7 +719,7 @@ window.FleetReports = (function () {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sData), 'Serwisy');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(fData), 'Tankowania');
 
-    const fname = `raport_flota_${yr}${mo?'_'+mo:''}.xlsx`;
+    const fname = `raport_flota_${yr}${mo?`_${mo}`:''}.xlsx`;
     XLSX.writeFile(wb, fname);
     toast(t('rep.toast.export.ok').replace('{0}', fname));
   }
@@ -729,16 +729,16 @@ window.FleetReports = (function () {
     const yr  = document.getElementById('fr-year')?.value || new Date().getFullYear();
     const mo  = document.getElementById('fr-month')?.value || '';
     const headers = ['Nr rej.','Marka','Model','Rok','Paliwo (zł)','Litry','l/100km','CO2 (kg)','Serwis (zł)','Ubezpieczenia (zł)','zł/km','Łącznie (zł)'];
-    const csv = '﻿' + [headers, ...rows.map(r => [
+    const csv = `﻿${  [headers, ...rows.map(r => [
       r.v.nrRej, r.v.marka, r.v.model, r.v.rok||'',
       _fmt2(r.fuel), r.fuelL.toFixed(2), r.avgEff!=null?r.avgEff.toFixed(1):'',
       r.co2.toFixed(3), _fmt2(r.service), _fmt2(r.insur),
       r.costPerKm!=null?r.costPerKm.toFixed(2):'', _fmt2(r.total),
-    ])].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+    ])].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n')}`;
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href=url;
-    a.download=`raport_flota_${yr}${mo?'_'+mo:''}.csv`; a.click();
+    a.download=`raport_flota_${yr}${mo?`_${mo}`:''}.csv`; a.click();
     URL.revokeObjectURL(url);
     toast(t('rep.toast.csv.ok'));
   }
@@ -946,7 +946,7 @@ window.FleetReports = (function () {
 
     const fmtZ = n => (+n||0).toLocaleString('pl-PL', { minimumFractionDigits:0, maximumFractionDigits:0 });
     const diffColor = (b, a) => !b ? '' : a > b ? 'color:var(--red);font-weight:700' : 'color:var(--green);font-weight:700';
-    const pct = (b, a) => !b ? '—' : ((a/b)*100).toFixed(0) + '%';
+    const pct = (b, a) => !b ? '—' : `${((a/b)*100).toFixed(0)  }%`;
     const bar = (b, a) => {
       if (!b) return '<div style="height:8px;background:var(--bg2);border-radius:4px"></div>';
       const w = Math.min(a/b*100, 100).toFixed(1);
@@ -1107,11 +1107,11 @@ window.FleetReports = (function () {
   function exportServicePlanHtml() {
     const rows = _buildServicePlanRows();
     const _todayMs = (() => { const t = new Date(); t.setHours(0,0,0,0); return t; })();
-    const today = _todayMs.getFullYear()+'-'+String(_todayMs.getMonth()+1).padStart(2,'0')+'-'+String(_todayMs.getDate()).padStart(2,'0');
+    const today = `${_todayMs.getFullYear()}-${String(_todayMs.getMonth()+1).padStart(2,'0')}-${String(_todayMs.getDate()).padStart(2,'0')}`;
     const fd = d => d ? new Date(d).toLocaleDateString('pl-PL') : '—';
     const urgencyBadge = d => {
       if (!d) return '';
-      const diff = Math.round((new Date(d.includes('T') ? d : d + 'T00:00:00') - _todayMs) / 86400000);
+      const diff = Math.round((new Date(d.includes('T') ? d : `${d  }T00:00:00`) - _todayMs) / 86400000);
       const color = diff < 0 ? '#dc2626' : diff <= 7 ? '#dc2626' : diff <= 14 ? '#d97706' : '#16a34a';
       const label = diff < 0 ? `${Math.abs(diff)} dni po terminie` : diff === 0 ? 'dziś' : `${diff} dni`;
       return `<span style="background:${color};color:#fff;border-radius:9px;font-size:9px;font-weight:700;padding:1px 7px">${label}</span>`;
@@ -1143,7 +1143,7 @@ tr:hover td{background:#f9fafb}
   </tr></thead>
   <tbody>
     ${rows.map(r => {
-      const diff = r.nextServiceDate ? Math.round((new Date(r.nextServiceDate.includes('T') ? r.nextServiceDate : r.nextServiceDate + 'T00:00:00') - _todayMs) / 86400000) : null;
+      const diff = r.nextServiceDate ? Math.round((new Date(r.nextServiceDate.includes('T') ? r.nextServiceDate : `${r.nextServiceDate  }T00:00:00`) - _todayMs) / 86400000) : null;
       const bg   = diff == null ? '' : diff < 0 ? '#fef2f2' : diff <= 7 ? '#fff7ed' : '';
       return `<tr style="background:${bg}">
         <td class="mono" style="font-weight:700">${esc(r.nrRej)}</td>
@@ -1151,7 +1151,7 @@ tr:hover td{background:#f9fafb}
         <td>${esc(r.svcLabel)}</td>
         <td class="mono">${fd(r.lastDate)}</td>
         <td class="mono">${fd(r.nextServiceDate)} ${urgencyBadge(r.nextServiceDate)}</td>
-        <td class="mono">${r.nextServiceKm ? r.nextServiceKm.toLocaleString('pl-PL')+' km' : '—'}</td>
+        <td class="mono">${r.nextServiceKm ? `${r.nextServiceKm.toLocaleString('pl-PL')} km` : '—'}</td>
         <td class="mono" style="color:${diff!=null&&diff<0?'#dc2626':'#6b7280'}">${diff!=null ? (diff<0?`${Math.abs(diff)} dni po`:`${diff} dni`) : '—'}</td>
         <td>${esc(r.workshop||'—')}</td>
       </tr>`;
@@ -1173,7 +1173,7 @@ tr:hover td{background:#f9fafb}
       (v.serviceHistory||[]).forEach(s => {
         if (!s.nextServiceDate && !s.nextServiceKm) return;
         const svcLabel = window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label || s.type || 'Serwis';
-        const diff = s.nextServiceDate ? Math.round((new Date(s.nextServiceDate.includes('T') ? s.nextServiceDate : s.nextServiceDate + 'T00:00:00') - today) / 86400000) : null;
+        const diff = s.nextServiceDate ? Math.round((new Date(s.nextServiceDate.includes('T') ? s.nextServiceDate : `${s.nextServiceDate  }T00:00:00`) - today) / 86400000) : null;
         rows.push({ nrRej:v.nrRej, marka:v.marka, model:v.model, svcLabel, lastDate:s.date, nextServiceDate:s.nextServiceDate, nextServiceKm:s.nextServiceKm, workshop:s.workshop, diff });
       });
     });
@@ -1211,9 +1211,9 @@ tr:hover td{background:#f9fafb}
     const soon30 = [];
     vehs.forEach(v => {
       ['oc','ac','ass'].forEach(t => {
-        const end = v[t+'End'];
+        const end = v[`${t}End`];
         if (!end) return;
-        const days = Math.round((new Date(end.includes('T') ? end : end + 'T00:00:00') - now) / 86400000);
+        const days = Math.round((new Date(end.includes('T') ? end : `${end  }T00:00:00`) - now) / 86400000);
         if (days >= 0 && days <= 30) soon30.push({ nrRej: v.nrRej, type: t.toUpperCase(), days });
       });
     });
@@ -1290,7 +1290,7 @@ tr:hover td{background:#f9fafb}
     const prefix  = `${year}-${String(month).padStart(2, '0')}`;
     const MNAMES  = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec',
                      'Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
-    const monthLabel = MNAMES[month - 1] + ' ' + year;
+    const monthLabel = `${MNAMES[month - 1]  } ${  year}`;
 
     let vehicles = window.vehs || [];
     if (company) vehicles = vehicles.filter(v => v.wlasciciel === company);
@@ -1346,10 +1346,10 @@ tr:hover td{background:#f9fafb}
     // KPI chips
     const chips = [
       { label: 'Pojazdy z tankowaniami', value: String(fuelRows.length) },
-      { label: 'Paliwo łącznie',         value: totLiters.toFixed(0) + ' l' },
-      { label: 'Koszt paliwa',           value: totCost.toFixed(0) + ' zł' },
-      { label: 'Koszt serwisu',          value: totSvc.toFixed(0) + ' zł' },
-      { label: 'Emisja CO₂',             value: totCo2.toFixed(0) + ' kg' },
+      { label: 'Paliwo łącznie',         value: `${totLiters.toFixed(0)  } l` },
+      { label: 'Koszt paliwa',           value: `${totCost.toFixed(0)  } zł` },
+      { label: 'Koszt serwisu',          value: `${totSvc.toFixed(0)  } zł` },
+      { label: 'Emisja CO₂',             value: `${totCo2.toFixed(0)  } kg` },
     ];
     const cW = 36, cH = 18, cGap = 2;
     let cx = (W - (chips.length * cW + (chips.length - 1) * cGap)) / 2;
@@ -1468,13 +1468,13 @@ tr:hover td{background:#f9fafb}
       doc.setFontSize(7.5);
       doc.setFont('helvetica', 'normal');
       doc.text(
-        `TaxOrder Pro — Raport ${monthLabel}${company ? ' / ' + company : ''} | Strona ${i} z ${pageCount}`,
+        `TaxOrder Pro — Raport ${monthLabel}${company ? ` / ${  company}` : ''} | Strona ${i} z ${pageCount}`,
         W / 2, 292, { align: 'center' }
       );
     }
 
     const safe = (s) => s.replace(/[^a-zA-Z0-9_-]/g, '_');
-    doc.save(`raport_${year}_${String(month).padStart(2,'0')}${company ? '_' + safe(company) : ''}.pdf`);
+    doc.save(`raport_${year}_${String(month).padStart(2,'0')}${company ? `_${  safe(company)}` : ''}.pdf`);
     toast(t('rep.toast.pdf.ok').replace('{0}', monthLabel));
   }
 
@@ -1540,7 +1540,7 @@ tr:hover td{background:#f9fafb}
         <div class="fkpi-card" style="flex:1;min-width:160px;padding:14px 18px">
           <div style="font-size:11px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Zmiana</div>
           <div style="font-size:24px;font-weight:800;color:${diff>0?'var(--red)':'var(--green)'}">
-            ${currentTotal>0 ? (diffSign + (diff/currentTotal*100).toFixed(1) + '%') : '—'}
+            ${currentTotal>0 ? (`${diffSign + (diff/currentTotal*100).toFixed(1)  }%`) : '—'}
           </div>
           <div style="font-size:11px;color:var(--text2)">rok do roku</div>
         </div>
@@ -1570,9 +1570,9 @@ tr:hover td{background:#f9fafb}
               <td style="padding:6px 10px;font-family:var(--mono)">${esc(r.v.nrRej||'—')}</td>
               <td style="padding:6px 10px;font-size:11px;color:var(--text2)">${esc(r.v.marka||'')} ${esc(r.v.model||'')}</td>
               <td style="padding:6px 10px"><span class="pill pill-blue" style="font-size:10px">${r.cat}</span></td>
-              <td style="padding:6px 10px;text-align:right;font-family:var(--mono)">${curAmt>0?fmt(curAmt)+' zł':'—'}</td>
+              <td style="padding:6px 10px;text-align:right;font-family:var(--mono)">${curAmt>0?`${fmt(curAmt)} zł`:'—'}</td>
               <td style="padding:6px 10px;text-align:right;font-family:var(--mono);font-weight:700">${fmt(r.amount)} zł</td>
-              <td style="padding:6px 10px;text-align:right;font-size:11px;color:${delta>0?'#dc2626':delta<0?'#16a34a':'var(--text3)'}">${delta!==0?ds+fmt(delta)+' zł':'—'}</td>
+              <td style="padding:6px 10px;text-align:right;font-size:11px;color:${delta>0?'#dc2626':delta<0?'#16a34a':'var(--text3)'}">${delta!==0?`${ds+fmt(delta)} zł`:'—'}</td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -1581,7 +1581,7 @@ tr:hover td{background:#f9fafb}
             <td colspan="3" style="padding:7px 10px">Łącznie</td>
             <td style="padding:7px 10px;text-align:right;font-family:var(--mono)">${fmt(currentTotal)} zł</td>
             <td style="padding:7px 10px;text-align:right;font-family:var(--mono);color:${diff>0?'var(--red)':'var(--green)'}">${fmt(nextTotal)} zł</td>
-            <td style="padding:7px 10px;text-align:right;font-size:11px;color:${diff>0?'#dc2626':'#16a34a'}">${diff!==0?(diffSign+fmt(diff)+' zł'):'—'}</td>
+            <td style="padding:7px 10px;text-align:right;font-size:11px;color:${diff>0?'#dc2626':'#16a34a'}">${diff!==0?(`${diffSign+fmt(diff)} zł`):'—'}</td>
           </tr>
         </tfoot>
       </table>`;
@@ -1625,11 +1625,11 @@ tr:hover td{background:#f9fafb}
     if (!lines.length) { alert('Brak wpisów serwisowych w wybranym okresie.'); return; }
 
     const header = 'Data;Opis;Nr dokumentu;Kontrahent;NIP;Konto WN;Konto MA;Kwota netto;VAT;Kwota brutto;Waluta;Pojazd';
-    const csv = '﻿' + [header, ...lines.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(';'))].join('\r\n');
+    const csv = `﻿${  [header, ...lines.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(';'))].join('\r\n')}`;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `fk-export-${yr}${mo ? '-' + String(mo).padStart(2, '0') : ''}.csv`;
+    a.download = `fk-export-${yr}${mo ? `-${  String(mo).padStart(2, '0')}` : ''}.csv`;
     a.click();
   }
 

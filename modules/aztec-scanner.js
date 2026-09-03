@@ -419,7 +419,7 @@ window.AztecScanner = {
 
     const ownerInfo = d._ownerName
       ? `<div style="font-size:11px;color:var(--text2);margin-top:8px;padding-top:8px;border-top:0.5px solid var(--border)">
-           👤 Właściciel: <strong>${d._ownerName}</strong>${d._ownerCity ? ' · ' + d._ownerCity : ''}
+           👤 Właściciel: <strong>${d._ownerName}</strong>${d._ownerCity ? ` · ${  d._ownerCity}` : ''}
          </div>` : '';
 
     document.getElementById('aztec-fields').innerHTML =
@@ -446,7 +446,7 @@ window.AztecScanner = {
       try {
         const resp = await fetch(`${workerUrl}/api/ai/ocr`, {
           method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+          headers: { 'Authorization': `Bearer ${  token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ imageBase64, mimeType }),
           signal: AbortSignal.timeout(35000),
         });

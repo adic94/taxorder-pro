@@ -66,7 +66,7 @@
     if (!list.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-row">Brak wygenerowanych plików JPK</td></tr>'; return; }
     tbody.innerHTML = list.map(e => `<tr>
       <td><strong>${esc(JPK_TYPES[e.jpk_type]?.lbl||e.jpk_type)}</strong></td>
-      <td>${esc(e.period_label||e.year+'-'+String(e.month||0).padStart(2,'0'))}</td>
+      <td>${esc(e.period_label||`${e.year}-${String(e.month||0).padStart(2,'0')}`)}</td>
       <td>${esc(e.created_at?.replace('T',' ').slice(0,16)||'—')}</td>
       <td>${e.file_size_bytes ? _fmtSize(e.file_size_bytes) : '—'}</td>
       <td><span class="pill" style="background:${STATUS_CLR[e.status]||'#999'}20;color:${STATUS_CLR[e.status]||'#999'}">${esc(STATUS_LBL[e.status]||e.status)}</span></td>
@@ -79,9 +79,9 @@
   }
 
   function _fmtSize(bytes) {
-    if (bytes > 1024*1024) return (bytes/1024/1024).toFixed(1)+' MB';
-    if (bytes > 1024) return (bytes/1024).toFixed(1)+' KB';
-    return bytes+' B';
+    if (bytes > 1024*1024) return `${(bytes/1024/1024).toFixed(1)} MB`;
+    if (bytes > 1024) return `${(bytes/1024).toFixed(1)} KB`;
+    return `${bytes} B`;
   }
 
   function _openGenerate() { document.getElementById('jpk-generate-modal').style.display='flex'; }
@@ -97,7 +97,7 @@
     btn.disabled = true; btn.textContent = 'Generowanie…';
     const data = await api('/generate', { method:'POST', body: JSON.stringify(body) });
     btn.disabled = false; btn.innerHTML = '<i class="ti ti-file-type-xml"></i> Generuj';
-    if (data.error) { alert('Błąd: '+esc(data.error)); return; }
+    if (data.error) { alert(`Błąd: ${esc(data.error)}`); return; }
     alert(`Plik JPK "${esc(JPK_TYPES[body.jpk_type]?.lbl||body.jpk_type)}" wygenerowany. Rozmiar: ${data.size ? _fmtSize(data.size) : '?'}`);
     _closeGenerate(); _load();
   }

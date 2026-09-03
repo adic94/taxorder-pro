@@ -10,7 +10,7 @@
 
   const API  = () => window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
   const tok  = () => localStorage.getItem('cf_token') || '';
-  const hdrs = () => ({ Authorization: 'Bearer ' + tok(), 'Content-Type': 'application/json' });
+  const hdrs = () => ({ Authorization: `Bearer ${  tok()}`, 'Content-Type': 'application/json' });
 
   async function loadCompanies() {
     if (!tok()) {
@@ -18,9 +18,9 @@
       return [];
     }
     try {
-      const r = await fetch(API() + '/api/companies', { headers: hdrs() });
+      const r = await fetch(`${API()  }/api/companies`, { headers: hdrs() });
       if (!r.ok) {
-        console.error('[Companies] HTTP ' + r.status);
+        console.error(`[Companies] HTTP ${  r.status}`);
         return window.TaxOrderCompaniesList || [];
       }
       const d = await r.json().catch(() => ({}));
@@ -82,18 +82,18 @@
    */
   async function deactivateCompany(id, name) {
     if (!id) return;
-    if (!confirm('Dezaktywować firmę: ' + (name || id) + '?\n\nDane firmy (pojazdy, dokumenty, deklaracje) zostaną zachowane, ale firma zniknie z listy wyboru.')) return;
+    if (!confirm(`Dezaktywować firmę: ${  name || id  }?\n\nDane firmy (pojazdy, dokumenty, deklaracje) zostaną zachowane, ale firma zniknie z listy wyboru.`)) return;
 
     try {
-      const r = await fetch(API() + '/api/companies/' + encodeURIComponent(id), {
+      const r = await fetch(`${API()  }/api/companies/${  encodeURIComponent(id)}`, {
         method: 'DELETE', headers: hdrs()
       });
       const d = await r.json().catch(() => ({}));
-      if (!r.ok) { alert('Blad: ' + (d.error || ('HTTP ' + r.status))); return; }
+      if (!r.ok) { alert(`Blad: ${  d.error || (`HTTP ${  r.status}`)}`); return; }
       if (typeof toast === 'function') toast('✓ Firma dezaktywowana');
       await loadAndRenderCompanies();
     } catch (e) {
-      alert('Blad sieci: ' + e.message);
+      alert(`Blad sieci: ${  e.message}`);
     }
   }
 

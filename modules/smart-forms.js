@@ -48,7 +48,7 @@
 <div style="display:flex;gap:4px;margin-bottom:16px">
   ${['templates','submissions'].map(t=>`<button class="btn${_activeTab===t?' btn-primary':''}" onclick="window.SmartForms._tab('${t}')">
     <i class="ti ${t==='templates'?'ti-template':'ti-inbox'}"></i>
-    ${t==='templates'?'Szablony ('+_templates.length+')':'Wypełnione ('+_submissions.length+')'}
+    ${t==='templates'?`Szablony (${_templates.length})`:`Wypełnione (${_submissions.length})`}
   </button>`).join('')}
 </div>
 
@@ -245,7 +245,7 @@
       else if (f.type==='photo') input = `<input type="file" id="fill-${i}" class="sel" accept="image/*" capture="environment">`;
       else input = `<input type="${f.type||'text'}" id="fill-${i}" class="sel" ${f.required?'required':''}>`;
       return `<div style="margin-bottom:10px">
-        <label style="font-size:12px;color:var(--text3)">${e(f.label||'Pole '+(i+1))}${f.required?' *':''}</label><br>${input}
+        <label style="font-size:12px;color:var(--text3)">${e(f.label||`Pole ${i+1}`)}${f.required?' *':''}</label><br>${input}
       </div>`;
     }).join('');
 

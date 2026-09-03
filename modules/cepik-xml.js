@@ -95,7 +95,7 @@ window.CepikXML = (function () {
     const parser = new DOMParser();
     const doc = parser.parseFromString(text, 'text/xml');
     const err = doc.querySelector('parsererror');
-    if (err) throw new Error('Błąd parsowania XML: ' + err.textContent.slice(0,100));
+    if (err) throw new Error(`Błąd parsowania XML: ${  err.textContent.slice(0,100)}`);
     return doc;
   }
 
@@ -288,7 +288,7 @@ window.CepikXML = (function () {
         _renderPreview();
 
       } catch(e) {
-        toast('⚠ ' + e.message);
+        toast(`⚠ ${  e.message}`);
         console.error('[CepikXML]', e);
       }
     };

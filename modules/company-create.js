@@ -10,7 +10,7 @@
 
   const API  = () => window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
   const tok  = () => localStorage.getItem('cf_token') || '';
-  const hdrs = () => ({ Authorization: 'Bearer ' + tok(), 'Content-Type': 'application/json' });
+  const hdrs = () => ({ Authorization: `Bearer ${  tok()}`, 'Content-Type': 'application/json' });
 
   function slugify(text){
     return String(text || '')
@@ -124,13 +124,13 @@
     if(btn){ btn.disabled = true; btn.textContent = 'Zapisywanie...'; }
 
     try {
-      const r = await fetch(API() + '/api/companies', {
+      const r = await fetch(`${API()  }/api/companies`, {
         method: 'POST', headers: hdrs(), body: JSON.stringify(row)
       });
       const d = await r.json().catch(() => ({}));
 
       if(!r.ok){
-        alert('Blad zapisu: ' + (d.error || ('HTTP ' + r.status)));
+        alert(`Blad zapisu: ${  d.error || (`HTTP ${  r.status}`)}`);
         return;
       }
 
@@ -141,7 +141,7 @@
       if(typeof toast === 'function') toast('✓ Firma dodana');
       else alert('Firma dodana');
     } catch(e){
-      alert('Blad sieci: ' + e.message);
+      alert(`Blad sieci: ${  e.message}`);
     } finally {
       if(btn){ btn.disabled = false; btn.textContent = 'Zapisz firme'; }
     }

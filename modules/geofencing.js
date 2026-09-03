@@ -10,7 +10,7 @@
   let _events  = [];
   let _activeTab = 'zones';
   let _map = null;
-  let _drawCircle = null;
+  const _drawCircle = null;
 
   async function renderGeofencing() {
     const el = document.getElementById('page-geofencing');
@@ -37,7 +37,7 @@
 <div style="display:flex;gap:4px;margin-bottom:16px">
   ${['zones','map','events'].map(t => `<button class="btn${_activeTab===t?' btn-primary':''}" onclick="window.Geofencing._tab('${t}')">
     <i class="ti ${t==='zones'?'ti-circle-check':t==='map'?'ti-map':'ti-bell'}"></i>
-    ${t==='zones'?'Strefy ('+_zones.length+')':t==='map'?'Mapa':'Zdarzenia ('+_events.length+')'}
+    ${t==='zones'?`Strefy (${_zones.length})`:t==='map'?'Mapa':`Zdarzenia (${_events.length})`}
   </button>`).join('')}
 </div>
 
@@ -82,7 +82,7 @@
         </div>
       </div>
       <div style="margin-top:8px;display:flex;gap:8px;font-size:11px;color:var(--text3);flex-wrap:wrap">
-        <span><i class="ti ti-${z.zone_type==='circle'?'circle':'vector-triangle'}"></i> ${z.zone_type==='circle'?'Okrąg (r='+z.radius_m+'m)':'Wielokąt'}</span>
+        <span><i class="ti ti-${z.zone_type==='circle'?'circle':'vector-triangle'}"></i> ${z.zone_type==='circle'?`Okrąg (r=${z.radius_m}m)`:'Wielokąt'}</span>
         ${z.alert_enter?'<span style="color:#16a34a"><i class="ti ti-login"></i> Alert wjazdu</span>':''}
         ${z.alert_exit? '<span style="color:#d97706"><i class="ti ti-logout"></i> Alert wyjazdu</span>':''}
         <span style="color:${z.active?'#16a34a':'#dc2626'}">${z.active?'Aktywna':'Nieaktywna'}</span>
@@ -131,7 +131,7 @@
               ${ev.event_type==='enter'?'Wjazd':'Wyjazd'}
             </span>
           </td>
-          <td style="text-align:right;font-size:12px">${ev.speed_kmh!=null?Math.round(ev.speed_kmh)+' km/h':'—'}</td>
+          <td style="text-align:right;font-size:12px">${ev.speed_kmh!=null?`${Math.round(ev.speed_kmh)} km/h`:'—'}</td>
         </tr>`).join('')}
       </tbody>
     </table>
@@ -152,7 +152,7 @@
       if (z.zone_type === 'circle' && z.center_lat && z.center_lon) {
         L.circle([z.center_lat, z.center_lon], {
           radius: z.radius_m || 500, color: z.color || '#2563eb', fillOpacity: 0.15
-        }).addTo(_map).bindPopup(`<strong>${e(z.name)}</strong>${z.description?'<br>'+e(z.description):''}`);
+        }).addTo(_map).bindPopup(`<strong>${e(z.name)}</strong>${z.description?`<br>${e(z.description)}`:''}`);
       }
     });
   }
@@ -259,7 +259,7 @@ ${evs.length===0?'<p style="color:var(--text3)">Brak zdarzeń dla tej strefy.</p
       <td style="font-size:12px">${e(ev.driver_name||'—')}</td>
       <td><span style="padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;background:${ev.event_type==='enter'?'#dcfce7':'#fef3c7'};color:${ev.event_type==='enter'?'#16a34a':'#d97706'}">
         ${ev.event_type==='enter'?'Wjazd':'Wyjazd'}</span></td>
-      <td style="text-align:right;font-size:12px">${ev.speed_kmh!=null?Math.round(ev.speed_kmh)+' km/h':'—'}</td>
+      <td style="text-align:right;font-size:12px">${ev.speed_kmh!=null?`${Math.round(ev.speed_kmh)} km/h`:'—'}</td>
     </tr>`).join('')}
   </tbody>
 </table>`}`;

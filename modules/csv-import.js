@@ -73,7 +73,7 @@ window.CSVImport = (function () {
     ]);
     const rows = [headers, ...examples];
     const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\r\n');
-    _download('﻿' + csv, 'szablon_ubezpieczenia.csv', 'text/csv;charset=utf-8');
+    _download(`﻿${  csv}`, 'szablon_ubezpieczenia.csv', 'text/csv;charset=utf-8');
     if (typeof toast === 'function') toast(t('csvi.toast.template.dl'));
   }
 
@@ -174,7 +174,7 @@ window.CSVImport = (function () {
             ${_headers.map((h, i) => `<th style="background:var(--bg3);padding:5px 8px;border:1px solid var(--border);white-space:nowrap;text-align:left;position:sticky;top:0">
               <div style="font-weight:600">${esc(h)}</div>
               <div style="color:${_mapping[i] ? 'var(--green)' : 'var(--text3)'};font-size:10px;font-weight:400;margin-top:1px">
-                ${_mapping[i] ? '→ ' + _mapping[i] : '—'}
+                ${_mapping[i] ? `→ ${  _mapping[i]}` : '—'}
               </div>
             </th>`).join('')}
           </tr></thead>

@@ -435,7 +435,7 @@ window.GminyRates = (function () {
   function _save(name) {
     const rates = {};
     SCHEMA.forEach(s => {
-      const el = document.getElementById('gr-' + s.key);
+      const el = document.getElementById(`gr-${  s.key}`);
       if (el) { const r = parseFloat(el.value); rates[s.key] = isNaN(r) ? s.default : r; }
     });
     saveGminaRates(name, rates);
@@ -519,7 +519,7 @@ window.GminyRates = (function () {
                 ${fmt(r.total)} zł
               </td>
               <td style="padding:8px 12px;text-align:right;font-size:12px;color:${diff > 0 ? '#dc2626' : '#16a34a'}">
-                ${diff > 0 ? '+' + fmt(diff) + ' zł' : '—'}
+                ${diff > 0 ? `+${  fmt(diff)  } zł` : '—'}
               </td>
             </tr>`;
           }).join('')}

@@ -139,9 +139,9 @@
 <!-- KPI -->
 <div style="margin-bottom:20px">
   ${_kpi('ti-bolt',         String(evVehs.length),                               'Pojazdy EV / Hybrid',       '#16a34a')}
-  ${_kpi('ti-leaf',         avgCo2Ev   != null ? fmtN(avgCo2Ev,   1) + ' g/km' : '—', 'Śr. emisja CO₂ (EV)',       '#2563eb')}
-  ${_kpi('ti-leaf-off',     avgCo2NonEv != null ? fmtN(avgCo2NonEv, 1) + ' g/km' : '—', 'Śr. emisja CO₂ (inne)',   '#6b7280')}
-  ${_kpi('ti-trending-down', fmtN(totalCo2SavingsKg, 0) + ' kg/rok',            'Szac. oszczędności CO₂',    '#0f766e')}
+  ${_kpi('ti-leaf',         avgCo2Ev   != null ? `${fmtN(avgCo2Ev,   1)  } g/km` : '—', 'Śr. emisja CO₂ (EV)',       '#2563eb')}
+  ${_kpi('ti-leaf-off',     avgCo2NonEv != null ? `${fmtN(avgCo2NonEv, 1)  } g/km` : '—', 'Śr. emisja CO₂ (inne)',   '#6b7280')}
+  ${_kpi('ti-trending-down', `${fmtN(totalCo2SavingsKg, 0)  } kg/rok`,            'Szac. oszczędności CO₂',    '#0f766e')}
 </div>
 
 <!-- Tabela EV -->

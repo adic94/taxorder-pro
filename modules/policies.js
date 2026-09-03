@@ -3,7 +3,7 @@
   const BASE = () => (localStorage.getItem('cf_worker_url') || 'https://taxorder-pro-api.adamus1000.workers.dev');
   const COMPANY = () => localStorage.getItem('cf_company') || '';
   const TOKEN = () => localStorage.getItem('cf_token') || '';
-  const hdrs = () => ({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN() });
+  const hdrs = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${  TOKEN()}` });
 
   const TYPE_LABELS = { oc: 'OC', ac: 'AC', nnw: 'NNW', assistance: 'Assistance', inne: 'Inne' };
   const TYPE_COLORS = { oc: '#2196f3', ac: '#4caf50', nnw: '#ff9800', assistance: '#9c27b0', inne: '#607d8b' };
@@ -73,7 +73,7 @@
         <td>${esc(p.insurer || '—')}</td>
         <td>${fd(p.start_date)}</td>
         <td style="${esc(style)}">${fd(p.end_date)}</td>
-        <td>${p.premium != null ? (p.premium.toFixed(2) + ' zł') : '—'}</td>
+        <td>${p.premium != null ? (`${p.premium.toFixed(2)  } zł`) : '—'}</td>
         <td>
           <button class="btn-icon" title="Edytuj" data-id="${esc(p.id)}" data-nrrej="${nrRej}" onclick="PoliciesModule._openEdit(this.dataset.id,this.dataset.nrrej)"><i class="ti ti-edit"></i></button>
           <button class="btn-icon" title="Usuń" data-id="${esc(p.id)}" data-nrrej="${nrRej}" onclick="PoliciesModule._del(this.dataset.id,this.dataset.nrrej)" style="color:#f44336"><i class="ti ti-trash"></i></button>

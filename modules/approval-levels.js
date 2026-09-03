@@ -63,8 +63,8 @@
       tbody.innerHTML = rows.map(r => `
         <tr>
           <td>${esc(String(r.level))}</td>
-          <td>${r.min_amount != null ? Number(r.min_amount).toLocaleString('pl-PL') + ' zł' : '—'}</td>
-          <td>${r.max_amount != null ? Number(r.max_amount).toLocaleString('pl-PL') + ' zł' : '—'}</td>
+          <td>${r.min_amount != null ? `${Number(r.min_amount).toLocaleString('pl-PL')  } zł` : '—'}</td>
+          <td>${r.max_amount != null ? `${Number(r.max_amount).toLocaleString('pl-PL')  } zł` : '—'}</td>
           <td>${esc(r.approver_name || '—')}</td>
           <td>${esc(r.approver_email || '—')}</td>
           <td>${esc(r.entity_types || '—')}</td>

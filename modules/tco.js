@@ -5,7 +5,7 @@
   const Co  = () => window._cfCo?.()   || '';
   const e   = s => typeof esc === 'function' ? esc(s) : String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const fmtN = (v, d = 0) => v != null ? parseFloat(v).toLocaleString('pl-PL', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—';
-  const fmtPLN = v => v != null ? fmtN(v, 2) + ' PLN' : '—';
+  const fmtPLN = v => v != null ? `${fmtN(v, 2)  } PLN` : '—';
 
   let _data = [];
 
@@ -121,7 +121,7 @@ ${_data.length ? `<tr style="font-weight:600;background:var(--bg-card)">
       });
       if (!r.ok) throw new Error(await r.text());
       closeModal(); await renderTco();
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   async function deleteTco(vehicleId) {
@@ -129,10 +129,10 @@ ${_data.length ? `<tr style="font-weight:600;background:var(--bg-card)">
     try {
       await fetch(`${API()}/api/tco/${encodeURIComponent(vehicleId)}?company=${encodeURIComponent(Co())}`, { method: 'DELETE', headers: H() });
       await renderTco();
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
-  let _aiModal = null;
+  const _aiModal = null;
 
   function _ensureAiModal() {
     if (document.getElementById('tco-ai-modal')) return;

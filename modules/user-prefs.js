@@ -74,7 +74,7 @@
   }
 
   function _authHeaders() {
-    return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _token() };
+    return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${  _token()}` };
   }
 
   async function _put(key, value, companyId) {
@@ -85,7 +85,7 @@
       return;
     }
     try {
-      const r = await fetch(_workerUrl() + '/api/prefs/kv', {
+      const r = await fetch(`${_workerUrl()  }/api/prefs/kv`, {
         method: 'PUT',
         headers: _authHeaders(),
         body: JSON.stringify({ key, value, company_id: companyId }),
@@ -103,8 +103,8 @@
     }
     try {
       const r = await fetch(
-        _workerUrl() + '/api/prefs/kv?' + new URLSearchParams({ key, company: companyId }),
-        { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + tok } }
+        `${_workerUrl()  }/api/prefs/kv?${  new URLSearchParams({ key, company: companyId })}`,
+        { method: 'DELETE', headers: { 'Authorization': `Bearer ${  tok}` } }
       );
       if (!r.ok) console.warn('[UserPrefs] Synchronizacja nieudana:', r.status, key);
     } catch { /* silent */ }
@@ -174,8 +174,8 @@
     async syncFromCloud() {
       if (_isDisabled() || !_token()) return;
       try {
-        const resp = await fetch(_workerUrl() + '/api/prefs/kv', {
-          headers: { 'Authorization': 'Bearer ' + _token() },
+        const resp = await fetch(`${_workerUrl()  }/api/prefs/kv`, {
+          headers: { 'Authorization': `Bearer ${  _token()}` },
         });
         if (!resp.ok) return;
         const { prefs } = await resp.json();
@@ -215,13 +215,13 @@
       const base = { method: 'PUT', headers: _authHeaders() };
       try {
         if (Object.keys(globalKv).length) {
-          await fetch(_workerUrl() + '/api/prefs/kv', {
+          await fetch(`${_workerUrl()  }/api/prefs/kv`, {
             ...base,
             body: JSON.stringify({ kv: globalKv, company_id: '' }),
           });
         }
         if (Object.keys(companyKv).length && company) {
-          await fetch(_workerUrl() + '/api/prefs/kv', {
+          await fetch(`${_workerUrl()  }/api/prefs/kv`, {
             ...base,
             body: JSON.stringify({ kv: companyKv, company_id: company }),
           });

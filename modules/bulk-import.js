@@ -249,7 +249,7 @@ window.BulkImport = (function () {
       `${API()}/api/docs/upload?company=${company()}`,
       { method: 'POST', headers: hdrs(), body: fd }
     );
-    if (!r.ok) throw new Error('Upload HTTP ' + r.status);
+    if (!r.ok) throw new Error(`Upload HTTP ${  r.status}`);
     const d = await r.json();
     return d.key || null;
   }
@@ -267,7 +267,7 @@ window.BulkImport = (function () {
         headers: { ...hdrs(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ nr_rej: vehicleNr, fields: item.data || {}, r2Key: item.r2Key }),
       });
-      if (!r.ok) throw new Error('DR save ' + r.status);
+      if (!r.ok) throw new Error(`DR save ${  r.status}`);
     } else if (item.type === 'oc' || item.type === 'ac') {
       // Polisy: zapisz dane polisy do tabeli polisy
       const r = await fetch(`${API()}/api/bulk/save-policy?company=${company()}`, {
@@ -275,7 +275,7 @@ window.BulkImport = (function () {
         headers: { ...hdrs(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ nr_rej: vehicleNr, typ: item.type.toUpperCase(), data: item.data || {}, r2Key: item.r2Key }),
       });
-      if (!r.ok) throw new Error('Policy save ' + r.status);
+      if (!r.ok) throw new Error(`Policy save ${  r.status}`);
     }
     // Pozostałe typy: dokument jest już zapisany w /api/docs/upload (tabela documents)
   }
@@ -369,7 +369,7 @@ window.BulkImport = (function () {
 
       if (!veh) {
         item.status = 'unmatched';
-        item.error  = 'Nie znaleziono pojazdu' + (item.plate ? ': ' + item.plate : ' — brak numeru rej.');
+        item.error  = `Nie znaleziono pojazdu${  item.plate ? `: ${  item.plate}` : ' — brak numeru rej.'}`;
         return;
       }
 
@@ -546,7 +546,7 @@ window.BulkImport = (function () {
         <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text1)" title="${esc(item.name)}">${esc(item.name)}</span>
         <span style="width:130px;flex-shrink:0;color:var(--text2);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(tm.label)}</span>
         <span style="width:110px;flex-shrink:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(item.vehicleNr||item.plate||item.error||'')}">
-          ${item.vehicleNr ? esc(item.vehicleNr) : (item.plate ? '<span style="color:var(--text3)">'+esc(item.plate)+'?</span>' : '<span style="color:var(--text3)">—</span>')}
+          ${item.vehicleNr ? esc(item.vehicleNr) : (item.plate ? `<span style="color:var(--text3)">${esc(item.plate)}?</span>` : '<span style="color:var(--text3)">—</span>')}
         </span>
         <span style="width:120px;flex-shrink:0;color:${sm.cls}">
           ${isProcessing ? '<i class="ti ti-loader ti-spin" style="font-size:11px"></i> ' : ''}${esc(sm.label)}
@@ -566,7 +566,7 @@ window.BulkImport = (function () {
       </div>`;
     }
 
-    body.style.height = (total * ROW_H) + 'px';
+    body.style.height = `${total * ROW_H  }px`;
     body.style.position = 'relative';
     body.innerHTML = rows;
   }
@@ -721,7 +721,7 @@ window.BulkImport = (function () {
       const exists = _queue.some(i => i.name === f.name && i.file.size === f.size);
       if (!exists) {
         _queue.push({
-          id:        'bi_' + Math.random().toString(36).slice(2),
+          id:        `bi_${  Math.random().toString(36).slice(2)}`,
           file:      f,
           name:      f.name,
           type:      _classifyByName(f.name),

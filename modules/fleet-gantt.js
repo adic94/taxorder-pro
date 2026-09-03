@@ -27,7 +27,7 @@ window.FleetGantt = (function () {
   let _events      = [];  // { nr_rej, start, end, type, label, color }
   let _viewDays    = 30;
   let _startDate   = _monthStart();
-  let _hoveredCell = null;
+  const _hoveredCell = null;
   let _canvasEl    = null;
   let _tooltip     = null;
 
@@ -91,8 +91,8 @@ window.FleetGantt = (function () {
     if (!el) el = document.getElementById('page-fleet-gantt');
     if (!el) return;
 
-    const startD    = new Date(_startDate + 'T00:00:00');
-    const endD      = new Date(_startDate + 'T00:00:00');
+    const startD    = new Date(`${_startDate  }T00:00:00`);
+    const endD      = new Date(`${_startDate  }T00:00:00`);
     endD.setDate(endD.getDate() + _viewDays - 1);
     const monthLabel = startD.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
 
@@ -159,7 +159,7 @@ ${_vehs.length === 0 ? `<div style="padding:20px;text-align:center;color:var(--t
     ctx.clearRect(0, 0, W, canvas.height);
 
     const today = new Date().toISOString().slice(0,10);
-    const startMs = new Date(_startDate + 'T00:00:00').getTime();
+    const startMs = new Date(`${_startDate  }T00:00:00`).getTime();
 
     // ── Background ──────────────────────────────────────────────────────────
     ctx.fillStyle = isDark ? '#1e293b' : '#f8fafc';
@@ -220,7 +220,7 @@ ${_vehs.length === 0 ? `<div style="padding:20px;text-align:center;color:var(--t
     }
 
     // ── Month label in header ────────────────────────────────────────────────
-    const mLabel = new Date(_startDate + 'T00:00:00').toLocaleDateString('pl-PL', { month: 'long' });
+    const mLabel = new Date(`${_startDate  }T00:00:00`).toLocaleDateString('pl-PL', { month: 'long' });
     ctx.textAlign = 'center';
     ctx.font = 'bold 11px sans-serif';
     ctx.fillStyle = isDark ? '#64748b' : '#475569';
@@ -255,8 +255,8 @@ ${_vehs.length === 0 ? `<div style="padding:20px;text-align:center;color:var(--t
       // Events for this vehicle
       const eventsForRow = _events.filter(ev => ev.nr_rej === v.nr_rej);
       eventsForRow.forEach(ev => {
-        const evStart = new Date(ev.start + 'T00:00:00').getTime();
-        const evEnd   = new Date(ev.end + 'T00:00:00').getTime();
+        const evStart = new Date(`${ev.start  }T00:00:00`).getTime();
+        const evEnd   = new Date(`${ev.end  }T00:00:00`).getTime();
 
         const d0 = Math.max(0, Math.round((evStart - startMs) / 86400000));
         const d1 = Math.min(_viewDays - 1, Math.round((evEnd - startMs) / 86400000));
@@ -314,7 +314,7 @@ ${_vehs.length === 0 ? `<div style="padding:20px;text-align:center;color:var(--t
     const rowIdx = Math.floor((y - HDR_H) / ROW_H);
     if (rowIdx < 0 || rowIdx >= _vehs.length) return;
 
-    const clickedDate = new Date(new Date(_startDate + 'T00:00:00').getTime() + dayIdx * 86400000).toISOString().slice(0,10);
+    const clickedDate = new Date(new Date(`${_startDate  }T00:00:00`).getTime() + dayIdx * 86400000).toISOString().slice(0,10);
     const veh = _vehs[rowIdx];
 
     // Check if clicking on existing event
@@ -345,15 +345,15 @@ ${_vehs.length === 0 ? `<div style="padding:20px;text-align:center;color:var(--t
     const rowIdx = Math.floor((my - HDR_H) / ROW_H);
     if (rowIdx < 0 || rowIdx >= _vehs.length) { _hideTooltip(); return; }
 
-    const hovDate = new Date(new Date(_startDate + 'T00:00:00').getTime() + dayIdx * 86400000).toISOString().slice(0,10);
+    const hovDate = new Date(new Date(`${_startDate  }T00:00:00`).getTime() + dayIdx * 86400000).toISOString().slice(0,10);
     const veh = _vehs[rowIdx];
     const ev  = _events.find(ev => ev.nr_rej === veh.nr_rej && hovDate >= ev.start && hovDate <= ev.end);
 
     if (!_tooltip) return;
     if (ev) {
       _tooltip.style.display = 'block';
-      _tooltip.style.left = (evt.clientX + 12) + 'px';
-      _tooltip.style.top  = (evt.clientY - 10) + 'px';
+      _tooltip.style.left = `${evt.clientX + 12  }px`;
+      _tooltip.style.top  = `${evt.clientY - 10  }px`;
       _tooltip.innerHTML  = `<strong>${e(veh.nr_rej)}</strong><br><span style="color:${ev.type==='service'?'var(--orange)':'var(--blue)'}">
         ${e(ev.type==='service'?'Serwis':'Rezerwacja')}
       </span><br>${e(ev.label)}<br>
@@ -361,8 +361,8 @@ ${_vehs.length === 0 ? `<div style="padding:20px;text-align:center;color:var(--t
       ${ev.notes ? `<br><span style="color:var(--text3)">${e(ev.notes)}</span>` : ''}`;
     } else {
       _tooltip.style.display = 'block';
-      _tooltip.style.left = (evt.clientX + 12) + 'px';
-      _tooltip.style.top  = (evt.clientY - 10) + 'px';
+      _tooltip.style.left = `${evt.clientX + 12  }px`;
+      _tooltip.style.top  = `${evt.clientY - 10  }px`;
       _tooltip.innerHTML  = `<strong>${e(veh.nr_rej)}</strong><br><span style="color:var(--green)">Wolny — ${e(hovDate)}</span><br><small style="color:var(--text3)">Kliknij, aby dodać rezerwację</small>`;
     }
   }
@@ -373,13 +373,13 @@ ${_vehs.length === 0 ? `<div style="padding:20px;text-align:center;color:var(--t
 
   // ── Nawigacja ────────────────────────────────────────────────────────────────
   function prevPeriod() {
-    const d = new Date(_startDate + 'T00:00:00');
+    const d = new Date(`${_startDate  }T00:00:00`);
     d.setDate(d.getDate() - _viewDays);
     _startDate = d.toISOString().slice(0,10);
     renderFleetGantt();
   }
   function nextPeriod() {
-    const d = new Date(_startDate + 'T00:00:00');
+    const d = new Date(`${_startDate  }T00:00:00`);
     d.setDate(d.getDate() + _viewDays);
     _startDate = d.toISOString().slice(0,10);
     renderFleetGantt();

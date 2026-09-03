@@ -310,7 +310,7 @@ ${_imports.map(imp => `<tr>
         _loading = false; _render(); return;
       }
       _step = 3;
-    } catch (ex) { alert('Błąd parsowania: ' + ex.message); }
+    } catch (ex) { alert(`Błąd parsowania: ${  ex.message}`); }
     _loading = false; _render();
   }
 
@@ -331,7 +331,7 @@ ${_imports.map(imp => `<tr>
       _step = 1; _rawCsv = ''; _preview = null;
       _colMap = { date:-1, nrrej:-1, liters:-1, cost:-1, station:-1 };
       await renderFuelCardImport();
-    } catch (ex) { alert('Błąd importu: ' + ex.message); _loading = false; _render(); }
+    } catch (ex) { alert(`Błąd importu: ${  ex.message}`); _loading = false; _render(); }
   }
 
   window.FuelCardImportModule = { renderFuelCardImport };

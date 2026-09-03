@@ -12,7 +12,7 @@
 
   let _faults = [];
   let _filterNrRej = '';
-  let _filterStatus = '';
+  const _filterStatus = '';
 
   async function renderFaults(nrRej) {
     _filterNrRej = nrRej || _filterNrRej;
@@ -112,7 +112,7 @@ ${_faults.length ? _faults.map(f => `<tr class="${e(SEV_CLS[f.severity]||'')}">
       if (!r.ok) throw new Error(await r.text());
       closeFaultModal();
       await renderFaults();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   function editFault(id) { openFaultModal(id); }
@@ -122,7 +122,7 @@ ${_faults.length ? _faults.map(f => `<tr class="${e(SEV_CLS[f.severity]||'')}">
     try {
       await fetch(`${API()}/api/faults/${encodeURIComponent(id)}?company=${encodeURIComponent(Co())}`, { method:'DELETE', headers: H() });
       await renderFaults();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   window.FaultsModule = { renderFaults, openFaultModal, closeFaultModal, saveFault, editFault, deleteFault };

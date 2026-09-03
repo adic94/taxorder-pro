@@ -53,7 +53,7 @@ window.TaxOrderDiagnostics = (function () {
   // ── Config ─────────────────────────────────────────────────────────────────
   function _api() { return window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev'; }
   function _tok()  { return localStorage.getItem('cf_token'); }
-  function _auth() { const t = _tok(); return t ? { Authorization: 'Bearer ' + t } : {}; }
+  function _auth() { const t = _tok(); return t ? { Authorization: `Bearer ${  t}` } : {}; }
 
   const MODULES_EXPECTED = [
     'TaxOrderDrivers', 'FleetCalendar', 'ServiceModule', 'FinesModule',
@@ -109,7 +109,7 @@ window.TaxOrderDiagnostics = (function () {
           if (dups) issues.push(`${dups} zduplikowanych nr rej.`);
         }
       }
-    } catch (e) { issues.push('dt1_vehicles: uszkodzony JSON — ' + e.message); }
+    } catch (e) { issues.push(`dt1_vehicles: uszkodzony JSON — ${  e.message}`); }
 
     const keys = Object.keys(localStorage);
     const size = keys.reduce((s, k) => s + (localStorage.getItem(k) || '').length, 0);
@@ -182,7 +182,7 @@ window.TaxOrderDiagnostics = (function () {
           if (Array.isArray(window.vehs)) { window.vehs.length = 0; arr.forEach(v => window.vehs.push(v)); }
           if (typeof renderVeh === 'function') renderVeh();
           return `Naprawiono ${fixed} pojazdów`;
-        } catch (e) { return '❌ ' + e.message; }
+        } catch (e) { return `❌ ${  e.message}`; }
       },
     },
     {
@@ -207,7 +207,7 @@ window.TaxOrderDiagnostics = (function () {
           if (Array.isArray(window.vehs)) { window.vehs.length = 0; deduped.forEach(v => window.vehs.push(v)); }
           if (typeof renderVeh === 'function') renderVeh();
           return `Usunięto ${removed} duplikatów`;
-        } catch (e) { return '❌ ' + e.message; }
+        } catch (e) { return `❌ ${  e.message}`; }
       },
     },
     {
@@ -223,7 +223,7 @@ window.TaxOrderDiagnostics = (function () {
           if (typeof renderDash === 'function') renderDash();
           if (typeof updateCounters === 'function') updateCounters();
           return `Przeładowano ${arr.length} pojazdów`;
-        } catch (e) { return '❌ ' + e.message; }
+        } catch (e) { return `❌ ${  e.message}`; }
       },
     },
     {
@@ -253,7 +253,7 @@ window.TaxOrderDiagnostics = (function () {
           localStorage.setItem('dt1_vehicles', JSON.stringify(arr));
           if (Array.isArray(window.vehs)) { window.vehs.length = 0; arr.forEach(v => window.vehs.push(v)); }
           return `Naprawiono ${fixed} dat`;
-        } catch (e) { return '❌ ' + e.message; }
+        } catch (e) { return `❌ ${  e.message}`; }
       },
     },
     {
@@ -354,8 +354,8 @@ window.TaxOrderDiagnostics = (function () {
       ox = r.left; oy = r.top;
       const onMove = ev => {
         el.style.right = 'auto'; el.style.bottom = 'auto';
-        el.style.left = Math.max(0, ox + ev.clientX - sx) + 'px';
-        el.style.top  = Math.max(0, oy + ev.clientY - sy) + 'px';
+        el.style.left = `${Math.max(0, ox + ev.clientX - sx)  }px`;
+        el.style.top  = `${Math.max(0, oy + ev.clientY - sy)  }px`;
       };
       const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
       document.addEventListener('mousemove', onMove);
@@ -461,7 +461,7 @@ window.TaxOrderDiagnostics = (function () {
       <h3>Klucze localStorage (${lsKeys.length})</h3>
       ${lsKeys.map(k => {
         const size = (localStorage.getItem(k) || '').length;
-        return `<div class="dg-row"><span class="lbl" style="font-family:monospace;font-size:11px">${k}</span><span style="color:var(--text2)">${size > 1024 ? (size / 1024).toFixed(1) + ' KB' : size + ' B'}</span></div>`;
+        return `<div class="dg-row"><span class="lbl" style="font-family:monospace;font-size:11px">${k}</span><span style="color:var(--text2)">${size > 1024 ? `${(size / 1024).toFixed(1)  } KB` : `${size  } B`}</span></div>`;
       }).join('')}
       <div class="dg-row"><span class="lbl">RAZEM</span><span style="font-weight:700">${(ls.size / 1024).toFixed(1)} KB</span></div>
     </div>`;
@@ -587,7 +587,7 @@ window.TaxOrderDiagnostics = (function () {
     for (const ep of API_SUITE) {
       const t0 = performance.now();
       try {
-        const h = ep.noAuth ? {} : (tok ? { Authorization: 'Bearer ' + tok } : {});
+        const h = ep.noAuth ? {} : (tok ? { Authorization: `Bearer ${  tok}` } : {});
         const res = await _origFetch(`${base}${ep.path}`, { method: ep.method, headers: h });
         const ms  = Math.round(performance.now() - t0);
         let json; try { json = await res.json(); } catch { json = {}; }
@@ -607,8 +607,8 @@ window.TaxOrderDiagnostics = (function () {
     const fix = FIXES.find(f => f.id === id);
     if (!fix) return;
     const result = fix.run();
-    const rEl = document.getElementById('fx-r-' + id);
-    const btn = document.getElementById('fx-' + id);
+    const rEl = document.getElementById(`fx-r-${  id}`);
+    const btn = document.getElementById(`fx-${  id}`);
     if (rEl) { rEl.textContent = result; rEl.style.display = ''; }
     if (btn) { btn.textContent = '✅ Wykonano'; btn.classList.add('done'); btn.disabled = true; }
   }
@@ -631,7 +631,7 @@ ${mods.map(m => `<tr><td><code>${m.name}</code></td><td class="${m.ok ? 'ok' : '
 <table><tr><th>Pojazdy</th><th>Rozmiar</th><th>Problemy</th></tr><tr><td>${ls.count}</td><td>${(ls.size / 1024).toFixed(1)} KB</td><td>${ls.issues.length ? `<span class="warn">${ls.issues.join(', ')}</span>` : '<span class="ok">Brak</span>'}</td></tr></table>
 <h2>Testy API</h2>
 ${_apiResults.length ? `<table><tr><th>Test</th><th>Status HTTP</th><th>Czas</th><th>Wynik</th></tr>
-${_apiResults.map(r => `<tr><td>${r.label}</td><td>${r.status}</td><td>${r.ms}ms</td><td class="${r.ok ? 'ok' : 'err'}">${r.ok ? '✅ PASS' : '❌ FAIL' + (r.note ? ` — ${r.note}` : '')}</td></tr>`).join('')}</table>` : '<p style="color:#6b7280">Nie uruchomiono testów API</p>'}
+${_apiResults.map(r => `<tr><td>${r.label}</td><td>${r.status}</td><td>${r.ms}ms</td><td class="${r.ok ? 'ok' : 'err'}">${r.ok ? '✅ PASS' : `❌ FAIL${  r.note ? ` — ${r.note}` : ''}`}</td></tr>`).join('')}</table>` : '<p style="color:#6b7280">Nie uruchomiono testów API</p>'}
 <h2>Błędy JS (${_errors.length})</h2>
 ${_errors.length ? `<table><tr><th>Czas</th><th>Typ</th><th>Komunikat</th><th>Źródło</th></tr>
 ${_errors.slice(-30).map(e => `<tr><td>${esc(e.ts.slice(11, 19))}</td><td>${esc(e.type)}</td><td>${esc(e.msg)}</td><td>${esc(e.src)}</td></tr>`).join('')}</table>` : '<p class="ok">Brak błędów</p>'}

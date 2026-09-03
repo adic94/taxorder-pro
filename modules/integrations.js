@@ -13,9 +13,9 @@
   };
 
   let _tab      = 'shell';
-  let _settings = {};  // provider → config (masked)
-  let _logs     = {};  // provider → last 10 sync logs
-  let _loading  = {};  // provider → bool
+  const _settings = {};  // provider → config (masked)
+  const _logs     = {};  // provider → last 10 sync logs
+  const _loading  = {};  // provider → bool
   let _saving   = false;
 
   // ── render ──
@@ -327,7 +327,7 @@
       if (!_settings[provider]) _settings[provider] = { provider };
       _settings[provider].config = JSON.stringify(config);
       alert('Zapisano konfigurację integracji.');
-    } catch (ex) { alert('Błąd zapisu: ' + ex.message); }
+    } catch (ex) { alert(`Błąd zapisu: ${  ex.message}`); }
     _saving = false;
     _render();
   }
@@ -344,7 +344,7 @@
       const d = await r.json();
       if (d.error) alert(`❌ Test połączenia nie powiódł się:\n${d.error}`);
       else alert(`✅ Połączenie działa!\nToken/klucz zaakceptowany przez ${PROVIDERS[provider].label}.`);
-    } catch (ex) { alert('❌ Błąd połączenia: ' + ex.message); }
+    } catch (ex) { alert(`❌ Błąd połączenia: ${  ex.message}`); }
     _loading[provider] = false; _render();
   }
 
@@ -364,7 +364,7 @@
         alert(`✅ Synchronizacja ${PROVIDERS[provider].label} zakończona!\n✓ Zaimportowano: ${d.imported}\n⏭ Pominięte (duplikaty): ${d.skipped}`);
       }
       await _loadAll();
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
     _loading[provider] = false; _render();
   }
 

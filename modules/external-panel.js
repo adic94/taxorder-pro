@@ -9,7 +9,7 @@ window.ExternalPanel = (function () {
   const H   = () => window._cfHdrs?.() || {};
   const Co  = () => window._cfCo?.()   || '';
   const e   = s => typeof esc === 'function' ? esc(s) : String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const fmtD = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('pl-PL') : '—';
+  const fmtD = d => d ? new Date(`${d  }T00:00:00`).toLocaleDateString('pl-PL') : '—';
 
   let _tokens = [];
 

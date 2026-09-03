@@ -43,7 +43,7 @@ window.TaxOrderAlertDashboard = (function () {
       for (const item of (v.maintenanceItems || [])) {
         // Alert datowy z maintenanceItems
         if (item.nextDate) {
-          const d = new Date(item.nextDate + 'T00:00:00');
+          const d = new Date(`${item.nextDate  }T00:00:00`);
           if (!isNaN(d)) {
             const days = Math.round((d - now) / 86400000);
             if (days <= 60) {
@@ -121,11 +121,11 @@ window.TaxOrderAlertDashboard = (function () {
   }
 
   function _status(days) {
-    if (days < 0)    return { bg:'#fee2e2', fg:'#991b1b', badge:'Wygasło '+Math.abs(days)+'d temu', prio:0 };
-    if (days <= 7)   return { bg:'#fee2e2', fg:'#dc2626', badge:'za '+days+' dni', prio:1 };
-    if (days <= 30)  return { bg:'#fef3c7', fg:'#92400e', badge:'za '+days+' dni', prio:2 };
-    if (days <= 60)  return { bg:'#fffbeb', fg:'#b45309', badge:'za '+days+' dni', prio:3 };
-    return               { bg:'#f0fdf4', fg:'#166534', badge:'za '+days+' dni', prio:4 };
+    if (days < 0)    return { bg:'#fee2e2', fg:'#991b1b', badge:`Wygasło ${Math.abs(days)}d temu`, prio:0 };
+    if (days <= 7)   return { bg:'#fee2e2', fg:'#dc2626', badge:`za ${days} dni`, prio:1 };
+    if (days <= 30)  return { bg:'#fef3c7', fg:'#92400e', badge:`za ${days} dni`, prio:2 };
+    if (days <= 60)  return { bg:'#fffbeb', fg:'#b45309', badge:`za ${days} dni`, prio:3 };
+    return               { bg:'#f0fdf4', fg:'#166534', badge:`za ${days} dni`, prio:4 };
   }
 
   // ── load() — wejście ze showPage('alert-dashboard') ────────────────────────
@@ -193,7 +193,7 @@ window.TaxOrderAlertDashboard = (function () {
           { n:soon,    label:'7–30 dni', bg:'#fffbeb', fg:'#b45309', icon:'ti-clock',               key:'<30'    },
           { n:ok,      label:'> 30 dni', bg:'#f0fdf4', fg:'#166534', icon:'ti-circle-check',        key:'>30'    },
         ].map(s => `
-          <div onclick="TaxOrderAlertDashboard._setFilter('${s.key}')" style="background:${s.bg};border-radius:var(--radius-lg);padding:14px 16px;text-align:center;cursor:pointer;transition:box-shadow .15s;${_activeFilter===s.key?'box-shadow:0 0 0 2px '+s.fg:''}">
+          <div onclick="TaxOrderAlertDashboard._setFilter('${s.key}')" style="background:${s.bg};border-radius:var(--radius-lg);padding:14px 16px;text-align:center;cursor:pointer;transition:box-shadow .15s;${_activeFilter===s.key?`box-shadow:0 0 0 2px ${s.fg}`:''}">
             <i class="ti ${s.icon}" style="font-size:26px;color:${s.fg};display:block;margin-bottom:4px"></i>
             <div style="font-size:26px;font-weight:700;color:${s.fg}">${s.n}</div>
             <div style="font-size:11px;color:${s.fg}">${s.label}</div>
@@ -269,7 +269,7 @@ window.TaxOrderAlertDashboard = (function () {
           <td><span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:99px;padding:3px 10px">
             <i class="ti ${a.icon}" style="color:${a.color}"></i>${esc(a.label)}</span></td>
           <td style="font-size:11px;color:var(--text2)">${esc(a._detail || '')}</td>
-          <td><span style="font-size:12px;font-weight:700;background:${bg};color:${fg};padding:3px 10px;border-radius:99px;display:inline-block">${daysAgo === 0 ? 'Dziś' : daysAgo + 'd temu'}</span></td>
+          <td><span style="font-size:12px;font-weight:700;background:${bg};color:${fg};padding:3px 10px;border-radius:99px;display:inline-block">${daysAgo === 0 ? 'Dziś' : `${daysAgo  }d temu`}</span></td>
           <td onclick="event.stopPropagation()"><button class="tbtn" onclick="TaxOrderAlertDashboard._open(${a.vehId},'${a.tab}')"><i class="ti ti-external-link"></i></button></td>
         </tr>`;
       }
@@ -318,7 +318,7 @@ window.TaxOrderAlertDashboard = (function () {
       return [a.nrRej, a.marka, a.model, a.label, dateDisp, a.days];
     });
     const csv = [headers, ...rows].map(r => r.map(c => `"${String(c??'').replace(/"/g,'""')}"`).join(';')).join('\r\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([`﻿${  csv}`], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = `alerty_${new Date().toISOString().slice(0,10)}.csv`; a.click();

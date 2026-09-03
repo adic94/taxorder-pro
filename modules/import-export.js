@@ -251,22 +251,22 @@ window.TaxOrderImportExport = {
     const ws = XLSX.utils.aoa_to_sheet([hdrs, ...rows]);
     ws['!cols'] = hdrs.map(() => ({ wch: 14 }));
     XLSX.utils.book_append_sheet(wb, ws, 'Pojazdy');
-    XLSX.writeFile(wb, filename || 'flota_export_' + new Date().toISOString().slice(0,10) + '.xlsx');
-    if (typeof toast === 'function') toast('✓ Eksport: ' + vehicleList.length + ' pojazdów');
+    XLSX.writeFile(wb, filename || `flota_export_${  new Date().toISOString().slice(0,10)  }.xlsx`);
+    if (typeof toast === 'function') toast(`✓ Eksport: ${  vehicleList.length  } pojazdów`);
   },
 
   exportCSV(vehicleList) {
     const hdrs = ['Nr rej.','VIN','Marka','Model','Rok','Typ','DMC','EURO','Status','Właściciel','Osie','Zawieszenie','Miesiące','Paliwo','Moc kW','Pojemność cm3'];
     const rows = vehicleList.map(v => hdrs.map(h => {
       const map = {'Nr rej.':v.nrRej,'VIN':v.vin,'Marka':v.marka,'Model':v.model,'Rok':v.rok,'Typ':v.typ,'DMC':v.dmc,'EURO':v.euro,'Status':v.status,'Właściciel':v.wlasciciel,'Osie':v.osie,'Zawieszenie':v.zawieszenie,'Miesiące':v.miesiacePodatku,'Paliwo':v.paliwo,'Moc kW':v.mocKW,'Pojemność cm3':v.pojSilnika};
-      return '"' + String(map[h] || '').replace(/"/g,'""') + '"';
+      return `"${  String(map[h] || '').replace(/"/g,'""')  }"`;
     }).join(';'));
-    const csv = '\uFEFF' + [hdrs.map(h=>'"'+h+'"').join(';'), ...rows].join('\r\n');
+    const csv = `\uFEFF${  [hdrs.map(h=>`"${h}"`).join(';'), ...rows].join('\r\n')}`;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = 'flota_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.download = `flota_${  new Date().toISOString().slice(0,10)  }.csv`;
     a.click(); URL.revokeObjectURL(a.href);
-    if (typeof toast === 'function') toast('✓ CSV: ' + vehicleList.length + ' pojazdów');
+    if (typeof toast === 'function') toast(`✓ CSV: ${  vehicleList.length  } pojazdów`);
   }
 };
 

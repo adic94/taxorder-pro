@@ -61,13 +61,13 @@ ${sorted.length ? sorted.map(v => {
   const cls = pct > 1.5 ? 'danger' : pct > 1.2 ? 'warn' : '';
   return `<tr class="${cls}">
   <td>${e(v.nr_rej)}</td>
-  <td>${e((v.marka||'')+' '+(v.model||'')).trim()||'—'}</td>
+  <td>${e(`${v.marka||''} ${v.model||''}`).trim()||'—'}</td>
   <td>${e(v.rok||'—')}</td>
   <td>${fmtN(v.service_cost)} PLN</td>
   <td>${fmtN(v.fuel_cost)} PLN</td>
   <td>${fmtN(v.fine_cost)} PLN</td>
   <td>${fmtN(v.damage_cost)} PLN</td>
-  <td>${v.avg_consumption ? fmtN(v.avg_consumption,1)+' l/100km' : '—'}</td>
+  <td>${v.avg_consumption ? `${fmtN(v.avg_consumption,1)} l/100km` : '—'}</td>
   <td><strong>${fmtN(v.total_cost)} PLN</strong></td>
   <td>${v.cost_per_km ? fmtN(v.cost_per_km,2) : '—'}</td>
 </tr>`;

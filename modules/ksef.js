@@ -157,7 +157,7 @@
         <td><span class="pill" style="background:${clr}20;color:${clr}">${esc(lbl)}</span></td>
         <td>${esc(inv.seller_nip || '—')}</td>
         <td>${esc(inv.buyer_nip || '—')}</td>
-        <td style="text-align:right">${inv.gross_pln != null ? esc(inv.gross_pln.toFixed(2)) + ' PLN' : '—'}</td>
+        <td style="text-align:right">${inv.gross_pln != null ? `${esc(inv.gross_pln.toFixed(2))  } PLN` : '—'}</td>
         <td>${inv.ksef_date ? esc(inv.ksef_date.slice(0, 10)) : '—'}</td>
         <td>${upoRef
           ? `<span style="font-size:.8em;color:#64748b" title="${esc(upoRef)}">${esc(upoRef.slice(0, 14))}${upoRef.length > 14 ? '…' : ''}</span>`
@@ -293,10 +293,10 @@
     if (!confirm('Pobrać token sesji z KSeF?\n\nWymagany jest prawidłowy NIP i autoryzacja po stronie MF (certyfikat lub podpis elektroniczny).')) return;
     const res = await api('/auth', { method: 'POST', body: JSON.stringify({}) });
     if (res.ok) {
-      alert('Token sesji pobrany. Wygasa: ' + (res.token_expires_at || '?'));
+      alert(`Token sesji pobrany. Wygasa: ${  res.token_expires_at || '?'}`);
       _loadConfig();
     } else {
-      alert('Błąd pobierania tokenu KSeF:\n' + (res.error || JSON.stringify(res)));
+      alert(`Błąd pobierania tokenu KSeF:\n${  res.error || JSON.stringify(res)}`);
     }
   }
 
@@ -353,11 +353,11 @@
     if (!confirm('Wysłać fakturę do KSeF?')) return;
     const res = await api(`/${id}/send`, { method: 'POST', body: JSON.stringify({}) });
     if (res.ok && res.status === 'accepted') {
-      alert('Faktura zaakceptowana przez KSeF.\nNumer referencyjny: ' + (res.ksef_reference || '—'));
+      alert(`Faktura zaakceptowana przez KSeF.\nNumer referencyjny: ${  res.ksef_reference || '—'}`);
     } else if (res.offline_queued) {
-      alert('KSeF niedostępny lub brak konfiguracji — faktura dodana do kolejki offline.\nPowód: ' + (res.reason || 'brak połączenia'));
+      alert(`KSeF niedostępny lub brak konfiguracji — faktura dodana do kolejki offline.\nPowód: ${  res.reason || 'brak połączenia'}`);
     } else {
-      alert('Odpowiedź KSeF: ' + JSON.stringify(res));
+      alert(`Odpowiedź KSeF: ${  JSON.stringify(res)}`);
     }
     _load();
   }

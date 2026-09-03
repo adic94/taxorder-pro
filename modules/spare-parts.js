@@ -26,7 +26,7 @@
   <h2><i class="ti ti-package"></i> Magazyn części zamiennych</h2>
   <button class="btn-primary" onclick="window.SparePartsModule.openModal()"><i class="ti ti-plus"></i> Dodaj część</button>
 </div>
-${lowStock.length ? `<div class="alert alert-danger" style="margin-bottom:12px"><i class="ti ti-alert-triangle"></i> <strong>Niski stan magazynowy (${lowStock.length} pozycji):</strong> ${lowStock.map(p=>e(p.name+' ('+p.quantity+' '+p.unit+')')).join(', ')}</div>` : ''}
+${lowStock.length ? `<div class="alert alert-danger" style="margin-bottom:12px"><i class="ti ti-alert-triangle"></i> <strong>Niski stan magazynowy (${lowStock.length} pozycji):</strong> ${lowStock.map(p=>e(`${p.name} (${p.quantity} ${p.unit})`)).join(', ')}</div>` : ''}
 <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
   <select id="sp-filter-cat" onchange="window.SparePartsModule.renderSpareParts()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-card)">
     <option value="">Wszystkie kategorie</option>
@@ -45,7 +45,7 @@ ${_parts.length ? _parts.map(p=>`<tr class="${p.quantity<=p.min_quantity?'danger
   <td style="font-weight:700;color:${p.quantity<=p.min_quantity?'var(--red)':p.quantity<=p.min_quantity*2?'var(--orange)':'inherit'}">${p.quantity}</td>
   <td>${p.min_quantity}</td>
   <td>${e(p.unit||'szt')}</td>
-  <td>${p.unit_price ? fmtN(p.unit_price)+' PLN' : '—'}</td>
+  <td>${p.unit_price ? `${fmtN(p.unit_price)} PLN` : '—'}</td>
   <td>${e(p.supplier||'—')}</td>
   <td>${e(p.location||'—')}</td>
   <td style="display:flex;gap:4px">
@@ -111,7 +111,7 @@ ${_parts.length ? _parts.map(p=>`<tr class="${p.quantity<=p.min_quantity?'danger
       });
       if (!r.ok) throw new Error(await r.text());
       closeStockModal(); await renderSpareParts();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   async function savePart() {
@@ -138,7 +138,7 @@ ${_parts.length ? _parts.map(p=>`<tr class="${p.quantity<=p.min_quantity?'danger
       const r = await fetch(url, { method, headers:{...H(),'Content-Type':'application/json'}, body:JSON.stringify(body) });
       if (!r.ok) throw new Error(await r.text());
       closeModal(); await renderSpareParts();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   async function deletePart(id) {
@@ -146,7 +146,7 @@ ${_parts.length ? _parts.map(p=>`<tr class="${p.quantity<=p.min_quantity?'danger
     try {
       await fetch(`${API()}/api/spare-parts/${encodeURIComponent(id)}?company=${encodeURIComponent(Co())}`, { method:'DELETE', headers:H() });
       await renderSpareParts();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   window.SparePartsModule = { renderSpareParts, openModal, closeModal, openStockModal, closeStockModal, saveStock, savePart, deletePart };

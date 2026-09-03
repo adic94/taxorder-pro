@@ -168,9 +168,9 @@
     const kpi = document.getElementById('fa-kpi-row');
     if (kpi) {
       kpi.innerHTML = [
-        { lbl: 'Wartość nabycia łącznie', val: _fmt2(totalPurchase) + ' PLN', clr: '#3b82f6', icon: 'ti-coin' },
-        { lbl: 'Umorzenie łączne',       val: _fmt2(totalDepr)     + ' PLN', clr: '#f59e0b', icon: 'ti-trending-down' },
-        { lbl: 'Wartość bilansowa netto', val: _fmt2(totalBook)     + ' PLN', clr: '#22c55e', icon: 'ti-chart-bar' },
+        { lbl: 'Wartość nabycia łącznie', val: `${_fmt2(totalPurchase)  } PLN`, clr: '#3b82f6', icon: 'ti-coin' },
+        { lbl: 'Umorzenie łączne',       val: `${_fmt2(totalDepr)      } PLN`, clr: '#f59e0b', icon: 'ti-trending-down' },
+        { lbl: 'Wartość bilansowa netto', val: `${_fmt2(totalBook)      } PLN`, clr: '#22c55e', icon: 'ti-chart-bar' },
       ].map(k => `
         <div style="background:var(--bg-card,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:12px;min-width:200px">
           <i class="ti ${k.icon}" style="font-size:1.6em;color:${k.clr}"></i>

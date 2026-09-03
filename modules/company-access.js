@@ -10,15 +10,15 @@
 
   const API  = () => window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
   const tok  = () => localStorage.getItem('cf_token') || '';
-  const hdrs = () => ({ Authorization: 'Bearer ' + tok(), 'Content-Type': 'application/json' });
+  const hdrs = () => ({ Authorization: `Bearer ${  tok()}`, 'Content-Type': 'application/json' });
 
   async function loadUsers(){
     if(!tok()){ alert('Brak sesji — zaloguj sie ponownie.'); return []; }
     try {
-      const r = await fetch(API() + '/api/users', { headers: hdrs() });
+      const r = await fetch(`${API()  }/api/users`, { headers: hdrs() });
       if(!r.ok){
         const d = await r.json().catch(() => ({}));
-        alert('Blad pobierania uzytkownikow: ' + (d.error || ('HTTP ' + r.status)));
+        alert(`Blad pobierania uzytkownikow: ${  d.error || (`HTTP ${  r.status}`)}`);
         return [];
       }
       const d = await r.json().catch(() => []);
@@ -27,7 +27,7 @@
       return list.map(u => ({ ...u, full_name: u.full_name || u.name || u.email }));
     } catch(e){
       console.error('[CompanyAccess] Blad sieci:', e);
-      alert('Blad sieci: ' + e.message);
+      alert(`Blad sieci: ${  e.message}`);
       return [];
     }
   }
@@ -35,8 +35,8 @@
   async function loadAccess(userId){
     if(!userId || !tok()) return [];
     try {
-      const r = await fetch(API() + '/api/company-access?user_id=' + encodeURIComponent(userId), { headers: hdrs() });
-      if(!r.ok){ console.error('[CompanyAccess] HTTP ' + r.status); return []; }
+      const r = await fetch(`${API()  }/api/company-access?user_id=${  encodeURIComponent(userId)}`, { headers: hdrs() });
+      if(!r.ok){ console.error(`[CompanyAccess] HTTP ${  r.status}`); return []; }
       const d = await r.json().catch(() => ({}));
       return Array.isArray(d.access) ? d.access : [];
     } catch(e){
@@ -91,7 +91,7 @@
 
     const select = document.getElementById('ca-user');
     select.innerHTML = users.map(u =>
-      '<option value="' + u.id + '">' + (u.email || u.full_name || u.id) + ' — ' + (u.role || 'brak roli') + '</option>'
+      `<option value="${  u.id  }">${  u.email || u.full_name || u.id  } — ${  u.role || 'brak roli'  }</option>`
     ).join('');
 
     document.getElementById('company-access-modal').style.display = 'flex';
@@ -162,17 +162,17 @@
 
     try {
       for(const c of companies){
-        const view = document.querySelector('.ca-view[data-company="' + c.id + '"]')?.checked || false;
-        const edit = document.querySelector('.ca-edit[data-company="' + c.id + '"]')?.checked || false;
+        const view = document.querySelector(`.ca-view[data-company="${  c.id  }"]`)?.checked || false;
+        const edit = document.querySelector(`.ca-edit[data-company="${  c.id  }"]`)?.checked || false;
 
         // PUT obsluguje oba przypadki: view/edit = nadanie, brak obu = usuniecie
-        const r = await fetch(API() + '/api/company-access', {
+        const r = await fetch(`${API()  }/api/company-access`, {
           method: 'PUT', headers: hdrs(),
           body: JSON.stringify({ user_id: userId, company_id: c.id, can_view: view, can_edit: edit })
         });
         if(!r.ok){
           const d = await r.json().catch(() => ({}));
-          alert('Blad zapisu dla ' + (c.short_name || c.id) + ': ' + (d.error || ('HTTP ' + r.status)));
+          alert(`Blad zapisu dla ${  c.short_name || c.id  }: ${  d.error || (`HTTP ${  r.status}`)}`);
           return;
         }
       }
@@ -180,7 +180,7 @@
       else alert('Uprawnienia zapisane');
       close();
     } catch(e){
-      alert('Blad sieci: ' + e.message);
+      alert(`Blad sieci: ${  e.message}`);
     } finally {
       if(btn){ btn.disabled = false; btn.textContent = 'Zapisz'; }
     }

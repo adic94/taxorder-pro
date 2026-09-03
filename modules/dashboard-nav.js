@@ -113,7 +113,7 @@ window.TaxOrderDashNav = {
 
       const el = id => document.getElementById(id);
       if (el('ml-total-vehs')) el('ml-total-vehs').textContent = active.length;
-      if (el('ml-tax')) el('ml-tax').textContent = Math.round(tax).toLocaleString('pl-PL') + ' zł';
+      if (el('ml-tax')) el('ml-tax').textContent = `${Math.round(tax).toLocaleString('pl-PL')  } zł`;
       if (el('ml-leasing')) el('ml-leasing').textContent = leasing;
     } catch(e) {}
   }

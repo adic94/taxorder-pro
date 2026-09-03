@@ -88,7 +88,7 @@
       if (!r.ok) throw new Error(await r.text());
       if (typeof window.showToast === 'function') window.showToast('Polityki zapisane');
       else alert('Polityki zapisane');
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   window.FleetPoliciesModule = { renderFleetPolicies, save };

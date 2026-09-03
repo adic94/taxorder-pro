@@ -60,9 +60,9 @@
       return `<tr>
         <td><strong>${esc(d.vehicle_reg)}</strong></td>
         <td>${esc(REASON_LBL[d.reason]||d.reason)}</td>
-        <td style="text-align:right">${d.mileage_final_km!=null?esc(String(d.mileage_final_km))+' km':'—'}</td>
-        <td style="text-align:right">${d.book_value_pln!=null?esc(d.book_value_pln.toFixed(2))+' PLN':'—'}</td>
-        <td style="text-align:right">${d.sale_price_pln!=null?esc(d.sale_price_pln.toFixed(2))+' PLN':'—'}</td>
+        <td style="text-align:right">${d.mileage_final_km!=null?`${esc(String(d.mileage_final_km))} km`:'—'}</td>
+        <td style="text-align:right">${d.book_value_pln!=null?`${esc(d.book_value_pln.toFixed(2))} PLN`:'—'}</td>
+        <td style="text-align:right">${d.sale_price_pln!=null?`${esc(d.sale_price_pln.toFixed(2))} PLN`:'—'}</td>
         <td>${esc(d.buyer_name||'—')}</td>
         <td><span class="pill" style="background:${STATUS_CLR[d.status]||'#999'}20;color:${STATUS_CLR[d.status]||'#999'}">${esc(STATUS_LBL[d.status]||d.status)}</span>${pnl!=null?`<br><small style="color:${pnl>=0?'#22c55e':'#ef4444'}">${pnl>=0?'+':''}${pnl.toFixed(0)} PLN</small>`:''}</td>
         <td>
@@ -80,8 +80,8 @@
     el.innerHTML = [
       { lbl:'W trakcie', val: s.in_progress||0, c:'#f59e0b' },
       { lbl:'Zakończone', val: s.completed||0, c:'#22c55e' },
-      { lbl:'Łączna sprzedaż', val: s.total_sale ? s.total_sale.toFixed(0)+' PLN' : '—', c:'#3b82f6' },
-      { lbl:'Zysk/Strata', val: s.pnl!=null ? (s.pnl>=0?'+':'')+s.pnl.toFixed(0)+' PLN' : '—', c: s.pnl>=0?'#22c55e':'#ef4444' },
+      { lbl:'Łączna sprzedaż', val: s.total_sale ? `${s.total_sale.toFixed(0)} PLN` : '—', c:'#3b82f6' },
+      { lbl:'Zysk/Strata', val: s.pnl!=null ? `${(s.pnl>=0?'+':'')+s.pnl.toFixed(0)} PLN` : '—', c: s.pnl>=0?'#22c55e':'#ef4444' },
     ].map(i=>`<div class="stat-chip" style="border-color:${i.c}"><span style="color:${i.c};font-size:1.1em;font-weight:700">${i.val}</span><span>${esc(i.lbl)}</span></div>`).join('');
   }
 

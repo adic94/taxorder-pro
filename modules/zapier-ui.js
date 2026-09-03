@@ -20,7 +20,7 @@
   let _zapierUrl   = '';
   let _makeUrl     = '';
   let _lastEvents  = [];
-  let _testResult  = null;
+  const _testResult  = null;
 
   async function renderZapierUi() {
     const co = Co();
@@ -141,7 +141,7 @@
         body: JSON.stringify({ target, url: urlVal })
       });
       if (r.ok) { if (target === 'zapier') _zapierUrl = urlVal; else _makeUrl = urlVal; _render(); alert('Zapisano!'); }
-      else alert('Błąd zapisu: ' + await r.text());
+      else alert(`Błąd zapisu: ${  await r.text()}`);
     } catch (ex) { alert(ex.message); }
   }
 

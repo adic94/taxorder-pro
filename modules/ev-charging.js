@@ -74,7 +74,7 @@ ${_sessions.length ? _sessions.map(s => `<tr>
   <td>${e(s.provider || '—')} ${s.home_charging ? '<span class="pill" style="background:#e0f2fe;color:#0369a1">Dom</span>' : ''}</td>
   <td><strong>${fmtN(s.cost_pln, 2)} PLN</strong></td>
   <td>${s.cost_per_kwh ? fmtN(s.cost_per_kwh, 3) : '—'}</td>
-  <td>${s.range_after_km ? fmtN(s.range_after_km) + ' km' : '—'}</td>
+  <td>${s.range_after_km ? `${fmtN(s.range_after_km)  } km` : '—'}</td>
   <td style="display:flex;gap:4px">
     <button class="btn-icon" data-id="${e(s.id)}" onclick="window.EvCharging._openModal(this.dataset.id)"><i class="ti ti-edit"></i></button>
     <button class="btn-icon danger" data-id="${e(s.id)}" onclick="window.EvCharging._delete(this.dataset.id)"><i class="ti ti-trash"></i></button>
@@ -169,7 +169,7 @@ ${_sessions.length ? _sessions.map(s => `<tr>
       const r = await fetch(url, { method: id ? 'PUT' : 'POST', headers: { ...H(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!r.ok) throw new Error(await r.text());
       _closeModal(); await renderEvCharging();
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   async function _delete(id) {
@@ -177,7 +177,7 @@ ${_sessions.length ? _sessions.map(s => `<tr>
     try {
       await fetch(`${API()}/api/ev-charging/${encodeURIComponent(id)}?company=${encodeURIComponent(Co())}`, { method: 'DELETE', headers: H() });
       await renderEvCharging();
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   function _closeModal() {

@@ -37,7 +37,7 @@ window.TaxOrderNotifications = (function () {
 
   function _daysUntil(dateStr) {
     if (!dateStr) return null;
-    const d = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00');
+    const d = new Date(dateStr.includes('T') ? dateStr : `${dateStr  }T00:00:00`);
     if (isNaN(d)) return null;
     const today = new Date(); today.setHours(0, 0, 0, 0);
     return Math.round((d - today) / 86400000);
@@ -68,7 +68,7 @@ window.TaxOrderNotifications = (function () {
       const days = _daysUntil(date);
       if (days === null || days > 30 || days < 0) return;
       if (_wasSentToday(key)) return;
-      const dateStr = new Date(date + 'T00:00:00').toLocaleDateString('pl-PL');
+      const dateStr = new Date(`${date  }T00:00:00`).toLocaleDateString('pl-PL');
       const icon = urgent ? '🔴' : '🟡';
       _send(
         `${icon} Termin płatności: ${label}`,
@@ -101,7 +101,7 @@ window.TaxOrderNotifications = (function () {
         // Alerty serwisowe z historii serwisów
         ...(v.serviceHistory || [])
           .filter(s => s.nextServiceDate)
-          .map(s => ({ field: 'svc_'+s.id, label: (window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label || 'Serwis'), date: s.nextServiceDate })),
+          .map(s => ({ field: `svc_${s.id}`, label: (window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label || 'Serwis'), date: s.nextServiceDate })),
         // Alert zmiany opon
         ...(v.tireNextChange ? [{ field: 'tireChange', label: t('notif.label.tires'), date: v.tireNextChange }] : []),
         // Alerty dokumentów z DocumentsModule
@@ -286,7 +286,7 @@ window.TaxOrderNotifications = (function () {
         ...(v.tireNextChange ? [{ field: 'tireChange', label: t('notif.label.tires'), date: v.tireNextChange }] : []),
         ...(v.serviceHistory||[])
           .filter(s => s.nextServiceDate)
-          .map(s => ({ field: 'svc_'+s.id, label: (window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label || 'Serwis'), date: s.nextServiceDate })),
+          .map(s => ({ field: `svc_${s.id}`, label: (window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label || 'Serwis'), date: s.nextServiceDate })),
       ];
 
       checks.forEach(({ field, label, date }) => {
@@ -311,7 +311,7 @@ window.TaxOrderNotifications = (function () {
       const dd = _daysUntil(d.license_expiry);
       if (dd === null || dd > days) return;
       alerts.push({
-        nrRej: '👤 ' + d.name,
+        nrRej: `👤 ${  d.name}`,
         marka: '', model: '',
         label: t('notif.label.license'),
         date: d.license_expiry,
@@ -489,7 +489,7 @@ window.TaxOrderNotifications = (function () {
       body: JSON.stringify({ subscription: sub.toJSON(), company_id, user_id, label: navigator.userAgent.slice(0, 50) }),
     });
 
-    if (!r.ok) { toast(t('notif.push.reg.err') + ' — ' + (await r.json().catch(() => ({}))).error); return false; }
+    if (!r.ok) { toast(`${t('notif.push.reg.err')  } — ${  (await r.json().catch(() => ({}))).error}`); return false; }
 
     localStorage.setItem(PUSH_SUB_KEY, JSON.stringify({ company_id, endpoint: sub.endpoint }));
     toast(t('notif.push.activated'));

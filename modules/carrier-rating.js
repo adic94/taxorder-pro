@@ -162,7 +162,7 @@
 
     const bl = blacklistOnly ? 1 : 0;
     const data = await _api('GET', `/api/carrier-ratings?blacklisted=${bl}&q=${encodeURIComponent(q)}&sort=${encodeURIComponent(sort)}`);
-    let list   = data.carriers || [];
+    const list   = data.carriers || [];
 
     // Client-side sort fallback
     if (sort === 'overall_desc')  list.sort((a, b) => _calcOverall(b) - _calcOverall(a));

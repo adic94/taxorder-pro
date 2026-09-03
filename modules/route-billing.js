@@ -171,7 +171,7 @@ ${_invoices.length ? _invoices.map(inv => {
       const r = await fetch(url, { method: id ? 'PUT' : 'POST', headers: { ...H(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!r.ok) throw new Error(await r.text());
       _closeModal(); await renderRouteBilling();
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   async function _updateStatus(id, status) {
@@ -195,11 +195,11 @@ ${_invoices.length ? _invoices.map(inv => {
   <div><strong>Sprzedawca:</strong><br>${e(Co())}</div>
   <div style="text-align:right"><strong>Nr: ${e(inv.invoice_number)}</strong><br>Data: ${e(inv.invoice_date||'')}<br>Termin: ${e(inv.due_date||'')}</div>
 </div>
-<div><strong>Nabywca:</strong> ${e(inv.client_name)} ${inv.client_nip?'| NIP: '+e(inv.client_nip):''}</div>
+<div><strong>Nabywca:</strong> ${e(inv.client_name)} ${inv.client_nip?`| NIP: ${e(inv.client_nip)}`:''}</div>
 ${inv.order_title?`<div style="color:#666;margin-top:4px">Zlecenie: ${e(inv.order_title)}</div>`:''}
 <table>
   <tr><th>Opis usługi</th><th>Netto (PLN)</th><th>VAT</th><th>Brutto (PLN)</th></tr>
-  <tr><td>Usługa transportowa${inv.order_title?' — '+e(inv.order_title):''}</td><td>${fmtN(inv.net_pln,2)}</td><td>${fmtN((inv.vat_rate||0)*100,0)}%</td><td>${fmtN(inv.gross_pln,2)}</td></tr>
+  <tr><td>Usługa transportowa${inv.order_title?` — ${e(inv.order_title)}`:''}</td><td>${fmtN(inv.net_pln,2)}</td><td>${fmtN((inv.vat_rate||0)*100,0)}%</td><td>${fmtN(inv.gross_pln,2)}</td></tr>
 </table>
 <div class="total">DO ZAPŁATY: ${fmtN(inv.gross_pln,2)} PLN</div>
 ${inv.notes?`<p style="margin-top:20px;color:#666">${e(inv.notes)}</p>`:''}
@@ -213,7 +213,7 @@ ${inv.notes?`<p style="margin-top:20px;color:#666">${e(inv.notes)}</p>`:''}
     try {
       await fetch(`${API()}/api/route-billing/${encodeURIComponent(id)}?company=${encodeURIComponent(Co())}`, { method: 'DELETE', headers: H() });
       await renderRouteBilling();
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   function _closeModal() {

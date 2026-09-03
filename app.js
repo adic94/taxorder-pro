@@ -2,9 +2,9 @@
 const VEHICLES = [{"nrRej":"WGM87205","marka":"Fuso","model":"Canter 9/18","rok":2020,"typ":"Ciężarowy","dmc":8500,"euro":"EURO 6","vin":"TYBFECX1ELDC03229","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WU6647K","marka":"Fuso","model":"Canter 7/15","rok":2020,"typ":"Ciężarowy","dmc":7500,"euro":"EURO 6","vin":"TYBFEB71ELDC04538","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM89755","marka":"Fuso","model":"Canter 7/15 BR","rok":2020,"typ":"Ciężarowy","dmc":7500,"euro":"EURO 6","vin":"TYBFEB71ELDC04728","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WL3597R","marka":"Fuso","model":"Canter 7/15","rok":2020,"typ":"Ciężarowy","dmc":7500,"euro":"EURO 6","vin":"TYBFEB71ELDC07336","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WW024AF","marka":"GFOLLNER","model":"APL 2/4 TL","rok":2015,"typ":"Przyczepa","dmc":14000,"euro":"","vin":"VASAL214YFGPA8689","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WA5535C","marka":"Iveco","model":"EUROCARGO ML75E15","rok":2006,"typ":"Ciężarowy","dmc":7500,"euro":"EURO 3","vin":"ZCFA75B0202483032","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM0065L","marka":"MAN","model":"TGL 8.190-M","rok":2024,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZXRY456838","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ124HW","marka":"MAN","model":"TGE 6.160 5.5T","rok":2024,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ7R9018317","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ122HW","marka":"MAN","model":"TGE 6.160 5.5T","rok":2024,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ2R9018256","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ123HW","marka":"MAN","model":"TGE 6.160 5.5T","rok":2024,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ9R9018285","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ389HM","marka":"MAN","model":"TGL 8.190-M","rok":2024,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZXRP250540","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ390HM","marka":"MAN","model":"TGL 8.190-M","rok":2024,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ9RP250481","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL7611V","marka":"MAN","model":"TGL 8.190-M","rok":2024,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZXRP250487","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL7602V","marka":"MAN","model":"TGL 8.190-M","rok":2024,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ9RP250769","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM8172K","marka":"MAN","model":"TGL 8.190-M","rok":2024,"typ":"Ciężarowy","dmc":8800,"euro":"","vin":"WMA12DZZ1R9250457","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ495HU","marka":"MAN","model":"TGL 8.190-M","rok":2024,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ5RP252776","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ496HU","marka":"MAN","model":"TGL 8.190-M","rok":2024,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ1RP244920","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ883KA","marka":"MAN","model":"TGL 8.190-M","rok":2025,"typ":"Ciężarowy","dmc":8800,"euro":"","vin":"WMA12DZZ3SP315203","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ884KA","marka":"MAN","model":"TGL 8.190-M","rok":2025,"typ":"Ciężarowy","dmc":8800,"euro":"","vin":"WMA12DZZ4SP315257","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ882KA","marka":"MAN","model":"TGL 8.190-M","rok":2025,"typ":"Ciężarowy","dmc":8800,"euro":"","vin":"WMA12DZZ5SP315221","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ881KA","marka":"MAN","model":"TGL 8.190-M","rok":2025,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ2SP315998","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ320KA","marka":"MAN","model":"TGM 4X4-G","rok":2025,"typ":"Ciężarowy","dmc":11990,"euro":"EURO 6","vin":"WMA36DZZ6RP277456","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ321KA","marka":"MAN","model":"TGM 4X4-G","rok":2025,"typ":"Ciężarowy","dmc":11990,"euro":"EURO 6","vin":"WMA36DZZ2RP277518","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ322KA","marka":"MAN","model":"TGM 4X4-G","rok":2025,"typ":"Ciężarowy","dmc":11990,"euro":"EURO 6","vin":"WMA36DZZ9RP277824","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM8572M","marka":"MAN","model":"TGL 8.190-M","rok":2025,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ4SP315226","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM8573M","marka":"MAN","model":"TGL 8.190-M","rok":2025,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ2SP315371","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM8574M","marka":"MAN","model":"TGL 8.190-M","rok":2025,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ4SP315243","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM8575M","marka":"MAN","model":"TGL 8.190-M","rok":2025,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ4SP315209","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WPR7520T","marka":"MAN","model":"TGE 6.160 5.5T","rok":2023,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ2R9007581","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WPR7519T","marka":"MAN","model":"TGE 6.160 5.5T","rok":2023,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ8R9006457","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM0473H","marka":"MAN","model":"TGL 8.190-M","rok":2022,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ2NY443995","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM0472H","marka":"MAN","model":"TGL 8.190-M","rok":2022,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ1NY443986","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM4921H","marka":"MAN","model":"TGL 8.190-M","rok":2022,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ8PY444152","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM4922H","marka":"MAN","model":"TGL 8.190-M","rok":2022,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ9NY443945","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM5469H","marka":"MAN","model":"TGL 8.190-M","rok":2022,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ1PY448110","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM6162J","marka":"MAN","model":"TGL 8.190-M","rok":2023,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ0PY452892","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM6163J","marka":"MAN","model":"TGL 8.190-M","rok":2023,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ7PY453389","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM4268J","marka":"MAN","model":"TGL 8.190-M","rok":2023,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ9PY452938","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM4269J","marka":"MAN","model":"TGL 8.190-M","rok":2023,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ5PY453424","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ521GG","marka":"MAN","model":"TGL 8.190-M","rok":2023,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ3PY452935","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ520GG","marka":"MAN","model":"TGL 8.190-M","rok":2023,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ3PY453275","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ497GH","marka":"MAN","model":"TGL 8.190-M","rok":2023,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ1PY453288","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ496GH","marka":"MAN","model":"TGL 8.190-M","rok":2023,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ3PY453292","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WA5790C","marka":"MAN","model":"TGL 8","rok":2010,"typ":"Ciężarowy","dmc":7500,"euro":"EURO 5","vin":"WMAN03ZZ5AY247514","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WW1670X","marka":"MAN","model":"18.225 LC","rok":2003,"typ":"Ciężarowy","dmc":16000,"euro":"EURO 3","vin":"WMAL87ZZZ3Y113513","status":"Wynajęty","wlasciciel":"KJR Supply"},{"nrRej":"WGM4903C","marka":"MAN","model":"TGL 8.190-G","rok":2021,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ0MY430077","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM4904C","marka":"MAN","model":"TGL 8.190-G","rok":2021,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ6MY430083","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WPR5174P","marka":"MAN","model":"TGE 6.180 5,5T","rok":2021,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ9M9016738","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WPR5173P","marka":"MAN","model":"TGE 6.180 5,5T","rok":2021,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ2M9016001","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM2174H","marka":"MAN","model":"TGL 8.190-M","rok":2022,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZXPY444086","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM2175H","marka":"MAN","model":"TGL 8.190-G","rok":2022,"typ":"Ciężarowy","dmc":8800,"euro":"EURO 6","vin":"WMA12DZZ9NY443931","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ084KP","marka":"MAN","model":"TGE 6.160 5.5T","rok":2025,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZXT9002765","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ807KL","marka":"MAN","model":"TGE 6.160 5.5T","rok":2025,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ1S9030842","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ806KL","marka":"MAN","model":"TGE 6.160 5.5T","rok":2025,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ3S9024220","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ805KL","marka":"MAN","model":"TGE 6.160 5.5T","rok":2025,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WMA29VUZ1S9024829","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ209LJ","marka":"Meprozet","model":"PN-1 asenizacyjna","rok":2025,"typ":"Przyczepa","dmc":16200,"euro":"","vin":"250480012","status":"Wynajęty","wlasciciel":"GCON"},{"nrRej":"WZ274KL","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2025,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V5M33ZXTN354520","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ273KL","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2025,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V5M33Z8TN355150","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ694KR","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2025,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V5M33Z7TN355897","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ724KP","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2025,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V5M33Z6TN356071","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL9652T","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2022,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N221239","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL9625T","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2022,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N215193","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WU7721N","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310591672","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ695FE","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310591671","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ732FE","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2022,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N193696","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL6049T","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310601267","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ960FF","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310601266","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ961FF","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310601265","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ962FF","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310601264","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ093EV","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310582526","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ619EY","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310582527","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ620EY","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310583288","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ952EP","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310532645","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ748EY","marka":"Mercedes","model":"Sprinter 5.5T 4X4","rok":2017,"typ":"Ciężarowy","dmc":5000,"euro":"EURO 6","vin":"WDB9061531N745826","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WZ953EP","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310532644","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ951EP","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310532253","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ369EH","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310532254","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WU6528M","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2021,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N141543","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ931CV","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2021,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N141086","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ930CV","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2021,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N141313","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ929CV","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2021,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N143606","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM9423A","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310509057","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM9424A","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310509401","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM2116C","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310516336","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WL8328R","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310516337","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WZ971CS","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310516335","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ336CR","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310516338","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ493CU","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2021,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N140067","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL1814U","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2021,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N140624","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ491CU","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2021,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N145584","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ772CK","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310504315","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM9630A","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310510109","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM9629A","marka":"Mercedes","model":"Atego 2-M","rok":2021,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310510110","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL4505R","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310496511","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM91914","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310461203","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM95870","marka":"Mercedes","model":"Sprinter 5.5T BR","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N104169","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM95867","marka":"Mercedes","model":"Sprinter 5.5T BR","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N106207","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WB2860V","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N105969","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WB2985V","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N104399","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WL8251P","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310469256","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WB8489U","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N092173","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM89756","marka":"Mercedes","model":"Sprinter 5.5T BR","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N093755","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM91975","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N103276","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM92044","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310467667","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM91998","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N103480","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM89010","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310467074","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WL6526P","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310467945","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WL6527P","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310467944","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM93611","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310467816","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM93664","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310467817","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM93535","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N104398","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM93534","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N104628","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WGM84083","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"WDB96702310423253","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WW715AR","marka":"Mercedes","model":"Atego 2-G","rok":2020,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310437502","status":"Wynajęty","wlasciciel":"GCON"},{"nrRej":"WB6684U","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2020,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N091252","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WWL5562K","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2019,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WDB9071551N054964","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WW7846Y","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2019,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WDB9071551N054963","status":"Wynajęty","wlasciciel":"GCON"},{"nrRej":"WWL2203L","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2019,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WDB9071551N056333","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WWL5561K","marka":"Mercedes","model":"Sprinter 5.5T 3.0 CDI","rok":2019,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"WDB9071551N056074","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ518GG","marka":"Mercedes","model":"Atego 2-M","rok":2023,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702210663640","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ519GG","marka":"Mercedes","model":"Atego 2-G","rok":2023,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702410663641","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL6680U","marka":"Mercedes","model":"Atego 2-M","rok":2023,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702610663639","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL6681U","marka":"Mercedes","model":"Atego 2-M","rok":2023,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702410663638","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ726GP","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2023,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V5M33Z6PN245154","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ227FT","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2022,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N223371","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ226FT","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2022,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N213977","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ428FL","marka":"Mercedes","model":"Atego 2-M","rok":2022,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310601263","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ846FL","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2022,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N196127","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ266FT","marka":"Mercedes","model":"Sprinter 5.5T 2.2 CDI","rok":2023,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N223979","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ264FT","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2022,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V9071551N215197","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ594GW","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2023,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V5M33Z4RN269312","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WL4360X","marka":"Mercedes","model":"Atego 2-M","rok":2025,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702810823343","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ872KC","marka":"Mercedes","model":"Atego 2-M","rok":2025,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702110823345","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ871KC","marka":"Mercedes","model":"Atego 2-M","rok":2025,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702X10823344","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WE5HX36","marka":"Mercedes","model":"Atego 2-M","rok":2025,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702610823342","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ481KK","marka":"Mercedes","model":"Atego 2-M","rok":2025,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702210821314","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ479KK","marka":"Mercedes","model":"Atego 2-M","rok":2025,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702510823624","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ480KK","marka":"Mercedes","model":"Atego 2-M","rok":2025,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702010821313","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ471KK","marka":"Mercedes","model":"Atego 2-M","rok":2025,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702510821534","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ232HW","marka":"Mercedes","model":"Atego 2-M","rok":2024,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702510769726","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ234HW","marka":"Mercedes","model":"Atego 2-M","rok":2024,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702310769725","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ230HW","marka":"Mercedes","model":"Atego 2-M","rok":2024,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702110769724","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ231HW","marka":"Mercedes","model":"Atego 2-M","rok":2024,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702210770333","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ233HW","marka":"Mercedes","model":"Atego 2-M","rok":2024,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702010770332","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ235HW","marka":"Mercedes","model":"Atego 2-M","rok":2024,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702710770005","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ236HW","marka":"Mercedes","model":"Atego 2-M","rok":2024,"typ":"Ciężarowy","dmc":9500,"euro":"EURO 6","vin":"W1T96702410770334","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WGM0867L","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2024,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V5M33Z1RN308048","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ121HW","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2024,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V5M33ZXRN307061","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ120HW","marka":"Mercedes","model":"Sprinter 5.5T 2.0 CDI","rok":2024,"typ":"Ciężarowy","dmc":5500,"euro":"EURO 6","vin":"W1V5M33Z8RN302067","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WA8920J","marka":"Mercedes","model":"Atego 4X4","rok":2011,"typ":"Ciężarowy","dmc":10500,"euro":"EURO 5","vin":"WDB9763331L548244","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WA9885J","marka":"Mercedes","model":"Actros","rok":2016,"typ":"Ciężarowy","dmc":26000,"euro":"","vin":"WDB96302010057230","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WW239AF","marka":"Pronar","model":"T679/3 wywrotka","rok":2026,"typ":"Przyczepa","dmc":11400,"euro":"","vin":"SZB6793XXT1X00315","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WW564AJ","marka":"Scania","model":"R520","rok":2015,"typ":"Ciężarowy","dmc":26000,"euro":"EURO 6","vin":"YS2R6X20005391826","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ621FY","marka":"Scania","model":"R580","rok":2015,"typ":"Ciężarowy","dmc":30000,"euro":"EURO 6","vin":"YS2R6X20005388005","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WA0677L","marka":"Scania","model":"R490 Szambiarka","rok":2017,"typ":"Ciężarowy","dmc":27000,"euro":"EURO 6","vin":"YS2R6X20005482489","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WA4789F","marka":"Scania","model":"R540 Wodolejka","rok":2021,"typ":"Ciężarowy","dmc":27000,"euro":"EURO 6","vin":"YS2R8X40002177169","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WW117AF","marka":"Sonst","model":"ANH. Hersteller","rok":2016,"typ":"Przyczepa","dmc":18000,"euro":"","vin":"W09TP28471A006V08","status":"Wynajęty","wlasciciel":"GCON"},{"nrRej":"WA1697F","marka":"Volvo","model":"FMX 8x4","rok":2011,"typ":"Ciężarowy","dmc":32000,"euro":"EURO 5","vin":"YV2JG20G9BA714219","status":"Własny","wlasciciel":"mToilet"},{"nrRej":"WA2609J","marka":"Volvo","model":"FH 540 Szambiarka","rok":2020,"typ":"Ciężarowy","dmc":32000,"euro":"EURO 6","vin":"YV2RT60G2KA853081","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ899GJ","marka":"Volvo","model":"FMX 6x2","rok":2016,"typ":"Ciężarowy","dmc":28000,"euro":"EURO 6","vin":"YV2XT60C0GA789117","status":"Leasing","wlasciciel":"mToilet"},{"nrRej":"WZ464FY","marka":"Volvo","model":"FH 540 Wodolejka","rok":2018,"typ":"Ciężarowy","dmc":32000,"euro":"EURO 6","vin":"YV2RT60C5JA833371","status":"Własny","wlasciciel":"mToilet"}];
 
 // State
-let vehs = VEHICLES.map((v,i) => ({...v, id:i, osie: v.osie||((+(v.dmc??v.dmcMax??0)>=12000)?3:2), zawieszenie:'pneumatyczne', dmcZespolu:0, miesiacePodatku:12}));
+const vehs = VEHICLES.map((v,i) => ({...v, id:i, osie: v.osie||((+(v.dmc??v.dmcMax??0)>=12000)?3:2), zawieszenie:'pneumatyczne', dmcZespolu:0, miesiacePodatku:12}));
 window.vehs = vehs;
-let selected = new Set();
+const selected = new Set();
 window.selected = selected;
 // Powód złożenia deklaracji — element stanu sesji, wyłącznie round-trip przez
 // expJson()/impJson(). BEZ tej deklaracji expJson() rzucał ReferenceError przy
@@ -13,7 +13,7 @@ window.selected = selected;
 let decReason = '';
 let sortKey = 'nrRej', sortAsc = true;
 let _vehPage = 0, _vehPageSize = 100, _lastFilteredLen = -1;
-let _branches = [];
+const _branches = [];
 window._branches = _branches;
 let _dateFilters = { ocFrom: '', ocTo: '', acFrom: '', acTo: '', inspFrom: '', inspTo: '' };
 
@@ -205,7 +205,7 @@ function switchSection(name) {
 }
 
 function _syncTabToPage(page) {
-  const btn = document.getElementById('tnb-' + page);
+  const btn = document.getElementById(`tnb-${  page}`);
   if (!btn) return;
   const group = btn.closest('.sidebar-section-items');
   if (group && group.dataset.section !== _activeSection) {
@@ -242,8 +242,8 @@ function _initSidebarTooltip() {
     const rect = btn.getBoundingClientRect();
     tip.textContent = span.textContent.trim();
     tip.style.display = 'block';
-    tip.style.top = Math.round(rect.top + rect.height / 2 - 14) + 'px';
-    tip.style.left = Math.round(rect.right + 8) + 'px';
+    tip.style.top = `${Math.round(rect.top + rect.height / 2 - 14)  }px`;
+    tip.style.left = `${Math.round(rect.right + 8)  }px`;
   };
   sidebar._tipOut = () => { tip.style.display = 'none'; };
   sidebar.addEventListener('mouseover', sidebar._tipOver);
@@ -348,9 +348,9 @@ function showPage(id) {
   if(typeof saveCompanyState === 'function') saveCompanyState();
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tnb').forEach(b => b.classList.remove('active'));
-  const pageEl = document.getElementById('page-'+id);
+  const pageEl = document.getElementById(`page-${id}`);
   if (pageEl) pageEl.classList.add('active');
-  const tnb = document.getElementById('tnb-'+id);
+  const tnb = document.getElementById(`tnb-${id}`);
   if(tnb) tnb.classList.add('active');
   _syncTabToPage(id);
   // Kontrola dostępu — zablokuj moduły poza pakietem firmy
@@ -597,12 +597,12 @@ function filterVeh() {
       const lv = val.toLowerCase();
       const fv = String(v[col] ?? '').toLowerCase();
       if (col === 'nrRej' && !v.nrRej.toLowerCase().includes(lv)) return false;
-      else if (col === 'marka' && !(v.marka+' '+v.model).toLowerCase().includes(lv)) return false;
+      else if (col === 'marka' && !(`${v.marka} ${v.model}`).toLowerCase().includes(lv)) return false;
       else if (col === 'oc' && !String(v.ocEnd||'').includes(val)) return false;
       else if (col === 'ac' && !String(v.acEnd||'').includes(val)) return false;
       else if (col === 'przeglad' && !String(v.nextInspection||'').includes(val)) return false;
-      else if (col === 'ocInsurer' && !(String(v.ocInsurer||'')+' '+String(v.ocPolicyNo||'')).toLowerCase().includes(lv)) return false;
-      else if (col === 'acInsurer' && !(String(v.acInsurer||'')+' '+String(v.acPolicyNo||'')).toLowerCase().includes(lv)) return false;
+      else if (col === 'ocInsurer' && !(`${String(v.ocInsurer||'')} ${String(v.ocPolicyNo||'')}`).toLowerCase().includes(lv)) return false;
+      else if (col === 'acInsurer' && !(`${String(v.acInsurer||'')} ${String(v.acPolicyNo||'')}`).toLowerCase().includes(lv)) return false;
       else if (col === 'kierowca' && !String(v.kierowca||'').toLowerCase().includes(lv)) return false;
       else if (col === 'vin' && !(v.vin||'').toLowerCase().includes(lv)) return false;
       else if (col === 'paliwo' && !String(v.paliwo||'').toLowerCase().includes(lv)) return false;
@@ -723,7 +723,7 @@ function sortBy(key) {
 
 function _datePill(dateStr) {
   if(!dateStr) return '<span style="color:var(--text3);font-size:11px">—</span>';
-  const d = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00');
+  const d = new Date(dateStr.includes('T') ? dateStr : `${dateStr  }T00:00:00`);
   const now = new Date(); now.setHours(0, 0, 0, 0);
   const days = Math.round((d - now) / 86400000);
   const label = d.toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit',year:'2-digit'});
@@ -738,8 +738,8 @@ function _gpsIndicator(v) {
   if (!last) return '';
   const ageH = (Date.now() - new Date(last.ts).getTime()) / 3600000;
   const color = ageH < 24 ? '#16a34a' : ageH < 168 ? '#d97706' : '#dc2626';
-  const label = ageH < 1 ? Math.round(ageH * 60) + ' min' : ageH < 24 ? Math.round(ageH) + 'h' : Math.round(ageH / 24) + 'd';
-  return `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${color};margin-left:5px;vertical-align:middle;flex-shrink:0" title="GPS: ${label} temu · ${esc(last.location||(last.lat?.toFixed(4)+','+(last.lon?.toFixed(4)||'')))}"></span>`;
+  const label = ageH < 1 ? `${Math.round(ageH * 60)  } min` : ageH < 24 ? `${Math.round(ageH)  }h` : `${Math.round(ageH / 24)  }d`;
+  return `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${color};margin-left:5px;vertical-align:middle;flex-shrink:0" title="GPS: ${label} temu · ${esc(last.location||(`${last.lat?.toFixed(4)},${last.lon?.toFixed(4)||''}`))}"></span>`;
 }
 
 function _renderVehPager(fullList) {
@@ -830,11 +830,11 @@ function renderVeh() {
     const stbody = document.getElementById('veh-tbody');
     if (!stbody) { updateCounters(); return; }
     const _nowMs = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
-    const _vDays = ds => { if (!ds) return 9999; const d = new Date(ds+'T00:00:00'); return isNaN(d)?9999:Math.round((d-_nowMs)/86400000); };
+    const _vDays = ds => { if (!ds) return 9999; const d = new Date(`${ds}T00:00:00`); return isNaN(d)?9999:Math.round((d-_nowMs)/86400000); };
     const _alertIco = (icon, days, tip) => {
       if (days > 30) return '';
       const col = days < 0 ? 'var(--red)' : days <= 7 ? 'var(--red)' : 'var(--amber)';
-      const label = days < 0 ? Math.abs(days)+'d temu' : 'za '+days+'d';
+      const label = days < 0 ? `${Math.abs(days)}d temu` : `za ${days}d`;
       return `<span title="${tip} (${label})" style="color:${col};margin-right:3px"><i class="ti ${icon}"></i></span>`;
     };
     const _fd = ds => { if(!ds) return '—'; const p=ds.split('-'); return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:ds; };
@@ -861,9 +861,9 @@ function renderVeh() {
         </td>
         <td style="padding:6px 8px"><span class="pill ${stCls}" style="font-size:10px">${esc(v.status||'—')}</span></td>
         <td style="padding:6px 8px;white-space:nowrap">
-          ${_alertIco('ti-shield-x', ocD, 'OC do '+esc(v.ocEnd||'?'))}
-          ${_alertIco('ti-shield-half', acD, 'AC do '+esc(v.acEnd||'?'))}
-          ${_alertIco('ti-tool', inspD, 'Badanie do '+esc(v.nextInspection||'?'))}
+          ${_alertIco('ti-shield-x', ocD, `OC do ${esc(v.ocEnd||'?')}`)}
+          ${_alertIco('ti-shield-half', acD, `AC do ${esc(v.acEnd||'?')}`)}
+          ${_alertIco('ti-tool', inspD, `Badanie do ${esc(v.nextInspection||'?')}`)}
           ${v.uwagi ? `<span style="color:var(--amber);font-size:12px" title="${esc(v.uwagi.slice(0,200))}"><i class="ti ti-note"></i></span>` : ''}
         </td>
         <td style="padding:6px 8px;text-align:right;white-space:nowrap" onclick="event.stopPropagation()">
@@ -881,7 +881,7 @@ function renderVeh() {
               </div>
               <div>
                 <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">DMC</div>
-                <div style="font-size:12px;font-weight:600">${v.dmc ? (v.dmc).toLocaleString('pl-PL')+' kg' : '—'}</div>
+                <div style="font-size:12px;font-weight:600">${v.dmc ? `${(v.dmc).toLocaleString('pl-PL')} kg` : '—'}</div>
               </div>
               <div>
                 <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">OC do</div>
@@ -937,7 +937,7 @@ function renderVeh() {
     const needsDmcZ = isTrailerV(v) && !v.dmcZespolu;
     const ctx = { t, isNew, needsDmcZ, isTrailerV: isTrailerV(v) };
     const _nowMs = (() => { const t = new Date(); t.setHours(0,0,0,0); return t.getTime(); })();
-    const _vDays = ds => { if (!ds) return 9999; const d = new Date(ds+'T00:00:00'); return isNaN(d)?9999:Math.round((d-_nowMs)/86400000); };
+    const _vDays = ds => { if (!ds) return 9999; const d = new Date(`${ds}T00:00:00`); return isNaN(d)?9999:Math.round((d-_nowMs)/86400000); };
     const _minDays = Math.min(_vDays(v.ocEnd), _vDays(v.acEnd), _vDays(v.nextInspection));
     const _rowAlert = _minDays < 0 ? 'row-alert-red' : _minDays <= 7 ? 'row-alert-red' : _minDays <= 30 ? 'row-alert-amber' : '';
     return `<tr class="${isSel?'row-sel':''} ${_rowAlert}" onclick="toggleRow(${v.id})" ondblclick="event.stopPropagation();TaxOrderVehicleDetail.open(${v.id})" title="Dwuklik = karta pojazdu${_rowAlert ? ' | ⚠ Alert terminów' : ''}">
@@ -1047,7 +1047,7 @@ function _insertSlimExpandRow(tbody, id) {
   const v = vehs.find(x => x.id === id);
   if (!v) return;
   const now = new Date(); now.setHours(0,0,0,0); const _nowMs = now.getTime();
-  const _vDays = ds => { if (!ds) return 9999; const d = new Date(ds+'T00:00:00'); return isNaN(d)?9999:Math.round((d-_nowMs)/86400000); };
+  const _vDays = ds => { if (!ds) return 9999; const d = new Date(`${ds}T00:00:00`); return isNaN(d)?9999:Math.round((d-_nowMs)/86400000); };
   const _dCol = d => d<0?'var(--red)':d<=30?'var(--amber)':'var(--text)';
   const _fd = ds => { if(!ds) return '—'; const p=ds.split('-'); return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:ds; };
   const ocD = _vDays(v.ocEnd), inspD = _vDays(v.nextInspection);
@@ -1058,7 +1058,7 @@ function _insertSlimExpandRow(tbody, id) {
         <div><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Kierowca</div>
           <div style="font-size:12px;font-weight:600;${!v.kierowca?'color:var(--text3);font-style:italic':''}">${esc(v.kierowca||'brak')}</div></div>
         <div><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">DMC</div>
-          <div style="font-size:12px;font-weight:600">${v.dmc ? (v.dmc).toLocaleString('pl-PL')+' kg' : '—'}</div></div>
+          <div style="font-size:12px;font-weight:600">${v.dmc ? `${(v.dmc).toLocaleString('pl-PL')} kg` : '—'}</div></div>
         <div><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">OC do</div>
           <div style="font-size:12px;font-weight:600;color:${_dCol(ocD)}">${_fd(v.ocEnd)}</div></div>
         <div><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Badanie SKP</div>
@@ -1122,7 +1122,7 @@ function openWidgetPicker() {
   document.body.appendChild(ov);
 }
 function _onWidgetToggle() {
-  const ids = _WIDGET_DEFS.filter(w => document.getElementById('wg-'+w.id)?.checked).map(w => w.id);
+  const ids = _WIDGET_DEFS.filter(w => document.getElementById(`wg-${w.id}`)?.checked).map(w => w.id);
   _saveWidgetPrefs(ids);
 }
 function toggleAll(chk) { const list=filterVeh(); if(chk.checked) list.forEach(v=>selected.add(v.id)); else list.forEach(v=>selected.delete(v.id)); renderVeh(); updateCounters(); }
@@ -1150,8 +1150,8 @@ function renderKalkulator() {
     <td>${esc(v.marka)} ${esc(v.model)} <span style="font-size:11px;color:var(--text2)">${esc(v.rok||'')}</span></td>
     <td>${v.cat?`<span class="pill ${CAT_COLORS[v.cat]||'pill-gray'}">${esc(v.cat)}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
     <td style="text-align:center">${v.miesiacePodatku??12}</td>
-    <td style="text-align:right;font-family:var(--mono);color:var(--text2)">${v.rate?v.rate.toLocaleString('pl-PL')+' zł':'—'}</td>
-    <td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--green)">${v.amount>0?fmt2(v.amount)+' zł':'—'}</td>
+    <td style="text-align:right;font-family:var(--mono);color:var(--text2)">${v.rate?`${v.rate.toLocaleString('pl-PL')} zł`:'—'}</td>
+    <td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--green)">${v.amount>0?`${fmt2(v.amount)} zł`:'—'}</td>
   </tr>`).join('');
 
   const total = totalTax();
@@ -1160,9 +1160,9 @@ function renderKalkulator() {
   document.getElementById('ks-count').textContent = selT.length;
   document.getElementById('ks-taxable').textContent = taxable.length;
   document.getElementById('ks-att').textContent = Math.ceil(taxable.length/3)||0;
-  document.getElementById('ks-total').textContent = fmt2(total)+' zł';
-  document.getElementById('ks-r1').textContent = fmtZl(r1)+' zł';
-  document.getElementById('ks-r2').textContent = fmtZl(r2)+' zł';
+  document.getElementById('ks-total').textContent = `${fmt2(total)} zł`;
+  document.getElementById('ks-r1').textContent = `${fmtZl(r1)} zł`;
+  document.getElementById('ks-r2').textContent = `${fmtZl(r2)} zł`;
 
   // Cat table
   const cats = {};
@@ -1172,7 +1172,7 @@ function renderKalkulator() {
     <td><span class="pill ${CAT_COLORS[cat]||'pill-gray'}">${cat}</span></td>
     <td>${CAT_LABELS[cat]||''}</td>
     <td style="text-align:center;font-weight:600">${d.count}</td>
-    <td style="text-align:right;font-family:var(--mono);color:var(--text2)">${d.rate?d.rate.toLocaleString('pl-PL')+' zł':'—'}</td>
+    <td style="text-align:right;font-family:var(--mono);color:var(--text2)">${d.rate?`${d.rate.toLocaleString('pl-PL')} zł`:'—'}</td>
     <td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--green)">${fmt2(d.amount)} zł</td>
   </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:1rem">Brak pojazdów z kategorią</td></tr>';
 }
@@ -1230,7 +1230,7 @@ async function checkD1Status() {
     const r = await cloud.loadVehicles(companyId);
     const count = (r?.vehicles || r?.length || 0);
     const localCount = vehs.length;
-    if (log) log.innerHTML = `📊 D1: ${typeof count === 'number' ? count + ' pojazdów' : 'odpowiedź OK'} | Lokalnie: ${localCount} pojazdów | ${typeof count === 'number' && count < localCount ? '⚠ D1 ma mniej rekordów — zalecana synchronizacja' : '✅ Baza wygląda OK'}`;
+    if (log) log.innerHTML = `📊 D1: ${typeof count === 'number' ? `${count  } pojazdów` : 'odpowiedź OK'} | Lokalnie: ${localCount} pojazdów | ${typeof count === 'number' && count < localCount ? '⚠ D1 ma mniej rekordów — zalecana synchronizacja' : '✅ Baza wygląda OK'}`;
   } catch (e) {
     if (log) log.innerHTML = `❌ Błąd: ${esc(e.message)}`;
   }
@@ -1239,7 +1239,7 @@ async function checkD1Status() {
 // ==================== CSV EXPORT ====================
 function csvCell(v) {
   const s = String(v ?? '');
-  return '"' + (/^[=+\-@]/.test(s) ? '\t' + s : s).replace(/"/g, '""') + '"';
+  return `"${  (/^[=+\-@]/.test(s) ? `\t${  s}` : s).replace(/"/g, '""')  }"`;
 }
 function exportFleetCSV() {
   const HEADERS = [
@@ -1295,7 +1295,7 @@ function exportFleetCSV() {
   const csv = [HEADERS, ...rows]
     .map(r => r.map(csvCell).join(';'))
     .join('\r\n');
-  const blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8'});
+  const blob = new Blob([`﻿${  csv}`], {type:'text/csv;charset=utf-8'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -1315,9 +1315,9 @@ function exportVehicleListPdf() {
   const doc = new jsPDFCls({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const company = typeof getCurrentCompany === 'function' ? getCurrentCompany() : {};
   doc.setFontSize(14);
-  doc.text('Lista pojazdów — ' + (company.name || ''), 14, 15);
+  doc.text(`Lista pojazdów — ${  company.name || ''}`, 14, 15);
   doc.setFontSize(9);
-  doc.text('Wygenerowano: ' + new Date().toLocaleString('pl-PL'), 14, 22);
+  doc.text(`Wygenerowano: ${  new Date().toLocaleString('pl-PL')}`, 14, 22);
   doc.autoTable({
     startY: 26,
     head: [['Nr rej.','Marka','Model','Rok','Typ','DMC (kg)','Status','Kierowca','VIN']],
@@ -1351,7 +1351,7 @@ function exportServiceHistoryCsv() {
   const csv = [HEADERS, ...rows]
     .map(r => r.map(csvCell).join(';'))
     .join('\r\n');
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const blob = new Blob([`﻿${  csv}`], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -1376,7 +1376,7 @@ function exportFinesCsv() {
   const csv = [HEADERS, ...rows]
     .map(r => r.map(csvCell).join(';'))
     .join('\r\n');
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const blob = new Blob([`﻿${  csv}`], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -1418,7 +1418,7 @@ function exportTcoCsv() {
     ];
   });
   const csv = [HEADERS,...rows].map(r=>r.map(csvCell).join(';')).join('\r\n');
-  const blob = new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const blob = new Blob([`﻿${csv}`],{type:'text/csv;charset=utf-8'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download=`tco_${yr}_${new Date().toISOString().slice(0,10)}.csv`; a.click();
   URL.revokeObjectURL(url);
@@ -1431,7 +1431,7 @@ function _renderAlertBanner() {
   const el = document.getElementById('fleet-alert-banner');
   if (!el || !vehs.length) return;
   const now = new Date(); now.setHours(0,0,0,0);
-  const _d = ds => { if(!ds) return null; const d=new Date(ds+'T00:00:00'); return isNaN(d)?null:Math.round((d-now)/86400000); };
+  const _d = ds => { if(!ds) return null; const d=new Date(`${ds}T00:00:00`); return isNaN(d)?null:Math.round((d-now)/86400000); };
   const expired = vehs.filter(v=>[v.ocEnd,v.acEnd,v.nextInspection].some(ds=>{const d=_d(ds);return d!==null&&d<0;}));
   const soon30  = vehs.filter(v=>!expired.includes(v)&&[v.ocEnd,v.acEnd,v.nextInspection].some(ds=>{const d=_d(ds);return d!==null&&d>=0&&d<=30;}));
   if(!expired.length&&!soon30.length){el.style.display='none';el.innerHTML='';return;}
@@ -1502,7 +1502,7 @@ function _renderDriverPanel() {
     if (!map[key]) map[key] = {name:key, vehs:[], alerts:0, fl:0, fk:0, fn:0};
     const d = map[key];
     d.vehs.push(v);
-    if ([v.ocEnd,v.acEnd,v.nextInspection].some(ds=>ds&&(new Date(ds+'T00:00:00')-now)<DAYS30&&(new Date(ds+'T00:00:00')-now)>=-86400000)) d.alerts++;
+    if ([v.ocEnd,v.acEnd,v.nextInspection].some(ds=>ds&&(new Date(`${ds}T00:00:00`)-now)<DAYS30&&(new Date(`${ds}T00:00:00`)-now)>=-86400000)) d.alerts++;
     const fh=[...(v.fuelHistory||[])].filter(x=>x.km>0&&x.liters>0).sort((a,b)=>a.km-b.km);
     for(let i=1;i<fh.length;i++){const dk=fh[i].km-fh[i-1].km;if(dk>10&&dk<5000){d.fl+=fh[i].liters;d.fk+=dk;d.fn++;}}
   });
@@ -1790,7 +1790,7 @@ function _pickMiesiace(vehId) {
         <option value="zbycie">Zbycie / wygaśnięcie (obowiązek do tego miesiąca)</option>
       </select>
       <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px">Data zdarzenia:</label>
-      <input type="date" id="pm-data" style="width:100%;padding:7px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;margin-bottom:10px" value="${(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date())}">
+      <input type="date" id="pm-data" style="width:100%;padding:7px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;margin-bottom:10px" value="${(d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date())}">
       <div id="pm-result" style="font-size:13px;font-weight:600;color:var(--green);margin-bottom:14px;min-height:20px"></div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-green" style="flex:1;justify-content:center" onclick="_applyMiesiace(${vehId})"><i class="ti ti-check"></i>Zastosuj</button>
@@ -2149,8 +2149,8 @@ const _FLEET_COL_TD = {
   oc:         (v)  =>`<td data-col="oc">${_datePill(v.ocEnd)}</td>`,
   ac:         (v)  =>`<td data-col="ac">${_datePill(v.acEnd)}</td>`,
   przeglad:   (v)  =>`<td data-col="przeglad">${_datePill(v.nextInspection)}</td>`,
-  ocInsurer:  (v)  =>`<td data-col="ocInsurer" style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(v.ocInsurer||'')}${v.ocPolicyNo?' · '+esc(v.ocPolicyNo):''}">${v.ocInsurer?`<div style="font-weight:500">${esc(v.ocInsurer)}</div>`:'<span style="color:var(--text3)">—</span>'}${v.ocPolicyNo?`<div style="color:var(--text3);font-size:10px;font-family:var(--mono)">${esc(v.ocPolicyNo)}</div>`:''}</td>`,
-  acInsurer:  (v)  =>`<td data-col="acInsurer" style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(v.acInsurer||'')}${v.acPolicyNo?' · '+esc(v.acPolicyNo):''}">${v.acInsurer?`<div style="font-weight:500">${esc(v.acInsurer)}</div>`:'<span style="color:var(--text3)">—</span>'}${v.acPolicyNo?`<div style="color:var(--text3);font-size:10px;font-family:var(--mono)">${esc(v.acPolicyNo)}</div>`:''}</td>`,
+  ocInsurer:  (v)  =>`<td data-col="ocInsurer" style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(v.ocInsurer||'')}${v.ocPolicyNo?` · ${esc(v.ocPolicyNo)}`:''}">${v.ocInsurer?`<div style="font-weight:500">${esc(v.ocInsurer)}</div>`:'<span style="color:var(--text3)">—</span>'}${v.ocPolicyNo?`<div style="color:var(--text3);font-size:10px;font-family:var(--mono)">${esc(v.ocPolicyNo)}</div>`:''}</td>`,
+  acInsurer:  (v)  =>`<td data-col="acInsurer" style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(v.acInsurer||'')}${v.acPolicyNo?` · ${esc(v.acPolicyNo)}`:''}">${v.acInsurer?`<div style="font-weight:500">${esc(v.acInsurer)}</div>`:'<span style="color:var(--text3)">—</span>'}${v.acPolicyNo?`<div style="color:var(--text3);font-size:10px;font-family:var(--mono)">${esc(v.acPolicyNo)}</div>`:''}</td>`,
   udt:        (v)  =>`<td data-col="udt" style="font-size:11px">${v.hasUdt?(v.udtNextDate?_datePill(v.udtNextDate):'<span style="color:var(--amber);font-size:10px">brak daty</span>'):'<span style="color:var(--text3)">—</span>'}${v.hasUdt&&v.udtDeviceType?`<div style="font-size:10px;color:var(--text3)">${esc(v.udtDeviceType)}</div>`:''}</td>`,
   tacho:      (v)  =>`<td data-col="tacho" style="font-size:11px">${v.hasTacho?(v.tachoNextCalib?_datePill(v.tachoNextCalib):'<span style="color:var(--amber);font-size:10px">brak daty</span>'):'<span style="color:var(--text3)">—</span>'}</td>`,
   kierowca:   (v)  =>`<td data-col="kierowca" style="font-size:12px;white-space:nowrap">${v.kierowca?esc(v.kierowca):'<span style="color:var(--text3)">—</span>'}</td>`,
@@ -2161,13 +2161,13 @@ const _FLEET_COL_TD = {
   podatek:    (v,c)=>`<td data-col="podatek" style="text-align:right">${c.t.amount>0?`<strong style="color:var(--green);font-family:var(--mono)">${fmt2(c.t.amount)} zł</strong>`:'<span style="color:var(--text3)">—</span>'}</td>`,
   vin:        (v)  =>`<td data-col="vin" style="font-size:10px;font-family:var(--mono);color:var(--text2)">${esc(v.vin||'—')}</td>`,
   paliwo:     (v)  =>`<td data-col="paliwo" style="font-size:11px">${esc(v.paliwo||'—')}</td>`,
-  poj:        (v)  =>`<td data-col="poj" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.pojSilnika!=null?v.pojSilnika.toLocaleString('pl-PL')+' cm³':'—'}</td>`,
-  mocKw:      (v)  =>`<td data-col="mocKw" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.mocKW!=null?v.mocKW+' kW':'—'}</td>`,
-  masaWl:     (v)  =>`<td data-col="masaWl" style="font-size:11px;text-align:right;font-family:var(--mono)">${(v.masaWlasna??v.masaWlKg)!=null?(v.masaWlasna??v.masaWlKg).toLocaleString('pl-PL')+' kg':'—'}</td>`,
+  poj:        (v)  =>`<td data-col="poj" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.pojSilnika!=null?`${v.pojSilnika.toLocaleString('pl-PL')} cm³`:'—'}</td>`,
+  mocKw:      (v)  =>`<td data-col="mocKw" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.mocKW!=null?`${v.mocKW} kW`:'—'}</td>`,
+  masaWl:     (v)  =>`<td data-col="masaWl" style="font-size:11px;text-align:right;font-family:var(--mono)">${(v.masaWlasna??v.masaWlKg)!=null?`${(v.masaWlasna??v.masaWlKg).toLocaleString('pl-PL')} kg`:'—'}</td>`,
   msc:        (v)  =>`<td data-col="msc" style="font-size:11px;text-align:center">${v.miejscaSied!=null?v.miejscaSied:'—'}</td>`,
   euro:       (v)  =>`<td data-col="euro" style="font-size:11px">${esc(v.euro||'—')}</td>`,
-  dmcF2:      (v)  =>`<td data-col="dmcF2" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.dmcKg2!=null&&v.dmcKg2!==''?Number(v.dmcKg2).toLocaleString('pl-PL')+' kg':'—'}</td>`,
-  ladownosc:  (v)  =>{const _d=v.dmcKg2||v.dmc||v.dmcMax,_m=v.masaWlasna??v.masaWlKg;const l=v.ladownosc!=null&&v.ladownosc!==''?Number(v.ladownosc):(_d&&_m!=null&&Number(_d)>Number(_m)?Number(_d)-Number(_m):null);return `<td data-col="ladownosc" style="font-size:11px;text-align:right;font-family:var(--mono)">${l!=null?l.toLocaleString('pl-PL')+' kg':'—'}</td>`;},
+  dmcF2:      (v)  =>`<td data-col="dmcF2" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.dmcKg2!=null&&v.dmcKg2!==''?`${Number(v.dmcKg2).toLocaleString('pl-PL')} kg`:'—'}</td>`,
+  ladownosc:  (v)  =>{const _d=v.dmcKg2||v.dmc||v.dmcMax,_m=v.masaWlasna??v.masaWlKg;const l=v.ladownosc!=null&&v.ladownosc!==''?Number(v.ladownosc):(_d&&_m!=null&&Number(_d)>Number(_m)?Number(_d)-Number(_m):null);return `<td data-col="ladownosc" style="font-size:11px;text-align:right;font-family:var(--mono)">${l!=null?`${l.toLocaleString('pl-PL')} kg`:'—'}</td>`;},
   dataRej:    (v)  =>`<td data-col="dataRej" style="font-size:11px;white-space:nowrap">${esc(v.dataRejestracji||v.dataRej||'—')}</td>`,
   katDR:      (v)  =>`<td data-col="katDR" style="font-size:11px;text-align:center">${(v.katPojazdu||v.kategoria)?`<span class="pill pill-gray">${esc(v.katPojazdu||v.kategoria)}</span>`:'—'}</td>`,
   ocStart:    (v)  =>`<td data-col="ocStart" style="font-size:11px;white-space:nowrap">${v.ocStart?esc(v.ocStart):'<span style="color:var(--text3)">—</span>'}</td>`,
@@ -2188,12 +2188,12 @@ const _FLEET_COL_TD = {
   drExpiry:   (v)  =>`<td data-col="drExpiry">${v.dataWaznosciDR?_datePill(v.dataWaznosciDR):'<span style="color:var(--text3)">—</span>'}</td>`,
   rentStart:  (v)  =>`<td data-col="rentStart" style="font-size:11px;white-space:nowrap">${v.rentalStart?esc(v.rentalStart):'<span style="color:var(--text3)">—</span>'}</td>`,
   rentEnd:    (v)  =>`<td data-col="rentEnd">${v.rentalEnd?_datePill(v.rentalEnd):'<span style="color:var(--text3)">—</span>'}</td>`,
-  ocPrem:     (v)  =>`<td data-col="ocPrem" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.ocPremium!=null?Number(v.ocPremium).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł':'<span style="color:var(--text3)">—</span>'}</td>`,
-  acPrem:     (v)  =>`<td data-col="acPrem" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.acPremium!=null?Number(v.acPremium).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł':'<span style="color:var(--text3)">—</span>'}</td>`,
-  leasRate:   (v)  =>`<td data-col="leasRate" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.leasingRate!=null?Number(v.leasingRate).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł':'<span style="color:var(--text3)">—</span>'}</td>`,
-  leasBuyout: (v)  =>`<td data-col="leasBuyout" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.leasingBuyout!=null?Number(v.leasingBuyout).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł':'<span style="color:var(--text3)">—</span>'}</td>`,
+  ocPrem:     (v)  =>`<td data-col="ocPrem" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.ocPremium!=null?`${Number(v.ocPremium).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})} zł`:'<span style="color:var(--text3)">—</span>'}</td>`,
+  acPrem:     (v)  =>`<td data-col="acPrem" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.acPremium!=null?`${Number(v.acPremium).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})} zł`:'<span style="color:var(--text3)">—</span>'}</td>`,
+  leasRate:   (v)  =>`<td data-col="leasRate" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.leasingRate!=null?`${Number(v.leasingRate).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})} zł`:'<span style="color:var(--text3)">—</span>'}</td>`,
+  leasBuyout: (v)  =>`<td data-col="leasBuyout" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.leasingBuyout!=null?`${Number(v.leasingBuyout).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})} zł`:'<span style="color:var(--text3)">—</span>'}</td>`,
   purchDate:  (v)  =>`<td data-col="purchDate" style="font-size:11px;white-space:nowrap">${esc(v.purchaseDate||v.dataNabycia||'—')}</td>`,
-  purchPrice: (v)  =>`<td data-col="purchPrice" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.purchasePrice!=null?Number(v.purchasePrice).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł':'<span style="color:var(--text3)">—</span>'}</td>`,
+  purchPrice: (v)  =>`<td data-col="purchPrice" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.purchasePrice!=null?`${Number(v.purchasePrice).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})} zł`:'<span style="color:var(--text3)">—</span>'}</td>`,
   normaSpal:  (v)  =>`<td data-col="normaSpal" onclick="event.stopPropagation()"><div style="display:flex;align-items:center;gap:3px"><input class="inum" type="number" step="0.1" min="0" max="99" style="width:48px;text-align:right" value="${v.normaSpalania??''}" placeholder="—" onchange="setV(${v.id},'normaSpalania',this.value===''?null:parseFloat(this.value))" title="Norma spalania"><span style="font-size:10px;color:var(--text3);white-space:nowrap">l/100</span></div></td>`,
   assEnd:     (v)  =>`<td data-col="assEnd" style="font-size:11px">${v.assEnd?_datePill(v.assEnd):'<span style="color:var(--text3)">—</span>'}${v.assInsurer?`<div style="font-size:10px;color:var(--text3)">${esc(v.assInsurer)}</div>`:''}</td>`,
   drNr:       (v)  =>`<td data-col="drNr" style="font-size:11px;font-family:var(--mono)">${esc(v.drNr||'—')}</td>`,
@@ -2209,10 +2209,10 @@ const _FLEET_COL_TD = {
   assStart:   (v)  =>`<td data-col="assStart" style="font-size:11px;white-space:nowrap">${v.assStart?esc(v.assStart):'<span style="color:var(--text3)">—</span>'}</td>`,
   assPolicyNo:(v)  =>`<td data-col="assPolicyNo" style="font-size:10px;font-family:var(--mono)">${esc(v.assPolicyNo||'—')}</td>`,
   assInsurer: (v)  =>`<td data-col="assInsurer" style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(v.assInsurer||'')}">${v.assInsurer?esc(v.assInsurer):'<span style="color:var(--text3)">—</span>'}</td>`,
-  leasKmLim:  (v)  =>`<td data-col="leasKmLim" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.leasingKmLimit!=null?Number(v.leasingKmLimit).toLocaleString('pl-PL')+' km':'<span style="color:var(--text3)">—</span>'}</td>`,
+  leasKmLim:  (v)  =>`<td data-col="leasKmLim" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.leasingKmLimit!=null?`${Number(v.leasingKmLimit).toLocaleString('pl-PL')} km`:'<span style="color:var(--text3)">—</span>'}</td>`,
   saleDate:   (v)  =>`<td data-col="saleDate" style="font-size:11px;white-space:nowrap">${v.saleDate?esc(v.saleDate):'<span style="color:var(--text3)">—</span>'}</td>`,
-  salePrice:  (v)  =>`<td data-col="salePrice" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.salePrice!=null?Number(v.salePrice).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł':'<span style="color:var(--text3)">—</span>'}</td>`,
-  co2Gkm:     (v)  =>`<td data-col="co2Gkm" style="font-size:11px;text-align:right;font-family:var(--mono)">${(v.co2GPerKm??v.co2Emission)!=null?Number(v.co2GPerKm??v.co2Emission).toLocaleString('pl-PL')+' g/km':'<span style="color:var(--text3)">—</span>'}</td>`,
+  salePrice:  (v)  =>`<td data-col="salePrice" style="font-size:11px;text-align:right;font-family:var(--mono)">${v.salePrice!=null?`${Number(v.salePrice).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})} zł`:'<span style="color:var(--text3)">—</span>'}</td>`,
+  co2Gkm:     (v)  =>`<td data-col="co2Gkm" style="font-size:11px;text-align:right;font-family:var(--mono)">${(v.co2GPerKm??v.co2Emission)!=null?`${Number(v.co2GPerKm??v.co2Emission).toLocaleString('pl-PL')} g/km`:'<span style="color:var(--text3)">—</span>'}</td>`,
   dataWycof:  (v)  =>`<td data-col="dataWycof" style="font-size:11px;white-space:nowrap">${v.dataWycofania?esc(v.dataWycofania):'<span style="color:var(--text3)">—</span>'}</td>`,
   dataWyreg:  (v)  =>`<td data-col="dataWyreg" style="font-size:11px;white-space:nowrap">${v.dataWyrejestrowania?esc(v.dataWyrejestrowania):'<span style="color:var(--text3)">—</span>'}</td>`,
   wlascNip:   (v)  =>`<td data-col="wlascNip" style="font-size:11px;font-family:var(--mono)">${esc(v.wlascicielNIP||v.nipWlasciciela||'—')}</td>`,
@@ -2530,7 +2530,7 @@ function _syncViewModeButtons() {
     b.className = b.className.replace('btn-blue','btn-gray');
     if (!b.className.includes('btn-gray')) b.className += ' btn-gray';
   });
-  const active = document.getElementById('view-btn-' + _viewMode);
+  const active = document.getElementById(`view-btn-${  _viewMode}`);
   if (active) { active.className = active.className.replace('btn-gray','btn-blue'); }
 }
 
@@ -2554,8 +2554,8 @@ async function _renderFleetKpiStrip() {
     const tok  = localStorage.getItem('cf_token');
     if (!tok) throw new Error('no-token');
     const comp = window.currentCompanyId || 'mtoilet';
-    const r    = await fetch(`${API}/api/dashboard/stats?company=${comp}`, { headers: { Authorization: 'Bearer ' + tok } });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const r    = await fetch(`${API}/api/dashboard/stats?company=${comp}`, { headers: { Authorization: `Bearer ${  tok}` } });
+    if (!r.ok) throw new Error(`HTTP ${  r.status}`);
     const s = await r.json();
     window._dashStats = s;
     _renderKpiFromStats(s, noDriver);
@@ -2664,7 +2664,7 @@ function _renderCards(list) {
         <span class="pill ${statusCls}" style="font-size:10px">${esc(v.status||'—')}</span>
       </div>
       <div class="fc-brand">${esc(v.marka)} ${esc(v.model)}</div>
-      <div class="fc-meta">${esc(v.rok||'—')} · ${esc(v.typ||'—')}${v.euro?' · '+esc(v.euro):''}</div>
+      <div class="fc-meta">${esc(v.rok||'—')} · ${esc(v.typ||'—')}${v.euro?` · ${esc(v.euro)}`:''}</div>
       <div class="fc-row"><span class="fc-icon">👤</span><span style="${!v.kierowca?'color:var(--text3);font-style:italic':''}">${esc(v.kierowca||'brak kierowcy')}</span></div>
       ${v.stanKilometrow != null ? `<div class="fc-row"><span class="fc-icon">🛣</span><span style="font-family:var(--mono)">${v.stanKilometrow.toLocaleString('pl-PL')} km</span>${_gpsIndicator(v)}</div>` : ''}
       <div class="fc-dates">
@@ -2685,12 +2685,12 @@ function updateCounters() {
   document.getElementById('badge-sel').textContent = cnt;
   document.getElementById('btn-sel-cnt').textContent = cnt;
   document.getElementById('s-sel').textContent = cnt;
-  document.getElementById('s-tax').textContent = fmtZl(total).toLocaleString('pl-PL')+' zł';
+  document.getElementById('s-tax').textContent = `${fmtZl(total).toLocaleString('pl-PL')} zł`;
   document.getElementById('s-new').textContent = vehs.filter(v=>selected.has(v.id)&&(parseInt(v.rok)||0)>=2024).length;
   document.getElementById('pd-cnt').textContent = getSelTax().filter(v=>v.cat).length;
   const pdTax = getSelTax().filter(v=>v.cat).reduce((s,v)=>s+(v.amount||0),0);
   const pdEl = document.getElementById('pd-taxable'); if(pdEl) pdEl.textContent = getSelTax().filter(v=>v.cat).length;
-  const pdTotalEl = document.getElementById('pd-total'); if(pdTotalEl) pdTotalEl.textContent = fmt2(pdTax)+' zł';
+  const pdTotalEl = document.getElementById('pd-total'); if(pdTotalEl) pdTotalEl.textContent = `${fmt2(pdTax)} zł`;
   const lbl = document.getElementById('veh-count-label');
   if (lbl) {
     const filtered = filterVeh().length;
@@ -2705,7 +2705,7 @@ function updateCounters() {
       bulkBar.style.display = 'flex';
       const s = cnt === 1 ? 'pojazd zaznaczony' : cnt < 5 ? 'pojazdy zaznaczone' : 'pojazdów zaznaczonych';
       const bc = document.getElementById('bulk-count');
-      if (bc) bc.textContent = cnt + ' ' + s;
+      if (bc) bc.textContent = `${cnt  } ${  s}`;
     } else {
       bulkBar.style.display = 'none';
     }
@@ -2739,8 +2739,8 @@ function bulkExportSelected() {
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(rows);
   XLSX.utils.book_append_sheet(wb, ws, 'Pojazdy');
-  XLSX.writeFile(wb, 'flota-' + new Date().toISOString().slice(0,10) + '.xlsx');
-  toast('✓ Wyeksportowano ' + sel.length + ' pojazdów do Excel');
+  XLSX.writeFile(wb, `flota-${  new Date().toISOString().slice(0,10)  }.xlsx`);
+  toast(`✓ Wyeksportowano ${  sel.length  } pojazdów do Excel`);
 }
 
 function bulkExportCSV() {
@@ -2752,21 +2752,21 @@ function bulkExportCSV() {
     v.dmc??v.dmcMax??'', v.status||'', v.kierowca||'', v.vin||'',
     v.cat||'', v.amount>0?v.amount:'',
   ].map(csvCell).join(';'));
-  const blob = new Blob(['﻿' + [header, ...rows].join('\r\n')], { type: 'text/csv;charset=utf-8' });
-  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'flota-' + new Date().toISOString().slice(0,10) + '.csv' });
+  const blob = new Blob([`﻿${  [header, ...rows].join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `flota-${  new Date().toISOString().slice(0,10)  }.csv` });
   a.click();
-  toast('✓ Wyeksportowano ' + sel.length + ' pojazdów do CSV');
+  toast(`✓ Wyeksportowano ${  sel.length  } pojazdów do CSV`);
 }
 
 function bulkExportTXT() {
   const sel = getSel();
   if (!sel.length) return;
   const header = 'Nr rej.\tMarka / Model\tRok\tTyp\tKierowca\tStatus';
-  const rows = sel.map(v => `${v.nrRej||'---'}\t${(v.marka||'')+' '+(v.model||'')}\t${v.rok||''}\t${v.typ||''}\t${v.kierowca||''}\t${v.status||''}`);
+  const rows = sel.map(v => `${v.nrRej||'---'}\t${`${v.marka||''} ${v.model||''}`}\t${v.rok||''}\t${v.typ||''}\t${v.kierowca||''}\t${v.status||''}`);
   const blob = new Blob([[header, ...rows].join('\r\n')], { type: 'text/plain;charset=utf-8' });
-  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'flota-' + new Date().toISOString().slice(0,10) + '.txt' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `flota-${  new Date().toISOString().slice(0,10)  }.txt` });
   a.click();
-  toast('✓ Wyeksportowano ' + sel.length + ' pojazdów do TXT');
+  toast(`✓ Wyeksportowano ${  sel.length  } pojazdów do TXT`);
 }
 
 // Lista "właścicieli" (etykieta wewnątrz firmy-najemcy, np. spółka z grupy) —
@@ -2834,18 +2834,18 @@ function _bulkAssignCompanyApply() {
   sel.forEach(v => { v.wlasciciel = company; window.TaxOrderFleetCloud?.saveVehicle?.(v); });
   document.getElementById('bulk-assign-company-modal')?.remove();
   renderVeh(); updateCounters(); _populateOwnerFilter();
-  toast('✓ Przypisano „' + company + '" dla ' + sel.length + ' pojazdów');
+  toast(`✓ Przypisano „${  company  }" dla ${  sel.length  } pojazdów`);
 }
 
 function bulkSetTaxMonths() {
   const sel = getSel();
   if (!sel.length) return;
-  const months = prompt('Ustaw miesiące podatku DT-1 dla ' + sel.length + ' pojazdów (1–12):');
+  const months = prompt(`Ustaw miesiące podatku DT-1 dla ${  sel.length  } pojazdów (1–12):`);
   const m = parseInt(months);
   if (isNaN(m) || m < 1 || m > 12) { toast('⚠ Nieprawidłowa liczba miesięcy (1–12)'); return; }
   sel.forEach(v => { v.miesiacePodatku = m; window.TaxOrderFleetCloud?.saveVehicle?.(v); });
   renderVeh(); updateCounters(); renderKalkulator();
-  toast('✓ Ustawiono ' + m + ' miesięcy podatku dla ' + sel.length + ' pojazdów');
+  toast(`✓ Ustawiono ${  m  } miesięcy podatku dla ${  sel.length  } pojazdów`);
 }
 
 function bulkChangeStatus() {
@@ -2882,7 +2882,7 @@ function _bulkChangeStatusApply() {
   sel.forEach(v => { v.status = status; window.TaxOrderFleetCloud?.saveVehicle?.(v); });
   document.getElementById('bulk-status-modal')?.remove();
   renderVeh(); updateCounters();
-  toast('✓ Zmieniono status na „' + status + '" dla ' + sel.length + ' pojazdów');
+  toast(`✓ Zmieniono status na „${  status  }" dla ${  sel.length  } pojazdów`);
 }
 
 function bulkCompare() {
@@ -2894,7 +2894,7 @@ function bulkCompare() {
   if (vList.length < 2) { toast('Zaznacz co najmniej 2 pojazdy do porównania'); return; }
 
   const yr = String(new Date().getFullYear());
-  const _days = ds => { if (!ds) return null; const d = new Date(ds + 'T00:00:00'); return isNaN(d) ? null : Math.round((d - Date.now()) / 86400000); };
+  const _days = ds => { if (!ds) return null; const d = new Date(`${ds  }T00:00:00`); return isNaN(d) ? null : Math.round((d - Date.now()) / 86400000); };
   const _fuelEff = v => {
     const h = [...(v.fuelHistory || [])].filter(x => x.km > 0 && x.liters > 0).sort((a, b) => a.km - b.km);
     let l = 0, k = 0, n = 0;
@@ -2903,7 +2903,7 @@ function bulkCompare() {
   };
 
   const ROWS = [
-    ['Marka / Model',          v => (v.marka || '—') + ' ' + (v.model || '')],
+    ['Marka / Model',          v => `${v.marka || '—'  } ${  v.model || ''}`],
     ['Rok',                    v => v.rok || '—'],
     ['Typ pojazdu',            v => v.typ || '—'],
     ['DMC (kg)',               v => v.dmc ?? v.dmcMax ?? '—'],
@@ -2911,15 +2911,15 @@ function bulkCompare() {
     ['Kierowca',               v => v.kierowca || '—'],
     ['Stan licznika (km)',     v => v.stanKilometrow != null ? v.stanKilometrow.toLocaleString('pl-PL') : '—'],
     ['Norma spalania (l/100)', v => v.normaSpalania || '—'],
-    ['Śr. spalanie (rzeczyw.)',v => { const e = _fuelEff(v); return e ? e + ' l/100km' : '—'; }],
+    ['Śr. spalanie (rzeczyw.)',v => { const e = _fuelEff(v); return e ? `${e  } l/100km` : '—'; }],
     ['OC — wygasa',            v => v.ocEnd || '—', v => v.ocEnd && _days(v.ocEnd) < 30],
     ['AC — wygasa',            v => v.acEnd || '—', v => v.acEnd && _days(v.acEnd) < 30],
     ['Przegląd — termin',      v => v.nextInspection || '—', v => v.nextInspection && _days(v.nextInspection) < 30],
     ['Kategoria DT-1',         v => (typeof calcTax === 'function' ? calcTax(v).cat : null) || v.cat || '—'],
-    ['Podatek DT-1 (zł/rok)',  v => { const t = typeof calcTax === 'function' ? calcTax(v) : {}; return t.amount != null ? Math.round(t.amount).toLocaleString('pl-PL') + ' zł' : '—'; }],
-    ['TCO — paliwo (rok)',     v => { const f = (v.fuelHistory || []).filter(h => (h.date || '').startsWith(yr)).reduce((s, h) => s + (h.totalGross || 0), 0); return f > 0 ? f.toFixed(0) + ' zł' : '—'; }],
-    ['TCO — serwis (rok)',     v => { const s = (v.serviceHistory || []).filter(h => (h.date || '').startsWith(yr)).reduce((s, h) => s + (+h.cost || 0), 0); return s > 0 ? s.toFixed(0) + ' zł' : '—'; }],
-    ['Ubezpieczenia (rok)',    v => { const i = (+(v.ocPremium) || 0) + (+(v.acPremium) || 0); return i > 0 ? i.toFixed(0) + ' zł' : '—'; }],
+    ['Podatek DT-1 (zł/rok)',  v => { const t = typeof calcTax === 'function' ? calcTax(v) : {}; return t.amount != null ? `${Math.round(t.amount).toLocaleString('pl-PL')  } zł` : '—'; }],
+    ['TCO — paliwo (rok)',     v => { const f = (v.fuelHistory || []).filter(h => (h.date || '').startsWith(yr)).reduce((s, h) => s + (h.totalGross || 0), 0); return f > 0 ? `${f.toFixed(0)  } zł` : '—'; }],
+    ['TCO — serwis (rok)',     v => { const s = (v.serviceHistory || []).filter(h => (h.date || '').startsWith(yr)).reduce((s, h) => s + (+h.cost || 0), 0); return s > 0 ? `${s.toFixed(0)  } zł` : '—'; }],
+    ['Ubezpieczenia (rok)',    v => { const i = (+(v.ocPremium) || 0) + (+(v.acPremium) || 0); return i > 0 ? `${i.toFixed(0)  } zł` : '—'; }],
     ['Status',                 v => v.status || '—'],
   ];
 
@@ -2976,7 +2976,7 @@ async function lookupNip() {
   try {
     const today = new Date().toISOString().split('T')[0];
     const r = await fetch(`https://wl-api.mf.gov.pl/api/check/nip/${nip}?date=${today}`, { signal: AbortSignal.timeout(10000) });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
+    if (!r.ok) throw new Error(`HTTP ${  r.status}`);
     const data = await r.json();
     const s = data?.result?.subject;
     if (!s) throw new Error('Brak danych dla tego NIP');
@@ -3016,7 +3016,7 @@ function renderFuelDash() {
   const el = document.getElementById('dash-fuel');
   if (!el) return;
   const now = new Date();
-  const thisMonth = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 
   const stats = vehs
     .filter(v => Array.isArray(v.fuelHistory) && v.fuelHistory.length)
@@ -3044,7 +3044,7 @@ function renderFuelDash() {
   const totalLiters = stats.reduce((s,x)=>s+x.liters,0);
   const totalCO2    = window.FuelImport?.getFleetCO2 ? window.FuelImport.getFleetCO2(thisMonth) : 0;
   const co2Label    = totalCO2 >= 1000 ? `${(totalCO2/1000).toFixed(2)} t` : `${totalCO2.toFixed(0)} kg`;
-  const prevMonth   = (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))(new Date(now.getFullYear(), now.getMonth()-1, 1));
+  const prevMonth   = (d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`)(new Date(now.getFullYear(), now.getMonth()-1, 1));
   const prevCO2     = window.FuelImport?.getFleetCO2 ? window.FuelImport.getFleetCO2(prevMonth) : 0;
   const co2Trend    = prevCO2 > 0 ? ((totalCO2 - prevCO2) / prevCO2 * 100) : null;
   const co2TrendStr = co2Trend != null ? `<span style="font-size:10px;color:${co2Trend<=0?'var(--green)':'var(--red)'}">${co2Trend>0?'↑':'↓'}${Math.abs(co2Trend).toFixed(0)}% vs poprzedni mies.</span>` : '';
@@ -3082,7 +3082,7 @@ function exportPaliwoCSV() {
   const mSel = document.getElementById('paliwo-month-sel');
   const vSel = document.getElementById('paliwo-veh-sel');
   const fSel = document.getElementById('paliwo-fuel-sel');
-  const selMonth = mSel?.value || (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))(new Date());
+  const selMonth = mSel?.value || (d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`)(new Date());
   const selVeh   = vSel?.value || '';
   const selFuel  = fSel?.value || '';
 
@@ -3116,14 +3116,14 @@ function exportPaliwoCSV() {
     h.km != null ? String(h.km) : '',
   ]);
 
-  const csv = '﻿' + [hdrs, ...data].map(r => r.map(csvCell).join(';')).join('\r\n');
+  const csv = `﻿${  [hdrs, ...data].map(r => r.map(csvCell).join(';')).join('\r\n')}`;
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'tankowania_' + selMonth + '.csv';
+  a.download = `tankowania_${  selMonth  }.csv`;
   a.click();
   URL.revokeObjectURL(a.href);
-  toast?.('✓ Wyeksportowano ' + rows.length + ' tankowań do CSV');
+  toast?.(`✓ Wyeksportowano ${  rows.length  } tankowań do CSV`);
 }
 
 // ==================== PALIWO PAGE ====================
@@ -3137,7 +3137,7 @@ function renderPaliwoPage() {
     const opts = [];
     for (let i = 0; i < 18; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const val = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+      const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
       const label = d.toLocaleDateString('pl-PL', { year: 'numeric', month: 'long' });
       opts.push(`<option value="${val}"${i === 0 ? ' selected' : ''}>${label}</option>`);
     }
@@ -3149,17 +3149,17 @@ function renderPaliwoPage() {
   if (vSel) {
     const prev = vSel.value;
     const withFuel = vehs.filter(v => v.fuelHistory?.length);
-    vSel.innerHTML = '<option value="">Wszystkie pojazdy</option>' +
-      withFuel.map(v => `<option value="${v.id}">${esc(v.nrRej)} — ${esc(v.marka)} ${esc(v.model)}</option>`).join('');
+    vSel.innerHTML = `<option value="">Wszystkie pojazdy</option>${ 
+      withFuel.map(v => `<option value="${v.id}">${esc(v.nrRej)} — ${esc(v.marka)} ${esc(v.model)}</option>`).join('')}`;
     if (prev) vSel.value = prev;
   }
 
-  const selMonth = mSel?.value || now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const selMonth = mSel?.value || `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   const selVeh   = vSel?.value || '';
   const selFuel  = document.getElementById('paliwo-fuel-sel')?.value || '';
 
   // --- Zbieranie danych tankowań ---
-  let rows = [];
+  const rows = [];
   vehs.forEach(v => {
     if (!Array.isArray(v.fuelHistory)) return;
     if (selVeh && String(v.id) !== selVeh) return;
@@ -3180,11 +3180,11 @@ function renderPaliwoPage() {
   const kpiEl = document.getElementById('paliwo-kpi');
   if (kpiEl) {
     kpiEl.innerHTML = [
-      { label: 'Łączny koszt paliwa', val: totalCost.toFixed(2) + ' zł', color: 'var(--amber)', icon: 'ti-currency-dollar' },
-      { label: 'Ilość zatankowana', val: totalLiters.toFixed(1) + ' l', color: 'var(--blue)', icon: 'ti-droplet' },
-      { label: 'Śr. cena za litr', val: avgPrice > 0 ? avgPrice.toFixed(3) + ' zł/l' : '—', color: 'var(--text2)', icon: 'ti-tag' },
+      { label: 'Łączny koszt paliwa', val: `${totalCost.toFixed(2)  } zł`, color: 'var(--amber)', icon: 'ti-currency-dollar' },
+      { label: 'Ilość zatankowana', val: `${totalLiters.toFixed(1)  } l`, color: 'var(--blue)', icon: 'ti-droplet' },
+      { label: 'Śr. cena za litr', val: avgPrice > 0 ? `${avgPrice.toFixed(3)  } zł/l` : '—', color: 'var(--text2)', icon: 'ti-tag' },
       { label: 'Tankowania', val: rows.length, color: 'var(--text2)', icon: 'ti-list' },
-      { label: 'Emisja CO₂ (KOBIZE)', val: totalCO2 > 0 ? (totalCO2 >= 1000 ? (totalCO2/1000).toFixed(2)+' t' : totalCO2.toFixed(0)+' kg') : '—', color: 'var(--green)', icon: 'ti-leaf' },
+      { label: 'Emisja CO₂ (KOBIZE)', val: totalCO2 > 0 ? (totalCO2 >= 1000 ? `${(totalCO2/1000).toFixed(2)} t` : `${totalCO2.toFixed(0)} kg`) : '—', color: 'var(--green)', icon: 'ti-leaf' },
     ].map(k => `
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">
@@ -3238,7 +3238,7 @@ function renderPaliwoPage() {
           const kd = withKm[j].km - withKm[j-1].km;
           if (kd > 10 && kd < 5000) { _effL += withKm[j].liters; _effKm += kd; _effN++; }
         }
-        const avg = (_effN >= 1 && _effKm > 0) ? (_effL / _effKm * 100).toFixed(1) + ' l/100km' : '—';
+        const avg = (_effN >= 1 && _effKm > 0) ? `${(_effL / _effKm * 100).toFixed(1)  } l/100km` : '—';
         return `<tr>
           <td style="color:var(--text3);font-size:13px">${i + 1}</td>
           <td style="font-weight:600;font-family:var(--mono)">${esc(x.v.nrRej)}</td>
@@ -3317,7 +3317,7 @@ function renderPaliwoPage() {
     const months = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      months.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));
+      months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
     }
     const mCosts = months.map(m => {
       let c = 0;
@@ -3331,7 +3331,7 @@ function renderPaliwoPage() {
       return c;
     });
     const maxCost = Math.max(...mCosts, 1);
-    chartEl.innerHTML = `<div style="display:flex;align-items:flex-end;gap:4px;height:80px">` +
+    chartEl.innerHTML = `<div style="display:flex;align-items:flex-end;gap:4px;height:80px">${ 
       mCosts.map((c, i) => {
         const pct = Math.round(c / maxCost * 100);
         const label = months[i].slice(5);
@@ -3340,7 +3340,7 @@ function renderPaliwoPage() {
           <div style="width:100%;height:${pct}%;min-height:2px;background:${isSelected?'var(--blue)':'var(--border)'};border-radius:2px 2px 0 0;transition:background .15s" title="${c.toFixed(0)} zł"></div>
           <div style="font-size:9px;color:${isSelected?'var(--blue)':'var(--text3)'};font-weight:${isSelected?'700':'400'}">${label}</div>
         </div>`;
-      }).join('') + `</div>`;
+      }).join('')  }</div>`;
   }
 
   // --- Rozkład wg rodzaju paliwa ---
@@ -3504,9 +3504,9 @@ async function _handlePzHashCallback() {
 
   try {
     const API  = window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
-    const hdrs = { Authorization: 'Bearer ' + pzToken };
+    const hdrs = { Authorization: `Bearer ${  pzToken}` };
     const resp = await fetch(`${API}/api/auth/me`, { headers: hdrs });
-    if (!resp.ok) throw new Error('Brak sesji (HTTP ' + resp.status + ')');
+    if (!resp.ok) throw new Error(`Brak sesji (HTTP ${  resp.status  })`);
     const u = await resp.json();
 
     // Pobierz claims PZ do pre-fillowania DT-1
@@ -3552,7 +3552,7 @@ async function _handlePzHashCallback() {
     updateCounters();
   } catch (e) {
     localStorage.removeItem('cf_token');
-    showLoginErr('Błąd logowania PZ: ' + e.message);
+    showLoginErr(`Błąd logowania PZ: ${  e.message}`);
   }
   return true;
 }
@@ -3563,7 +3563,7 @@ async function applyPzClaimsToForm() {
     const tok = localStorage.getItem('cf_token');
     if (!tok) { alert('Zaloguj się Profilem Zaufanym, aby skorzystać z tej funkcji.'); return; }
     const API = window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
-    const r = await fetch(`${API}/api/auth/pz/userinfo`, { headers: { Authorization: 'Bearer ' + tok } }).catch(() => null);
+    const r = await fetch(`${API}/api/auth/pz/userinfo`, { headers: { Authorization: `Bearer ${  tok}` } }).catch(() => null);
     if (!r?.ok) { alert('Brak danych Profilu Zaufanego. Zaloguj się Profilem Zaufanym.'); return; }
     const d = await r.json().catch(() => null);
     claims = d?.pz;
@@ -3653,7 +3653,7 @@ document.body.appendChild(pan);
   // '%22' w danych pojazdu zamieniało się w '"' i wychodziło poza literał JSON (potwierdzone
   // w Chromium). Chroni też '%' w stylach (width:100%) i '#' w kolorach przed obcięciem do fragmentu.
   // eslint-disable-next-line no-script-url
-  const bm = 'javascript:' + encodeURIComponent(script + '(' + JSON.stringify(D) + ')');
+  const bm = `javascript:${  encodeURIComponent(`${script  }(${  JSON.stringify(D)  })`)}`;
   const resultEl = document.getElementById('warsaw-bookmarklet-result');
   const linkEl   = document.getElementById('warsaw-bookmarklet-link');
   const labelEl  = document.getElementById('warsaw-bookmarklet-label');
@@ -3814,7 +3814,7 @@ function renderDash() {
     return `<tr><td>${m}</td><td style="font-weight:600">${n}</td><td>${[...cats].map(c=>`<span class="pill ${CAT_COLORS[c]||'pill-gray'}" style="margin-right:3px">${c}</span>`).join('')||'—'}</td></tr>`;
   }).join('');
   const newCount = vehs.filter(v=>(parseInt(v.rok)||0)>=2024).length;
-  document.getElementById('s-new').textContent = newCount + ' poj.';
+  document.getElementById('s-new').textContent = `${newCount  } poj.`;
   document.getElementById('s-total').textContent = vehs.length;
 
   // Alerty — pojazdy z terminami w ciągu 60 dni lub przeterminowanymi
@@ -3855,7 +3855,7 @@ function renderDash() {
       <td>${_datePill(v.nextInspection)}</td>
       <td style="font-size:11px">
         ${v.hasUdt&&v.udtNextDate?_datePill(v.udtNextDate):'<span style="color:var(--text3)">—</span>'}
-        ${v.hasTacho&&v.tachoNextCalib?'<span style="margin-left:4px">'+_datePill(v.tachoNextCalib)+'</span>':''}
+        ${v.hasTacho&&v.tachoNextCalib?`<span style="margin-left:4px">${_datePill(v.tachoNextCalib)}</span>`:''}
       </td>
       <td style="text-align:center" onclick="event.stopPropagation()">
         <button class="btn btn-gray" style="font-size:11px;padding:3px 8px" onclick="TaxOrderVehicleDetail.open(${v.id})" title="Karta pojazdu">
@@ -3877,7 +3877,7 @@ function renderDash() {
   _renderPolicyExpiryDash();
   _renderMileagePendingDash();
   const _luEl = document.getElementById('dash-last-update');
-  if (_luEl) _luEl.textContent = 'Odświeżono ' + new Date().toLocaleTimeString('pl-PL', {hour:'2-digit', minute:'2-digit'});
+  if (_luEl) _luEl.textContent = `Odświeżono ${  new Date().toLocaleTimeString('pl-PL', {hour:'2-digit', minute:'2-digit'})}`;
 }
 
 function _renderActivityFeed() {
@@ -3894,7 +3894,7 @@ function _renderActivityFeed() {
     (v.serviceHistory || []).forEach(s => {
       if (!s.date) return;
       events.push({ date: s.date, icon: 'ti-tools', color: '#2563eb',
-        text: `Serwis: ${esc(window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label || s.type || 'Serwis')}${s.description ? ' — ' + esc(s.description) : ''}`,
+        text: `Serwis: ${esc(window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label || s.type || 'Serwis')}${s.description ? ` — ${  esc(s.description)}` : ''}`,
         sub: s.cost ? `${Number(s.cost).toFixed(0)} zł` : '',
         nrRej, id });
     });
@@ -3910,7 +3910,7 @@ function _renderActivityFeed() {
     const lastFuel = [...(v.fuelHistory || [])].sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1)[0];
     if (lastFuel?.date) {
       events.push({ date: lastFuel.date, icon: 'ti-gas-station', color: '#d97706',
-        text: `Tankowanie: ${lastFuel.liters ? Number(lastFuel.liters).toFixed(1)+' l' : ''}`,
+        text: `Tankowanie: ${lastFuel.liters ? `${Number(lastFuel.liters).toFixed(1)} l` : ''}`,
         sub: lastFuel.totalGross ? `${Number(lastFuel.totalGross).toFixed(0)} zł` : '',
         nrRej, id });
     }
@@ -3976,7 +3976,7 @@ async function _renderMileagePendingDash() {
     const token = localStorage.getItem('cf_token') || '';
     const co    = localStorage.getItem('cf_company') || '';
     const r = await fetch(`${BASE}/api/mileage-claims?company=${encodeURIComponent(co)}&status=pending`, {
-      headers: { Authorization: 'Bearer ' + token }
+      headers: { Authorization: `Bearer ${  token}` }
     });
     const list = r.ok ? await r.json() : [];
     if (!list.length) {
@@ -3984,15 +3984,15 @@ async function _renderMileagePendingDash() {
       return;
     }
     const total = list.reduce((s, c) => s + (c.amount || 0), 0);
-    el.innerHTML = `<div style="font-size:11px;color:var(--text3);margin-bottom:6px">${list.length} rozliczeń · suma ${total.toFixed(2)} zł</div>`
-      + list.slice(0, 5).map(c => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border);cursor:pointer" onclick="showPage('mileage-claims')">
+    el.innerHTML = `<div style="font-size:11px;color:var(--text3);margin-bottom:6px">${list.length} rozliczeń · suma ${total.toFixed(2)} zł</div>${
+       list.slice(0, 5).map(c => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border);cursor:pointer" onclick="showPage('mileage-claims')">
         <i class="ti ti-user" style="color:var(--blue);font-size:13px;flex-shrink:0"></i>
         <div style="flex:1;min-width:0">
           <div style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.driver_name)}</div>
           <div style="font-size:11px;color:var(--text2)">${esc(c.claim_date)} · ${esc(c.nr_rej || '—')}</div>
         </div>
-        <span style="font-size:11px;font-weight:700;flex-shrink:0;color:var(--blue)">${c.amount != null ? c.amount.toFixed(2) + ' zł' : '—'}</span>
-      </div>`).join('');
+        <span style="font-size:11px;font-weight:700;flex-shrink:0;color:var(--blue)">${c.amount != null ? `${c.amount.toFixed(2)  } zł` : '—'}</span>
+      </div>`).join('')}`;
   } catch { el.innerHTML = '<div style="color:var(--text3);font-size:11px;padding:8px">—</div>'; }
 }
 
@@ -4077,9 +4077,9 @@ function _renderServiceDash() {
         <i class="ti ${t.icon}" style="color:${t.color};font-size:14px;flex-shrink:0"></i>
         <div style="flex:1;min-width:0">
           <div style="font-size:11px;font-weight:700;font-family:var(--mono)">${esc(v.nrRej)}</div>
-          <div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.label)}${s.nextServiceDate ? ' · ' + esc(s.nextServiceDate.slice(0,10)) : ''}</div>
+          <div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.label)}${s.nextServiceDate ? ` · ${  esc(s.nextServiceDate.slice(0,10))}` : ''}</div>
         </div>
-        <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${days<0?'var(--red)':days<=7?'var(--red)':days<=14?'var(--amber)':'var(--text2)'}">${days<0?Math.abs(days)+'d temu':'za '+days+'d'}</span>
+        <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${days<0?'var(--red)':days<=7?'var(--red)':days<=14?'var(--amber)':'var(--text2)'}">${days<0?`${Math.abs(days)}d temu`:`za ${days}d`}</span>
       </div>`;
     }).join('')}`;
 }
@@ -4105,7 +4105,7 @@ function _renderFinesDash() {
     </div>`;
     return;
   }
-  const days = d => { if (!d) return null; const dt = new Date(d.includes('T') ? d : d + 'T00:00:00'); if (isNaN(dt)) return null; const t = new Date(); t.setHours(0,0,0,0); return Math.round((dt-t)/86400000); };
+  const days = d => { if (!d) return null; const dt = new Date(d.includes('T') ? d : `${d  }T00:00:00`); if (isNaN(dt)) return null; const t = new Date(); t.setHours(0,0,0,0); return Math.round((dt-t)/86400000); };
   el.innerHTML = `
     <div style="font-size:12px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px;color:var(--red)">
       <i class="ti ti-alert-triangle"></i>Nieopłacone mandaty (${alerts.length})
@@ -4118,9 +4118,9 @@ function _renderFinesDash() {
         <i class="ti ${t.icon}" style="color:${t.color};font-size:13px;flex-shrink:0"></i>
         <div style="flex:1;min-width:0">
           <div style="font-size:11px;font-weight:700;font-family:var(--mono)">${esc(f.nr_rej||'—')}</div>
-          <div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.label}${f.amount?' · '+f.amount+' zł':''}</div>
+          <div style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.label}${f.amount?` · ${f.amount} zł`:''}</div>
         </div>
-        <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${dl===null?'var(--text3)':dl<0?'var(--red)':dl<=3?'var(--red)':'var(--amber)'}">${dl===null?'—':dl<0?Math.abs(dl)+'d temu':'za '+dl+'d'}</span>
+        <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${dl===null?'var(--text3)':dl<0?'var(--red)':dl<=3?'var(--red)':'var(--amber)'}">${dl===null?'—':dl<0?`${Math.abs(dl)}d temu`:`za ${dl}d`}</span>
       </div>`;
     }).join('')}`;
 }
@@ -4162,9 +4162,9 @@ function _renderDriversDash() {
         <i class="ti ti-id-badge" style="color:var(--amber);font-size:13px;flex-shrink:0"></i>
         <div style="flex:1;min-width:0">
           <div style="font-size:11px;font-weight:700">${esc(d.name)}</div>
-          <div style="font-size:11px;color:var(--text2)">${d.license_no ? 'Nr: '+esc(d.license_no) : 'Brak numeru prawa jazdy'}</div>
+          <div style="font-size:11px;color:var(--text2)">${d.license_no ? `Nr: ${esc(d.license_no)}` : 'Brak numeru prawa jazdy'}</div>
         </div>
-        <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${days<0?'var(--red)':days<=14?'var(--red)':'var(--amber)'}">${days<0?Math.abs(days)+'d temu':'za '+days+'d'}</span>
+        <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${days<0?'var(--red)':days<=14?'var(--red)':'var(--amber)'}">${days<0?`${Math.abs(days)}d temu`:`za ${days}d`}</span>
       </div>`;
     }).join('')}`;
 }
@@ -4236,9 +4236,9 @@ function _renderFleetCardsDash() {
         <i class="ti ${icon}" style="color:var(--blue);font-size:13px;flex-shrink:0"></i>
         <div style="flex:1;min-width:0">
           <div style="font-size:11px;font-weight:700">${esc(k.card_no)} <span style="font-weight:400;color:var(--text2)">${esc(k.type)}</span></div>
-          <div style="font-size:11px;color:var(--text2)">${k.nr_rej ? 'Pojazd: '+esc(k.nr_rej) : esc(k.provider || 'Brak pojazdu')}</div>
+          <div style="font-size:11px;color:var(--text2)">${k.nr_rej ? `Pojazd: ${esc(k.nr_rej)}` : esc(k.provider || 'Brak pojazdu')}</div>
         </div>
-        <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${days<0?'var(--red)':days<=7?'var(--red)':'var(--blue)'}">${days<0?'WYGASŁA '+Math.abs(days)+'d temu':'za '+days+'d'}</span>
+        <span style="font-size:11px;font-weight:700;flex-shrink:0;color:${days<0?'var(--red)':days<=7?'var(--red)':'var(--blue)'}">${days<0?`WYGASŁA ${Math.abs(days)}d temu`:`za ${days}d`}</span>
       </div>`;
     }).join('')}`;
 }
@@ -4275,14 +4275,14 @@ function _renderFleetKpi() {
     tcoYtd += (v.serviceHistory||[]).filter(h=>(h.date||'').startsWith(yrPfx)).reduce((s,h)=>s+(h.cost||0),0);
   });
   const tcoFmt = tcoYtd >= 1e6
-    ? (tcoYtd/1e6).toFixed(1)+'M'
-    : tcoYtd >= 1e3 ? Math.round(tcoYtd/1000)+'k' : Math.round(tcoYtd).toString();
+    ? `${(tcoYtd/1e6).toFixed(1)}M`
+    : tcoYtd >= 1e3 ? `${Math.round(tcoYtd/1000)}k` : Math.round(tcoYtd).toString();
 
   // Tax YTD
   const totalTaxYtd = allVehs.reduce((s,v) => s + ((calcTax(v)||{}).amount||0), 0);
   const taxFmt = totalTaxYtd >= 1e6
-    ? (totalTaxYtd/1e6).toFixed(1)+'M'
-    : totalTaxYtd >= 1e3 ? Math.round(totalTaxYtd/1e3)+'k' : Math.round(totalTaxYtd).toString();
+    ? `${(totalTaxYtd/1e6).toFixed(1)}M`
+    : totalTaxYtd >= 1e3 ? `${Math.round(totalTaxYtd/1e3)}k` : Math.round(totalTaxYtd).toString();
 
   const _pln = t('common.pln');
   const chips = [
@@ -4296,7 +4296,7 @@ function _renderFleetKpi() {
     { icon:'ti-clipboard-check',label:t('kpi.dt1.incomplete'), val:dt1Incomplete,           unit:t('common.vehicles'), color:dt1Incomplete>0?'var(--amber)':'var(--green)', click:"showPage('pojazdy')" },
     { icon:'ti-id',             label:t('kpi.vin.errors'),     val:vinErrors,               unit:vinErrors>0?'do weryfikacji':'', color:vinErrors>0?'var(--red)':'var(--green)', click:'' },
     { icon:'ti-steering-wheel', label:'Kierowcy',               val:(window.TaxOrderDrivers?.getAll()||[]).length, unit:'w kartotece', color:'var(--blue)', click:"TaxOrderDrivers.open()" },
-    (() => { const gN=now.getTime(),g24=24*3600000; const gC=allVehs.filter(v=>{const h=Array.isArray(v.gpsHistory)?v.gpsHistory:[];const l=h.filter(x=>x.lat&&x.lon).sort((a,b)=>new Date(b.ts)-new Date(a.ts))[0];return l&&(gN-new Date(l.ts).getTime())<g24;}).length; return { icon:'ti-map-pin', label:'GPS aktywny (24h)', val:gC, unit:'z '+(allVehs.length)+' pojazdów', color:gC>0?'var(--green)':'var(--text3)', click:"showPage('mapa')" }; })(),
+    (() => { const gN=now.getTime(),g24=24*3600000; const gC=allVehs.filter(v=>{const h=Array.isArray(v.gpsHistory)?v.gpsHistory:[];const l=h.filter(x=>x.lat&&x.lon).sort((a,b)=>new Date(b.ts)-new Date(a.ts))[0];return l&&(gN-new Date(l.ts).getTime())<g24;}).length; return { icon:'ti-map-pin', label:'GPS aktywny (24h)', val:gC, unit:`z ${allVehs.length} pojazdów`, color:gC>0?'var(--green)':'var(--text3)', click:"showPage('mapa')" }; })(),
   ];
 
   el.innerHTML = `
@@ -4897,7 +4897,7 @@ function updatePD() {
   const taxable = getSelTax().filter(v=>v.cat);
   const total = taxable.reduce((s,v)=>s+(v.amount||0),0);
   const pdEl = document.getElementById('pd-taxable'); if(pdEl) pdEl.textContent = taxable.length;
-  const ptEl = document.getElementById('pd-total'); if(ptEl) ptEl.textContent = fmt2(total)+' zł';
+  const ptEl = document.getElementById('pd-total'); if(ptEl) ptEl.textContent = `${fmt2(total)} zł`;
   const cntEl = document.getElementById('pd-cnt'); if(cntEl) cntEl.textContent = taxable.length;
 }
 
@@ -4985,7 +4985,7 @@ async function loadPolishFont() {
   // 2. Fallback CDN
   try {
     const resp = await fetch('https://fonts.gstatic.com/s/roboto/v47/KFOmCnqEu92Fr1Me5Q.ttf');
-    if (!resp.ok) throw new Error('CDN HTTP ' + resp.status);
+    if (!resp.ok) throw new Error(`CDN HTTP ${  resp.status}`);
     const bytes = new Uint8Array(await resp.arrayBuffer());
     window._ROBOTO_BYTES = bytes;
     return bytes;
@@ -5007,10 +5007,10 @@ function tfp(form,name,val,fnt,sz){
     f.setText(txt);
     if(fnt&&sz) f.setFontSize(sz);
     if(fnt) f.updateAppearances(fnt);
-  }catch(e){console.warn('[PDF] brak pola tekstowego: "'+name+'"');}
+  }catch(e){console.warn(`[PDF] brak pola tekstowego: "${name}"`);}
 }
-function rgp(form,name,val){try{if(val)form.getRadioGroup(name).select(val);}catch(e){console.warn('[PDF] brak radio: "'+name+'"');}}
-function cbp(form,name,on){try{on?form.getCheckBox(name).check():form.getCheckBox(name).uncheck();}catch(e){console.warn('[PDF] brak checkbox: "'+name+'"');}}
+function rgp(form,name,val){try{if(val)form.getRadioGroup(name).select(val);}catch(e){console.warn(`[PDF] brak radio: "${name}"`);}}
+function cbp(form,name,on){try{on?form.getCheckBox(name).check():form.getCheckBox(name).uncheck();}catch(e){console.warn(`[PDF] brak checkbox: "${name}"`);}}
 function euroSet(form,lvl,sfx){
   ['Check Box5-8','Check Box5-9','Check Box5-1','Check Box3','Check Box5-2','Check Box-6','Check Box7'].forEach((n,i)=>cbp(form,n+sfx,i===lvl));
 }
@@ -5065,7 +5065,7 @@ async function pobierzWypelnionyPDF(){
     dt1Doc.registerFontkit(fontkit); // MUSI być przed embedFont
     const fnt=fontBytes?await dt1Doc.embedFont(fontBytes):null;
     const f1=dt1Doc.getForm();
-    console.log('[DT-1 Fields]', f1.getFields().map(f=>f.constructor.name+': "'+f.getName()+'"').join('\n'));
+    console.log('[DT-1 Fields]', f1.getFields().map(f=>`${f.constructor.name}: "${f.getName()}"`).join('\n'));
     const page1 = dt1Doc.getPage(0);
 
     tfp(f1,'PESEL',nip,fnt,10);
@@ -5119,7 +5119,7 @@ async function pobierzWypelnionyPDF(){
         doc.registerFontkit(fontkit);
         const fa=fontBytes?await doc.embedFont(fontBytes):null;
         const fm=doc.getForm();
-        if(gi===0) console.log('[DT-1/A Fields]', fm.getFields().map(f=>f.constructor.name+': "'+f.getName()+'"').join('\n'));
+        if(gi===0) console.log('[DT-1/A Fields]', fm.getFields().map(f=>`${f.constructor.name}: "${f.getName()}"`).join('\n'));
         tfp(fm,'pesel',nip,fa,9);
         tfp(fm,'numer załącznika',String(attNo),fa,12);
         tfp(fm,'Text2',nazwa,fa,7);
@@ -5197,8 +5197,8 @@ async function pobierzWypelnionyPDF(){
     if(previewEl){
       if(window._lastPdfUrl) URL.revokeObjectURL(window._lastPdfUrl);
       window._lastPdfUrl=url;
-      previewEl.innerHTML='<p style="text-align:center;font-size:12px;color:#666;margin:8px">Podgląd wygenerowanego PDF — przewiń aby zobaczyć wszystkie strony</p>'
-        +'<iframe src="'+url+'#view=FitH" style="width:100%;height:1100px;border:1px solid #ddd;border-radius:4px"></iframe>';
+      previewEl.innerHTML=`<p style="text-align:center;font-size:12px;color:#666;margin:8px">Podgląd wygenerowanego PDF — przewiń aby zobaczyć wszystkie strony</p>`
+        +`<iframe src="${url}#view=FitH" style="width:100%;height:1100px;border:1px solid #ddd;border-radius:4px"></iframe>`;
     } else {
       URL.revokeObjectURL(url);
     }
@@ -5206,7 +5206,7 @@ async function pobierzWypelnionyPDF(){
 
   }catch(err){
     console.error('[PDF]',err);
-    toast('❌ ' + err.message);
+    toast(`❌ ${  err.message}`);
   }finally{setBtn(null);}
 }
 
@@ -5270,7 +5270,7 @@ async function generujDt1Multi() {
       }
     }
   } catch(e) {
-    toast('❌ ' + e.message);
+    toast(`❌ ${  e.message}`);
     console.error('[DT1Multi]', e);
   }
 }
@@ -5299,9 +5299,9 @@ function syncTpCel() {
 function toast(msg) {
   if (window.I18n && window.I18n.getLang() !== 'pl') {
     msg = msg
-      .replace(/^✓ Zapisano(\b|$)/,     window.t('toast.saved') + ' ')
-      .replace(/^✓ Usunięto(\b|$)/,     window.t('toast.deleted') + ' ')
-      .replace(/^❌ Błąd(\b|$)/,         window.t('toast.error') + ' ')
+      .replace(/^✓ Zapisano(\b|$)/,     `${window.t('toast.saved')  } `)
+      .replace(/^✓ Usunięto(\b|$)/,     `${window.t('toast.deleted')  } `)
+      .replace(/^❌ Błąd(\b|$)/,         `${window.t('toast.error')  } `)
       .replace(/^✅ Import zakończony/,   window.t('toast.import.ok'))
       .replace(/^✓ Backup zapisany/,     window.t('toast.backup.ok'))
       .replace(/^⚠ Nie zaznaczono/,      window.t('toast.no.sel'))
@@ -5413,7 +5413,7 @@ function runValidation() {
 
   // --- UBEZPIECZENIA I BADANIA TECHNICZNE (cała flota) ---
   const allFleet = vehs.filter(v => v.is_active !== false);
-  const _daysDiff = dateStr => { if(!dateStr) return null; const d=new Date(dateStr.includes('T')?dateStr:dateStr+'T00:00:00'); if(isNaN(d)) return null; const t=new Date(); t.setHours(0,0,0,0); return Math.round((d-t)/86400000); };
+  const _daysDiff = dateStr => { if(!dateStr) return null; const d=new Date(dateStr.includes('T')?dateStr:`${dateStr}T00:00:00`); if(isNaN(d)) return null; const t=new Date(); t.setHours(0,0,0,0); return Math.round((d-t)/86400000); };
   allFleet.forEach(v => {
     const checks = [
       { label:'OC', date: v.ocEnd,           code: 'OC' },
@@ -5518,10 +5518,10 @@ function renderRaporty() {
   // KPI
   document.getElementById('rp-kpi').innerHTML = [
     ['Pojazdy w analizie',list.length,'','var(--text)'],
-    ['Podatek roczny razem',fmt2(total)+' zł','poz. 80 DT-1','var(--green)'],
-    ['I rata (15.02)',fmtZl(r1)+' zł','do zapłaty','var(--blue)'],
-    ['II rata (15.09)',fmtZl(r2)+' zł','do zapłaty','var(--blue)'],
-    ['Pojazdy §2 (2024+)',newCount+' poj.','obniżona stawka','var(--amber)'],
+    ['Podatek roczny razem',`${fmt2(total)} zł`,'poz. 80 DT-1','var(--green)'],
+    ['I rata (15.02)',`${fmtZl(r1)} zł`,'do zapłaty','var(--blue)'],
+    ['II rata (15.09)',`${fmtZl(r2)} zł`,'do zapłaty','var(--blue)'],
+    ['Pojazdy §2 (2024+)',`${newCount} poj.`,'obniżona stawka','var(--amber)'],
   ].map(([l,v,s,c])=>`<div class="stat"><div class="stat-label">${l}</div><div class="stat-val" style="color:${c};font-size:22px">${v}</div><div class="stat-sub">${s}</div></div>`).join('');
 
   // Grupowanie
@@ -5530,7 +5530,7 @@ function renderRaporty() {
   document.getElementById('rp-chart-title').textContent = `Podatek roczny wg ${groupLabel[grouped]||'marki'}`;
 
   taxes.filter(v=>v.cat).forEach(v=>{
-    const key = grouped==='cat'?v.cat:grouped==='rok'?Math.floor((parseInt(v.rok)||0)/5)*5+'–'+(Math.floor((parseInt(v.rok)||0)/5)*5+4):v[grouped]||'Inne';
+    const key = grouped==='cat'?v.cat:grouped==='rok'?`${Math.floor((parseInt(v.rok)||0)/5)*5}–${Math.floor((parseInt(v.rok)||0)/5)*5+4}`:v[grouped]||'Inne';
     if(!groups[key])groups[key]={count:0,tax:0,veh:[]};
     groups[key].count++;groups[key].tax+=v.amount;groups[key].veh.push(v.nrRej);
   });
@@ -5556,9 +5556,9 @@ function renderRaporty() {
         },
         options: {
           indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => '  ' + fmt2(ctx.raw) + ' zł · ' + (sortedGroups[ctx.dataIndex]?.[1]?.count||0) + ' poj.' } } },
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `  ${  fmt2(ctx.raw)  } zł · ${  sortedGroups[ctx.dataIndex]?.[1]?.count||0  } poj.` } } },
           scales: {
-            x: { ticks: { color: _tc, callback: v => fmtZl(v) + ' zł', font: { size: 10 } }, grid: { color: _gc } },
+            x: { ticks: { color: _tc, callback: v => `${fmtZl(v)  } zł`, font: { size: 10 } }, grid: { color: _gc } },
             y: { ticks: { color: _tc, font: { size: 11 } }, grid: { display: false } }
           }
         }
@@ -5574,7 +5574,7 @@ function renderRaporty() {
         <div style="width:110px;font-size:12px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text2)">${k}</div>
         <div style="flex:1;background:var(--bg3);border-radius:4px;overflow:hidden;height:22px">
           <div style="width:${pct}%;background:${col};height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;transition:width .4s">
-            <span style="font-size:10px;color:#fff;white-space:nowrap;font-weight:600">${pct>15?fmt2(g.tax)+' zł':''}</span>
+            <span style="font-size:10px;color:#fff;white-space:nowrap;font-weight:600">${pct>15?`${fmt2(g.tax)} zł`:''}</span>
           </div>
         </div>
         <div style="width:85px;font-size:11px;font-family:var(--mono);text-align:right;color:${col};font-weight:600">${fmt2(g.tax)} zł</div>
@@ -5616,7 +5616,7 @@ function renderRaporty() {
         responsive: true, maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
-          tooltip: { callbacks: { label: ctx => '  ' + ctx.label + ': ' + fmt2(ctx.raw) + ' zł' } }
+          tooltip: { callbacks: { label: ctx => `  ${  ctx.label  }: ${  fmt2(ctx.raw)  } zł` } }
         },
         cutout: '65%'
       }
@@ -5694,10 +5694,10 @@ function renderRaporty() {
         <td><span class="pill ${STAT_LABELS[v.status]||'pill-gray'}">${esc(v.status)}</span></td>
         <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis">${esc(v.wlasciciel||'—')}</td>
         <td>${v.cat?`<span class="pill ${CAT_COLORS[v.cat]||'pill-gray'}">${esc(v.cat)}</span>`:'<span style="color:var(--text3)">—</span>'}</td>
-        <td style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--text2)">${v.rate?v.rate.toLocaleString('pl-PL')+' zł':'—'}</td>
-        <td style="text-align:right;font-family:var(--mono);font-weight:600;color:${v.amount>0?'var(--green)':'var(--text3)'}">${v.amount>0?fmt2(v.amount)+' zł':'—'}</td>
-        <td style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--blue)">${v.amount>0?fmtZl(r1v)+' zł':'—'}</td>
-        <td style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--blue)">${v.amount>0?fmtZl(r2v)+' zł':'—'}</td>
+        <td style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--text2)">${v.rate?`${v.rate.toLocaleString('pl-PL')} zł`:'—'}</td>
+        <td style="text-align:right;font-family:var(--mono);font-weight:600;color:${v.amount>0?'var(--green)':'var(--text3)'}">${v.amount>0?`${fmt2(v.amount)} zł`:'—'}</td>
+        <td style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--blue)">${v.amount>0?`${fmtZl(r1v)} zł`:'—'}</td>
+        <td style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--blue)">${v.amount>0?`${fmtZl(r2v)} zł`:'—'}</td>
       </tr>`;}).join('')}
     </tbody>
     <tfoot><tr>
@@ -5750,7 +5750,7 @@ function exportRaport() {
     ['Termin','Kwota (zł)','Opis'],
     [`15.02.${yr}`,r1,'I rata podatku od środków transportowych (poz. 81 DT-1)'],
     [`15.09.${yr}`,r2,'II rata podatku od środków transportowych (poz. 82 DT-1)'],
-    ['RAZEM',total,'Łączna kwota podatku za rok '+yr+' (poz. 80 DT-1)'],
+    ['RAZEM',total,`Łączna kwota podatku za rok ${yr} (poz. 80 DT-1)`],
   ]);
   XLSX.utils.book_append_sheet(wb,ws4,'Harmonogram płatności');
 
@@ -5770,7 +5770,7 @@ async function initTesseract(){
     tesseractWorker=await Tesseract.createWorker(['pol','eng'],1,{logger:m=>{
       const bar=document.getElementById('ocr-progress-bar');
       const stat=document.getElementById('ocr-status');
-      if(bar&&m.progress){bar.style.width=(m.progress*100)+'%';}
+      if(bar&&m.progress){bar.style.width=`${m.progress*100}%`;}
       if(stat&&m.status){stat.textContent=({
         'loading tesseract core':'Ładowanie silnika OCR...',
         'loading language traineddata':'Ładowanie modelu językowego (PL)...',
@@ -5829,7 +5829,7 @@ function processOcrFile(f){
         document.getElementById('ocr-img').src=imgDataUrl;
         document.getElementById('ocr-img').style.display='block';
         document.getElementById('ocr-img').style.transform='';
-        toast('✅ PDF załadowany — '+pdf.numPages+' str. | Kliknij "Uruchom OCR"');
+        toast(`✅ PDF załadowany — ${pdf.numPages} str. | Kliknij "Uruchom OCR"`);
         // Sprawdź też stronę 2 (tylna strona dowodu)
         if(pdf.numPages>1){
           const page2=await pdf.getPage(2);
@@ -5848,7 +5848,7 @@ function processOcrFile(f){
         }
       }catch(err){
         console.warn('PDF.js error:',err);
-        toast('⚠ PDF nie mógł być wyrenderowany: '+err.message);
+        toast(`⚠ PDF nie mógł być wyrenderowany: ${err.message}`);
         document.getElementById('ocr-img').style.display='none';
       }
     }else if(f.type.startsWith('image/')){
@@ -5911,7 +5911,7 @@ function _loadImg(base64, mime) {
     img.onload  = done;
     img.onerror = fail;
     setTimeout(fail, 8000); // zabezpieczenie przed brakiem zdarzeń
-    img.src = 'data:' + mime + ';base64,' + base64;
+    img.src = `data:${  mime  };base64,${  base64}`;
   });
 }
 
@@ -6066,7 +6066,7 @@ async function tryAztecDR(){
   try{
     await loadZXing();
     const img=new Image();
-    await new Promise(r=>{img.onload=r;img.onerror=r;setTimeout(r,8000);img.src='data:'+(ocrMime||'image/jpeg')+';base64,'+ocrBase64;});
+    await new Promise(r=>{img.onload=r;img.onerror=r;setTimeout(r,8000);img.src=`data:${ocrMime||'image/jpeg'};base64,${ocrBase64}`;});
     const base=document.createElement('canvas');
     base.width=img.naturalWidth;base.height=img.naturalHeight;
     base.getContext('2d').drawImage(img,0,0);
@@ -6082,9 +6082,9 @@ async function tryAztecDR(){
     if(!apiUrl)return false;
     const token=localStorage.getItem('cf_token');
     let b64='';for(let i=0;i<bytes.length;i++)b64+=String.fromCharCode(bytes[i]);
-    const resp=await fetch(apiUrl+'/api/aztec',{
+    const resp=await fetch(`${apiUrl}/api/aztec`,{
       method:'POST',
-      headers:{'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})},
+      headers:{'Content-Type':'application/json',...(token?{'Authorization':`Bearer ${token}`}:{})},
       body:JSON.stringify({bytesBase64:btoa(b64)}),
     });
     if(!resp.ok)return false;
@@ -6140,7 +6140,7 @@ async function runOCR(){
     try{
       const apiUrl=(window.CF_API_URL||'').replace(/\/$/,'');
       const token=localStorage.getItem('cf_token');
-      console.log('[OCR step2] apiUrl='+apiUrl);
+      console.log(`[OCR step2] apiUrl=${apiUrl}`);
       if(apiUrl){
         // Auto-orient: DR jest zawsze pionowy; obróć jeśli poziomy
         const oriented=await _autoOrientForDR(ocrBase64, ocrMime||'image/jpeg');
@@ -6148,17 +6148,17 @@ async function runOCR(){
           ocrBase64=oriented.base64; ocrMime=oriented.mime;
           // Aktualizuj podgląd
           const prevImg=document.getElementById('ocr-img');
-          if(prevImg){prevImg.src='data:'+ocrMime+';base64,'+ocrBase64;prevImg.style.transform='';}
+          if(prevImg){prevImg.src=`data:${ocrMime};base64,${ocrBase64}`;prevImg.style.transform='';}
         }
         const resized=await _resizeForVision(oriented.base64, oriented.mime);
-        console.log('[OCR step2] wysyłam do AI Vision, rozmiar base64='+resized.base64.length);
+        console.log(`[OCR step2] wysyłam do AI Vision, rozmiar base64=${resized.base64.length}`);
         const t0=Date.now();
-        const visionResp=await fetch(apiUrl+'/api/ai/ocr',{
+        const visionResp=await fetch(`${apiUrl}/api/ai/ocr`,{
           method:'POST',
-          headers:{'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})},
+          headers:{'Content-Type':'application/json',...(token?{'Authorization':`Bearer ${token}`}:{})},
           body:JSON.stringify({imageBase64:resized.base64,mimeType:resized.mime}),
         });
-        console.log('[OCR step2] odpowiedź: status='+visionResp.status+' czas='+(Date.now()-t0)+'ms');
+        console.log(`[OCR step2] odpowiedź: status=${visionResp.status} czas=${Date.now()-t0}ms`);
         if(visionResp.ok){
           const visionData=await visionResp.json();
           console.log('[OCR step2] visionData:', JSON.stringify(visionData).slice(0,300));
@@ -6176,7 +6176,7 @@ async function runOCR(){
           }
         }else{
           const errTxt=await visionResp.text().catch(()=>'');
-          console.warn('[OCR step2] błąd HTTP '+visionResp.status+': '+errTxt.slice(0,200));
+          console.warn(`[OCR step2] błąd HTTP ${visionResp.status}: ${errTxt.slice(0,200)}`);
         }
       }
     }catch(e){console.warn('[OCR step2] wyjątek:',e.message);}
@@ -6191,7 +6191,7 @@ async function runOCR(){
     bar.style.width='20%';
     await tesseractWorker.setParameters({'tessedit_pageseg_mode':'11'}).catch(()=>{});
     // Enhance contrast only for image uploads (not PDF — already rendered at 4x scale)
-    let imgSrc='data:'+ocrMime+';base64,'+ocrBase64;
+    let imgSrc=`data:${ocrMime};base64,${ocrBase64}`;
     if(ocrMime.startsWith('image/') && !window._ocrIsPdf){
       try{
         const tmpImg=new Image();
@@ -6237,7 +6237,7 @@ async function runOCR(){
     const rawText270=await ocrAtAngle(imgSrc,270).catch(()=>'');
     bar.style.width='88%';
 
-    const combinedText='---0---\n'+rawText+'\n---180---\n'+rawText180+'\n---90---\n'+rawText90+'\n---270---\n'+rawText270+(window._ocrPage2Text?'\n---page2---\n'+window._ocrPage2Text:'');
+    const combinedText=`---0---\n${rawText}\n---180---\n${rawText180}\n---90---\n${rawText90}\n---270---\n${rawText270}${window._ocrPage2Text?`\n---page2---\n${window._ocrPage2Text}`:''}`;
     window._ocrCombinedText=combinedText;
     window._ocrBase64=ocrBase64;
     const conf=result.data.confidence||0;
@@ -6259,9 +6259,9 @@ async function runOCR(){
 {"nrRej":"","dataRej":"DD.MM.RRRR","marka":"","typ":"","vin":"17 znakow","dmcKg":"F.1 cyfry z ŻÓŁTEJ tabeli DR NIE z sekcji homologacji","dmcKg2":"F.2 cyfry","dmcZespolu":"F.3 cyfry musi być >= F.1","masaWlKg":"G cyfry masa własna musi być < F.1","liczbaOsi":"1-5","kategoria":"np N3","pojSilnika":"tylko cyfry cm3","mocKW":"tylko cyfry","paliwo":"ON lub PB lub LPG","miejscaSied":"tylko cyfry","rokProd":"4 cyfry"}
 
 Tekst OCR:\n${combinedText.slice(0,6000)}`;
-        const aiResp=await fetch(apiUrl+'/api/ai/chat',{
+        const aiResp=await fetch(`${apiUrl}/api/ai/chat`,{
           method:'POST',
-          headers:{'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})},
+          headers:{'Content-Type':'application/json',...(token?{'Authorization':`Bearer ${token}`}:{})},
           body:JSON.stringify({message:aiPrompt,history:[]}),
         });
         if(aiResp.ok){
@@ -6310,7 +6310,7 @@ function _normalizeNrRej(v){
 function _fillOcrFields(d){
   // Normalizuj nrRej przed wypełnieniem (usuń spacje, popraw O/0)
   if(d.nrRej)d.nrRej=_normalizeNrRej(d.nrRej);
-  const fill=(id,val)=>{const el=document.getElementById('ocrf-'+id);if(el&&val&&String(val).trim()&&String(val).trim()!=='null'&&String(val).trim()!=='undefined'){el.value=String(val).trim();el.style.borderColor='var(--green)';el.style.background='#f0fff0';}};
+  const fill=(id,val)=>{const el=document.getElementById(`ocrf-${id}`);if(el&&val&&String(val).trim()&&String(val).trim()!=='null'&&String(val).trim()!=='undefined'){el.value=String(val).trim();el.style.borderColor='var(--green)';el.style.background='#f0fff0';}};
   fill('nrRej',d.nrRej);fill('dataRej',d.dataRej);fill('marka',d.marka);fill('typ',d.typ);
   fill('vin',d.vin);fill('dmcKg',d.dmcKg);fill('dmcKg2',d.dmcKg2);fill('dmcZespolu',d.dmcZespolu);fill('masaWlKg',d.masaWlKg);
   fill('liczbaOsi',d.liczbaOsi);fill('kategoria',d.kategoria);fill('pojSilnika',d.pojSilnika);
@@ -6336,21 +6336,21 @@ async function extractOcrWithVision(){
     const oriented=await _autoOrientForDR(base64, mime);
     if(oriented.rotated){
       const prevImg=document.getElementById('ocr-img');
-      if(prevImg){prevImg.src='data:'+oriented.mime+';base64,'+oriented.base64;prevImg.style.transform='';}
+      if(prevImg){prevImg.src=`data:${oriented.mime};base64,${oriented.base64}`;prevImg.style.transform='';}
     }
     const {base64:sendBase64,mime:sendMime}=await _resizeForVision(oriented.base64, oriented.mime);
-    const resp=await fetch(apiUrl+'/api/ai/ocr',{
+    const resp=await fetch(`${apiUrl}/api/ai/ocr`,{
       method:'POST',
-      headers:{'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})},
+      headers:{'Content-Type':'application/json',...(token?{'Authorization':`Bearer ${token}`}:{})},
       body:JSON.stringify({imageBase64:sendBase64,mimeType:sendMime})
     });
-    if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error||'HTTP '+resp.status);}
+    if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error||`HTTP ${resp.status}`);}
     const data=await resp.json();
     if(!data.ok||!data.fields)throw new Error('Brak danych z AI');
     _fillOcrFields(data.fields);
     toast('✅ AI Vision wyodrębnił dane — sprawdź i kliknij Szukaj');
   }catch(e){
-    toast('⚠️ AI Vision: '+e.message,'warn');
+    toast(`⚠️ AI Vision: ${e.message}`,'warn');
   }finally{
     if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-eye"></i> AI Vision (ponów)';}
   }
@@ -6370,12 +6370,12 @@ async function extractOcrWithAI(){
 
 Tekst OCR:
 ${rawText.slice(0,6000)}`;
-    const resp=await fetch(apiUrl+'/api/ai/chat',{
+    const resp=await fetch(`${apiUrl}/api/ai/chat`,{
       method:'POST',
-      headers:{'Content-Type':'application/json',...(token?{'Authorization':'Bearer '+token}:{})},
+      headers:{'Content-Type':'application/json',...(token?{'Authorization':`Bearer ${token}`}:{})},
       body:JSON.stringify({message:prompt,history:[]})
     });
-    if(!resp.ok)throw new Error('HTTP '+resp.status);
+    if(!resp.ok)throw new Error(`HTTP ${resp.status}`);
     const data=await resp.json();
     // Worker zwraca {answer:...}
     const text=data.answer||data.reply||data.message||data.content||JSON.stringify(data);
@@ -6384,7 +6384,7 @@ ${rawText.slice(0,6000)}`;
     _fillOcrFields(JSON.parse(jm[0]));
     toast('✅ AI wyodrębnił dane — sprawdź pola i kliknij Szukaj');
   }catch(e){
-    toast('⚠️ AI (tekst): '+e.message,'warn');
+    toast(`⚠️ AI (tekst): ${e.message}`,'warn');
   }finally{
     if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-brain"></i> AI (tekst OCR) ponów';}
   }
@@ -6479,7 +6479,7 @@ function parseRegistrationDoc(combinedOcrText){
     const re2=new RegExp(brand.replace(/-/g,'[-/]?').replace(/\s/g,'[\\s\\-]?'),'i');
     if(re2.test(t)){
       d.marka=brand.split(/[-\s]/)[0].toUpperCase();
-      const mM=t.match(new RegExp(brand.replace(/-/g,'[-/]?').replace(/\s/g,'[\\s\\-]?')+'[/\\s\\-]*([A-Z0-9]{2,12})','i'));
+      const mM=t.match(new RegExp(`${brand.replace(/-/g,'[-/]?').replace(/\s/g,'[\\s\\-]?')}[/\\s\\-]*([A-Z0-9]{2,12})`,'i'));
       if(mM&&mM[1]&&mM[1]!=='SP')d.typ=mM[1].toUpperCase();
       break;
     }
@@ -6496,7 +6496,7 @@ function parseRegistrationDoc(combinedOcrText){
   // ============================================================
   const _sec90 =(t.split('---90---\n')[1]||'').split('---')[0];
   const _sec270=(t.split('---270---\n')[1]||'').split('---')[0];
-  const _dmcSrc=_sec90+'\n'+_sec270;
+  const _dmcSrc=`${_sec90}\n${_sec270}`;
 
   // Zbierz WSZYSTKICH kandydatów dla danego pola — wybierz MAX.
   // Powód: DR ma dwie sekcje z wartościami F.1/F.2/F.3:
@@ -6622,7 +6622,7 @@ function parseRegistrationDoc(combinedOcrText){
   // 14. Norma Euro
   // ============================================================
   const euroM=t.match(/EURO\s*([IVX0-9]+(?:\s*D[-+]?)?)/i);
-  if(euroM)d.euroNorma='Euro '+euroM[1].toUpperCase().trim();
+  if(euroM)d.euroNorma=`Euro ${euroM[1].toUpperCase().trim()}`;
 
   // Zawieszenie
   if(/pneumat/i.test(t))d.rodzajZawieszenia='pneumatyczne';
@@ -6666,13 +6666,13 @@ async function cepikFillOcrForm(){
   try{
     const json=await cepikFetch(nrRej,'auto');
     const items=json?.data||[];
-    if(!items.length){toast('⚠ Pojazd '+nrRej+' nie znaleziony w CEPiK w żadnym województwie — sprawdź numer');return;}
+    if(!items.length){toast(`⚠ Pojazd ${nrRej} nie znaleziony w CEPiK w żadnym województwie — sprawdź numer`);return;}
     const attrs=items[0]?.attributes||{};
     const d=parseCepikAttrs(attrs);
 
     // Mapowanie pól CEPiK → ID formularza OCR
     const _fill=(id,val,color='var(--blue)')=>{
-      const el=document.getElementById('ocrf-'+id);
+      const el=document.getElementById(`ocrf-${id}`);
       if(el&&val!=null&&String(val).trim()){
         el.value=String(val).trim();
         el.style.borderColor=color;el.style.background='#eef4ff';
@@ -6701,9 +6701,9 @@ async function cepikFillOcrForm(){
     if(elL&&base&&g&&base>g)elL.value=String(base-g);
 
     const cnt=Object.values(d).filter(v=>v!=null).length;
-    toast('✅ CEPiK: uzupełniono '+cnt+' pól dla '+nrRej+' — pola zaznaczone na niebiesko');
+    toast(`✅ CEPiK: uzupełniono ${cnt} pól dla ${nrRej} — pola zaznaczone na niebiesko`);
   }catch(e){
-    toast('⚠ CEPiK: '+e.message.slice(0,80));
+    toast(`⚠ CEPiK: ${e.message.slice(0,80)}`);
   }finally{
     if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-database-search"></i> Uzupełnij z CEPiK';}
   }
@@ -6852,7 +6852,7 @@ function showManualForm(d,rawText,conf){
 
 // --- PRZETWORZENIE FORMULARZA ---
 function submitManualForm(){
-  const g=id=>document.getElementById('ocrf-'+id)?.value?.trim()||null;
+  const g=id=>document.getElementById(`ocrf-${id}`)?.value?.trim()||null;
   const d={
     nrRej:g('nrRej'),dataRej:g('dataRej'),marka:g('marka'),typ:g('typ'),przeznaczenie:g('przeznaczenie'),vin:g('vin'),
     dmcKg:g('dmcKg'),dmcKg2:g('dmcKg2'),dmcZespolu:g('dmcZespolu'),masaWlKg:g('masaWlKg'),
@@ -6886,7 +6886,7 @@ function submitManualForm(){
     res.appendChild(div);
     div.scrollIntoView({behavior:'smooth'});
   }else{
-    toast('⚠ Pojazd '+esc(nrRej)+' nie znaleziony w bazie');
+    toast(`⚠ Pojazd ${esc(nrRej)} nie znaleziony w bazie`);
   }
 }
 
@@ -6956,7 +6956,7 @@ function applyOcrChanges(vehId,changes){
   if(!v)return;
   let applied=0;
   changes.forEach((c,i)=>{
-    const chk=document.getElementById('ch2-'+i);
+    const chk=document.getElementById(`ch2-${i}`);
     if(chk&&chk.checked){v[c.key]=c.newVal;applied++;}
   });
   document.getElementById('ocr-modal').classList.add('hidden');
@@ -7079,8 +7079,8 @@ function closeQuickAddVehicle() {
 
 function _qavTab(tab) {
   ['scan', 'cepik', 'manual'].forEach(t => {
-    document.getElementById('qav-panel-' + t).style.display = t === tab ? '' : 'none';
-    const btn = document.getElementById('qav-tab-' + t);
+    document.getElementById(`qav-panel-${  t}`).style.display = t === tab ? '' : 'none';
+    const btn = document.getElementById(`qav-tab-${  t}`);
     if (!btn) return;
     // Toggle active color without breaking other classes
     if (t === tab) {
@@ -7095,7 +7095,7 @@ function _qavTab(tab) {
 
 function _qavClearForm() {
   ['nrRej', 'marka', 'model', 'rok', 'dmc', 'vin', 'norma', 'leasingCompany'].forEach(id => {
-    const el = document.getElementById('qav-' + id);
+    const el = document.getElementById(`qav-${  id}`);
     if (el) el.value = '';
   });
   document.getElementById('qav-typ').value    = 'Ciężarowy';
@@ -7147,7 +7147,7 @@ async function _qavCepikLookup() {
     const API_BASE = (window.CF_API_URL || '').replace(/\/$/, '');
     const token = localStorage.getItem('cf_token');
     const headers = {};
-    if (token) headers['Authorization'] = 'Bearer ' + token;
+    if (token) headers['Authorization'] = `Bearer ${  token}`;
     const ctrl = new AbortController();
     setTimeout(() => ctrl.abort(), 12000);
     const r = await fetch(`${API_BASE}/api/cepik/pojazdy?nr=${encodeURIComponent(nr)}`, { headers, signal: ctrl.signal });
@@ -7202,7 +7202,7 @@ function _qavParseCepik(data) {
 
 function _qavFillForm(fields) {
   const set = (id, val) => {
-    const el = document.getElementById('qav-' + id);
+    const el = document.getElementById(`qav-${  id}`);
     if (el && val != null && val !== '') el.value = val;
   };
   set('nrRej', (fields.nrRej || '').toUpperCase().replace(/\s/g, ''));
@@ -7253,7 +7253,7 @@ async function _qavAutoInsurance(nrRej, vin) {
     const company  = window.currentCompanyId || 'mtoilet';
     const token    = localStorage.getItem('cf_token');
     const headers  = {};
-    if (token) headers['Authorization'] = 'Bearer ' + token;
+    if (token) headers['Authorization'] = `Bearer ${  token}`;
     let policies = [];
     if (nrRej) {
       const r = await fetch(`${API_BASE}/api/policies-db?nrRej=${encodeURIComponent(nrRej)}&company=${encodeURIComponent(company)}`, { headers });
@@ -7296,7 +7296,7 @@ async function _qavInsuranceScan(file) {
     const API_BASE = (window.CF_API_URL || '').replace(/\/$/, '');
     const token    = localStorage.getItem('cf_token');
     const headers  = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = 'Bearer ' + token;
+    if (token) headers['Authorization'] = `Bearer ${  token}`;
     const r = await fetch(`${API_BASE}/api/ai/ocr`, {
       method: 'POST', headers,
       body: JSON.stringify({ imageBase64: base64, mimeType: file.type }),
@@ -7323,7 +7323,7 @@ async function _qavInsuranceScan(file) {
 }
 
 function saveQuickAddVehicle() {
-  const g  = id => (document.getElementById('qav-' + id)?.value?.trim() || '');
+  const g  = id => (document.getElementById(`qav-${  id}`)?.value?.trim() || '');
   const gf = id => { const v = g(id); return v ? parseFloat(v) : null; };
   const gi = id => { const v = g(id); return v ? parseInt(v)   : null; };
 
@@ -7332,7 +7332,7 @@ function saveQuickAddVehicle() {
   if (!nrRej) { toast('⚠ Nr rejestracyjny jest wymagany'); return; }
   if (!marka) { toast('⚠ Marka jest wymagana'); return; }
   if (vehs.find(v => v.nrRej === nrRej)) {
-    toast('⚠ Pojazd ' + nrRej + ' już istnieje w bazie'); return;
+    toast(`⚠ Pojazd ${  nrRej  } już istnieje w bazie`); return;
   }
 
   const dmc   = gf('dmc') ?? 0;
@@ -7406,7 +7406,7 @@ function renderOcrHistory(){
 
 
 // ==================== FAKTURY (Invoice OCR) ====================
-let fakHistory = [], fakOcrWorkerReady = false;
+const fakHistory = [], fakOcrWorkerReady = false;
 
 function fakHandleDrop(e) {
   e.preventDefault();
@@ -7428,7 +7428,7 @@ async function fakProcessFile(f) {
     try {
       if(!tesseractReady) await initTesseract();
       document.getElementById('fak-bar').style.width='40%';
-      const imgSrc='data:'+mime+';base64,'+b64;
+      const imgSrc=`data:${mime};base64,${b64}`;
       const result=await tesseractWorker.recognize(imgSrc);
       document.getElementById('fak-bar').style.width='90%';
       const parsed=parseFaktura(result.data.text||'');
@@ -7517,7 +7517,7 @@ function fakShowForm(d, rawText) {
 }
 
 function fakSubmit() {
-  const g=id=>document.getElementById('fakf-'+id)?.value?.trim()||'';
+  const g=id=>document.getElementById(`fakf-${id}`)?.value?.trim()||'';
   const nrRej=g('nrRej').toUpperCase().replace(/\s/g,'');
   if(!nrRej){toast('⚠ Wpisz numer rejestracyjny');return;}
   const ev={
@@ -7573,7 +7573,7 @@ function renderFakHistory() {
       <strong>${esc(h.nrRej)}</strong>
       <span style="color:var(--text3);font-size:10px;margin-left:auto">${esc(h.data||h.ts)}</span>
     </div>
-    <div style="color:var(--text2)">${esc(h.sprzedawca||'—')} ${h.cenaBrutto?'· '+h.cenaBrutto+' zł':''}</div>
+    <div style="color:var(--text2)">${esc(h.sprzedawca||'—')} ${h.cenaBrutto?`· ${h.cenaBrutto} zł`:''}</div>
     ${h.nrFaktury?`<div style="font-family:var(--mono);font-size:10px;color:var(--text3)">${esc(h.nrFaktury)}</div>`:''}
   </div>`).join('');
 }
@@ -7588,9 +7588,9 @@ function exportFakturyToFK() {
     h.sprzedawca || '', h.nipSprzedawcy || '', h.cenaNetto || '', h.cenaBrutto || '',
     h.nrRej || '', h.uwagi || '',
   ]);
-  const csv = '﻿' + [headers, ...rows]
+  const csv = `﻿${  [headers, ...rows]
     .map(r => r.map(csvCell).join(';'))
-    .join('\r\n');
+    .join('\r\n')}`;
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -7621,7 +7621,7 @@ function updatePdfSummary() {
   const el1=document.getElementById('pdf-cnt-v');if(el1)el1.textContent=selT.length;
   const el2=document.getElementById('pdf-cnt-att');if(el2)el2.textContent=attCount;
   const el3=document.getElementById('pdf-cnt-total');if(el3)el3.textContent=1+attCount;
-  const el4=document.getElementById('pdf-cnt-tax');if(el4)el4.textContent=fmt2(total)+' zł';
+  const el4=document.getElementById('pdf-cnt-tax');if(el4)el4.textContent=`${fmt2(total)} zł`;
   const el5=document.getElementById('pdf-veh-count');if(el5)el5.textContent=selT.length;
 }
 
@@ -7678,7 +7678,7 @@ async function generatePDF() {
 
   } catch(err) {
     console.error(err);
-    toast('⚠ Błąd generowania PDF: '+err.message+' — spróbuj Drukuj przez przeglądarkę');
+    toast(`⚠ Błąd generowania PDF: ${err.message} — spróbuj Drukuj przez przeglądarkę`);
   }
 }
 
@@ -7801,7 +7801,7 @@ function impJsonHandle(inp) {
         // Odśwież UI
         renderVeh(); updateCounters(); renderFakHistory();
         // Wstaw dane podatnika
-        Object.entries(taxpayer).forEach(([k,v])=>{const el=document.getElementById('tp-'+k.replace(/([A-Z])/g,'-$1').toLowerCase());if(el)el.value=v;});
+        Object.entries(taxpayer).forEach(([k,v])=>{const el=document.getElementById(`tp-${k.replace(/([A-Z])/g,'-$1').toLowerCase()}`);if(el)el.value=v;});
         document.getElementById('imp-json-result').innerHTML=`<div class="gbox"><i class="ti ti-circle-check"></i>Wczytano ${count} pojazdów + dane sesji.</div>`;
         toast(`✓ Backup wczytany — ${count} pojazdów, ${state.selected?.length||0} zaznaczonych`);
       }else{throw new Error('Nieprawidłowy format JSON');}
@@ -7880,7 +7880,7 @@ function expXlExport(list,fname) {
   const ws=XLSX.utils.aoa_to_sheet([hdrs,...rows]);
   ws['!cols']=hdrs.map((_,i)=>({wch:[12,10,18,6,12,10,12,10,20,10,14,6,14,8,12,14,12,12,12,8][i]||12}));
   XLSX.utils.book_append_sheet(wb,ws,'Flota');
-  XLSX.writeFile(wb,fname+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  XLSX.writeFile(wb,`${fname}_${new Date().toISOString().slice(0,10)}.xlsx`);
   toast(`✓ Excel pobrany — ${list.length} pojazdów`);
 }
 
@@ -7889,9 +7889,9 @@ function expCsv() {
   const taxes=vehs.map(v=>({...v,...calcTax(v)}));
   const hdrs=['nrRej','marka','model','rok','typ','dmc','dmcZespolu','euro','vin','status','wlasciciel','osie','zawieszenie','miesiacePodatku','cat','rate','amount'];
   const rows=[hdrs.map(csvCell).join(';'),...taxes.map(v=>hdrs.map(k=>csvCell(v[k]??'')).join(';'))];
-  const blob=new Blob(['\uFEFF'+rows.join('\n')],{type:'text/csv;charset=utf-8'});
+  const blob=new Blob([`\uFEFF${rows.join('\n')}`],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='flota_dt1_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.download=`flota_dt1_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();URL.revokeObjectURL(a.href);
   toast(`✓ CSV pobrany — ${vehs.length} pojazdów`);
 }
@@ -7900,7 +7900,7 @@ function expCsv() {
 function expJson() {
   const tpData={};
   ['nip','regon','nazwa','ulica','dom','lokal','kod','miasto','woj','organ','imie','nazwisko','cel'].forEach(k=>{
-    const el=document.getElementById('tp-'+k);
+    const el=document.getElementById(`tp-${k}`);
     if(el)tpData[k]=el.value;
   });
   const state={
@@ -7912,7 +7912,7 @@ function expJson() {
   };
   const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='backup_dt1_'+new Date().toISOString().slice(0,10)+'.json';
+  a.download=`backup_dt1_${new Date().toISOString().slice(0,10)}.json`;
   a.click();URL.revokeObjectURL(a.href);
   toast(`✓ Backup zapisany — ${vehs.length} pojazdów, ${selected.size} zaznaczonych`);
 }
@@ -7954,7 +7954,7 @@ async function doLogin(){
       const isRateLimit = msg.includes('429') || msg.toLowerCase().includes('too many') || msg.toLowerCase().includes('zbyt wiele');
       showLoginErr(isRateLimit
         ? 'Zbyt wiele prób logowania — poczekaj chwilę i spróbuj ponownie.'
-        : 'Błąd logowania: ' + msg);
+        : `Błąd logowania: ${  msg}`);
       return;
     }
 
@@ -8096,11 +8096,11 @@ async function resetPasswordFlow(){
   const result = await window.TaxOrderAuth.resetPassword(email);
 
   if(!result.ok){
-    showLoginErr('Nie udało się wysłać linku resetującego: ' + (result.error?.message || 'błąd'));
+    showLoginErr(`Nie udało się wysłać linku resetującego: ${  result.error?.message || 'błąd'}`);
     return;
   }
 
-  showLoginErr('Wysłano link do ustawienia nowego hasła na adres: ' + email);
+  showLoginErr(`Wysłano link do ustawienia nowego hasła na adres: ${  email}`);
 }
 
 function showNewPasswordModal() {
@@ -8125,7 +8125,7 @@ async function submitNewPassword() {
   const errEl = document.getElementById('pwd-reset-err');
   const btn = document.getElementById('pwd-reset-submit');
   const showErr = (msg) => {
-    if (errEl) { errEl.style.display = 'flex'; errEl.innerHTML = '<i class="ti ti-alert-circle"></i>' + esc(msg); }
+    if (errEl) { errEl.style.display = 'flex'; errEl.innerHTML = `<i class="ti ti-alert-circle"></i>${  esc(msg)}`; }
   };
   if (!newPassword || newPassword.length < 6) { showErr('Hasło musi mieć minimum 6 znaków.'); return; }
   if (newPassword !== confirm) { showErr('Hasła nie są takie same.'); return; }
@@ -8147,7 +8147,7 @@ async function submitNewPassword() {
     if (appEl) appEl.style.display = 'none';
     showLoginErr('✅ Hasło zostało zmienione. Zaloguj się nowym hasłem.');
   } catch (err) {
-    showErr('Nie udało się zmienić hasła: ' + (err.message || 'błąd'));
+    showErr(`Nie udało się zmienić hasła: ${  err.message || 'błąd'}`);
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-check"></i>Ustaw nowe hasło'; }
   }
@@ -8158,7 +8158,7 @@ async function _showNewPasswordFallback() {
   if (!newPassword || newPassword.length < 6) { alert('Hasło musi mieć minimum 6 znaków.'); return; }
   try {
     alert('Hasło zostało zmienione. Zaloguj się nowym hasłem.');
-  } catch (err) { alert('Błąd: ' + err.message); }
+  } catch (err) { alert(`Błąd: ${  err.message}`); }
 }
 
 function isPasswordRecoveryUrl() {
@@ -8320,17 +8320,17 @@ function showAuditLog() {
       </div>
       <div style="overflow-y:auto;flex:1;padding:16px">
         ${!log.length ? '<div style="text-align:center;padding:30px;color:var(--text3)">Brak wpisów w dzienniku</div>' :
-          '<table style="width:100%;font-size:11px;border-collapse:collapse">' +
-          '<thead><tr><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Kiedy</th><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Kto</th><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Akcja</th><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Pojazd</th></tr></thead><tbody>' +
+          `<table style="width:100%;font-size:11px;border-collapse:collapse">` +
+          `<thead><tr><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Kiedy</th><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Kto</th><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Akcja</th><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Pojazd</th></tr></thead><tbody>${ 
           log.map(e => {
-            const veh = e.vehId != null ? esc(vehs.find(v=>v.id===e.vehId)?.nrRej || 'id:'+e.vehId) : esc(e.changes?.nrRej || '—');
+            const veh = e.vehId != null ? esc(vehs.find(v=>v.id===e.vehId)?.nrRej || `id:${e.vehId}`) : esc(e.changes?.nrRej || '—');
             return `<tr style="border-bottom:0.5px solid var(--border)">
               <td style="padding:4px 6px;font-family:var(--mono);white-space:nowrap">${e.ts ? new Date(e.ts).toLocaleString('pl-PL') : '—'}</td>
               <td style="padding:4px 6px">${esc(e.user||'—')}</td>
               <td style="padding:4px 6px">${ACTION_LABEL[e.action] || esc(e.action||'—')}</td>
               <td style="padding:4px 6px;font-family:var(--mono)">${veh}</td>
             </tr>`;
-          }).join('') + '</tbody></table>'}
+          }).join('')  }</tbody></table>`}
       </div>
       <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
         <button class="btn btn-gray" style="font-size:11px" onclick="if(confirm('Wyczyścić dziennik?')){localStorage.removeItem('auditLog');this.closest('[style*=fixed]').remove();toast('Dziennik wyczyszczony')}">
@@ -8369,8 +8369,8 @@ function _populateBranchFilter() {
   const sel = document.getElementById('f-branch');
   if (!sel) return;
   const cur = sel.value;
-  sel.innerHTML = '<option value="">Wszystkie oddziały</option>' +
-    _branches.map(b => `<option value="${b.id}"${String(b.id)===cur?' selected':''}>${esc(b.name)}</option>`).join('');
+  sel.innerHTML = `<option value="">Wszystkie oddziały</option>${ 
+    _branches.map(b => `<option value="${b.id}"${String(b.id)===cur?' selected':''}>${esc(b.name)}</option>`).join('')}`;
 }
 
 function renderOddzialy() {
@@ -8420,14 +8420,14 @@ async function saveBranch() {
   const co = _cfCo();
   try {
     const method = id ? 'PUT' : 'POST';
-    const url    = `${_cfApi()}/api/branches${id?'/'+id:''}?company=${encodeURIComponent(co)}`;
+    const url    = `${_cfApi()}/api/branches${id?`/${id}`:''}?company=${encodeURIComponent(co)}`;
     const r = await fetch(url, { method, headers: _cfHdrs(), body: JSON.stringify({ name, description: desc }) });
     const d = await r.json();
-    if (!r.ok) { toast('❌ ' + (d.error||'Błąd')); return; }
+    if (!r.ok) { toast(`❌ ${  d.error||'Błąd'}`); return; }
     toast(`✓ Oddział "${name}" ${id?'zaktualizowany':'dodany'}`);
     closeBranchModal();
     await loadBranches();
-  } catch(e) { toast('❌ ' + e.message); }
+  } catch(e) { toast(`❌ ${  e.message}`); }
 }
 
 async function deleteBranch(id, name) {
@@ -8436,10 +8436,10 @@ async function deleteBranch(id, name) {
   try {
     const r = await fetch(`${_cfApi()}/api/branches/${id}?company=${encodeURIComponent(co)}`, { method:'DELETE', headers: _cfHdrs() });
     const d = await r.json();
-    if (!r.ok) { toast('❌ ' + (d.error||'Błąd')); return; }
+    if (!r.ok) { toast(`❌ ${  d.error||'Błąd'}`); return; }
     toast('✓ Oddział usunięty');
     await loadBranches();
-  } catch(e) { toast('❌ ' + e.message); }
+  } catch(e) { toast(`❌ ${  e.message}`); }
 }
 
 async function openBranchReport(id, name) {
@@ -8502,7 +8502,7 @@ function closeBranchReport() { document.getElementById('branch-report-modal').st
 function _cfApi() { return window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev'; }
 function _cfHdrs(extra) {
   const t = localStorage.getItem('cf_token');
-  return { 'Content-Type': 'application/json', ...(t ? { Authorization: 'Bearer ' + t } : {}), ...(extra || {}) };
+  return { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${  t}` } : {}), ...(extra || {}) };
 }
 function _cfCo() { return window.currentCompanyId || 'mtoilet'; }
 window._cfApi  = _cfApi;
@@ -8591,7 +8591,7 @@ function renderKarty() {
     <td><strong style="font-family:var(--mono)">${esc(k.nr_rej||'—')}</strong></td>
     <td><span class="pill ${TYPE_COLORS[k.type]||'pill-gray'}">${esc(k.type)}</span></td>
     <td>${esc(k.provider||'—')}</td>
-    <td style="font-family:var(--mono)">${k.limit_pln ? Number(k.limit_pln).toLocaleString('pl-PL')+' zł' : '—'}</td>
+    <td style="font-family:var(--mono)">${k.limit_pln ? `${Number(k.limit_pln).toLocaleString('pl-PL')} zł` : '—'}</td>
     <td style="font-size:12px">${esc(k.expires||'—')}</td>
     <td><span class="pill ${STATUS_COLORS[k.status]||'pill-gray'}">${esc(k.status)}</span></td>
     <td>
@@ -8607,7 +8607,7 @@ function renderKarty() {
 function maskCard(nr) { return (nr||'').replace(/\d(?=\d{4})/g, '•').replace(/(.{4})/g, '$1 ').trim(); }
 
 function togglePin(id, pin) {
-  const el = document.getElementById('pin-' + id);
+  const el = document.getElementById(`pin-${  id}`);
   if (!el) return;
   if (el.textContent === '••••') { el.textContent = pin || '????'; el.nextElementSibling.textContent = 'Ukryj'; }
   else { el.textContent = '••••'; el.nextElementSibling.textContent = 'Pokaż'; }
@@ -8666,7 +8666,7 @@ async function saveKarta() {
         method: 'POST', headers: _cfHdrs(), body: JSON.stringify(body),
       });
     }
-    if (!r.ok) { const e = await r.json().catch(() => ({})); toast('⚠ ' + (e.error || 'Błąd: ' + r.status)); return; }
+    if (!r.ok) { const e = await r.json().catch(() => ({})); toast(`⚠ ${  e.error || `Błąd: ${  r.status}`}`); return; }
     await _loadKarty();
     document.getElementById('karta-modal').classList.add('hidden');
     renderKarty(); toast(`✓ Karta ${nr} zapisana`); editKartaId = null;
@@ -8684,7 +8684,7 @@ async function deleteKarta(id) {
   if (!confirm('Usunąć kartę?')) return;
   try {
     const r = await fetch(`${_cfApi()}/api/fleet-cards/${id}?company=${_cfCo()}`, { method: 'DELETE', headers: _cfHdrs() });
-    if (!r.ok) { toast('⚠ Błąd usuwania: ' + r.status); return; }
+    if (!r.ok) { toast(`⚠ Błąd usuwania: ${  r.status}`); return; }
     await _loadKarty(); renderKarty(); toast('✓ Karta usunięta');
   } catch { toast('⚠ Błąd połączenia'); }
 }
@@ -8718,7 +8718,7 @@ async function importKarty(inp) {
         if (res.ok) added++;
       }
       await _loadKarty(); renderKarty(); toast(`✓ Zaimportowano ${added} kart`);
-    } catch (err) { toast('⚠ Błąd importu: ' + err.message); }
+    } catch (err) { toast(`⚠ Błąd importu: ${  err.message}`); }
   };
   reader.readAsArrayBuffer(inp.files[0]);
 }
@@ -8731,12 +8731,12 @@ function exportKarty() {
   const ws = XLSX.utils.aoa_to_sheet([hdrs, ...rows]);
   ws['!cols'] = [{wch:20},{wch:8},{wch:12},{wch:12},{wch:12},{wch:10},{wch:10},{wch:12},{wch:20}];
   XLSX.utils.book_append_sheet(wb, ws, 'Karty Flotowe');
-  XLSX.writeFile(wb, 'karty_flotowe_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  XLSX.writeFile(wb, `karty_flotowe_${  new Date().toISOString().slice(0,10)  }.xlsx`);
   toast(`✓ Eksport ${_cards.length} kart`);
 }
 
 // ==================== DOKUMENTY POJAZDÓW (Dowody rej.) ====================
-let docStore={};  // {nrRej: [{id, name, type, data, uploadedAt}]}
+const docStore={};  // {nrRej: [{id, name, type, data, uploadedAt}]}
 let currentDocNrRej=null;
 
 function getDocIcon(nrRej){
@@ -8764,7 +8764,7 @@ function handleDocUpload(inp){
   if(f.size>5*1024*1024){toast('⚠ Plik za duży — maks. 5 MB dla dokumentów');return;}
   const reader=new FileReader();
   reader.onload=e=>{
-    const doc={id:'doc'+Date.now(),name:f.name,type:f.type,data:e.target.result,uploadedAt:new Date().toLocaleString('pl-PL'),nrRej:currentDocNrRej};
+    const doc={id:`doc${Date.now()}`,name:f.name,type:f.type,data:e.target.result,uploadedAt:new Date().toLocaleString('pl-PL'),nrRej:currentDocNrRej};
     if(!docStore[currentDocNrRej])docStore[currentDocNrRej]=[];
     docStore[currentDocNrRej].push(doc);
     renderVeh();
@@ -8845,7 +8845,7 @@ async function runOcrOnDoc(docId,nrRej){
   // Załaduj dokument do OCR
   ocrBase64=doc.data.split(',')[1];
   ocrMime=doc.type;
-  toast('⏳ Uruchamiam OCR na dokumencie '+doc.name+'...');
+  toast(`⏳ Uruchamiam OCR na dokumencie ${doc.name}...`);
   await new Promise(r=>setTimeout(r,300));
   document.getElementById('ocr-img').src=doc.data;
   document.getElementById('ocr-img').style.display=doc.type.startsWith('image/')?'block':'none';
@@ -8879,7 +8879,7 @@ window.renderVeh=renderVehWithDocs;
 
 
 // ==================== FIRMY (Multi-Firma) ====================
-let COMPANIES = {
+const COMPANIES = {
   mtoilet:{id:'mtoilet',shortName:'mToilet',name:'MTOILET SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',nip:'5361938486',regon:'367263453',krs:'0000766937',ulica:'TORUŃSKA',dom:'31',lokal:'',kod:'03-226',miasto:'WARSZAWA',woj:'MAZOWIECKIE',organ:'Prezydent m.st. Warszawy — Dzielnica Białołęka',color:'#185FA5',wlasciciel:'mToilet'},
   gcon:{id:'gcon',shortName:'G-CON',name:'G-CON SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',nip:'5223036167',regon:'362307353',krs:'0000572114',ulica:'EUGENIUSZA BOCHEŃSKIEGO "DUBAŃCA"',dom:'6',lokal:'',kod:'04-478',miasto:'WARSZAWA',woj:'MAZOWIECKIE',organ:'Prezydent m.st. Warszawy — Dzielnica Rembertów',color:'#3B6D11',wlasciciel:'GCON'},
   grental:{id:'grental',shortName:'G-Rental',name:'G-RENTAL SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ',nip:'9522192210',regon:'381803583',krs:'0000765416',ulica:'EUGENIUSZA BOCHEŃSKIEGO "DUBAŃCA"',dom:'6',lokal:'',kod:'04-478',miasto:'WARSZAWA',woj:'MAZOWIECKIE',organ:'Prezydent m.st. Warszawy — Dzielnica Rembertów',color:'#BA7517',wlasciciel:'GRENTAL'},
@@ -8892,7 +8892,7 @@ let COMPANIES = {
 window.COMPANIES = COMPANIES;
 let currentCompanyId=localStorage.getItem('dt1_current_company')||'mtoilet';
 window.currentCompanyId = currentCompanyId;
-let companyStates=JSON.parse(localStorage.getItem('dt1_company_states')||'{}');
+const companyStates=JSON.parse(localStorage.getItem('dt1_company_states')||'{}');
 
 // Udost�pnienie danych floty dla modu��w zewn�trznych, np. migracji Supabase
 window.getTaxOrderVehicles = function(){ return vehs || []; };
@@ -8933,11 +8933,11 @@ async function hydrateCompaniesFromApi(){
   try{
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 8000);
-    const r = await fetch(base + '/api/companies', {
-      headers:{ Authorization:'Bearer ' + token }, signal: ctrl.signal
+    const r = await fetch(`${base  }/api/companies`, {
+      headers:{ Authorization:`Bearer ${  token}` }, signal: ctrl.signal
     });
     clearTimeout(t);
-    if(!r.ok){ console.warn('[Companies] API ' + r.status + ' — zostaje lista lokalna'); return false; }
+    if(!r.ok){ console.warn(`[Companies] API ${  r.status  } — zostaje lista lokalna`); return false; }
 
     const d = await r.json().catch(() => ({}));
     const list = Array.isArray(d.companies) ? d.companies : [];
@@ -8947,7 +8947,7 @@ async function hydrateCompaniesFromApi(){
     // na liscie lokalnej niz nadpisac ja smieciem.
     const valid = list.filter(c => c && typeof c.id === 'string' && c.id && (c.short_name || c.name));
     if(valid.length !== list.length){
-      console.warn('[Companies] Odrzucono ' + (list.length - valid.length) + ' niepoprawnych rekordow z API');
+      console.warn(`[Companies] Odrzucono ${  list.length - valid.length  } niepoprawnych rekordow z API`);
     }
     if(!valid.length){
       console.warn('[Companies] Brak poprawnych rekordow — zostaje lista lokalna');
@@ -8993,10 +8993,10 @@ async function hydrateCompaniesFromApi(){
     for(const fn of ['renderCompanyOverview','renderAllCompaniesSummary','_populateOwnerFilter']){
       if(typeof window[fn] === 'function'){ try{ window[fn](); }catch(_){} }
     }
-    console.log('[Companies] Zsynchronizowano ' + valid.length + ' firm z D1');
+    console.log(`[Companies] Zsynchronizowano ${  valid.length  } firm z D1`);
     return true;
   }catch(e){
-    console.warn('[Companies] Brak synchronizacji (' + e.message + ') — zostaje lista lokalna');
+    console.warn(`[Companies] Brak synchronizacji (${  e.message  }) — zostaje lista lokalna`);
     return false;
   }
 }
@@ -9020,14 +9020,14 @@ function restoreLocalCompanies(){
   for(const fn of ['renderCompanyOverview','renderAllCompaniesSummary']){
     if(typeof window[fn] === 'function'){ try{ window[fn](); }catch(_){} }
   }
-  console.log('[Companies] Przywrocono liste lokalna (' + Object.keys(COMPANIES).length + ' firm)');
+  console.log(`[Companies] Przywrocono liste lokalna (${  Object.keys(COMPANIES).length  } firm)`);
   return true;
 }
 window.restoreLocalCompanies = restoreLocalCompanies;
 
 function saveCompanyState(){
   const state={vehs:vehs.map(v=>({...v})),selected:[...selected],taxYear:document.getElementById('taxYear')?.value||'2026',taxpayer:{}};
-  ['nip','regon','nazwa','ulica','dom','lokal','kod','miasto','woj','organ','imie','nazwisko','cel'].forEach(k=>{const el=document.getElementById('tp-'+k);if(el)state.taxpayer[k]=el.value;});
+  ['nip','regon','nazwa','ulica','dom','lokal','kod','miasto','woj','organ','imie','nazwisko','cel'].forEach(k=>{const el=document.getElementById(`tp-${k}`);if(el)state.taxpayer[k]=el.value;});
   companyStates[currentCompanyId]=state;
   localStorage.setItem('dt1_company_states',JSON.stringify(companyStates));
   window.TaxOrderStateSync?.save(currentCompanyId);
@@ -9083,7 +9083,7 @@ function switchCompany(companyId){
   updateCompanyUI();
   refreshAll();
   loadBranches().catch(e => console.warn('[Branches] switch:', e.message));
-  toast('✓ Przełączono: '+COMPANIES[companyId].shortName);
+  toast(`✓ Przełączono: ${COMPANIES[companyId].shortName}`);
   window.TaxOrderFleetCloud?.loadVehicles(companyId).then(r=>{
     if(r?.ok){
       refreshAll();
@@ -9104,11 +9104,11 @@ function updateCompanyUI(){
   const c=getCurrentCompany();
   const sel=document.getElementById('company-selector');if(sel)sel.value=currentCompanyId;
   const badge=document.getElementById('company-badge');
-  if(badge){badge.textContent=c.shortName;badge.style.background=c.color+'22';badge.style.color=c.color;badge.style.border='1px solid '+c.color+'55';}
-  document.title='TaxOrder Pro — '+c.shortName+' — DT-1';
+  if(badge){badge.textContent=c.shortName;badge.style.background=`${c.color}22`;badge.style.color=c.color;badge.style.border=`1px solid ${c.color}55`;}
+  document.title=`TaxOrder Pro — ${c.shortName} — DT-1`;
   // Aktualizuj lewą kolumnę topbar
   const brandEl=document.querySelector('.brand');
-  if(brandEl){const span=brandEl.querySelector('span');if(span){span.textContent=c.shortName;span.style.background=c.color+'22';span.style.color=c.color;}}
+  if(brandEl){const span=brandEl.querySelector('span');if(span){span.textContent=c.shortName;span.style.background=`${c.color}22`;span.style.color=c.color;}}
 }
 
 function renderCompanyOverview(){
@@ -9119,11 +9119,11 @@ function renderCompanyOverview(){
     const vCount=state?.vehs?.length||0;
     const tax=state?.vehs?.reduce((s,v)=>{const t=calcTax(v);return s+(t.amount||0);},0)||0;
     const isCurrent=c.id===currentCompanyId;
-    return `<div onclick="switchCompany('${c.id}')" style="background:${isCurrent?c.color+'11':'var(--bg2)'};border:2px solid ${isCurrent?c.color:'var(--border)'};border-radius:12px;padding:16px;cursor:pointer;transition:all .2s">
+    return `<div onclick="switchCompany('${c.id}')" style="background:${isCurrent?`${c.color}11`:'var(--bg2)'};border:2px solid ${isCurrent?c.color:'var(--border)'};border-radius:12px;padding:16px;cursor:pointer;transition:all .2s">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <div style="width:12px;height:12px;border-radius:50%;background:${c.color}"></div>
         <div style="font-weight:600;font-size:14px">${esc(c.shortName)}</div>
-        ${isCurrent?'<span style="font-size:10px;background:'+c.color+';color:#fff;padding:2px 6px;border-radius:4px;margin-left:auto">AKTYWNA</span>':''}
+        ${isCurrent?`<span style="font-size:10px;background:${c.color};color:#fff;padding:2px 6px;border-radius:4px;margin-left:auto">AKTYWNA</span>`:''}
       </div>
       <div style="font-size:11px;color:var(--text2);margin-bottom:10px">NIP: ${esc(c.nip)}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
@@ -9132,7 +9132,7 @@ function renderCompanyOverview(){
           <div style="font-size:10px;color:var(--text2)">Pojazdy</div>
         </div>
         <div style="background:var(--bg3);border-radius:6px;padding:8px;text-align:center">
-          <div style="font-size:13px;font-weight:700;color:var(--green)">${tax>0?Math.round(tax).toLocaleString('pl-PL')+' zł':'—'}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--green)">${tax>0?`${Math.round(tax).toLocaleString('pl-PL')} zł`:'—'}</div>
           <div style="font-size:10px;color:var(--text2)">DT-1 2026</div>
         </div>
       </div>
@@ -9154,13 +9154,13 @@ function renderAllCompaniesSummary() {
     const tax = vList.reduce((s,v) => s + (calcTax(v).amount||0), 0);
     grandTotal += tax;
     const isCur = c.id === currentCompanyId;
-    rows += `<tr style="${isCur?'background:'+c.color+'11;font-weight:600':''}">
+    rows += `<tr style="${isCur?`background:${c.color}11;font-weight:600`:''}">
       <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c.color};margin-right:6px"></span>${esc(c.shortName)}</td>
       <td style="text-align:center">${vList.length}</td>
       <td style="text-align:center">${taxable.length}</td>
-      <td style="text-align:right;font-family:var(--mono);color:var(--green)">${tax>0?Math.round(tax).toLocaleString('pl-PL')+' zł':'—'}</td>
-      <td style="text-align:right;font-family:var(--mono);color:var(--blue)">${tax>0?Math.round(tax/2).toLocaleString('pl-PL')+' zł':'—'}</td>
-      <td style="text-align:right;font-family:var(--mono);color:var(--blue)">${tax>0?Math.round(tax-tax/2).toLocaleString('pl-PL')+' zł':'—'}</td>
+      <td style="text-align:right;font-family:var(--mono);color:var(--green)">${tax>0?`${Math.round(tax).toLocaleString('pl-PL')} zł`:'—'}</td>
+      <td style="text-align:right;font-family:var(--mono);color:var(--blue)">${tax>0?`${Math.round(tax/2).toLocaleString('pl-PL')} zł`:'—'}</td>
+      <td style="text-align:right;font-family:var(--mono);color:var(--blue)">${tax>0?`${Math.round(tax-tax/2).toLocaleString('pl-PL')} zł`:'—'}</td>
     </tr>`;
   });
   el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -9176,9 +9176,9 @@ function renderAllCompaniesSummary() {
     <tfoot><tr style="font-weight:700;border-top:2px solid var(--border)">
       <td style="padding:8px 10px">RAZEM GRUPA</td>
       <td></td><td></td>
-      <td style="text-align:right;font-family:var(--mono);padding:8px 10px;color:var(--green)">${grandTotal>0?Math.round(grandTotal).toLocaleString('pl-PL')+' zł':'—'}</td>
-      <td style="text-align:right;font-family:var(--mono);padding:8px 10px;color:var(--blue)">${grandTotal>0?Math.round(grandTotal/2).toLocaleString('pl-PL')+' zł':'—'}</td>
-      <td style="text-align:right;font-family:var(--mono);padding:8px 10px;color:var(--blue)">${grandTotal>0?Math.round(grandTotal-grandTotal/2).toLocaleString('pl-PL')+' zł':'—'}</td>
+      <td style="text-align:right;font-family:var(--mono);padding:8px 10px;color:var(--green)">${grandTotal>0?`${Math.round(grandTotal).toLocaleString('pl-PL')} zł`:'—'}</td>
+      <td style="text-align:right;font-family:var(--mono);padding:8px 10px;color:var(--blue)">${grandTotal>0?`${Math.round(grandTotal/2).toLocaleString('pl-PL')} zł`:'—'}</td>
+      <td style="text-align:right;font-family:var(--mono);padding:8px 10px;color:var(--blue)">${grandTotal>0?`${Math.round(grandTotal-grandTotal/2).toLocaleString('pl-PL')} zł`:'—'}</td>
     </tr></tfoot>
   </table>`;
 }
@@ -9190,7 +9190,7 @@ function selectAllTaxable() {
   let count=0;
   vehs.forEach(v=>{const t=calcTax({...v,_taxYear:yr});if(t&&t.cat){selected.add(v.id);count++;}});
   renderVeh&&renderVeh();updateCounters&&updateCounters();renderFormularze&&renderFormularze();
-  toast('✅ Zaznaczono '+count+' pojazdów opodatkowanych (DT-1)');
+  toast(`✅ Zaznaczono ${count} pojazdów opodatkowanych (DT-1)`);
 }
 
 // ==================== INIT ====================
@@ -9236,7 +9236,7 @@ let cepikConsumerSecret = localStorage.getItem('dt1_cepik_secret') || '';
 let cepikToken          = localStorage.getItem('dt1_cepik_token')||'';
 let cepikTokenExpires   = parseInt(localStorage.getItem('dt1_cepik_token_exp')||'0');
 let cepikProxy          = localStorage.getItem('dt1_cepik_proxy')||'';
-let cepikSettings       = JSON.parse(localStorage.getItem('dt1_cepik_settings')||'{"autoEnable":false,"autoHour":6,"notify":"dmc"}');
+const cepikSettings       = JSON.parse(localStorage.getItem('dt1_cepik_settings')||'{"autoEnable":false,"autoHour":6,"notify":"dmc"}');
 let cepikCache          = JSON.parse(localStorage.getItem('dt1_cepik_cache')||'{}');
 let cepikLastCheck      = localStorage.getItem('dt1_cepik_last_check')||null;
 let cepikStats          = {total:0,ok:0,dmc:0,vin:0,notfound:0,err:0};
@@ -9256,7 +9256,7 @@ function cepikLog(msg, type='info') {
   if(!el) return;
   const color = {info:'var(--text2)',ok:'var(--green)',warn:'var(--amber)',err:'var(--red)'}[type]||'var(--text2)';
   const time = new Date().toLocaleTimeString('pl-PL');
-  el.innerHTML = `<span style="color:${color}">[${time}] ${esc(msg)}</span>\n` + el.innerHTML;
+  el.innerHTML = `<span style="color:${color}">[${time}] ${esc(msg)}</span>\n${  el.innerHTML}`;
 }
 function updateCepikStatus(status) {
   const pill = document.getElementById('cepik-status-pill');
@@ -9270,7 +9270,7 @@ function updateCepikStatus(status) {
     err:    {cls:'pill-red',   txt:'❌ Błąd autoryzacji'},
   };
   const m = map[status]||map.none;
-  pill.className = 'pill '+m.cls;
+  pill.className = `pill ${m.cls}`;
   pill.textContent = m.txt;
 }
 function showTokenBox(token, expiresIn) {
@@ -9296,10 +9296,10 @@ async function cepikGetToken() {
   const workerBase = (window.CF_WORKER_URL||'').replace(/\/$/,'');
   if(!workerBase) throw new Error('Brak Worker URL — skonfiguruj CF_WORKER_URL');
   cepikLog('Generuję token CEPiK przez Worker proxy...','info');
-  const resp = await fetch(workerBase + '/api/cepik/token', {
+  const resp = await fetch(`${workerBase  }/api/cepik/token`, {
     method: 'POST',
     headers: {
-      'Authorization': 'Bearer ' + (localStorage.getItem('cf_token')||''),
+      'Authorization': `Bearer ${  localStorage.getItem('cf_token')||''}`,
       'Content-Type':  'application/x-www-form-urlencoded'
     },
     body: 'grant_type=client_credentials'
@@ -9309,7 +9309,7 @@ async function cepikGetToken() {
     throw new Error(`CF proxy token: HTTP ${resp.status} — ${txt.slice(0,120)}`);
   }
   const data = await resp.json();
-  if(!data.access_token) throw new Error('Brak access_token w odpowiedzi: '+JSON.stringify(data).slice(0,100));
+  if(!data.access_token) throw new Error(`Brak access_token w odpowiedzi: ${JSON.stringify(data).slice(0,100)}`);
   return data;
 }
 
@@ -9349,9 +9349,9 @@ async function cepikConnect() {
     await cepikTestCall();
 
   } catch(e) {
-    cepikLog('❌ Błąd: '+e.message,'err');
+    cepikLog(`❌ Błąd: ${e.message}`,'err');
     updateCepikStatus(e.message.includes('401')||e.message.includes('403')?'err':'cors');
-    toast('⚠ Błąd połączenia: '+e.message.slice(0,80));
+    toast(`⚠ Błąd połączenia: ${e.message.slice(0,80)}`);
   } finally {
     if(btn) { btn.disabled=false; btn.innerHTML='<i class="ti ti-plug"></i>Połącz z CEPiK (generuj token)'; }
   }
@@ -9371,7 +9371,7 @@ async function cepikRefreshToken() {
     cepikLog('✅ Token odświeżony','ok');
     toast('✅ Token CEPiK odświeżony');
   } catch(e) {
-    cepikLog('❌ Refresh nieudany: '+e.message,'err');
+    cepikLog(`❌ Refresh nieudany: ${e.message}`,'err');
     updateCepikStatus('expired');
   }
 }
@@ -9399,7 +9399,7 @@ async function cepikTestCall() {
       updateCepikStatus('cors');
       document.getElementById('cepik-single-result').innerHTML = showCorsHelp(true);
     } else {
-      cepikLog('⚠ Test API: '+e.message,'warn');
+      cepikLog(`⚠ Test API: ${e.message}`,'warn');
     }
   }
 }
@@ -9464,10 +9464,10 @@ async function _cepikFetchOne(nr, wojCode, token, year) {
   // Fallback bezpośredni (może fail CORS)
   const apiUrl = `${CEPIK_API_URL}/pojazdy?numer-rejestracyjny=${encodeURIComponent(nr)}&wojewodztwo=${wojCode}&data-od=${year}0101&data-do=${year}1231&limit=1&pokaz-wszystkie-pola=true`;
   const resp = await fetch(apiUrl, {
-    headers: { 'Accept': 'application/vnd.api+json', 'Authorization': 'Bearer ' + token },
+    headers: { 'Accept': 'application/vnd.api+json', 'Authorization': `Bearer ${  token}` },
     mode: 'cors'
   });
-  if(!resp.ok) throw new Error('HTTP '+resp.status);
+  if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
   return resp.json();
 }
 
@@ -9478,7 +9478,7 @@ async function cepikFetch(nrRej, woj) {
   const wojCode    = (woj==='auto'||!woj) ? guessedWoj : woj;
   const searchAll  = (woj==='auto'||!woj); // gdy woj nie podano przez użytkownika
   // Cache 24h
-  const cacheKey = nr+'_'+wojCode;
+  const cacheKey = `${nr}_${wojCode}`;
   const cached   = cepikCache[cacheKey];
   if(cached && Date.now()-cached.ts < 24*60*60*1000) {
     cepikLog(`📦 Cache: ${nr} (woj ${wojCode})`,'info');
@@ -9511,7 +9511,7 @@ async function cepikFetch(nrRej, woj) {
           cepikLog(`✅ Znaleziono ${nr} w województwie ${w}`, 'ok');
           data = d;
           // Zapisz do cache pod właściwym województwem
-          cepikCache[nr+'_'+w] = {ts:Date.now(), data:d};
+          cepikCache[`${nr}_${w}`] = {ts:Date.now(), data:d};
           localStorage.setItem('dt1_cepik_cache', JSON.stringify(cepikCache));
           return d;
         }
@@ -9577,7 +9577,7 @@ async function cepikCheckSingle() {
     cepikLog(`✅ Dane dla ${nr} pobrane z CEPiK`,'ok');
   } catch(e) {
     resEl.innerHTML = renderApiError(e, nr);
-    cepikLog('❌ '+nr+': '+e.message,'err');
+    cepikLog(`❌ ${nr}: ${e.message}`,'err');
   }
 }
 
@@ -9629,7 +9629,7 @@ async function cepikBatchCheck(mode) {
   let batch;
   if(mode==='all')      batch=vehs;
   else if(mode==='sel') batch=getSel();
-  else                  batch=vehs.filter(v=>cepikCache[v.nrRej+'_'+getWoj(v.nrRej)]?.diffs?.length);
+  else                  batch=vehs.filter(v=>cepikCache[`${v.nrRej}_${getWoj(v.nrRej)}`]?.diffs?.length);
   if(!batch.length){toast('⚠ Brak pojazdów do weryfikacji');return;}
 
   // Pre-flight: sprawdź token 1 wywołaniem zanim uruchomimy cały batch.
@@ -9638,14 +9638,14 @@ async function cepikBatchCheck(mode) {
   if(res) res.innerHTML='<div class="ibox"><i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> Weryfikacja połączenia CEPiK...</div>';
   try {
     const testV = batch.find(v => {
-      const ck = v.nrRej+'_'+getWoj(v.nrRej);
+      const ck = `${v.nrRej}_${getWoj(v.nrRej)}`;
       return !cepikCache[ck] || Date.now()-cepikCache[ck].ts > 24*60*60*1000;
     }) || batch[0];
     await cepikFetch(testV.nrRej, getWoj(testV.nrRej));
     cepikLog('✅ Pre-flight OK — połączenie z CEPiK działa','ok');
   } catch(e) {
     if(res) res.innerHTML=`<div class="ebox"><i class="ti ti-alert-circle"></i><div><strong>Błąd CEPiK — batch przerwany.</strong><br><span style="font-size:12px">${esc(e.message)}<br>Sprawdź konfigurację tokenu lub odśwież połączenie powyżej.</span></div></div>`;
-    cepikLog('❌ Pre-flight nieudany: '+e.message,'err');
+    cepikLog(`❌ Pre-flight nieudany: ${e.message}`,'err');
     return;
   }
 
@@ -9670,11 +9670,11 @@ async function cepikBatchCheck(mode) {
       break;
     }
     const v=batch[i];
-    const cacheKey=v.nrRej+'_'+getWoj(v.nrRej);
+    const cacheKey=`${v.nrRej}_${getWoj(v.nrRej)}`;
     const fromCache=cepikCache[cacheKey]&&Date.now()-cepikCache[cacheKey].ts<24*60*60*1000;
     const pctVal=Math.round((i/batch.length)*100);
-    if(bar)    bar.style.width=pctVal+'%';
-    if(pct)    pct.textContent=pctVal+'%';
+    if(bar)    bar.style.width=`${pctVal}%`;
+    if(pct)    pct.textContent=`${pctVal}%`;
     if(stat)   stat.textContent=`${fromCache?'📦 Cache':'📡 API'}: ${v.nrRej} (${i+1}/${batch.length})`;
     if(detail) detail.textContent=`${v.marka} ${v.model} — ${getWoj(v.nrRej)} woj.${fromCache?' [z cache]':''}`;
     // Opóźnienie tylko dla żywych żądań API (nie cache)
@@ -9699,7 +9699,7 @@ async function cepikBatchCheck(mode) {
       consecutiveErrors++;
       cepikStats.err++;
       results.push({v,status:'err',err:e.message,diffs:[]});
-      cepikLog('❌ '+v.nrRej+': '+e.message,'err');
+      cepikLog(`❌ ${v.nrRej}: ${e.message}`,'err');
     }
   }
   if(bar)  bar.style.width='100%';
@@ -9747,7 +9747,7 @@ function renderBatchResults(results) {
   if(errs.length){
     const isCors=errs.some(r=>(r.err||'').includes('CORS')||(r.err||'').includes('fetch'));
     if(isCors) html+=showCorsHelp(true);
-    else html+=`<div class="ebox" style="margin-top:10px"><i class="ti ti-alert-circle"></i>${errs.length} błędów API: ${errs.map(r=>r.v.nrRej+' ('+r.err+')').join(', ')}</div>`;
+    else html+=`<div class="ebox" style="margin-top:10px"><i class="ti ti-alert-circle"></i>${errs.length} błędów API: ${errs.map(r=>`${r.v.nrRej} (${r.err})`).join(', ')}</div>`;
   }
   el.innerHTML=html||'<div class="gbox"><i class="ti ti-circle-check"></i>Wszystkie pojazdy zgodne z CEPiK!</div>';
 }
@@ -10040,7 +10040,7 @@ window.addEventListener('load', async () => {
       }
     } catch(e) {
       console.warn('[CEPiK] Auto-connect nieudany:', e.message);
-      cepikLog('⚠ Auto-connect: ' + e.message, 'warn');
+      cepikLog(`⚠ Auto-connect: ${  e.message}`, 'warn');
       updateCepikStatus(e.message.includes('CORS')||e.message.includes('fetch') ? 'cors' : 'err');
     }
 
@@ -10055,11 +10055,11 @@ function _errApi(path) {
 }
 function _errHeaders() {
   const t = localStorage.getItem('cf_token');
-  return t ? { Authorization: 'Bearer ' + t } : {};
+  return t ? { Authorization: `Bearer ${  t}` } : {};
 }
 async function _errFetch(path, opts = {}) {
   const r = await fetch(_errApi(path), { headers: _errHeaders(), ...opts });
-  if (!r.ok) throw new Error('HTTP ' + r.status);
+  if (!r.ok) throw new Error(`HTTP ${  r.status}`);
   return r.json();
 }
 
@@ -10112,7 +10112,7 @@ async function deleteErrorLog(id) {
     toast('✓ Wpis usunięty');
     renderErrorsAdmin();
   } catch (e) {
-    toast('⚠ ' + e.message, true);
+    toast(`⚠ ${  e.message}`, true);
   }
 }
 
@@ -10126,7 +10126,7 @@ async function clearAllErrorLogs() {
     toast('✓ Wyczyszczono logi błędów');
     renderErrorsAdmin();
   } catch (e) {
-    toast('⚠ ' + e.message, true);
+    toast(`⚠ ${  e.message}`, true);
   }
 }
 

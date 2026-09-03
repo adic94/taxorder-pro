@@ -7,7 +7,7 @@ window.TaxOrderDrivers = (function () {
   const LS_KEY  = 'taxDrivers';
   const API     = () => window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
   const token   = () => localStorage.getItem('cf_token');
-  const hdrs    = () => ({ 'Content-Type': 'application/json', ...(token() ? { Authorization: 'Bearer ' + token() } : {}) });
+  const hdrs    = () => ({ 'Content-Type': 'application/json', ...(token() ? { Authorization: `Bearer ${  token()}` } : {}) });
   const company = () => window.currentCompanyId || 'mtoilet';
 
   let _drivers = [];
@@ -118,7 +118,7 @@ window.TaxOrderDrivers = (function () {
     el.innerHTML = _drivers.map(d => {
       const expColor = (() => {
         if (!d.license_expiry) return 'var(--text3)';
-        const exp = new Date(d.license_expiry.includes('T') ? d.license_expiry : d.license_expiry + 'T00:00:00');
+        const exp = new Date(d.license_expiry.includes('T') ? d.license_expiry : `${d.license_expiry  }T00:00:00`);
         const today = new Date(); today.setHours(0, 0, 0, 0);
         if (exp < today) return 'var(--red)';
         return (exp - today < 90 * 86400000) ? 'var(--amber)' : 'var(--green)';
@@ -211,7 +211,7 @@ window.TaxOrderDrivers = (function () {
       }
       if (!r.ok) {
         const e = await r.json().catch(() => ({}));
-        toast('⚠ ' + (e.error || 'Błąd zapisu: ' + r.status));
+        toast(`⚠ ${  e.error || `Błąd zapisu: ${  r.status}`}`);
         return;
       }
       await load();
@@ -227,7 +227,7 @@ window.TaxOrderDrivers = (function () {
       const r = await fetch(`${API()}/api/drivers/${id}?company=${company()}`, {
         method: 'DELETE', headers: hdrs(),
       });
-      if (!r.ok) { toast('⚠ Błąd usuwania: ' + r.status); return; }
+      if (!r.ok) { toast(`⚠ Błąd usuwania: ${  r.status}`); return; }
       await load();
       _renderList();
       toast(`Usunięto kierowcę "${name}"`);

@@ -237,7 +237,7 @@ WZ124HW;2025-06-01;07:45:00;12430;Adam Nowak;65;al. Jerozolimskie 120, Warszawa`
                 <td style="font-family:var(--mono);font-weight:700">${esc(nrRej)}</td>
                 <td style="font-family:var(--mono)">${currKm ? currKm.toLocaleString('pl-PL') : '—'}</td>
                 <td style="font-family:var(--mono);color:var(--blue);font-weight:600">${newKm.toLocaleString('pl-PL')}</td>
-                <td style="font-family:var(--mono);color:${diff>0?'var(--green)':diff<0?'var(--red)':'var(--text3)'}">${diff>0?'+'+diff.toLocaleString('pl-PL'):diff.toLocaleString('pl-PL')} km</td>
+                <td style="font-family:var(--mono);color:${diff>0?'var(--green)':diff<0?'var(--red)':'var(--text3)'}">${diff>0?`+${diff.toLocaleString('pl-PL')}`:diff.toLocaleString('pl-PL')} km</td>
                 <td>${!v?`<span style="color:var(--text3)">nieznany pojazd</span>`:diff<0?`<span style="color:var(--amber)">⚠ cofnięty licznik</span>`:`<span style="color:var(--green)">✓ ok</span>`}</td>
               </tr>`;
             }).join('')}

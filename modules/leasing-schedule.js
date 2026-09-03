@@ -13,12 +13,12 @@
   const fmtN = (v, d = 2) =>
     v != null ? (+v).toLocaleString('pl-PL', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—';
 
-  const fmtPLN = v => v != null ? fmtN(v, 2) + ' zł' : '—';
+  const fmtPLN = v => v != null ? `${fmtN(v, 2)  } zł` : '—';
 
   /** Pill daty: czerwony jeśli przeszły, bursztynowy jeśli ≤ 90 dni. */
   function _datePillLoc(dateStr) {
     if (!dateStr) return '<span style="color:var(--text3)">—</span>';
-    const d = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00');
+    const d = new Date(dateStr.includes('T') ? dateStr : `${dateStr  }T00:00:00`);
     if (isNaN(d)) return '<span style="color:var(--text3)">—</span>';
     const now = new Date(); now.setHours(0, 0, 0, 0);
     const days = Math.round((d - now) / 86400000);
@@ -178,8 +178,8 @@
     const pct     = parseFloat(document.getElementById('ls-wplata-pct')?.value) ?? 0;
     const plnEl   = document.getElementById('ls-wplata-pln');
     if (plnEl) {
-      plnEl.textContent = '= ' + (wartosc * pct / 100)
-        .toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' zł';
+      plnEl.textContent = `= ${  (wartosc * pct / 100)
+        .toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })  } zł`;
     }
   }
 
@@ -272,8 +272,8 @@
 
     const vatMies    = s.rata * s.vatRate * s.vatOdlicz;
     const vatLacznie = vatMies * s.n;
-    const vatPctStr  = (s.vatRate * 100).toFixed(0) + '%';
-    const odliczStr  = (s.vatOdlicz * 100).toFixed(0) + '%';
+    const vatPctStr  = `${(s.vatRate * 100).toFixed(0)  }%`;
+    const odliczStr  = `${(s.vatOdlicz * 100).toFixed(0)  }%`;
     vatEl.innerHTML = `
       <strong>VAT:</strong> stawka ${vatPctStr}, odliczenie ${odliczStr}
       → VAT do odliczenia / miesiąc: <strong>${fmtPLN(vatMies)}</strong>
@@ -328,7 +328,7 @@
       ['Cena wykupu brutto',      ((s?.wykupPLN ?? 0) * (1 + (s?.vatRate ?? 0))).toFixed(2)].join(';'),
       ['Całkowity koszt TCO',     (s?.totalCost ?? 0).toFixed(2)].join(';'),
     ];
-    const csv  = '﻿' + lines.join('\r\n');
+    const csv  = `﻿${  lines.join('\r\n')}`;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const a    = document.createElement('a');
     a.href     = URL.createObjectURL(blob);
@@ -371,8 +371,8 @@ ${list.map(v => {
   const marka  = e(v.marka  || '');
   const model  = e(v.model  || '');
   const label  = [marka, model].filter(Boolean).join(' ') || '—';
-  const rata   = v.leasingRate   != null ? fmtN(v.leasingRate,   2) + ' zł' : '—';
-  const wykup  = v.leasingBuyout != null ? fmtN(v.leasingBuyout, 2) + ' zł' : '—';
+  const rata   = v.leasingRate   != null ? `${fmtN(v.leasingRate,   2)  } zł` : '—';
+  const wykup  = v.leasingBuyout != null ? `${fmtN(v.leasingBuyout, 2)  } zł` : '—';
   return `<tr style="cursor:pointer"
       data-nrrej="${e(v.nrRej || '')}"
       onclick="if(typeof showVehicleDetail==='function') showVehicleDetail(this.dataset.nrrej)">

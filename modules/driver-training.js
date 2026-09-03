@@ -67,10 +67,10 @@
         <td>${esc(r.driver_name || '—')}</td>
         <td><i class="ti ${TYPE_ICON[r.record_type]||'ti-file'}"></i> ${esc(TYPE_LABEL[r.record_type] || r.record_type || '—')}</td>
         <td>${esc(r.title || '—')}</td>
-        <td>${esc(r.start_date?.slice(0,10)||'?')}${r.end_date ? ' – '+esc(r.end_date.slice(0,10)) : ''}</td>
+        <td>${esc(r.start_date?.slice(0,10)||'?')}${r.end_date ? ` – ${esc(r.end_date.slice(0,10))}` : ''}</td>
         <td>${r.valid_until ? `<span style="color:${expiringSoon?'#f59e0b':'inherit'}">${esc(r.valid_until.slice(0,10))}${expiringSoon?' ⚠️':''}</span>` : '—'}</td>
         <td><span style="color:${RESULT_CLR[r.result]||'#999'}">${esc(r.result||'—')}</span></td>
-        <td style="text-align:right">${r.cost_pln ? esc(r.cost_pln.toFixed(2)) + ' PLN' : '—'}</td>
+        <td style="text-align:right">${r.cost_pln ? `${esc(r.cost_pln.toFixed(2))  } PLN` : '—'}</td>
         <td>
           <button class="btn-icon" title="Edytuj" data-id="${esc(r.id)}" onclick="window.DriverTraining._openModal(this.dataset.id)"><i class="ti ti-edit"></i></button>
           <button class="btn-icon danger" title="Usuń" data-id="${esc(r.id)}" onclick="window.DriverTraining._delete(this.dataset.id)"><i class="ti ti-trash"></i></button>

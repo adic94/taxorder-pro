@@ -13,7 +13,7 @@
   const fmtN = (v, d = 0) =>
     v != null ? (+v).toLocaleString('pl-PL', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—';
 
-  const fmtPLN = (v, d = 0) => v != null ? fmtN(v, d) + ' zł' : '—';
+  const fmtPLN = (v, d = 0) => v != null ? `${fmtN(v, d)  } zł` : '—';
 
   /* ── Stałe deprecjacji ──────────────────────────────────────────────────── */
   const DEPR_RATES = [0.20, 0.15, 0.12, 0.10, 0.08]; // rok 1–5
@@ -123,7 +123,7 @@
   </div>
   <div class="kpi-chip">
     <i class="ti ti-percentage" style="color:var(--amber)"></i>
-    <span class="kpi-val">${totalPurchase > 0 ? fmtN((1 - totalEst / totalPurchase) * 100, 1) + '%' : '—'}</span>
+    <span class="kpi-val">${totalPurchase > 0 ? `${fmtN((1 - totalEst / totalPurchase) * 100, 1)  }%` : '—'}</span>
     <span class="kpi-lbl">Średnia deprecjacja floty</span>
   </div>
   ${replaceable.length ? `<div class="kpi-chip">
@@ -168,7 +168,7 @@ ${rows.map(r => {
     <td style="text-align:right;font-family:var(--mono)">${fmtPLN(r.price)}</td>
     <td style="text-align:right;font-family:var(--mono)">${r.age >= 0 ? r.age : '—'}</td>
     <td style="text-align:right;font-family:var(--mono);font-weight:600">${fmtPLN(r.est)}</td>
-    <td style="text-align:right;font-family:var(--mono);${deprColor}">${r.deprPct != null ? fmtN(r.deprPct, 1) + '%' : '—'}</td>
+    <td style="text-align:right;font-family:var(--mono);${deprColor}">${r.deprPct != null ? `${fmtN(r.deprPct, 1)  }%` : '—'}</td>
     <td>${_ownPill(v.ownershipType)}</td>
     <td onclick="event.stopPropagation()">${lastMStr}</td>
   </tr>`;
@@ -180,7 +180,7 @@ ${rows.map(r => {
         <td style="text-align:right;font-family:var(--mono)">${fmtPLN(totalPurchase)}</td>
         <td></td>
         <td style="text-align:right;font-family:var(--mono)">${fmtPLN(totalEst)}</td>
-        <td style="text-align:right;font-family:var(--mono)">${totalPurchase > 0 ? fmtN((1 - totalEst / totalPurchase) * 100, 1) + '%' : '—'}</td>
+        <td style="text-align:right;font-family:var(--mono)">${totalPurchase > 0 ? `${fmtN((1 - totalEst / totalPurchase) * 100, 1)  }%` : '—'}</td>
         <td colspan="2"></td>
       </tr>
     </tfoot>
@@ -343,7 +343,7 @@ ${replaceable.map(r => {
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: ctx => ' ' + (ctx.raw ?? 0).toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' zł',
+              label: ctx => ` ${  (ctx.raw ?? 0).toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })  } zł`,
             },
           },
         },
@@ -356,7 +356,7 @@ ${replaceable.map(r => {
             ticks: {
               color: tc,
               font:  { size: 11 },
-              callback: val => (val / 1000).toLocaleString('pl-PL', { maximumFractionDigits: 0 }) + ' tys. zł',
+              callback: val => `${(val / 1000).toLocaleString('pl-PL', { maximumFractionDigits: 0 })  } tys. zł`,
             },
             grid: { color: gc },
             beginAtZero: true,

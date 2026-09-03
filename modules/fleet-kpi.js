@@ -51,11 +51,11 @@
 <!-- KPI Row 2 — Koszty -->
 <div style="margin-bottom:8px;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);letter-spacing:.5px">Koszty</div>
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px">
-  ${_kpiCard('ti-gas-station','Paliwo', d.fuel_cost!=null?fmtN(d.fuel_cost,0)+' PLN':'—','')}
-  ${_kpiCard('ti-tool','Serwis', d.service_cost!=null?fmtN(d.service_cost,0)+' PLN':'—','')}
-  ${_kpiCard('ti-shield','Ubezpieczenia', d.insurance_cost!=null?fmtN(d.insurance_cost,0)+' PLN':'—','')}
-  ${_kpiCard('ti-receipt','Faktury', d.invoices_total!=null?fmtN(d.invoices_total,0)+' PLN':'—','brutto','--blue')}
-  ${_kpiCard('ti-trending-up','Marża', d.margin_pct!=null?fmtN(d.margin_pct,1)+'%':'—','','--green')}
+  ${_kpiCard('ti-gas-station','Paliwo', d.fuel_cost!=null?`${fmtN(d.fuel_cost,0)} PLN`:'—','')}
+  ${_kpiCard('ti-tool','Serwis', d.service_cost!=null?`${fmtN(d.service_cost,0)} PLN`:'—','')}
+  ${_kpiCard('ti-shield','Ubezpieczenia', d.insurance_cost!=null?`${fmtN(d.insurance_cost,0)} PLN`:'—','')}
+  ${_kpiCard('ti-receipt','Faktury', d.invoices_total!=null?`${fmtN(d.invoices_total,0)} PLN`:'—','brutto','--blue')}
+  ${_kpiCard('ti-trending-up','Marża', d.margin_pct!=null?`${fmtN(d.margin_pct,1)}%`:'—','','--green')}
 </div>
 
 <!-- KPI Row 3 — Kierowcy / Tachograf -->
@@ -63,8 +63,8 @@
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px">
   ${_kpiCard('ti-users','Kierowców', d.drivers_count??'—','')}
   ${_kpiCard('ti-steering-wheel','Naruszeń tachografu', d.tacho_violations??'—','','--red')}
-  ${_kpiCard('ti-star','Śr. wynik eco', d.avg_eco_score!=null?fmtN(d.avg_eco_score,1)+'/100':'—','',d.avg_eco_score>=70?'--green':d.avg_eco_score>=50?'--orange':'--red')}
-  ${_kpiCard('ti-clock','Nadgodziny', d.overtime_hours!=null?fmtN(d.overtime_hours,1)+' h':'—','')}
+  ${_kpiCard('ti-star','Śr. wynik eco', d.avg_eco_score!=null?`${fmtN(d.avg_eco_score,1)}/100`:'—','',d.avg_eco_score>=70?'--green':d.avg_eco_score>=50?'--orange':'--red')}
+  ${_kpiCard('ti-clock','Nadgodziny', d.overtime_hours!=null?`${fmtN(d.overtime_hours,1)} h`:'—','')}
   ${_kpiCard('ti-id-badge','CPC do odnowy', d.cpc_expiring??'—','≤90 dni','--orange')}
 </div>
 
@@ -72,7 +72,7 @@
 <div style="margin-bottom:8px;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text3);letter-spacing:.5px">EV & Lokalizacja</div>
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:24px">
   ${_kpiCard('ti-bolt','Ładowania EV', d.ev_sessions??'—','sesji')}
-  ${_kpiCard('ti-bolt','Energia EV', d.ev_kwh!=null?fmtN(d.ev_kwh,0)+' kWh':'—','')}
+  ${_kpiCard('ti-bolt','Energia EV', d.ev_kwh!=null?`${fmtN(d.ev_kwh,0)} kWh`:'—','')}
   ${_kpiCard('ti-map-pin','Naruszenia stref', d.geofence_alerts??'—','geofencing','--orange')}
   ${_kpiCard('ti-truck','Zlecenia', d.transport_orders??'—','')}
   ${_kpiCard('ti-truck','Ukończone', d.orders_completed??'—','','--green')}
@@ -92,7 +92,7 @@
     return `<div class="kpi-chip" style="${brd}">
       <i class="ti ${icon}" style="${col}"></i>
       <span class="kpi-val" style="${col}">${value}</span>
-      <span class="kpi-lbl">${label}${sublabel?'<br><small style="opacity:.7">'+e(sublabel)+'</small>':''}</span>
+      <span class="kpi-lbl">${label}${sublabel?`<br><small style="opacity:.7">${e(sublabel)}</small>`:''}</span>
     </div>`;
   }
 
@@ -142,7 +142,7 @@
     const total = fuel + serv + ins || 1;
     const bar = (val, color, label) => {
       const pct = Math.round(val / total * 100);
-      return pct > 0 ? `<div title="${label}: ${fmtN(val,0)} PLN (${pct}%)" style="height:100%;width:${pct}%;background:${color};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;overflow:hidden">${pct>8?pct+'%':''}</div>` : '';
+      return pct > 0 ? `<div title="${label}: ${fmtN(val,0)} PLN (${pct}%)" style="height:100%;width:${pct}%;background:${color};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;overflow:hidden">${pct>8?`${pct}%`:''}</div>` : '';
     };
     return `<div style="background:var(--bg2);border-radius:12px;padding:20px">
       <h3 style="font-size:14px;margin:0 0 12px"><i class="ti ti-chart-pie"></i> Struktura kosztów</h3>

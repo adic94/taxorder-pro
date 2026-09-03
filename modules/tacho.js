@@ -106,7 +106,7 @@ ${_records.length ? _records.map(r => `<tr>
       if (!r.ok) throw new Error(await r.text());
       closeTachoModal();
       await renderTacho();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   function editTacho(id) { openTachoModal(id); }
@@ -116,7 +116,7 @@ ${_records.length ? _records.map(r => `<tr>
     try {
       await fetch(`${API()}/api/tacho-records/${encodeURIComponent(id)}?company=${encodeURIComponent(Co())}`, { method:'DELETE', headers: H() });
       await renderTacho();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   window.TachoModule = { renderTacho, openTachoModal, closeTachoModal, saveTacho, editTacho, deleteTacho };

@@ -10,7 +10,7 @@ window.TaxOrderCfmContracts = (function () {
   function _token() { return localStorage.getItem('cf_token'); }
   function _headers(extra) {
     const t = _token();
-    return { ...(t ? { 'Authorization': 'Bearer ' + t } : {}), ...(extra || {}) };
+    return { ...(t ? { 'Authorization': `Bearer ${  t}` } : {}), ...(extra || {}) };
   }
   function _company() { return window.currentCompanyId || 'mtoilet'; }
 
@@ -22,7 +22,7 @@ window.TaxOrderCfmContracts = (function () {
   async function load() {
     try {
       const resp = await fetch(`${_cfApi()}/api/cfm-contracts?company=${encodeURIComponent(_company())}`, { headers: _headers() });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       list = await resp.json();
     } catch (e) {
       console.warn('[CfmContracts] load error:', e.message);
@@ -51,7 +51,7 @@ window.TaxOrderCfmContracts = (function () {
       <td style="font-size:12px">${esc(_clientName(c))}</td>
       <td style="font-size:12px">${c.typ_umowy === 'LEASING' ? 'Leasing' : 'Najem'}</td>
       <td style="font-size:11px">${esc(c.data_od || '—')} → ${esc(c.data_do || 'bezterminowo')}</td>
-      <td style="font-family:var(--mono)">${c.stawka_miesieczna != null ? Number(c.stawka_miesieczna).toLocaleString('pl-PL') + ' zł' : '—'}</td>
+      <td style="font-family:var(--mono)">${c.stawka_miesieczna != null ? `${Number(c.stawka_miesieczna).toLocaleString('pl-PL')  } zł` : '—'}</td>
       <td style="text-align:center">${c.refakturowanie_kosztow ? '<i class="ti ti-check" style="color:var(--green)"></i>' : '—'}</td>
       <td><span class="pill ${c.status === 'AKTYWNY' ? 'pill-green' : 'pill-gray'}">${c.status === 'AKTYWNY' ? 'Aktywny' : 'Zakończony'}</span></td>
       <td>
@@ -100,7 +100,7 @@ window.TaxOrderCfmContracts = (function () {
     if (dl) dl.innerHTML = (window.vehs || []).map(v => `<option value="${esc(v.nrRej)}">${esc(v.nrRej)} — ${esc(v.marka)} ${esc(v.model)}</option>`).join('');
     _populateClientPickers(c);
     document.getElementById('cfmum-typ').value = c?.typ_umowy || 'NAJEM';
-    document.getElementById('cfmum-od').value = c?.data_od || (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date());
+    document.getElementById('cfmum-od').value = c?.data_od || (d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date());
     document.getElementById('cfmum-do').value = c?.data_do || '';
     document.getElementById('cfmum-stawka').value = c?.stawka_miesieczna ?? '';
     document.getElementById('cfmum-dzien').value = c?.dzien_platnosci ?? 10;
@@ -141,24 +141,24 @@ window.TaxOrderCfmContracts = (function () {
       const resp = editId
         ? await fetch(`${_cfApi()}/api/cfm-contracts/${editId}`, { method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) })
         : await fetch(`${_cfApi()}/api/cfm-contracts`, { method: 'POST', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       toast('✓ Kontrakt zapisany');
       closeModal();
       await load();
     } catch (e) {
-      toast('⚠ Błąd zapisu: ' + e.message);
+      toast(`⚠ Błąd zapisu: ${  e.message}`);
     }
   }
 
   async function endContract(id) {
     if (!confirm('Zakończyć kontrakt? Nie będzie już uwzględniany przy generowaniu faktur.')) return;
     try {
-      const resp = await fetch(`${_cfApi()}/api/cfm-contracts/${id}`, { method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ status: 'ZAKONCZONY', data_do: (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date()) }) });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const resp = await fetch(`${_cfApi()}/api/cfm-contracts/${id}`, { method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ status: 'ZAKONCZONY', data_do: (d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date()) }) });
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       toast('✓ Kontrakt zakończony');
       await load();
     } catch (e) {
-      toast('⚠ Błąd: ' + e.message);
+      toast(`⚠ Błąd: ${  e.message}`);
     }
   }
 
@@ -166,11 +166,11 @@ window.TaxOrderCfmContracts = (function () {
     if (!confirm('Usunąć kontrakt?')) return;
     try {
       const resp = await fetch(`${_cfApi()}/api/cfm-contracts/${id}`, { method: 'DELETE', headers: _headers() });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       toast('✓ Kontrakt usunięty');
       await load();
     } catch (e) {
-      toast('⚠ Błąd usuwania: ' + e.message);
+      toast(`⚠ Błąd usuwania: ${  e.message}`);
     }
   }
 

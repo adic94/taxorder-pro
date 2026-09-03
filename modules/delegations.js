@@ -425,7 +425,7 @@
       _refreshList();
       window.toast?.('Delegacja zapisana');
     } catch (e) {
-      alert('Błąd zapisu: ' + e.message);
+      alert(`Błąd zapisu: ${  e.message}`);
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -539,7 +539,7 @@ ${d.notes ? `<p style="margin-top:10px"><strong>Uwagi:</strong> ${esc(d.notes)}<
   // ── CSV export ─────────────────────────────────────────────────────────────
   function _csvCell(v) {
     const s    = String(v ?? '');
-    const safe = /^[=+\-@\t\r\n]/.test(s) ? '\t' + s : s;
+    const safe = /^[=+\-@\t\r\n]/.test(s) ? `\t${  s}` : s;
     return `"${safe.replace(/"/g, '""')}"`;
   }
 
@@ -560,7 +560,7 @@ ${d.notes ? `<p style="margin-top:10px"><strong>Uwagi:</strong> ${esc(d.notes)}<
       ].map(_csvCell).join(';');
     });
     const csv  = [hdr, ...rows].join('\r\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([`﻿${  csv}`], { type: 'text/csv;charset=utf-8' });
     const a    = document.createElement('a');
     a.href     = URL.createObjectURL(blob);
     a.download = `delegacje-${new Date().toISOString().slice(0, 10)}.csv`;

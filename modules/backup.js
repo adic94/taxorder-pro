@@ -15,7 +15,7 @@ window.FleetBackup = (function () {
 
   const _api = () => window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
   const _tok = () => localStorage.getItem('cf_token');
-  const _hdrs = () => ({ 'Content-Type': 'application/json', ...(_tok() ? { Authorization: 'Bearer ' + _tok() } : {}) });
+  const _hdrs = () => ({ 'Content-Type': 'application/json', ...(_tok() ? { Authorization: `Bearer ${  _tok()}` } : {}) });
   const _co  = () => window.currentCompanyId || 'mtoilet';
 
   async function exportBackup() {
@@ -101,7 +101,7 @@ window.FleetBackup = (function () {
           const r = await fetch(`${_api()}/api/import?company=${_co()}`, {
             method: 'POST', headers: _hdrs(), body: JSON.stringify(backup.d1),
           });
-          if (!r.ok) toast('⚠ Błąd importu D1: ' + r.status);
+          if (!r.ok) toast(`⚠ Błąd importu D1: ${  r.status}`);
         } catch { toast('⚠ Błąd połączenia przy imporcie D1'); }
       }
 

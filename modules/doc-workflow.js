@@ -8,7 +8,7 @@
   const API  = () => window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
   const tok  = () => localStorage.getItem('cf_token') || '';
   const co   = () => window.currentCompanyId || localStorage.getItem('cf_company') || '';
-  const hdrs = () => ({ Authorization: 'Bearer ' + tok(), 'Content-Type': 'application/json' });
+  const hdrs = () => ({ Authorization: `Bearer ${  tok()}`, 'Content-Type': 'application/json' });
   const me   = () => window.currentUser || {};
 
   // ── Domyślne statusy (gdy firma nie ma własnego szablonu) ─────────────────
@@ -528,7 +528,7 @@
 
   function _tplAddStatus() {
     const modal = document.getElementById('dwf-tpl-form-modal');
-    modal._statuses.push({ id: 'status_' + Date.now(), label: 'Nowy status', color: '#94a3b8', order: modal._statuses.length });
+    modal._statuses.push({ id: `status_${  Date.now()}`, label: 'Nowy status', color: '#94a3b8', order: modal._statuses.length });
     _refreshTplStatusList(modal);
   }
   function _tplRemoveStatus(i) {
