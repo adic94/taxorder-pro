@@ -14027,6 +14027,13 @@ async function handleRagChat(request, env, user, url, path) {
   if (!co) return err('Brak przypisanej firmy', 400);
   if (!env.CLAUDE_API_KEY) return json({ error: 'Brak klucza Claude API (CLAUDE_API_KEY)' }, 503);
 
+  // Do 02.09.2026 ten handler nie zapisywał NIC — ani do audit_logs (jak CEPiK), ani do
+  // trackAIEvent/PostHog. Skutek: przy naprawie luki bezpieczeństwa (patrz validateRagSql)
+  // nie dało się ustalić, czy funkcja była kiedykolwiek realnie używana, ani czy ktoś
+  // wcześniej próbował ją wykorzystać. Logujemy teraz KAŻDE wywołanie — w tym odrzucone
+  // przez validateRagSql, bo odrzucenie samo w sobie jest sygnałem wartym zobaczenia.
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+
   // Schemat uproszczony dla kontekstu AI — nazwy kolumn zgodne z prawdziwym schematem
   // (nie z tym, co "brzmi sensownie"). `vehicles` trzyma prawie wszystko w JSON `data`,
   // więc kolumny logiczne idą przez JSON_EXTRACT, dokładnie jak COL_EXPR w handleReportBuilder —
@@ -14057,6 +14064,8 @@ async function handleRagChat(request, env, user, url, path) {
     try { parsed = JSON.parse(rawText.match(/\{[\s\S]*\}/)?.[0] || '{}'); } catch { parsed = {}; }
 
     if (!parsed.sql || !parsed.sql.trim().toLowerCase().startsWith('select')) {
+      await logAudit(env, { company_id: co, user_id: user.id, user_email: user.email,
+        action: 'rag_chat_pytanie', entity_type: 'rag_chat', details: { question, wynik: 'brak_sql' }, ip });
       return json({ answer: parsed.answer_template || 'Nie mogę wygenerować zapytania SQL dla tego pytania.', sql_used: null, row_count: null });
     }
     // Zabezpieczenie — tylko SELECT
@@ -14089,11 +14098,18 @@ async function handleRagChat(request, env, user, url, path) {
     // elastyczne pytania), a nie łatka — decyzja do podjęcia świadomie, nie przy okazji.
     const validation = validateRagSql(safeSQL, co);
     if (!validation.ok) {
+      await logAudit(env, { company_id: co, user_id: user.id, user_email: user.email,
+        action: 'rag_chat_zablokowane', entity_type: 'rag_chat',
+        details: { question, sql: safeSQL, powod: validation.reason }, ip });
       return json({ answer: validation.reason, sql_used: null, row_count: null });
     }
 
     const dbResult = await env.DB.prepare(safeSQL).bind().all().catch(e => ({ error: e.message, results: [] }));
-    if (dbResult.error) return json({ answer: `Błąd SQL: ${dbResult.error}`, sql_used: safeSQL, row_count: 0 });
+    if (dbResult.error) {
+      await logAudit(env, { company_id: co, user_id: user.id, user_email: user.email,
+        action: 'rag_chat_pytanie', entity_type: 'rag_chat', details: { question, sql: safeSQL, wynik: 'blad_sql', blad: dbResult.error }, ip });
+      return json({ answer: `Błąd SQL: ${dbResult.error}`, sql_used: safeSQL, row_count: 0 });
+    }
 
     // Generuj odpowiedź na podstawie wyników
     const rows = dbResult.results || [];
@@ -14107,6 +14123,8 @@ async function handleRagChat(request, env, user, url, path) {
     });
     const answerData = await answerResp.json();
     const answer = answerData.content?.[0]?.text || parsed.answer_template || 'Brak danych.';
+    await logAudit(env, { company_id: co, user_id: user.id, user_email: user.email,
+      action: 'rag_chat_pytanie', entity_type: 'rag_chat', details: { question, sql: safeSQL, wynik: 'ok', row_count: rows.length }, ip });
     return json({ answer, sql_used: safeSQL, row_count: rows.length });
   } catch (e) {
     return json({ error: 'Błąd AI: ' + e.message }, 500);
