@@ -11,12 +11,12 @@ window.DebtCollection = (function () {
   const Co  = () => window._cfCo?.()   || '';
   const e   = s => typeof esc === 'function' ? esc(s) : String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const fmtPLN = v => v != null ? parseFloat(v).toLocaleString('pl-PL', { style: 'currency', currency: 'PLN' }) : '—';
-  const fmtD   = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('pl-PL') : '—';
+  const fmtD   = d => d ? new Date(`${d  }T00:00:00`).toLocaleDateString('pl-PL') : '—';
 
   let _debts   = [];
   let _stats   = {};
-  let _remHist = {}; // debt_id → reminders[]
-  let _expanded = new Set();
+  const _remHist = {}; // debt_id → reminders[]
+  const _expanded = new Set();
   let _filter  = 'all'; // 'all' | 'active' | 'overdue7' | 'overdue14' | 'overdue30' | 'paid'
 
   const STATUS_CFG = {
@@ -37,7 +37,7 @@ window.DebtCollection = (function () {
 
   function _daysOverdue(dueDate) {
     if (!dueDate) return 0;
-    return Math.max(0, Math.floor((Date.now() - new Date(dueDate + 'T00:00:00').getTime()) / 86400000));
+    return Math.max(0, Math.floor((Date.now() - new Date(`${dueDate  }T00:00:00`).getTime()) / 86400000));
   }
 
   function _overdueColor(days) {

@@ -190,8 +190,8 @@
         <td>${esc(VIG_TYPE[v.vignette_type] ?? v.vignette_type ?? '—')}</td>
         <td>${esc(_fmtDate(v.valid_from))}</td>
         <td>${esc(_fmtDate(v.valid_until))}</td>
-        <td style="color:${clr};font-weight:600;text-align:center">${days < 0 ? 'Wygasło' : days + ' dni'}</td>
-        <td style="text-align:right">${v.amount_pln != null ? esc(Number(v.amount_pln).toFixed(2)) + ' PLN' : '—'}</td>
+        <td style="color:${clr};font-weight:600;text-align:center">${days < 0 ? 'Wygasło' : `${days  } dni`}</td>
+        <td style="text-align:right">${v.amount_pln != null ? `${esc(Number(v.amount_pln).toFixed(2))  } PLN` : '—'}</td>
         <td>
           <button class="btn-icon" title="Edytuj" data-id="${esc(v.id)}" onclick="window.Vignettes._openVigModal(this.dataset.id)"><i class="ti ti-edit"></i></button>
           <button class="btn-icon danger" title="Usuń" data-id="${esc(v.id)}" onclick="window.Vignettes._deleteVig(this.dataset.id)"><i class="ti ti-trash"></i></button>
@@ -303,7 +303,7 @@
         <td>${esc(d.obu_number || '—')}</td>
         <td>${esc(OBU_TYPE[d.obu_type] ?? d.obu_type ?? '—')}</td>
         <td><span style="padding:2px 8px;border-radius:12px;font-size:.8em;font-weight:600;background:${d.active ? '#dcfce7' : '#fee2e2'};color:${d.active ? '#15803d' : '#dc2626'}">${d.active ? 'Aktywny' : 'Nieaktywny'}</span></td>
-        <td style="text-align:right;font-weight:600">${d.balance_pln != null ? esc(Number(d.balance_pln).toFixed(2)) + ' PLN' : '—'}</td>
+        <td style="text-align:right;font-weight:600">${d.balance_pln != null ? `${esc(Number(d.balance_pln).toFixed(2))  } PLN` : '—'}</td>
         <td>${esc(d.last_top_up_at ? d.last_top_up_at.slice(0,10) : '—')}</td>
         <td>
           <button class="btn btn-sm btn-outline" data-id="${esc(d.id)}" data-bal="${d.balance_pln ?? 0}" onclick="window.Vignettes._openTopUp(this.dataset.id,+this.dataset.bal)">Doładuj</button>

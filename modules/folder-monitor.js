@@ -164,7 +164,7 @@
         const tok = localStorage.getItem('cf_token');
         const r   = await fetch(`${API}/api/ai/ocr-doc`, {
           method:  'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (tok || '') },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${  tok || ''}` },
           body:    JSON.stringify({ imageBase64: b64, mimeType: qItem.file.type, docType: qItem.type }),
         });
         const d = await r.json().catch(() => ({}));
@@ -187,7 +187,7 @@
     const API     = (window.CF_API_URL || '').replace(/\/$/, '');
     const company = window.currentCompanyId || 'mtoilet';
     const tok     = localStorage.getItem('cf_token');
-    const H       = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (tok || '') };
+    const H       = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${  tok || ''}` };
     qItem.status  = 'importing';
     _renderQueue();
 
@@ -258,7 +258,7 @@
       if (typeof toast === 'function') toast(`✓ Zaimportowano: ${esc(qItem.filename)}`);
     } catch (e) {
       qItem.status = 'error';
-      qItem.error  = 'Import: ' + e.message;
+      qItem.error  = `Import: ${  e.message}`;
     }
     _saveQueue();
     _renderQueue();
@@ -426,8 +426,8 @@
     // Załaduj nazwy folderów z IDB
     Object.keys(TYPE_META).forEach(async key => {
       const h = await _idbGet(STORE_HANDLES, key);
-      const pathEl  = document.getElementById('fm-path-' + key);
-      const clearEl = document.getElementById('fm-clear-' + key);
+      const pathEl  = document.getElementById(`fm-path-${  key}`);
+      const clearEl = document.getElementById(`fm-clear-${  key}`);
       if (h?.name && pathEl) {
         pathEl.textContent = h.name;
         if (clearEl) clearEl.style.display = '';
@@ -443,20 +443,20 @@
     try {
       const handle = await window.showDirectoryPicker({ mode: 'read' });
       await _idbPut(STORE_HANDLES, { type, handle, name: handle.name });
-      const pathEl  = document.getElementById('fm-path-' + type);
-      const clearEl = document.getElementById('fm-clear-' + type);
+      const pathEl  = document.getElementById(`fm-path-${  type}`);
+      const clearEl = document.getElementById(`fm-clear-${  type}`);
       if (pathEl)  pathEl.textContent = handle.name;
       if (clearEl) clearEl.style.display = '';
       if (typeof toast === 'function') toast(`✓ Folder "${esc(handle.name)}" → ${TYPE_META[type]?.label}`);
     } catch (e) {
-      if (e.name !== 'AbortError' && typeof toast === 'function') toast('⚠ ' + e.message);
+      if (e.name !== 'AbortError' && typeof toast === 'function') toast(`⚠ ${  e.message}`);
     }
   }
 
   async function _clearFolder(type) {
     await _idbDelete(STORE_HANDLES, type);
-    const pathEl  = document.getElementById('fm-path-' + type);
-    const clearEl = document.getElementById('fm-clear-' + type);
+    const pathEl  = document.getElementById(`fm-path-${  type}`);
+    const clearEl = document.getElementById(`fm-clear-${  type}`);
     if (pathEl)  pathEl.textContent = 'Nie skonfigurowany';
     if (clearEl) clearEl.style.display = 'none';
   }
@@ -466,7 +466,7 @@
     _settings.mode     = modeEl?.value || 'manual';
     _settings.interval = parseInt(document.getElementById('fm-interval')?.value || '10');
     _settings.enabled  = true;
-    _settings.types    = Object.keys(TYPE_META).filter(k => document.getElementById('fm-type-' + k)?.checked);
+    _settings.types    = Object.keys(TYPE_META).filter(k => document.getElementById(`fm-type-${  k}`)?.checked);
     _saveSettings();
     _startAuto();
     _closeSettings();
@@ -578,7 +578,7 @@
     if (!token) return;
     try {
       const r = await fetch(`${API}/api/folder-monitor/queue?company=${encodeURIComponent(company)}&limit=100`, {
-        headers: { 'Authorization': 'Bearer ' + token },
+        headers: { 'Authorization': `Bearer ${  token}` },
       });
       if (!r.ok) return;
       const rows = await r.json().catch(() => []);
@@ -593,7 +593,7 @@
           agentId:   row.id,
           filename:  row.filename,
           type:      row.doc_type,
-          fileKey:   'agent:' + row.id,
+          fileKey:   `agent:${  row.id}`,
           file:      null,
           status:    row.status === 'ocr_done' ? 'ready' : row.status === 'error' ? 'error' : 'pending',
           result:    row.ocr_result || null,
@@ -622,7 +622,7 @@
     if (!ago) {
       el.innerHTML = '<span style="color:var(--text3)">Nie połączono</span>';
     } else {
-      el.innerHTML = `<span style="color:var(--green)"><i class="ti ti-circle-check"></i> Ostatni odbiór: ${ago < 60 ? ago + 's temu' : Math.round(ago/60) + 'min temu'}</span>`;
+      el.innerHTML = `<span style="color:var(--green)"><i class="ti ti-circle-check"></i> Ostatni odbiór: ${ago < 60 ? `${ago  }s temu` : `${Math.round(ago/60)  }min temu`}</span>`;
     }
   }
 
@@ -689,7 +689,7 @@
         const token = localStorage.getItem('cf_token');
         await fetch(`${API}/api/folder-monitor/queue/${encodeURIComponent(qItem.agentId)}`, {
           method:  'PATCH',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token || '') },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${  token || ''}` },
           body:    JSON.stringify({ status: 'imported' }),
         }).catch(() => {});
       }
@@ -732,7 +732,7 @@
           const tok = localStorage.getItem('cf_token');
           fetch(`${API}/api/folder-monitor/queue/${encodeURIComponent(q.agentId)}`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (tok || '') },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${  tok || ''}` },
             body: JSON.stringify({ status: 'skipped' }),
           }).catch(() => {});
         }

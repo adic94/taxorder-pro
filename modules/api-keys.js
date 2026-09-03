@@ -9,13 +9,13 @@ window.TaxOrderApiKeys = (function () {
   function _token() { return localStorage.getItem('cf_token'); }
   function _headers(extra) {
     const t = _token();
-    return { ...(t ? { 'Authorization': 'Bearer ' + t } : {}), ...(extra || {}) };
+    return { ...(t ? { 'Authorization': `Bearer ${  t}` } : {}), ...(extra || {}) };
   }
 
   async function load() {
     try {
       const resp = await fetch(`${_cfApi()}/api/api-keys`, { headers: _headers() });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       list = await resp.json();
     } catch (e) {
       console.warn('[ApiKeys] load error:', e.message);
@@ -25,7 +25,7 @@ window.TaxOrderApiKeys = (function () {
   }
 
   function _companyName(id) { return window.COMPANIES?.[id]?.shortName || id; }
-  function _fmtDate(s) { return s ? new Date(s.replace(' ', 'T') + 'Z').toLocaleString('pl-PL') : '—'; }
+  function _fmtDate(s) { return s ? new Date(`${s.replace(' ', 'T')  }Z`).toLocaleString('pl-PL') : '—'; }
 
   function render() {
     const tbody = document.getElementById('apik-tbody');
@@ -73,7 +73,7 @@ window.TaxOrderApiKeys = (function () {
         method: 'POST', headers: _headers({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ name, company_id, scope }),
       });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       const data = await resp.json();
       document.getElementById('apikm-key-value').textContent = data.key;
       document.getElementById('apikm-form').classList.add('hidden');
@@ -97,7 +97,7 @@ window.TaxOrderApiKeys = (function () {
         method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ active }),
       });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       await load();
     } catch (e) {
       toast(t('apikeys.toast.err').replace('{0}', e.message));
@@ -108,7 +108,7 @@ window.TaxOrderApiKeys = (function () {
     if (!confirm(t('apikeys.confirm.del'))) return;
     try {
       const resp = await fetch(`${_cfApi()}/api/api-keys/${id}`, { method: 'DELETE', headers: _headers() });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       toast(t('apikeys.toast.deleted'));
       await load();
     } catch (e) {

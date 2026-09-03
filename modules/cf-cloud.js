@@ -30,7 +30,7 @@
     if (!API) throw new Error('CF_API_URL nie skonfigurowany');
     const headers = {};
     const token = _getToken();
-    if (token) headers['Authorization'] = 'Bearer ' + token;
+    if (token) headers['Authorization'] = `Bearer ${  token}`;
     if (!isFormData && body) headers['Content-Type'] = 'application/json';
 
     const ctrl = new AbortController();
@@ -54,10 +54,10 @@
     // Cloudflare challenge/WAF zwraca HTML zamiast JSON — wykryj i zwróć czytelny błąd
     const ct = resp.headers.get('content-type') || '';
     if (!ct.includes('application/json') && !resp.ok) {
-      throw new Error('Serwer niedostępny (HTTP ' + resp.status + '). Spróbuj ponownie za chwilę.');
+      throw new Error(`Serwer niedostępny (HTTP ${  resp.status  }). Spróbuj ponownie za chwilę.`);
     }
     const data = await resp.json().catch(() => ({ error: resp.statusText }));
-    if (!resp.ok) throw new Error(data.error || 'HTTP ' + resp.status);
+    if (!resp.ok) throw new Error(data.error || `HTTP ${  resp.status}`);
     return data;
   }
 
@@ -166,7 +166,7 @@
       this._loadLock = true;
       const slug = companySlug || window.currentCompanyId || 'mtoilet';
       try {
-        const rows   = await cfApi('/api/vehicles?company=' + encodeURIComponent(slug));
+        const rows   = await cfApi(`/api/vehicles?company=${  encodeURIComponent(slug)}`);
         const mapped = rows.map((r, i) => this.mapDbVehicle(r, i));
 
         if (mapped.length && window.vehs) {
@@ -193,7 +193,7 @@
     // Zapisuje jeden pojazd
     async saveVehicle(v) {
       try {
-        await cfApi('/api/vehicles/' + encodeURIComponent(v.nrRej), 'PUT', this.mapVehicleToCf(v));
+        await cfApi(`/api/vehicles/${  encodeURIComponent(v.nrRej)}`, 'PUT', this.mapVehicleToCf(v));
         return { ok: true };
       } catch (e) {
         console.warn('[CF Cloud] saveVehicle', v.nrRej, ':', e.message);
@@ -228,10 +228,10 @@
         const selected = window.selected ? [...window.selected] : [];
         const taxpayer = {};
         ['nip','regon','nazwa','ulica','dom','lokal','kod','miasto','woj','organ','imie','nazwisko','cel'].forEach(k => {
-          const el = document.getElementById('tp-' + k);
+          const el = document.getElementById(`tp-${  k}`);
           if (el) taxpayer[k] = el.value;
         });
-        await cfApi('/api/state/' + encodeURIComponent(companyId), 'PUT', {
+        await cfApi(`/api/state/${  encodeURIComponent(companyId)}`, 'PUT', {
           tax_year: taxYear, selected, taxpayer,
         });
       } catch (e) { console.warn('[CF State] save:', e.message); }
@@ -240,7 +240,7 @@
     // Pobiera stan firmy z D1 i aplikuje do UI (bez renderowania)
     async applyFromCloud(companyId) {
       try {
-        const state = await cfApi('/api/state/' + encodeURIComponent(companyId));
+        const state = await cfApi(`/api/state/${  encodeURIComponent(companyId)}`);
         if (!state) return;
 
         // Rok podatkowy
@@ -256,7 +256,7 @@
         // Dane podatnika
         const tp = state.taxpayer || {};
         ['nip','regon','nazwa','ulica','dom','lokal','kod','miasto','woj','organ','imie','nazwisko','cel'].forEach(k => {
-          const el = document.getElementById('tp-' + k);
+          const el = document.getElementById(`tp-${  k}`);
           if (el && tp[k] !== undefined) el.value = tp[k];
         });
       } catch (e) { console.warn('[CF State] applyFromCloud:', e.message); }
@@ -296,16 +296,16 @@
     },
 
     async list(nrRej, company) {
-      return cfApi('/api/docs?nrRej=' + encodeURIComponent(nrRej)
-        + '&company=' + encodeURIComponent(company || window.currentCompanyId || 'mtoilet'));
+      return cfApi(`/api/docs?nrRej=${  encodeURIComponent(nrRej)
+         }&company=${  encodeURIComponent(company || window.currentCompanyId || 'mtoilet')}`);
     },
 
     async delete(docId) {
-      return cfApi('/api/docs/' + docId, 'DELETE');
+      return cfApi(`/api/docs/${  docId}`, 'DELETE');
     },
 
     fileUrl(r2Key) {
-      return API + '/api/docs/file/' + r2Key;
+      return `${API  }/api/docs/file/${  r2Key}`;
     },
   };
 

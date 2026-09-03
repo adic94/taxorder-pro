@@ -170,7 +170,7 @@ ${sorted.map((d, i) => `<tr>
     const csv  = [hdrs.join(';'), ...rows].join('\n');
     const a    = document.createElement('a');
     a.download = `ranking-kierowcow-${new Date().toISOString().slice(0,10)}.csv`;
-    a.href     = 'data:text/csv;charset=utf-8,' + encodeURIComponent('﻿' + csv);
+    a.href     = `data:text/csv;charset=utf-8,${  encodeURIComponent(`﻿${  csv}`)}`;
     a.click();
   }
 

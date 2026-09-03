@@ -99,8 +99,8 @@ window.FleetMap = (function () {
 
       if (last) {
         const dateStr = new Date(last.ts).toLocaleString('pl-PL');
-        const kmStr = last.km ? Number(last.km).toLocaleString('pl-PL') + ' km' : '—';
-        const speedStr = last.speed != null ? last.speed + ' km/h' : null;
+        const kmStr = last.km ? `${Number(last.km).toLocaleString('pl-PL')  } km` : '—';
+        const speedStr = last.speed != null ? `${last.speed  } km/h` : null;
         const locStr = last.location || '';
 
         const popupHtml = `
@@ -175,10 +175,10 @@ window.FleetMap = (function () {
   function _ageStr(ts) {
     if (!ts) return null;
     const mins = Math.round((Date.now() - new Date(ts).getTime()) / 60000);
-    if (mins < 60)  return mins + ' min temu';
+    if (mins < 60)  return `${mins  } min temu`;
     const hrs = Math.round(mins / 60);
-    if (hrs < 24)   return hrs + ' godz. temu';
-    return Math.round(hrs / 24) + ' dni temu';
+    if (hrs < 24)   return `${hrs  } godz. temu`;
+    return `${Math.round(hrs / 24)  } dni temu`;
   }
 
   // ── Centrowanie na pojeździe ─────────────────────────────────────────────

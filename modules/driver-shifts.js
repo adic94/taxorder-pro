@@ -68,7 +68,7 @@ ${_shifts.length ? _shifts.map(s => `<tr>
   <td>${e(s.nr_rej||'—')}</td>
   <td>${e(s.start_time||'—')}</td>
   <td>${e(s.end_time||'—')}</td>
-  <td>${s.break_minutes ? s.break_minutes+' min' : '—'}</td>
+  <td>${s.break_minutes ? `${s.break_minutes} min` : '—'}</td>
   <td>${fmtMin(s.work_minutes)}</td>
   <td>${s.overtime_minutes ? fmtMin(s.overtime_minutes) : '—'}</td>
   <td>${e(s.shift_type||'normal')}</td>
@@ -126,7 +126,7 @@ ${_shifts.length ? _shifts.map(s => `<tr>
       if (!r.ok) throw new Error(await r.text());
       closeShiftModal();
       await renderDriverShifts();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   function editShift(id) { openShiftModal(id); }
@@ -136,7 +136,7 @@ ${_shifts.length ? _shifts.map(s => `<tr>
     try {
       await fetch(`${API()}/api/driver-shifts/${encodeURIComponent(id)}?company=${encodeURIComponent(Co())}`, { method:'DELETE', headers: H() });
       await renderDriverShifts();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   window.DriverShiftsModule = { renderDriverShifts, openShiftModal, closeShiftModal, saveShift, editShift, deleteShift };

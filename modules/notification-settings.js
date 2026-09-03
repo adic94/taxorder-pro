@@ -6,7 +6,7 @@ window.TaxOrderNotifSettings = (function () {
 
   const API = () => window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
   const token = () => localStorage.getItem('cf_token');
-  const hdrs = (extra) => ({ 'Content-Type': 'application/json', ...(token() ? { Authorization: 'Bearer ' + token() } : {}), ...(extra || {}) });
+  const hdrs = (extra) => ({ 'Content-Type': 'application/json', ...(token() ? { Authorization: `Bearer ${  token()}` } : {}), ...(extra || {}) });
   const company = () => window.currentCompanyId || 'mtoilet';
 
   let _alertTypes = [];
@@ -94,7 +94,7 @@ window.TaxOrderNotifSettings = (function () {
   function _tab(name) {
     _activeTab = name;
     document.querySelectorAll('[id^="ns-tab-"]').forEach(b => {
-      b.className = 'btn ' + (b.id === 'ns-tab-' + name ? 'btn-blue' : 'btn-gray');
+      b.className = `btn ${  b.id === `ns-tab-${  name}` ? 'btn-blue' : 'btn-gray'}`;
       b.style.fontSize = '12px';
     });
     _renderTab(name);
@@ -500,7 +500,7 @@ window.TaxOrderNotifSettings = (function () {
   // ── Akcje użytkownika ───────────────────────────────────────────────────────
   async function _toggleEnabled(typeId, val) {
     await _savePref(typeId, { enabled: val });
-    const row = document.getElementById('atr-' + typeId);
+    const row = document.getElementById(`atr-${  typeId}`);
     if (row) row.style.opacity = val ? '1' : '0.55';
   }
   async function _toggleChannel(typeId, ch, val) {
@@ -511,7 +511,7 @@ window.TaxOrderNotifSettings = (function () {
   async function _removeDay(typeId, idx) {
     const pref = _prefs[typeId] || {};
     const at = _alertTypes.find(a => a.id === typeId);
-    let days = pref.threshold_days ? JSON.parse(pref.threshold_days) : JSON.parse(at?.default_days || '[30,14,7]');
+    const days = pref.threshold_days ? JSON.parse(pref.threshold_days) : JSON.parse(at?.default_days || '[30,14,7]');
     days.splice(idx, 1);
     await _savePref(typeId, { threshold_days: days });
     const el = document.getElementById('ns-content');
@@ -522,7 +522,7 @@ window.TaxOrderNotifSettings = (function () {
     if (!val || isNaN(val) || val < 1) return;
     const pref = _prefs[typeId] || {};
     const at = _alertTypes.find(a => a.id === typeId);
-    let days = pref.threshold_days ? JSON.parse(pref.threshold_days) : JSON.parse(at?.default_days || '[30,14,7]');
+    const days = pref.threshold_days ? JSON.parse(pref.threshold_days) : JSON.parse(at?.default_days || '[30,14,7]');
     if (!days.includes(val)) { days.push(val); days.sort((a,b) => b-a); }
     await _savePref(typeId, { threshold_days: days });
     _renderAlerty(document.getElementById('ns-content'));
@@ -564,18 +564,18 @@ window.TaxOrderNotifSettings = (function () {
   async function _testEmail() {
     const r = await fetch(`${API()}/api/notif-trigger?dry_run=1`, { method: 'POST', headers: hdrs() });
     const d = await r.json().catch(() => ({}));
-    if (!r.ok) { window.toast?.('Błąd: ' + (d.error || r.status)); return; }
+    if (!r.ok) { window.toast?.(`Błąd: ${  d.error || r.status}`); return; }
     if (!d.resend_configured) { window.toast?.('Resend nie jest skonfigurowany — brak RESEND_API_KEY'); return; }
     const r2 = await fetch(`${API()}/api/notif-trigger`, { method: 'POST', headers: hdrs() });
     const d2 = await r2.json().catch(() => ({}));
-    window.toast?.(r2.ok ? '✓ Email wysłany — sprawdź skrzynkę pocztową' : 'Błąd: ' + (d2.error || r2.status));
+    window.toast?.(r2.ok ? '✓ Email wysłany — sprawdź skrzynkę pocztową' : `Błąd: ${  d2.error || r2.status}`);
   }
 
   async function _triggerQueue() {
     const r = await fetch(`${API()}/api/notif-trigger`, { method: 'POST', headers: hdrs() });
     const d = await r.json().catch(() => ({}));
     if (r.ok) {
-      window.toast?.('✓ ' + (d.msg || t('ns.toast.trigger.ok')));
+      window.toast?.(`✓ ${  d.msg || t('ns.toast.trigger.ok')}`);
       setTimeout(() => _renderHistoria(document.getElementById('ns-content')), 3000);
     } else {
       window.toast?.(t('ns.toast.err').replace('{0}', d.error || r.status));

@@ -3,7 +3,7 @@
   const BASE = () => (localStorage.getItem('cf_worker_url') || 'https://taxorder-pro-api.adamus1000.workers.dev');
   const COMPANY = () => localStorage.getItem('cf_company') || '';
   const TOKEN = () => localStorage.getItem('cf_token') || '';
-  const hdrs = () => ({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN() });
+  const hdrs = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${  TOKEN()}` });
 
   function fd(ds) {
     if (!ds) return '—';
@@ -77,9 +77,9 @@
       const kmLeftStr   = (s.next_km != null && currentKm) ? `(zostało ${Math.max(0, s.next_km - currentKm).toLocaleString('pl-PL')} km)` : '';
       rows += `<tr>
         <td>${esc(s.name)}</td>
-        <td>${s.interval_km ? s.interval_km.toLocaleString('pl-PL') + ' km' : '—'}</td>
-        <td>${s.interval_months ? s.interval_months + ' mies.' : '—'}</td>
-        <td>${s.last_km ? s.last_km.toLocaleString('pl-PL') + ' km' : '—'}</td>
+        <td>${s.interval_km ? `${s.interval_km.toLocaleString('pl-PL')  } km` : '—'}</td>
+        <td>${s.interval_months ? `${s.interval_months  } mies.` : '—'}</td>
+        <td>${s.last_km ? `${s.last_km.toLocaleString('pl-PL')  } km` : '—'}</td>
         <td>${fd(s.last_date)}</td>
         <td>${nextKmStr} <small style="color:#888">${kmLeftStr}</small></td>
         <td>${nextDateStr}</td>

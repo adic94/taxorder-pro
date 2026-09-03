@@ -95,7 +95,7 @@
       if (!r.ok) throw new Error(await r.text());
       closeBudgetModal();
       await renderBudgets();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   function editBudget(id) { openBudgetModal(id); }
@@ -105,7 +105,7 @@
     try {
       await fetch(`${API()}/api/budgets/${encodeURIComponent(id)}?company=${encodeURIComponent(Co())}`, { method:'DELETE', headers: H() });
       await renderBudgets();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   window.BudgetsModule = { renderBudgets, openBudgetModal, closeBudgetModal, saveBudget, editBudget, deleteBudget };

@@ -38,7 +38,7 @@
     if (!el) return;
 
     const today = new Date().toISOString().slice(0,10);
-    const monthStart = today.slice(0,7)+'-01';
+    const monthStart = `${today.slice(0,7)}-01`;
 
     el.innerHTML = `
 <div class="page-header">
@@ -179,21 +179,21 @@ ${_invoices.length ? _invoices.map(inv=>{
       const r = await fetch(url, { method, headers:{...H(),'Content-Type':'application/json'}, body:JSON.stringify(body) });
       if (!r.ok) throw new Error(await r.text());
       closeModal(); await renderSupplierInvoices();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   async function approve(id) {
     try {
       await fetch(`${API()}/api/supplier-invoices/${encodeURIComponent(id)}/approve?company=${encodeURIComponent(Co())}`, { method:'PUT', headers:H() });
       await renderSupplierInvoices();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   async function markPaid(id) {
     try {
       await fetch(`${API()}/api/supplier-invoices/${encodeURIComponent(id)}/pay?company=${encodeURIComponent(Co())}`, { method:'PUT', headers:H() });
       await renderSupplierInvoices();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   async function deleteInvoice(id) {
@@ -201,7 +201,7 @@ ${_invoices.length ? _invoices.map(inv=>{
     try {
       await fetch(`${API()}/api/supplier-invoices/${encodeURIComponent(id)}?company=${encodeURIComponent(Co())}`, { method:'DELETE', headers:H() });
       await renderSupplierInvoices();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   window.SupplierInvoicesModule = { renderSupplierInvoices, openModal, closeModal, addItem, calcRow, recalcTotal, saveInvoice, approve, markPaid, deleteInvoice };

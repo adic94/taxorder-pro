@@ -10,7 +10,7 @@ window.TaxOrderInspectionCalendar = (function () {
 
   function _days(ds) {
     if (!ds) return null;
-    const d = new Date(ds.includes('T') ? ds : ds + 'T00:00:00');
+    const d = new Date(ds.includes('T') ? ds : `${ds  }T00:00:00`);
     if (isNaN(d)) return null;
     const today = new Date(); today.setHours(0, 0, 0, 0);
     return Math.round((d - today) / 86400000);
@@ -18,7 +18,7 @@ window.TaxOrderInspectionCalendar = (function () {
 
   function _fmtDate(ds) {
     if (!ds) return '—';
-    const d = new Date(ds.includes('T') ? ds : ds + 'T00:00:00');
+    const d = new Date(ds.includes('T') ? ds : `${ds  }T00:00:00`);
     return isNaN(d) ? ds : d.toLocaleDateString('pl-PL');
   }
 
@@ -118,7 +118,7 @@ window.TaxOrderInspectionCalendar = (function () {
 
     const pad = (n, l = 2) => String(n).padStart(l, '0');
     function toIcsDate(ds) {
-      const d = new Date(ds.includes('T') ? ds : ds + 'T00:00:00');
+      const d = new Date(ds.includes('T') ? ds : `${ds  }T00:00:00`);
       if (isNaN(d)) return null;
       return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
     }
@@ -137,18 +137,18 @@ window.TaxOrderInspectionCalendar = (function () {
       const dtDate = toIcsDate(r.date);
       if (!dtDate) return;
       // DTEND dla all-day = następny dzień
-      const d = new Date(r.date.includes('T') ? r.date : r.date + 'T00:00:00');
+      const d = new Date(r.date.includes('T') ? r.date : `${r.date  }T00:00:00`);
       d.setDate(d.getDate() + 1);
       const dtEnd = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
-      const uid = `taxorder-${r.v.nrRej}-${r.type}-${r.date}`.replace(/[^a-zA-Z0-9@._-]/g, '_') + '@taxorder-pro';
-      const summary = `[${r.label}] ${r.v.nrRej || '?'}${r.v.marka ? ' ' + r.v.marka : ''}${r.v.model ? ' ' + r.v.model : ''}`;
+      const uid = `${`taxorder-${r.v.nrRej}-${r.type}-${r.date}`.replace(/[^a-zA-Z0-9@._-]/g, '_')  }@taxorder-pro`;
+      const summary = `[${r.label}] ${r.v.nrRej || '?'}${r.v.marka ? ` ${  r.v.marka}` : ''}${r.v.model ? ` ${  r.v.model}` : ''}`;
 
       lines.push(
         'BEGIN:VEVENT',
         `UID:${uid}`,
         `DTSTART;VALUE=DATE:${dtDate}`,
         `DTEND;VALUE=DATE:${dtEnd}`,
-        `SUMMARY:${summary.replace(/[,\\;]/g, s => '\\' + s)}`,
+        `SUMMARY:${summary.replace(/[,\\;]/g, s => `\\${  s}`)}`,
         `DESCRIPTION:Termin ${r.label} dla pojazdu ${r.v.nrRej || '?'}. Wygenerowano przez TaxOrder Pro.`,
         `CATEGORIES:${r.label}`,
         'BEGIN:VALARM',

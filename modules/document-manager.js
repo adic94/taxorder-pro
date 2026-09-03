@@ -37,7 +37,7 @@
   ];
 
   function classifyDoc(filename, text = '') {
-    const src = (filename + ' ' + text).toLowerCase();
+    const src = (`${filename  } ${  text}`).toLowerCase();
     for (const { type, re } of DOC_TYPE_RULES) {
       if (re.some(r => r.test(src))) return type;
     }
@@ -66,7 +66,7 @@
     if (!str) return null;
     const parts = str.split(/[.\-\/]/);
     if (parts.length !== 3) return null;
-    let [a, b, c] = parts.map(Number);
+    const [a, b, c] = parts.map(Number);
     // DD.MM.YYYY
     if (c >= 2020 && c <= 2040 && a <= 31 && b <= 12) {
       return `${c}-${String(b).padStart(2,'0')}-${String(a).padStart(2,'0')}`;
@@ -151,7 +151,7 @@
     for (const p of amtPatterns) {
       const m = text.match(p);
       if (m) {
-        const raw = (m[1] + (m[2] ? '.' + m[2] : '')).replace(/\s/g, '').replace(',', '.');
+        const raw = (m[1] + (m[2] ? `.${  m[2]}` : '')).replace(/\s/g, '').replace(',', '.');
         const val = parseFloat(raw);
         if (!isNaN(val) && val > 10 && val < 500000) { amount = val; break; }
       }
@@ -311,9 +311,9 @@
 
   function formatSize(bytes) {
     if (!bytes) return '';
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1048576) return (bytes / 1024).toFixed(0) + ' KB';
-    return (bytes / 1048576).toFixed(1) + ' MB';
+    if (bytes < 1024) return `${bytes  } B`;
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(0)  } KB`;
+    return `${(bytes / 1048576).toFixed(1)  } MB`;
   }
 
   function formatDate(dt) {
@@ -404,7 +404,7 @@
         </td>
         <td style="padding:6px 8px;max-width:180px">
           <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(d.name)}">${esc(d.name)}</div>
-          <div style="font-size:10px;color:var(--text3)">${formatDate(d.uploaded_at)}${d.file_size ? ' · ' + formatSize(d.file_size) : ''}${d.doc_number ? ' · ' + esc(d.doc_number) : ''}</div>
+          <div style="font-size:10px;color:var(--text3)">${formatDate(d.uploaded_at)}${d.file_size ? ` · ${  formatSize(d.file_size)}` : ''}${d.doc_number ? ` · ${  esc(d.doc_number)}` : ''}</div>
         </td>
         <td style="padding:6px 8px">${typeChip(d.doc_type || 'inne')}</td>
         <td style="padding:6px 8px;white-space:nowrap">
@@ -521,7 +521,7 @@
     statusEl.innerHTML = `<span style="color:var(--text3)"><i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Analizuję plik…</span>`;
 
     const text       = await extractTextFromFile(file);
-    const detVin     = extractVin(text + ' ' + file.name);
+    const detVin     = extractVin(`${text  } ${  file.name}`);
     const docType    = classifyDoc(file.name, text);
     const expiry     = extractExpiryDate(text);
     const docNum     = extractDocNumber(text);
@@ -639,7 +639,7 @@
         window.toast?.(res.error || 'Błąd zapisu', 'error');
       }
     } catch (e) {
-      window.toast?.('Błąd sieci: ' + e.message, 'error');
+      window.toast?.(`Błąd sieci: ${  e.message}`, 'error');
     } finally {
       btn.disabled = false;
       btn.innerHTML = '<i class="ti ti-upload"></i>Wyślij';
@@ -751,7 +751,7 @@
           </td>
           <td style="padding:8px 12px;max-width:220px">
             <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(d.name)}">${esc(d.name)}</div>
-            <div style="font-size:10px;color:var(--text3)">${formatDate(d.uploaded_at)}${d.file_size ? ' · ' + formatSize(d.file_size) : ''}</div>
+            <div style="font-size:10px;color:var(--text3)">${formatDate(d.uploaded_at)}${d.file_size ? ` · ${  formatSize(d.file_size)}` : ''}</div>
           </td>
           <td style="padding:8px 12px">${typeChip(d.doc_type||'inne')}</td>
           <td style="padding:8px 12px">
@@ -826,8 +826,8 @@
 
   function _buildVehicleOptions() {
     const vehs = (window.vehs || []).sort((a, b) => (a.nrRej || '').localeCompare(b.nrRej || ''));
-    return '<option value="">-- wybierz pojazd --</option>' +
-      vehs.map(v => `<option value="${esc(String(v.id))}" data-vin="${esc(v.vin||'')}">${esc(v.nrRej||'?')} — ${esc((v.marka||'') + ' ' + (v.model||''))}</option>`).join('');
+    return `<option value="">-- wybierz pojazd --</option>${ 
+      vehs.map(v => `<option value="${esc(String(v.id))}" data-vin="${esc(v.vin||'')}">${esc(v.nrRej||'?')} — ${esc(`${v.marka||''  } ${  v.model||''}`)}</option>`).join('')}`;
   }
 
   async function _handleGuFileChange(input) {
@@ -841,7 +841,7 @@
     matchEl.innerHTML = '';
 
     _globalUploadText = await extractTextFromFile(file);
-    _globalDetectedVin = extractVin(_globalUploadText + ' ' + file.name);
+    _globalDetectedVin = extractVin(`${_globalUploadText  } ${  file.name}`);
     const docType  = classifyDoc(file.name, _globalUploadText);
     const expiry   = extractExpiryDate(_globalUploadText);
     const docNum   = extractDocNumber(_globalUploadText);
@@ -913,7 +913,7 @@
         if (expiry && veh && _VEHICLE_FIELD_MAP[docType]) {
           await applyExpiryToVehicle(veh.id, docType, expiry);
         }
-        window.toast?.('Dokument wgrany' + (veh ? ` → ${veh.nrRej}` : ''));
+        window.toast?.(`Dokument wgrany${  veh ? ` → ${veh.nrRej}` : ''}`);
         document.getElementById('dm-global-upload-modal').style.display = 'none';
         _globalUploadFile = null;
         _renderGlobalPage();
@@ -921,7 +921,7 @@
         window.toast?.(res.error || 'Błąd zapisu', 'error');
       }
     } catch (e) {
-      window.toast?.('Błąd sieci: ' + e.message, 'error');
+      window.toast?.(`Błąd sieci: ${  e.message}`, 'error');
     } finally {
       btn.disabled = false;
       btn.innerHTML = '<i class="ti ti-upload"></i>Wgraj';
@@ -1019,8 +1019,8 @@
     // informacji, a jego brak w skoroszycie jest tu czytelnym sygnałem "zero sprzeczności",
     // nie przeoczeniem (ten sam wzorzec co w tools/dr-excel.js).
     if (konflikty.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(konflikty), 'Konflikty');
-    XLSX.writeFile(wb, 'dr-skrzynka-' + new Date().toISOString().slice(0,10) + '.xlsx');
-    toast(`✓ Wyeksportowano dane DR dla ${rows.length} pojazdów` + (konflikty.length ? ` — ${konflikty.length} sprzeczności do sprawdzenia` : ''));
+    XLSX.writeFile(wb, `dr-skrzynka-${  new Date().toISOString().slice(0,10)  }.xlsx`);
+    toast(`✓ Wyeksportowano dane DR dla ${rows.length} pojazdów${  konflikty.length ? ` — ${konflikty.length} sprzeczności do sprawdzenia` : ''}`);
   }
 
   // ─── Public API ───────────────────────────────────────────────────────────

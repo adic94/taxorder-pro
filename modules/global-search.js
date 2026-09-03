@@ -86,7 +86,7 @@ window.TaxOrderSearch = (function () {
       ) {
         results.push({
           type: 'vehicle',
-          label: esc(v.nrRej || '—') + ' — ' + esc((v.marka||'') + ' ' + (v.model||'')).trim(),
+          label: `${esc(v.nrRej || '—')  } — ${  esc(`${v.marka||''  } ${  v.model||''}`).trim()}`,
           sub: v.kierowca ? esc(v.kierowca) : (v.wlasciciel ? esc(v.wlasciciel) : ''),
           action: () => { if (window.TaxOrderVehicleDetail) TaxOrderVehicleDetail.open(v.id); _hide(); },
         });
@@ -122,7 +122,7 @@ window.TaxOrderSearch = (function () {
       if (_q(f.nrRej).includes(query) || _q(f.place).includes(query) || _q(f.notes).includes(query)) {
         results.push({
           type: 'fine',
-          label: esc(f.nrRej || '—') + (f.amount ? ' · ' + esc(String(f.amount)) + ' zł' : ''),
+          label: esc(f.nrRej || '—') + (f.amount ? ` · ${  esc(String(f.amount))  } zł` : ''),
           sub: f.place ? esc(f.place) : '',
           action: () => { if (window.showPage) showPage('mandaty'); _hide(); },
         });

@@ -71,7 +71,7 @@ ${_orders.length ? _orders.map((o, i) => `<tr>
   <td><strong>${e(o.title)}</strong></td>
   <td>${e(o.driver_name || '—')}</td>
   <td>${e(o.nr_rej || '—')}</td>
-  <td>${e(o.origin || '—')}${o.destination ? ' → ' + e(o.destination) : ''}</td>
+  <td>${e(o.origin || '—')}${o.destination ? ` → ${  e(o.destination)}` : ''}</td>
   <td style="white-space:nowrap">${fmtDT(o.scheduled_start)}</td>
   <td><span class="pill ${e(PRIO_CLS[o.priority] || '')}">${e(PRIO_LBL[o.priority] || esc(o.priority))}</span></td>
   <td>
@@ -133,7 +133,7 @@ ${_orders.length ? _orders.map((o, i) => `<tr>
       const r = await fetch(url, { method: id ? 'PUT' : 'POST', headers: { ...H(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!r.ok) throw new Error(await r.text());
       closeModal(); await renderTransportOrders();
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   async function updateStatus(id, status) {
@@ -150,7 +150,7 @@ ${_orders.length ? _orders.map((o, i) => `<tr>
     try {
       await fetch(`${API()}/api/transport-orders/${encodeURIComponent(id)}?company=${encodeURIComponent(Co())}`, { method: 'DELETE', headers: H() });
       await renderTransportOrders();
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   // ── EMAIL2ORDER — AI parsowanie e-maila → nowe zlecenie ──────────────────
@@ -231,7 +231,7 @@ ${_orders.length ? _orders.map((o, i) => `<tr>
         cargo_weight_t: d.cargo_weight_t || '',
         price: d.price_pln || '',
         priority: d.priority || 'normal',
-        notes: [d.special_requirements, d.contact_person ? 'Kontakt: '+d.contact_person : '', d.contact_phone].filter(Boolean).join('\n'),
+        notes: [d.special_requirements, d.contact_person ? `Kontakt: ${d.contact_person}` : '', d.contact_phone].filter(Boolean).join('\n'),
       });
     } catch {}
   }

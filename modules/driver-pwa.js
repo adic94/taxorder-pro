@@ -90,7 +90,7 @@ CREATE INDEX IF NOT EXISTS idx_dt_company ON driver_trips(company_id, driver_id,
     ${vehicleReg ? `
     <div style="display:flex;align-items:center;gap:8px;color:var(--text3,#64748b);font-size:14px;margin-bottom:4px">
       <i class="ti ti-car"></i>
-      <span>Pojazd: <strong style="color:var(--text,#1e293b)">${vehicleReg}</strong>${vehicleMake ? ' · ' + vehicleMake : ''}</span>
+      <span>Pojazd: <strong style="color:var(--text,#1e293b)">${vehicleReg}</strong>${vehicleMake ? ` · ${  vehicleMake}` : ''}</span>
     </div>` : ''}
     <div style="font-size:12px;color:var(--text3,#64748b)">${e(today)}</div>
   </div>
@@ -256,7 +256,7 @@ CREATE INDEX IF NOT EXISTS idx_dt_company ON driver_trips(company_id, driver_id,
     listEl.innerHTML = trips.map(t => {
       const startKm  = t.start_km ?? null;
       const endKm    = t.end_km ?? null;
-      const distance = (startKm != null && endKm != null) ? (endKm - startKm) + ' km' : '—';
+      const distance = (startKm != null && endKm != null) ? `${endKm - startKm  } km` : '—';
       const pill = t.status === 'active'
         ? '<span style="background:#fef9c3;color:#854d0e;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600">W trasie</span>'
         : '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600">Zakończona</span>';
@@ -267,7 +267,7 @@ CREATE INDEX IF NOT EXISTS idx_dt_company ON driver_trips(company_id, driver_id,
     ${pill}
   </div>
   <div style="color:var(--text3);font-size:12px;margin-bottom:4px">
-    ${fmtDT(t.start_at)}${t.end_at ? ' → ' + fmtDT(t.end_at) : ' → trwa...'}
+    ${fmtDT(t.start_at)}${t.end_at ? ` → ${  fmtDT(t.end_at)}` : ' → trwa...'}
   </div>
   <div>
     Start: <strong>${e(String(startKm ?? '—'))}</strong> km
@@ -329,7 +329,7 @@ CREATE INDEX IF NOT EXISTS idx_dt_company ON driver_trips(company_id, driver_id,
         await _loadTrips();
       } else {
         const d = await r.json().catch(() => ({}));
-        alert('Błąd: ' + (d.error || r.status));
+        alert(`Błąd: ${  d.error || r.status}`);
       }
     } catch (ex) { alert(ex.message); }
   }
@@ -386,7 +386,7 @@ CREATE INDEX IF NOT EXISTS idx_dt_company ON driver_trips(company_id, driver_id,
         await _loadTrips();
       } else {
         const d = await r.json().catch(() => ({}));
-        alert('Błąd: ' + (d.error || r.status));
+        alert(`Błąd: ${  d.error || r.status}`);
       }
     } catch (ex) { alert(ex.message); }
   }
@@ -417,7 +417,7 @@ CREATE INDEX IF NOT EXISTS idx_dt_company ON driver_trips(company_id, driver_id,
           alert('Dokument przesłany pomyślnie.');
         } else {
           const d = await r.json().catch(() => ({}));
-          alert('Błąd przesyłania: ' + (d.error ?? r.status));
+          alert(`Błąd przesyłania: ${  d.error ?? r.status}`);
         }
       } catch (ex) { alert(ex.message); }
     };
@@ -452,7 +452,7 @@ CREATE INDEX IF NOT EXISTS idx_dt_company ON driver_trips(company_id, driver_id,
       );
       if (r.ok) { alert('Wiadomość wysłana.'); return true; }
       const d = await r.json().catch(() => ({}));
-      alert('Błąd wysyłania: ' + (d.error ?? r.status));
+      alert(`Błąd wysyłania: ${  d.error ?? r.status}`);
       return false;
     } catch (ex) { alert(ex.message); return false; }
   }

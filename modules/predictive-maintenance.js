@@ -60,8 +60,8 @@
       <td><strong>${esc(a.vehicle_reg)}</strong></td>
       <td>${esc(TYPES[a.alert_type] || a.alert_type)}</td>
       <td>${a.trigger_type==='mileage'?`co ${esc(String(a.interval_km||0))} km`:`co ${esc(String(a.interval_days||0))} dni`}</td>
-      <td>${a.last_service_date ? esc(a.last_service_date.slice(0,10)) : '—'}<br><small>${a.last_service_km!=null?esc(String(a.last_service_km))+' km':'—'}</small></td>
-      <td>${a.predicted_due_date ? esc(a.predicted_due_date.slice(0,10)) : '—'}<br><small>${a.predicted_due_km!=null?esc(String(a.predicted_due_km))+' km':'—'}</small></td>
+      <td>${a.last_service_date ? esc(a.last_service_date.slice(0,10)) : '—'}<br><small>${a.last_service_km!=null?`${esc(String(a.last_service_km))} km`:'—'}</small></td>
+      <td>${a.predicted_due_date ? esc(a.predicted_due_date.slice(0,10)) : '—'}<br><small>${a.predicted_due_km!=null?`${esc(String(a.predicted_due_km))} km`:'—'}</small></td>
       <td><span style="color:${STATUS_CLR[a.status]||'#999'};font-weight:600">${STATUS_LBL[a.status]||esc(a.status)}</span></td>
       <td>
         <button class="btn-icon" title="Zaznacz jako wykonany" data-id="${esc(a.id)}" onclick="window.PredictiveMaintenance._markDone(this.dataset.id)"><i class="ti ti-check"></i></button>

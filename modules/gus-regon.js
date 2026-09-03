@@ -25,7 +25,7 @@
   function _token() { return localStorage.getItem('cf_token') || ''; }
   function _hdrs() {
     const t = _token();
-    return t ? { Authorization: 'Bearer ' + t } : {};
+    return t ? { Authorization: `Bearer ${  t}` } : {};
   }
 
   function _loadHistory() {

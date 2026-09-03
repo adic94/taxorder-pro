@@ -87,7 +87,7 @@ ${_policies.length ? _policies.map(p => {
   <td><strong>${e(p.vehicle_reg || '—')}</strong></td>
   <td><span class="pill ${TYPE_CLS[p.policy_type]||''}">${TYPE_LBL[p.policy_type]||e(p.policy_type)}</span></td>
   <td>${e(p.insurer || '—')}</td>
-  <td><span style="${expCls}">${fmtD(p.end_date)} ${diff !== null ? `(${diff < 0 ? Math.abs(diff)+'d temu' : diff+'d'})` : ''}</span></td>
+  <td><span style="${expCls}">${fmtD(p.end_date)} ${diff !== null ? `(${diff < 0 ? `${Math.abs(diff)}d temu` : `${diff}d`})` : ''}</span></td>
   <td>${fmtN(p.premium_pln, 2)}</td>
   <td><span class="pill ${p.status==='active'?'ok':p.status==='expired'?'danger':''}">${STAT_LBL[p.status]||e(p.status)}</span></td>
   <td style="display:flex;gap:4px">
@@ -106,7 +106,7 @@ ${_claims.length ? _claims.map(c => `<tr>
   <td style="font-family:monospace;font-size:11px">${e(c.claim_number || '—')}</td>
   <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e(c.description || '—')}</td>
   <td>${fmtN(c.claim_amount_pln, 2)} PLN</td>
-  <td>${c.settled_amount_pln ? fmtN(c.settled_amount_pln, 2) + ' PLN' : '—'}</td>
+  <td>${c.settled_amount_pln ? `${fmtN(c.settled_amount_pln, 2)  } PLN` : '—'}</td>
   <td><span class="pill ${CLAIM_CLS[c.status]||''}">${CLAIM_LBL[c.status]||e(c.status)}</span></td>
   <td style="display:flex;gap:4px">
     <button class="btn-icon" data-id="${e(c.id)}" onclick="window.InsuranceModule._openClaim(this.dataset.id)"><i class="ti ti-edit"></i></button>
@@ -186,7 +186,7 @@ ${_claims.length ? _claims.map(c => `<tr>
       const r = await fetch(url, { method: id ? 'PUT' : 'POST', headers: { ...H(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!r.ok) throw new Error(await r.text());
       _closeModal(); await renderInsurance();
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   async function _deletePolicy(id) {
@@ -194,7 +194,7 @@ ${_claims.length ? _claims.map(c => `<tr>
     try {
       await fetch(`${API()}/api/insurance/${encodeURIComponent(id)}?company=${encodeURIComponent(Co())}`, { method: 'DELETE', headers: H() });
       await renderInsurance();
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   function _openClaim(id) {
@@ -249,7 +249,7 @@ ${_claims.length ? _claims.map(c => `<tr>
       const r = await fetch(url, { method: id ? 'PUT' : 'POST', headers: { ...H(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!r.ok) throw new Error(await r.text());
       _closeModal(); await renderInsurance();
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   async function _deleteClaim(id) {
@@ -257,7 +257,7 @@ ${_claims.length ? _claims.map(c => `<tr>
     try {
       await fetch(`${API()}/api/insurance/claims/${encodeURIComponent(id)}?company=${encodeURIComponent(Co())}`, { method: 'DELETE', headers: H() });
       await renderInsurance();
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   function _closeModal() {

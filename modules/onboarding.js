@@ -45,7 +45,7 @@
     const s = STEPS[_step - 1];
     document.getElementById('ob-step-num').textContent = _step;
     const iconEl = document.getElementById('ob-icon');
-    if (iconEl) iconEl.className = 'ti ' + s.icon;
+    if (iconEl) iconEl.className = `ti ${  s.icon}`;
     document.getElementById('ob-title').textContent  = s.title;
     document.getElementById('ob-desc').textContent   = s.desc;
     document.getElementById('ob-action').textContent = s.btn;

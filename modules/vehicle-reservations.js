@@ -102,7 +102,7 @@ ${_reservations.length ? _reservations.map(r=>`<tr>
       closeModal();
       if (res.status === 'pending') alert('Rezerwacja złożona — czeka na zatwierdzenie managera.');
       await renderReservations();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   async function approve(id) {
@@ -110,7 +110,7 @@ ${_reservations.length ? _reservations.map(r=>`<tr>
     try {
       await fetch(`${API()}/api/vehicle-reservations/${encodeURIComponent(id)}/approve?company=${encodeURIComponent(Co())}`, { method:'PUT', headers:H() });
       await renderReservations();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   async function reject(id) {
@@ -120,7 +120,7 @@ ${_reservations.length ? _reservations.map(r=>`<tr>
         method:'PUT', headers:{...H(),'Content-Type':'application/json'}, body:JSON.stringify({ reason })
       });
       await renderReservations();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   async function complete(id) {
@@ -130,7 +130,7 @@ ${_reservations.length ? _reservations.map(r=>`<tr>
         method:'PUT', headers:{...H(),'Content-Type':'application/json'}, body:JSON.stringify({ actual_km: km ? parseInt(km) : null })
       });
       await renderReservations();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   async function deleteRes(id) {
@@ -138,7 +138,7 @@ ${_reservations.length ? _reservations.map(r=>`<tr>
     try {
       await fetch(`${API()}/api/vehicle-reservations/${encodeURIComponent(id)}?company=${encodeURIComponent(Co())}`, { method:'DELETE', headers:H() });
       await renderReservations();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   window.ReservationsModule = { renderReservations, openModal, closeModal, saveReservation, approve, reject, complete, deleteRes };

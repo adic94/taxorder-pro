@@ -11,7 +11,7 @@
 
   let _wages = [];
   let _rates = [];
-  let _activeTab = 'wages';
+  const _activeTab = 'wages';
 
   async function renderDriverWages() {
     const co     = Co();
@@ -211,20 +211,20 @@ ${_wages.length === 0 ? `<div style="padding:40px;text-align:center;background:v
 </div>
 <table style="width:100%;font-size:13px;border-collapse:collapse">
   ${[
-    ['Godziny jazdy', fmtN(w.driving_hours,1)+' h'],
-    ['Godziny pracy', fmtN(w.work_hours,1)+' h'],
-    ['Łącznie godzin', fmtN(w.total_hours,1)+' h'],
-    ['Nadgodziny', fmtN(w.overtime_hours,1)+' h'],
-    ['Godziny nocne', fmtN(w.night_hours,1)+' h'],
-    ['Wynagrodzenie podstawowe', fmtN(w.base_salary)+' PLN'],
-    ['Premia za nadgodziny', fmtN(w.overtime_bonus)+' PLN'],
-    ['Premia nocna', fmtN(w.night_bonus)+' PLN'],
-    ['Diety', fmtN(w.daily_allowances)+' PLN'],
-    ['Premia eco-driving', fmtN(w.eco_bonus)+' PLN'],
-    ['Potrącenie naruszenia', '-'+fmtN(w.penalty_deduction)+' PLN'],
-    ['BRUTTO', fmtN(w.gross_total)+' PLN'],
-    ['Zaliczka PIT', '-'+fmtN(w.tax_amount)+' PLN'],
-    ['NETTO', fmtN(w.net_total)+' PLN'],
+    ['Godziny jazdy', `${fmtN(w.driving_hours,1)} h`],
+    ['Godziny pracy', `${fmtN(w.work_hours,1)} h`],
+    ['Łącznie godzin', `${fmtN(w.total_hours,1)} h`],
+    ['Nadgodziny', `${fmtN(w.overtime_hours,1)} h`],
+    ['Godziny nocne', `${fmtN(w.night_hours,1)} h`],
+    ['Wynagrodzenie podstawowe', `${fmtN(w.base_salary)} PLN`],
+    ['Premia za nadgodziny', `${fmtN(w.overtime_bonus)} PLN`],
+    ['Premia nocna', `${fmtN(w.night_bonus)} PLN`],
+    ['Diety', `${fmtN(w.daily_allowances)} PLN`],
+    ['Premia eco-driving', `${fmtN(w.eco_bonus)} PLN`],
+    ['Potrącenie naruszenia', `-${fmtN(w.penalty_deduction)} PLN`],
+    ['BRUTTO', `${fmtN(w.gross_total)} PLN`],
+    ['Zaliczka PIT', `-${fmtN(w.tax_amount)} PLN`],
+    ['NETTO', `${fmtN(w.net_total)} PLN`],
   ].map(([label,val],i) => `<tr style="${i%2===0?'background:var(--bg)':''}"><td style="padding:5px 8px;color:var(--text3)">${label}</td><td style="padding:5px 8px;text-align:right;font-weight:${label.startsWith('BRUTTO')||label.startsWith('NETTO')?'800':'400'}">${val}</td></tr>`).join('')}
 </table>`;
     m.style.display = 'flex';

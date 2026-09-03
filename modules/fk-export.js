@@ -24,7 +24,7 @@
     if (!el) return;
 
     const today = new Date().toISOString().slice(0,10);
-    const monthStart = today.slice(0,7)+'-01';
+    const monthStart = `${today.slice(0,7)}-01`;
 
     el.innerHTML = `
 <div class="page-header">
@@ -62,8 +62,8 @@
   }
 
   async function saveGlAccount(costType) {
-    const gl  = document.getElementById('gl-'+costType)?.value?.trim();
-    const desc = document.getElementById('gld-'+costType)?.value?.trim();
+    const gl  = document.getElementById(`gl-${costType}`)?.value?.trim();
+    const desc = document.getElementById(`gld-${costType}`)?.value?.trim();
     if (!gl) { alert('Wpisz nr konta GL'); return; }
     try {
       const r = await fetch(`${API()}/api/gl-accounts?company=${encodeURIComponent(Co())}`, {
@@ -71,7 +71,7 @@
         body: JSON.stringify({ cost_type: costType, gl_account: gl, description: desc||null }),
       });
       if (!r.ok) throw new Error(await r.text());
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   async function previewExport() {
@@ -82,7 +82,7 @@
       const r = await fetch(`${API()}/api/fk-export?company=${encodeURIComponent(Co())}&from=${from}&to=${to}&format=json`, { headers: H() });
       if (!r.ok) throw new Error(await r.text());
       _previewData = await r.json();
-    } catch(ex) { alert('Błąd: '+ex.message); return; }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); return; }
 
     const el = document.getElementById('fk-preview');
     if (!el) return;
@@ -122,7 +122,7 @@ ${_previewData.map(r => `<tr>
       const objUrl = URL.createObjectURL(blob);
       a.href = objUrl; document.body.appendChild(a); a.click();
       setTimeout(() => { URL.revokeObjectURL(objUrl); a.remove(); }, 1000);
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   window.FkExportModule = { renderFkExport, saveGlAccount, previewExport, downloadCsv };

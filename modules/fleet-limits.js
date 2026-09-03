@@ -62,10 +62,10 @@
         <td><span class="pill">${l.limit_scope === 'vehicle' ? '🚗 Pojazd' : '👤 Kierowca'}</span></td>
         <td>${esc(l.scope_label || l.scope_id || '—')}</td>
         <td>${esc(PERIOD_LABEL[l.period] || l.period || '—')}</td>
-        <td style="text-align:right">${l.fuel_limit_liters != null ? esc(l.fuel_limit_liters.toFixed(1)) + ' L' : '—'}</td>
-        <td style="text-align:right">${l.fuel_limit_pln != null ? esc(l.fuel_limit_pln.toFixed(2)) + ' PLN' : '—'}</td>
-        <td style="text-align:right">${l.mileage_limit_km != null ? esc(String(l.mileage_limit_km)) + ' km' : '—'}</td>
-        <td style="text-align:right">${l.private_mileage_limit_km != null ? esc(String(l.private_mileage_limit_km)) + ' km' : '—'}</td>
+        <td style="text-align:right">${l.fuel_limit_liters != null ? `${esc(l.fuel_limit_liters.toFixed(1))  } L` : '—'}</td>
+        <td style="text-align:right">${l.fuel_limit_pln != null ? `${esc(l.fuel_limit_pln.toFixed(2))  } PLN` : '—'}</td>
+        <td style="text-align:right">${l.mileage_limit_km != null ? `${esc(String(l.mileage_limit_km))  } km` : '—'}</td>
+        <td style="text-align:right">${l.private_mileage_limit_km != null ? `${esc(String(l.private_mileage_limit_km))  } km` : '—'}</td>
         <td>${l.active ? '✅' : '⛔'}</td>
         <td>
           <button class="btn-icon" title="Edytuj" data-id="${esc(l.id)}" onclick="window.FleetLimits._openModal(this.dataset.id)"><i class="ti ti-edit"></i></button>

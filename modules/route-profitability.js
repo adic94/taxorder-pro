@@ -9,7 +9,7 @@ window.RouteProfitability = (function () {
   const Co  = () => window._cfCo?.()   || '';
   const e   = s => typeof esc === 'function' ? esc(s) : String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const fmtPLN = v => v != null && !isNaN(v) ? parseFloat(v).toLocaleString('pl-PL', { style: 'currency', currency: 'PLN' }) : '—';
-  const fmtPct = v => v != null && !isNaN(v) ? parseFloat(v).toFixed(1) + '%' : '—';
+  const fmtPct = v => v != null && !isNaN(v) ? `${parseFloat(v).toFixed(1)  }%` : '—';
   const fmtN   = (v,d=0) => v != null && !isNaN(v) ? parseFloat(v).toLocaleString('pl-PL', { minimumFractionDigits:d, maximumFractionDigits:d }) : '—';
 
   let _data      = null; // { routes:[], kpi:{} }
@@ -233,7 +233,7 @@ ${sorted.map(r => {
     const csv  = [hdrs.join(';'), ...rows].join('\n');
     const a    = document.createElement('a');
     a.download = `rentownosc-tras-${_from}-${_to}.csv`;
-    a.href     = 'data:text/csv;charset=utf-8,' + encodeURIComponent('﻿' + csv);
+    a.href     = `data:text/csv;charset=utf-8,${  encodeURIComponent(`﻿${  csv}`)}`;
     a.click();
   }
 

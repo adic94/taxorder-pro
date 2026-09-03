@@ -34,10 +34,10 @@ ${_contracts.length ? _contracts.map(c=>{
   <td>${e(c.nip||'—')}</td>
   <td>${e(c.contact_person||'—')}</td>
   <td>${e(c.phone||'—')}</td>
-  <td>${c.hourly_rate ? fmtN(c.hourly_rate)+' PLN' : '—'}</td>
-  <td>${c.parts_discount ? c.parts_discount+'%' : '—'}</td>
+  <td>${c.hourly_rate ? `${fmtN(c.hourly_rate)} PLN` : '—'}</td>
+  <td>${c.parts_discount ? `${c.parts_discount}%` : '—'}</td>
   <td class="${expired?'danger':''}">${e(c.contract_to||'Bezterminowy')}</td>
-  <td>${c.payment_days ? c.payment_days+' dni' : '—'}</td>
+  <td>${c.payment_days ? `${c.payment_days} dni` : '—'}</td>
   <td>
     <button class="btn-icon" data-id="${e(c.id)}" onclick="window.ServiceContractsModule.openModal(this.dataset.id)"><i class="ti ti-edit"></i></button>
     <button class="btn-icon danger" data-id="${e(c.id)}" onclick="window.ServiceContractsModule.deleteContract(this.dataset.id)"><i class="ti ti-trash"></i></button>
@@ -106,7 +106,7 @@ ${_contracts.length ? _contracts.map(c=>{
       const r = await fetch(url, { method, headers:{...H(),'Content-Type':'application/json'}, body:JSON.stringify(body) });
       if (!r.ok) throw new Error(await r.text());
       closeModal(); await renderServiceContracts();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   async function deleteContract(id) {
@@ -114,7 +114,7 @@ ${_contracts.length ? _contracts.map(c=>{
     try {
       await fetch(`${API()}/api/service-contracts/${encodeURIComponent(id)}?company=${encodeURIComponent(Co())}`, { method:'DELETE', headers:H() });
       await renderServiceContracts();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   function getServiceCheckboxesHtml() {

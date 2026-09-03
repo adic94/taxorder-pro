@@ -35,7 +35,7 @@
   function _token() { return localStorage.getItem('cf_token') || ''; }
   function _hdrs() {
     const t = _token();
-    return t ? { Authorization: 'Bearer ' + t } : {};
+    return t ? { Authorization: `Bearer ${  t}` } : {};
   }
 
   function _loadHistory() {
@@ -313,8 +313,8 @@
 
       const preview = document.getElementById('vies-batch-preview');
       if (preview) {
-        preview.innerHTML = `Wczytano <strong>${_batchItems.length}</strong> pozycji`
-          + (skipped ? `, pominięto ${skipped} nieprawidłowych linii` : '');
+        preview.innerHTML = `Wczytano <strong>${_batchItems.length}</strong> pozycji${
+           skipped ? `, pominięto ${skipped} nieprawidłowych linii` : ''}`;
       }
       const btn = document.getElementById('vies-batch-btn');
       if (btn) btn.disabled = _batchItems.length === 0;
@@ -349,8 +349,8 @@
     for (let i = 0; i < total; i++) {
       const item = _batchItems[i];
       const pct  = Math.round(((i) / total) * 100);
-      if (bar)    bar.style.width    = pct + '%';
-      if (pctEl)  pctEl.textContent  = pct + '%';
+      if (bar)    bar.style.width    = `${pct  }%`;
+      if (pctEl)  pctEl.textContent  = `${pct  }%`;
       if (labelEl) labelEl.textContent = `Sprawdzam ${i + 1} / ${total}: ${item.country}${item.vat}`;
 
       const res = await _checkVat(item.country, item.vat);
@@ -423,7 +423,7 @@
   // ── Batch CSV export ───────────────────────────────────────────────────────
   function _csvCell(v) {
     const s    = String(v ?? '');
-    const safe = /^[=+\-@\t\r\n]/.test(s) ? '\t' + s : s;
+    const safe = /^[=+\-@\t\r\n]/.test(s) ? `\t${  s}` : s;
     return `"${safe.replace(/"/g, '""')}"`;
   }
 
@@ -436,7 +436,7 @@
       r.name || '', r.address || '', r.error || '',
     ].map(_csvCell).join(';'));
     const csv  = [hdr, ...rows].join('\r\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([`﻿${  csv}`], { type: 'text/csv;charset=utf-8' });
     const a    = document.createElement('a');
     a.href     = URL.createObjectURL(blob);
     a.download = `vies-wyniki-${new Date().toISOString().slice(0, 10)}.csv`;

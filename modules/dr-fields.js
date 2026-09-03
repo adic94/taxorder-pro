@@ -137,7 +137,7 @@
     dt1:         () => POLA.filter(p => p.dt1),
     osobowe:     () => POLA.filter(p => p.osobowe).map(p => p.klucz),
     zAztec:      () => POLA.filter(p => p.aztec).map(p => p.klucz),
-    doWeryfikacji: () => POLA.filter(p => !p.pewne).map(p => p.kod + ' ' + p.nazwa),
+    doWeryfikacji: () => POLA.filter(p => !p.pewne).map(p => `${p.kod  } ${  p.nazwa}`),
     naglowek:    (p) => p.kod === '—' ? p.nazwa : `${p.kod} — ${p.nazwa}`,
   };
 });

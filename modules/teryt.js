@@ -22,9 +22,9 @@ window.TerytAutocomplete = (function () {
     Object.assign(dd.style, {
       position: 'fixed',
       zIndex: '99999',
-      top: (rect.bottom + 3) + 'px',
-      left: rect.left + 'px',
-      width: Math.max(200, rect.width) + 'px',
+      top: `${rect.bottom + 3  }px`,
+      left: `${rect.left  }px`,
+      width: `${Math.max(200, rect.width)  }px`,
       background: 'var(--bg2)',
       border: '1px solid var(--border)',
       borderRadius: 'var(--radius)',
@@ -54,9 +54,9 @@ window.TerytAutocomplete = (function () {
       const pos = nameLow.indexOf(q);
       if (pos >= 0 && q.length > 0) {
         item.innerHTML =
-          esc(name.slice(0, pos)) +
-          '<b style="color:var(--blue)">' + esc(name.slice(pos, pos + q.length)) + '</b>' +
-          esc(name.slice(pos + q.length));
+          `${esc(name.slice(0, pos)) 
+          }<b style="color:var(--blue)">${  esc(name.slice(pos, pos + q.length))  }</b>${ 
+          esc(name.slice(pos + q.length))}`;
       } else {
         item.textContent = name;
       }
@@ -76,7 +76,7 @@ window.TerytAutocomplete = (function () {
     // Flip up if outside viewport
     const ddR = dd.getBoundingClientRect();
     if (ddR.bottom > window.innerHeight - 8) {
-      dd.style.top = (rect.top - ddR.height - 3) + 'px';
+      dd.style.top = `${rect.top - ddR.height - 3  }px`;
     }
   }
 
@@ -115,7 +115,7 @@ window.TerytAutocomplete = (function () {
       try {
         const r = await fetch(
           `${API()}/api/teryt/search?q=${encodeURIComponent(q)}`,
-          { headers: { Authorization: 'Bearer ' + _tok() }, signal: AbortSignal.timeout(3000) }
+          { headers: { Authorization: `Bearer ${  _tok()}` }, signal: AbortSignal.timeout(3000) }
         );
         if (!r.ok) return;
         const data = await r.json();

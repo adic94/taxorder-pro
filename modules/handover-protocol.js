@@ -26,14 +26,14 @@ window.TaxOrderHandoverProtocol = (function () {
   function _token() { return localStorage.getItem('cf_token'); }
   function _headers(extra) {
     const t = _token();
-    return { ...(t ? { 'Authorization': 'Bearer ' + t } : {}), ...(extra || {}) };
+    return { ...(t ? { 'Authorization': `Bearer ${  t}` } : {}), ...(extra || {}) };
   }
   function _company() { return window.currentCompanyId || 'mtoilet'; }
 
   async function load() {
     try {
       const resp = await fetch(`${_cfApi()}/api/protocols?company=${encodeURIComponent(_company())}`, { headers: _headers() });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       list = await resp.json();
     } catch (e) {
       console.warn('[Protocols] load error:', e.message);
@@ -56,7 +56,7 @@ window.TaxOrderHandoverProtocol = (function () {
       <td><span class="pill ${p.typ === 'WYDANIE' ? 'pill-blue' : 'pill-amber'}">${p.typ === 'WYDANIE' ? 'Wydanie' : 'Zdanie'}</span></td>
       <td style="font-size:12px">${p.data ? new Date(p.data).toLocaleDateString('pl-PL') : '—'}</td>
       <td style="font-size:12px">${esc(p.osoba_wydajaca || '—')} → ${esc(p.osoba_odbierajaca || '—')}</td>
-      <td style="font-family:var(--mono)">${p.stan_licznika != null ? Number(p.stan_licznika).toLocaleString('pl-PL') + ' km' : '—'}</td>
+      <td style="font-family:var(--mono)">${p.stan_licznika != null ? `${Number(p.stan_licznika).toLocaleString('pl-PL')  } km` : '—'}</td>
       <td style="text-align:center">
         ${(p.photos || []).length ? `<i class="ti ti-photo"></i> ${p.photos.length}` : ''}
         ${p.podpis_wydajacy && p.podpis_odbierajacy ? ' <i class="ti ti-signature" style="color:var(--green)" title="Podpisany"></i>' : ''}
@@ -81,7 +81,7 @@ window.TaxOrderHandoverProtocol = (function () {
     document.getElementById('prm-title').textContent = p ? 'Edytuj protokół' : 'Nowy protokół zdawczo-odbiorczy';
     document.getElementById('prm-nrrej').value = p?.nr_rej || presetNrRej || '';
     document.getElementById('prm-typ').value = p?.typ || 'WYDANIE';
-    document.getElementById('prm-data').value = p?.data ? p.data.slice(0, 10) : (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date());
+    document.getElementById('prm-data').value = p?.data ? p.data.slice(0, 10) : (d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date());
     const dlVeh = document.getElementById('prm-veh-list');
     if (dlVeh) dlVeh.innerHTML = (window.vehs || []).map(v => `<option value="${esc(v.nrRej)}">${esc(v.nrRej)} — ${esc(v.marka)} ${esc(v.model)}</option>`).join('');
     const dlDrv = document.getElementById('prm-driver-list');
@@ -169,7 +169,7 @@ window.TaxOrderHandoverProtocol = (function () {
   // ── Podpis elektroniczny (własny canvas, bez zewnętrznej biblioteki) ──
   const _pads = {};
   function _initSignaturePad(key) {
-    const canvas = document.getElementById('sig-' + key);
+    const canvas = document.getElementById(`sig-${  key}`);
     if (!canvas || _pads[key]?.bound) return;
     const ctx = canvas.getContext('2d');
     ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 2; ctx.lineCap = 'round';
@@ -192,20 +192,20 @@ window.TaxOrderHandoverProtocol = (function () {
     _pads[key] = { bound: true };
   }
   function _clearSignaturePad(key) {
-    const canvas = document.getElementById('sig-' + key);
+    const canvas = document.getElementById(`sig-${  key}`);
     if (!canvas) return;
     canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
   }
   function clearSignature(key) { _clearSignaturePad(key); }
   function _loadSignature(key, base64) {
-    const canvas = document.getElementById('sig-' + key);
+    const canvas = document.getElementById(`sig-${  key}`);
     if (!canvas || !base64) return;
     const img = new Image();
     img.onload = () => canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
     img.src = base64;
   }
   function _getSignature(key) {
-    const canvas = document.getElementById('sig-' + key);
+    const canvas = document.getElementById(`sig-${  key}`);
     if (!canvas) return null;
     const blank = document.createElement('canvas');
     blank.width = canvas.width; blank.height = canvas.height;
@@ -245,10 +245,10 @@ window.TaxOrderHandoverProtocol = (function () {
       let id = editId;
       if (id) {
         const resp = await fetch(`${_cfApi()}/api/protocols/${id}`, { method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       } else {
         const resp = await fetch(`${_cfApi()}/api/protocols`, { method: 'POST', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
         const data = await resp.json();
         id = data.id;
         for (const file of pendingPhotos) await _uploadOne(id, file);
@@ -296,7 +296,7 @@ window.TaxOrderHandoverProtocol = (function () {
     if (!confirm(t('hp.confirm.del'))) return;
     try {
       const resp = await fetch(`${_cfApi()}/api/protocols/${id}`, { method: 'DELETE', headers: _headers() });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       toast(t('hp.toast.deleted'));
       await load();
     } catch (e) {
@@ -331,7 +331,7 @@ window.TaxOrderHandoverProtocol = (function () {
         <tr><td>Data</td><td>${p.data ? new Date(p.data).toLocaleDateString('pl-PL') : '—'}</td></tr>
         <tr><td>Osoba wydająca</td><td>${esc(p.osoba_wydajaca || '—')}</td></tr>
         <tr><td>Osoba odbierająca</td><td>${esc(p.osoba_odbierajaca || '—')}</td></tr>
-        <tr><td>Stan licznika</td><td>${p.stan_licznika != null ? p.stan_licznika + ' km' : '—'}</td></tr>
+        <tr><td>Stan licznika</td><td>${p.stan_licznika != null ? `${p.stan_licznika  } km` : '—'}</td></tr>
         <tr><td>Stan paliwa</td><td>${esc(p.stan_paliwa || '—')}</td></tr>
         <tr><td>Uszkodzenia</td><td>${esc(p.uszkodzenia_opis || 'brak')}</td></tr>
         <tr><td>Uwagi</td><td>${esc(p.uwagi || '—')}</td></tr>

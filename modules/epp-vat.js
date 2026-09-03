@@ -2,7 +2,7 @@
   'use strict';
   const e  = s => typeof esc === 'function' ? esc(s) : String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const Co = () => window._cfCo?.() || '';
-  const fmtD = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('pl-PL') : '';
+  const fmtD = d => d ? new Date(`${d  }T00:00:00`).toLocaleDateString('pl-PL') : '';
 
   let _nrRej = '';
   let _month = new Date().toISOString().slice(0, 7);
@@ -157,7 +157,7 @@ ${_entries.length ? `<tr style="font-weight:700;background:var(--bg-card)"><td c
     const total = _entries.reduce((s, r) => s + (r.km || 0), 0);
     rows.push(['', 'SUMA','','', total, '']);
     const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([`﻿${  csv}`], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `EPP_${_nrRej}_${_month}.csv`; a.click();
   }

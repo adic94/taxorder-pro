@@ -13,7 +13,7 @@ window.Dt1Declarations = (function () {
       const company = window.currentCompanyId || 'mtoilet';
       const token   = localStorage.getItem('cf_token') || '';
       const r = await fetch(`${apiBase}/api/dt1-declarations?company=${encodeURIComponent(company)}`,
-        { headers: { Authorization: 'Bearer ' + token } });
+        { headers: { Authorization: `Bearer ${  token}` } });
       if (r.ok) _decls = await r.json();
     } catch {}
     renderPage();
@@ -28,7 +28,7 @@ window.Dt1Declarations = (function () {
       const token   = localStorage.getItem('cf_token') || '';
       const r = await fetch(`${apiBase}/api/dt1-declarations?company=${encodeURIComponent(company)}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${  token}` },
         body: JSON.stringify({ rok, total_tax, vehicle_count, gmina, vehicles, notes }),
       });
       if (r.ok) {
@@ -57,7 +57,7 @@ window.Dt1Declarations = (function () {
       const pdfBase64 = btoa(binary);
       const r = await fetch(`${apiBase}/api/dt1-declarations/${id}/pdf?company=${encodeURIComponent(company)}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${  token}` },
         body: JSON.stringify({ pdfBase64 }),
       });
       if (r.ok) { await load(); return true; }
@@ -73,7 +73,7 @@ window.Dt1Declarations = (function () {
     const token   = localStorage.getItem('cf_token') || '';
     try {
       const r = await fetch(`${apiBase}/api/dt1-declarations/${id}/pdf?company=${encodeURIComponent(company)}`,
-        { headers: { Authorization: 'Bearer ' + token } });
+        { headers: { Authorization: `Bearer ${  token}` } });
       if (!r.ok) { if (typeof toast === 'function') toast('PDF niedostępny dla tej deklaracji'); return; }
       const blob = await r.blob();
       const url = URL.createObjectURL(blob);
@@ -100,7 +100,7 @@ window.Dt1Declarations = (function () {
     try {
       const r = await fetch(`${apiBase}/api/dt1-declarations/${id}?company=${encodeURIComponent(company)}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${  token}` },
         body: JSON.stringify({ epuap_sent_at: dateStr, epuap_reference: ref || null }),
       });
       if (r.ok) { if (typeof toast === 'function') toast('✓ Oznaczono jako wysłane przez ePUAP'); await load(); }
@@ -120,7 +120,7 @@ window.Dt1Declarations = (function () {
     const token   = localStorage.getItem('cf_token') || '';
     await fetch(`${apiBase}/api/dt1-declarations/${id}?company=${encodeURIComponent(company)}`, {
       method: 'DELETE',
-      headers: { Authorization: 'Bearer ' + token },
+      headers: { Authorization: `Bearer ${  token}` },
     });
     await load();
   }
@@ -134,7 +134,7 @@ window.Dt1Declarations = (function () {
     let decl;
     try {
       const r = await fetch(`${apiBase}/api/dt1-declarations/${id}?company=${encodeURIComponent(company)}`,
-        { headers: { Authorization: 'Bearer ' + token } });
+        { headers: { Authorization: `Bearer ${  token}` } });
       if (!r.ok) { if (typeof toast === 'function') toast('Błąd pobierania danych'); return; }
       decl = await r.json();
     } catch (e) {
@@ -176,7 +176,7 @@ window.Dt1Declarations = (function () {
         ${decl.notes ? `<div style="background:var(--bg2);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--text2)"><i class="ti ti-note"></i> ${_e(decl.notes)}</div>` : ''}
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:12px">
           ${decl.epuap_sent_at
-            ? `<span style="color:var(--green,#16a34a)"><i class="ti ti-circle-check"></i> Wysłano przez ePUAP ${_e(new Date(decl.epuap_sent_at).toLocaleDateString('pl-PL'))}${decl.epuap_reference ? ' · '+_e(decl.epuap_reference) : ''}</span>`
+            ? `<span style="color:var(--green,#16a34a)"><i class="ti ti-circle-check"></i> Wysłano przez ePUAP ${_e(new Date(decl.epuap_sent_at).toLocaleDateString('pl-PL'))}${decl.epuap_reference ? ` · ${_e(decl.epuap_reference)}` : ''}</span>`
             : `<span style="color:var(--text3)"><i class="ti ti-circle-dashed"></i> Nie oznaczono jako wysłane przez ePUAP</span>`}
           <button class="btn btn-gray" style="font-size:11px;margin-left:auto" data-id="${_e(decl.id)}" onclick="Dt1Declarations.markEpuapSent(this.dataset.id)"><i class="ti ti-send"></i> ${decl.epuap_sent_at?'Zmień datę':'Oznacz wysłanie'}</button>
           ${decl.pdf_r2_key ? `<button class="btn btn-gray" style="font-size:11px" data-id="${_e(decl.id)}" onclick="Dt1Declarations.downloadPdf(this.dataset.id)"><i class="ti ti-file-download"></i> PDF</button>` : ''}
@@ -244,7 +244,7 @@ window.Dt1Declarations = (function () {
               <div style="font-weight:600;font-size:13px">DT-1 ${d.rok} — ${esc(d.gmina||'gmina')}</div>
               <div style="font-size:11px;color:var(--text3)">${dt} ${tm} · ${esc(d.created_by||'—')} · ${d.vehicle_count} pojazdów</div>
               <div style="font-size:11px;margin-top:2px">${d.epuap_sent_at
-                ? `<span style="color:var(--green,#16a34a)"><i class="ti ti-circle-check"></i> ePUAP: ${esc(new Date(d.epuap_sent_at).toLocaleDateString('pl-PL'))}${d.epuap_reference ? ' · '+esc(d.epuap_reference) : ''}</span>`
+                ? `<span style="color:var(--green,#16a34a)"><i class="ti ti-circle-check"></i> ePUAP: ${esc(new Date(d.epuap_sent_at).toLocaleDateString('pl-PL'))}${d.epuap_reference ? ` · ${esc(d.epuap_reference)}` : ''}</span>`
                 : `<span style="color:var(--text3)"><i class="ti ti-circle-dashed"></i> nie wysłano przez ePUAP</span>`}</div>
             </div>
             <div style="text-align:right;flex-shrink:0">

@@ -235,7 +235,7 @@ window.TaxOrderDrImport = (function () {
       load();
     } catch (e) {
       console.error('[DRImport] _onFiles:', e.message);
-      window.toast?.('⚠ Błąd uploadu: ' + e.message);
+      window.toast?.(`⚠ Błąd uploadu: ${  e.message}`);
       _resetArea();
     }
   }
@@ -253,7 +253,7 @@ window.TaxOrderDrImport = (function () {
 
     let processed = 0, failed = 0;
     for (const f of _files) {
-      const statusEl = document.getElementById('dri-status-' + _sid(f.key));
+      const statusEl = document.getElementById(`dri-status-${  _sid(f.key)}`);
       if (statusEl) statusEl.innerHTML = '<i class="ti ti-loader ti-spin" style="color:var(--blue)"></i>';
       try {
         const result = await _extractFile(f.key, f.name);
@@ -285,7 +285,7 @@ window.TaxOrderDrImport = (function () {
 
   // ── Single file processing ───────────────────────────────────────────────────
   async function _process(r2Key, fileName) {
-    const statusEl = document.getElementById('dri-status-' + _sid(r2Key));
+    const statusEl = document.getElementById(`dri-status-${  _sid(r2Key)}`);
     if (statusEl) statusEl.innerHTML = '<i class="ti ti-loader ti-spin" style="color:var(--blue)"></i> Odczytuję...';
 
     const result = await _extractFile(r2Key, fileName);
@@ -446,7 +446,7 @@ window.TaxOrderDrImport = (function () {
   }
 
   async function _save(r2Key, isArchived, isNew) {
-    const g = id => document.getElementById('dri-f-' + id)?.value?.trim() || null;
+    const g = id => document.getElementById(`dri-f-${  id}`)?.value?.trim() || null;
     const nr_rej = g('nrRej');
     if (!nr_rej) { window.toast?.('Podaj numer rejestracyjny'); return; }
 
@@ -507,7 +507,7 @@ window.TaxOrderDrImport = (function () {
   function _sid(str) { return str.replace(/[^a-z0-9]/gi, '_'); }
   function _fmtSize(b) {
     if (!b) return '?';
-    return b < 1048576 ? (b / 1024).toFixed(0) + ' KB' : (b / 1048576).toFixed(1) + ' MB';
+    return b < 1048576 ? `${(b / 1024).toFixed(0)  } KB` : `${(b / 1048576).toFixed(1)  } MB`;
   }
 
   return { load, _onFiles, _onDrop, _process, _batchAll, _save, _del, _refresh };

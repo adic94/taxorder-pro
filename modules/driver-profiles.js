@@ -43,7 +43,7 @@
 </div>
 ${alerts.length ? `<div class="alert alert-warn" style="margin-bottom:12px">
   <strong><i class="ti ti-alert-triangle"></i> Wygasające dokumenty (${alerts.length} kierowców):</strong>
-  <ul style="margin:4px 0 0 16px">${alerts.map(a=>`<li>${e(a.first_name+' '+a.last_name)} — ${_expiryBadges(a)}</li>`).join('')}</ul>
+  <ul style="margin:4px 0 0 16px">${alerts.map(a=>`<li>${e(`${a.first_name} ${a.last_name}`)} — ${_expiryBadges(a)}</li>`).join('')}</ul>
 </div>` : ''}
 <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
   <select id="dp-filter-status" onchange="window.DriverProfilesModule.renderDriverProfiles()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-card)">
@@ -141,7 +141,7 @@ ${_drivers.length ? _drivers.map(d=>`<tr>
       const r = await fetch(url, { method, headers:{...H(),'Content-Type':'application/json'}, body:JSON.stringify(body) });
       if (!r.ok) throw new Error(await r.text());
       closeModal(); await renderDriverProfiles();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   async function deleteDriver(id) {
@@ -149,7 +149,7 @@ ${_drivers.length ? _drivers.map(d=>`<tr>
     try {
       await fetch(`${API()}/api/driver-profiles/${encodeURIComponent(id)}?company=${encodeURIComponent(Co())}`, { method:'DELETE', headers:H() });
       await renderDriverProfiles();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   window.DriverProfilesModule = { renderDriverProfiles, openModal, closeModal, saveDriver, deleteDriver };

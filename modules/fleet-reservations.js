@@ -4,7 +4,7 @@
   const H   = () => window._cfHdrs?.() || {};
   const Co  = () => window._cfCo?.()   || '';
   const e   = s => typeof esc === 'function' ? esc(s) : String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const fmtD = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('pl-PL') : '—';
+  const fmtD = d => d ? new Date(`${d  }T00:00:00`).toLocaleDateString('pl-PL') : '—';
 
   let _reservations = [];
   let _curMonth = new Date().toISOString().slice(0, 7);
@@ -118,8 +118,8 @@ ${_reservations.map(r => `<tr>
     document.getElementById('res-id').value       = r?.id || '';
     document.getElementById('res-nrrej').value    = r?.nr_rej || '';
     document.getElementById('res-user').value     = r?.user_name || '';
-    document.getElementById('res-start').value    = r?.start || _curMonth + '-01';
-    document.getElementById('res-end').value      = r?.end   || _curMonth + '-01';
+    document.getElementById('res-start').value    = r?.start || `${_curMonth  }-01`;
+    document.getElementById('res-end').value      = r?.end   || `${_curMonth  }-01`;
     document.getElementById('res-status').value   = r?.status || 'pending';
     document.getElementById('res-notes').value    = r?.notes || '';
     modal.style.display = 'flex';
@@ -144,13 +144,13 @@ ${_reservations.map(r => `<tr>
     const body = { nr_rej, user_name, start, end, status, notes };
     if (id) body.id = id;
     try {
-      const url = `${API()}/api/reservations${id ? '/' + encodeURIComponent(id) : ''}?company=${encodeURIComponent(Co())}`;
+      const url = `${API()}/api/reservations${id ? `/${  encodeURIComponent(id)}` : ''}?company=${encodeURIComponent(Co())}`;
       const r = await fetch(url, { method: id ? 'PUT' : 'POST', headers: { ...H(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || d.message || r.statusText);
       closeModal();
       await renderFleetReservations();
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   async function deleteRes(resId) {
@@ -158,7 +158,7 @@ ${_reservations.map(r => `<tr>
     try {
       await fetch(`${API()}/api/reservations/${encodeURIComponent(resId)}?company=${encodeURIComponent(Co())}`, { method: 'DELETE', headers: H() });
       await renderFleetReservations();
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   function prevMonth() {

@@ -15,7 +15,7 @@
     if (!el) return;
 
     el.innerHTML = `<div class="page-header"><h2><i class="ti ti-steering-wheel"></i> Mój panel kierowcy</h2></div>
-<p style="color:var(--text-muted);margin-bottom:20px">Witaj${name ? ', <strong>' + e(name) + '</strong>' : ''}! Oto Twoje dane.</p>
+<p style="color:var(--text-muted);margin-bottom:20px">Witaj${name ? `, <strong>${  e(name)  }</strong>` : ''}! Oto Twoje dane.</p>
 <div id="dp-content" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
   <div id="dp-shifts" style="background:var(--bg-card);border-radius:var(--radius);padding:16px;border:1px solid var(--border)"><i class="ti ti-loader ti-spin"></i> Ładowanie...</div>
   <div id="dp-fault-form" style="background:var(--bg-card);border-radius:var(--radius);padding:16px;border:1px solid var(--border)">
@@ -38,7 +38,7 @@
       const nameParam = name ? `&driver_name=${encodeURIComponent(name)}` : '';
       const [shiftsR, claimsR, ordersR] = await Promise.all([
         fetch(`${API()}/api/driver-shifts?${params}${nameParam}`, { headers: H() }),
-        fetch(`${API()}/api/mileage-claims?${params}${user.id ? '&driver_id='+encodeURIComponent(user.id) : nameParam}`, { headers: H() }),
+        fetch(`${API()}/api/mileage-claims?${params}${user.id ? `&driver_id=${encodeURIComponent(user.id)}` : nameParam}`, { headers: H() }),
         fetch(`${API()}/api/transport-orders?${params}${nameParam}`, { headers: H() }),
       ]);
 
@@ -49,7 +49,7 @@
       document.getElementById('dp-shifts').innerHTML = `
         <h3 style="font-size:14px;margin-bottom:10px"><i class="ti ti-clock"></i> Moje ostatnie zmiany</h3>
         ${shifts.length ? `<table class="data-table" style="font-size:12px"><thead><tr><th>Data</th><th>Pojazd</th><th>Km</th></tr></thead><tbody>
-        ${shifts.map(s => `<tr><td>${e(s.shift_date||'')}</td><td>${e(s.nr_rej||'—')}</td><td>${s.end_km&&s.start_km?fmtN(s.end_km-s.start_km)+' km':'—'}</td></tr>`).join('')}
+        ${shifts.map(s => `<tr><td>${e(s.shift_date||'')}</td><td>${e(s.nr_rej||'—')}</td><td>${s.end_km&&s.start_km?`${fmtN(s.end_km-s.start_km)} km`:'—'}</td></tr>`).join('')}
         </tbody></table>` : '<p style="color:var(--text-muted);font-size:13px">Brak zmian</p>'}`;
 
       document.getElementById('dp-claims').innerHTML = `
@@ -83,7 +83,7 @@
       alert('Usterka zgłoszona!');
       document.getElementById('dp-fault-nrrej').value = '';
       document.getElementById('dp-fault-desc').value  = '';
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   window.DriverPanelModule = { renderDriverPanel, submitFault };

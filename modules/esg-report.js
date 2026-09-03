@@ -69,16 +69,16 @@
       return `<tr>
         <td><strong>${esc(METRIC_LBL[t.metric_key]||t.metric_key)}</strong></td>
         <td>${t.target_value!=null?esc(String(t.target_value)):' — '} ${esc(t.unit||'')}</td>
-        <td>${actual!=null?esc(String(actual))+' '+esc(t.unit||''):'—'}</td>
+        <td>${actual!=null?`${esc(String(actual))} ${esc(t.unit||'')}`:'—'}</td>
         <td>
           <div style="display:flex;align-items:center;gap:8px">
             <div style="flex:1;background:#e2e8f0;border-radius:4px;height:8px">
               <div style="background:${clr};border-radius:4px;height:8px;width:${Math.min(pct??0,100)}%"></div>
             </div>
-            <span style="color:${clr};font-weight:600;white-space:nowrap">${pct!=null?pct+'%':'—'}</span>
+            <span style="color:${clr};font-weight:600;white-space:nowrap">${pct!=null?`${pct}%`:'—'}</span>
           </div>
         </td>
-        <td style="color:${clr}">${actual!=null&&t.target_value!=null?(actual-t.target_value>0?'+':'')+(actual-t.target_value).toFixed(2)+' '+esc(t.unit||''):'—'}</td>
+        <td style="color:${clr}">${actual!=null&&t.target_value!=null?`${(actual-t.target_value>0?'+':'')+(actual-t.target_value).toFixed(2)} ${esc(t.unit||'')}`:'—'}</td>
         <td>
           <button class="btn-icon" data-id="${esc(t.id)}" onclick="window.EsgReport._openSetTarget(this.dataset.id)"><i class="ti ti-edit"></i></button>
           <button class="btn-icon danger" data-id="${esc(t.id)}" onclick="window.EsgReport._deleteTarget(this.dataset.id)"><i class="ti ti-trash"></i></button>
@@ -162,7 +162,7 @@
         <tbody>${targets.map(t=>{
           const actual = actuals[t.metric_key]??null;
           const achieved = actual!=null&&t.target_value!=null&&(t.lower_is_better?actual<=t.target_value:actual>=t.target_value);
-          return `<tr><td>${esc(METRIC_LBL[t.metric_key]||t.metric_key)}</td><td>${actual!=null?esc(String(actual))+' '+esc(t.unit||''):'—'}</td><td>${esc(String(t.target_value))} ${esc(t.unit||'')}</td><td style="color:${achieved?'green':'red'}">${achieved?'✅ Osiągnięty':'❌ Nieosiągnięty'}</td></tr>`;
+          return `<tr><td>${esc(METRIC_LBL[t.metric_key]||t.metric_key)}</td><td>${actual!=null?`${esc(String(actual))} ${esc(t.unit||'')}`:'—'}</td><td>${esc(String(t.target_value))} ${esc(t.unit||'')}</td><td style="color:${achieved?'green':'red'}">${achieved?'✅ Osiągnięty':'❌ Nieosiągnięty'}</td></tr>`;
         }).join('')}
         </tbody>
       </table>

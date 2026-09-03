@@ -511,7 +511,7 @@
       if (typeof _applyDashConfig === 'function') _applyDashConfig();
       window.toast?.('✓ Konfiguracja modułów zapisana');
     } catch (e) {
-      window.toast?.('⚠ Błąd zapisu: ' + e.message);
+      window.toast?.(`⚠ Błąd zapisu: ${  e.message}`);
     } finally {
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-device-floppy"></i> Zapisz zmiany'; }
     }

@@ -138,7 +138,7 @@
       if (data.ok) {
         alert(`Pobrano ${data.imported || 0} kursów z NBP (${data.date || ''})`);
       } else {
-        alert('Błąd pobierania kursów NBP: ' + (data.error || 'nieznany'));
+        alert(`Błąd pobierania kursów NBP: ${  data.error || 'nieznany'}`);
       }
     } finally {
       if (btn) btn.disabled = false;

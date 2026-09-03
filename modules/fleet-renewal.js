@@ -64,7 +64,7 @@
         <td style="text-align:right">${p.current_mileage_km != null ? esc(String(p.current_mileage_km)) : '—'}</td>
         <td>${esc(REASON_LABEL[p.renewal_reason] || p.renewal_reason || '—')}</td>
         <td>${p.planned_replacement_date ? esc(p.planned_replacement_date.slice(0,10)) : '—'}</td>
-        <td style="text-align:right">${p.replacement_budget_pln != null ? esc(p.replacement_budget_pln.toLocaleString('pl-PL')) + ' PLN' : '—'}</td>
+        <td style="text-align:right">${p.replacement_budget_pln != null ? `${esc(p.replacement_budget_pln.toLocaleString('pl-PL'))  } PLN` : '—'}</td>
         <td><span class="pill" style="background:${STATUS_CLR[p.status]||'#999'}20;color:${STATUS_CLR[p.status]||'#999'}">${esc(STATUS_LABEL[p.status] || p.status)}</span></td>
         <td>
           <button class="btn-icon" title="Edytuj" data-id="${esc(p.id)}" onclick="window.FleetRenewal._openModal(this.dataset.id)"><i class="ti ti-edit"></i></button>
@@ -80,7 +80,7 @@
       { lbl: 'Zaplanowanych', val: s.planned || 0, c: '#3b82f6' },
       { lbl: 'W trakcie', val: s.in_progress || 0, c: '#f59e0b' },
       { lbl: 'Zrealizowanych', val: s.done || 0, c: '#22c55e' },
-      { lbl: 'Budżet łącznie', val: s.total_budget ? s.total_budget.toLocaleString('pl-PL') + ' PLN' : '—', c: '#8b5cf6' },
+      { lbl: 'Budżet łącznie', val: s.total_budget ? `${s.total_budget.toLocaleString('pl-PL')  } PLN` : '—', c: '#8b5cf6' },
     ].map(i => `<div class="stat-chip" style="border-color:${i.c}"><span style="color:${i.c};font-size:1.2em;font-weight:700">${i.val}</span><span>${esc(i.lbl)}</span></div>`).join('');
   }
 

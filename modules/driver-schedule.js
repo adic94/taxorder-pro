@@ -67,7 +67,7 @@ ${drivers.length ? drivers.map(drv => `<tr>
   ${days.map(d => {
     const entry = grid[drv]?.[d];
     if (entry) return `<td style="padding:2px"><div style="background:${SHIFT_COLOR[entry.shift_type]||'var(--green)'};color:#fff;border-radius:6px;padding:3px 6px;font-size:11px;cursor:pointer" data-id="${e(entry.id)}" onclick="window.DriverScheduleModule.openModal(this.dataset.id)" title="${e(entry.nr_rej||'')} ${e(entry.start_time||'')}–${e(entry.end_time||'')}">
-      ${e(SHIFT_LBL[entry.shift_type]||entry.shift_type)}<br>${e(entry.start_time||'')}${entry.end_time?'–'+e(entry.end_time):''}
+      ${e(SHIFT_LBL[entry.shift_type]||entry.shift_type)}<br>${e(entry.start_time||'')}${entry.end_time?`–${e(entry.end_time)}`:''}
     </div></td>`;
     return `<td style="cursor:pointer;color:var(--text-muted);text-align:center;font-size:18px" data-date="${d}" data-drv="${e(drv)}" onclick="window.DriverScheduleModule.openModal(null,this.dataset.date,this.dataset.drv)">+</td>`;
   }).join('')}
@@ -127,7 +127,7 @@ ${drivers.length ? drivers.map(drv => `<tr>
       const r = await fetch(url, { method: id ? 'PUT' : 'POST', headers: { ...H(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!r.ok) throw new Error(await r.text());
       closeModal(); await renderDriverSchedule();
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   async function deleteSchedule(id) {
@@ -135,7 +135,7 @@ ${drivers.length ? drivers.map(drv => `<tr>
     try {
       await fetch(`${API()}/api/driver-schedule/${encodeURIComponent(id)}?company=${encodeURIComponent(Co())}`, { method: 'DELETE', headers: H() });
       await renderDriverSchedule();
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   window.DriverScheduleModule = { renderDriverSchedule, prevWeek, nextWeek, goToToday, openModal, closeModal, saveSchedule, deleteSchedule };

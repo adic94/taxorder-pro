@@ -15,7 +15,7 @@
   async function renderFuelDb(nrRej) {
     _currentNrRej = nrRej || '';
     const co = Co();
-    const url = `${API()}/api/fuel-fills?company=${encodeURIComponent(co)}${nrRej ? '&nr_rej='+encodeURIComponent(nrRej) : ''}`;
+    const url = `${API()}/api/fuel-fills?company=${encodeURIComponent(co)}${nrRej ? `&nr_rej=${encodeURIComponent(nrRej)}` : ''}`;
     let data = [];
     try {
       const r = await fetch(url, { headers: H() });
@@ -35,9 +35,9 @@
           const s = await sr.json();
           statsHtml = `
 <div class="kpi-row" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
-  ${kpi('Łączne koszty',fmtN(s.total_cost)+' PLN','ti-cash')}
-  ${kpi('Litry łącznie',fmtN(s.total_liters,1)+' l','ti-droplet')}
-  ${kpi('Śr. spalanie',s.avg_consumption ? fmtN(s.avg_consumption,1)+' l/100km' : '—','ti-gauge')}
+  ${kpi('Łączne koszty',`${fmtN(s.total_cost)} PLN`,'ti-cash')}
+  ${kpi('Litry łącznie',`${fmtN(s.total_liters,1)} l`,'ti-droplet')}
+  ${kpi('Śr. spalanie',s.avg_consumption ? `${fmtN(s.avg_consumption,1)} l/100km` : '—','ti-gauge')}
   ${kpi('Tankowania',s.fill_count||0,'ti-list')}
 </div>`;
         }
@@ -46,7 +46,7 @@
 
     el.innerHTML = `
 <div class="page-header">
-  <h2><i class="ti ti-droplet"></i> Ewidencja paliwa${nrRej ? ' — '+e(nrRej) : ''}</h2>
+  <h2><i class="ti ti-droplet"></i> Ewidencja paliwa${nrRej ? ` — ${e(nrRej)}` : ''}</h2>
   <button class="btn-primary" onclick="window.FuelDbModule.openFuelModal()"><i class="ti ti-plus"></i> Dodaj tankowanie</button>
 </div>
 ${statsHtml}
@@ -62,7 +62,7 @@ ${_fills.length ? _fills.map(f => `<tr>
   <td>${e(f.driver_name||'—')}</td>
   <td>${fmtN(f.liters,1)}</td>
   <td>${f.price_per_liter ? fmtN(f.price_per_liter,3) : '—'}</td>
-  <td>${f.total_cost ? fmtN(f.total_cost)+' PLN' : '—'}</td>
+  <td>${f.total_cost ? `${fmtN(f.total_cost)} PLN` : '—'}</td>
   <td>${f.odometer ? fmtN(f.odometer,0) : '—'}</td>
   <td>${e(f.station||'—')}</td>
   <td>${e(f.fuel_type||'diesel')}</td>
@@ -132,7 +132,7 @@ ${_fills.length ? _fills.map(f => `<tr>
       if (!r.ok) throw new Error(await r.text());
       closeFuelModal();
       await renderFuelDb(_currentNrRej);
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   async function editFuel(id) { openFuelModal(id); }
@@ -142,7 +142,7 @@ ${_fills.length ? _fills.map(f => `<tr>
     try {
       await fetch(`${API()}/api/fuel-fills/${encodeURIComponent(id)}?company=${encodeURIComponent(Co())}`, { method:'DELETE', headers: H() });
       await renderFuelDb(_currentNrRej);
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   // ── Autocalc cena ───────────────────────────────────────────────────────────

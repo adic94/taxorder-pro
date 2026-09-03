@@ -83,7 +83,7 @@
     el.innerHTML = [
       { lbl: 'Otwarte przejazdy', val: s.open || 0, c: '#22c55e' },
       { lbl: 'W tym tygodniu', val: s.this_week || 0, c: '#3b82f6' },
-      { lbl: 'Oszcz. CO₂ (est.)', val: s.co2_saved ? s.co2_saved.toFixed(1) + ' kg' : '—', c: '#16a34a' },
+      { lbl: 'Oszcz. CO₂ (est.)', val: s.co2_saved ? `${s.co2_saved.toFixed(1)  } kg` : '—', c: '#16a34a' },
     ].map(i => `<div class="stat-chip" style="border-color:${i.c}"><span style="color:${i.c};font-size:1.2em;font-weight:700">${i.val}</span><span>${esc(i.lbl)}</span></div>`).join('');
   }
 

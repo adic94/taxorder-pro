@@ -20,7 +20,7 @@ window.FleetCalendar = (function () {
   // ── API ───────────────────────────────────────────────────────────────────
   const _api = () => window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
   const _tok = () => localStorage.getItem('cf_token');
-  const _hdrs = () => ({ 'Content-Type': 'application/json', ...(_tok() ? { Authorization: 'Bearer ' + _tok() } : {}) });
+  const _hdrs = () => ({ 'Content-Type': 'application/json', ...(_tok() ? { Authorization: `Bearer ${  _tok()}` } : {}) });
   const _co  = () => window.currentCompanyId || 'mtoilet';
 
   async function _loadApi(from, to) {
@@ -59,7 +59,7 @@ window.FleetCalendar = (function () {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-  function _isoDate(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function _isoDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
   function _addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
 
   function _currentUser() {
@@ -144,7 +144,7 @@ window.FleetCalendar = (function () {
         const sc = STATUS_COLORS[r.status] || STATUS_COLORS.pending;
         const isFirst = r.start === ds;
         return `<td style="padding:2px 3px;border-left:0.5px solid var(--border);background:${sc.bg};border-bottom:2px solid ${sc.border}">
-          ${isFirst ? `<div style="font-size:10px;font-weight:600;color:${sc.text};white-space:nowrap;overflow:hidden;max-width:76px;text-overflow:ellipsis" title="${esc(r.user_name)}: ${r.start}–${r.end}${r.notes?'\n'+esc(r.notes):''}"
+          ${isFirst ? `<div style="font-size:10px;font-weight:600;color:${sc.text};white-space:nowrap;overflow:hidden;max-width:76px;text-overflow:ellipsis" title="${esc(r.user_name)}: ${r.start}–${r.end}${r.notes?`\n${esc(r.notes)}`:''}"
             data-rid="${esc(String(r.id))}" onclick="FleetCalendar.editRes(this.dataset.rid)">${esc(r.user_name)}</div>
             ${r.notes ? `<div style="font-size:9px;color:var(--text3);white-space:nowrap;overflow:hidden;max-width:76px;text-overflow:ellipsis">${esc(r.notes)}</div>` : ''}` : ''}
         </td>`;
@@ -183,7 +183,7 @@ window.FleetCalendar = (function () {
     const days = Array.from({length:28}, (_,i) => _addDays(_anchor, i));
     const MONTHS = [1,2,3,4,5,6,7,8,9,10,11,12].map(n => t(`cal.month.${n}`));
 
-    document.getElementById('cal-range').textContent = MONTHS[_anchor.getMonth()] + ' ' + _anchor.getFullYear();
+    document.getElementById('cal-range').textContent = `${MONTHS[_anchor.getMonth()]  } ${  _anchor.getFullYear()}`;
 
     const DOW = [t('cal.day.mon'),t('cal.day.tue'),t('cal.day.wed'),t('cal.day.thu'),t('cal.day.fri'),t('cal.day.sat'),t('cal.day.sun')];
     const header = DOW.map(d => `<th style="padding:6px;text-align:center;font-size:11px;color:var(--text2)">${d}</th>`).join('');
@@ -278,7 +278,7 @@ window.FleetCalendar = (function () {
       });
       if (!r.ok) {
         const e = await r.json().catch(() => ({}));
-        toast('⚠ ' + (e.error || r.status)); return;
+        toast(`⚠ ${  e.error || r.status}`); return;
       }
       btn.closest('[style*=fixed]').remove();
       await _loadApi(); _render(); toast(t('cal.toast.saved'));
@@ -297,7 +297,7 @@ window.FleetCalendar = (function () {
           <i class="ti ti-calendar" style="color:var(--blue)"></i>${t('cal.edit.title')}
           <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${sc.bg};color:${sc.text};border:1px solid ${sc.border}">${_statusLabel(r.status)}</span>
         </div>
-        <div style="font-size:11px;color:var(--text2);margin-bottom:14px">${r.created_at ? new Date(r.created_at.replace(' ','T')+'Z').toLocaleString() : '—'}</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:14px">${r.created_at ? new Date(`${r.created_at.replace(' ','T')}Z`).toLocaleString() : '—'}</div>
         <div class="vdfg" style="margin-bottom:14px">
           <div class="vdf">
             <label class="vdl">${t('cal.col.vehicle')}</label>
@@ -364,7 +364,7 @@ window.FleetCalendar = (function () {
       const r = await fetch(`${_api()}/api/reservations/${resId}?company=${_co()}`, {
         method: 'PUT', headers: _hdrs(), body: JSON.stringify(body),
       });
-      if (!r.ok) { const e = await r.json().catch(()=>({})); toast('⚠ ' + (e.error || r.status)); return; }
+      if (!r.ok) { const e = await r.json().catch(()=>({})); toast(`⚠ ${  e.error || r.status}`); return; }
       btn.closest('[style*=fixed]').remove();
       await _loadApi(); _render(); toast(t('cal.toast.updated'));
     } catch { toast(t('cal.toast.conn')); }
@@ -374,7 +374,7 @@ window.FleetCalendar = (function () {
     if (!confirm(t('cal.confirm.delete'))) return;
     try {
       const r = await fetch(`${_api()}/api/reservations/${resId}?company=${_co()}`, { method: 'DELETE', headers: _hdrs() });
-      if (!r.ok) { toast('⚠ ' + r.status); return; }
+      if (!r.ok) { toast(`⚠ ${  r.status}`); return; }
       btn.closest('[style*=fixed]').remove();
       await _loadApi(); _render(); toast(t('cal.toast.deleted'));
     } catch { toast(t('cal.toast.conn')); }

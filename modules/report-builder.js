@@ -95,8 +95,8 @@
     const sortEl = document.getElementById('rb-sort');
     if (!colsEl) return;
     colsEl.innerHTML = cols.map(c=>`<label style="display:flex;align-items:center;gap:6px;font-size:.85em"><input type="checkbox" name="col_${c}" checked> ${esc(c)}</label>`).join('');
-    if (filtEl) filtEl.innerHTML = `<option value="">— brak filtru —</option>` + cols.map(c=>`<option value="${c}">${esc(c)}</option>`).join('');
-    if (sortEl) sortEl.innerHTML = `<option value="">— domyślnie —</option>` + cols.map(c=>`<option value="${c}">${esc(c)}</option>`).join('');
+    if (filtEl) filtEl.innerHTML = `<option value="">— brak filtru —</option>${  cols.map(c=>`<option value="${c}">${esc(c)}</option>`).join('')}`;
+    if (sortEl) sortEl.innerHTML = `<option value="">— domyślnie —</option>${  cols.map(c=>`<option value="${c}">${esc(c)}</option>`).join('')}`;
   }
 
   async function _runReport() {
@@ -129,9 +129,9 @@
     if (!table) { alert('Najpierw uruchom raport.'); return; }
     let csv = '';
     table.querySelectorAll('tr').forEach(r => {
-      csv += [...r.querySelectorAll('th,td')].map(c => `"${c.textContent.replace(/"/g,'""')}"`).join(',') + '\n';
+      csv += `${[...r.querySelectorAll('th,td')].map(c => `"${c.textContent.replace(/"/g,'""')}"`).join(',')  }\n`;
     });
-    const blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8' });
+    const blob = new Blob([`﻿${csv}`], { type:'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `raport_${new Date().toISOString().slice(0,10)}.csv`;

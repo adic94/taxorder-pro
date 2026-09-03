@@ -61,7 +61,7 @@
         <td>${esc(r.renter_person || '—')}</td>
         <td style="font-size:.85em">${esc(r.start_datetime?.slice(0,16)||'?')} – ${r.end_datetime ? esc(r.end_datetime.slice(0,16)) : '⏳'}</td>
         <td style="text-align:right">${r.distance_km != null ? esc(r.distance_km.toFixed(1)) : '—'}</td>
-        <td style="text-align:right">${r.total_cost_pln != null ? esc(r.total_cost_pln.toFixed(2)) + ' PLN' : '—'}</td>
+        <td style="text-align:right">${r.total_cost_pln != null ? `${esc(r.total_cost_pln.toFixed(2))  } PLN` : '—'}</td>
         <td><span class="pill" style="background:${STATUS_CLR[r.status]||'#999'}20;color:${STATUS_CLR[r.status]||'#999'}">${esc(STATUS_LABEL[r.status]||r.status)}</span></td>
         <td>
           ${r.status === 'active' ? `<button class="btn-icon" title="Zwróć pojazd" data-id="${esc(r.id)}" onclick="window.InternalRental._return(this.dataset.id)"><i class="ti ti-check"></i></button>` : ''}
@@ -78,7 +78,7 @@
     el.innerHTML = [
       { lbl: 'Aktywne', val: s.active || 0, c: '#3b82f6' },
       { lbl: 'Zwrócone', val: s.returned || 0, c: '#22c55e' },
-      { lbl: 'Koszt łącznie', val: s.total_cost ? s.total_cost.toFixed(2) + ' PLN' : '—', c: '#8b5cf6' },
+      { lbl: 'Koszt łącznie', val: s.total_cost ? `${s.total_cost.toFixed(2)  } PLN` : '—', c: '#8b5cf6' },
     ].map(i => `<div class="stat-chip" style="border-color:${i.c}"><span style="color:${i.c};font-size:1.2em;font-weight:700">${i.val}</span><span>${esc(i.lbl)}</span></div>`).join('');
   }
 

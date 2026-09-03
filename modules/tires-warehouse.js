@@ -11,7 +11,7 @@ window.TaxOrderTires = (function () {
   function _token() { return localStorage.getItem('cf_token'); }
   function _headers(extra) {
     const t = _token();
-    return { ...(t ? { 'Authorization': 'Bearer ' + t } : {}), ...(extra || {}) };
+    return { ...(t ? { 'Authorization': `Bearer ${  t}` } : {}), ...(extra || {}) };
   }
   function _company() { return window.currentCompanyId || 'mtoilet'; }
 
@@ -22,7 +22,7 @@ window.TaxOrderTires = (function () {
   async function load() {
     try {
       const resp = await fetch(`${_cfApi()}/api/tires?company=${encodeURIComponent(_company())}`, { headers: _headers() });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       list = await resp.json();
     } catch (e) {
       console.warn('[Tires] load error:', e.message);
@@ -49,7 +49,7 @@ window.TaxOrderTires = (function () {
       <td style="font-family:var(--mono)">${esc(t.rozmiar || '—')}</td>
       <td>${esc(t.marka || '—')}</td>
       <td style="font-family:var(--mono);font-size:11px">${esc(t.dot || '—')}</td>
-      <td>${t.bieznik_mm != null ? t.bieznik_mm + ' mm' : '—'}</td>
+      <td>${t.bieznik_mm != null ? `${t.bieznik_mm  } mm` : '—'}</td>
       <td>${esc(t.sezon || '—')}</td>
       <td style="font-size:12px">${t.status === 'ZAMONTOWANA' ? `<strong style="font-family:var(--mono)">${esc(t.nr_rej)}</strong> (${esc(POZYCJE[t.pozycja] || t.pozycja)})` : esc(t.lokalizacja_magazyn || '—')}</td>
       <td>
@@ -121,20 +121,20 @@ window.TaxOrderTires = (function () {
     try {
       if (editId) {
         const resp = await fetch(`${_cfApi()}/api/tires/${editId}`, { method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       } else {
         // Sekwencyjnie, nie Promise.all — endpoint nie ma trybu wsadowego,
         // a przy 20 kolejnych POST-ach równolegle łatwiej trafić w limit API.
         for (let i = 0; i < qty; i++) {
           const resp = await fetch(`${_cfApi()}/api/tires`, { method: 'POST', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
-          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
           const created = await resp.json();
           if (alreadyMounted && created.id) {
             const mountResp = await fetch(`${_cfApi()}/api/tires/${created.id}`, {
               method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }),
               body: JSON.stringify({ akcja: 'ZAMONTUJ', nr_rej: nrRej, pozycja }),
             });
-            if (!mountResp.ok) throw new Error('Utworzono, ale montaż nie powiódł się (HTTP ' + mountResp.status + ')');
+            if (!mountResp.ok) throw new Error(`Utworzono, ale montaż nie powiódł się (HTTP ${  mountResp.status  })`);
           }
         }
       }
@@ -142,7 +142,7 @@ window.TaxOrderTires = (function () {
       closeModal();
       await load();
     } catch (e) {
-      toast('⚠ Błąd zapisu: ' + e.message);
+      toast(`⚠ Błąd zapisu: ${  e.message}`);
     }
   }
 
@@ -166,7 +166,7 @@ window.TaxOrderTires = (function () {
         method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ akcja: 'ZAMONTUJ', nr_rej: nrRej, pozycja })
       });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       toast(t('tw.toast.mounted').replace('{0}', nrRej).replace('{1}', POZYCJE[pozycja]));
       closeMountModal();
       await load();
@@ -179,11 +179,11 @@ window.TaxOrderTires = (function () {
     if (!confirm('Zdemontować oponę i przenieść do magazynu?')) return;
     try {
       const resp = await fetch(`${_cfApi()}/api/tires/${id}`, { method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ akcja: 'ZDEMONTUJ' }) });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       toast('✓ Opona przeniesiona do magazynu');
       await load();
     } catch (e) {
-      toast('⚠ Błąd: ' + e.message);
+      toast(`⚠ Błąd: ${  e.message}`);
     }
   }
 
@@ -191,11 +191,11 @@ window.TaxOrderTires = (function () {
     if (!confirm('Złomować oponę? Tej operacji nie można cofnąć.')) return;
     try {
       const resp = await fetch(`${_cfApi()}/api/tires/${id}`, { method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ akcja: 'ZLOMUJ' }) });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       toast('✓ Opona złomowana');
       await load();
     } catch (e) {
-      toast('⚠ Błąd: ' + e.message);
+      toast(`⚠ Błąd: ${  e.message}`);
     }
   }
 
@@ -205,7 +205,7 @@ window.TaxOrderTires = (function () {
     const rows = (t.historia || []).slice().reverse().map(h =>
       `<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
         <strong>${esc(h.akcja)}</strong> — ${new Date(h.data).toLocaleString('pl-PL')}
-        ${h.nrRej ? `<br><span style="color:var(--text2)">${esc(h.nrRej)}${h.pozycja ? ' / ' + esc(POZYCJE[h.pozycja] || h.pozycja) : ''}</span>` : ''}
+        ${h.nrRej ? `<br><span style="color:var(--text2)">${esc(h.nrRej)}${h.pozycja ? ` / ${  esc(POZYCJE[h.pozycja] || h.pozycja)}` : ''}</span>` : ''}
       </div>`
     ).join('') || '<div style="color:var(--text3);font-size:12px">Brak historii</div>';
     document.getElementById('opona-history-body').innerHTML = rows;

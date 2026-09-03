@@ -3,7 +3,7 @@
   const BASE = () => (localStorage.getItem('cf_worker_url') || 'https://taxorder-pro-api.adamus1000.workers.dev');
   const COMPANY = () => localStorage.getItem('cf_company') || '';
   const TOKEN = () => localStorage.getItem('cf_token') || '';
-  const hdrs = () => ({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN() });
+  const hdrs = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${  TOKEN()}` });
 
   const STATUS_LABELS = { pending: 'Oczekuje', approved: 'Zatwierdzone', rejected: 'Odrzucone', paid: 'Wypłacone' };
   const STATUS_COLORS = { pending: '#ff9800', approved: '#2196f3', rejected: '#f44336', paid: '#4caf50' };
@@ -105,7 +105,7 @@
   // ─── CSV Export ───────────────────────────────────────────────────────────
   function _csvCell(v) {
     const s = String(v ?? '');
-    const safe = /^[=+\-@\t\r\n]/.test(s) ? '\t' + s : s;
+    const safe = /^[=+\-@\t\r\n]/.test(s) ? `\t${  s}` : s;
     return `"${safe.replace(/"/g, '""')}"`;
   }
   async function _exportCsv() {
@@ -118,7 +118,7 @@
       ].map(_csvCell).join(';')
     );
     const csv = [header, ...lines].join('\r\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([`﻿${  csv}`], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `rozliczenia-km-${new Date().toISOString().slice(0, 10)}.csv`;

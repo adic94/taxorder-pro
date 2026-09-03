@@ -69,7 +69,7 @@
       session_date:  _today(),
       vehicle_count: (window.vehs || []).length,
     });
-    if (res.error) { alert('Błąd: ' + res.error); return; }
+    if (res.error) { alert(`Błąd: ${  res.error}`); return; }
     renderVehicleInventory();  // re-fetchuje _active przez _fetchSessions()
   }
 
@@ -119,7 +119,7 @@
     const bar     = document.getElementById('inv-progress-bar');
     const lbl     = document.getElementById('inv-progress-label');
     const banner  = document.getElementById('inv-banner-count');
-    if (bar)    bar.style.width   = pct + '%';
+    if (bar)    bar.style.width   = `${pct  }%`;
     if (lbl)    lbl.textContent   = `${checked} / ${total} pojazdów (${pct}%)`;
     if (banner) banner.textContent = `${checked} / ${total}`;
 

@@ -104,8 +104,12 @@ test('szablon nie zawiera apostrofów w atrybutach HTML (źródło SyntaxError)'
 });
 
 test('ładunek javascript: jest percent-enkodowany', () => {
+  // Dopuszcza obie składnie ('a'+b i `a${b}`) — eslint --fix (prefer-template) przepisuje
+  // konkatenację na literał szablonowy, co jest wyłącznie zmianą stylu. Test i tak sprawdza
+  // niezmiennik bezpieczeństwa: prefiks 'javascript:' MUSI stać NA ZEWNĄTRZ encodeURIComponent(),
+  // inaczej sam schemat też zostałby zakodowany i bookmarklet by nie działał.
   const src = fs.readFileSync(APP, 'utf8');
-  assert(/const bm = 'javascript:' \+ encodeURIComponent\(/.test(src),
+  assert(/const bm = (?:'javascript:'\s*\+|`javascript:\$\{)\s*encodeURIComponent\(/.test(src),
     'bm musi używać encodeURIComponent — bez tego %22 w danych wychodzi poza literał JSON');
 });
 

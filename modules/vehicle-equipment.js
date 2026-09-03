@@ -22,7 +22,7 @@
   let _filterText   = '';
   let _filterCat    = '';
   let _filterActive = true;
-  let _expandedVehs = new Set();
+  const _expandedVehs = new Set();
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   function _today() { return new Date().toLocaleDateString('sv'); }
@@ -35,7 +35,7 @@
   }
 
   function _fmtVal(n) {
-    return (n ?? 0).toLocaleString('pl-PL') + ' zł';
+    return `${(n ?? 0).toLocaleString('pl-PL')  } zł`;
   }
 
   function _getEquipment(v) {
@@ -62,7 +62,7 @@
     const eq = _getEquipment(v);
     const rawVal = parseFloat(formData.value);
     eq.push({
-      id:          'eq_' + Date.now(),
+      id:          `eq_${  Date.now()}`,
       name:        formData.name || '',
       category:    formData.category || 'Inne',
       serialNo:    formData.serialNo || '',

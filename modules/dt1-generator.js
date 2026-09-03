@@ -352,7 +352,7 @@ window.DT1Generator = {
       const words = desc.split(' ');
       let line1 = '', line2 = '';
       for(const w of words) {
-        if((line1+' '+w).length < 55) line1 += (line1?' ':'')+w;
+        if((`${line1} ${w}`).length < 55) line1 += (line1?' ':'')+w;
         else line2 += (line2?' ':'')+w;
       }
       this.text(page, line1, M+16, rowY+4, 6.5);
@@ -362,7 +362,7 @@ window.DT1Generator = {
       [0,1,2,3].forEach(ci => {
         const cx = M + colA + ci*colBCDE;
         this.rect(page, cx, rowY, colBCDE, rowH, this.col('white'), this.col('black'));
-        this.text(page, String(nums[ci])+'.', cx+2, rowY+2, 6);
+        this.text(page, `${String(nums[ci])}.`, cx+2, rowY+2, 6);
         const val = catData[nums[ci]];
         if(val) this.text(page, String(val), cx+2, rowY+9, 8, ci===3);
       });
@@ -408,7 +408,7 @@ window.DT1Generator = {
         [0,1,2,3].forEach(ci => {
           const cx = M + colA + ci*colBCDE;
           this.rect(page, cx, rowY, colBCDE, rowH-4, this.col('white'), this.col('black'));
-          this.text(page, String(pols[ci])+'.', cx+2, rowY+2, 6);
+          this.text(page, `${String(pols[ci])}.`, cx+2, rowY+2, 6);
           const val = catData[pols[ci]];
           if(val) this.text(page, String(val), cx+2, rowY+8, 8, ci===3);
         });
@@ -461,7 +461,7 @@ window.DT1Generator = {
       [0,1,2,3].forEach(ci => {
         const cx = M + colA + ci*colBCDE;
         this.rect(page, cx, ry, colBCDE, 18, this.col('white'), this.col('black'));
-        this.text(page, String(pols[ci])+'.', cx+2, ry+2, 6);
+        this.text(page, `${String(pols[ci])}.`, cx+2, ry+2, 6);
         const val = catData[pols[ci]];
         if(val) this.text(page, String(val), cx+2, ry+8, 8, ci===3);
       });
@@ -583,7 +583,7 @@ window.DT1Generator = {
       const sh = 148;
 
       this.rect(page, M, sy, cW, 10, this.col('lgray'), this.col('black'));
-      this.text(page, secNames[vi]+' DANE SZCZEGÓŁOWE DOTYCZĄCE ŚRODKA TRANSPORTOWEGO', M+2, sy+2, 6.5, true);
+      this.text(page, `${secNames[vi]} DANE SZCZEGÓŁOWE DOTYCZĄCE ŚRODKA TRANSPORTOWEGO`, M+2, sy+2, 6.5, true);
       let vy = sy + 12;
 
       // 1. Własność
@@ -616,7 +616,7 @@ window.DT1Generator = {
       this.field(page, '4. Numer rejestracyjny pojazdu', v.nrRej||'', M+hw, vy, hw, 14);
       vy += 16;
       this.field(page, '5. Numer Identyfikacyjny VIN / nadwozia, podwozia lub ramy', v.vin||'', M, vy, hw, 14);
-      this.field(page, '6. Marka, typ, model pojazdu', (v.marka||'')+' '+(v.model||''), M+hw, vy, hw, 14);
+      this.field(page, '6. Marka, typ, model pojazdu', `${v.marka||''} ${v.model||''}`, M+hw, vy, hw, 14);
       vy += 16;
 
       // 7-12: Rok prod, data nabycia, data zbycia, wycofanie, przywrócenie, wyrejestrowanie

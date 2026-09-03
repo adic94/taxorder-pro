@@ -19,7 +19,7 @@ window.WebhooksUI = (function () {
   async function load() {
     try {
       const r = await fetch(`${_apiBase()}/api/webhooks?company=${encodeURIComponent(_company())}`,
-        { headers: { Authorization: 'Bearer ' + _token() } });
+        { headers: { Authorization: `Bearer ${  _token()}` } });
       if (r.ok) _hooks = await r.json();
     } catch { _hooks = []; }
     _render();
@@ -125,7 +125,7 @@ window.WebhooksUI = (function () {
     try {
       const r = await fetch(`${_apiBase()}/api/webhooks?company=${encodeURIComponent(_company())}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _token() },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${  _token()}` },
         body: JSON.stringify({ name, url, events, secret: secret || null }),
       });
       if (r.ok) {
@@ -135,7 +135,7 @@ window.WebhooksUI = (function () {
       } else {
         if (typeof toast === 'function') toast('Błąd zapisu');
       }
-    } catch(e) { if (typeof toast === 'function') toast('Błąd: ' + e.message); }
+    } catch(e) { if (typeof toast === 'function') toast(`Błąd: ${  e.message}`); }
   }
 
   async function test(id) {
@@ -143,19 +143,19 @@ window.WebhooksUI = (function () {
     try {
       const r = await fetch(`${_apiBase()}/api/webhooks/${id}/test?company=${encodeURIComponent(_company())}`, {
         method: 'POST',
-        headers: { Authorization: 'Bearer ' + _token() },
+        headers: { Authorization: `Bearer ${  _token()}` },
       });
       const res = await r.json();
       if (res.ok) { if (typeof toast === 'function') toast(`✓ Test OK — HTTP ${res.status}`); }
       else { if (typeof toast === 'function') toast(`⚠ Test nieudany: ${res.error||res.status}`); }
       await load();
-    } catch(e) { if (typeof toast === 'function') toast('Błąd: ' + e.message); }
+    } catch(e) { if (typeof toast === 'function') toast(`Błąd: ${  e.message}`); }
   }
 
   async function toggle(id, active) {
     await fetch(`${_apiBase()}/api/webhooks/${id}?company=${encodeURIComponent(_company())}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _token() },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${  _token()}` },
       body: JSON.stringify({ active }),
     });
     await load();
@@ -165,7 +165,7 @@ window.WebhooksUI = (function () {
     if (!confirm('Usunąć ten webhook?')) return;
     await fetch(`${_apiBase()}/api/webhooks/${id}?company=${encodeURIComponent(_company())}`, {
       method: 'DELETE',
-      headers: { Authorization: 'Bearer ' + _token() },
+      headers: { Authorization: `Bearer ${  _token()}` },
     });
     await load();
   }

@@ -65,7 +65,7 @@ window.ServiceModule = (function () {
 
   function _daysDiff(dateStr) {
     if (!dateStr) return null;
-    const d = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00');
+    const d = new Date(dateStr.includes('T') ? dateStr : `${dateStr  }T00:00:00`);
     if (isNaN(d)) return null;
     const today = new Date(); today.setHours(0, 0, 0, 0);
     return Math.round((d - today) / 86400000);
@@ -172,7 +172,7 @@ window.ServiceModule = (function () {
                 <td><span style="color:${t.color}"><i class="ti ${t.icon}"></i> ${t.label}</span></td>
                 <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.description || '—')}</td>
                 <td style="font-family:var(--mono);text-align:right">${s.km ? s.km.toLocaleString('pl-PL') : '—'}</td>
-                <td style="font-family:var(--mono);font-weight:600">${s.cost != null ? s.cost.toFixed(2)+' zł' : '—'}</td>
+                <td style="font-family:var(--mono);font-weight:600">${s.cost != null ? `${s.cost.toFixed(2)} zł` : '—'}</td>
                 <td>${esc(s.workshop || '—')}</td>
               </tr>`;
             }).join('')}
@@ -198,7 +198,7 @@ window.ServiceModule = (function () {
             <td>${esc(v.marka)} ${esc(v.model)}</td>
             <td><span style="color:${t.color}"><i class="ti ${t.icon}"></i> ${t.label}</span></td>
             <td style="font-family:var(--mono)">${_fmtDate(s.nextServiceDate)}</td>
-            <td style="font-family:var(--mono)">${s.nextServiceKm ? s.nextServiceKm.toLocaleString('pl-PL')+' km' : '—'}</td>
+            <td style="font-family:var(--mono)">${s.nextServiceKm ? `${s.nextServiceKm.toLocaleString('pl-PL')} km` : '—'}</td>
             <td style="font-weight:700;color:${_urgencyColor(days)}">${days !== null ? (days < 0 ? `${Math.abs(days)} temu` : `za ${days}`) : '—'}</td>
             <td><button class="btn btn-gray" style="font-size:10px;padding:2px 8px" onclick="ServiceModule.addService(${v.id})"><i class="ti ti-plus"></i>Dodaj</button></td>
           </tr>`;
@@ -245,7 +245,7 @@ window.ServiceModule = (function () {
           <div class="vdf">
             <label class="vdl">Data wykonania *</label>
             <div style="display:flex;gap:6px">
-              <input id="_svc-date" type="date" class="fi" value="${ex?.date || (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date())}" style="flex:1">
+              <input id="_svc-date" type="date" class="fi" value="${ex?.date || (d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date())}" style="flex:1">
               <input id="_svc-date-txt" type="text" class="fi" placeholder="DD.MM.RRRR" maxlength="10" style="width:110px"
                 oninput="ServiceModule._parseDateText(this)" value="${ex?.date ? ex.date.split('-').reverse().join('.') : ''}">
             </div>
@@ -446,13 +446,13 @@ window.ServiceModule = (function () {
             return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg3);border-radius:var(--radius);border-left:3px solid ${t.color}">
               <i class="ti ${t.icon}" style="color:${t.color};font-size:16px;flex-shrink:0"></i>
               <div style="flex:1">
-                <div style="font-size:12px;font-weight:600">${t.label}${s.description ? ' — ' + esc(s.description) : ''}</div>
+                <div style="font-size:12px;font-weight:600">${t.label}${s.description ? ` — ${  esc(s.description)}` : ''}</div>
                 <div style="font-size:11px;color:var(--text2)">
-                  ${s.nextServiceKm ? 'km ' + s.nextServiceKm.toLocaleString('pl-PL') + ' · ' : ''}
+                  ${s.nextServiceKm ? `km ${  s.nextServiceKm.toLocaleString('pl-PL')  } · ` : ''}
                   ${s.nextServiceDate ? _fmtDate(s.nextServiceDate) : ''}
                 </div>
               </div>
-              ${days !== null ? `<span style="font-size:12px;font-weight:700;color:${_urgencyColor(days)}">${days < 0 ? Math.abs(days)+' dni temu' : 'za '+days+' dni'}</span>` : ''}
+              ${days !== null ? `<span style="font-size:12px;font-weight:700;color:${_urgencyColor(days)}">${days < 0 ? `${Math.abs(days)} dni temu` : `za ${days} dni`}</span>` : ''}
               <button class="btn btn-gray" style="font-size:10px;padding:2px 8px" onclick="ServiceModule.addService(${v.id},'${s.id}')">✏</button>
             </div>`;
           }).join('')}
@@ -516,9 +516,9 @@ window.ServiceModule = (function () {
                   <td><span style="color:${t.color}"><i class="ti ${t.icon}"></i> ${t.label}</span></td>
                   <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s.description||'')}">${esc(s.description||'—')}</td>
                   <td style="font-family:var(--mono);text-align:right">${s.km ? s.km.toLocaleString('pl-PL') : '—'}</td>
-                  <td style="font-family:var(--mono);font-weight:600;text-align:right;white-space:nowrap">${s.cost != null ? s.cost.toFixed(2)+' '+curr : '—'}</td>
-                  <td style="font-family:var(--mono);text-align:right;white-space:nowrap">${s.costNet ? s.costNet.toFixed(2)+' '+curr : '—'}</td>
-                  <td style="font-size:10px;color:var(--text3)">${s.vatRate != null ? s.vatRate+'%' : '—'}</td>
+                  <td style="font-family:var(--mono);font-weight:600;text-align:right;white-space:nowrap">${s.cost != null ? `${s.cost.toFixed(2)} ${curr}` : '—'}</td>
+                  <td style="font-family:var(--mono);text-align:right;white-space:nowrap">${s.costNet ? `${s.costNet.toFixed(2)} ${curr}` : '—'}</td>
+                  <td style="font-size:10px;color:var(--text3)">${s.vatRate != null ? `${s.vatRate}%` : '—'}</td>
                   <td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s.workshop||'')}">${esc(s.workshop||'—')}</td>
                   <td style="font-family:var(--mono);font-size:10px;color:var(--text2)">${esc(s.workshopNip||'—')}</td>
                   <td style="font-family:var(--mono);font-size:10px">${esc(s.invoiceNo||'—')}</td>

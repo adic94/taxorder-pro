@@ -56,7 +56,7 @@ ${cats.map(c => {
   <td><input type="number" step="0.01" id="ba-cat-${e(c.category)}" value="${planned.toFixed(2)}" class="form-input" style="width:130px;text-align:right" oninput="window.BudgetAnnualModule.previewTotal()"></td>
   <td style="text-align:right">${fmtN(actual,2)}</td>
   <td style="text-align:right;color:${diff > 0 ? 'var(--red)' : diff < 0 ? 'var(--green)' : 'inherit'}">${diff !== 0 ? (diff > 0 ? '+' : '') + fmtN(diff,2) : '—'}</td>
-  <td style="text-align:right">${planned > 0 ? fmtN(c.variance_pct !== null ? (actual/planned*100) : 0, 1)+'%' : '—'}</td>
+  <td style="text-align:right">${planned > 0 ? `${fmtN(c.variance_pct !== null ? (actual/planned*100) : 0, 1)}%` : '—'}</td>
   <td style="min-width:100px">
     <div style="width:100%;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
       <div style="width:${barPct}%;height:100%;background:${barColor};border-radius:3px"></div>
@@ -83,7 +83,7 @@ ${cats.map(c => {
   function previewTotal() {
     const cats = ['fuel','service','insurance','fines','parts','leasing','other'];
     let total = 0;
-    for (const c of cats) { total += parseFloat(document.getElementById('ba-cat-'+c)?.value) || 0; }
+    for (const c of cats) { total += parseFloat(document.getElementById(`ba-cat-${c}`)?.value) || 0; }
     const el = document.getElementById('ba-total-plan');
     if (el) el.textContent = total.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
@@ -93,7 +93,7 @@ ${cats.map(c => {
     const cats = ['fuel','service','insurance','fines','parts','leasing','other'];
     const items = cats.map(c => ({
       category: c,
-      planned_amount: parseFloat(document.getElementById('ba-cat-'+c)?.value) || 0,
+      planned_amount: parseFloat(document.getElementById(`ba-cat-${c}`)?.value) || 0,
     }));
     try {
       const r = await fetch(`${API()}/api/budget-annual?company=${encodeURIComponent(Co())}`, {
@@ -102,7 +102,7 @@ ${cats.map(c => {
       });
       if (!r.ok) throw new Error(await r.text());
       await renderBudgetAnnual();
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   window.BudgetAnnualModule = { renderBudgetAnnual, previewTotal, saveBudget };

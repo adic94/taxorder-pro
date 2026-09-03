@@ -69,14 +69,14 @@ ${sorted.length ? sorted.map(d=>`<tr>
   <td>${d.shifts||0}</td>
   <td>${fmtMin(d.total_minutes)}</td>
   <td>${d.total_overtime ? fmtMin(d.total_overtime) : '—'}</td>
-  <td>${d.driven_km ? fmtN(d.driven_km)+' km' : '—'}</td>
-  <td>${d.fuel_liters ? fmtN(d.fuel_liters,1)+' l' : '—'}</td>
+  <td>${d.driven_km ? `${fmtN(d.driven_km)} km` : '—'}</td>
+  <td>${d.fuel_liters ? `${fmtN(d.fuel_liters,1)} l` : '—'}</td>
   <td class="${d.avg_consumption > 12 ? 'danger' : d.avg_consumption > 10 ? 'warn' : ''}">${d.avg_consumption ? fmtN(d.avg_consumption,1) : '—'}</td>
-  <td>${d.fuel_cost ? fmtN(d.fuel_cost,2)+' PLN' : '—'}</td>
+  <td>${d.fuel_cost ? `${fmtN(d.fuel_cost,2)} PLN` : '—'}</td>
   <td>${d.faults_reported||0}</td>
   <td class="${d.fine_cnt>2?'danger':d.fine_cnt>0?'warn':''}">${d.fine_cnt||0}</td>
-  <td class="${d.fine_amount>500?'danger':d.fine_amount>200?'warn':''}">${d.fine_amount ? fmtN(d.fine_amount,2)+' PLN' : '—'}</td>
-  <td>${d.claims_amount ? fmtN(d.claims_amount,2)+' PLN' : '—'}</td>
+  <td class="${d.fine_amount>500?'danger':d.fine_amount>200?'warn':''}">${d.fine_amount ? `${fmtN(d.fine_amount,2)} PLN` : '—'}</td>
+  <td>${d.claims_amount ? `${fmtN(d.claims_amount,2)} PLN` : '—'}</td>
 </tr>`).join('') : '<tr><td colspan="12" class="empty">Brak danych</td></tr>'}
 </tbody></table></div>
 <p style="font-size:12px;color:var(--text-muted);margin-top:8px">Pomarańczowe = powyżej normy | Czerwone = znacznie powyżej normy</p>`;

@@ -193,14 +193,14 @@ async function _pbkdf2(password, salt, iterations) {
 // Generuje nowy hash z prefiksem "v2_" i 10k iteracjami.
 async function hashPwd(password, salt) {
   if (!salt) throw new Error('hashPwd: brak soli');
-  return 'v2_' + await _pbkdf2(password, salt, PBKDF2_ITERS_V2);
+  return `v2_${  await _pbkdf2(password, salt, PBKDF2_ITERS_V2)}`;
 }
 
 // Weryfikuje hasło bez względu na wersję hasha.
 // Zwraca { ok: boolean, needsMigration: boolean }
 async function verifyPwd(password, storedHash, salt) {
   if (storedHash && storedHash.startsWith('v2_')) {
-    const ok = ('v2_' + await _pbkdf2(password, salt || LEGACY_SALT, PBKDF2_ITERS_V2)) === storedHash;
+    const ok = (`v2_${  await _pbkdf2(password, salt || LEGACY_SALT, PBKDF2_ITERS_V2)}`) === storedHash;
     return { ok, needsMigration: false };
   }
   // Stary hash (v1, 100k iteracji) — weryfikacja wolna, ale tylko raz do migracji
@@ -212,7 +212,7 @@ async function verifyPwd(password, storedHash, salt) {
 function genApiKey() {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   const b64url = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return 'tord_live_' + b64url;
+  return `tord_live_${  b64url}`;
 }
 async function sha256Hex(text) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
@@ -245,7 +245,7 @@ async function verifyClerkJWT(token, env) {
     const pubKey = await crypto.subtle.importKey(
       'jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']
     );
-    const sigInput = new TextEncoder().encode(parts[0] + '.' + parts[1]);
+    const sigInput = new TextEncoder().encode(`${parts[0]  }.${  parts[1]}`);
     const sigBytes = Uint8Array.from(b64dec(parts[2]), c => c.charCodeAt(0));
     const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', pubKey, sigBytes, sigInput);
     if (!valid) return null;
@@ -285,7 +285,7 @@ async function getApiKeyUser(token, env) {
   if (!row) return null;
   env.DB.prepare('UPDATE api_keys SET last_used_at = datetime(\'now\') WHERE id = ?').bind(row.id).run().catch(() => {});
   return {
-    id: 'apikey:' + row.id,
+    id: `apikey:${  row.id}`,
     role: row.scope === 'read_write' ? 'admin' : 'viewer',
     company_id: row.company_id,
     active: 1,
@@ -483,7 +483,7 @@ async function handlePzCallback(request, env, url) {
   );
   if (!tokenRes.ok) {
     const msg = await tokenRes.text().catch(() => String(tokenRes.status));
-    return redir(`pz_error=${encodeURIComponent('token_error:' + msg.substring(0, 80))}`);
+    return redir(`pz_error=${encodeURIComponent(`token_error:${  msg.substring(0, 80)}`)}`);
   }
   const tokens = await tokenRes.json();
 
@@ -824,7 +824,7 @@ const _DOC_TYPE_RULES = [
 ];
 
 function _classifyDoc(filename, textHint = '') {
-  const src = (filename + ' ' + textHint).toLowerCase();
+  const src = (`${filename  } ${  textHint}`).toLowerCase();
   for (const { type, re } of _DOC_TYPE_RULES) {
     if (re.some(r => r.test(src))) return type;
   }
@@ -911,7 +911,7 @@ async function handleDocs(req, env, user, url, path) {
     if (!file) return err('Wymagane: file');
 
     const doc_type     = docTypeIn || _classifyDoc(file.name, textHint);
-    const detected_vin = _extractVin(textHint + ' ' + file.name);
+    const detected_vin = _extractVin(`${textHint  } ${  file.name}`);
     const vin          = vinParam || detected_vin || null;
     // nrRej może być puste — dokument bez jeszcze dopasowanego pojazdu (skrzynka
     // dokumentów, VIN nierozpoznany) musi dać się zapisać. Do migration_v54
@@ -1578,7 +1578,7 @@ async function handleCfmInvoices(req, env, user, url, path) {
     const contracts = await env.DB.prepare(`
       SELECT * FROM cfm_contracts WHERE company_id=? AND client_type=? AND client_ref=? AND status='AKTYWNY'
         AND (data_od IS NULL OR data_od <= ?) AND (data_do IS NULL OR data_do >= ?)`
-    ).bind(company, client_type, client_ref, okres + '-31', okres + '-01').all();
+    ).bind(company, client_type, client_ref, `${okres  }-31`, `${okres  }-01`).all();
 
     const list = contracts.results || [];
     if (!list.length) return err('Brak aktywnych kontraktów dla tego klienta w podanym okresie', 404);
@@ -1610,7 +1610,7 @@ async function handleCfmInvoices(req, env, user, url, path) {
         }
         const dmgRow = await env.DB.prepare(
           `SELECT SUM(koszt) AS suma FROM damage_reports WHERE company_id=? AND nr_rej=? AND data_zdarzenia LIKE ?`
-        ).bind(company, c.nr_rej, okres + '%').first();
+        ).bind(company, c.nr_rej, `${okres  }%`).first();
         const dmgSum = dmgRow?.suma || 0;
         if (dmgSum > 0) {
           const netto = _num2(dmgSum / (1 + _VAT / 100));
@@ -2367,7 +2367,7 @@ async function tekomAuth(cfg) {
 async function tekomGetVehicles(token) {
   const r = await fetch(`${TEKOM_API}/GetVehicleList`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${  token}` },
     body: JSON.stringify({ Token: token }),
   });
   if (!r.ok) throw new Error(`Tekom GetVehicleList HTTP ${r.status}`);
@@ -2508,7 +2508,7 @@ async function handleTekomIntegration(req, env, user, url, path) {
       const token = await tekomAuth(cfg);
       const r = await fetch(`${TEKOM_API}/GetETollBalance`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${  token}` },
         body: JSON.stringify({ Token: token }),
       });
       if (!r.ok) return json({ ok: false, msg: `GetETollBalance HTTP ${r.status}` });
@@ -2847,7 +2847,7 @@ D12 Ciągnik >=12t 3+ osie: 3180 zł / 2868 zł
 D5 Przyczepa 7–12t: 1128 zł / 1016 zł
 D13 Przyczepa >=12t 1 oś: 744 zł, D14 2 osie: 840 zł, D15 3 osie: 984 zł
 Terminy: DT-1 do 15 lutego, II rata do 15 września.
-Odpowiadaj po polsku, konkretnie i zwięźle.${fleetSummary ? '\n\nFlota użytkownika:\n' + fleetSummary : ''}`;
+Odpowiadaj po polsku, konkretnie i zwięźle.${fleetSummary ? `\n\nFlota użytkownika:\n${  fleetSummary}` : ''}`;
 
   const messages = [
     { role: 'system', content: systemPrompt },
@@ -2863,14 +2863,14 @@ Odpowiadaj po polsku, konkretnie i zwięźle.${fleetSummary ? '\n\nFlota użytko
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + env.GROQ_API_KEY,
+        'Authorization': `Bearer ${  env.GROQ_API_KEY}`,
       },
       body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages, max_tokens: 1024 }),
     });
     if (!resp.ok) {
       const e = await resp.json().catch(() => ({}));
       trackAIEvent(env, userId, companyId, 'llama-3.3-70b-versatile', 0, 0, Date.now()-t0, false).catch(()=>{});
-      return err('Błąd Groq: ' + (e.error?.message || resp.statusText), 502);
+      return err(`Błąd Groq: ${  e.error?.message || resp.statusText}`, 502);
     }
     const data = await resp.json();
     const usage = data.usage || {};
@@ -2879,7 +2879,7 @@ Odpowiadaj po polsku, konkretnie i zwięźle.${fleetSummary ? '\n\nFlota użytko
   } catch (e) {
     console.error('[AI] Groq error:', e?.message);
     trackAIEvent(env, userId, companyId, 'llama-3.3-70b-versatile', 0, 0, Date.now()-t0, false).catch(()=>{});
-    return err('Błąd AI: ' + (e?.message || 'nieznany błąd'), 502);
+    return err(`Błąd AI: ${  e?.message || 'nieznany błąd'}`, 502);
   }
 }
 
@@ -2958,11 +2958,11 @@ const _FUEL = { P:'PB (Benzyna)', D:'ON (Olej napędowy)', M:'LNG (Metan)',
  * Rzuca Error z komunikatem po polsku — handleAztec zamienia go na 400.
  */
 function _decodeAztecPayload(bytes) {
-  if (!bytes || bytes.length < 8) throw new Error('Za mało danych AZTEC (' + (bytes ? bytes.length : 0) + ' bajtów)');
+  if (!bytes || bytes.length < 8) throw new Error(`Za mało danych AZTEC (${  bytes ? bytes.length : 0  } bajtów)`);
 
   // Pierwsze 4 bajty: długość danych po dekompresji (little-endian uint32)
   const outputLen = bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] * 0x1000000);
-  if (outputLen < 10 || outputLen > 131072) throw new Error('Nieprawidłowa długość: ' + outputLen);
+  if (outputLen < 10 || outputLen > 131072) throw new Error(`Nieprawidłowa długość: ${  outputLen}`);
 
   const decompressed = _nrv2eDecompress(bytes.slice(4), outputLen);
 
@@ -2986,10 +2986,10 @@ function _decodeAztecPayload(bytes) {
   // Normalizuj datę: YYYYMMDD lub YYYY-MM-DD → DD.MM.YYYY
   if (result.dataRej) {
     if (/^\d{8}$/.test(result.dataRej)) {
-      result.dataRej = result.dataRej.slice(6,8)+'.'+result.dataRej.slice(4,6)+'.'+result.dataRej.slice(0,4);
+      result.dataRej = `${result.dataRej.slice(6,8)}.${result.dataRej.slice(4,6)}.${result.dataRej.slice(0,4)}`;
     } else if (/^\d{4}-\d{2}-\d{2}$/.test(result.dataRej)) {
       const [y,m,d] = result.dataRej.split('-');
-      result.dataRej = d+'.'+m+'.'+y;
+      result.dataRej = `${d}.${m}.${y}`;
     }
   }
 
@@ -3012,7 +3012,7 @@ async function handleAztec(request) {
     const { fields, fieldCount, format } = _decodeAztecPayload(bytes);
     return json({ ok: true, fields, fieldCount, format });
   } catch (e) {
-    return err('Błąd dekodowania AZTEC: ' + e.message);
+    return err(`Błąd dekodowania AZTEC: ${  e.message}`);
   }
 }
 
@@ -3164,7 +3164,7 @@ function _sanitizeOcrFields(f) {
   // DMC/masa są zawsze całkowitymi kg — usuwamy WSZYSTKIE znaki niebędące cyframi.
   // Obsługuje formaty: "8 800 kg", "8.800", "8,800", "8800" → zawsze 8800.
   const num = v => { const n = parseInt(String(v || '').replace(/[^\d]/g, ''), 10); return isNaN(n) ? null : n; };
-  let f1 = num(f.dmcKg), f2 = num(f.dmcKg2), g = num(f.masaWlKg);
+  const f1 = num(f.dmcKg), f2 = num(f.dmcKg2), g = num(f.masaWlKg);
 
   // G >= F.1: fizycznie niemożliwe — ZAWSZE usuwamy G, nigdy F.1 (F.1 = podstawa podatku DT-1)
   if (f1 !== null && g !== null && g >= f1) delete f.masaWlKg;
@@ -3310,7 +3310,7 @@ ${DR_JSON_SZABLON()}`;
     try {
       const headers = { 'Content-Type': 'application/json' };
       if (env.OCR_PYTHON_SECRET) headers['X-Api-Key'] = env.OCR_PYTHON_SECRET;
-      const pyResp = await fetch(env.OCR_PYTHON_URL.replace(/\/$/, '') + '/ocr', {
+      const pyResp = await fetch(`${env.OCR_PYTHON_URL.replace(/\/$/, '')  }/ocr`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ imageBase64, mimeType }),
@@ -3320,11 +3320,11 @@ ${DR_JSON_SZABLON()}`;
         // Treść odpowiedzi przycięta: leci do wywołującego, a serwis dostał obraz
         // dowodu i mógłby odbić jego fragment w komunikacie błędu.
         const tresc = await pyResp.text().catch(() => '');
-        pyErr = `HTTP ${pyResp.status}${tresc ? ' — ' + tresc.slice(0, 120) : ''}`;
+        pyErr = `HTTP ${pyResp.status}${tresc ? ` — ${  tresc.slice(0, 120)}` : ''}`;
       } else {
         const pyData = await pyResp.json();
         if (!pyData.ok || !pyData.fields) {
-          pyErr = `odpowiedź bez pól (ok=${pyData?.ok})${pyData?.error ? ' — ' + String(pyData.error).slice(0, 120) : ''}`;
+          pyErr = `odpowiedź bez pól (ok=${pyData?.ok})${pyData?.error ? ` — ${  String(pyData.error).slice(0, 120)}` : ''}`;
         } else {
           const sanitized = _sanitizeOcrFields(pyData.fields);
           // Sprawdź po sanityzacji — jeśli kluczowe pola puste, przejdź do Groq
@@ -3363,7 +3363,7 @@ ${DR_JSON_SZABLON()}`;
       console.log('[OCR CF-AI raw]', answer.slice(0, 500));
       const jm = answer.match(/\{[\s\S]*\}/);
       if (!jm) {
-        cfErr = answer ? 'model nie zwrócił JSON: ' + answer.slice(0, 80) : 'pusta odpowiedź modelu';
+        cfErr = answer ? `model nie zwrócił JSON: ${  answer.slice(0, 80)}` : 'pusta odpowiedź modelu';
       } else {
         const parsed = JSON.parse(jm[0]);
         console.log('[OCR CF-AI parsed vin]', parsed.vin ?? 'BRAK');
@@ -3415,7 +3415,7 @@ ${DR_JSON_SZABLON()}`;
     try {
       const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + env.GROQ_API_KEY },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${  env.GROQ_API_KEY}` },
         // `reasoning_effort: 'none'` — qwen3.6-27b jest modelem "thinking": bez tego
         // odpowiedz zaczyna sie blokiem <think>...</think> z rozumowaniem, a nasze
         // max_tokens (bylo 512) ucinalo odpowiedz W POLOWIE NAMYSLU, zanim model
@@ -3433,7 +3433,7 @@ ${DR_JSON_SZABLON()}`;
       const answer = data.choices?.[0]?.message?.content || '';
       console.log(`[OCR Groq ${model} raw]`, answer.slice(0, 500));
       const jm = answer.match(/\{[\s\S]*\}/);
-      if (!jm) { bledyModeli.push(`${model}: AI nie zwróciło JSON: ` + answer.slice(0, 100)); continue; }
+      if (!jm) { bledyModeli.push(`${model}: AI nie zwróciło JSON: ${  answer.slice(0, 100)}`); continue; }
       const parsed = JSON.parse(jm[0]);
       console.log(`[OCR Groq ${model} parsed vin]`, parsed.vin ?? 'BRAK');
       const fields = _sanitizeOcrFields(parsed);
@@ -3483,7 +3483,7 @@ async function handleFmIngest(request, env, user) {
       ocrResult  = JSON.stringify(ocrFields);
       ocrModel   = d.model || '';
     } else {
-      ocrError = 'HTTP ' + ocrResp.status;
+      ocrError = `HTTP ${  ocrResp.status}`;
     }
   } catch (e) { ocrError = e.message; }
 
@@ -3737,7 +3737,7 @@ async function handleCompanyRegistry(req, env, user, url, path) {
       headers: { Accept: 'application/json' },
     });
   } catch (e) {
-    return err('Brak połączenia z API KRS (api-krs.ms.gov.pl): ' + e.message, 502);
+    return err(`Brak połączenia z API KRS (api-krs.ms.gov.pl): ${  e.message}`, 502);
   }
   if (resp.status === 404) return err('Nie znaleziono podmiotu o tym numerze KRS', 404);
   if (!resp.ok) return err(`API KRS odpowiedziało błędem (HTTP ${resp.status})`, 502);
@@ -3853,7 +3853,7 @@ Zwroc WYLACZNIE JSON bez markdown:
   };
 
   const prompt = PROMPTS[docType];
-  if (!prompt) return err('Nieznany typ dokumentu: ' + docType);
+  if (!prompt) return err(`Nieznany typ dokumentu: ${  docType}`);
 
   const messages = [{
     role: 'user',
@@ -3899,7 +3899,7 @@ Zwroc WYLACZNIE JSON bez markdown:
     try {
       const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + env.GROQ_API_KEY },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${  env.GROQ_API_KEY}` },
         body: JSON.stringify({ model, messages, max_tokens: 512, temperature: 0.1 }),
       });
       if (!resp.ok) { const e = await resp.json().catch(() => ({})); lastErr = e.error?.message || resp.statusText; continue; }
@@ -3911,7 +3911,7 @@ Zwroc WYLACZNIE JSON bez markdown:
       return json({ ok: true, fields, model, docType });
     } catch (e) { lastErr = e?.message; }
   }
-  return err('Blad AI Vision: ' + lastErr, 502);
+  return err(`Blad AI Vision: ${  lastErr}`, 502);
 }
 
 // ─── POLISY IMPORT (R2) ──────────────────────────────────────────────────────
@@ -4043,7 +4043,7 @@ ${ocrText.slice(0, 4000)}`;
       response_format: { type: 'json_object' },
     }),
   });
-  if (!r.ok) return err('Błąd AI: ' + r.status, 502);
+  if (!r.ok) return err(`Błąd AI: ${  r.status}`, 502);
   const d = await r.json();
   let parsed = {};
   try { parsed = JSON.parse(d.choices?.[0]?.message?.content || '{}'); } catch {}
@@ -4166,13 +4166,13 @@ async function handleCepikToken(request, env) {
     }
   } catch { /* KV miss — kontynuuj */ }
 
-  const credentials = btoa(env.CEPIK_KEY + ':' + env.CEPIK_SECRET);
+  const credentials = btoa(`${env.CEPIK_KEY  }:${  env.CEPIK_SECRET}`);
   try {
     const resp = await fetch('https://api-cpa.gov.pl/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': 'Basic ' + credentials,
+        'Authorization': `Basic ${  credentials}`,
       },
       body: 'grant_type=client_credentials',
     });
@@ -4231,7 +4231,7 @@ async function handleCepikPojazdy(request, env, user, url) {
     const resp = await fetch(apiUrl, {
       headers: {
         'Accept': 'application/vnd.api+json',
-        'Authorization': 'Bearer ' + token,
+        'Authorization': `Bearer ${  token}`,
       },
     });
     const data = await resp.text();
@@ -4245,7 +4245,7 @@ async function handleCepikPojazdy(request, env, user, url) {
       headers: { 'Content-Type': 'application/vnd.api+json', ...CORS },
     });
   } catch (e) {
-    return err('Błąd proxy CEPiK: ' + e.message, 502);
+    return err(`Błąd proxy CEPiK: ${  e.message}`, 502);
   }
 }
 
@@ -4268,16 +4268,16 @@ async function handleCepikKierowca(request, url) {
   const apiUrl = `https://api.cepik.gov.pl/kierowcy?pesel=${encodeURIComponent(pesel)}&nr-prawa-jazdy=${encodeURIComponent(nrPrawaJazdy)}`;
   try {
     const resp = await fetch(apiUrl, {
-      headers: { 'Accept': 'application/vnd.api+json', 'Authorization': 'Bearer ' + token },
+      headers: { 'Accept': 'application/vnd.api+json', 'Authorization': `Bearer ${  token}` },
     });
     if (resp.status === 404 || resp.status === 403) {
       return json({ ok: false, available: false, status: resp.status,
-        message: 'Publiczne API CEPiK nie udostępnia weryfikacji uprawnień kierowcy w tym przepływie (status ' + resp.status + '). Wprowadź dane ręcznie.' });
+        message: `Publiczne API CEPiK nie udostępnia weryfikacji uprawnień kierowcy w tym przepływie (status ${  resp.status  }). Wprowadź dane ręcznie.` });
     }
     const data = await resp.text();
     return new Response(data, { status: resp.status, headers: { 'Content-Type': 'application/vnd.api+json', ...CORS } });
   } catch (e) {
-    return json({ ok: false, available: false, message: 'Błąd proxy CEPiK kierowcy: ' + e.message });
+    return json({ ok: false, available: false, message: `Błąd proxy CEPiK kierowcy: ${  e.message}` });
   }
 }
 
@@ -4303,7 +4303,7 @@ async function handleCepikKierowcaV2(request, env, user) {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Authorization': 'Bearer ' + env.CEPIK_KIEROWCA_TOKEN,
+        'Authorization': `Bearer ${  env.CEPIK_KIEROWCA_TOKEN}`,
       },
       body: JSON.stringify({ imie, nazwisko, numerBlankietu: nrBlankietu }),
       signal: AbortSignal.timeout(15000),
@@ -4333,7 +4333,7 @@ async function handleCepikKierowcaV2(request, env, user) {
     if (vehId && user) await _saveCepikKierowcaResult(env, user, vehId, result);
     return json(result);
   } catch (e) {
-    return json({ ok: false, configured: true, message: 'Błąd połączenia z CEPiK: ' + e.message });
+    return json({ ok: false, configured: true, message: `Błąd połączenia z CEPiK: ${  e.message}` });
   }
 }
 
@@ -4955,7 +4955,7 @@ async function checkInspectionDeadlines(env) {
     for (const { field, label } of DEADLINE_FIELDS) {
       const ds = data[field];
       if (!ds) continue;
-      const d = new Date(ds.includes('T') ? ds : ds + 'T00:00:00');
+      const d = new Date(ds.includes('T') ? ds : `${ds  }T00:00:00`);
       if (isNaN(d)) continue;
       const days = Math.round((d - now) / 86400000);
 
@@ -4976,7 +4976,7 @@ async function checkInspectionDeadlines(env) {
 
         const payload = {
           title: `📅 Termin za ${warnDays} dni — ${label}`,
-          body: `${vRow.nr_rej}${data.marka ? ' ' + data.marka : ''}${data.model ? ' ' + data.model : ''} · ${new Date(d).toLocaleDateString('pl-PL')}`,
+          body: `${vRow.nr_rej}${data.marka ? ` ${  data.marka}` : ''}${data.model ? ` ${  data.model}` : ''} · ${new Date(d).toLocaleDateString('pl-PL')}`,
           tag: `insp-${vRow.nr_rej}-${field}`,
           url: '/index.html#terminarz',
         };
@@ -5015,7 +5015,7 @@ async function handleErrors(request, env, user, url, path) {
     // Wyślij push do adminów firmy jeśli błąd krytyczny i nie był alerted w ostatniej godzinie
     const companyId = String(body.company_id || '').substring(0, 100) || null;
     if (companyId && env.PREFS && env.VAPID_PRIVATE_KEY) {
-      const dedupKey = ('errpush:' + companyId + ':' + msg.substring(0, 80)).replace(/[^a-zA-Z0-9:_-]/g, '_');
+      const dedupKey = (`errpush:${  companyId  }:${  msg.substring(0, 80)}`).replace(/[^a-zA-Z0-9:_-]/g, '_');
       const alreadySent = await env.PREFS.get(dedupKey).catch(() => null);
       if (!alreadySent) {
         await env.PREFS.put(dedupKey, '1', { expirationTtl: 3600 }).catch(() => {});
@@ -5088,7 +5088,7 @@ async function sendMonthlyReports(env) {
   <tr><th>Kategoria</th><th>Liczba</th><th>Kwota</th></tr>
   <tr><td>Serwis/Naprawy</td><td>${svcRow?.cnt||0}</td><td>${fmtPLN(svcRow?.total)}</td></tr>
   <tr><td>Mandaty</td><td>${fineRow?.cnt||0}</td><td>${fmtPLN(fineRow?.total)}</td></tr>
-  <tr><td>Paliwo</td><td>${fuelRow?.cnt||0} (${fuelRow?.liters ? parseFloat(fuelRow.liters).toFixed(1)+' l' : '—'})</td><td>${fmtPLN(fuelRow?.total)}</td></tr>
+  <tr><td>Paliwo</td><td>${fuelRow?.cnt||0} (${fuelRow?.liters ? `${parseFloat(fuelRow.liters).toFixed(1)} l` : '—'})</td><td>${fmtPLN(fuelRow?.total)}</td></tr>
   <tr><td>Szkody</td><td>${dmgRow?.cnt||0}</td><td>${fmtPLN(dmgRow?.total)}</td></tr>
   <tr><td><strong>RAZEM</strong></td><td></td><td><strong>${fmtPLN(totalCost)}</strong></td></tr>
 </table>
@@ -5830,7 +5830,7 @@ async function handleVehicleReservations(req, env, user, url, path) {
 
   // Widok kalendarza
   if (method === 'GET' && segs[2] === 'calendar') {
-    const from = url.searchParams.get('from') || new Date().toISOString().slice(0,7)+'-01';
+    const from = url.searchParams.get('from') || `${new Date().toISOString().slice(0,7)}-01`;
     const to   = url.searchParams.get('to')   || new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).toISOString().slice(0,10);
     const rows = (await env.DB.prepare(`
       SELECT * FROM vehicle_reservations
@@ -6319,7 +6319,7 @@ async function handleSupplierInvoices(req, env, user, url, path) {
     // service_contract_id musi wskazywać na kontrakt TEJ SAMEJ firmy — bez tej walidacji
     // faktura mogła zostać podpięta pod cudzy kontrakt i pojawić się w jego widoku
     // (handleServiceContracts GET), bo tamto zapytanie ufało samemu service_contract_id.
-    let serviceContractId = d.service_contract_id ?? null;
+    const serviceContractId = d.service_contract_id ?? null;
     if (serviceContractId) {
       const contractOk = await env.DB.prepare('SELECT id FROM service_contracts WHERE id=? AND company_id=?').bind(serviceContractId, company).first().catch(() => null);
       if (!contractOk) return err('Kontrakt serwisowy nie istnieje', 404);
@@ -6431,7 +6431,7 @@ async function handleFkExport(req, env, user, url, path) {
     r.date||'', GL_LABELS[r.type]||r.type, gl[r.type]||'',
     r.nr_rej||'', r.amount!=null?String(r.amount):'', (r.description||'').replace(/;/g,' '), r.id||''
   ]);
-  const csv = '﻿' + [hdrs,...rows].map(row=>row.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+  const csv = `﻿${  [hdrs,...rows].map(row=>row.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n')}`;
   return new Response(csv, {
     status: 200,
     headers: { ...CORS, 'Content-Type': 'text/csv;charset=utf-8', 'Content-Disposition': `attachment; filename="fk-export-${from}-${to}.csv"` }
@@ -6765,7 +6765,7 @@ async function handleDriverSchedule(request, env, user, url, path) {
     const to     = url.searchParams.get('to');
     let sql = 'SELECT * FROM driver_schedules WHERE company_id=?';
     const binds = [company];
-    if (driver) { sql += ' AND driver_name LIKE ?'; binds.push('%'+driver+'%'); }
+    if (driver) { sql += ' AND driver_name LIKE ?'; binds.push(`%${driver}%`); }
     if (from)   { sql += ' AND scheduled_date>=?'; binds.push(from); }
     if (to)     { sql += ' AND scheduled_date<=?'; binds.push(to); }
     sql += ' ORDER BY scheduled_date DESC LIMIT 500';
@@ -6879,7 +6879,7 @@ const _TERYT_KIND = new Set(['1', '2', '3']); // miejska, wiejska, miejsko-wiejs
 
 async function _fetchAndCacheGminy(env) {
   const PAGE_SIZE = 100;
-  let all = [];
+  const all = [];
 
   // Strona 0 — poznaj totalRecords
   let first;
@@ -7022,7 +7022,7 @@ Nieczytelne lub nieobecne pole = null. NIE ZGADUJ. TYLKO JSON.`;
     try {
       const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + env.GROQ_API_KEY, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${  env.GROQ_API_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'meta-llama/llama-4-scout-17b-16e-instruct',
           max_tokens: 512,
@@ -7619,7 +7619,7 @@ async function fuelActualsForYear(env, company, year) {
   for (const r of rows) {
     const l = r.liters || 0;
     liters += l;
-    co2_kg += l * co2FactorFor(r.fuel_type, r.ym ? r.ym + '-01' : null).factor;
+    co2_kg += l * co2FactorFor(r.fuel_type, r.ym ? `${r.ym  }-01` : null).factor;
   }
   return { liters, co2_kg };
 }
@@ -7649,7 +7649,7 @@ async function handleCO2Report(request, env, user, url, path) {
   for (const r of results) {
     // Wskaznik wybierany po DACIE TANKOWANIA, nie po dacie generowania raportu —
     // inaczej zmiana stawki przeliczylaby juz zlozone sprawozdanie.
-    const { factor } = co2FactorFor(r.fuel_type, r.ym ? r.ym + '-01' : null);
+    const { factor } = co2FactorFor(r.fuel_type, r.ym ? `${r.ym  }-01` : null);
     const kg = r.liters * factor;
     totalKg += kg;
     // `ef` zwracamy do frontu, żeby raport pokazywał wskaźnik FAKTYCZNIE użyty do wyliczeń.
@@ -8038,7 +8038,7 @@ function parseDDDBuffer(arrayBuffer) {
           birthDate: _tachoBCDDate4(d, 72)
         };
       }
-    } catch (ex) { result.parseErrors.push('driver_id:' + ex.message); }
+    } catch (ex) { result.parseErrors.push(`driver_id:${  ex.message}`); }
   }
 
   // Krok 4: numer karty i data ważności (0x0521 CardApplicationIdentification)
@@ -8051,21 +8051,21 @@ function parseDDDBuffer(arrayBuffer) {
       if (cardNum) result.cardNumber = cardNum;
       // Data ważności: ostatnie 4 bajty TimeReal
       if (d.length >= 4) result.cardExpiry = _tachoTimeReal(d, d.length - 4);
-    } catch (ex) { result.parseErrors.push('card_app:' + ex.message); }
+    } catch (ex) { result.parseErrors.push(`card_app:${  ex.message}`); }
   }
 
   // Krok 5: aktywności (0x0600 CardDriverActivity)
   if (blocks.has(0x0600)) {
     try {
       result.activitiesByDay = _tachoParseActivities(blocks.get(0x0600)[0]);
-    } catch (ex) { result.parseErrors.push('activities:' + ex.message); }
+    } catch (ex) { result.parseErrors.push(`activities:${  ex.message}`); }
   }
 
   // Krok 6: używane pojazdy (0x0606 CardVehiclesUsed)
   if (blocks.has(0x0606)) {
     try {
       result.vehiclesUsed = _tachoParseVehicles(blocks.get(0x0606)[0]);
-    } catch (ex) { result.parseErrors.push('vehicles:' + ex.message); }
+    } catch (ex) { result.parseErrors.push(`vehicles:${  ex.message}`); }
   }
 
   // Krok 7: VU/SMRDT — pattern-scan gdy typ nie-karta (format Continental DTCO)
@@ -8105,7 +8105,7 @@ function parseDDDBuffer(arrayBuffer) {
           for (let i = 0; i + 18 < bytes.length; i++) {
             if (bytes[i] === 0x01 && bytes[i+1] === 0x28) {
               const num = td.decode(bytes.slice(i + 2, i + 18));
-              if (/^\d{16}$/.test(num)) { result.cardNumber = 'PL' + num; break; }
+              if (/^\d{16}$/.test(num)) { result.cardNumber = `PL${  num}`; break; }
             }
           }
         }
@@ -8122,7 +8122,7 @@ function parseDDDBuffer(arrayBuffer) {
             const chunk = td.decode(bytes.slice(i, i + 14));
             const m = chunk.match(/^([A-Z]{2,3}) ([A-Z0-9]{4,6})\s/);
             if (m) {
-              const reg = (m[1] + ' ' + m[2]).trim();
+              const reg = (`${m[1]  } ${  m[2]}`).trim();
               if (reg.length >= 6 && /\d/.test(reg) && !seen.has(reg)) {
                 seen.add(reg);
                 result.vehiclesUsed.push({ vehicle_reg: reg, first_use: null, last_use: null });
@@ -8140,7 +8140,7 @@ function parseDDDBuffer(arrayBuffer) {
           }
         }
       }
-    } catch (ex) { result.parseErrors.push('vu_scan:' + ex.message); }
+    } catch (ex) { result.parseErrors.push(`vu_scan:${  ex.message}`); }
   }
 
   return result;
@@ -8241,7 +8241,7 @@ function detectViolations561(activitiesByDay) {
   const chronDays = [...activitiesByDay].sort((a, b) => a.date.localeCompare(b.date));
   for (let di = 0; di + 1 < chronDays.length; di++) {
     const dayA = chronDays[di], dayB = chronDays[di + 1];
-    const diff = Math.round((new Date(dayB.date + 'T00:00:00Z') - new Date(dayA.date + 'T00:00:00Z')) / 86400000);
+    const diff = Math.round((new Date(`${dayB.date  }T00:00:00Z`) - new Date(`${dayA.date  }T00:00:00Z`)) / 86400000);
     if (diff !== 1) continue;
 
     const blocksA = _getRestBlocks(dayA.activities);
@@ -8280,7 +8280,7 @@ function detectViolations561(activitiesByDay) {
   // ── Tygodniowy czas jazdy > 56h (art. 6 ust. 2) ──────────────────────────
   const byWeek = {};
   for (const { date, activities } of activitiesByDay) {
-    const d = new Date(date + 'T00:00:00Z');
+    const d = new Date(`${date  }T00:00:00Z`);
     const dow = d.getUTCDay() || 7;
     const mon = new Date(d); mon.setUTCDate(d.getUTCDate() - (dow - 1));
     const wk = mon.toISOString().slice(0, 10);
@@ -8324,7 +8324,7 @@ function detectViolations561(activitiesByDay) {
 
     // Inicjalizuj 0 dla wszystkich tygodni z danych (flaga brakujących tygodni)
     for (const { date } of activitiesByDay) {
-      const d = new Date(date + 'T00:00:00Z');
+      const d = new Date(`${date  }T00:00:00Z`);
       const dow = d.getUTCDay() || 7;
       const mon = new Date(d); mon.setUTCDate(d.getUTCDate() - (dow - 1));
       const wk = mon.toISOString().slice(0, 10);
@@ -8334,7 +8334,7 @@ function detectViolations561(activitiesByDay) {
     // Krok 1: surowe bloki odpoczynku w minutach absolutnych od epoch
     const rawBlocks = [];
     for (const { date, activities } of [...activitiesByDay].sort((a, b) => a.date.localeCompare(b.date))) {
-      const off = Math.round((new Date(date + 'T00:00:00Z') - epoch) / 60000);
+      const off = Math.round((new Date(`${date  }T00:00:00Z`) - epoch) / 60000);
       const s = [...activities].sort((a, b) => a.timeMin - b.timeMin);
       for (let ai = 0; ai < s.length; ai++) {
         if (s[ai].activity !== 'rest') continue;
@@ -8357,7 +8357,7 @@ function detectViolations561(activitiesByDay) {
     for (const blk of merged) {
       const dur = blk.end - blk.start;
       const blkDate = new Date(epoch.getTime() + blk.start * 60000).toISOString().slice(0, 10);
-      const bd = new Date(blkDate + 'T00:00:00Z');
+      const bd = new Date(`${blkDate  }T00:00:00Z`);
       const bdow = bd.getUTCDay() || 7;
       const bmon = new Date(bd); bmon.setUTCDate(bd.getUTCDate() - (bdow - 1));
       const wk = bmon.toISOString().slice(0, 10);
@@ -8392,7 +8392,7 @@ function detectViolationsWTD(activitiesByDay) {
   const byDate = {};
 
   for (const { date, activities } of activitiesByDay) {
-    const d   = new Date(date + 'T00:00:00Z');
+    const d   = new Date(`${date  }T00:00:00Z`);
     const dow = d.getUTCDay() || 7;
     const mon = new Date(d); mon.setUTCDate(d.getUTCDate() - (dow - 1));
     const wk  = mon.toISOString().slice(0, 10);
@@ -8569,7 +8569,7 @@ async function handleTachoDDD(req, env, user, url, path) {
       env.DB.prepare('SELECT COUNT(*) c FROM tachograph_violations WHERE company_id=?').bind(company).first(),
       env.DB.prepare(`SELECT COUNT(DISTINCT LOWER(driver_surname||COALESCE(driver_firstname,''))) c
                       FROM tachograph_files WHERE company_id=?`).bind(company).first(),
-      env.DB.prepare(`SELECT COUNT(*) c FROM tachograph_violations WHERE company_id=? AND violation_date LIKE ?`).bind(company, thisMonth + '%').first(),
+      env.DB.prepare(`SELECT COUNT(*) c FROM tachograph_violations WHERE company_id=? AND violation_date LIKE ?`).bind(company, `${thisMonth  }%`).first(),
     ]);
     return json({ files: fc?.c ?? 0, violations: vc?.c ?? 0, drivers: dc?.c ?? 0, violations_this_month: vm?.c ?? 0 });
   }
@@ -8710,14 +8710,14 @@ async function handleTachoDDD(req, env, user, url, path) {
       const fileSize  = file.size || 0;
       let arrayBuffer;
       try { arrayBuffer = await file.arrayBuffer(); } catch (ex) {
-        uploadResults.push({ file: fileName, ok: false, error: 'Błąd odczytu pliku: ' + ex.message });
+        uploadResults.push({ file: fileName, ok: false, error: `Błąd odczytu pliku: ${  ex.message}` });
         continue;
       }
 
       let parsed;
       try { parsed = parseDDDBuffer(arrayBuffer); }
       catch (ex) {
-        uploadResults.push({ file: fileName, ok: false, error: 'Błąd parsowania DDD: ' + ex.message });
+        uploadResults.push({ file: fileName, ok: false, error: `Błąd parsowania DDD: ${  ex.message}` });
         continue;
       }
 
@@ -9001,7 +9001,7 @@ async function handleTachoDDD(req, env, user, url, path) {
       return json(result);
     } catch (ex) {
       await env.DB.prepare(`UPDATE tacho_integrations SET last_sync=datetime('now'),sync_error=? WHERE company_id=? AND provider='flespi'`).bind(ex.message,company).run();
-      return err('Błąd synchronizacji Flespi: '+ex.message, 500);
+      return err(`Błąd synchronizacji Flespi: ${ex.message}`, 500);
     }
   }
 
@@ -9224,7 +9224,7 @@ async function runNightlyTachoCheck(env) {
         ? Math.floor((new Date(today) - new Date(d.last_data)) / 86400000)
         : null;
       await _tachoSaveAlert(env, d.company_id, 'overdue_download',
-        `Brak pobierania danych tachografu${daysAgo ? ' (' + daysAgo + ' dni)' : ''}`,
+        `Brak pobierania danych tachografu${daysAgo ? ` (${  daysAgo  } dni)` : ''}`,
         `${d.driver_surname || ''} ${d.driver_firstname || ''} — ostatnie dane: ${d.last_data || 'brak'}`);
     }
 
@@ -9284,7 +9284,7 @@ async function runNightlyTachoCheck(env) {
           ? Math.floor((new Date(today) - new Date(r.tacho_vu_last_download)) / 86400000)
           : null;
         await _tachoSaveAlert(env, r.company_id, 'vu_overdue',
-          `Brak pobierania danych VU tachografu${daysAgo ? ' (' + daysAgo + ' dni)' : ''}`,
+          `Brak pobierania danych VU tachografu${daysAgo ? ` (${  daysAgo  } dni)` : ''}`,
           `Pojazd: ${r.nr_rej} — ostatnie pobranie VU: ${r.tacho_vu_last_download||'brak'} (limit: 90 dni)`);
       }
     } catch {}
@@ -9436,8 +9436,8 @@ async function _syncShell(env, company, cfg, daysBack, testOnly) {
   if (testOnly) return { imported:0, skipped:0, connected:true };
 
   // 2. Priced transactions
-  const from = new Date(Date.now() - daysBack * 86400000).toISOString().replace('T', ' ').slice(0, 23) + '.000';
-  const to   = new Date().toISOString().replace('T', ' ').slice(0, 23) + '.000';
+  const from = `${new Date(Date.now() - daysBack * 86400000).toISOString().replace('T', ' ').slice(0, 23)  }.000`;
+  const to   = `${new Date().toISOString().replace('T', ' ').slice(0, 23)  }.000`;
   const txRes = await fetch('https://api.shell.com/transaction-data/v1/pricedtransactions', {
     method: 'POST',
     headers: {
@@ -10861,7 +10861,7 @@ async function handleTrips(req, env, user, url, path) {
        SUM(CASE WHEN category='private'  THEN distance_km ELSE 0 END) as km_priv
        FROM trips WHERE company_id=? AND trip_date LIKE ?
        GROUP BY substr(trip_date,1,7) ORDER BY trip_date`
-    ).bind(co, year+'%').all()).results || [];
+    ).bind(co, `${year}%`).all()).results || [];
     const totKm = rows.reduce((s,r)=>s+(r.km_total??0),0);
     const bizKm = rows.reduce((s,r)=>s+(r.km_biz??0),0);
     const vatPct = totKm>0 ? Math.round(bizKm/totKm*100) : 0;
@@ -11098,7 +11098,7 @@ async function handleDriverWages(req, env, user, url, path) {
        JOIN tachograph_files f ON a.file_id=f.id
        WHERE f.company_id=? AND a.activity_date LIKE ?
        AND (f.driver_surname LIKE ? OR f.driver_firstname LIKE ?)`
-    ).bind(co, period_month+'%', '%'+(sn||'')+'%', '%'+(fn||'')+'%').first();
+    ).bind(co, `${period_month}%`, `%${sn||''}%`, `%${fn||''}%`).first();
 
     const driveH      = (tacho?.drive_min||0) / 60;
     const workH       = (tacho?.work_min||0) / 60;
@@ -11121,7 +11121,7 @@ async function handleDriverWages(req, env, user, url, path) {
        JOIN tachograph_files f ON v.file_id=f.id
        WHERE f.company_id=? AND v.violation_date LIKE ?
        AND (f.driver_surname LIKE ? OR f.driver_firstname LIKE ?)`
-    ).bind(co, period_month+'%', '%'+(sn||'')+'%', '%'+(fn||'')+'%').first();
+    ).bind(co, `${period_month}%`, `%${sn||''}%`, `%${fn||''}%`).first();
 
     // Zapisz lub zaktualizuj
     const id = crypto.randomUUID();
@@ -11311,7 +11311,7 @@ async function handleGpsIntegrations(req, env, user, url, path) {
     if (!row) return err('Brak aktywnej konfiguracji', 400);
     let cfg; try { cfg = JSON.parse(row.config); } catch { return err('Błędna konfiguracja', 500); }
 
-    let syncResult = { vehicles: 0, positions: 0, errors: [] };
+    const syncResult = { vehicles: 0, positions: 0, errors: [] };
 
     try {
       if (provider === 'teltonika') {
@@ -11386,7 +11386,7 @@ async function handleDriverTrips(req, env, user, url, path) {
     let q = 'SELECT * FROM driver_trips WHERE company_id=?';
     const p = [co];
     if (driverId) { q += ' AND driver_id=?'; p.push(driverId); }
-    if (date)     { q += ' AND start_at LIKE ?'; p.push(date + '%'); }
+    if (date)     { q += ' AND start_at LIKE ?'; p.push(`${date  }%`); }
     q += ' ORDER BY start_at DESC LIMIT 200';
     const rows = (await env.DB.prepare(q).bind(...p).all()).results || [];
     return json(rows);
@@ -11607,7 +11607,7 @@ async function handleZapierWebhook(req, env, user, url, path) {
   if (method === 'GET' && sub === 'config') {
     const rows = (await env.DB.prepare('SELECT target, webhook_url, enabled, last_sent_at, last_status FROM zapier_config WHERE company_id=?').bind(co).all()).results || [];
     const cfg  = {};
-    for (const r of rows) cfg[r.target + '_url'] = r.webhook_url;
+    for (const r of rows) cfg[`${r.target  }_url`] = r.webhook_url;
     return json(cfg);
   }
 
@@ -11642,7 +11642,7 @@ async function handleInsurance(req, env, user, url, path) {
       let q = 'SELECT * FROM insurance_policies WHERE company_id=?';
       const p = [co];
       if (status) { q += ' AND status=?'; p.push(status); }
-      if (vreg)   { q += ' AND vehicle_reg LIKE ?'; p.push('%' + vreg + '%'); }
+      if (vreg)   { q += ' AND vehicle_reg LIKE ?'; p.push(`%${  vreg  }%`); }
       q += ' ORDER BY end_date ASC LIMIT ? OFFSET ?';
       p.push(limit, offset);
       const rows = (await env.DB.prepare(q).bind(...p).all()).results || [];
@@ -11999,7 +11999,7 @@ async function handleKsef(req, env, user, url, path) {
       const code = data?.exception?.exceptionDetailList?.[0]?.exceptionCode || 'auth_failed';
       return json({ ok: false, error: code }, resp.status);
     } catch (e) {
-      return err('KSeF auth error: ' + (e?.message || 'timeout'));
+      return err(`KSeF auth error: ${  e?.message || 'timeout'}`);
     }
   }
 
@@ -12024,7 +12024,7 @@ async function handleKsef(req, env, user, url, path) {
     const where  = ['company_id=?'];
     const params = [co];
     if (status) { where.push('ksef_status=?'); params.push(status); }
-    if (q)      { where.push('(invoice_number LIKE ? OR ksef_number LIKE ? OR seller_nip LIKE ? OR buyer_nip LIKE ?)'); const lk='%'+q+'%'; params.push(lk,lk,lk,lk); }
+    if (q)      { where.push('(invoice_number LIKE ? OR ksef_number LIKE ? OR seller_nip LIKE ? OR buyer_nip LIKE ?)'); const lk=`%${q}%`; params.push(lk,lk,lk,lk); }
     const rows = (await env.DB.prepare(`SELECT * FROM ksef_invoices WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 200`).bind(...params).all().catch(()=>({results:[]}))).results || [];
     const stats = { total: rows.length, pending: 0, sent: 0, accepted: 0, rejected: 0, offline_queued: 0 };
     rows.forEach(r => { if (stats[r.ksef_status] !== undefined) stats[r.ksef_status]++; });
@@ -12196,7 +12196,7 @@ async function handleVehicleInspections(req, env, user, url, path) {
     const reg    = url.searchParams.get('reg') || '';
     const status = url.searchParams.get('status') || '';
     const where  = ['company_id=?']; const params = [co];
-    if (reg)    { where.push('vehicle_reg LIKE ?'); params.push('%'+reg+'%'); }
+    if (reg)    { where.push('vehicle_reg LIKE ?'); params.push(`%${reg}%`); }
     if (status) { where.push('overall_status=?'); params.push(status); }
     const rows = (await env.DB.prepare(`SELECT * FROM vehicle_inspections WHERE ${where.join(' AND ')} ORDER BY inspection_date DESC LIMIT 200`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     return json({ inspections: rows });
@@ -12233,7 +12233,7 @@ async function handleFleetRenewal(req, env, user, url, path) {
     const q      = url.searchParams.get('q') || '';
     const where  = ['company_id=?']; const params = [co];
     if (status) { where.push('status=?'); params.push(status); }
-    if (q)      { where.push('(vehicle_reg LIKE ? OR replacement_vehicle_desc LIKE ?)'); const lk='%'+q+'%'; params.push(lk,lk); }
+    if (q)      { where.push('(vehicle_reg LIKE ? OR replacement_vehicle_desc LIKE ?)'); const lk=`%${q}%`; params.push(lk,lk); }
     const rows = (await env.DB.prepare(`SELECT * FROM fleet_renewal_plan WHERE ${where.join(' AND ')} ORDER BY planned_replacement_date ASC LIMIT 200`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     const stats = { planned: 0, in_progress: 0, done: 0, cancelled: 0, total_budget: 0 };
     rows.forEach(r => { if (stats[r.status]!==undefined) stats[r.status]++; stats.total_budget += r.replacement_budget_pln || 0; });
@@ -12272,7 +12272,7 @@ async function handleDriverTraining(req, env, user, url, path) {
     const where  = ['company_id=?']; const params = [co];
     if (type)   { where.push('record_type=?'); params.push(type); }
     if (result) { where.push('result=?'); params.push(result); }
-    if (q)      { where.push('(driver_name LIKE ? OR title LIKE ?)'); const lk='%'+q+'%'; params.push(lk,lk); }
+    if (q)      { where.push('(driver_name LIKE ? OR title LIKE ?)'); const lk=`%${q}%`; params.push(lk,lk); }
     const rows = (await env.DB.prepare(`SELECT * FROM driver_training_records WHERE ${where.join(' AND ')} ORDER BY start_date DESC LIMIT 200`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     const today = new Date().toISOString().slice(0,10);
     const expIn30 = new Date(); expIn30.setDate(expIn30.getDate()+30);
@@ -12313,7 +12313,7 @@ async function handleFleetLimits(req, env, user, url, path) {
     const where  = ['company_id=?']; const params = [co];
     if (scope)  { where.push('limit_scope=?'); params.push(scope); }
     if (period) { where.push('period=?'); params.push(period); }
-    if (q)      { where.push('scope_label LIKE ?'); params.push('%'+q+'%'); }
+    if (q)      { where.push('scope_label LIKE ?'); params.push(`%${q}%`); }
     const rows = (await env.DB.prepare(`SELECT * FROM fleet_limits WHERE ${where.join(' AND ')} ORDER BY scope_label ASC LIMIT 200`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     return json({ limits: rows });
   }
@@ -12384,7 +12384,7 @@ async function handleInternalRentals(req, env, user, url, path) {
     const q      = url.searchParams.get('q') || '';
     const where  = ['company_id=?']; const params = [co];
     if (status) { where.push('status=?'); params.push(status); }
-    if (q)      { where.push('(vehicle_reg LIKE ? OR renter_department LIKE ?)'); const lk='%'+q+'%'; params.push(lk,lk); }
+    if (q)      { where.push('(vehicle_reg LIKE ? OR renter_department LIKE ?)'); const lk=`%${q}%`; params.push(lk,lk); }
     const rows = (await env.DB.prepare(`SELECT * FROM internal_rentals WHERE ${where.join(' AND ')} ORDER BY start_datetime DESC LIMIT 200`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     const stats = { active: 0, returned: 0, invoiced: 0, total_cost: 0 };
     rows.forEach(r => { if (stats[r.status]!==undefined) stats[r.status]++; stats.total_cost += r.total_cost_pln || 0; });
@@ -12440,7 +12440,7 @@ async function handleCarpooling(req, env, user, url, path) {
     const where  = ['company_id=?']; const params = [co];
     if (date)   { where.push('trip_date=?'); params.push(date); }
     if (status) { where.push('status=?'); params.push(status); }
-    if (q)      { where.push('(driver_name LIKE ? OR origin LIKE ? OR destination LIKE ?)'); const lk='%'+q+'%'; params.push(lk,lk,lk); }
+    if (q)      { where.push('(driver_name LIKE ? OR origin LIKE ? OR destination LIKE ?)'); const lk=`%${q}%`; params.push(lk,lk,lk); }
     const rows = (await env.DB.prepare(`SELECT * FROM carpooling_trips WHERE ${where.join(' AND ')} ORDER BY trip_date DESC, departure_time ASC LIMIT 200`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
     const weekAgoStr = weekAgo.toISOString().slice(0,10);
@@ -12497,7 +12497,7 @@ async function handleGdpr(req, env, user, url, path) {
     const where  = ['company_id=?']; const params = [co];
     if (type)   { where.push('record_type=?'); params.push(type); }
     if (status) { where.push('status=?'); params.push(status); }
-    if (q)      { where.push('(subject_name LIKE ? OR subject_email LIKE ?)'); const lk='%'+q+'%'; params.push(lk,lk); }
+    if (q)      { where.push('(subject_name LIKE ? OR subject_email LIKE ?)'); const lk=`%${q}%`; params.push(lk,lk); }
     const rows = (await env.DB.prepare(`SELECT * FROM gdpr_records WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 200`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     const in14 = new Date(); in14.setDate(in14.getDate()+14); const in14s = in14.toISOString().slice(0,10);
     const today = new Date().toISOString().slice(0,10);
@@ -12588,7 +12588,7 @@ async function handlePredictiveMaintenance(req, env, user, url, path) {
     const status = url.searchParams.get('status')||''; const reg = url.searchParams.get('reg')||'';
     const where=['company_id=?']; const params=[co];
     if(status){where.push('status=?');params.push(status);}
-    if(reg){where.push('vehicle_reg LIKE ?');params.push('%'+reg+'%');}
+    if(reg){where.push('vehicle_reg LIKE ?');params.push(`%${reg}%`);}
     const rows=(await env.DB.prepare(`SELECT * FROM predictive_alerts WHERE ${where.join(' AND ')} ORDER BY status ASC, predicted_due_date ASC LIMIT 500`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     const stats={overdue:rows.filter(r=>r.status==='overdue').length,soon:rows.filter(r=>r.status==='soon').length,ok:rows.filter(r=>r.status==='ok').length};
     return json({alerts:rows,stats});
@@ -12608,7 +12608,7 @@ async function handleWarranties(req, env, user, url, path) {
     const type=url.searchParams.get('type')||'';const reg=url.searchParams.get('reg')||'';
     const where=['company_id=?'];const params=[co];
     if(type){where.push('record_type=?');params.push(type);}
-    if(reg){where.push('vehicle_reg LIKE ?');params.push('%'+reg+'%');}
+    if(reg){where.push('vehicle_reg LIKE ?');params.push(`%${reg}%`);}
     const rows=(await env.DB.prepare(`SELECT * FROM warranties_recalls WHERE ${where.join(' AND ')} ORDER BY end_date ASC NULLS LAST, created_at DESC LIMIT 500`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     const active_recalls=rows.filter(r=>r.record_type==='recall'&&r.recall_status==='open');
     return json({records:rows,active_recalls});
@@ -12626,7 +12626,7 @@ async function handleSuppliers(req, env, user, url, path) {
     const cat=url.searchParams.get('cat')||'';const q=url.searchParams.get('q')||'';
     const where=['company_id=?'];const params=[co];
     if(cat){where.push('category=?');params.push(cat);}
-    if(q){where.push('(name LIKE ? OR nip LIKE ? OR city LIKE ?)');params.push('%'+q+'%','%'+q+'%','%'+q+'%');}
+    if(q){where.push('(name LIKE ? OR nip LIKE ? OR city LIKE ?)');params.push(`%${q}%`,`%${q}%`,`%${q}%`);}
     const rows=(await env.DB.prepare(`SELECT * FROM supplier_records WHERE ${where.join(' AND ')} ORDER BY name ASC LIMIT 300`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     return json({suppliers:rows});
   }
@@ -12644,7 +12644,7 @@ async function handleFleetDisposal(req, env, user, url, path) {
     const where=['company_id=?'];const params=[co];
     if(status){where.push('status=?');params.push(status);}
     if(reason){where.push('reason=?');params.push(reason);}
-    if(q){where.push('(vehicle_reg LIKE ? OR buyer_name LIKE ?)');params.push('%'+q+'%','%'+q+'%');}
+    if(q){where.push('(vehicle_reg LIKE ? OR buyer_name LIKE ?)');params.push(`%${q}%`,`%${q}%`);}
     const rows=(await env.DB.prepare(`SELECT * FROM disposal_records WHERE ${where.join(' AND ')} ORDER BY start_date DESC LIMIT 300`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     const completed=rows.filter(r=>r.status==='completed');
     const stats={in_progress:rows.filter(r=>r.status==='in_progress').length,completed:completed.length,total_sale:completed.reduce((s,r)=>s+(r.sale_price_pln||0),0),pnl:completed.reduce((s,r)=>s+((r.sale_price_pln||0)-(r.book_value_pln||0)),0)};
@@ -12701,7 +12701,7 @@ async function handleReportBuilder(req, env, user, url, path) {
     const limit=Math.min(+b.limit||100,5000);
     let sql=`SELECT ${colList} FROM ${table} WHERE company_id=?`;
     const params=[co];
-    if(b.filter_col&&allowedCols.includes(b.filter_col)&&b.filter_val){sql+=' AND '+expr(table,b.filter_col)+' LIKE ?';params.push('%'+b.filter_val+'%');}
+    if(b.filter_col&&allowedCols.includes(b.filter_col)&&b.filter_val){sql+=` AND ${expr(table,b.filter_col)} LIKE ?`;params.push(`%${b.filter_val}%`);}
     if(b.sort&&allowedCols.includes(b.sort)){sql+=` ORDER BY ${expr(table,b.sort)} ${b.sort_dir==='ASC'?'ASC':'DESC'}`;}
     sql+=` LIMIT ${limit}`;
     const rows=(await env.DB.prepare(sql).bind(...params).all().catch(()=>({results:[]}))).results||[];
@@ -12719,7 +12719,7 @@ async function handleCmr(req, env, user, url, path) {
     const status=url.searchParams.get('status')||'';const q=url.searchParams.get('q')||'';
     const where=['company_id=?'];const params=[co];
     if(status){where.push('status=?');params.push(status);}
-    if(q){where.push('(cmr_number LIKE ? OR sender_name LIKE ? OR vehicle_reg LIKE ?)');params.push('%'+q+'%','%'+q+'%','%'+q+'%');}
+    if(q){where.push('(cmr_number LIKE ? OR sender_name LIKE ? OR vehicle_reg LIKE ?)');params.push(`%${q}%`,`%${q}%`,`%${q}%`);}
     const rows=(await env.DB.prepare(`SELECT * FROM cmr_documents WHERE ${where.join(' AND ')} ORDER BY issue_date DESC LIMIT 300`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     return json({documents:rows});
   }
@@ -12736,7 +12736,7 @@ async function handleSent(req, env, user, url, path) {
     const status=url.searchParams.get('status')||'';const q=url.searchParams.get('q')||'';
     const where=['company_id=?'];const params=[co];
     if(status){where.push('status=?');params.push(status);}
-    if(q){where.push('(sent_number LIKE ? OR goods_name LIKE ? OR vehicle_reg LIKE ?)');params.push('%'+q+'%','%'+q+'%','%'+q+'%');}
+    if(q){where.push('(sent_number LIKE ? OR goods_name LIKE ? OR vehicle_reg LIKE ?)');params.push(`%${q}%`,`%${q}%`,`%${q}%`);}
     const rows=(await env.DB.prepare(`SELECT * FROM sent_records WHERE ${where.join(' AND ')} ORDER BY departure_date DESC LIMIT 300`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     return json({records:rows});
   }
@@ -12752,7 +12752,7 @@ async function handleMessenger(req, env, user, url, path) {
   if(method==='GET'&&!id){
     const q=url.searchParams.get('q')||'';
     const where=['(to_user_id=? OR from_user_id=?)','company_id=?'];const params=[user.id,user.id,co];
-    if(q){where.push('(subject LIKE ? OR body LIKE ?)');params.push('%'+q+'%','%'+q+'%');}
+    if(q){where.push('(subject LIKE ? OR body LIKE ?)');params.push(`%${q}%`,`%${q}%`);}
     const rows=(await env.DB.prepare(`SELECT m.*,(SELECT COUNT(*) FROM messages r WHERE r.parent_id=m.id AND r.company_id=m.company_id) thread_count FROM messages m WHERE ${where.join(' AND ')} AND m.parent_id IS NULL ORDER BY m.created_at DESC LIMIT 100`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     return json({messages:rows});
   }
@@ -12763,7 +12763,7 @@ async function handleMessenger(req, env, user, url, path) {
     // parent_id musi wskazywać na wiadomość TEJ SAMEJ firmy — bez tej walidacji
     // wiadomość mogła zostać dopięta jako "odpowiedź" do cudzego wątku (podbijając
     // jego thread_count), mimo że treść i tak zostaje poprawnie scope'owana przy odczycie.
-    let parentId=b.parent_id||null;
+    const parentId=b.parent_id||null;
     if(parentId){
       const parentOk=await env.DB.prepare('SELECT id FROM messages WHERE id=? AND company_id=?').bind(parentId,co).first().catch(()=>null);
       if(!parentOk)return err('Wiadomość nadrzędna nie istnieje',404);
@@ -12783,7 +12783,7 @@ async function handleVehicleQr(req, env, user, url, path) {
     // Zapytanie miało `.catch()`, więc wyszukiwarka pojazdów przy skanach QR zwracała
     // pustą listę ZAWSZE — bez śladu w logach. `nr_rej` to realna kolumna, marka i model
     // siedzą w JSON `data`. Aliasy zachowują kształt odpowiedzi, więc front bez zmian.
-    if(q){where.push("(nr_rej LIKE ? OR JSON_EXTRACT(data,'$.marka') LIKE ? OR JSON_EXTRACT(data,'$.model') LIKE ?)");params.push('%'+q+'%','%'+q+'%','%'+q+'%');}
+    if(q){where.push("(nr_rej LIKE ? OR JSON_EXTRACT(data,'$.marka') LIKE ? OR JSON_EXTRACT(data,'$.model') LIKE ?)");params.push(`%${q}%`,`%${q}%`,`%${q}%`);}
     const rows=(await env.DB.prepare(`SELECT id, nr_rej AS reg,
         JSON_EXTRACT(data,'$.marka') AS brand,
         JSON_EXTRACT(data,'$.model') AS model
@@ -12814,7 +12814,7 @@ async function handleJpk(req, env, user, url, path) {
   if(method==='POST'&&id==='generate'){
     const b=await req.json().catch(()=>({}));if(!b.jpk_type||!b.year)return err('Brak typu JPK lub roku');
     const rid=crypto.randomUUID();
-    const period=`${b.year}${b.month?'-'+String(b.month).padStart(2,'0'):''}`;
+    const period=`${b.year}${b.month?`-${String(b.month).padStart(2,'0')}`:''}`;
     // Pobieramy dane z właściwych tabel
     let rows=[];
     try{
@@ -12864,7 +12864,7 @@ async function handleEdoreczenia(req, env, user, url, path) {
     const where=['company_id=?'];const params=[co];
     if(type){where.push('direction=?');params.push(type);}
     if(status){where.push('status=?');params.push(status);}
-    if(q){where.push('(reference_number LIKE ? OR sender_name LIKE ? OR title LIKE ?)');params.push('%'+q+'%','%'+q+'%','%'+q+'%');}
+    if(q){where.push('(reference_number LIKE ? OR sender_name LIKE ? OR title LIKE ?)');params.push(`%${q}%`,`%${q}%`,`%${q}%`);}
     const rows=(await env.DB.prepare(`SELECT * FROM edoreczenia_items WHERE ${where.join(' AND ')} ORDER BY sent_date DESC LIMIT 300`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     return json({items:rows});
   }
@@ -12883,7 +12883,7 @@ async function handleVideoTelematics(req, env, user, url, path) {
     const where=['company_id=?'];const params=[co];
     if(event_type){where.push('event_type=?');params.push(event_type);}
     if(severity){where.push('severity=?');params.push(severity);}
-    if(reg){where.push('vehicle_reg LIKE ?');params.push('%'+reg+'%');}
+    if(reg){where.push('vehicle_reg LIKE ?');params.push(`%${reg}%`);}
     if(date_from){where.push('date(event_at)>=?');params.push(date_from);}
     if(date_to){where.push('date(event_at)<=?');params.push(date_to);}
     const rows=(await env.DB.prepare(`SELECT * FROM video_telematics_events WHERE ${where.join(' AND ')} ORDER BY event_at DESC LIMIT 500`).bind(...params).all().catch(()=>({results:[]}))).results||[];
@@ -12943,7 +12943,7 @@ async function handleDriverWorktime(req, env, user, url, path) {
     const where=['company_id=?'];const params=[co];
     if(from){where.push('work_date>=?');params.push(from);}
     if(to){where.push('work_date<=?');params.push(to);}
-    if(driver){where.push('(driver_name LIKE ? OR driver_id LIKE ?)');params.push('%'+driver+'%','%'+driver+'%');}
+    if(driver){where.push('(driver_name LIKE ? OR driver_id LIKE ?)');params.push(`%${driver}%`,`%${driver}%`);}
     if(status){where.push('status=?');params.push(status);}
     const rows=(await env.DB.prepare(`SELECT * FROM driver_work_sessions WHERE ${where.join(' AND ')} ORDER BY work_date DESC, start_time DESC LIMIT 500`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     const active_now=rows.filter(r=>r.status==='active').length;
@@ -12969,7 +12969,7 @@ async function handleDelegations(req, env, user, url, path) {
     if(from){where.push('date_from>=?');params.push(from);}
     if(to){where.push('date_from<=?');params.push(to);}
     if(status){where.push('status=?');params.push(status);}
-    if(driver){where.push('driver LIKE ?');params.push('%'+driver+'%');}
+    if(driver){where.push('driver LIKE ?');params.push(`%${driver}%`);}
     const rows=(await env.DB.prepare(`SELECT * FROM delegations WHERE ${where.join(' AND ')} ORDER BY date_from DESC LIMIT 500`).bind(...params).all().catch(()=>({results:[]}))).results||[];
     return json({delegations:rows});
   }
@@ -13113,18 +13113,18 @@ async function _bulkGroqVision(env, imageBase64, mimeType, prompt, maxTokens = 3
     try {
       const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + env.GROQ_API_KEY },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${  env.GROQ_API_KEY}` },
         body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.1 }),
       });
-      if (!resp.ok) { lastErr = model + ': HTTP ' + resp.status; continue; }
+      if (!resp.ok) { lastErr = `${model  }: HTTP ${  resp.status}`; continue; }
       const d = await resp.json();
       const text = d.choices?.[0]?.message?.content || '';
       const jm = text.match(/\{[\s\S]*?\}/);
-      if (!jm) { lastErr = 'Brak JSON: ' + text.slice(0, 80); continue; }
+      if (!jm) { lastErr = `Brak JSON: ${  text.slice(0, 80)}`; continue; }
       return JSON.parse(jm[0]);
-    } catch (e) { lastErr = model + ': ' + (e?.message || e); }
+    } catch (e) { lastErr = `${model  }: ${  e?.message || e}`; }
   }
-  throw new Error('Vision AI: ' + lastErr);
+  throw new Error(`Vision AI: ${  lastErr}`);
 }
 
 function _bulkNormPlate(raw) {
@@ -13205,7 +13205,7 @@ async function handleBulkSavePolicy(request, env, user, url) {
 
   const companyId = url.searchParams.get('company') || user.company_id || 'mtoilet';
   const veh = await env.DB.prepare('SELECT id FROM vehicles WHERE nr_rej=? AND company_id=?').bind(nr_rej, companyId).first();
-  if (!veh) return err('Pojazd nie znaleziony: ' + nr_rej, 404);
+  if (!veh) return err(`Pojazd nie znaleziony: ${  nr_rej}`, 404);
 
   const policyType = typ || (data.nrPolisy?.startsWith('AC') ? 'AC' : 'OC');
 
@@ -13247,7 +13247,7 @@ async function handleBulkSavePolicy(request, env, user, url) {
   ).run().catch(e => ({ error: e.message }));
 
   // BRAK BŁĘDU NIE JEST DOWODEM ZAPISU — poprzednia wersja właśnie na tym poległa.
-  if (zapis && zapis.error) return err('Nie zapisano polisy: ' + zapis.error, 500);
+  if (zapis && zapis.error) return err(`Nie zapisano polisy: ${  zapis.error}`, 500);
 
   return json({ ok: true, vehicleId: veh.id, policyType, policyNumber: nrPolisy });
 }
@@ -13543,7 +13543,7 @@ async function handleDebtCollection(request, env, user, url, path) {
     if (!debt) return err('Zadłużenie nie znalezione', 404);
     if (debt.status !== 'active') return err('Zadłużenie nie jest aktywne');
 
-    const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(debt.due_date + 'T00:00:00').getTime()) / 86400000));
+    const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(`${debt.due_date  }T00:00:00`).getTime()) / 86400000));
     const reminderNum = (debt.reminder_count ?? 0) + 1;
 
     // Generuj treść — Claude jeśli dostępny, lub szablon
@@ -13604,7 +13604,7 @@ async function handleDebtCollection(request, env, user, url, path) {
     ).bind(rid, company, debt.id, 'email', subject, body, emailStatus).run();
     await env.DB.prepare(
       `UPDATE debt_collection SET reminder_count=?, last_reminder_at=datetime('now'), next_reminder_at=? WHERE id=?`
-    ).bind(reminderNum, nextAt + 'T00:00:00Z', debt.id).run();
+    ).bind(reminderNum, `${nextAt  }T00:00:00Z`, debt.id).run();
 
     return json({ ok: true, reminder_count: reminderNum, subject, body, status: emailStatus });
   }
@@ -13627,7 +13627,7 @@ async function handleDebtCollection(request, env, user, url, path) {
     if (!debtor_name || !invoice_number || !due_date || !amount_pln) return err('Wymagane: debtor_name, invoice_number, due_date, amount_pln');
     const id = crypto.randomUUID().replace(/-/g, '');
     // next_reminder_at = due_date + 7 days
-    const nextAt = new Date(new Date(due_date + 'T00:00:00').getTime() + 7 * 86400000).toISOString();
+    const nextAt = new Date(new Date(`${due_date  }T00:00:00`).getTime() + 7 * 86400000).toISOString();
     await env.DB.prepare(
       `INSERT INTO debt_collection(id,company_id,debtor_name,debtor_email,debtor_phone,invoice_number,invoice_date,due_date,amount_pln,currency,notes,next_reminder_at,created_by)
        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
@@ -13678,7 +13678,7 @@ async function runDebtReminders(env) {
   ).all().catch(() => ({ results: [] }));
   for (const debt of (rows.results || [])) {
     try {
-      const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(debt.due_date + 'T00:00:00').getTime()) / 86400000));
+      const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(`${debt.due_date  }T00:00:00`).getTime()) / 86400000));
       const reminderNum = (debt.reminder_count ?? 0) + 1;
 
       // Maksymalnie 4 przypomnienia (7, 14, 30, 60 dni), potem status=disputed
@@ -13687,7 +13687,7 @@ async function runDebtReminders(env) {
         continue;
       }
 
-      let body = `Przypomnienie ${reminderNum} o zaległej płatności za fakturę ${debt.invoice_number} na kwotę ${debt.amount_pln} PLN. Termin minął ${daysOverdue} dni temu (${debt.due_date}).`;
+      const body = `Przypomnienie ${reminderNum} o zaległej płatności za fakturę ${debt.invoice_number} na kwotę ${debt.amount_pln} PLN. Termin minął ${daysOverdue} dni temu (${debt.due_date}).`;
       const subject = `[Przyp. ${reminderNum}] Zaległa płatność — FV ${debt.invoice_number}`;
 
       const rid = crypto.randomUUID().replace(/-/g, '');
@@ -13920,7 +13920,7 @@ async function handleRouteProfitability(request, env, user, url, path) {
   if (from) { invSql += ' AND ri.invoice_date>=?'; binds.push(from); }
   if (to)   { invSql += ' AND ri.invoice_date<=?'; binds.push(to); }
   if (veh)  { invSql += ' AND to2.nr_rej=?'; binds.push(veh); }
-  if (drv)  { invSql += ' AND to2.driver_name LIKE ?'; binds.push('%' + drv + '%'); }
+  if (drv)  { invSql += ' AND to2.driver_name LIKE ?'; binds.push(`%${  drv  }%`); }
   invSql += ' ORDER BY ri.invoice_date DESC LIMIT 300';
 
   const invRows = await env.DB.prepare(invSql).bind(...binds).all().catch(() => ({ results: [] }));
@@ -13948,7 +13948,7 @@ async function handleRouteProfitability(request, env, user, url, path) {
     if (from) { orderSql += ' AND date(scheduled_start)>=?'; ob.push(from); }
     if (to)   { orderSql += ' AND date(scheduled_start)<=?'; ob.push(to); }
     if (veh)  { orderSql += ' AND nr_rej=?'; ob.push(veh); }
-    if (drv)  { orderSql += ' AND driver_name LIKE ?'; ob.push('%' + drv + '%'); }
+    if (drv)  { orderSql += ' AND driver_name LIKE ?'; ob.push(`%${  drv  }%`); }
     orderSql += ' ORDER BY scheduled_start DESC LIMIT 200';
     const orRows = await env.DB.prepare(orderSql).bind(...ob).all().catch(() => ({ results: [] }));
     allRoutes = (orRows.results || []).map(o => ({
@@ -14127,7 +14127,7 @@ async function handleRagChat(request, env, user, url, path) {
       action: 'rag_chat_pytanie', entity_type: 'rag_chat', details: { question, sql: safeSQL, wynik: 'ok', row_count: rows.length }, ip });
     return json({ answer, sql_used: safeSQL, row_count: rows.length });
   } catch (e) {
-    return json({ error: 'Błąd AI: ' + e.message }, 500);
+    return json({ error: `Błąd AI: ${  e.message}` }, 500);
   }
 }
 
@@ -14162,7 +14162,7 @@ async function handleOcrFuel(request, env, user, url, path) {
     try { extracted = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || '{}'); } catch { extracted = {}; }
     return json({ extracted });
   } catch (e) {
-    return json({ error: 'Błąd OCR: ' + e.message }, 500);
+    return json({ error: `Błąd OCR: ${  e.message}` }, 500);
   }
 }
 
@@ -14559,7 +14559,7 @@ export default {
     } catch (e) {
       console.error('[Worker error]', e?.stack || e?.message);
       captureException(e, env, { path, method: request.method }).catch(() => {});
-      resp = json({ error: 'Błąd serwera: ' + (e?.message || 'unknown') }, 500);
+      resp = json({ error: `Błąd serwera: ${  e?.message || 'unknown'}` }, 500);
     }
 
     // Gwarancja CORS na każdej odpowiedzi — zastępuje * z json() dynamicznym originem

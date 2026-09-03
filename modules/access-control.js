@@ -262,7 +262,7 @@ ${validUntil ? `<div style="background:#fef3c7;border:1px solid #f59e0b;border-r
         body: JSON.stringify({ package_name: pkg, modules_add: custAdd, modules_remove: custRem, valid_until: _cfg?.valid_until, notes: _cfg?.notes })
       });
       if (r.ok) { if (_cfg) _cfg.package_name = pkg; await renderAccessControl(); }
-      else alert('Błąd: ' + await r.text());
+      else alert(`Błąd: ${  await r.text()}`);
     } catch (ex) { alert(ex.message); }
   }
 
@@ -322,7 +322,7 @@ ${Object.entries(_groupByCategory(ALL_MODULES)).map(([cat, mods]) => `
         body: JSON.stringify({ package_name: pkg, modules_add: add, modules_remove: rem, valid_until: _cfg?.valid_until, notes: _cfg?.notes })
       });
       if (r.ok) { await renderAccessControl(); await init(); }
-      else alert('Błąd: ' + await r.text());
+      else alert(`Błąd: ${  await r.text()}`);
     } catch (ex) { alert(ex.message); }
   }
 
@@ -450,7 +450,7 @@ ${Object.entries(_groupByCategory(ALL_MODULES)).map(([cat, mods]) => `
     const isCustom = document.getElementById('ac-u-custom')?.checked;
     const cbs      = document.querySelectorAll('.ac-u-cb');
     let allowed  = null;
-    let denied   = [];
+    const denied   = [];
     if (isCustom) {
       allowed = [];
       cbs.forEach(cb => { if (cb.checked) allowed.push(cb.dataset.id); });
@@ -467,7 +467,7 @@ ${Object.entries(_groupByCategory(ALL_MODULES)).map(([cat, mods]) => `
       _closeModal();
       await renderAccessControl();
       await init(); // Odśwież uprawnienia bieżącego użytkownika
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   async function _resetUser(userId) {
@@ -475,7 +475,7 @@ ${Object.entries(_groupByCategory(ALL_MODULES)).map(([cat, mods]) => `
     try {
       await fetch(`${API()}/api/access-control/users/${encodeURIComponent(userId)}?company=${encodeURIComponent(Co())}`, { method: 'DELETE', headers: H() });
       await renderAccessControl();
-    } catch (ex) { alert('Błąd: ' + ex.message); }
+    } catch (ex) { alert(`Błąd: ${  ex.message}`); }
   }
 
   function _closeModal() {

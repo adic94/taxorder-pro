@@ -23,7 +23,7 @@
     const v = (window.vehs||[]).find(x => x.id === activeId);
     if (!v) return null;
     const tax = typeof calcTax === 'function' ? calcTax(v) : {};
-    return `Bieżący pojazd: ${v.nrRej} | ${v.marka} ${v.model} ${v.rok||''} | DMC: ${v.dmc??v.dmcMax??'?'} kg | Typ: ${v.typ||'?'} | Kat.DT-1: ${tax.cat||'brak'} | Podatek: ${tax.amount?Math.round(tax.amount)+' zł':'—'} | Kierowca: ${v.kierowca||'—'}`;
+    return `Bieżący pojazd: ${v.nrRej} | ${v.marka} ${v.model} ${v.rok||''} | DMC: ${v.dmc??v.dmcMax??'?'} kg | Typ: ${v.typ||'?'} | Kat.DT-1: ${tax.cat||'brak'} | Podatek: ${tax.amount?`${Math.round(tax.amount)} zł`:'—'} | Kierowca: ${v.kierowca||'—'}`;
   }
 
   function _renderQuickQuestions() {
@@ -80,7 +80,7 @@
     }).length;
 
     // Koszty paliwa bieżący miesiąc
-    const thisMonth = (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))(new Date());
+    const thisMonth = (d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`)(new Date());
     let fuelCostM = 0, fuelLitersM = 0, fuelVehsM = 0;
     vehs.forEach(v => {
       const mh = (v.fuelHistory||[]).filter(h=>(h.date||'').startsWith(thisMonth));
@@ -161,11 +161,11 @@
     const combinedCtx = [vehCtx, fleetCtx].filter(Boolean).join(' || ') || null;
 
     try {
-      const resp = await fetch(API + '/api/ai/chat', {
+      const resp = await fetch(`${API  }/api/ai/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + _token(),
+          'Authorization': `Bearer ${  _token()}`,
         },
         body: JSON.stringify({
           message,
@@ -185,7 +185,7 @@
       _saveHistory();
 
     } catch (e) {
-      _addMsg('assistant', '⚠ Błąd: ' + e.message);
+      _addMsg('assistant', `⚠ Błąd: ${  e.message}`);
     } finally {
       _setLoading(false);
       document.getElementById('ai-input')?.focus();
@@ -242,5 +242,5 @@
   _restoreHistory();
   _renderQuickQuestions();
 
-  console.log('[AI Chat] Moduł załadowany, historia: ' + _history.length + ' wiadomości');
+  console.log(`[AI Chat] Moduł załadowany, historia: ${  _history.length  } wiadomości`);
 })();

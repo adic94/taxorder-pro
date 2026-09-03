@@ -45,7 +45,7 @@
 ${_items.length ? _items.map(a=>`<tr>
   <td>${e(TYPE_LABEL[a.record_type]||a.record_type)}</td>
   <td>${e(a.nr_rej||'—')}</td>
-  <td>${a.amount!=null ? fmtN(a.amount)+' PLN' : '—'}</td>
+  <td>${a.amount!=null ? `${fmtN(a.amount)} PLN` : '—'}</td>
   <td title="${e(a.description||'')}">${e((a.description||'').slice(0,60)+(a.description?.length>60?'…':''))}</td>
   <td>${e(a.requested_by||'—')}</td>
   <td>${e((a.created_at||'').slice(0,10))}</td>
@@ -66,7 +66,7 @@ ${_items.length ? _items.map(a=>`<tr>
     try {
       await fetch(`${API()}/api/approvals/${encodeURIComponent(id)}/approve?company=${encodeURIComponent(Co())}`, { method:'PUT', headers:H() });
       await renderApprovals();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   async function reject(id) {
@@ -76,7 +76,7 @@ ${_items.length ? _items.map(a=>`<tr>
         method:'PUT', headers:{...H(),'Content-Type':'application/json'}, body:JSON.stringify({ reason })
       });
       await renderApprovals();
-    } catch(ex) { alert('Błąd: '+ex.message); }
+    } catch(ex) { alert(`Błąd: ${ex.message}`); }
   }
 
   // Automatycznie tworzy rekord zatwierdzenia jeśli kwota przekracza próg

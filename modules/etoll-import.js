@@ -46,7 +46,7 @@ window.ETollImport = (function () {
     const reader = new FileReader();
     reader.onload = e => {
       // Try UTF-8 first, fall back to Latin-2
-      let text = e.target.result;
+      const text = e.target.result;
       _processText(text);
     };
     reader.readAsText(file, 'UTF-8');

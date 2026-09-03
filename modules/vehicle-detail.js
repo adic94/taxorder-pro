@@ -83,7 +83,7 @@ window.TaxOrderVehicleDetail = {
     document.getElementById('vd-modal').style.display = 'flex';
     setTimeout(() => this._initTabScroll(), 0);
     const nrRej = v.nrRej || v.nr_rej || '';
-    if (nrRej) history.replaceState(null, '', '?veh=' + encodeURIComponent(nrRej));
+    if (nrRej) history.replaceState(null, '', `?veh=${  encodeURIComponent(nrRej)}`);
   },
 
   close() {
@@ -124,8 +124,8 @@ window.TaxOrderVehicleDetail = {
   async save(vehId) {
     const v = vehs.find(x => x.id === vehId);
     if (!v) return;
-    const g  = id => document.getElementById('vd-' + id)?.value?.trim() || null;
-    const gb = id => document.getElementById('vd-' + id)?.checked || false;
+    const g  = id => document.getElementById(`vd-${  id}`)?.value?.trim() || null;
+    const gb = id => document.getElementById(`vd-${  id}`)?.checked || false;
     const gi = id => { const val = g(id); return val ? parseInt(val) : null; };
     const gf = id => { const val = g(id); return val ? parseFloat(val) : null; };
 
@@ -727,9 +727,9 @@ window.TaxOrderVehicleDetail = {
           <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px">Podatek DT-1</div>
           <div id="vd-dt1-box">${this._renderDt1Box(v)}</div>
           <div class="vdfg" style="margin-top:8px">
-            ${field('purchaseDate','Data nabycia pojazdu', v.purchaseDate||v.dataNabycia,'date','','','onchange="TaxOrderVehicleDetail._autoCalcMiesiace('+v.id+')"')}
-            ${field('saleDate','Data zbycia / sprzedaży', v.saleDate||v.dataZbycia,'date','','','onchange="TaxOrderVehicleDetail._autoCalcMiesiace('+v.id+')"')}
-            ${field('dataWycofania','Data wycofania z ruchu', v.dataWycofania,'date','(jeśli dotyczy)','','onchange="TaxOrderVehicleDetail._autoCalcMiesiace('+v.id+')"')}
+            ${field('purchaseDate','Data nabycia pojazdu', v.purchaseDate||v.dataNabycia,'date','','',`onchange="TaxOrderVehicleDetail._autoCalcMiesiace(${v.id})"`)}
+            ${field('saleDate','Data zbycia / sprzedaży', v.saleDate||v.dataZbycia,'date','','',`onchange="TaxOrderVehicleDetail._autoCalcMiesiace(${v.id})"`)}
+            ${field('dataWycofania','Data wycofania z ruchu', v.dataWycofania,'date','(jeśli dotyczy)','',`onchange="TaxOrderVehicleDetail._autoCalcMiesiace(${v.id})"`)}
           </div>
           <div class="vdfg" style="margin-top:8px">
             <div class="vdf">
@@ -1700,7 +1700,7 @@ window.TaxOrderVehicleDetail = {
 
     // Statystyki
     const now = new Date();
-    const thisMonth = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+    const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
     const thisYear  = now.getFullYear().toString();
 
     const monthFuel   = history.filter(h => (h.date||'').startsWith(thisMonth));
@@ -1747,8 +1747,8 @@ window.TaxOrderVehicleDetail = {
         </div>
         <div style="padding:12px;background:var(--bg3);border-radius:var(--radius);text-align:center">
           <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Śr. spalanie</div>
-          <div style="font-size:16px;font-weight:700;font-family:var(--mono);color:${effColor}">${avgEff ? avgEff+' l' : '—'}</div>
-          <div style="font-size:11px;color:var(--text2)">${avgEff ? '/100 km'+(norm?` (norma: ${norm})`:'') : 'brak danych km'}${effOver?' ⚠':''}</div>
+          <div style="font-size:16px;font-weight:700;font-family:var(--mono);color:${effColor}">${avgEff ? `${avgEff} l` : '—'}</div>
+          <div style="font-size:11px;color:var(--text2)">${avgEff ? `/100 km${norm?` (norma: ${norm})`:''}` : 'brak danych km'}${effOver?' ⚠':''}</div>
         </div>
       </div>
 
@@ -1857,7 +1857,7 @@ window.TaxOrderVehicleDetail = {
               <span class="pill" style="font-size:10px;background:${resultColor}20;color:${resultColor}">${esc(ins.result || 'brak wyniku')}</span>
               ${ins.station ? `<span style="font-size:11px;color:var(--text2)">${esc(ins.station)}</span>` : ''}
             </div>
-            ${ins.docNr ? `<div style="font-size:10px;color:var(--text3)">Dok.: ${esc(ins.docNr)}${ins.nip?' · NIP: '+esc(ins.nip):''}</div>` : ''}
+            ${ins.docNr ? `<div style="font-size:10px;color:var(--text3)">Dok.: ${esc(ins.docNr)}${ins.nip?` · NIP: ${esc(ins.nip)}`:''}</div>` : ''}
             ${ins.notes ? `<div style="font-size:11px;color:var(--text2)">${esc(ins.notes)}</div>` : ''}
             ${ins.addedBy ? `<div style="font-size:10px;color:var(--text3)">Dodał: ${esc(ins.addedBy)}</div>` : ''}
           </div>
@@ -1880,7 +1880,7 @@ window.TaxOrderVehicleDetail = {
         <div class="vdfg" style="margin-bottom:14px">
           <div class="vdf">
             <label class="vdl">Data przeglądu</label>
-            <input id="_ins-date" type="date" class="fi" value="${(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date())}">
+            <input id="_ins-date" type="date" class="fi" value="${(d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date())}">
           </div>
           <div class="vdf">
             <label class="vdl">Wynik</label>
@@ -1982,7 +1982,7 @@ window.TaxOrderVehicleDetail = {
             <span class="pill pill-gray" style="font-size:10px">${esc(e.typ||'badanie')}</span>
             ${e.result?`<span class="pill" style="font-size:10px;background:${{pozytywny:'var(--green)20',warunkowy:'var(--amber)20',negatywny:'var(--red)20'}[e.result]||'#eee'};color:${{pozytywny:'var(--green)',warunkowy:'var(--amber)',negatywny:'var(--red)'}[e.result]||'#666'}">${esc(e.result)}</span>`:''}
           </div>
-          ${e.docNr?`<div style="font-size:10px;color:var(--text3)">Dok.: ${esc(e.docNr)}${e.nip?' · NIP: '+esc(e.nip):''}</div>`:''}
+          ${e.docNr?`<div style="font-size:10px;color:var(--text3)">Dok.: ${esc(e.docNr)}${e.nip?` · NIP: ${esc(e.nip)}`:''}</div>`:''}
           ${e.firma?`<div style="font-size:11px;color:var(--text2)">${esc(e.firma)}</div>`:''}
           ${e.notes?`<div style="font-size:11px;color:var(--text2)">${esc(e.notes)}</div>`:''}
           ${e.addedBy?`<div style="font-size:10px;color:var(--text3)">Dodał: ${esc(e.addedBy)}</div>`:''}
@@ -2004,7 +2004,7 @@ window.TaxOrderVehicleDetail = {
         <div class="vdfg" style="margin-bottom:14px">
           <div class="vdf">
             <label class="vdl">Data badania/wpisu</label>
-            <input id="_udt-date" type="date" class="fi" value="${(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date())}">
+            <input id="_udt-date" type="date" class="fi" value="${(d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date())}">
           </div>
           <div class="vdf">
             <label class="vdl">Typ wpisu</label>
@@ -2109,7 +2109,7 @@ window.TaxOrderVehicleDetail = {
             <span class="pill pill-gray" style="font-size:10px">${esc(e.typ||'legalizacja')}</span>
             ${e.wazneDo?`<span style="font-size:10px;color:var(--text2)">ważne do: ${new Date(e.wazneDo).toLocaleDateString('pl-PL')}</span>`:''}
           </div>
-          ${e.certNr?`<div style="font-size:10px;color:var(--text3)">Cert.: ${esc(e.certNr)}${e.nip?' · NIP: '+esc(e.nip):''}</div>`:''}
+          ${e.certNr?`<div style="font-size:10px;color:var(--text3)">Cert.: ${esc(e.certNr)}${e.nip?` · NIP: ${esc(e.nip)}`:''}</div>`:''}
           ${e.firma?`<div style="font-size:11px;color:var(--text2)">${esc(e.firma)}</div>`:''}
           ${e.notes?`<div style="font-size:11px;color:var(--text2)">${esc(e.notes)}</div>`:''}
           ${e.addedBy?`<div style="font-size:10px;color:var(--text3)">Dodał: ${esc(e.addedBy)}</div>`:''}
@@ -2131,7 +2131,7 @@ window.TaxOrderVehicleDetail = {
         <div class="vdfg" style="margin-bottom:14px">
           <div class="vdf">
             <label class="vdl">Data legalizacji</label>
-            <input id="_tch-date" type="date" class="fi" value="${(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date())}">
+            <input id="_tch-date" type="date" class="fi" value="${(d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date())}">
           </div>
           <div class="vdf">
             <label class="vdl">Typ wpisu</label>
@@ -2225,7 +2225,7 @@ window.TaxOrderVehicleDetail = {
     if (!items.length) return '<div style="font-size:12px;color:var(--text3);padding:20px;text-align:center"><i class="ti ti-tool" style="font-size:28px;display:block;margin-bottom:6px"></i>Brak elementów konserwacji. Dodaj element lub przypisz szablon w Centrum Powiadomień.</div>';
     const now = new Date(); now.setHours(0, 0, 0, 0);
     return items.map(item => {
-      const daysDue = item.nextDate ? Math.round((new Date(item.nextDate.includes('T') ? item.nextDate : item.nextDate + 'T00:00:00') - now) / 86400000) : null;
+      const daysDue = item.nextDate ? Math.round((new Date(item.nextDate.includes('T') ? item.nextDate : `${item.nextDate  }T00:00:00`) - now) / 86400000) : null;
       const kmDue   = (item.nextKm && v.stanKilometrow) ? item.nextKm - v.stanKilometrow : null;
       const isOk    = (daysDue === null || daysDue > 14) && (kmDue === null || kmDue > 500);
       const color   = daysDue !== null && daysDue < 0 || kmDue !== null && kmDue < 0 ? 'var(--red)' : (!isOk ? 'var(--amber)' : 'var(--green)');
@@ -2259,7 +2259,7 @@ window.TaxOrderVehicleDetail = {
   _openMaintModal(vId, item) {
     const types = window._ns_alertTypes || [];
     const typeOpts = types.map(a => `<option value="${esc(a.id)}" ${item?.typeId===a.id?'selected':''}>${esc(a.name)}</option>`).join('');
-    const fmtDate = d => { if (!d) return ''; const dt = new Date(d.includes('T') ? d : d + 'T00:00:00'); return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); };
+    const fmtDate = d => { if (!d) return ''; const dt = new Date(d.includes('T') ? d : `${d  }T00:00:00`); return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`; };
     const html = `<div id="maint-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:5002;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)this.remove()">
       <div style="background:var(--bg);border-radius:var(--radius-lg);width:420px;max-width:95vw;padding:24px;box-shadow:0 8px 40px rgba(0,0,0,.25)">
         <strong style="font-size:15px">${item?'Edytuj':'Dodaj'} element konserwacji</strong>
@@ -2283,7 +2283,7 @@ window.TaxOrderVehicleDetail = {
     // Załaduj typy alertów jeśli nie ma
     if (!types.length) {
       fetch(`${window.CF_WORKER_URL||'https://taxorder-pro-api.adamus1000.workers.dev'}/api/alert-types?company=${window.currentCompanyId||'mtoilet'}`,
-        { headers: { Authorization: 'Bearer ' + (localStorage.getItem('cf_token')||'') } })
+        { headers: { Authorization: `Bearer ${  localStorage.getItem('cf_token')||''}` } })
         .then(r=>r.json()).then(list=>{ window._ns_alertTypes=list; document.getElementById('mi-type').innerHTML=list.map(a=>`<option value="${esc(String(a.id))}" ${item?.typeId===a.id?'selected':''}>${esc(a.name)}</option>`).join(''); }).catch(()=>{});
     }
     document.body.insertAdjacentHTML('beforeend', html);
@@ -2298,7 +2298,7 @@ window.TaxOrderVehicleDetail = {
     const lastKm   = parseInt(document.getElementById('mi-lastKm')?.value) || null;
     const intDays  = parseInt(document.getElementById('mi-intDays')?.value) || null;
     const intKm    = parseInt(document.getElementById('mi-intKm')?.value) || null;
-    const nextDate = (lastDate && intDays) ? (() => { const d = new Date(lastDate + 'T00:00:00'); d.setDate(d.getDate() + intDays); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })() : null;
+    const nextDate = (lastDate && intDays) ? (() => { const d = new Date(`${lastDate  }T00:00:00`); d.setDate(d.getDate() + intDays); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })() : null;
     const nextKm   = (lastKm && intKm) ? lastKm + intKm : null;
 
     if (!v.maintenanceItems) v.maintenanceItems = [];
@@ -2349,7 +2349,7 @@ window.TaxOrderVehicleDetail = {
     const api = window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
     const tok = localStorage.getItem('cf_token');
     const co = window.currentCompanyId || 'mtoilet';
-    const hdrs = { 'Content-Type': 'application/json', ...(tok ? { Authorization: 'Bearer ' + tok } : {}) };
+    const hdrs = { 'Content-Type': 'application/json', ...(tok ? { Authorization: `Bearer ${  tok}` } : {}) };
     try {
       const r = await fetch(`${api}/api/fleet-cards/${cardId}?company=${co}`, { method: 'DELETE', headers: hdrs });
       if (!r.ok) { toast(t('vd.toast.card.err').replace('{0}', r.status)); return; }
@@ -2416,7 +2416,7 @@ window.TaxOrderVehicleDetail = {
   // facsimile (renderowane synchronicznie z danych w systemie) i doczepia pod
   // spodem kontener na prawdziwy skan, wypełniany asynchronicznie po fetchu.
   _renderDrView(v) {
-    return this._renderDrFacsimile(v) + `
+    return `${this._renderDrFacsimile(v)  }
       <div id="vd-dr-scan-overlay-${v.id}" style="margin-top:14px">
         <div style="padding:14px;text-align:center;color:var(--text3);font-size:11px"><i class="ti ti-loader-2"></i> Szukam zeskanowanego dowodu rejestracyjnego…</div>
       </div>`;
@@ -2424,20 +2424,20 @@ window.TaxOrderVehicleDetail = {
 
   async _loadDrScanOverlay(vehId) {
     const v = (window.vehs || []).find(x => x.id === vehId);
-    const box = document.getElementById('vd-dr-scan-overlay-' + vehId);
+    const box = document.getElementById(`vd-dr-scan-overlay-${  vehId}`);
     if (!v || !box) return;
     const api = window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
     const token = localStorage.getItem('cf_token');
     const co = window.currentCompanyId || 'mtoilet';
     try {
       const r = await fetch(`${api}/api/docs?nrRej=${encodeURIComponent(v.nrRej)}&company=${encodeURIComponent(co)}&docType=dowod_rej`,
-        { headers: token ? { Authorization: 'Bearer ' + token } : {} });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
+        { headers: token ? { Authorization: `Bearer ${  token}` } : {} });
+      if (!r.ok) throw new Error(`HTTP ${  r.status}`);
       const docs = await r.json();
       if (!Array.isArray(docs) || !docs.length) { box.innerHTML = ''; return; } // brak skanu — samo facsimile wystarczy
       const doc = docs[0]; // GET /api/docs sortuje po uploaded_at DESC
-      const fileResp = await fetch(`${api}/api/docs/file/${encodeURIComponent(doc.r2_key)}`, { headers: token ? { Authorization: 'Bearer ' + token } : {} });
-      if (!fileResp.ok) throw new Error('HTTP ' + fileResp.status);
+      const fileResp = await fetch(`${api}/api/docs/file/${encodeURIComponent(doc.r2_key)}`, { headers: token ? { Authorization: `Bearer ${  token}` } : {} });
+      if (!fileResp.ok) throw new Error(`HTTP ${  fileResp.status}`);
       const blob = await fileResp.blob();
       const imgSrc = await this._blobToDisplayableImage(blob, doc.mime_type || blob.type);
       box.innerHTML = this._buildDrOverlayHtml(v, imgSrc, doc.uploaded_at);
@@ -2488,7 +2488,7 @@ window.TaxOrderVehicleDetail = {
     const when = uploadedAt ? new Date(uploadedAt).toLocaleString('pl-PL') : '';
     return `
       <div style="font-size:9px;color:var(--text3);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">
-        <span>Skan dokumentu${when ? ' — wgrany ' + esc(when) : ''} — żółte etykiety to dane z systemu, nie OCR na żywo</span>
+        <span>Skan dokumentu${when ? ` — wgrany ${  esc(when)}` : ''} — żółte etykiety to dane z systemu, nie OCR na żywo</span>
         <button type="button" class="btn btn-gray" style="font-size:9px;padding:2px 6px" onclick="TaxOrderVehicleDetail._toggleDrCalibrate(${v.id})" id="dr-calib-btn-${v.id}">
           <i class="ti ti-adjustments"></i> Kalibruj pozycje
         </button>
@@ -2500,8 +2500,8 @@ window.TaxOrderVehicleDetail = {
   },
 
   _toggleDrCalibrate(vehId) {
-    const wrap = document.getElementById('dr-ov-wrap-' + vehId);
-    const btn = document.getElementById('dr-calib-btn-' + vehId);
+    const wrap = document.getElementById(`dr-ov-wrap-${  vehId}`);
+    const btn = document.getElementById(`dr-calib-btn-${  vehId}`);
     if (!wrap) return;
     const on = wrap.dataset.calibrating !== '1';
     wrap.dataset.calibrating = on ? '1' : '0';
@@ -2526,8 +2526,8 @@ window.TaxOrderVehicleDetail = {
         const move = (ev) => {
           const leftPct = Math.min(96, Math.max(0, (ev.clientX - rect.left) / rect.width * 100));
           const topPct  = Math.min(97, Math.max(0, (ev.clientY - rect.top)  / rect.height * 100));
-          el.style.left = leftPct + '%';
-          el.style.top  = topPct + '%';
+          el.style.left = `${leftPct  }%`;
+          el.style.top  = `${topPct  }%`;
         };
         const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
         document.addEventListener('mousemove', move);
@@ -2550,7 +2550,7 @@ window.TaxOrderVehicleDetail = {
   _renderDrFacsimile(v) {
     const f = (val, unit = '') => {
       if (val == null || val === '' || val === 0) return '<span style="color:var(--text3)">—</span>';
-      return `<strong>${esc(String(val))}</strong>${unit ? ' <span style="color:var(--text3);font-size:10px">' + unit + '</span>' : ''}`;
+      return `<strong>${esc(String(val))}</strong>${unit ? ` <span style="color:var(--text3);font-size:10px">${  unit  }</span>` : ''}`;
     };
     const row = (code, label, val, unit = '') => `
       <tr>
@@ -2689,8 +2689,8 @@ window.TaxOrderVehicleDetail = {
     const gmina = v.gmina || 'Warszawa';
     return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
       ${chip('Kategoria', tax.cat, 'var(--blue)')}
-      ${chip('Stawka roczna', tax.rate.toLocaleString('pl-PL')+' zł')}
-      ${chip('Kwota', tax.amount.toLocaleString('pl-PL')+' zł', 'var(--green)')}
+      ${chip('Stawka roczna', `${tax.rate.toLocaleString('pl-PL')} zł`)}
+      ${chip('Kwota', `${tax.amount.toLocaleString('pl-PL')} zł`, 'var(--green)')}
       ${chip('Rok prod.', tax.isNew ? '≥2024 ✓' : '<2024', tax.isNew ? 'var(--green)' : 'var(--text2)')}
     </div>
     <div style="margin-top:6px;font-size:11px;color:var(--text3)">
@@ -2794,9 +2794,9 @@ window.TaxOrderVehicleDetail = {
     if (!v) return;
     const gps = [...(v.gpsHistory||[])].sort((a,b)=>(a.date+a.time)<(b.date+b.time)?1:-1);
     const headers = ['Data','Czas','Nr rej.','Km','Kierowca','V max (km/h)','Lokalizacja','Zdarzenie'];
-    const _c = v => { const s=String(v??''); return '"'+(/^[=+\-@]/.test(s)?'\t'+s:s).replace(/"/g,'""')+'"'; };
-    const csv = '﻿' + [headers, ...gps.map(r=>[r.date,r.time,r.nrRej,r.km??'',r.driver,r.speed??'',r.location,r.event])]
-      .map(row => row.map(_c).join(';')).join('\r\n');
+    const _c = v => { const s=String(v??''); return `"${(/^[=+\-@]/.test(s)?`\t${s}`:s).replace(/"/g,'""')}"`; };
+    const csv = `﻿${  [headers, ...gps.map(r=>[r.date,r.time,r.nrRej,r.km??'',r.driver,r.speed??'',r.location,r.event])]
+      .map(row => row.map(_c).join(';')).join('\r\n')}`;
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href=url; a.download=`gps_${v.nrRej}_${new Date().toISOString().slice(0,10)}.csv`;
@@ -2808,7 +2808,7 @@ window.TaxOrderVehicleDetail = {
     const v = (window.vehs||[]).find(x => x.id === this._currentVehId);
     if (!v) { toast(t('vd.toast.open.card')); return; }
     const fd = d => d ? new Date(d).toLocaleDateString('pl-PL') : '—';
-    const fz = n => n != null ? (+n).toFixed(2).replace('.',',') + ' zł' : '—';
+    const fz = n => n != null ? `${(+n).toFixed(2).replace('.',',')  } zł` : '—';
     const row  = (lbl, val) => `<tr><td style="padding:5px 10px;color:#6b7280;font-size:11px;width:200px">${lbl}</td><td style="padding:5px 10px;font-weight:600;font-size:12px">${val != null && val !== '' ? esc(String(val)) : '—'}</td></tr>`;
     const rowH = (lbl, val) => `<tr><td style="padding:5px 10px;color:#6b7280;font-size:11px;width:200px">${lbl}</td><td style="padding:5px 10px;font-weight:600;font-size:12px">${val||'—'}</td></tr>`;
     const svcRows = [...(v.serviceHistory||[])].slice(0,8).map(s=>`
@@ -2816,8 +2816,8 @@ window.TaxOrderVehicleDetail = {
         <td style="padding:5px 10px;font-family:monospace;font-size:11px">${esc(s.date||'—')}</td>
         <td style="padding:5px 10px;font-size:11px">${esc(window.ServiceModule?.SERVICE_TYPES?.[s.type]?.label||s.type||'—')}</td>
         <td style="padding:5px 10px;font-size:11px;color:#6b7280">${esc(s.description||'—')}</td>
-        <td style="padding:5px 10px;text-align:right;font-family:monospace;font-size:11px">${s.km?s.km.toLocaleString('pl-PL')+' km':'—'}</td>
-        <td style="padding:5px 10px;text-align:right;font-family:monospace;font-size:11px">${s.cost?s.cost.toFixed(2)+' zł':'—'}</td>
+        <td style="padding:5px 10px;text-align:right;font-family:monospace;font-size:11px">${s.km?`${s.km.toLocaleString('pl-PL')} km`:'—'}</td>
+        <td style="padding:5px 10px;text-align:right;font-family:monospace;font-size:11px">${s.cost?`${s.cost.toFixed(2)} zł`:'—'}</td>
       </tr>`).join('');
     // DT-1 tax block
     const tax = window.calcTax ? window.calcTax(v) : null;
@@ -2844,7 +2844,7 @@ window.TaxOrderVehicleDetail = {
   ${row('Serwis / naprawy', fz(svcCost))}
   ${row('Ubezpieczenia', fz(insCost))}
   ${rowH('Łącznie', `<span style="color:#1d4ed8;font-weight:700">${fz(tcoTotal)}</span>`)}
-  ${kmDriven ? row('Koszt/km', fz(tcoTotal/kmDriven).replace(' zł','')+' zł/km') : ''}
+  ${kmDriven ? row('Koszt/km', `${fz(tcoTotal/kmDriven).replace(' zł','')} zł/km`) : ''}
 </table>` : '';
     // Company branding from localStorage (set in Settings)
     const _rawLogo = localStorage.getItem('print_company_logo') || '';
@@ -2881,16 +2881,16 @@ ${brandingHtml}
 <div style="font-size:10px;color:#9ca3af;margin-bottom:14px">Wygenerowano: ${new Date().toLocaleDateString('pl-PL')} | TaxOrder Pro</div>
 <h2>Identyfikacja</h2>
 <table>${rowH('VIN',`<span style="font-family:monospace">${esc(v.vin||'—')}</span>`)}
-${row('DMC',(v.dmc??v.dmcMax??0).toLocaleString('pl-PL')+' kg')}${v.euro?row('Norma Euro',v.euro):''}${v.co2?row('Emisja CO2',v.co2+' g/km'):''}
+${row('DMC',`${(v.dmc??v.dmcMax??0).toLocaleString('pl-PL')} kg`)}${v.euro?row('Norma Euro',v.euro):''}${v.co2?row('Emisja CO2',`${v.co2} g/km`):''}
 ${v.nrFlotowy?row('Nr flotowy',v.nrFlotowy):''}
 ${row('Status własności',v.ownership_type||v.status)}${row('Właściciel',v.wlasciciel)}
-${row('Kierowca',v.kierowca)}${row('Stan licznika',v.stanKilometrow!=null?v.stanKilometrow.toLocaleString('pl-PL')+' km':null)}</table>
+${row('Kierowca',v.kierowca)}${row('Stan licznika',v.stanKilometrow!=null?`${v.stanKilometrow.toLocaleString('pl-PL')} km`:null)}</table>
 <h2>Ubezpieczenia</h2>
 <table>${row('OC ważne do',fd(v.ocEnd))}${row('Ubezpieczyciel OC',v.ocInsurer)}
 ${row('Nr polisy OC',v.ocPolicyNo)}${row('Składka OC',fz(v.ocPremium))}
 ${row('AC ważne do',fd(v.acEnd))}${row('Ubezpieczyciel AC',v.acInsurer)}
 ${v.gapEnd?row('GAP ważne do',fd(v.gapEnd)):''}${v.gapInsurer?row('Ubezpieczyciel GAP',v.gapInsurer):''}
-${v.greenCardNo?row('Zielona Karta',v.greenCardNo+' (do: '+fd(v.greenCardEnd)+')'):''}
+${v.greenCardNo?row('Zielona Karta',`${v.greenCardNo} (do: ${fd(v.greenCardEnd)})`):''}
 </table>
 <h2>Badania</h2>
 <table>${row('Następny przegląd',fd(v.nextInspection))}${row('Stacja SKP',v.inspectionStation)}
@@ -2914,11 +2914,11 @@ ${svcRows?`<h2>Historia serwisowa (ostatnie 8)</h2>
     if (typeof QRCode === 'undefined') { toast('Ładowanie biblioteki QR...'); return; }
 
     const qrData = [
-      'NR:' + (v.nrRej||''),
-      'VIN:' + (v.vin||''),
+      `NR:${  v.nrRej||''}`,
+      `VIN:${  v.vin||''}`,
       v.marka||'', v.model||'',
-      'ROK:' + (v.rok||''),
-      'KIEROWCA:' + (v.kierowca||''),
+      `ROK:${  v.rok||''}`,
+      `KIEROWCA:${  v.kierowca||''}`,
     ].filter(Boolean).join('\n');
 
     const canvas = document.createElement('canvas');
@@ -3098,7 +3098,7 @@ td:last-child{font-weight:600;color:#1e293b}
     const cfg = this._getVdTabsCfg();
     // Odśwież wygląd przycisków super-tab
     Object.keys(VD_SUPER_TABS).forEach(id => {
-      const btn = document.getElementById('vd-st-' + id);
+      const btn = document.getElementById(`vd-st-${  id}`);
       if (!btn) return;
       const active = id === group;
       btn.style.background   = active ? 'var(--blue)' : 'var(--bg)';
@@ -3108,7 +3108,7 @@ td:last-child{font-weight:600;color:#1e293b}
     });
     // Pokaż/ukryj przyciski zakładek
     VD_TABS.forEach(t => {
-      const btn = document.getElementById('vd-tab-' + t.id);
+      const btn = document.getElementById(`vd-tab-${  t.id}`);
       if (!btn) return;
       const inGroup = groupTabs.includes(t.id);
       const notHidden = !cfg.hidden.includes(t.id);
@@ -3116,7 +3116,7 @@ td:last-child{font-weight:600;color:#1e293b}
     });
     // Aktywuj pierwszą widoczną zakładkę w grupie
     const firstTab = groupTabs.find(id => {
-      const btn = document.getElementById('vd-tab-' + id);
+      const btn = document.getElementById(`vd-tab-${  id}`);
       return btn && btn.style.display !== 'none';
     });
     if (firstTab) this._tab(firstTab);
@@ -3132,7 +3132,7 @@ td:last-child{font-weight:600;color:#1e293b}
       const groupTabs = VD_SUPER_TABS[targetGroup] || [];
       const cfg = this._getVdTabsCfg();
       Object.keys(VD_SUPER_TABS).forEach(id => {
-        const btn = document.getElementById('vd-st-' + id);
+        const btn = document.getElementById(`vd-st-${  id}`);
         if (!btn) return;
         const active = id === targetGroup;
         btn.style.background  = active ? 'var(--blue)' : 'var(--bg)';
@@ -3140,7 +3140,7 @@ td:last-child{font-weight:600;color:#1e293b}
         btn.style.borderColor = active ? 'var(--blue)' : 'var(--border)';
       });
       VD_TABS.forEach(t => {
-        const btn = document.getElementById('vd-tab-' + t.id);
+        const btn = document.getElementById(`vd-tab-${  t.id}`);
         if (!btn) return;
         btn.style.display = (groupTabs.includes(t.id) && !cfg.hidden.includes(t.id)) ? 'inline-flex' : 'none';
       });
@@ -3153,9 +3153,9 @@ td:last-child{font-weight:600;color:#1e293b}
       btn.style.color = 'var(--text2)';
       btn.classList.remove('vd-tab-active');
     });
-    const contentEl = document.getElementById('vd-tab-' + name + '-content');
+    const contentEl = document.getElementById(`vd-tab-${  name  }-content`);
     if (contentEl) contentEl.style.display = '';
-    const btn = document.getElementById('vd-tab-' + name);
+    const btn = document.getElementById(`vd-tab-${  name}`);
     if (btn) {
       btn.style.background = 'var(--bg)';
       btn.style.color = 'var(--text)';
@@ -3328,16 +3328,16 @@ td:last-child{font-weight:600;color:#1e293b}
         },
         scales: {
           x: { ticks: { color: tc, font: { size: 10 } }, grid: { display: false } },
-          y: { ticks: { color: tc, font: { size: 10 }, callback: val => val + ' l' }, grid: { color: gc }, suggestedMin: Math.max(0, Math.min(...data) - 2) },
+          y: { ticks: { color: tc, font: { size: 10 }, callback: val => `${val  } l` }, grid: { color: gc }, suggestedMin: Math.max(0, Math.min(...data) - 2) },
         },
       },
     });
   },
 
   _copyLink(nrRej) {
-    const url = window.location.origin + window.location.pathname + '?veh=' + encodeURIComponent(nrRej);
+    const url = `${window.location.origin + window.location.pathname  }?veh=${  encodeURIComponent(nrRej)}`;
     navigator.clipboard?.writeText(url).then(() => {
-      window.toast?.('✓ Link skopiowany do schowka: ' + url);
+      window.toast?.(`✓ Link skopiowany do schowka: ${  url}`);
     }).catch(() => {
       prompt('Skopiuj link pojazdu:', url);
     });
@@ -3418,7 +3418,7 @@ td:last-child{font-weight:600;color:#1e293b}
       if (typeof window.loadVehicles === 'function') await window.loadVehicles();
       document.getElementById('vehicle-detail-panel')?.remove();
     } else {
-      window.toast?.('Błąd: ' + (d.error || r.status));
+      window.toast?.(`Błąd: ${  d.error || r.status}`);
     }
   },
 
@@ -3466,7 +3466,7 @@ td:last-child{font-weight:600;color:#1e293b}
       let filled = 0;
       for (const [formId, val] of Object.entries(formMap)) {
         if (val == null || val === '') continue;
-        const el = document.getElementById('vd-' + formId);
+        const el = document.getElementById(`vd-${  formId}`);
         if (el) { el.value = val; filled++; }
       }
 
@@ -3493,7 +3493,7 @@ td:last-child{font-weight:600;color:#1e293b}
     try {
       const r = await fetch(`${window.CF_WORKER_URL}/api/cepik/kierowca-check`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('cf_token') || '') },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${  localStorage.getItem('cf_token') || ''}` },
         body: JSON.stringify({ imie, nazwisko, nrBlankietu, vehId }),
         signal: AbortSignal.timeout(20000),
       });
@@ -3599,7 +3599,7 @@ td:last-child{font-weight:600;color:#1e293b}
     if (!v) return;
 
     // Zbierz aktualne wartości z formularza
-    const g  = id => document.getElementById('vd-' + id)?.value?.trim() || null;
+    const g  = id => document.getElementById(`vd-${  id}`)?.value?.trim() || null;
     const vProxy = {
       ...v,
       purchaseDate:       g('purchaseDate')       || v.purchaseDate,
@@ -3633,7 +3633,7 @@ td:last-child{font-weight:600;color:#1e293b}
           parts.push(`Zbycie/wyrej.: ${vProxy.saleDate || vProxy.dataZbycia || vProxy.dataWyrejestrowania}`);
         }
         if (vProxy.dataWycofania) {
-          parts.push(`Wycofanie: ${vProxy.dataWycofania}${vProxy.dataDopuszczenia ? ' → ' + vProxy.dataDopuszczenia : ' (bez daty przywrócenia)'}`);
+          parts.push(`Wycofanie: ${vProxy.dataWycofania}${vProxy.dataDopuszczenia ? ` → ${  vProxy.dataDopuszczenia}` : ' (bez daty przywrócenia)'}`);
         }
         hint.textContent = `Auto: ${m} mies. (${rok}) · ${parts.join(' · ')}`;
       }
@@ -3647,8 +3647,8 @@ td:last-child{font-weight:600;color:#1e293b}
     wrap.style.opacity = on ? '.5' : '';
     wrap.style.pointerEvents = on ? 'none' : '';
     if (on) {
-      const g = id => document.getElementById('vd-' + id)?.value || '';
-      const s = id => { const el = document.getElementById('vd-' + id); if (el) el.value = g(id.replace('ac','oc').replace('Ac','Oc')); };
+      const g = id => document.getElementById(`vd-${  id}`)?.value || '';
+      const s = id => { const el = document.getElementById(`vd-${  id}`); if (el) el.value = g(id.replace('ac','oc').replace('Ac','Oc')); };
       document.getElementById('vd-acPolicyNo') && (document.getElementById('vd-acPolicyNo').value = g('ocPolicyNo'));
       document.getElementById('vd-acInsurer')  && (document.getElementById('vd-acInsurer').value  = g('ocInsurer'));
       document.getElementById('vd-acStart')    && (document.getElementById('vd-acStart').value    = g('ocStart'));
@@ -3662,7 +3662,7 @@ td:last-child{font-weight:600;color:#1e293b}
     wrap.style.opacity = on ? '.5' : '';
     wrap.style.pointerEvents = on ? 'none' : '';
     if (on) {
-      const g = id => document.getElementById('vd-' + id)?.value || '';
+      const g = id => document.getElementById(`vd-${  id}`)?.value || '';
       document.getElementById('vd-assPolicyNo') && (document.getElementById('vd-assPolicyNo').value = g('ocPolicyNo'));
       document.getElementById('vd-assInsurer')  && (document.getElementById('vd-assInsurer').value  = g('ocInsurer'));
       document.getElementById('vd-assStart')    && (document.getElementById('vd-assStart').value    = g('ocStart'));
@@ -3676,7 +3676,7 @@ td:last-child{font-weight:600;color:#1e293b}
     if (clean.length !== 10) return;
     const statusEl = document.getElementById(statusId);
     if (statusEl) statusEl.textContent = 'Szukam...';
-    const today = (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date());
+    const today = (d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date());
     fetch(`https://wl.mf.gov.pl/api/check/nip/${clean}?date=${today}`)
       .then(r => r.ok ? r.json() : Promise.reject('http'))
       .then(data => {
@@ -3684,7 +3684,7 @@ td:last-child{font-weight:600;color:#1e293b}
         if (name) {
           const el = document.getElementById(nameInputId);
           if (el) el.value = name;
-          if (statusEl) statusEl.textContent = '✓ ' + name.slice(0,60);
+          if (statusEl) statusEl.textContent = `✓ ${  name.slice(0,60)}`;
         } else {
           if (statusEl) statusEl.textContent = 'Nie znaleziono w BL';
         }
@@ -3696,7 +3696,7 @@ td:last-child{font-weight:600;color:#1e293b}
     const ta = document.getElementById('vd-uwagi');
     if (!ta) return;
     const cur = ta.value.trim();
-    ta.value = cur ? cur + '\n' + tpl : tpl;
+    ta.value = cur ? `${cur  }\n${  tpl}` : tpl;
     this._dirty = true;
     ta.focus();
   },
@@ -3722,7 +3722,7 @@ td:last-child{font-weight:600;color:#1e293b}
     if (!dot || String(dot).length !== 4) return '';
     const s = String(dot);
     const week = parseInt(s.slice(0, 2));
-    const yr   = parseInt('20' + s.slice(2, 4));
+    const yr   = parseInt(`20${  s.slice(2, 4)}`);
     if (isNaN(week) || isNaN(yr) || week < 1 || week > 53) return '';
     const age = new Date().getFullYear() - yr;
     const ageWarn = age >= 6 ? ' ⚠ opona stara!' : age >= 4 ? ' ⚡ zbliża się wymiana' : '';
@@ -3824,14 +3824,14 @@ td:last-child{font-weight:600;color:#1e293b}
               const result = await window.Tesseract.recognize(canvas, 'pol+eng', {
                 logger: m => { if (m.status === 'recognizing text' && prog) prog.textContent = `PDF str. ${p}/${pdfDoc.numPages}: ${Math.round((m.progress||0)*100)}%`; }
               });
-              allText += '\n' + result.data.text;
+              allText += `\n${  result.data.text}`;
               if (res) res.textContent = allText.trim();
             }
           } else {
             const result = await window.Tesseract.recognize(file, 'pol+eng', {
               logger: m => { if (m.status === 'recognizing text' && prog) prog.textContent = `Plik ${i+1}/${inp.files.length}: ${Math.round((m.progress||0)*100)}%`; }
             });
-            allText += '\n' + result.data.text;
+            allText += `\n${  result.data.text}`;
             if (res) res.textContent = allText.trim();
           }
         } catch(e) {

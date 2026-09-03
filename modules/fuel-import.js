@@ -367,7 +367,7 @@ window.FuelImport = (function () {
         <div class="vdfg" style="margin-bottom:14px">
           <div class="vdf">
             <label class="vdl">Data *</label>
-            <input id="_fuel-date" type="date" class="fi" value="${(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date())}">
+            <input id="_fuel-date" type="date" class="fi" value="${(d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date())}">
           </div>
           <div class="vdf">
             <label class="vdl">Godzina</label>
@@ -490,7 +490,7 @@ window.FuelImport = (function () {
     if (!first5.length) rows.push(['2024-01-15','12:00','WA12345','ON','50.0','6.89','344.50','ORLEN','','145000']);
     else rows.push(...first5);
     const csv = rows.map(r => r.join(';')).join('\r\n');
-    const blob = new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+    const blob = new Blob([`﻿${csv}`],{type:'text/csv;charset=utf-8'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href=url; a.download='szablon_tankowania.csv'; a.click();
     URL.revokeObjectURL(url);
@@ -542,7 +542,7 @@ window.FuelImport = (function () {
     rows.push([]);
     rows.push(['ŁĄCZNIE', '', '', '', '', '', totalLiters.toFixed(2), totalCO2.toFixed(3), totalGross.toFixed(2)]);
 
-    const csv = '﻿' + rows.map(r => r.map(c => `"${String(c||'').replace(/"/g,'""')}"`).join(';')).join('\r\n');
+    const csv = `﻿${  rows.map(r => r.map(c => `"${String(c||'').replace(/"/g,'""')}"`).join(';')).join('\r\n')}`;
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href=url;

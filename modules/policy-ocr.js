@@ -153,7 +153,7 @@ window.TaxOrderPolicyOcr = (function () {
 
   // ── OCR + AI parse ───────────────────────────────────────────────────────────
   async function _processFile(r2Key, fileName) {
-    const fileRowEl = document.getElementById('pocr-file-' + _safeId(r2Key));
+    const fileRowEl = document.getElementById(`pocr-file-${  _safeId(r2Key)}`);
     const btn = fileRowEl?.querySelector('.btn-blue');
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader ti-spin"></i>OCR...'; }
 
@@ -183,7 +183,7 @@ window.TaxOrderPolicyOcr = (function () {
       _showConfirmModal(r2Key, fileName, ocrText, parsed);
 
     } catch (ex) {
-      window.toast?.('Błąd: ' + ex.message);
+      window.toast?.(`Błąd: ${  ex.message}`);
     } finally {
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-scan"></i>Przetwórz OCR'; }
     }
@@ -224,7 +224,7 @@ window.TaxOrderPolicyOcr = (function () {
       `<option value="${t}" ${parsed.typ===t?'selected':''}>${t}</option>`).join('');
     const vehOpts = _vehs
       .filter(v => !v.is_active === false)
-      .map(v => `<option value="${esc(v.nr_rej)}" ${parsed.nr_rej && v.nr_rej === parsed.nr_rej ? 'selected' : ''}>${esc(v.nr_rej)}${v.marka ? ' — ' + esc(v.marka) : ''}${v.model ? ' ' + esc(v.model) : ''}</option>`).join('');
+      .map(v => `<option value="${esc(v.nr_rej)}" ${parsed.nr_rej && v.nr_rej === parsed.nr_rej ? 'selected' : ''}>${esc(v.nr_rej)}${v.marka ? ` — ${  esc(v.marka)}` : ''}${v.model ? ` ${  esc(v.model)}` : ''}</option>`).join('');
 
     const pewnosc = parsed.pewnosc || 'niska';
     const pewnosColor = pewnosc==='wysoka' ? '#065f46' : pewnosc==='srednia' ? '#92400e' : '#7f1d1d';
@@ -336,9 +336,9 @@ window.TaxOrderPolicyOcr = (function () {
   function _safeId(str) { return str.replace(/[^a-z0-9]/gi, '_'); }
   function _formatSize(bytes) {
     if (!bytes) return '?';
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1048576) return (bytes / 1024).toFixed(0) + ' KB';
-    return (bytes / 1048576).toFixed(1) + ' MB';
+    if (bytes < 1024) return `${bytes  } B`;
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(0)  } KB`;
+    return `${(bytes / 1048576).toFixed(1)  } MB`;
   }
 
   return { load, _onFilesSelected, _onDrop, _processFile, _saveFromModal, _confirmDelete, _refresh };

@@ -69,7 +69,7 @@
       <td>${esc(s.end_time?.slice(0,5)||'—')}</td>
       <td><strong>${_dur(s.work_duration_mins)}</strong></td>
       <td>${_dur(s.break_duration_mins)}</td>
-      <td style="text-align:right">${s.mileage_km!=null?esc(String(s.mileage_km))+' km':'—'}</td>
+      <td style="text-align:right">${s.mileage_km!=null?`${esc(String(s.mileage_km))} km`:'—'}</td>
       <td><span class="pill" style="background:${STATUS_CLR[s.status]||'#999'}20;color:${STATUS_CLR[s.status]||'#999'}">${esc(STATUS_LBL[s.status]||s.status)}</span></td>
       <td>
         <button class="btn-icon" data-id="${esc(s.id)}" onclick="window.DriverWorktime._openModal(this.dataset.id)"><i class="ti ti-edit"></i></button>
@@ -84,8 +84,8 @@
     el.innerHTML = [
       { lbl:'Aktywni teraz', val: s.active_now||0, c:'#22c55e' },
       { lbl:'Sesji (zakres)', val: s.total_sessions||0, c:'#3b82f6' },
-      { lbl:'Łączny czas pracy', val: s.total_work_hours?s.total_work_hours.toFixed(1)+'h':'—', c:'#8b5cf6' },
-      { lbl:'Łączny przebieg', val: s.total_mileage_km?s.total_mileage_km+' km':'—', c:'#f59e0b' },
+      { lbl:'Łączny czas pracy', val: s.total_work_hours?`${s.total_work_hours.toFixed(1)}h`:'—', c:'#8b5cf6' },
+      { lbl:'Łączny przebieg', val: s.total_mileage_km?`${s.total_mileage_km} km`:'—', c:'#f59e0b' },
     ].map(i=>`<div class="stat-chip" style="border-color:${i.c}"><span style="color:${i.c};font-size:1.1em;font-weight:700">${i.val}</span><span>${esc(i.lbl)}</span></div>`).join('');
   }
 

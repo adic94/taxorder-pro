@@ -57,7 +57,7 @@
 <tbody>
 ${_logs.length ? _logs.map(l => {
   const details = l.details ? (typeof l.details === 'string' ? l.details : JSON.stringify(l.details)) : '';
-  const truncated = details.length > 60 ? details.slice(0, 60) + '...' : details;
+  const truncated = details.length > 60 ? `${details.slice(0, 60)  }...` : details;
   return `<tr>
   <td style="white-space:nowrap;font-size:12px">${e(l.created_at?.replace('T',' ').slice(0,19)||'')}</td>
   <td style="font-size:12px">${e(l.user_email||'system')}</td>

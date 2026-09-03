@@ -29,8 +29,8 @@
 
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:24px">
   ${kpiCard('Aktywne pojazdy', fmtN(kpi.vehicles_active), 'ti-car', '')}
-  ${kpiCard('Koszty YTD', fmtN(kpi.cost_ytd)+' PLN', 'ti-cash', '')}
-  ${kpiCard('Koszty MTD', fmtN(kpi.cost_mtd)+' PLN', 'ti-calendar-stats', '')}
+  ${kpiCard('Koszty YTD', `${fmtN(kpi.cost_ytd)} PLN`, 'ti-cash', '')}
+  ${kpiCard('Koszty MTD', `${fmtN(kpi.cost_mtd)} PLN`, 'ti-calendar-stats', '')}
   ${kpiCard('Oczekujące zatwierdzenia', kpi.pending_approvals, 'ti-checks', kpi.pending_approvals > 0 ? 'warn' : '')}
   ${kpiCard('Rezerwacje do zatwierdzenia', kpi.pending_reservations, 'ti-calendar-event', kpi.pending_reservations > 0 ? 'warn' : '')}
   ${kpiCard('Niski stan magazynowy', kpi.low_stock_parts, 'ti-package', kpi.low_stock_parts > 0 ? 'danger' : '')}
@@ -42,7 +42,7 @@ ${kpi.budget_annual != null ? `
 <div class="card" style="padding:16px;margin-bottom:20px">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
     <strong>Realizacja budżetu rocznego</strong>
-    <span>${fmtN(kpi.cost_ytd)} / ${fmtN(kpi.budget_annual)} PLN (${budgetPct!=null?fmtN(budgetPct)+'%':'—'})</span>
+    <span>${fmtN(kpi.cost_ytd)} / ${fmtN(kpi.budget_annual)} PLN (${budgetPct!=null?`${fmtN(budgetPct)}%`:'—'})</span>
   </div>
   <div style="height:12px;background:var(--border);border-radius:6px;overflow:hidden">
     <div style="height:100%;width:${budgetPct??0}%;background:var(--${budgetCls==='danger'?'red':budgetCls==='warn'?'orange':'green'});border-radius:6px;transition:width .4s"></div>

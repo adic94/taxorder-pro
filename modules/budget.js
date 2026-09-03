@@ -11,7 +11,7 @@ window.TaxOrderBudget = (function () {
   function _yr() { return +(document.getElementById('budp-year')?.value || new Date().getFullYear()); }
   function _co() { return document.getElementById('budp-company')?.value || window.currentCompanyId || ''; }
   function _fmt(n) { return (+n || 0).toLocaleString('pl-PL', { maximumFractionDigits: 0 }); }
-  function _fmtZ(n) { return _fmt(n) + ' zł'; }
+  function _fmtZ(n) { return `${_fmt(n)  } zł`; }
 
   // ── In-memory plan cache (yr → {fuel,service,insur,tax,fines}) ────────────
   const _cache = {};
@@ -80,7 +80,7 @@ window.TaxOrderBudget = (function () {
         ['Łączny TCO',         _fmtZ(totAll),     'paliwo+serwis+ubezp.+tax+mandaty',                   'var(--blue)'],
         ['Paliwo',             _fmtZ(totFuel),    pfx,                                                   'var(--green)'],
         ['Serwis',             _fmtZ(totSvc),     pfx,                                                   'var(--amber)'],
-        ['Śr. TCO / pojazd',  _fmtZ(avgTco),     top ? 'Max: ' + e(top.v.nrRej) : '',                  'var(--text)'],
+        ['Śr. TCO / pojazd',  _fmtZ(avgTco),     top ? `Max: ${  e(top.v.nrRej)}` : '',                  'var(--text)'],
       ].map(([l,v,s,c]) =>
         `<div class="stat"><div class="stat-label">${l}</div>` +
         `<div class="stat-val" style="color:${c};font-size:20px">${v}</div>` +
@@ -241,9 +241,9 @@ window.TaxOrderBudget = (function () {
       });
       _cache[yr] = { ..._cache[yr], ...plan };  // optymistyczna aktualizacja cache
       await render();
-      toast('✓ Zapisano plan budżetu na ' + yr);
+      toast(`✓ Zapisano plan budżetu na ${  yr}`);
     } catch (err) {
-      toast('⚠ Błąd zapisu planu: ' + err.message);
+      toast(`⚠ Błąd zapisu planu: ${  err.message}`);
     }
   }
 
@@ -260,9 +260,9 @@ window.TaxOrderBudget = (function () {
       }, {});
     }).sort((a,b) => b.TCO - a.TCO);
     const wb = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.json_to_sheet(rows), 'TCO ' + yr);
-    window.XLSX.writeFile(wb, 'budzet-tco-' + yr + '.xlsx');
-    toast('✓ Wyeksportowano TCO dla ' + vehs.length + ' pojazdów');
+    window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.json_to_sheet(rows), `TCO ${  yr}`);
+    window.XLSX.writeFile(wb, `budzet-tco-${  yr  }.xlsx`);
+    toast(`✓ Wyeksportowano TCO dla ${  vehs.length  } pojazdów`);
   }
 
   return { render, savePlan, exportExcel };

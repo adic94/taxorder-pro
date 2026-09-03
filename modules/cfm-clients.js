@@ -10,14 +10,14 @@ window.TaxOrderCfmClients = (function () {
   function _token() { return localStorage.getItem('cf_token'); }
   function _headers(extra) {
     const t = _token();
-    return { ...(t ? { 'Authorization': 'Bearer ' + t } : {}), ...(extra || {}) };
+    return { ...(t ? { 'Authorization': `Bearer ${  t}` } : {}), ...(extra || {}) };
   }
   function _company() { return window.currentCompanyId || 'mtoilet'; }
 
   async function load() {
     try {
       const resp = await fetch(`${_cfApi()}/api/cfm-clients?company=${encodeURIComponent(_company())}`, { headers: _headers() });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       list = await resp.json();
     } catch (e) {
       console.warn('[CfmClients] load error:', e.message);
@@ -91,12 +91,12 @@ window.TaxOrderCfmClients = (function () {
       const resp = editId
         ? await fetch(`${_cfApi()}/api/cfm-clients/${editId}`, { method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) })
         : await fetch(`${_cfApi()}/api/cfm-clients`, { method: 'POST', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       toast('✓ Klient zapisany');
       closeModal();
       await load();
     } catch (e) {
-      toast('⚠ Błąd zapisu: ' + e.message);
+      toast(`⚠ Błąd zapisu: ${  e.message}`);
     }
   }
 
@@ -104,11 +104,11 @@ window.TaxOrderCfmClients = (function () {
     if (!confirm('Usunąć klienta? (kontrakty powiązane z tym klientem pozostaną, ale stracą odniesienie)')) return;
     try {
       const resp = await fetch(`${_cfApi()}/api/cfm-clients/${id}`, { method: 'DELETE', headers: _headers() });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       toast('✓ Klient usunięty');
       await load();
     } catch (e) {
-      toast('⚠ Błąd usuwania: ' + e.message);
+      toast(`⚠ Błąd usuwania: ${  e.message}`);
     }
   }
 

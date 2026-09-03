@@ -12,7 +12,7 @@ window.TaxOrderServiceOrders = (function () {
   function _token() { return localStorage.getItem('cf_token'); }
   function _headers(extra) {
     const t = _token();
-    return { ...(t ? { 'Authorization': 'Bearer ' + t } : {}), ...(extra || {}) };
+    return { ...(t ? { 'Authorization': `Bearer ${  t}` } : {}), ...(extra || {}) };
   }
   function _company() { return window.currentCompanyId || 'mtoilet'; }
   function _typeLabel(typ) { const lbl = window.ServiceModule?.SERVICE_TYPES?.[typ]?.label; return lbl != null ? lbl : esc(typ || '—'); }
@@ -20,7 +20,7 @@ window.TaxOrderServiceOrders = (function () {
   async function load() {
     try {
       const resp = await fetch(`${_cfApi()}/api/service-orders?company=${encodeURIComponent(_company())}`, { headers: _headers() });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       list = await resp.json();
     } catch (e) {
       console.warn('[ServiceOrders] load error:', e.message);
@@ -49,7 +49,7 @@ window.TaxOrderServiceOrders = (function () {
       <td style="font-size:12px">${_typeLabel(o.typ)}</td>
       <td style="font-size:12px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.opis || '—')}</td>
       <td><span class="pill ${pillCls[o.status] || 'pill-gray'}">${pillLbl[o.status] || esc(o.status)}</span></td>
-      <td style="font-family:var(--mono)">${o.koszt_szacowany != null ? Number(o.koszt_szacowany).toLocaleString('pl-PL') + ' zł' : '—'}</td>
+      <td style="font-family:var(--mono)">${o.koszt_szacowany != null ? `${Number(o.koszt_szacowany).toLocaleString('pl-PL')  } zł` : '—'}</td>
       <td style="font-size:11px;color:var(--text2)">${new Date(o.created_at).toLocaleDateString('pl-PL')}</td>
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap">
@@ -96,7 +96,7 @@ window.TaxOrderServiceOrders = (function () {
     };
     try {
       const resp = await fetch(`${_cfApi()}/api/service-orders`, { method: 'POST', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       toast(t('so.toast.submitted'));
       closeModal();
       await load();
@@ -110,7 +110,7 @@ window.TaxOrderServiceOrders = (function () {
     if (!autoryzowal) return;
     try {
       const resp = await fetch(`${_cfApi()}/api/service-orders/${id}`, { method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ akcja: 'AUTORYZUJ', autoryzowal }) });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       toast(t('so.toast.authorized'));
       await load();
     } catch (e) {
@@ -123,7 +123,7 @@ window.TaxOrderServiceOrders = (function () {
     if (powod === null) return;
     try {
       const resp = await fetch(`${_cfApi()}/api/service-orders/${id}`, { method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ akcja: 'ODRZUC', powod_odrzucenia: powod }) });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       toast(t('so.toast.rejected'));
       await load();
     } catch (e) {
@@ -133,7 +133,7 @@ window.TaxOrderServiceOrders = (function () {
 
   function openRealizeModal(id) {
     realizeId = id;
-    document.getElementById('zlr-data').value = (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date());
+    document.getElementById('zlr-data').value = (d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date());
     document.getElementById('zlr-km').value = '';
     document.getElementById('zlr-koszt').value = '';
     document.getElementById('zlr-nastepny-termin').value = '';
@@ -158,7 +158,7 @@ window.TaxOrderServiceOrders = (function () {
       const resp = await fetch(`${_cfApi()}/api/service-orders/${realizeId}`, { method: 'PUT', headers: _headers({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
       if (!resp.ok) {
         const e = await resp.json().catch(() => ({}));
-        throw new Error(e.error || 'HTTP ' + resp.status);
+        throw new Error(e.error || `HTTP ${  resp.status}`);
       }
       _syncToServiceHistory(order, body);
       toast(t('so.toast.done'));
@@ -175,8 +175,8 @@ window.TaxOrderServiceOrders = (function () {
     if (!v) return;
     if (!Array.isArray(v.serviceHistory)) v.serviceHistory = [];
     v.serviceHistory.push({
-      id: 'so_' + order.id,
-      date: realizeBody.data_realizacji || (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date()),
+      id: `so_${  order.id}`,
+      date: realizeBody.data_realizacji || (d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date()),
       type: order.typ,
       description: order.opis,
       km: realizeBody.km_realizacji,
@@ -197,7 +197,7 @@ window.TaxOrderServiceOrders = (function () {
     if (!confirm(t('so.confirm.del'))) return;
     try {
       const resp = await fetch(`${_cfApi()}/api/service-orders/${id}`, { method: 'DELETE', headers: _headers() });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      if (!resp.ok) throw new Error(`HTTP ${  resp.status}`);
       toast(t('so.toast.deleted'));
       await load();
     } catch (e) {

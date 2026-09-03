@@ -55,7 +55,7 @@
       <td>${esc(r.vehicle_reg||'—')}</td>
       <td>${esc(r.origin_country||'—')} → ${esc(r.destination_country||'—')}</td>
       <td>${esc(r.departure_date?.slice(0,10)||'—')}</td>
-      <td style="text-align:right">${r.mass_kg!=null?esc(String(r.mass_kg))+' kg':'—'}</td>
+      <td style="text-align:right">${r.mass_kg!=null?`${esc(String(r.mass_kg))} kg`:'—'}</td>
       <td><span class="pill" style="background:${STATUS_CLR[r.status]||'#999'}20;color:${STATUS_CLR[r.status]||'#999'}">${esc(STATUS_LBL[r.status]||r.status)}</span></td>
       <td>
         <button class="btn-icon" data-id="${esc(r.id)}" onclick="window.SentModule._openModal(this.dataset.id)"><i class="ti ti-edit"></i></button>

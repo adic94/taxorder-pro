@@ -21,7 +21,7 @@ window.FinesModule = (function () {
   const LS_KEY = 'taxFines';
   const API     = () => window.CF_WORKER_URL || 'https://taxorder-pro-api.adamus1000.workers.dev';
   const token   = () => localStorage.getItem('cf_token');
-  const hdrs    = () => ({ 'Content-Type': 'application/json', ...(token() ? { Authorization: 'Bearer ' + token() } : {}) });
+  const hdrs    = () => ({ 'Content-Type': 'application/json', ...(token() ? { Authorization: `Bearer ${  token()}` } : {}) });
   const company = () => window.currentCompanyId || 'mtoilet';
 
   let _fines   = [];
@@ -29,7 +29,7 @@ window.FinesModule = (function () {
   let _loading = false;
 
   function _fmtDate(d) { if (!d) return '—'; const [y,m,dd] = d.split('-'); return `${dd}.${m}.${y}`; }
-  function _days(ds) { if (!ds) return null; const d = new Date(ds.includes('T') ? ds : ds + 'T00:00:00'); if (isNaN(d)) return null; const t = new Date(); t.setHours(0,0,0,0); return Math.round((d-t)/86400000); }
+  function _days(ds) { if (!ds) return null; const d = new Date(ds.includes('T') ? ds : `${ds  }T00:00:00`); if (isNaN(d)) return null; const t = new Date(); t.setHours(0,0,0,0); return Math.round((d-t)/86400000); }
 
   // ── Migracja localStorage → D1 (jednorazowa) ─────────────────────────────
   async function _migrateLocalStorage() {
@@ -138,14 +138,14 @@ window.FinesModule = (function () {
             const status = paid
               ? `<span style="color:var(--green);font-size:11px">✓ Zapłacono ${f.paid_date ? _fmtDate(f.paid_date) : ''}</span>`
               : dl !== null
-                ? `<span style="color:${dl<0 ? 'var(--red)' : dl<=14 ? 'var(--amber)' : 'var(--text2)'};font-weight:600">${dl<0 ? 'Po terminie '+Math.abs(dl)+' dni' : 'Za '+dl+' dni'}</span>`
+                ? `<span style="color:${dl<0 ? 'var(--red)' : dl<=14 ? 'var(--amber)' : 'var(--text2)'};font-weight:600">${dl<0 ? `Po terminie ${Math.abs(dl)} dni` : `Za ${dl} dni`}</span>`
                 : '<span style="color:var(--text3)">—</span>';
             return `<tr style="${rowBg}">
               <td style="font-family:var(--mono);font-weight:700">${esc(f.nr_rej || '—')}</td>
               <td>${esc(f.driver_name || '—')}</td>
               <td style="font-family:var(--mono);white-space:nowrap">${_fmtDate(f.date)}</td>
               <td><span style="color:${t.color}"><i class="ti ${t.icon}"></i> ${t.label}</span></td>
-              <td style="font-family:var(--mono);font-weight:700;text-align:right">${f.amount ? f.amount.toFixed(2) + ' zł' : '—'}</td>
+              <td style="font-family:var(--mono);font-weight:700;text-align:right">${f.amount ? `${f.amount.toFixed(2)  } zł` : '—'}</td>
               <td style="font-family:var(--mono);white-space:nowrap">${_fmtDate(f.deadline)}</td>
               <td>${status}</td>
               <td style="white-space:nowrap">
@@ -202,7 +202,7 @@ window.FinesModule = (function () {
           </div>
           <div class="vdf">
             <label class="vdl">Data zdarzenia *</label>
-            <input id="_fn-date" type="date" class="fi" value="${ex?.date || (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date())}">
+            <input id="_fn-date" type="date" class="fi" value="${ex?.date || (d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date())}">
           </div>
           <div class="vdf">
             <label class="vdl">Kwota mandatu (zł)</label>
@@ -304,12 +304,12 @@ window.FinesModule = (function () {
     try {
       const r = await fetch(`${API()}/api/fines/${fineId}?company=${company()}`, {
         method: 'PUT', headers: hdrs(),
-        body: JSON.stringify({ paid: 1, paid_date: (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date()) }),
+        body: JSON.stringify({ paid: 1, paid_date: (d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date()) }),
       });
       if (!r.ok) { toast(t('fines.toast.err').replace('{0}', r.status)); return; }
       toast(t('fines.toast.paid'));
       const f = _fines.find(x => x.id === fineId);
-      if (f) { f.paid = 1; f.paid_date = (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date()); }
+      if (f) { f.paid = 1; f.paid_date = (d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)(new Date()); }
       _render();
       if (typeof renderDash === 'function') renderDash();
     } catch { toast(t('fines.toast.conn')); }
@@ -346,7 +346,7 @@ window.FinesModule = (function () {
                     <td style="font-family:var(--mono);white-space:nowrap">${_fmtDate(f.date)}</td>
                     <td><span style="color:${t.color}"><i class="ti ${t.icon}"></i> ${t.label}</span></td>
                     <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.description || '—')}</td>
-                    <td style="font-family:var(--mono);font-weight:700">${f.amount ? f.amount.toFixed(2) + ' zł' : '—'}</td>
+                    <td style="font-family:var(--mono);font-weight:700">${f.amount ? `${f.amount.toFixed(2)  } zł` : '—'}</td>
                     <td style="font-family:var(--mono);white-space:nowrap">${_fmtDate(f.deadline)}</td>
                     <td>${f.paid
                       ? `<span style="color:var(--green);font-size:10px">✓ Zapłacono</span>`

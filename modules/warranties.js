@@ -60,7 +60,7 @@
         <td>${esc(r.title)}</td>
         <td>${esc(r.provider||'—')}</td>
         <td>${r.end_date ? `<span style="color:${expired?'#94a3b8':expiringSoon?'#f59e0b':'inherit'}">${esc(r.end_date.slice(0,10))}${expiringSoon?' ⚠️':expired?' (wygasła)':''}</span>` : esc(r.recall_number||'—')}</td>
-        <td>${r.mileage_limit_km!=null?esc(String(r.mileage_limit_km))+' km':'—'}</td>
+        <td>${r.mileage_limit_km!=null?`${esc(String(r.mileage_limit_km))} km`:'—'}</td>
         <td>${r.record_type==='recall'?`<span style="color:${RECALL_CLR[r.recall_status]||'#999'}">${esc(r.recall_status||'—')}</span>` : (expired?'<span style="color:#94a3b8">Wygasła</span>':'<span style="color:#22c55e">Aktywna</span>')}</td>
         <td>
           <button class="btn-icon" data-id="${esc(r.id)}" onclick="window.WarrantiesModule._openModal(this.dataset.id)"><i class="ti ti-edit"></i></button>
