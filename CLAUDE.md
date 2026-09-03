@@ -1288,12 +1288,15 @@ zakazujące kopiowania ich bazy.
 ### Otwarte / znane długi
 
 **Dług techniczny**
-- **Konto CI głównego suite (`ci-e2e.yml` job `e2e`, Playwright) nadal loguje się jako admin
-  (`adamus1000@gmail.com`).** Sam Playwright E2E suite (karty pojazdów, dashboard, itd.) nie testuje
-  gatingu uprawnień. To osobne od testu izolacji tenantów niżej w Zamkniętych — tamten test
-  (`npm run test:isolation`) działa jako dodatkowy krok API obok głównego suite, nie zastępuje go.
-  Jeśli w przyszłości powstaną testy UI wymagające zwykłej (nie-admin) roli — użyj konta
-  `acichocki@mtoilet.pl` (`kierownik`/`gcon`, sekrety `TEST_EMAIL_NONADMIN`/`TEST_PASS_NONADMIN`).
+- ~~Konto CI głównego suite loguje się WYŁĄCZNIE jako admin — regresja w gatingu uprawnień UI
+  nie zostałaby wykryta~~ — **zrobione, PR #72 (`6337acf`, 2026-09-01), ten wpis był nieaktualny.**
+  `tests/e2e/nonadmin-permissions.spec.js` + projekt `nonadmin` w `playwright.config.js` +
+  drugie logowanie w `global-setup.js` (konto `acichocki@mtoilet.pl`, `kierownik`/`gcon`) już
+  działają w `ci-e2e.yml` obok głównego suite admina — nie zamiast niego. Zweryfikowane 03.09
+  na najnowszym przebiegu na `main` (run `33701933254`): wszystkie 3 testy realnie zalogowane
+  i przechodzące (`✓ 298/300/302 [nonadmin] › nonadmin-permissions.spec.js`), 288/288 total
+  passed. Test izolacji tenantów (`npm run test:isolation`, backend) i ten plik (frontend/UI)
+  to dwie różne warstwy tego samego konta — obie pokryte.
 - `ocr-service/` — **JEST podłączony, wbrew temu, co ten dług twierdził do 19.08.**
   `worker/index.js:3029` wywołuje go jako „Próbę 0" pod adresem z `OCR_PYTHON_URL`
   (`wrangler.toml` → Railway). Otwarte zostaje co innego: **nie wiadomo, czy ta instancja
