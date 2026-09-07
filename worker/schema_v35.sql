@@ -64,23 +64,14 @@ CREATE INDEX IF NOT EXISTS idx_pred_company ON predictive_alerts(company_id);
 CREATE INDEX IF NOT EXISTS idx_pred_status  ON predictive_alerts(status);
 -- spare_parts already exists from schema_v25; sku column added via schema_v35_sku.sql
 
-CREATE TABLE IF NOT EXISTS spare_part_transactions (
-  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-  company_id TEXT NOT NULL,
-  part_id TEXT NOT NULL,
-  part_name TEXT,
-  transaction_type TEXT NOT NULL, -- 'in'|'out'|'adjustment'|'return'
-  qty REAL NOT NULL,
-  vehicle_id TEXT,
-  vehicle_reg TEXT,
-  service_order_id TEXT,
-  unit_price_pln REAL,
-  note TEXT,
-  created_by TEXT,
-  created_at TEXT DEFAULT (datetime('now'))
-);
-CREATE INDEX IF NOT EXISTS idx_spt_company ON spare_part_transactions(company_id);
-CREATE INDEX IF NOT EXISTS idx_spt_part    ON spare_part_transactions(part_id);
+-- USUNIĘTE 07.09.2026 (audyt szczegółowy): `spare_part_transactions` (liczba pojedyncza)
+-- był martwy od wprowadzenia — zero odwołań w worker/index.js/modules/*.js. Realna
+-- tabela transakcji magazynowych to `spare_parts_transactions` (liczba mnoga,
+-- schema_v25.sql), poprawnie używana przez handleSpareParts. Ta różniła się jedną
+-- literą i była pułapką na przyszłość dla każdego, kto by tu kiedyś napisał
+-- zapytanie. Na produkcji tabela (o ile powstała z nocnego automatu) zostaje pusta
+-- i nietknięta — usunięcie CREATE TABLE z pliku nie kasuje istniejącej tabeli,
+-- tylko zapobiega jej odtworzeniu przy rebuildzie od zera.
 
 CREATE TABLE IF NOT EXISTS warranties_recalls (
   id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),

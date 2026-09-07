@@ -25,6 +25,11 @@ CREATE TABLE IF NOT EXISTS predictive_alerts (
 CREATE INDEX IF NOT EXISTS idx_pred_co        ON predictive_alerts(company_id, active);
 CREATE INDEX IF NOT EXISTS idx_pred_co_reg    ON predictive_alerts(company_id, vehicle_reg);
 
+-- ⚠️ ZDUBLOWANA DEFINICJA (audyt 07.09.2026): `video_telematics_events` istnieje już
+-- w schema_v36.sql z INNYM zestawem kolumn (m.in. `camera_position` bez DEFAULT).
+-- `CREATE TABLE IF NOT EXISTS` wykonuje pierwszą napotkaną definicję (v36) i CICHO
+-- IGNORUJE tę. Kod w worker/index.js jest pisany pod v36. Prawdziwe źródło to
+-- schema_v36.sql.
 CREATE TABLE IF NOT EXISTS video_telematics_events (
   id              TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
   company_id      TEXT NOT NULL,
@@ -80,6 +85,11 @@ CREATE TABLE IF NOT EXISTS esg_targets (
 );
 CREATE INDEX IF NOT EXISTS idx_esg_co_year   ON esg_targets(company_id, year);
 
+-- ⚠️ ZDUBLOWANA DEFINICJA (audyt 07.09.2026): `carpooling_trips` istnieje już
+-- w schema_v34.sql z INNYM zestawem kolumn (m.in. `participants` z DEFAULT '[]').
+-- `CREATE TABLE IF NOT EXISTS` wykonuje pierwszą napotkaną definicję (v34) i CICHO
+-- IGNORUJE tę. Kod w worker/index.js jest pisany pod v34. Prawdziwe źródło to
+-- schema_v34.sql.
 CREATE TABLE IF NOT EXISTS carpooling_trips (
   id             TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
   company_id     TEXT NOT NULL,
@@ -102,6 +112,11 @@ CREATE TABLE IF NOT EXISTS carpooling_trips (
 CREATE INDEX IF NOT EXISTS idx_cp_co_date    ON carpooling_trips(company_id, trip_date);
 CREATE INDEX IF NOT EXISTS idx_cp_co_status  ON carpooling_trips(company_id, status);
 
+-- ⚠️ ZDUBLOWANA DEFINICJA (audyt 07.09.2026): `internal_rentals` istnieje już
+-- w schema_v34.sql z prawie identycznym, ale nie tożsamym zestawem kolumn (różnice
+-- w DEFAULT dla `distance_km`/`total_cost_pln`). `CREATE TABLE IF NOT EXISTS` wykonuje
+-- pierwszą napotkaną definicję (v34) i CICHO IGNORUJE tę. Kod w worker/index.js jest
+-- pisany pod v34. Prawdziwe źródło to schema_v34.sql.
 CREATE TABLE IF NOT EXISTS internal_rentals (
   id                    TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
   company_id            TEXT NOT NULL,

@@ -1,6 +1,13 @@
 -- schema_v40: Brakujące tabele dla modułów fleet-reservations, trip-private, geofencing
 
 -- Rezerwacje pojazdów (fleet-reservations.js)
+-- ⚠️ ZDUBLOWANA DEFINICJA (audyt 07.09.2026): `reservations` istnieje już
+-- w schema_v13.sql z INNYM zestawem kolumn i CHECK(status IN ('pending','accepted',
+-- 'rejected')). `CREATE TABLE IF NOT EXISTS` wykonuje pierwszą napotkaną definicję
+-- (v13, bo pliki idą numerycznie) i CICHO IGNORUJE tę — `DEFAULT 'confirmed'` poniżej
+-- nigdy nie obowiązuje na produkcji. Naprawione po stronie UI (fleet-reservations.js
+-- używa 'accepted', nie 'confirmed'), nie przez zmianę schematu. Prawdziwe źródło to
+-- schema_v13.sql.
 CREATE TABLE IF NOT EXISTS reservations (
   id         TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
   company_id TEXT NOT NULL,
