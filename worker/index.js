@@ -6517,6 +6517,365 @@ async function handleTransportOrders(request, env, user, url, path) {
   return err('Method Not Allowed', 405);
 }
 
+// ─── OPERATIONS AXIS v1 (migration_v54) ──────────────────────────────────────
+const OPERATION_COMMANDS = {
+  'operation.validate':          { from: ['draft','blocked'],                    to: 'validated',          event: 'operation.validated',           roles: ['admin','kierownik','dyspozytor'] },
+  'operation.plan':              { from: ['validated','planned','blocked'],      to: 'planned',            event: 'operation.planned',             roles: ['admin','kierownik','dyspozytor'] },
+  'operation.dispatch':          { from: ['planned'],                            to: 'dispatched',         event: 'operation.dispatched',          roles: ['admin','kierownik','dyspozytor'] },
+  'operation.accept':            { from: ['dispatched'],                         to: 'accepted',           event: 'operation.accepted',            roles: ['admin','kierownik','dyspozytor','kierowca'] },
+  'operation.reject':            { from: ['dispatched'],                         to: 'rejected',           event: 'operation.rejected',            roles: ['admin','kierownik','dyspozytor','kierowca'] },
+  'operation.start':             { from: ['accepted'],                           to: 'in_progress',        event: 'operation.started',             roles: ['admin','kierownik','dyspozytor','kierowca'] },
+  'operation.complete':          { from: ['in_progress'],                        to: 'completed',          event: 'operation.completed',           roles: ['admin','kierownik','dyspozytor','kierowca'] },
+  'operation.submit_settlement': { from: ['completed'],                          to: 'settlement_pending', event: 'operation.settlement_submitted', roles: ['admin','kierownik','dyspozytor'] },
+  'operation.settle':            { from: ['settlement_pending'],                 to: 'settled',            event: 'operation.settled',             roles: ['admin','kierownik'] },
+  'operation.close':             { from: ['settled'],                            to: 'closed',             event: 'operation.closed',              roles: ['admin','kierownik'] },
+  'operation.block':             { from: ['draft','validated','planned','dispatched','accepted','in_progress','completed','settlement_pending'], to: 'blocked', event: 'operation.blocked', roles: ['admin','kierownik','dyspozytor','kierowca'] },
+  'operation.cancel':            { from: ['draft','validated','planned','dispatched','accepted','in_progress','completed','settlement_pending','settled','blocked'], to: 'cancelled', event: 'operation.cancelled', roles: ['admin','kierownik','dyspozytor'] },
+};
+
+async function operationCompanyAccess(env, user, requestedCompany, edit = false) {
+  const company = requestedCompany || user.company_id;
+  if (!company) return null;
+  if (_isCompanyAdmin(user) || company === user.company_id) return company;
+  const column = edit ? 'can_edit' : 'can_view';
+  const access = await env.DB.prepare(
+    `SELECT 1 ok FROM user_company_access WHERE user_id=? AND company_id=? AND ${column}=1`
+  ).bind(user.id, company).first().catch(() => null);
+  return access ? company : null;
+}
+
+function operationPodStatus(record, policies, proofs) {
+  const required = policies.filter(x => x.operation_type === record.operation_type && x.active && x.required);
+  const items = required.map(policy => {
+    const count = proofs.filter(proof => proof.proof_type === policy.proof_type).length;
+    const deadline = policy.sla_minutes && record.actual_end
+      ? new Date(new Date(record.actual_end).getTime() + policy.sla_minutes * 60000).toISOString() : null;
+    return { proof_type: policy.proof_type, required: policy.min_count, count, complete: count >= policy.min_count, sla_minutes: policy.sla_minutes, deadline, overdue: Boolean(deadline && count < policy.min_count && Date.now() > new Date(deadline).getTime()) };
+  });
+  return { complete: items.every(item => item.complete), required_count: items.reduce((sum,item)=>sum+item.required,0), collected_count: items.reduce((sum,item)=>sum+Math.min(item.count,item.required),0), items };
+}
+
+function operationProjection(record, stops, tasks, assignments, proofs, policies = [], settlements = []) {
+  const opStops = stops.filter(x => x.operation_id === record.id);
+  const opTasks = tasks.filter(x => x.operation_id === record.id);
+  const opAssignments = assignments.filter(x => x.operation_id === record.id);
+  const opProofs = proofs.filter(x => x.operation_id === record.id);
+  const pod = operationPodStatus(record, policies, opProofs);
+  const settlement = settlements.find(x => x.operation_id === record.id) || null;
+  const driver = opAssignments.find(x => x.resource_type === 'driver' && x.status !== 'cancelled');
+  const vehicle = opAssignments.find(x => x.resource_type === 'vehicle' && x.status !== 'cancelled');
+  const exceptions = [];
+  if (opStops.length < 2) exceptions.push({ code: 'route_incomplete', message: 'Brak co najmniej dwóch przystanków' });
+  if (!driver || !vehicle) exceptions.push({ code: 'assignment_incomplete', message: 'Brak pełnego przydziału' });
+  if (['completed','settlement_pending'].includes(record.current_state) && !pod.complete) exceptions.push({ code: 'proof_incomplete', message: 'POD jest niekompletny' });
+  if (pod.items.some(item => item.overdue)) exceptions.push({ code: 'proof_sla_overdue', message: 'Przekroczono SLA dostarczenia POD' });
+  return {
+    id: record.id, order_id: record.order_id, version: record.version,
+    operation_type: record.operation_type, title: record.title,
+    state: record.current_state, priority: record.priority, distance_km: record.distance_km,
+    schedule: { start: record.scheduled_start, end: record.scheduled_end },
+    route: { origin: record.origin, destination: record.destination, stops: opStops },
+    assignments: { driver: driver || null, vehicle: vehicle || null, all: opAssignments },
+    tasks: opTasks, proofs: opProofs, pod, settlement, exceptions,
+    readiness: {
+      plan: opStops.length >= 2 && record.scheduled_start ? 'ready' : 'partial',
+      dispatch: driver && vehicle ? 'ready' : 'missing',
+      proof: pod.complete ? 'ready' : opProofs.length ? 'partial' : 'missing',
+      settlement: settlement ? (settlement.status === 'approved' ? 'ready' : 'partial') : 'missing',
+    }, updated_at: record.updated_at,
+  };
+}
+
+async function handleOperations(request, env, user, url, path) {
+  const segs = path.split('/').filter(Boolean);
+  const operationId = segs[2] || null;
+  const action = segs[3] || null;
+  const company = await operationCompanyAccess(env, user, url.searchParams.get('company'), request.method !== 'GET');
+  if (!company) return err('Brak dostępu do tej firmy', 403);
+
+  if (request.method === 'GET' && operationId === 'resources') {
+    const [driversRes, vehiclesRes] = await env.DB.batch([
+      env.DB.prepare('SELECT id,name FROM drivers WHERE company_id=? ORDER BY name LIMIT 2000').bind(company),
+      env.DB.prepare('SELECT id,nr_rej,data FROM vehicles WHERE company_id=? ORDER BY nr_rej LIMIT 5000').bind(company),
+    ]);
+    return json({
+      drivers: (driversRes.results || []).map(x => ({ id: String(x.id), label: x.name })),
+      vehicles: (vehiclesRes.results || []).map(x => {
+        let data = {}; try { data = JSON.parse(x.data || '{}'); } catch {}
+        return { id: String(x.id), label: x.nr_rej, make: data.marka || data.make || '', model: data.model || '' };
+      }),
+    });
+  }
+
+  if (request.method === 'GET' && !operationId) {
+    const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '100'), 1), 500);
+    const state = url.searchParams.get('state');
+    let recordsSql = `SELECT r.*,o.title,o.priority,o.origin,o.destination,o.scheduled_start,o.scheduled_end,o.actual_start,o.actual_end,o.distance_km
+      FROM operation_records r JOIN transport_orders o ON o.id=r.order_id AND o.company_id=r.company_id WHERE r.company_id=?`;
+    const recordBinds = [company];
+    if (user.role === 'kierowca') {
+      recordsSql += " AND EXISTS (SELECT 1 FROM operation_assignments own WHERE own.operation_id=r.id AND own.company_id=r.company_id AND own.resource_type='driver' AND own.resource_id=? AND own.status!='cancelled')";
+      recordBinds.push(String(user.id));
+    }
+    if (state) { recordsSql += ' AND r.current_state=?'; recordBinds.push(state); }
+    recordsSql += ' ORDER BY r.updated_at DESC LIMIT ?'; recordBinds.push(limit);
+    const [recordsRes, stopsRes, tasksRes, assignmentsRes, proofsRes, policiesRes, settlementsRes] = await env.DB.batch([
+      env.DB.prepare(recordsSql).bind(...recordBinds),
+      env.DB.prepare('SELECT * FROM operation_stops WHERE company_id=? ORDER BY operation_id,sequence_no').bind(company),
+      env.DB.prepare('SELECT * FROM operation_tasks WHERE company_id=? ORDER BY created_at').bind(company),
+      env.DB.prepare("SELECT * FROM operation_assignments WHERE company_id=? AND status!='cancelled' ORDER BY starts_at").bind(company),
+      env.DB.prepare('SELECT * FROM operation_proofs WHERE company_id=? ORDER BY created_at').bind(company),
+      env.DB.prepare('SELECT * FROM operation_pod_policies WHERE company_id=? AND active=1 ORDER BY operation_type,proof_type').bind(company),
+      env.DB.prepare('SELECT * FROM operation_settlements WHERE company_id=? ORDER BY updated_at DESC').bind(company),
+    ]);
+    const records = recordsRes.results || [];
+    const operations = records.map(record => operationProjection(record, stopsRes.results || [], tasksRes.results || [], assignmentsRes.results || [], proofsRes.results || [], policiesRes.results || [], settlementsRes.results || []));
+    return json({
+      generated_at: new Date().toISOString(), capabilities: { mode: 'read_write', commands: Object.keys(OPERATION_COMMANDS) },
+      summary: {
+        reaction: operations.filter(x => x.exceptions.length).length,
+        today: operations.filter(x => String(x.schedule.start || '').slice(0,10) === new Date().toISOString().slice(0,10)).length,
+        in_progress: operations.filter(x => x.state === 'in_progress').length,
+        settlement: operations.filter(x => ['completed','settlement_pending'].includes(x.state)).length,
+      }, operations,
+    });
+  }
+
+  if (request.method === 'GET' && operationId && action === 'events') {
+    const op = await env.DB.prepare('SELECT id FROM operation_records WHERE id=? AND company_id=?').bind(operationId, company).first();
+    if (!op) return err('Operacja nie znaleziona', 404);
+    const { results } = await env.DB.prepare('SELECT * FROM operation_events WHERE operation_id=? AND company_id=? ORDER BY sequence_no').bind(operationId, company).all();
+    return json({ events: results || [] });
+  }
+
+  if (request.method === 'GET' && operationId && action === 'completeness') {
+    const operation = await env.DB.prepare('SELECT r.id,r.operation_type,o.actual_end FROM operation_records r JOIN transport_orders o ON o.id=r.order_id AND o.company_id=r.company_id WHERE r.id=? AND r.company_id=?').bind(operationId, company).first();
+    if (!operation) return err('Operacja nie znaleziona', 404);
+    const [policiesRes, proofsRes] = await env.DB.batch([
+      env.DB.prepare('SELECT * FROM operation_pod_policies WHERE company_id=? AND operation_type=? AND active=1').bind(company, operation.operation_type),
+      env.DB.prepare('SELECT * FROM operation_proofs WHERE company_id=? AND operation_id=?').bind(company, operationId),
+    ]);
+    return json(operationPodStatus(operation, policiesRes.results || [], proofsRes.results || []));
+  }
+
+  if (request.method === 'POST' && operationId && action === 'proofs' && ['link','upload'].includes(segs[4])) {
+    const operation = await env.DB.prepare('SELECT id,current_state,version FROM operation_records WHERE id=? AND company_id=?').bind(operationId, company).first();
+    if (!operation) return err('Operacja nie znaleziona', 404);
+    if (user.role === 'kierowca') {
+      const own = await env.DB.prepare("SELECT id FROM operation_assignments WHERE operation_id=? AND company_id=? AND resource_type='driver' AND resource_id=? AND status!='cancelled'").bind(operationId,company,String(user.id)).first();
+      if (!own) return err('Operacja nie jest przypisana do tego kierowcy',403);
+    }
+    let proofType, sourceType, sourceId, r2Key = null, metadata = {}, capturedAt, latitude = null, longitude = null, expectedVersion, idempotencyKey;
+    let uploadedKey = null;
+    if (segs[4] === 'upload') {
+      let form; try { form = await request.formData(); } catch { return err('Wymagany FormData', 400); }
+      const file = form.get('file');
+      if (!file || typeof file.stream !== 'function') return err('Wymagany plik', 400);
+      if (file.size > 20 * 1024 * 1024) return err('Plik przekracza limit 20 MB', 413);
+      if (!(String(file.type||'').startsWith('image/') || file.type === 'application/pdf')) return err('POD może być obrazem lub PDF',415);
+      proofType = String(form.get('proof_type') || 'document'); sourceType = 'upload'; sourceId = null;
+      expectedVersion = Number(form.get('expected_version')); idempotencyKey = String(form.get('idempotency_key') || '');
+      latitude = form.get('latitude') ? Number(form.get('latitude')) : null; longitude = form.get('longitude') ? Number(form.get('longitude')) : null;
+      capturedAt = new Date().toISOString();
+      const ext = String(file.name || 'proof.bin').split('.').pop().replace(/[^a-zA-Z0-9]/g,'').slice(0,8) || 'bin';
+      uploadedKey = `operations/${company}/${operationId}/${crypto.randomUUID()}.${ext}`;
+      await env.DOCS.put(uploadedKey, file.stream(), { httpMetadata: { contentType: file.type || 'application/octet-stream' } });
+      r2Key = uploadedKey; metadata = { filename: String(file.name || '').slice(0,200), mime_type: file.type || 'application/octet-stream', size: file.size || 0 };
+    } else {
+      let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON', 400); }
+      ({ proof_type: proofType, source_type: sourceType, source_id: sourceId, metadata = {}, captured_at: capturedAt, latitude = null, longitude = null, expected_version: expectedVersion, idempotency_key: idempotencyKey } = body);
+      const sourceQueries = {
+        smart_form: ['SELECT id,signature_data,photos,location_lat,location_lon FROM smart_form_submissions WHERE id=? AND company_id=?', sourceId],
+        document: ['SELECT id,r2_key FROM documents WHERE id=? AND company_id=?', sourceId],
+        protocol: ['SELECT id,podpis_wydajacy,podpis_odbierajacy FROM handover_protocols WHERE id=? AND company_id=?', sourceId],
+      };
+      if (!sourceQueries[sourceType]) return err('Nieobsługiwane źródło POD', 400);
+      const source = await env.DB.prepare(sourceQueries[sourceType][0]).bind(sourceQueries[sourceType][1], company).first();
+      if (!source) return err('Źródło POD nie znalezione w tej firmie', 404);
+      if (proofType === 'signature' && sourceType === 'smart_form' && !source.signature_data) return err('Formularz nie zawiera podpisu',409);
+      if (proofType === 'signature' && sourceType === 'protocol' && !source.podpis_wydajacy && !source.podpis_odbierajacy) return err('Protokół nie zawiera podpisu',409);
+      if (proofType === 'photo' && sourceType === 'smart_form') { let photos=[]; try{photos=JSON.parse(source.photos||'[]');}catch{} if(!photos.length)return err('Formularz nie zawiera zdjęcia',409); }
+      r2Key = source.r2_key || null;
+    }
+    if (!['signature','photo','document','location','form','cmr','other'].includes(proofType)) { if (uploadedKey) await env.DOCS.delete(uploadedKey); return err('Nieprawidłowy proof_type', 400); }
+    if (!Number.isInteger(expectedVersion) || expectedVersion !== operation.version || !idempotencyKey) { if (uploadedKey) await env.DOCS.delete(uploadedKey); return json({ error:'Konflikt wersji lub brak idempotency_key', current_version:operation.version },409); }
+    const proofId = crypto.randomUUID().replace(/-/g,''); const commandId = crypto.randomUUID().replace(/-/g,'');
+    try {
+      await env.DB.batch([
+        env.DB.prepare(`INSERT INTO operation_proofs(id,company_id,operation_id,proof_type,source_type,source_id,r2_key,captured_at,captured_by,latitude,longitude,metadata) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`)
+          .bind(proofId,company,operationId,proofType,sourceType,sourceId||null,r2Key,capturedAt||new Date().toISOString(),String(user.id||''),latitude,longitude,JSON.stringify(metadata||{})),
+        env.DB.prepare(`INSERT INTO operation_commands(id,company_id,operation_id,command_type,idempotency_key,expected_version,target_state,event_type,actor_id,actor_role,payload) VALUES(?,?,?,?,?,?,?,?,?,?,?)`)
+          .bind(commandId,company,operationId,'operation.add_proof',idempotencyKey,expectedVersion,operation.current_state,'operation.proof_added',String(user.id||''),user.role||null,JSON.stringify({proof_id:proofId,proof_type:proofType,source_type:sourceType})),
+      ]);
+    } catch (error) { if (uploadedKey) await env.DOCS.delete(uploadedKey); throw error; }
+    return json({ ok:true, proof_id:proofId });
+  }
+
+  if (request.method === 'POST' && operationId && action === 'settlement' && segs[4] === 'prepare') {
+    if (!['admin','kierownik','dyspozytor','superadmin'].includes(user.role)) return err('Brak uprawnień do rozliczenia',403);
+    let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON',400); }
+    const operation = await env.DB.prepare(`SELECT r.*,o.distance_km,o.title,o.id order_id FROM operation_records r JOIN transport_orders o ON o.id=r.order_id AND o.company_id=r.company_id WHERE r.id=? AND r.company_id=?`).bind(operationId,company).first();
+    if (!operation) return err('Operacja nie znaleziona',404);
+    if (operation.current_state !== 'completed') return err('Rozliczenie można przygotować po zakończeniu operacji',409);
+    if (!Number.isInteger(body.expected_version) || body.expected_version !== operation.version) return json({error:'Konflikt wersji',current_version:operation.version},409);
+    const policies = (await env.DB.prepare('SELECT * FROM operation_pod_policies WHERE company_id=? AND operation_type=? AND active=1').bind(company,operation.operation_type).all()).results||[];
+    const proofs = (await env.DB.prepare('SELECT * FROM operation_proofs WHERE company_id=? AND operation_id=?').bind(company,operationId).all()).results||[];
+    const pod = operationPodStatus(operation,policies,proofs); if (!pod.complete) return json({error:'POD jest niekompletny',pod},409);
+    const profile = await env.DB.prepare('SELECT * FROM route_cost_profiles WHERE company_id=? AND is_default=1 LIMIT 1').bind(company).first();
+    const plannedDistance = Number(operation.distance_km||0); const actualDistance = Number(body.actual_distance_km ?? plannedDistance);
+    const revenue=Number(body.revenue_net_pln||0);
+    if (!Number.isFinite(actualDistance) || actualDistance < 0 || !Number.isFinite(revenue) || revenue < 0) return err('Dystans i przychód muszą być nieujemnymi liczbami',400);
+    const fp=Number(profile?.fuel_price_pln??6.5), fn=Number(profile?.fuel_norm_l100??8), toll=Number(profile?.toll_rate_per_km??0), driver=Number(profile?.driver_cost_per_km??1.2), depr=Number(profile?.depreciation_per_km??0.35), other=Number(profile?.other_per_km??0.1);
+    const amounts = distance => ({ fuel:distance*fn/100*fp,toll:distance*toll,driver:distance*driver,depreciation:distance*depr,other:distance*other });
+    const planned=amounts(plannedDistance), actual=amounts(actualDistance); const sum=o=>Object.values(o).reduce((a,b)=>a+b,0);
+    const actualCost=sum(actual), margin=revenue-actualCost, marginPct=revenue?margin/revenue*100:0;
+    const existing=await env.DB.prepare('SELECT id,settlement_version FROM operation_settlements WHERE company_id=? AND operation_id=?').bind(company,operationId).first();
+    const settlementId=existing?.id||crypto.randomUUID().replace(/-/g,''); const version=(existing?.settlement_version||0)+1;
+    const statements=[env.DB.prepare(`INSERT INTO operation_settlements(id,company_id,operation_id,settlement_version,status,planned_distance_km,actual_distance_km,planned_cost_pln,actual_cost_pln,revenue_net_pln,margin_pln,margin_pct,client_name,client_nip,prepared_by,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(company_id,operation_id) DO UPDATE SET settlement_version=excluded.settlement_version,status='draft',planned_distance_km=excluded.planned_distance_km,actual_distance_km=excluded.actual_distance_km,planned_cost_pln=excluded.planned_cost_pln,actual_cost_pln=excluded.actual_cost_pln,revenue_net_pln=excluded.revenue_net_pln,margin_pln=excluded.margin_pln,margin_pct=excluded.margin_pct,client_name=excluded.client_name,client_nip=excluded.client_nip,prepared_by=excluded.prepared_by,updated_at=datetime('now')`)
+      .bind(settlementId,company,operationId,version,'draft',plannedDistance,actualDistance,sum(planned),actualCost,revenue,margin,marginPct,body.client_name||null,body.client_nip||null,String(user.id||'')),
+      env.DB.prepare('DELETE FROM operation_cost_items WHERE company_id=? AND settlement_id=?').bind(company,settlementId)];
+    for(const type of Object.keys(actual)) statements.push(env.DB.prepare(`INSERT INTO operation_cost_items(id,company_id,operation_id,settlement_id,cost_type,planned_amount_pln,actual_amount_pln,description) VALUES(?,?,?,?,?,?,?,?)`).bind(crypto.randomUUID().replace(/-/g,''),company,operationId,settlementId,type,planned[type],actual[type],`Koszt ${type}`));
+    await env.DB.batch(statements); return json({ok:true,settlement:{id:settlementId,version,planned_distance_km:plannedDistance,actual_distance_km:actualDistance,planned_cost_pln:sum(planned),actual_cost_pln:actualCost,revenue_net_pln:revenue,margin_pln:margin,margin_pct:marginPct}});
+  }
+
+  if (request.method === 'POST' && operationId && action === 'plan-preview') {
+    if (!['admin','kierownik','dyspozytor','superadmin'].includes(user.role)) return err('Brak uprawnień do planowania', 403);
+    let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const current = await env.DB.prepare('SELECT id,version,current_state FROM operation_records WHERE id=? AND company_id=?').bind(operationId, company).first();
+    if (!current) return err('Operacja nie znaleziona', 404);
+    if (!Number.isInteger(body.expected_version) || body.expected_version !== current.version) return json({ error: 'Konflikt wersji', current_version: current.version }, 409);
+    if (!['validated','planned','blocked'].includes(current.current_state)) return json({ error: 'Operacji nie można teraz planować', current_state: current.current_state }, 409);
+    const assignments = Array.isArray(body.assignments) ? body.assignments : [];
+    if (!assignments.some(x => x.resource_type === 'driver') || !assignments.some(x => x.resource_type === 'vehicle')) return err('Plan wymaga kierowcy i pojazdu', 400);
+    const conflicts = [];
+    for (const assignment of assignments) {
+      if (!['driver','vehicle','trailer','team'].includes(assignment.resource_type) || !assignment.resource_id || !assignment.starts_at || !assignment.ends_at || assignment.ends_at <= assignment.starts_at) {
+        return err('Każdy przydział wymaga typu, zasobu i poprawnego przedziału', 400);
+      }
+      const rows = await env.DB.prepare(
+        `SELECT a.id,a.operation_id,a.resource_type,a.resource_label,a.starts_at,a.ends_at,o.title
+         FROM operation_assignments a
+         JOIN operation_records r ON r.id=a.operation_id AND r.company_id=a.company_id
+         JOIN transport_orders o ON o.id=r.order_id AND o.company_id=r.company_id
+         WHERE a.company_id=? AND a.resource_type=? AND a.resource_id=? AND a.operation_id<>?
+           AND a.status NOT IN ('cancelled','completed') AND a.starts_at<? AND a.ends_at>? ORDER BY a.starts_at`
+      ).bind(company, assignment.resource_type, assignment.resource_id, operationId, assignment.ends_at, assignment.starts_at).all();
+      conflicts.push(...(rows.results || []));
+    }
+    return json({ ok: conflicts.length === 0, committable: conflicts.length === 0, plan_version: current.version, conflicts });
+  }
+
+  if (request.method === 'PUT' && operationId && action === 'stops' && segs[4]) {
+    if (!['admin','kierownik','dyspozytor','superadmin'].includes(user.role)) return err('Brak uprawnień do edycji przystanku', 403);
+    let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const stop = await env.DB.prepare('SELECT * FROM operation_stops WHERE id=? AND operation_id=? AND company_id=?').bind(segs[4], operationId, company).first();
+    if (!stop) return err('Przystanek nie znaleziony', 404);
+    const operation = await env.DB.prepare('SELECT current_state,version FROM operation_records WHERE id=? AND company_id=?').bind(operationId, company).first();
+    if (!Number.isInteger(body.expected_version) || body.expected_version !== operation?.version) return json({ error: 'Konflikt wersji', current_version: operation?.version }, 409);
+    if (!body.idempotency_key || String(body.idempotency_key).length > 120) return err('Wymagany idempotency_key', 400);
+    const statuses = ['planned','arrived','in_progress','completed','skipped','failed'];
+    if (body.status && !statuses.includes(body.status)) return err('Nieprawidłowy status przystanku', 400);
+    if (body.window_start && body.window_end && body.window_end < body.window_start) return err('Koniec okna nie może poprzedzać początku', 400);
+    const commandId = crypto.randomUUID().replace(/-/g, '');
+    await env.DB.batch([
+      env.DB.prepare(
+        `UPDATE operation_stops SET name=?,address=?,window_start=?,window_end=?,status=?,notes=?,updated_at=datetime('now') WHERE id=? AND operation_id=? AND company_id=?`
+      ).bind(body.name ?? stop.name, body.address ?? stop.address, body.window_start ?? stop.window_start,
+        body.window_end ?? stop.window_end, body.status ?? stop.status, body.notes ?? stop.notes, segs[4], operationId, company),
+      env.DB.prepare(
+        `INSERT INTO operation_commands(id,company_id,operation_id,command_type,idempotency_key,expected_version,target_state,event_type,actor_id,actor_role,payload) VALUES(?,?,?,?,?,?,?,?,?,?,?)`
+      ).bind(commandId, company, operationId, 'operation.update_stop', body.idempotency_key, body.expected_version,
+        operation.current_state, 'operation.stop_updated', String(user.id || ''), user.role || null,
+        JSON.stringify({ stop_id: segs[4], status: body.status ?? stop.status }))
+    ]);
+    return json({ ok: true });
+  }
+
+  if (request.method === 'POST' && operationId && action === 'commands') {
+    let body; try { body = await request.json(); } catch { return err('Nieprawidłowe JSON'); }
+    const definition = OPERATION_COMMANDS[body.command_type];
+    if (!definition) return err('Nieobsługiwany typ komendy', 400);
+    if (!definition.roles.includes(user.role) && user.role !== 'superadmin') return err('Brak uprawnień do tej komendy', 403);
+    if (!body.idempotency_key || String(body.idempotency_key).length > 120) return err('Wymagany idempotency_key (max 120 znaków)', 400);
+    if (!Number.isInteger(body.expected_version) || body.expected_version < 1) return err('Wymagany expected_version', 400);
+    const prior = await env.DB.prepare('SELECT operation_id FROM operation_commands WHERE company_id=? AND idempotency_key=?').bind(company, body.idempotency_key).first();
+    if (prior) {
+      if (prior.operation_id !== operationId) return err('Klucz idempotencji użyty dla innej operacji', 409);
+      const priorResult = await env.DB.prepare('SELECT id,current_state,version,last_event_sequence FROM operation_records WHERE id=? AND company_id=?').bind(operationId, company).first();
+      return json({ ok: true, duplicate: true, operation: priorResult });
+    }
+    const current = await env.DB.prepare('SELECT * FROM operation_records WHERE id=? AND company_id=?').bind(operationId, company).first();
+    if (!current) return err('Operacja nie znaleziona', 404);
+    if (current.version !== body.expected_version) return json({ error: 'Konflikt wersji', current_version: current.version, current_state: current.current_state }, 409);
+    if (!definition.from.includes(current.current_state)) return json({ error: 'Niedozwolone przejście stanu', from: current.current_state, allowed_from: definition.from }, 409);
+    if (user.role === 'kierowca') {
+      const ownAssignment = await env.DB.prepare(
+        "SELECT id FROM operation_assignments WHERE operation_id=? AND company_id=? AND resource_type='driver' AND resource_id=? AND status!='cancelled'"
+      ).bind(operationId, company, String(user.id)).first();
+      if (!ownAssignment) return err('Operacja nie jest przypisana do tego kierowcy', 403);
+    }
+    const payload = body.payload && typeof body.payload === 'object' ? body.payload : {};
+    const statements = [];
+    if (body.command_type === 'operation.complete') {
+      const policies = (await env.DB.prepare('SELECT * FROM operation_pod_policies WHERE company_id=? AND operation_type=? AND active=1').bind(company,current.operation_type).all()).results||[];
+      const proofs = (await env.DB.prepare('SELECT * FROM operation_proofs WHERE company_id=? AND operation_id=?').bind(company,operationId).all()).results||[];
+      const pod = operationPodStatus(current,policies,proofs);
+      if (!pod.complete) return json({error:'Nie można zakończyć: POD jest niekompletny',pod},409);
+    }
+    if (body.command_type === 'operation.submit_settlement') {
+      const settlement = await env.DB.prepare("SELECT id FROM operation_settlements WHERE company_id=? AND operation_id=? AND status='draft'").bind(company,operationId).first();
+      if (!settlement) return err('Najpierw przygotuj kompletne rozliczenie',409);
+      statements.push(env.DB.prepare("UPDATE operation_settlements SET status='pending_approval',updated_at=datetime('now') WHERE id=? AND company_id=?").bind(settlement.id,company));
+    }
+    if (body.command_type === 'operation.settle') {
+      const settlement = await env.DB.prepare("SELECT * FROM operation_settlements WHERE company_id=? AND operation_id=? AND status='pending_approval'").bind(company,operationId).first();
+      if (!settlement) return err('Brak rozliczenia oczekującego na akceptację',409);
+      const invoiceId=crypto.randomUUID().replace(/-/g,''), invoiceNumber=`DRAFT-${operationId.slice(-12)}-${settlement.settlement_version}`;
+      const order = await env.DB.prepare('SELECT order_id,title FROM operation_records r JOIN transport_orders o ON o.id=r.order_id AND o.company_id=r.company_id WHERE r.id=? AND r.company_id=?').bind(operationId,company).first();
+      const net=Number(settlement.revenue_net_pln||0), vat=net*0.23, gross=net+vat;
+      statements.push(env.DB.prepare(`INSERT INTO route_invoices(id,company_id,order_id,order_title,invoice_number,client_name,client_nip,net_pln,vat_rate,vat_pln,gross_pln,cost_pln,margin_pln,margin_pct,status,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        .bind(invoiceId,company,order.order_id,order.title,invoiceNumber,settlement.client_name||'Do uzupełnienia',settlement.client_nip||null,net,0.23,vat,gross,settlement.actual_cost_pln,settlement.margin_pln,settlement.margin_pct,'draft',`Utworzono z operacji ${operationId}`));
+      statements.push(env.DB.prepare("UPDATE operation_settlements SET status='approved',route_invoice_id=?,approved_by=?,approved_at=datetime('now'),updated_at=datetime('now') WHERE id=? AND company_id=?").bind(invoiceId,String(user.id||''),settlement.id,company));
+    }
+    if (body.command_type === 'operation.plan') {
+      const assignments = Array.isArray(payload.assignments) ? payload.assignments : [];
+      if (!assignments.some(x => x.resource_type === 'driver') || !assignments.some(x => x.resource_type === 'vehicle')) return err('Plan wymaga kierowcy i pojazdu', 400);
+      for (const assignment of assignments) {
+        if (!['driver','vehicle','trailer','team'].includes(assignment.resource_type)) return err('Nieprawidłowy resource_type', 400);
+        if (!assignment.resource_id || !assignment.starts_at || !assignment.ends_at || assignment.ends_at <= assignment.starts_at) return err('Przydział wymaga resource_id i poprawnego przedziału', 400);
+        const conflict = await env.DB.prepare(
+          `SELECT a.id,a.operation_id,o.title FROM operation_assignments a
+           JOIN operation_records r ON r.id=a.operation_id AND r.company_id=a.company_id
+           JOIN transport_orders o ON o.id=r.order_id AND o.company_id=r.company_id
+           WHERE a.company_id=? AND a.resource_type=? AND a.resource_id=? AND a.operation_id<>?
+             AND a.status NOT IN ('cancelled','completed') AND a.starts_at<? AND a.ends_at>? LIMIT 1`
+        ).bind(company, assignment.resource_type, assignment.resource_id, operationId, assignment.ends_at, assignment.starts_at).first();
+        if (conflict) return json({ error: 'Konflikt przydziału', code: 'assignment_conflict', conflict }, 409);
+      }
+      statements.push(env.DB.prepare("UPDATE operation_assignments SET status='cancelled',updated_at=datetime('now') WHERE operation_id=? AND company_id=? AND status='planned'").bind(operationId, company));
+      for (const assignment of assignments) {
+        statements.push(env.DB.prepare(
+          `INSERT INTO operation_assignments(id,company_id,operation_id,resource_type,resource_id,resource_label,starts_at,ends_at,status) VALUES(?,?,?,?,?,?,?,?, 'planned')`
+        ).bind(crypto.randomUUID().replace(/-/g,''), company, operationId, assignment.resource_type, assignment.resource_id, assignment.resource_label || null, assignment.starts_at, assignment.ends_at));
+      }
+    }
+    const commandId = crypto.randomUUID().replace(/-/g, '');
+    statements.push(env.DB.prepare(
+      `INSERT INTO operation_commands(id,company_id,operation_id,command_type,idempotency_key,expected_version,target_state,event_type,actor_id,actor_role,payload) VALUES(?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(commandId, company, operationId, body.command_type, body.idempotency_key, body.expected_version, definition.to, definition.event, String(user.id || ''), user.role || null, JSON.stringify(payload)));
+    try { await env.DB.batch(statements); }
+    catch (error) {
+      const message = String(error?.message || error);
+      if (message.includes('operation_version_conflict')) return err('Konflikt wersji', 409);
+      if (message.includes('UNIQUE constraint failed') && message.includes('idempotency_key')) return err('Konflikt klucza idempotencji', 409);
+      throw error;
+    }
+    const updated = await env.DB.prepare('SELECT id,current_state,version,last_event_sequence,updated_at FROM operation_records WHERE id=? AND company_id=?').bind(operationId, company).first();
+    return json({ ok: true, command_id: commandId, operation: updated });
+  }
+  return err('Method Not Allowed', 405);
+}
+
 // ─── DRIVER SCHEDULE ──────────────────────────────────────────────────────────
 async function handleDriverSchedule(request, env, user, url, path) {
   const segs = path.split('/');
@@ -9065,6 +9424,199 @@ async function _tachoSaveAlert(env, companyId, type, title, body) {
   }
 }
 
+// ─── COST AUTOMATION — zdarzenie, warunek, akcja, approval, explainability ──
+function leasingInstallmentPlan(input){
+  const principal=Number(input.principal_amount),count=Math.trunc(Number(input.installment_count)),interest=Number(input.annual_interest_pct||0)/100/12,margin=Number(input.annual_margin_pct||0)/100/12,residual=Number(input.residual_amount||0),vatRate=Number(input.vat_rate??0.23);
+  if(!(principal>0)||!(count>0&&count<=240)||residual<0||residual>=principal)throw new Error('Nieprawidłowe parametry harmonogramu leasingu');
+  const financed=principal-residual,rate=interest+margin,payment=rate>0?financed*rate/(1-Math.pow(1+rate,-count)):financed/count;
+  let balance=principal;const first=new Date(`${input.first_due_date}T00:00:00Z`);if(Number.isNaN(first.getTime()))throw new Error('Nieprawidłowa data pierwszej raty');const rows=[];
+  for(let no=1;no<=count;no++){const interestAmount=balance*interest,marginAmount=balance*margin,principalAmount=no===count?balance-residual:Math.min(balance-residual,Math.max(0,payment-interestAmount-marginAmount)),net=principalAmount+interestAmount+marginAmount,closing=Math.max(residual,balance-principalAmount),due=new Date(Date.UTC(first.getUTCFullYear(),first.getUTCMonth()+no-1,first.getUTCDate()));rows.push({no,due_date:due.toISOString().slice(0,10),opening_balance:balance,principal_amount:principalAmount,interest_amount:interestAmount,margin_amount:marginAmount,net_amount:net,vat_amount:net*vatRate,gross_amount:net*(1+vatRate),closing_balance:closing});balance=closing;}
+  return rows;
+}
+
+async function evaluateFuelGpsRule(env,company,config){
+  const {results:fills}=await env.DB.prepare("SELECT * FROM fuel_fills WHERE company_id=? AND fill_date>=date('now','-90 day') ORDER BY fill_date DESC LIMIT 500").bind(company).all();
+  const matched=[];
+  for(const fill of fills){
+    const gps=await env.DB.prepare("SELECT COUNT(*) count,MIN(odometer) min_odometer,MAX(odometer) max_odometer FROM gps_positions WHERE company_id=? AND replace(upper(nr_rej),' ','')=replace(upper(?),' ','') AND recorded_at BETWEEN datetime(?,'-1 day') AND datetime(?,'+1 day')").bind(company,fill.nr_rej,fill.fill_date,fill.fill_date).first();
+    const repeat=await env.DB.prepare("SELECT COUNT(*) count FROM fuel_fills WHERE company_id=? AND nr_rej=? AND id<>? AND fill_date=?").bind(company,fill.nr_rej,fill.id,fill.fill_date).first();
+    let score=0;const reasons=[];if(!gps?.count){score+=60;reasons.push('NO_GPS_EVIDENCE');}if(Number(fill.liters)>Number(config.high_liters||120)){score+=30;reasons.push('HIGH_VOLUME');}if(Number(repeat?.count)>0){score+=25;reasons.push('REPEAT_FILL_SAME_DAY');}if(fill.odometer&&gps?.max_odometer&&Math.abs(Number(fill.odometer)-Number(gps.max_odometer))>200){score+=40;reasons.push('ODOMETER_MISMATCH');}
+    if(score>=Number(config.score_threshold||40))matched.push({fill,score,reasons,evidence:{gps_points:gps?.count||0,gps_odometer_min:gps?.min_odometer||null,gps_odometer_max:gps?.max_odometer||null,same_day_fills:Number(repeat?.count||0)+1}});
+  }
+  return matched;
+}
+
+async function handleAutomationCenter(request,env,user,url,path){
+  const company=user.company_id,segs=path.split('/').filter(Boolean),resource=segs[2]||'overview',id=segs[3],action=segs[4],mayWrite=['admin','kierownik','dyspozytor'].includes(user.role);
+  if(request.method==='GET'&&resource==='overview'){
+    const [rules,executions,actions,alerts,schedules,fnol,erp]=await Promise.all([
+      env.DB.prepare('SELECT * FROM automation_rules WHERE company_id=? ORDER BY name').bind(company).all(),env.DB.prepare('SELECT * FROM automation_executions WHERE company_id=? ORDER BY started_at DESC LIMIT 50').bind(company).all(),env.DB.prepare("SELECT * FROM automation_actions WHERE company_id=? AND status IN('proposed','waiting_approval','approved') ORDER BY created_at DESC LIMIT 100").bind(company).all(),env.DB.prepare("SELECT * FROM fuel_fraud_alerts WHERE company_id=? AND status IN('open','investigating') ORDER BY score DESC LIMIT 100").bind(company).all(),env.DB.prepare('SELECT * FROM leasing_payment_schedules WHERE company_id=? ORDER BY created_at DESC LIMIT 50').bind(company).all(),env.DB.prepare('SELECT * FROM insurance_fnol_cases WHERE company_id=? ORDER BY updated_at DESC LIMIT 50').bind(company).all(),env.DB.prepare('SELECT * FROM erp_exchange_documents WHERE company_id=? ORDER BY created_at DESC LIMIT 50').bind(company).all()]);
+    return json({rules:rules.results,executions:executions.results,actions:actions.results,fuel_alerts:alerts.results,leasing_schedules:schedules.results,fnol_cases:fnol.results,erp_documents:erp.results});
+  }
+  if(!mayWrite&&request.method!=='GET')return err('Brak uprawnień do automatyzacji',403);
+  if(request.method==='POST'&&resource==='rules'&&id&&action==='mode'){
+    const body=await request.json().catch(()=>({}));if(!['dry_run','active','disabled'].includes(body.mode))return err('Nieprawidłowy tryb');if(body.mode==='active'&&!['admin','kierownik'].includes(user.role))return err('Aktywacja reguły wymaga kierownika',403);
+    await env.DB.prepare("UPDATE automation_rules SET mode=?,enabled=?,version=version+1,updated_at=datetime('now') WHERE id=? AND company_id=?").bind(body.mode,body.mode==='disabled'?0:1,id,company).run();return json({ok:true});
+  }
+  if(request.method==='POST'&&resource==='rules'&&id&&action==='run'){
+    const rule=await env.DB.prepare('SELECT * FROM automation_rules WHERE id=? AND company_id=? AND enabled=1').bind(id,company).first();if(!rule)return err('Nie znaleziono aktywnej reguły',404);
+    const correlation=String((await request.json().catch(()=>({}))).correlation_id||`${rule.rule_key}:${new Date().toISOString().slice(0,13)}`),existing=await env.DB.prepare('SELECT * FROM automation_executions WHERE company_id=? AND correlation_id=?').bind(company,correlation).first();if(existing)return json({execution:existing,replayed:true});
+    const executionId=crypto.randomUUID().replace(/-/g,''),config=JSON.parse(rule.condition_config||'{}');let matches=[];
+    if(rule.rule_key==='fuel_gps_anomaly')matches=await evaluateFuelGpsRule(env,company,config);
+    else if(rule.rule_key==='service_authorization'){const res=await env.DB.prepare("SELECT * FROM service_orders WHERE company_id=? AND status='ZGLOSZONE' AND COALESCE(koszt_szacowany,0)>=? ORDER BY created_at DESC LIMIT 100").bind(company,Number(config.amount_threshold||2000)).all();matches=res.results.map(order=>({entity:order,reasons:['AMOUNT_REQUIRES_APPROVAL']}));}
+    else return err('Ta reguła jest uruchamiana z procesu domenowego',422);
+    const limited=matches.slice(0,rule.max_actions_per_run),status=rule.mode==='dry_run'?'dry_run':rule.approval_required?'waiting_approval':'completed';
+    await env.DB.prepare(`INSERT INTO automation_executions(id,company_id,rule_id,rule_version,status,correlation_id,trigger_payload,explanation,matched_count,action_count,started_by,finished_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,datetime('now'))`).bind(executionId,company,rule.id,rule.version,matches.length>limited.length?'limit_reached':status,correlation,'{}',JSON.stringify({rule_key:rule.rule_key,mode:rule.mode,conditions:config,matched:matches.length,limited_to:limited.length}),matches.length,limited.length,user.id).run();
+    for(const match of limited){const entity=match.fill||match.entity,actionId=crypto.randomUUID().replace(/-/g,''),actionKey=`${rule.rule_key}:${entity.id}:${rule.version}`;await env.DB.prepare(`INSERT OR IGNORE INTO automation_actions(id,company_id,execution_id,action_key,action_type,entity_type,entity_id,status,payload) VALUES(?,?,?,?,?,?,?,?,?)`).bind(actionId,company,executionId,actionKey,rule.action_type,rule.rule_key==='fuel_gps_anomaly'?'fuel_fill':'service_order',entity.id,rule.mode==='dry_run'?'proposed':rule.approval_required?'waiting_approval':'applied',JSON.stringify(match)).run();if(rule.mode==='active'&&rule.rule_key==='fuel_gps_anomaly')await env.DB.prepare(`INSERT OR IGNORE INTO fuel_fraud_alerts(id,company_id,fuel_fill_id,vehicle_reg,severity,score,reason_codes,evidence,automation_action_id) VALUES(?,?,?,?,?,?,?,?,?)`).bind(crypto.randomUUID().replace(/-/g,''),company,entity.id,entity.nr_rej,match.score>=80?'critical':match.score>=60?'high':'medium',match.score,JSON.stringify(match.reasons),JSON.stringify(match.evidence),actionId).run();if(rule.mode==='active'&&rule.rule_key==='service_authorization')await env.DB.prepare(`INSERT OR IGNORE INTO approvals(id,company_id,record_type,record_id,nr_rej,amount,description,requested_by,status) VALUES(?,?,?,?,?,?,?,?, 'pending')`).bind(actionId,company,'service_order',entity.id,entity.nr_rej,entity.koszt_szacowany,`Automatyczna autoryzacja: ${entity.opis||entity.typ||'serwis'}`,String(user.id)).run();}
+    return json({execution:{id:executionId,status,matched_count:matches.length,action_count:limited.length,mode:rule.mode},preview:limited});
+  }
+  if(request.method==='POST'&&resource==='leasing'&&id==='preview'){const body=await request.json().catch(()=>({}));try{return json({installments:leasingInstallmentPlan(body)});}catch(ex){return err(ex.message);}}
+  if(request.method==='POST'&&resource==='leasing'&&id==='commit'){
+    const body=await request.json().catch(()=>({}));let rows;try{rows=leasingInstallmentPlan(body);}catch(ex){return err(ex.message);}const scheduleId=crypto.randomUUID().replace(/-/g,''),contract=String(body.contract_ref||'').trim();if(!contract)return err('Wymagany numer umowy');
+    const existing=await env.DB.prepare('SELECT id FROM leasing_payment_schedules WHERE company_id=? AND contract_ref=? AND version=?').bind(company,contract,Number(body.version||1)).first();if(existing)return json({ok:true,id:existing.id,replayed:true});
+    await env.DB.prepare(`INSERT INTO leasing_payment_schedules(id,company_id,vehicle_id,vehicle_reg,contract_ref,currency,principal_amount,annual_interest_pct,annual_margin_pct,installment_count,residual_amount,first_due_date,status,version,created_by) VALUES(?,?,?,?,?,'PLN',?,?,?,?,?,?,'draft',?,?)`).bind(scheduleId,company,body.vehicle_id||null,body.vehicle_reg||null,contract,Number(body.principal_amount),Number(body.annual_interest_pct||0),Number(body.annual_margin_pct||0),Number(body.installment_count),Number(body.residual_amount||0),body.first_due_date,Number(body.version||1),user.id).run();
+    await env.DB.batch(rows.map(r=>env.DB.prepare(`INSERT INTO leasing_payment_installments(id,company_id,schedule_id,installment_no,due_date,opening_balance,principal_amount,interest_amount,margin_amount,net_amount,vat_amount,gross_amount,closing_balance) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(crypto.randomUUID().replace(/-/g,''),company,scheduleId,r.no,r.due_date,r.opening_balance,r.principal_amount,r.interest_amount,r.margin_amount,r.net_amount,r.vat_amount,r.gross_amount,r.closing_balance)));return json({ok:true,id:scheduleId,installments:rows.length},201);
+  }
+  if(request.method==='POST'&&resource==='fnol'&&id){
+    const claim=await env.DB.prepare('SELECT * FROM insurance_claims WHERE id=? AND company_id=?').bind(id,company).first();if(!claim)return err('Nie znaleziono szkody',404);const errors=[];if(!claim.claim_date)errors.push('Brak daty zdarzenia');if(!claim.description)errors.push('Brak opisu');if(!claim.vehicle_reg&&!claim.vehicle_id)errors.push('Brak pojazdu');if(!claim.policy_id)errors.push('Brak powiązanej polisy');const caseId=crypto.randomUUID().replace(/-/g,'');
+    await env.DB.prepare(`INSERT INTO insurance_fnol_cases(id,company_id,claim_id,status,incident_data,validation_errors) VALUES(?,?,?, ?,?,?) ON CONFLICT(company_id,claim_id) DO UPDATE SET status=excluded.status,incident_data=excluded.incident_data,validation_errors=excluded.validation_errors,updated_at=datetime('now')`).bind(caseId,company,id,errors.length?'draft':'ready',JSON.stringify({date:claim.claim_date,description:claim.description,vehicle_reg:claim.vehicle_reg,claim_amount_pln:claim.claim_amount_pln}),JSON.stringify(errors)).run();return json({ok:!errors.length,status:errors.length?'draft':'ready',validation_errors:errors},errors.length?422:200);
+  }
+  if(request.method==='POST'&&resource==='erp-documents'){
+    const body=await request.json().catch(()=>({}));if(!['erpnext','enova365','comarch'].includes(body.adapter_key))return err('Nieobsługiwany adapter ERP');const settlement=await env.DB.prepare("SELECT * FROM operation_settlements WHERE id=? AND company_id=? AND status='approved'").bind(body.settlement_id,company).first();if(!settlement)return err('Wymagane zaakceptowane rozliczenie',409);const payload={contract_version:'1.0',settlement_id:settlement.id,settlement_version:settlement.settlement_version,currency:settlement.currency,net_amount:settlement.revenue_net_pln,cost_amount:settlement.actual_cost_pln,client_name:settlement.client_name,client_nip:settlement.client_nip};const checksum=await integrationContentHash(payload),idem=`settlement:${settlement.id}:v${settlement.settlement_version}:${body.adapter_key}`;const existing=await env.DB.prepare('SELECT * FROM erp_exchange_documents WHERE company_id=? AND idempotency_key=?').bind(company,idem).first();if(existing)return json({document:existing,replayed:true});const docId=crypto.randomUUID().replace(/-/g,'');await env.DB.prepare(`INSERT INTO erp_exchange_documents(id,company_id,settlement_id,adapter_key,document_type,document_version,status,idempotency_key,checksum,payload) VALUES(?,?,?,?, 'operation_settlement',?,'approved',?,?,?)`).bind(docId,company,settlement.id,body.adapter_key,settlement.settlement_version,idem,checksum,JSON.stringify(payload)).run();return json({document:{id:docId,status:'approved',checksum}},201);
+  }
+  return err('Not Found',404);
+}
+
+// ─── INTEGRATION HUB — wspólny kontrakt adapterów i import/export queue ──────
+const INTEGRATION_FORMATS = new Set(['csv','txt','xls','xlsx','xlsm','xml','json','api']);
+const INTEGRATION_ENTITIES = new Set(['transport_order']);
+const INTEGRATION_ADAPTER_REGISTRY = Object.freeze({
+  erpnext: {
+    key:'erpnext', version:'1.0', capabilities:['health','pull','push','reconcile'],
+    async health(env, config, secretRef) {
+      const baseUrl=String(config?.base_url||'').replace(/\/$/,'');
+      if(!baseUrl) return {ok:false,code:'CONFIG_REQUIRED',message:'Uzupełnij HTTPS base_url sandboxa ERPNext'};
+      let parsed; try{parsed=new URL(baseUrl);}catch{return {ok:false,code:'INVALID_URL',message:'Nieprawidłowy base_url'};}
+      if(parsed.protocol!=='https:'||/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(parsed.hostname))
+        return {ok:false,code:'UNSAFE_URL',message:'Dozwolony jest publiczny adres HTTPS'};
+      const token=env?.[secretRef||'ERPNEXT_API_TOKEN'];
+      if(!token) return {ok:false,code:'SECRET_REQUIRED',message:`Brak sekretu Workera: ${secretRef||'ERPNEXT_API_TOKEN'}`};
+      const response=await fetch(`${baseUrl}/api/method/frappe.auth.get_logged_user`,{headers:{Authorization:`token ${token}`,Accept:'application/json'}});
+      if(!response.ok) return {ok:false,code:`HTTP_${response.status}`,message:'ERPNext odrzucił połączenie'};
+      const data=await response.json().catch(()=>({}));
+      return {ok:true,account:data.message||null,mode:config.mode||'sandbox'};
+    },
+  },
+});
+
+function integrationCanonicalRow(row,mapping){const out={};for(const [target,source] of Object.entries(mapping||{}))out[target]=row?.[source];return out;}
+function validateIntegrationRow(entityType,row,rowNo){
+  const errors=[];
+  if(entityType!=='transport_order')return [`Wiersz ${rowNo}: nieobsługiwany typ danych`];
+  if(!String(row.external_id||'').trim())errors.push(`Wiersz ${rowNo}: brak external_id`);
+  if(!String(row.title||'').trim())errors.push(`Wiersz ${rowNo}: brak title`);
+  if(row.scheduled_start&&Number.isNaN(Date.parse(row.scheduled_start)))errors.push(`Wiersz ${rowNo}: błędna data rozpoczęcia`);
+  if(row.scheduled_end&&Number.isNaN(Date.parse(row.scheduled_end)))errors.push(`Wiersz ${rowNo}: błędna data zakończenia`);
+  if(row.scheduled_start&&row.scheduled_end&&Date.parse(row.scheduled_end)<=Date.parse(row.scheduled_start))errors.push(`Wiersz ${rowNo}: koniec nie może być przed początkiem`);
+  return errors;
+}
+async function integrationContentHash(value){const bytes=new TextEncoder().encode(typeof value==='string'?value:JSON.stringify(value));return [...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(v=>v.toString(16).padStart(2,'0')).join('');}
+
+async function handleIntegrationHub(request,env,user,url,path){
+  const company=user.company_id;
+  const segments=path.split('/').filter(Boolean),resource=segments[2]||'overview',id=segments[3],action=segments[4];
+  const mayWrite=['admin','kierownik','dyspozytor'].includes(user.role);
+  if(request.method==='GET'&&resource==='overview'){
+    const [adapters,profiles,runs,schedules]=await Promise.all([
+      env.DB.prepare('SELECT * FROM integration_adapters WHERE company_id=? ORDER BY name').bind(company).all(),
+      env.DB.prepare('SELECT * FROM integration_mapping_profiles WHERE company_id=? AND active=1 ORDER BY updated_at DESC').bind(company).all(),
+      env.DB.prepare('SELECT * FROM integration_runs WHERE company_id=? ORDER BY created_at DESC LIMIT 50').bind(company).all(),
+      env.DB.prepare('SELECT * FROM integration_schedules WHERE company_id=? ORDER BY name').bind(company).all(),
+    ]);
+    return json({formats:[...INTEGRATION_FORMATS].filter(x=>x!=='api'),adapters:adapters.results,profiles:profiles.results,runs:runs.results,schedules:schedules.results});
+  }
+  if(!mayWrite&&request.method!=='GET')return err('Brak uprawnień do zmiany integracji',403);
+  if(request.method==='POST'&&resource==='profiles'&&!id){
+    const body=await request.json().catch(()=>({}));
+    if(!body.name||!INTEGRATION_ENTITIES.has(body.entity_type)||!INTEGRATION_FORMATS.has(body.source_format))return err('Wymagane: name, prawidłowy entity_type i source_format');
+    if(!body.mapping||typeof body.mapping!=='object')return err('Mapowanie kolumn jest wymagane');
+    const profileId=crypto.randomUUID().replace(/-/g,'');
+    await env.DB.prepare(`INSERT INTO integration_mapping_profiles
+      (id,company_id,name,entity_type,source_format,mapping,transforms,options,dedupe_strategy,created_by) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+      .bind(profileId,company,body.name,'transport_order',body.source_format,JSON.stringify(body.mapping),JSON.stringify(body.transforms||{}),JSON.stringify(body.options||{}),body.dedupe_strategy||'external_id',user.id).run();
+    return json({ok:true,id:profileId},201);
+  }
+  if(request.method==='POST'&&resource==='imports'&&id==='preview'){
+    const body=await request.json().catch(()=>({}));
+    const profile=await env.DB.prepare('SELECT * FROM integration_mapping_profiles WHERE id=? AND company_id=? AND active=1').bind(body.profile_id,company).first();
+    if(!profile)return err('Nie znaleziono aktywnego profilu',404);
+    const rows=Array.isArray(body.rows)?body.rows.slice(0,2000):[];
+    if(!rows.length)return err('Brak rekordów do podglądu');
+    const mapping=JSON.parse(profile.mapping||'{}'),sourceHash=await integrationContentHash(rows),idem=String(body.idempotency_key||`preview:${profile.id}:${sourceHash}`);
+    const existing=await env.DB.prepare('SELECT * FROM integration_runs WHERE company_id=? AND idempotency_key=?').bind(company,idem).first();
+    if(existing){const items=await env.DB.prepare('SELECT * FROM integration_run_items WHERE company_id=? AND run_id=? ORDER BY row_no LIMIT 2000').bind(company,existing.id).all();return json({run:existing,items:items.results,replayed:true});}
+    const runId=crypto.randomUUID().replace(/-/g,''),seen=new Set(),items=[];
+    for(let i=0;i<rows.length;i++){
+      const canonical=integrationCanonicalRow(rows[i],mapping),errors=validateIntegrationRow(profile.entity_type,canonical,i+1),key=String(canonical.external_id||'').trim(),duplicate=key&&seen.has(key);
+      if(key)seen.add(key);
+      items.push({row_no:i+1,source_key:key||null,canonical_type:profile.entity_type,status:errors.length?'invalid':duplicate?'duplicate':'valid',payload:canonical,validation_errors:errors});
+    }
+    const valid=items.filter(x=>x.status==='valid').length,invalid=items.filter(x=>x.status==='invalid').length,duplicates=items.filter(x=>x.status==='duplicate').length;
+    await env.DB.prepare(`INSERT INTO integration_runs
+      (id,company_id,profile_id,direction,operation,status,idempotency_key,source_name,source_format,source_hash,total_count,valid_count,invalid_count,duplicate_count,report,requested_by,finished_at)
+      VALUES (?,?,?,'import','dry_run',?,?,?,?,?,?,?,?,?,?,?,datetime('now'))`).bind(runId,company,profile.id,invalid?'waiting_user':'completed',idem,String(body.source_name||'upload').slice(0,255),profile.source_format,sourceHash,items.length,valid,invalid,duplicates,JSON.stringify({dry_run:true,macros_executed:false,truncated:body.rows.length>2000}),user.id).run();
+    await env.DB.batch(items.map(item=>env.DB.prepare(`INSERT INTO integration_run_items
+      (id,company_id,run_id,row_no,source_key,canonical_type,status,payload,validation_errors) VALUES (?,?,?,?,?,?,?,?,?)`).bind(crypto.randomUUID().replace(/-/g,''),company,runId,item.row_no,item.source_key,item.canonical_type,item.status,JSON.stringify(item.payload),JSON.stringify(item.validation_errors))));
+    return json({run:{id:runId,status:invalid?'waiting_user':'completed',total_count:items.length,valid_count:valid,invalid_count:invalid,duplicate_count:duplicates},items});
+  }
+  if(request.method==='POST'&&resource==='runs'&&id&&action==='commit'){
+    const run=await env.DB.prepare("SELECT * FROM integration_runs WHERE id=? AND company_id=? AND direction='import' AND operation='dry_run'").bind(id,company).first();
+    if(!run)return err('Nie znaleziono dry-run',404);
+    if(run.applied_count>0)return json({ok:true,run_id:id,applied:run.applied_count,replayed:true});
+    if(run.invalid_count>0)return err('Dry-run zawiera błędy. Popraw plik przed zatwierdzeniem',409);
+    const {results:items}=await env.DB.prepare("SELECT * FROM integration_run_items WHERE company_id=? AND run_id=? AND status='valid' ORDER BY row_no").bind(company,id).all();
+    let applied=0,duplicates=run.duplicate_count||0;
+    for(const item of items){
+      const row=JSON.parse(item.payload||'{}'),targetId=`imp_${(await integrationContentHash(`${company}:${row.external_id}`)).slice(0,32)}`;
+      const exists=await env.DB.prepare('SELECT id FROM transport_orders WHERE id=? AND company_id=?').bind(targetId,company).first();
+      if(exists){duplicates++;await env.DB.prepare("UPDATE integration_run_items SET status='duplicate',target_id=? WHERE id=? AND company_id=?").bind(targetId,item.id,company).run();continue;}
+      await env.DB.prepare(`INSERT INTO transport_orders
+        (id,company_id,title,origin,destination,scheduled_start,scheduled_end,distance_km,cargo_desc,cargo_weight_kg,status,priority,notes,created_by)
+        VALUES (?,?,?,?,?,?,?,?,?,?,'planned',?,?,?)`).bind(targetId,company,String(row.title).slice(0,300),row.origin||null,row.destination||null,row.scheduled_start||null,row.scheduled_end||null,Number(row.distance_km)||null,row.cargo_desc||null,Number(row.cargo_weight_kg)||null,row.priority||'normal',`Import ${run.source_name}; external_id=${row.external_id}`,user.id).run();
+      await env.DB.prepare("UPDATE integration_run_items SET status='applied',target_id=? WHERE id=? AND company_id=?").bind(targetId,item.id,company).run();applied++;
+    }
+    await env.DB.prepare("UPDATE integration_runs SET status='completed',operation='import',applied_count=?,duplicate_count=?,finished_at=datetime('now'),updated_at=datetime('now') WHERE id=? AND company_id=?").bind(applied,duplicates,id,company).run();
+    return json({ok:true,run_id:id,applied,duplicates});
+  }
+  if(request.method==='POST'&&resource==='adapters'&&id&&action==='health'){
+    const adapter=await env.DB.prepare('SELECT * FROM integration_adapters WHERE id=? AND company_id=?').bind(id,company).first();
+    if(!adapter)return err('Nie znaleziono adaptera',404);
+    const contract=INTEGRATION_ADAPTER_REGISTRY[adapter.adapter_key];if(!contract)return err('Adapter nie implementuje kontraktu',422);
+    const result=await contract.health(env,JSON.parse(adapter.config||'{}'),adapter.secret_ref).catch(ex=>({ok:false,code:'NETWORK_ERROR',message:ex.message}));
+    await env.DB.prepare("UPDATE integration_adapters SET last_health_at=datetime('now'),last_health_status=?,status=?,updated_at=datetime('now') WHERE id=? AND company_id=?").bind(result.ok?'ok':result.code||'error',result.ok?'active':'degraded',id,company).run();
+    return json(result,result.ok?200:422);
+  }
+  if(request.method==='POST'&&resource==='adapters'&&id){
+    const body=await request.json().catch(()=>({}));
+    if(body.config&&JSON.stringify(body.config).match(/token|secret|password|api[_-]?key/i))return err('Sekrety należy zapisać w konfiguracji Workera, nie w D1');
+    await env.DB.prepare("UPDATE integration_adapters SET config=?,secret_ref=?,status=?,updated_at=datetime('now') WHERE id=? AND company_id=?").bind(JSON.stringify(body.config||{}),body.secret_ref||null,body.status||'inactive',id,company).run();return json({ok:true});
+  }
+  if(request.method==='POST'&&resource==='schedules'){
+    const body=await request.json().catch(()=>({}));
+    if(!body.name||!['hourly','daily','weekly','monthly'].includes(body.schedule_kind)||!INTEGRATION_FORMATS.has(body.export_format||'json'))return err('Nieprawidłowy harmonogram');
+    const scheduleId=crypto.randomUUID().replace(/-/g,'');
+    await env.DB.prepare(`INSERT INTO integration_schedules
+      (id,company_id,adapter_id,profile_id,name,direction,operation,schedule_kind,schedule_value,timezone,export_format,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(scheduleId,company,body.adapter_id||null,body.profile_id||null,body.name,body.direction||'export',body.operation||'transport_orders',body.schedule_kind,body.schedule_value||'03:00',body.timezone||'Europe/Warsaw',body.export_format||'json',user.id).run();
+    return json({ok:true,id:scheduleId},201);
+  }
+  if(request.method==='GET'&&resource==='exports'&&id==='transport-orders'){
+    const {results}=await env.DB.prepare('SELECT id,title,origin,destination,scheduled_start,scheduled_end,status,priority,distance_km FROM transport_orders WHERE company_id=? ORDER BY created_at DESC LIMIT 5000').bind(company).all();
+    return json({entity_type:'transport_order',rows:results,generated_at:new Date().toISOString()});
+  }
+  return err('Not Found',404);
+}
+
 // ─── EXTERNAL INTEGRATIONS (Shell, DKV, Navifleet) ───────────────────────────
 
 async function handleIntegrations(request, env, user, url, path) {
@@ -9667,6 +10219,7 @@ async function handleRequest(request, env, url, path, ctx) {
   if (path.startsWith('/api/spare-parts'))         { if (!user) return err('Nieautoryzowany', 401); return handleSpareParts(request, env, user, url, path); }
   if (path.startsWith('/api/service-contracts'))   { if (!user) return err('Nieautoryzowany', 401); return handleServiceContracts(request, env, user, url, path); }
   if (path.startsWith('/api/supplier-invoices'))   { if (!user) return err('Nieautoryzowany', 401); return handleSupplierInvoices(request, env, user, url, path); }
+  if (path.startsWith('/api/operations'))         { if (!user) return err('Nieautoryzowany', 401); return handleOperations(request, env, user, url, path); }
   if (path.startsWith('/api/transport-orders'))   { if (!user) return err('Nieautoryzowany', 401); return handleTransportOrders(request, env, user, url, path); }
   if (path.startsWith('/api/driver-schedule'))    { if (!user) return err('Nieautoryzowany', 401); return handleDriverSchedule(request, env, user, url, path); }
   if (path.startsWith('/api/driver-scoring'))     { if (!user) return err('Nieautoryzowany', 401); return handleDriverScoring(request, env, user, url, path); }
@@ -9675,6 +10228,8 @@ async function handleRequest(request, env, url, path, ctx) {
   if (path.startsWith('/api/audit-log'))          { if (!user) return err('Nieautoryzowany', 401); return handleAuditLog(request, env, user, url, path); }
   if (path.startsWith('/api/budget-annual'))      { if (!user) return err('Nieautoryzowany', 401); return handleBudgetAnnual(request, env, user, url, path); }
   if (path.startsWith('/api/fuel-card-import'))   { if (!user) return err('Nieautoryzowany', 401); return handleFuelCardImport(request, env, user, url, path); }
+  if (path.startsWith('/api/automation-center'))  { if (!user) return err('Nieautoryzowany', 401); return handleAutomationCenter(request, env, user, url, path); }
+  if (path.startsWith('/api/integration-hub'))    { if (!user) return err('Nieautoryzowany', 401); return handleIntegrationHub(request, env, user, url, path); }
   if (path.startsWith('/api/integrations'))       { if (!user) return err('Nieautoryzowany', 401); return handleIntegrations(request, env, user, url, path); }
   if (path.startsWith('/api/tacho-ddd'))          { if (!user) return err('Nieautoryzowany', 401); return handleTachoDDD(request, env, user, url, path); }
   if (path.startsWith('/api/approval-levels'))    { if (!user) return err('Nieautoryzowany', 401); return handleApprovalLevels(request, env, user, url, path); }
@@ -11571,7 +12126,7 @@ async function handleFleetKpi(req, env, user, url) {
 const AC_PACKAGES = {
   basic:      ['dash','pojazdy','kierowcy','paliwo','szkody','mandaty','formularze','protokoly','powiadomienia','dt1-historia','faktury'],
   pro:        ['dash','pojazdy','kierowcy','paliwo','szkody','mandaty','formularze','protokoly','powiadomienia','dt1-historia','faktury',
-                'zlecenia','opony-magazyn','karty','tachograph','transport-orders','kalendarz','fleet-kanban','driver-scoring','driver-performance',
+                'zlecenia','opony-magazyn','karty','tachograph','transport-orders','operations-workbench','kalendarz','fleet-kanban','driver-scoring','driver-performance',
                 'budget','budget-annual','fuel-card-import','delegations','leasing-schedule','vehicle-equipment','vehicle-inventory',
                 'spare-parts','service-contracts','supplier-invoices','approvals','fleet-policies','driver-panel','driver-schedule',
                 'fleet-reservations','alert-dashboard','raporty','pdfexport','impexp','mapa'],
@@ -14044,6 +14599,9 @@ async function handleCarrierRatings(request, env, user, url, path) {
 // Ścieżki bez wpisu = zawsze dostępne (basic). Ścieżki z null w mapie — pomijamy.
 // Aktualizuj MODULE_ROUTES gdy dodajesz nowe płatne endpointy.
 const MODULE_ROUTES = [
+  ['/api/automation-center',      'finance'],
+  ['/api/integration-hub',        'webhooks'],
+  ['/api/operations',             'transport'],
   ['/api/predictive-maintenance', 'predictive'],
   ['/api/fuel-import-scheduler',  'fuel_import'],
   ['/api/supplier-invoices',      'finance'],

@@ -21,6 +21,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalacja zależności
+        run: npm ci
+
+      - name: Pełny audyt przed wdrożeniem
+        run: npm run audit:all
+
+      # Worker faz A–F odwołuje się do ręcznych migracji v54–v57. Publikacja
+      # przed ich wykonaniem dawałaby błędy 500, dlatego brak choć jednej tabeli
+      # blokuje deploy zamiast pozostawiać częściowo działającą produkcję.
+      - name: Preflight zdalnego D1 — migracje v54–v57
+        run: node tools/autotest/operations-release-preflight.js --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
       # Oficjalna akcja Cloudflare zamiast ręcznego `npm install -g wrangler@X` —
       # ten manualny wzorzec dwukrotnie psuł deploy (patrz CLAUDE.md, sekcja
       # Zamknięte: "Rozjazd wersji Wranglera ujednolicony" i "Hotfix: wrangler

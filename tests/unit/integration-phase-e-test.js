@@ -1,0 +1,21 @@
+#!/usr/bin/env node
+const fs=require('fs'),path=require('path');const ROOT=path.join(__dirname,'..','..');
+const worker=fs.readFileSync(path.join(ROOT,'worker','index.js'),'utf8'),ui=fs.readFileSync(path.join(ROOT,'modules','integration-hub.js'),'utf8'),html=fs.readFileSync(path.join(ROOT,'index.html'),'utf8'),sw=fs.readFileSync(path.join(ROOT,'sw.js'),'utf8');
+let pass=0,fail=0;const test=(m,v)=>{console.log(`  ${v?'✓':'✗'} ${m}`);v?pass++:fail++;};
+console.log('\nIntegration platform — faza E\n');
+test('API zawsze bierze tenant z tokenu',worker.includes('const company=user.company_id;')&&!worker.slice(worker.indexOf('async function handleIntegrationHub'),worker.indexOf('// ─── EXTERNAL INTEGRATIONS')).includes("url.searchParams.get('company')"));
+test('rejestr adapterów definiuje kontrakt ERPNext',worker.includes('INTEGRATION_ADAPTER_REGISTRY')&&['health','pull','push','reconcile'].every(x=>worker.includes(`'${x}'`)));
+test('ERPNext dopuszcza tylko publiczny HTTPS',worker.includes("parsed.protocol!=='https:'")&&worker.includes('UNSAFE_URL'));
+test('sekret jest pobierany z bindingu Workera',worker.includes("env?.[secretRef||'ERPNEXT_API_TOKEN']"));
+test('konfiguracja odrzuca sekrety zapisane w D1',worker.includes('Sekrety należy zapisać w konfiguracji Workera'));
+test('dry-run waliduje pola i chronologię',worker.includes('validateIntegrationRow')&&worker.includes('koniec nie może być przed początkiem'));
+test('dry-run ma limit 2000 rekordów',worker.includes('body.rows.slice(0,2000)'));
+test('import jest idempotentny i commit można odtworzyć',worker.includes('idempotency_key')&&worker.includes('replayed:true'));
+test('commit tworzy transport_order przez istniejącą oś operacji',worker.includes('INSERT INTO transport_orders')&&worker.includes("operation='import'"));
+test('UI deklaruje wszystkie wymagane formaty', ['CSV','TXT','XLS','XLSX','XLSM','XML','JSON'].every(x=>ui.includes(x)));
+test('XLSM jest tylko czytany przez SheetJS i nie wykonuje makr',ui.includes("['xls','xlsx','xlsm']")&&worker.includes('macros_executed:false'));
+test('XML odrzuca DTD i encje',ui.includes('/<!DOCTYPE|<!ENTITY/i'));
+test('eksport chroni przed CSV formula injection',ui.includes("/^[=+\\-@]/"));
+test('centrum jest podłączone do strony i cache PWA',html.includes('page-integration-hub')&&html.includes('modules/integration-hub.js')&&sw.includes("'/modules/integration-hub.js'"));
+test('harmonogram eksportu jest dostępny w UI i API',ui.includes('scheduleDialog')&&worker.includes('integration_schedules'));
+console.log(`\nWynik: ${pass} PASS / ${fail} FAIL\n`);process.exit(fail?1:0);

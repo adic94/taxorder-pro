@@ -34,6 +34,30 @@
       "group": "build"
     },
     {
+      "label": "UAT: centrum operacyjne E2E",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "uat:test:operations"],
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "UAT: plan migracji (bez zmian)",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "uat:migrate:plan"],
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "Release: preflight centrum operacyjnego",
+      "type": "shell",
+      "command": "node",
+      "args": ["tools/autotest/operations-release-preflight.js"],
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
       "label": "serve (lokalny http-server)",
       "type": "shell",
       "command": "npm",

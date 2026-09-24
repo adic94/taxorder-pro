@@ -8,5 +8,7 @@
  * Lokalny development (wrangler dev):
  *   window.CF_API_URL = 'http://localhost:8787';
  */
-window.CF_API_URL    = 'https://taxorder-pro-api.adamus1000.workers.dev';
+// Kontrolowany harness UAT może ustawić wartość przed załadowaniem strony przez
+// addInitScript. Brak override zachowuje dokładnie dotychczasową produkcję.
+window.CF_API_URL    = window.__TAXORDER_API_URL__ || 'https://taxorder-pro-api.adamus1000.workers.dev';
 window.CF_WORKER_URL = window.CF_API_URL;   // alias dla starszych modułów

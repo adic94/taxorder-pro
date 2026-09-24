@@ -98,6 +98,8 @@ CREATE INDEX IF NOT EXISTS idx_dt_company ON driver_trips(company_id, driver_id,
   <!-- Status aktywnej trasy (wypełniany przez JS) -->
   <div id="dpwa-active-trip" style="margin-bottom:16px"></div>
 
+  <div id="dpwa-dispatch" style="margin-bottom:18px"></div>
+
   <!-- Przyciski akcji -->
   <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
     <button class="dpwa-btn green" id="dpwa-start-btn" onclick="window.DriverPWA.startTrip()">
@@ -202,7 +204,36 @@ CREATE INDEX IF NOT EXISTS idx_dt_company ON driver_trips(company_id, driver_id,
 </div>`;
 
     _injectStyles();
-    await _loadTrips();
+    await Promise.all([_loadTrips(), _loadOperations()]);
+  }
+
+  async function _loadOperations() {
+    const el = document.getElementById('dpwa-dispatch');
+    if (!el) return;
+    try {
+      const response = await fetch(`${API()}/api/operations?company=${encodeURIComponent(Co())}&limit=30`, { headers: H() });
+      if (!response.ok) { el.innerHTML = ''; return; }
+      const data = await response.json();
+      const assigned = (data.operations || []).filter(item => ['dispatched','accepted','in_progress'].includes(item.state));
+      if (!assigned.length) { el.innerHTML = ''; return; }
+      el.innerHTML = `<h3 style="font-size:14px;margin:0 0 10px"><i class="ti ti-bell-ringing"></i> Zlecenia od dyspozytora</h3>${assigned.map(item => `<div style="padding:12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px"><strong>${e(item.title)}</strong><div style="font-size:12px;color:var(--text3);margin:4px 0">${e(item.route?.origin||'—')} → ${e(item.route?.destination||'—')} · ${fmtDT(item.schedule?.start)}</div>${item.state==='dispatched'?`<div style="display:flex;gap:8px"><button class="dpwa-btn green" style="padding:9px" data-id="${e(item.id)}" data-version="${e(item.version)}" onclick="window.DriverPWA.operationCommand(this.dataset.id,'operation.accept',Number(this.dataset.version))">Akceptuję</button><button class="dpwa-btn red" style="padding:9px" data-id="${e(item.id)}" data-version="${e(item.version)}" onclick="window.DriverPWA.operationCommand(this.dataset.id,'operation.reject',Number(this.dataset.version))">Odrzucam</button></div>`:`<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:11px;color:#16a34a;font-weight:600">${item.state==='accepted'?'Przyjęte':'W realizacji'}</span><button class="dpwa-btn blue" style="width:auto;padding:8px 12px" data-id="${e(item.id)}" data-version="${e(item.version)}" onclick="window.DriverPWA.captureOperationProof(this.dataset.id,Number(this.dataset.version))"><i class="ti ti-camera"></i> Dodaj POD</button></div>`}</div>`).join('')}`;
+    } catch { el.innerHTML = ''; }
+  }
+
+  async function operationCommand(id, commandType, version) {
+    try {
+      const response = await fetch(`${API()}/api/operations/${encodeURIComponent(id)}/commands?company=${encodeURIComponent(Co())}`, {
+        method: 'POST', headers: { ...H(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command_type: commandType, expected_version: version, idempotency_key: `driver:${id}:${commandType}:${Date.now()}`, payload: {} })
+      });
+      if (!response.ok) { const data = await response.json().catch(()=>({})); throw new Error(data.error || `HTTP ${response.status}`); }
+      await _loadOperations();
+    } catch (error) { alert('Nie udało się zaktualizować zlecenia: ' + error.message); }
+  }
+
+  function captureOperationProof(id, version) {
+    const input=document.createElement('input'); input.type='file'; input.accept='image/*,application/pdf'; input.capture='environment'; input.style.display='none'; document.body.appendChild(input);
+    input.onchange=async()=>{const file=input.files?.[0];input.remove();if(!file)return;const form=new FormData();form.append('file',file);form.append('proof_type',file.type.startsWith('image/')?'photo':'document');form.append('expected_version',String(version));form.append('idempotency_key',`driver:${id}:proof:${Date.now()}`);try{const response=await fetch(`${API()}/api/operations/${encodeURIComponent(id)}/proofs/upload?company=${encodeURIComponent(Co())}`,{method:'POST',headers:H(),body:form});if(!response.ok){const data=await response.json().catch(()=>({}));throw new Error(data.error||`HTTP ${response.status}`);}alert('POD został dodany.');await _loadOperations();}catch(error){alert('Nie udało się dodać POD: '+error.message);}};input.click();
   }
 
   // ─── LOAD TODAY'S TRIPS ──────────────────────────────────────────────────────
@@ -470,6 +501,8 @@ CREATE INDEX IF NOT EXISTS idx_dt_company ON driver_trips(company_id, driver_id,
     endTrip,
     scanDocument,
     sendMessage,
+    operationCommand,
+    captureOperationProof,
     // internals exposed for inline onclick handlers
     _openEndTripModal,
     _openMessageModal,

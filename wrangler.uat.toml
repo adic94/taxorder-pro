@@ -1,0 +1,36 @@
+# TaxOrder Pro — izolowane środowisko UAT. Nigdy nie wskazuje zasobów produkcyjnych.
+name = "taxorder-pro-api-uat"
+main = "worker/index.js"
+compatibility_date = "2025-01-01"
+account_id = "bb17d1d7a681084f377fd23989f29d7f"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "taxorder-pro-uat"
+database_id = "aee5038e-e7d4-4ae5-af51-b11fe7ae9008"
+
+[[r2_buckets]]
+binding = "DOCS"
+bucket_name = "taxorder-docs-uat"
+
+[[kv_namespaces]]
+binding = "PREFS"
+id = "b55a58de6c9b4ac3a70609ae96505d33"
+
+[ai]
+binding = "AI"
+
+[[queues.producers]]
+queue = "taxorder-pro-notifications-uat"
+binding = "NOTIF_QUEUE"
+
+[[queues.consumers]]
+queue = "taxorder-pro-notifications-uat"
+max_batch_size = 10
+max_batch_timeout = 30
+max_retries = 1
+
+[vars]
+ENVIRONMENT = "uat"
+MODULE_ENFORCEMENT = "off"
+VAPID_PUBLIC_KEY = "BLb0fmlA2iRulkwWHEIwQKYEnIWCvsRjQR55MHuxoKSNV7tczQ7Tr0cb-5Zo6N6C34UqIz10Or-ZV2eDQwd-EPE"

@@ -81,6 +81,44 @@ jobs:
       - name: Straznik kreatora raportow — spojnosc zrodel i kolumn
         run: node tests/unit/report-sources-test.js
 
+      # Faza A centrum operacyjnego: obecne transport_orders jest tylko zrodlem
+      # projekcji read-only. Test pilnuje kontraktu komend/zdarzen, braku pozornej
+      # implementacji osi operacji oraz podpiecia prototypu do UI.
+      - name: Kontrakt centrum operacyjnego — pion i tryb read-only
+        run: node tests/unit/operations-contract-test.js
+
+      # Migracja v54 jest ręczna i nie przechodzi przez glob schema_v*.sql.
+      # Test uruchamia ją wraz z triggerami na SQLite, sprawdza wersjonowanie,
+      # idempotencję, tenant guard, detektor konfliktów oraz bezpieczny rollback.
+      - name: Oś operacji v54 — migracja, współbieżność i rollback
+        run: node tests/unit/migration-v54-operations-test.js
+
+      # Faza C spina workbench, preview/commit, oś czasu i PWA kierowcy.
+      # Bramka pilnuje też, że kierowca nie widzi ani nie zmienia cudzych operacji.
+      - name: Workbench dyspozytorski — plan, dispatch i PWA
+        run: node tests/unit/operations-phase-c-test.js
+
+      - name: POD i rozliczenie — migracja v55 oraz kontrakt fazy D
+        run: |
+          node tests/unit/migration-v55-operations-test.js
+          node tests/unit/operations-phase-d-test.js
+
+      - name: Platforma integracji — migracja v56 oraz kontrakt fazy E
+        run: |
+          node tests/unit/migration-v56-integration-test.js
+          node tests/unit/integration-phase-e-test.js
+
+      - name: Automatyzacje kosztowe — migracja v57 oraz kontrakt fazy F
+        run: |
+          node tests/unit/migration-v57-automation-test.js
+          node tests/unit/automation-phase-f-test.js
+
+      - name: Centra operacyjne — katalogi, licencje i odtwarzanie sesji
+        run: node tests/unit/operations-centers-access-test.js
+
+      - name: Preflight wydania centrum operacyjnego
+        run: node tests/unit/operations-release-preflight-test.js
+
       # Oplata za korzystanie ze srodowiska. Test pilnuje przede wszystkim tego, ze przy
       # BRAKU stawek wyliczenie ODMAWIA, zamiast zwrocic zero — zerowa naleznosc wobec
       # urzedu marszalkowskiego wyglada wiarygodnie i nikt jej nie zakwestionuje.

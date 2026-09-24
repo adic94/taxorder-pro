@@ -510,6 +510,13 @@ body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;font-s
 
 /* --- Focus ringi dla dostępności --- */
 .btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.btn-primary,.btn-secondary,.btn-icon{border:1px solid var(--border);border-radius:var(--radius);font:inherit;cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s;min-height:36px}
+.btn-primary{background:var(--blue);border-color:var(--blue);color:#fff;padding:7px 12px}
+.btn-secondary{background:var(--bg2);color:var(--text);padding:7px 12px}
+.btn-icon{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;padding:0;background:var(--bg2);color:var(--text)}
+.btn-primary:focus-visible,.btn-secondary:focus-visible,.btn-icon:focus-visible,.op-gantt-row:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.btn-primary:disabled,.btn-secondary:disabled,.btn-icon:disabled{opacity:.55;cursor:not-allowed}
+.op-gantt-row{appearance:none;width:100%;padding:0;border:0;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}
 .toolbar input:focus,.toolbar select:focus,.f input:focus,.f select:focus,.f textarea:focus{box-shadow:0 0 0 3px rgba(24,95,165,.12)}
 .isel:focus,.inum:focus{box-shadow:0 0 0 2px rgba(24,95,165,.15)}
 
@@ -613,6 +620,14 @@ th{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
 /* ==================== MOBILE RESPONSIVENESS ==================== */
 /* Telefony ≤ 480px */
 @media(max-width:480px){
+  #page-integration-hub>div[style*="repeat(4"],
+  #page-automation-center>div[style*="repeat(4"]{grid-template-columns:1fr 1fr!important}
+  #page-integration-hub>div[style*="minmax(0,1.25fr)"],
+  #page-automation-center>div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}
+  #page-integration-hub section [style*="grid-template-columns:1fr 1fr"],
+  #page-automation-center section [style*="grid-template-columns:1fr 1fr"],
+  #operations-plan-overlay [style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}
+  #page-operations-workbench .table-wrap{overflow-x:auto}
   /* Topbar */
   .topbar{flex-wrap:wrap;gap:4px;padding:6px 10px}
   .yr-wrap label{display:none}

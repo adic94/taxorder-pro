@@ -22,7 +22,11 @@ let _slimTable = localStorage.getItem('slim_table') !== 'false';
 let _expandedVehId = null;
 
 // ── Konfiguracja API ──────────────────────────────────────────────────────────
-window.CF_WORKER_URL = 'https://taxorder-pro-api.adamus1000.workers.dev';
+// config/cf-config.js ładuje się przed app.js i może wskazywać UAT lub lokalnego
+// Workera. Ustawiaj produkcję wyłącznie jako wartość domyślną.
+window.CF_WORKER_URL = window.CF_WORKER_URL
+  || window.CF_API_URL
+  || 'https://taxorder-pro-api.adamus1000.workers.dev';
 
 // ==================== RATES (Warszawa 2026 + multi-gmina) ====================
 function getRate(v) {
@@ -429,6 +433,7 @@ function showPage(id) {
   if(id==='service-contracts')   window.ServiceContractsModule?.renderServiceContracts();
   if(id==='supplier-invoices')   window.SupplierInvoicesModule?.renderSupplierInvoices();
   if(id==='transport-orders')    window.TransportOrdersModule?.renderTransportOrders();
+  if(id==='operations-workbench') window.OperationsWorkbench?.render();
   if(id==='driver-schedule')     window.DriverScheduleModule?.renderDriverSchedule();
   if(id==='driver-scoring')      window.DriverScoringModule?.renderDriverScoring();
   if(id==='tco')                 window.TcoModule?.renderTco();
@@ -450,6 +455,8 @@ function showPage(id) {
   if(id==='fleet-reservations')  window.FleetReservationsModule?.renderFleetReservations();
   if(id==='epp-vat')             window.EppVatModule?.renderEppVat();
   if(id==='integrations')        window.IntegrationsModule?.renderIntegrations();
+  if(id==='integration-hub')    window.IntegrationHub?.render();
+  if(id==='automation-center')  window.AutomationCenter?.render();
   if(id==='tachograph')          window.TachographModule?.renderTachograph();
   if(id==='ev-charging')         window.EvCharging?.renderEvCharging();
   if(id==='insurance')           window.InsuranceModule?.renderInsurance();
@@ -4058,6 +4065,12 @@ function _renderDriversDash() {
 function _renderFleetCardsDash() {
   const el = document.getElementById('dash-fleet-cards');
   if (!el) return;
+  // Dashboard jest renderowany również za ekranem logowania. Nie wysyłaj wtedy
+  // anonimowego żądania, bo jego 401 pozostawało w widżecie po poprawnym logowaniu.
+  if (!localStorage.getItem('cf_token')) {
+    el.innerHTML = `<div style="font-size:11px;color:var(--text3)">Dane dostępne po zalogowaniu</div>`;
+    return;
+  }
   // _cardsLoaded/_cardsLoadError (app.js, sekcja KARTY FLOTOWE) rozróżniają
   // "jeszcze nie wczytano" od "wczytano, zero kart" — samo cards.length===0
   // nie odróżnia tych stanów i przy błędzie (401 itp.) powodowało nieskończone
@@ -5178,7 +5191,7 @@ function syncTpCel() {
 // ==================== TOAST ====================
 // Auto-translates common Polish prefixes when a non-PL language is active.
 // Dynamic suffixes (plate numbers, counts, etc.) are preserved as-is.
-function toast(msg) {
+function toast(msg, type = '') {
   if (window.I18n && window.I18n.getLang() !== 'pl') {
     msg = msg
       .replace(/^✓ Zapisano(\b|$)/,     window.t('toast.saved') + ' ')
@@ -5190,6 +5203,11 @@ function toast(msg) {
       .trim();
   }
   const el = document.getElementById('toast');
+  if (!el) return;
+  const isError = type === 'error' || /^(?:❌|⚠|Błąd|Nie udało)/i.test(String(msg));
+  el.setAttribute('role', isError ? 'alert' : 'status');
+  el.setAttribute('aria-live', isError ? 'assertive' : 'polite');
+  el.setAttribute('aria-atomic', 'true');
   el.innerHTML = `<i class="ti ti-check"></i> ${esc(msg)}`;
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 3000);
@@ -7826,6 +7844,12 @@ async function doLogin(){
   sessionStorage.setItem('dt1_user_email',u.email);
   window.FeatureConfig?.loadFlags();
 
+  // Usuń ewentualny 401 zapisany przez render dashboardu sprzed logowania i
+  // rozpocznij świeże, już uwierzytelnione pobranie kart.
+  _cardsLoaded = false;
+  _cardsLoadError = null;
+  _loadKarty().then(() => _renderFleetCardsDash());
+
   if(typeof loadCompanyState==='function'){
     loadCompanyState(currentCompanyId);
     updateCompanyUI();
@@ -8357,6 +8381,9 @@ async function _migrateKartyLocalStorage() {
 
 async function _loadKarty() {
   if (_cardsLoading) return;
+  // Aplikacja renderuje dashboard jeszcze przed odtworzeniem sesji. Brak tokenu
+  // oznacza "jeszcze nie zalogowano", a nie błąd endpointu.
+  if (!localStorage.getItem('cf_token')) return;
   _cardsLoading = true;
   try {
     await _migrateKartyLocalStorage();
@@ -9776,7 +9803,8 @@ window.addEventListener('load', async () => {
 
   // Sprawdź zapamiętaną sesję użytkownika
   const savedEmail = sessionStorage.getItem('dt1_user_email');
-  if(savedEmail){
+  const savedToken = localStorage.getItem('cf_token');
+  if(savedEmail && savedToken){
     const u=users.find(x=>x.email===savedEmail&&x.active);
     if(u){
       currentUser=u;
@@ -9789,6 +9817,9 @@ window.addEventListener('load', async () => {
       applyRoleAccess(u.role);
       window.FeatureConfig?.loadFlags();
     }
+  } else if (savedEmail) {
+    // Nie traktuj samego sessionStorage jako sesji — token backendu jest wymagany.
+    sessionStorage.removeItem('dt1_user_email');
   }
   renderDash();
   window.renderVeh();

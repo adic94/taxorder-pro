@@ -46,9 +46,11 @@
       { key: 'driver-wages',     label: 'Wynagrodzenia',        icon: 'ti-cash' },
       { key: 'driver-schedule',  label: 'Grafik kierowców',     icon: 'ti-calendar-week' },
       { key: 'driver-panel',     label: 'Panel kierowcy',       icon: 'ti-steering-wheel' },
+      { key: 'driver-pwa',       label: 'Aplikacja kierowcy',   icon: 'ti-device-mobile' },
       { key: 'reservations',     label: 'Rezerwacje',           icon: 'ti-calendar-event' },
     ]},
     { label: 'Flota — Operacje', items: [
+      { key: 'operations-workbench',label:'Centrum operacyjne', icon: 'ti-layout-dashboard' },
       { key: 'fleet-reservations',label:'Rezerwacje pojazdów',  icon: 'ti-calendar-event' },
       { key: 'fleet-policies',   label: 'Polityki flotowe',     icon: 'ti-settings-2' },
       { key: 'spare-parts',      label: 'Magazyn części',       icon: 'ti-package' },
@@ -77,6 +79,8 @@
       { key: 'currency',         label: 'Waluty',               icon: 'ti-currency-zloty' },
     ]},
     { label: 'Integracje & Tech', items: [
+      { key: 'integration-hub',  label: 'Centrum integracji',   icon: 'ti-arrows-exchange' },
+      { key: 'automation-center',label: 'Automatyzacje kosztowe',icon: 'ti-bolt' },
       { key: 'geofencing',       label: 'Geofencing',           icon: 'ti-map-pin-check' },
       { key: 'gps-integrations', label: 'GPS Integracje',       icon: 'ti-satellite' },
       { key: 'smart-forms',      label: 'Smart Forms',          icon: 'ti-forms' },

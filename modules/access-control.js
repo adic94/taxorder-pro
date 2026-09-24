@@ -25,12 +25,14 @@
     { id:'karty',             label:'Karty paliwowe',        cat:'Finanse',      pkg:'pro',        icon:'ti-credit-card' },
     { id:'tachograph',        label:'Tachograf',             cat:'Kierowcy',     pkg:'pro',        icon:'ti-clock' },
     { id:'transport-orders',  label:'Zlecenia transportu',   cat:'Transport',    pkg:'pro',        icon:'ti-truck' },
+    { id:'operations-workbench',label:'Centrum operacyjne',   cat:'Transport',    pkg:'pro',        icon:'ti-layout-dashboard' },
     { id:'kalendarz',         label:'Kalendarz floty',       cat:'Flota',        pkg:'pro',        icon:'ti-calendar' },
     { id:'fleet-kanban',      label:'Kanban floty',          cat:'Flota',        pkg:'pro',        icon:'ti-layout-board' },
     { id:'driver-scoring',    label:'Eco-driving / Scoring', cat:'Kierowcy',     pkg:'pro',        icon:'ti-star' },
     { id:'driver-performance',label:'Wyniki kierowców',      cat:'Kierowcy',     pkg:'pro',        icon:'ti-chart-line' },
     { id:'driver-schedule',   label:'Harmonogram kierowców', cat:'Kierowcy',     pkg:'pro',        icon:'ti-calendar-stats' },
     { id:'driver-panel',      label:'Panel kierowcy (PWA)',  cat:'Kierowcy',     pkg:'pro',        icon:'ti-device-mobile' },
+    { id:'driver-pwa',        label:'Aplikacja kierowcy',    cat:'Kierowcy',     pkg:'pro',        icon:'ti-steering-wheel' },
     { id:'budget',            label:'Budżet floty',          cat:'Finanse',      pkg:'pro',        icon:'ti-wallet' },
     { id:'budget-annual',     label:'Budżet roczny',         cat:'Finanse',      pkg:'pro',        icon:'ti-chart-pie' },
     { id:'fuel-card-import',  label:'Import kart paliw',     cat:'Finanse',      pkg:'pro',        icon:'ti-file-upload' },
@@ -72,6 +74,8 @@
     { id:'vies-validator',    label:'VIES — weryfikacja VAT', cat:'Integracje',  pkg:'enterprise', icon:'ti-shield-half' },
     { id:'epp-vat',           label:'EPP VAT',               cat:'Podatki',      pkg:'enterprise', icon:'ti-receipt-tax' },
     { id:'integrations',      label:'Integracje zewnętrzne', cat:'Integracje',   pkg:'enterprise', icon:'ti-plug' },
+    { id:'integration-hub',   label:'Centrum integracji',    cat:'Integracje',   pkg:'enterprise', icon:'ti-arrows-exchange' },
+    { id:'automation-center', label:'Automatyzacje kosztowe',cat:'Finanse',      pkg:'enterprise', icon:'ti-bolt' },
     { id:'onboarding',        label:'Onboarding',            cat:'System',       pkg:'enterprise', icon:'ti-rocket' },
     { id:'walidacja',         label:'Walidacja danych',      cat:'System',       pkg:'enterprise', icon:'ti-check' },
   ];
@@ -94,6 +98,10 @@
   let _tab       = 'package';
   let _editUser  = null;   // user being edited in modal
   let _allowed   = null;   // null = unlimited | Set of allowed module IDs
+  const MODULE_ALIASES = {
+    'driver-pwa': ['driver-pwa', 'driver-panel'],
+    'driver-panel': ['driver-panel', 'driver-pwa'],
+  };
 
   // ── Init: pobierz uprawnienia bieżącego użytkownika ──────────────────────
   async function init() {
@@ -112,7 +120,7 @@
 
   function canAccess(moduleId) {
     if (_allowed === null) return true; // unlimited (enterprise lub nie załadowano)
-    return _allowed.has(moduleId);
+    return (MODULE_ALIASES[moduleId] || [moduleId]).some(id => _allowed.has(id));
   }
 
   function _applyToSidebar() {

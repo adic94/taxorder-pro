@@ -53,7 +53,22 @@
     "sg:xss": "sg run -p '$EL.innerHTML = $X' modules/*.js app.js",
     "pw:mcp": "playwright-mcp --headless",
     "lint:all": "eslint worker/index.js modules/*.js app.js && node tools/autotest/xss-audit.js",
-    "test:migration-apply": "node tests/unit/migration-apply-test.js"
+    "test:migration-apply": "node tests/unit/migration-apply-test.js",
+    "test:operations-contract": "node tests/unit/operations-contract-test.js",
+    "test:operations-axis": "node tests/unit/migration-v54-operations-test.js",
+    "test:operations-workbench": "node tests/unit/operations-phase-c-test.js",
+    "test:operations-pod": "node tests/unit/migration-v55-operations-test.js && node tests/unit/operations-phase-d-test.js",
+    "test:integration-platform": "node tests/unit/migration-v56-integration-test.js && node tests/unit/integration-phase-e-test.js",
+    "test:cost-automation": "node tests/unit/migration-v57-automation-test.js && node tests/unit/automation-phase-f-test.js",
+    "test:operations-access": "node tests/unit/operations-centers-access-test.js",
+    "release:preflight": "node tools/autotest/operations-release-preflight.js",
+    "release:preflight:remote": "node tools/autotest/operations-release-preflight.js --remote",
+    "uat:migrate:plan": "node tools/uat/migrate-uat.js",
+    "uat:migrate": "node tools/uat/migrate-uat.js --apply",
+    "uat:seed": "node tools/uat/seed-uat.js",
+    "uat:deploy": "wrangler deploy --config wrangler.uat.toml",
+    "uat:test:operations": "node tools/uat/run-operations-e2e.js",
+    "test:e2e:operations": "playwright test tests/e2e/operations-center-acceptance.spec.js --project=chromium"
   },
   "devDependencies": {
     "@ast-grep/cli": "^0.44.1",

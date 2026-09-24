@@ -5,6 +5,7 @@ const { defineConfig, devices } = require('@playwright/test');
 // Plik .auth-state.json tworzony przez globalSetup przy każdym uruchomieniu CI.
 // Lokalnie: powstaje po pierwszym `npm run test:e2e` z ustawionymi zmiennymi.
 const AUTH_STATE = 'tests/e2e/.auth-state.json';
+const LOCAL_PORT = process.env.UAT_API_URL ? 3101 : 3000;
 const HAS_TEST_AUTH = Boolean(
   process.env.TEST_TOKEN
   || (process.env.TEST_EMAIL && process.env.TEST_PASS)
@@ -27,13 +28,16 @@ module.exports = defineConfig({
   ],
 
   use: {
-    baseURL: process.env.TEST_URL || 'http://localhost:3000',
+    baseURL: process.env.TEST_URL || `http://localhost:${LOCAL_PORT}`,
     // Każdy test startuje z przywróconym stanem logowania (bez ponownego logowania przez API)
     storageState: HAS_TEST_AUTH ? AUTH_STATE : undefined,
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     trace: 'on-first-retry',
     locale: 'pl-PL',
+    // W UAT config Workera jest przechwytywany przez Playwright. Service Worker z
+    // lokalnego cache omijał route i kierował część modułów z powrotem na produkcję.
+    serviceWorkers: process.env.UAT_API_URL ? 'block' : 'allow',
   },
 
   projects: [
@@ -50,9 +54,11 @@ module.exports = defineConfig({
 
   // Uruchom http-server przed testami (jeśli nie ma zewnętrznego serwera)
   webServer: process.env.TEST_URL ? undefined : {
-    command: 'npx http-server . -p 3000 -c-1 --silent',
-    url: 'http://localhost:3000',
-    reuseExistingServer: true,
+    command: `npx http-server . -p ${LOCAL_PORT} -c-1 --silent`,
+    url: `http://localhost:${LOCAL_PORT}`,
+    // UAT musi dostać świeży serwer. Pozostawiony proces na 3000 może serwować
+    // starszą konfigurację i skierować testy na produkcyjnego Workera.
+    reuseExistingServer: !process.env.UAT_API_URL,
     timeout: 10_000,
   },
 });
