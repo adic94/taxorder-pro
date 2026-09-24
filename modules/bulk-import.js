@@ -63,6 +63,22 @@ window.BulkImport = (function () {
     skipped:     { label: 'Pominięty',     cls: 'var(--text3)' },
   };
 
+  // Pewność zwracana przez `/api/bulk/classify` (AI Groq Vision, worker/index.js:13440)
+  // jest PER DOKUMENT (deklarowana przez model), nie per pole — model nie jest o to
+  // proszony przy ekstrakcji (`/api/bulk/extract` w ogóle nie zwraca confidence).
+  // Odznaka pokazuje więc dokładnie to, co system faktycznie wie, bez udawania
+  // dokładniejszego sygnału, którego nikt nie policzył.
+  const CONF_META = {
+    high:   { label: 'pewne',    col: '#16a34a' },
+    medium: { label: 'sprawdź',  col: '#d97706' },
+    low:    { label: 'niepewne', col: '#dc2626' },
+  };
+  function _confBadge(conf) {
+    const m = CONF_META[conf];
+    if (!m) return '';
+    return ` <span style="font-size:9px;padding:1px 5px;border-radius:99px;border:1px solid ${m.col};color:${m.col}" title="Pewność zgłoszona przez AI (per dokument)">${m.label}</span>`;
+  }
+
   // ── Stan modułu ────────────────────────────────────────────────────────────
   let _queue   = [];
   let _running = false;
@@ -168,6 +184,55 @@ window.BulkImport = (function () {
     });
   }
 
+  // Render lekki pod API wizyjne (nie pod dekodowanie Aztec) — te same 150 DPI/JPEG 0.92
+  // co `modules/dr-import.js` PDF_OCR, żeby nie było trzeciej kopii "jakie ustawienia
+  // renderu PDF pod OCR". WYŻSZA gęstość (300 DPI, jak w PDF_AZTEC) jest tu niepotrzebna
+  // i tylko powiększa payload — model językowy czyta tekst, nie moduły kodu 2D.
+  const PDF_VISION = { dpi: 150, format: 'image/jpeg', quality: 0.92 };
+
+  async function _pdfPageCount(file) {
+    try {
+      const pdf = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer(), isEvalSupported: false }).promise;
+      return pdf.numPages;
+    } catch { return 1; }
+  }
+
+  async function _pdfPageBlob(file, pageNum, opts = PDF_VISION) {
+    try {
+      const pdf  = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer(), isEvalSupported: false }).promise;
+      const page = await pdf.getPage(pageNum);
+      const vp   = page.getViewport({ scale: (opts.dpi || 150) / 72 });
+      const canvas = document.createElement('canvas');
+      canvas.width = vp.width; canvas.height = vp.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+      return await new Promise(res => canvas.toBlob(res, opts.format || 'image/jpeg', opts.quality));
+    } catch { return null; }
+  }
+
+  /**
+   * Plik gotowy do wysłania do `/api/bulk/classify`/`/api/bulk/extract`.
+   *
+   * PRZED TĄ ZMIANĄ dla PDF-ów szedł do tych endpointów SUROWY plik PDF zakodowany
+   * base64 z `mimeType: 'application/pdf'` — endpoint wysyła go dalej do modelu
+   * WIZYJNEGO (`_bulkGroqVision`, worker/index.js:13444/13476), który oczekuje obrazu,
+   * nie strumienia PDF. AI OCR całej skrzynki dla PDF-ów (większość realnych skanów)
+   * był więc cichym zgadywaniem albo błędem API, nie prawdziwą ekstrakcją.
+   *
+   * `pageHint` pozwala wymusić konkretną stronę (np. ostatnią dla DR, gdzie kod Aztec
+   * i część adnotacji bywają na końcu — patrz `modules/aztec-scanner.js`); domyślnie
+   * strona 1, bo większość dokumentów flotowych (faktury, polisy, protokoły) niesie
+   * kluczowe dane na pierwszej stronie.
+   */
+  async function _fileForApi(file, pageHint) {
+    if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
+      return { blob: file, mimeType: file.type || 'image/jpeg' };
+    }
+    const strona = pageHint || 1;
+    const blob = await _pdfPageBlob(file, strona, PDF_VISION);
+    if (!blob) return { blob: file, mimeType: file.type || 'application/pdf', renderFailed: true };
+    return { blob, mimeType: PDF_VISION.format };
+  }
+
   // Wyciąga tekst z PDF bez OCR (dla PDF-ów wygenerowanych elektronicznie, nie skanów)
   async function _extractPdfText(file) {
     const buf = await file.arrayBuffer();
@@ -216,25 +281,28 @@ window.BulkImport = (function () {
   }
 
   // ── API calls ──────────────────────────────────────────────────────────────
-  async function _apiClassify(file) {
+  // `blob` musi być już OBRAZEM (JPEG/PNG) — dla PDF-ów wywołujący renderuje stronę
+  // przez `_fileForApi`/`_pdfPageBlob` PRZED wywołaniem; te dwie funkcje same tego
+  // nie robią, żeby nie renderować tej samej strony dwa razy w jednym przebiegu.
+  async function _apiClassify(blob, mimeType, filename) {
     try {
-      const base64  = await _toBase64(file);
+      const base64 = await _toBase64(blob);
       const r = await fetch(`${API()}/api/bulk/classify`, {
         method:  'POST',
         headers: { ...hdrs(), 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ imageBase64: base64, mimeType: file.type || 'image/jpeg', filename: file.name }),
+        body:    JSON.stringify({ imageBase64: base64, mimeType: mimeType || blob.type || 'image/jpeg', filename }),
       });
       return r.ok ? await r.json() : null;
     } catch { return null; }
   }
 
-  async function _apiExtract(file, docType) {
+  async function _apiExtract(blob, mimeType, docType) {
     try {
-      const base64 = await _toBase64(file);
+      const base64 = await _toBase64(blob);
       const r = await fetch(`${API()}/api/bulk/extract`, {
         method:  'POST',
         headers: { ...hdrs(), 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ imageBase64: base64, mimeType: file.type || 'image/jpeg', docType }),
+        body:    JSON.stringify({ imageBase64: base64, mimeType: mimeType || blob.type || 'image/jpeg', docType }),
       });
       return r.ok ? await r.json() : null;
     } catch { return null; }
@@ -268,6 +336,27 @@ window.BulkImport = (function () {
         body: JSON.stringify({ nr_rej: vehicleNr, fields: item.data || {}, r2Key: item.r2Key }),
       });
       if (!r.ok) throw new Error('DR save ' + r.status);
+
+      // Ślad źródeł dla eksportu DR (modules/dr-export.js) — ta sama mechanika co
+      // w modules/dr-import.js: bez zmiany schematu D1, przez /api/docs. Bulk-import
+      // idzie zawsze przez AI Vision (Groq), nigdy przez dekodowanie Aztec, więc
+      // źródło jest jednoznacznie 'ocr'.
+      //
+      // UWAGA: prompt handleBulkExtract (worker/index.js:13465) zwraca dla typu 'dr'
+      // klucze rok/pojemnosc/moc/dataWaznosci — INNE niż kanoniczne rokProd/pojSilnika/
+      // mocKW z modules/dr-fields.js. `scalRekordy` po prostu je zignoruje (nie ma dla
+      // nich wpisu w katalogu), więc nic się nie psuje — ale te cztery pola NIE trafią
+      // do eksportu DR przez tę ścieżkę. Nie przemianowuję ich tutaj na spudłowane
+      // dopasowanie — to by było zgadywanie; realna naprawa to ujednolicenie promptu
+      // ekstrakcji z katalogiem, osobne zadanie.
+      if (window.TaxOrderDrExport) {
+        const pola = {};
+        for (const [k, v] of Object.entries(item.data || {})) {
+          if (v == null || v === '') continue;
+          pola[k] = { wartosc: v, zrodlo: 'ocr' };
+        }
+        window.TaxOrderDrExport.emitAuditSidecar({ vin: item.data?.vin || null, nrRej: vehicleNr, pola, odrzucone: [] }).catch(() => {});
+      }
     } else if (item.type === 'oc' || item.type === 'ac') {
       // Polisy: zapisz dane polisy do tabeli polisy
       const r = await fetch(`${API()}/api/bulk/save-policy?company=${company()}`, {
@@ -350,12 +439,32 @@ window.BulkImport = (function () {
         } catch { /* PDF zaszyfrowany lub binarny — idź do AI OCR */ }
       }
 
-      // Krok 2: jeśli nadal nie dopasowano → AI OCR dla numeru rej. i klasyfikacji
+      // Krok 2: jeśli nadal nie dopasowano → AI OCR dla numeru rej. i klasyfikacji.
+      // Dla PDF: strona 1 najpierw; gdy nic nie dała I dokument ma więcej stron,
+      // spróbuj OSTATNIEJ (DR ma tam kod Aztec i adnotacje — patrz aztec-scanner.js;
+      // wielostronicowe protokoły/faktury bywają podsumowane na ostatniej stronie).
+      const jestPdf = /\.pdf$/i.test(item.name) || item.file.type === 'application/pdf';
+      let strony = 1;
       if (!veh) {
         item.status = 'identifying';
         _renderProgress();
-        const ai = await _apiClassify(item.file);
+        const { blob, mimeType, renderFailed } = await _fileForApi(item.file, 1);
+        if (renderFailed) item._renderWarn = 'Nie udało się wyrenderować PDF do obrazu — OCR pominięty';
+        let ai = renderFailed ? null : await _apiClassify(blob, mimeType, item.name);
+
+        if ((!ai || (!ai.plate && !ai.vin)) && jestPdf) {
+          strony = await _pdfPageCount(item.file);
+          if (strony > 1) {
+            const ostatnia = await _fileForApi(item.file, strony);
+            if (!ostatnia.renderFailed) {
+              const ai2 = await _apiClassify(ostatnia.blob, ostatnia.mimeType, item.name);
+              if (ai2 && (ai2.plate || ai2.vin)) { ai = ai2; item._stronaUzyta = strony; }
+            }
+          }
+        }
+
         if (ai) {
+          item.confidence = ai.confidence || null;
           if (ai.plate) { item.plate = ai.plate; }
           if (ai.type && item.type === 'other') { item.type = ai.type; }
           // VIN z AI (dokładniejszy od tablicy)
@@ -376,10 +485,15 @@ window.BulkImport = (function () {
       item.vehicleId = veh.id;
       item.vehicleNr = (veh.nrRej || veh.nr_rej || '').toUpperCase();
 
-      // Krok 3: wyciąganie danych strukturalnych (AI)
+      // Krok 3: wyciąganie danych strukturalnych (AI) — ta sama strona, na której
+      // udało się dopasować pojazd w kroku 2 (żeby nie renderować drugi raz stronę,
+      // która i tak nie zawiera danych; dla obrazów i dopasowania z nazwy/treści PDF
+      // to po prostu strona 1).
       item.status = 'extracting';
       _renderProgress();
-      const extracted = await _apiExtract(item.file, item.type);
+      const stronaEkstrakcji = item._stronaUzyta || 1;
+      const { blob: exBlob, mimeType: exMime, renderFailed: exRenderFailed } = await _fileForApi(item.file, stronaEkstrakcji);
+      const extracted = exRenderFailed ? null : await _apiExtract(exBlob, exMime, item.type);
       item.data = extracted?.fields || extracted || {};
       // Jeśli AI znalazł tablicę/VIN w treści i my jeszcze nie mamy — próbuj dopasować
       if (extracted?.vin && !item.vehicleNr) {
@@ -436,7 +550,59 @@ window.BulkImport = (function () {
   }
 
   // ── Zapisz wszystkie dopasowane ───────────────────────────────────────────
-  async function _saveAll() {
+  /**
+   * Twarda bramka preview/approve. WCZEŚNIEJ przycisk "Zapisz dopasowane" leciał
+   * prosto do `_doSaveAll()` — każdy wiersz oznaczony "matched" (w tym cichym,
+   * automatycznym dopasowaniem z nazwy pliku albo AI OCR o niskiej pewności) szedł
+   * do bazy bez pokazania człowiekowi, CO konkretnie zostanie zapisane. Teraz najpierw
+   * pokazujemy podsumowanie i wymagamy jawnego kliknięcia.
+   */
+  function _saveAll() {
+    const ready = _queue.filter(i => i.status === 'matched');
+    if (!ready.length) { window.toast?.('Brak gotowych rekordów do zapisania'); return; }
+
+    const existing = document.getElementById('bi-confirm-modal');
+    if (existing) existing.remove();
+
+    const niepewne = ready.filter(i => i.confidence === 'low' || !i.vehicleNr);
+    const wgTypu = {};
+    for (const i of ready) wgTypu[i.type] = (wgTypu[i.type] || 0) + 1;
+    const podsumowanieTypow = Object.entries(wgTypu)
+      .map(([t, n]) => `${(TYPE_META[t] || TYPE_META.other).label}: <strong>${n}</strong>`).join(' · ');
+
+    const wiersze = ready.slice(0, 12).map(i => `
+      <div style="display:flex;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px">
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(i.name)}">${esc(i.name)}</span>
+        <span style="width:90px;flex-shrink:0;font-weight:600">${esc(i.vehicleNr || '—')}</span>
+        <span style="width:110px;flex-shrink:0;color:var(--text2)">${esc((TYPE_META[i.type] || TYPE_META.other).label)}</span>
+        ${_confBadge(i.confidence)}
+      </div>`).join('');
+
+    const html = `<div id="bi-confirm-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10500;display:flex;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)this.remove()">
+      <div style="background:var(--bg);border-radius:var(--radius-lg);width:560px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 8px 60px rgba(0,0,0,.35)">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+          <i class="ti ti-shield-check" style="font-size:20px;color:var(--blue)"></i>
+          <strong>Zatwierdź zapis ${ready.length} dokumentów</strong>
+          <button onclick="document.getElementById('bi-confirm-modal').remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:20px">×</button>
+        </div>
+        <div style="padding:14px 20px;overflow-y:auto;flex:1">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:10px">${podsumowanieTypow}</div>
+          ${niepewne.length ? `<div style="font-size:12px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:var(--radius);padding:8px 12px;margin-bottom:10px">
+            <i class="ti ti-alert-triangle"></i> ${niepewne.length} dok. z niepewnym dopasowaniem (AI OCR, niska pewność) — sprawdź nr rej. przed zatwierdzeniem.
+          </div>` : ''}
+          ${wiersze}
+          ${ready.length > 12 ? `<div style="font-size:11px;color:var(--text3);padding:6px 0">…i ${ready.length - 12} więcej</div>` : ''}
+        </div>
+        <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn-gray" onclick="document.getElementById('bi-confirm-modal').remove()">Anuluj</button>
+          <button class="btn btn-green" onclick="document.getElementById('bi-confirm-modal').remove();BulkImport._doSaveAll()"><i class="ti ti-device-floppy"></i> Zatwierdź i zapisz</button>
+        </div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+
+  async function _doSaveAll() {
     const ready = _queue.filter(i => i.status === 'matched');
     if (!ready.length) { window.toast?.('Brak gotowych rekordów do zapisania'); return; }
 
@@ -550,6 +716,7 @@ window.BulkImport = (function () {
         </span>
         <span style="width:120px;flex-shrink:0;color:${sm.cls}">
           ${isProcessing ? '<i class="ti ti-loader ti-spin" style="font-size:11px"></i> ' : ''}${esc(sm.label)}
+          ${_confBadge(item.confidence)}
         </span>
         <div style="flex-shrink:0;display:flex;gap:4px">
           ${item.status === 'unmatched' || item.status === 'error'
@@ -732,6 +899,7 @@ window.BulkImport = (function () {
           data:      {},
           r2Key:     null,
           error:     null,
+          confidence:null,
         });
         added++;
       }
@@ -795,6 +963,7 @@ window.BulkImport = (function () {
     _onScroll,
     _toggleRun,
     _saveAll,
+    _doSaveAll,
     _openAssignPicker,
     _filterAssign,
     _assignVeh,

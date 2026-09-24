@@ -251,3 +251,20 @@ jobs:
       # dopoki istnieja trzy kopie, to jedyne, co nie pozwoli im sie znowu rozjechac.
       - name: Straznik importu paliwa — kwota brutto, nie netto
         run: node tests/unit/fuel-csv-test.js
+
+      # Audyt przekrojowy 31.08 znalazl, ze zapis OCR faktury paliwa POSTowal do
+      # /api/fuel-records — endpointu, ktorego Worker nigdy nie rejestrowal. Podglad
+      # dzialal (przegladarka), sam zapis zawsze konczyl sie 404. Bramka pilnuje, ze
+      # moduł buduje żądanie do realnego /api/fuel-fills, pod nazwami pol (nr_rej/
+      # fill_date/liters), ktorych Worker faktycznie oczekuje — nie tylko, ze URL
+      # sie zmienil.
+      - name: Straznik zapisu faktur paliwa — trafia w realny endpoint
+        run: node tests/unit/fuel-invoice-endpoint-test.js
+
+      # Skrzynka dokumentow (bulk-import.js) wysylala surowe PDF-y do API wizyjnego
+      # (mimeType application/pdf zamiast wyrenderowanego obrazu) i zapisywala
+      # wszystko ze statusem "matched" bez zadnego potwierdzenia. Bramka pilnuje
+      # renderu PDF->obraz, proby kolejnej strony, twardej bramki zatwierdzenia
+      # przed zapisem i emisji sladu zrodel dla eksportu DR.
+      - name: Straznik skrzynki dokumentow — render PDF, bramka zatwierdzenia
+        run: node tests/unit/bulk-import-safety-test.js

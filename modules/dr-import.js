@@ -93,7 +93,7 @@ window.TaxOrderDrImport = (function () {
     return out;
   }
 
-  async function _saveDr(nr_rej, fields, r2Key, unarchive, createIfMissing) {
+  async function _saveDr(nr_rej, fields, r2Key, unarchive, createIfMissing, method) {
     const safeFields = _sanitizeDrFields(fields);
     const manifest = {
       source: 'dr-import',
@@ -113,7 +113,25 @@ window.TaxOrderDrImport = (function () {
       headers: { ...hdrs(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ nr_rej, fields: safeFields, r2Key, unarchive, createIfMissing, sourceMeta: manifest }),
     });
-    return r.ok ? await r.json() : null;
+    if (!r.ok) return null;
+    const wynik = await r.json();
+
+    // Ślad źródeł dla eksportu DR (modules/dr-export.js) — bez zmiany schematu D1,
+    // przez already-istniejący magazyn dokumentów. Zapis DR jest już zatwierdzony
+    // przez człowieka na tym etapie (manifest.reviewed:true powyżej), więc gate
+    // preview/approve jest zachowany — to tylko dopisanie skąd wzięły się wartości.
+    if (wynik?.ok && window.TaxOrderDrExport) {
+      const zrodlo = method === 'AZTEC' ? 'aztec' : 'ocr';
+      const pola = {};
+      for (const [k, v] of Object.entries(safeFields)) {
+        if (v == null || v === '') continue;
+        pola[k] = { wartosc: v, zrodlo };
+      }
+      window.TaxOrderDrExport.emitAuditSidecar({
+        vin: safeFields.vin || null, nrRej: nr_rej, pola, odrzucone: manifest.rejected,
+      }).catch(() => {});
+    }
+    return wynik;
   }
 
   // ── Aztec + OCR pipeline ─────────────────────────────────────────────────────
@@ -314,7 +332,7 @@ window.TaxOrderDrImport = (function () {
         if (result) {
           const veh = _findVeh(result.fields.nrRej);
           if (veh) {
-            await _saveDr(veh.nr_rej, result.fields, f.key, false, false);
+            await _saveDr(veh.nr_rej, result.fields, f.key, false, false, result.method);
             if (statusEl) statusEl.innerHTML = `<span style="color:var(--green);font-size:11px"><i class="ti ti-check"></i> ${esc(veh.nr_rej)} zaktualizowany (${result.method})</span>`;
             processed++;
           } else {
@@ -492,7 +510,7 @@ window.TaxOrderDrImport = (function () {
 
         <div style="display:flex;gap:8px;justify-content:flex-end">
           <button class="btn btn-gray" onclick="document.getElementById('dri-modal').remove()">Anuluj</button>
-          <button class="btn btn-blue" id="dri-save-btn" data-key="${esc(r2Key)}" data-archived="${isArchived?'1':'0'}" data-new="${isNew?'1':'0'}" onclick="TaxOrderDrImport._save(this.dataset.key,this.dataset.archived==='1',this.dataset.new==='1')">
+          <button class="btn btn-blue" id="dri-save-btn" data-key="${esc(r2Key)}" data-archived="${isArchived?'1':'0'}" data-new="${isNew?'1':'0'}" data-method="${esc(method||'')}" onclick="TaxOrderDrImport._save(this.dataset.key,this.dataset.archived==='1',this.dataset.new==='1',this.dataset.method)">
             <i class="ti ti-check"></i>${isNew ? 'Dodaj pojazd' : isArchived ? 'Reaktywuj i zaktualizuj' : 'Zaktualizuj dane pojazdu'}
           </button>
         </div>
@@ -503,7 +521,7 @@ window.TaxOrderDrImport = (function () {
     document.body.insertAdjacentHTML('beforeend', html);
   }
 
-  async function _save(r2Key, isArchived, isNew) {
+  async function _save(r2Key, isArchived, isNew, method) {
     const g = id => document.getElementById('dri-f-' + id)?.value?.trim() || null;
     const nr_rej = g('nrRej');
     if (!nr_rej) { window.toast?.('Podaj numer rejestracyjny'); return; }
@@ -535,7 +553,7 @@ window.TaxOrderDrImport = (function () {
     const btn = document.getElementById('dri-save-btn');
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader ti-spin"></i>Zapisuję...'; }
 
-    const result = await _saveDr(nr_rej, fields, r2Key, unarchive, createIfMissing);
+    const result = await _saveDr(nr_rej, fields, r2Key, unarchive, createIfMissing, method);
     document.getElementById('dri-modal')?.remove();
 
     if (result) {

@@ -309,29 +309,39 @@ window.OcrFuelInvoices = (function () {
   /*  Save                                                                */
   /* ------------------------------------------------------------------ */
   async function save() {
-    const vehicle_id  = document.getElementById('ocr-vehicle')?.value;
-    const data_tanko  = document.getElementById('ocr-data')?.value;
-    const litery      = parseFloat(document.getElementById('ocr-liters')?.value)  || 0;
-    const cena_brutto = parseFloat(document.getElementById('ocr-total')?.value)   || 0;
-    const stacja      = document.getElementById('ocr-station')?.value?.trim() ?? '';
-    const rodzaj      = document.getElementById('ocr-fuel-type')?.value ?? 'diesel';
+    const vehicleSel  = document.getElementById('ocr-vehicle');
+    // `/api/fuel-fills` (worker/index.js:5242) identyfikuje pojazd po `nr_rej`,
+    // nie po `vehicle_id` — bierzemy tablicę z `data-reg` opcji, którą `_renderForm`
+    // już wypełnia dla każdego pojazdu.
+    const nr_rej      = vehicleSel?.selectedOptions?.[0]?.dataset?.reg || '';
+    const fill_date   = document.getElementById('ocr-data')?.value;
+    const liters      = parseFloat(document.getElementById('ocr-liters')?.value) || 0;
+    const total_cost  = parseFloat(document.getElementById('ocr-total')?.value)  || null;
+    const price_per_liter = parseFloat(document.getElementById('ocr-price')?.value) || null;
+    const station     = document.getElementById('ocr-station')?.value?.trim() ?? '';
+    const fuel_type   = document.getElementById('ocr-fuel-type')?.value ?? 'diesel';
 
-    if (!vehicle_id)  { typeof toast === 'function' && toast('Wybierz pojazd'); return; }
-    if (!litery)      { typeof toast === 'function' && toast('Wpisz ilość litrów'); return; }
+    if (!nr_rej)  { typeof toast === 'function' && toast('Wybierz pojazd'); return; }
+    if (!fill_date) { typeof toast === 'function' && toast('Podaj datę tankowania'); return; }
+    if (!liters)  { typeof toast === 'function' && toast('Wpisz ilość litrów'); return; }
 
     try {
-      const resp = await fetch(`${_api()}/api/fuel-records`, {
+      // Endpoint /api/fuel-records NIE ISTNIEJE (worker rejestruje tylko
+      // /api/fuel-fills, worker/index.js:10202) — zapis zawsze kończył się 404.
+      // `company` idzie w query string, bo tak czyta go `handleFuelFills`
+      // (url.searchParams.get('company')), nie z pola w body.
+      const resp = await fetch(`${_api()}/api/fuel-fills?company=${encodeURIComponent(_co())}`, {
         method:  'POST',
         headers: _hdrs(),
         body:    JSON.stringify({
-          vehicle_id,
-          data_tanko,
-          litery,
-          cena_brutto,
-          stacja,
-          rodzaj,
-          company: _co(),
-          zrodlo:  'ocr',
+          nr_rej,
+          fill_date,
+          liters,
+          total_cost,
+          price_per_liter,
+          station,
+          fuel_type,
+          notes: 'Auto-import z OCR faktury paliwa',
         }),
       });
       if (resp.ok) {

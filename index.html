@@ -2659,6 +2659,15 @@ window._initPostHog=function(apiKey,host){
       </div>
 
       <div class="card" style="margin-bottom:1rem">
+        <div class="card-title"><i class="ti ti-file-certificate"></i>Eksport DR (dowody rejestracyjne)</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Wszystkie 35 pól katalogu dowodu rejestracyjnego (modules/dr-fields.js) w jednym pliku: pokrycie, konflikty między źródłami, odrzucone wartości, status DT-1 i legenda. Zawiera VIN-y i dane właścicieli — trzymaj poza repozytorium.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-green" style="flex:1;justify-content:center" onclick="TaxOrderDrExport.exportAll()"><i class="ti ti-file-certificate"></i>Eksport DR — cała flota</button>
+          <button class="btn btn-gray" style="flex:1;justify-content:center" onclick="TaxOrderDrExport.exportSelected()"><i class="ti ti-checkbox"></i>Eksport DR — zaznaczone</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:1rem">
         <div class="card-title"><i class="ti ti-file-text"></i>Eksport do CSV</div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Lekki format tekstowy kompatybilny z każdym arkuszem kalkulacyjnym.</div>
         <button class="btn btn-gray" style="width:100%;justify-content:center" onclick="expCsv()"><i class="ti ti-download"></i>Pobierz CSV (wszystkie pojazdy)</button>
@@ -4271,6 +4280,8 @@ window._initPostHog=function(apiKey,host){
         <button class="btn btn-gray" style="width:100%;justify-content:flex-start;font-size:12px;margin-bottom:2px" onclick="bulkExportSelected();document.getElementById('bulk-export-menu').style.display='none'"><i class="ti ti-file-spreadsheet"></i>Excel (.xlsx)</button>
         <button class="btn btn-gray" style="width:100%;justify-content:flex-start;font-size:12px;margin-bottom:2px" onclick="bulkExportCSV();document.getElementById('bulk-export-menu').style.display='none'"><i class="ti ti-file-type-csv"></i>CSV (.csv)</button>
         <button class="btn btn-gray" style="width:100%;justify-content:flex-start;font-size:12px" onclick="bulkExportTXT();document.getElementById('bulk-export-menu').style.display='none'"><i class="ti ti-file-text"></i>Tekst (.txt)</button>
+        <div style="height:1px;background:var(--border);margin:4px 0"></div>
+        <button class="btn btn-gray" style="width:100%;justify-content:flex-start;font-size:12px" onclick="TaxOrderDrExport.exportSelected();document.getElementById('bulk-export-menu').style.display='none'" title="35 pól katalogu DR, źródło/konflikty/odrzucone/DT-1"><i class="ti ti-file-certificate"></i>Eksport DR (analiza źródeł)</button>
       </div>
     </div>
     <button class="btn" style="background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.35);font-size:12px" onclick="bulkAssignCompany()"><i class="ti ti-building"></i>Przypisz firmę</button>
@@ -4353,7 +4364,11 @@ window._initPostHog=function(apiKey,host){
   <script src="modules/alert-dashboard.js"></script>
   <script src="modules/notification-settings.js"></script>
   <script src="modules/policy-ocr.js"></script>
+  <!-- Katalog pól DR i wspólna logika scalania/walidacji (dzielona z tools/dr-excel.js) -->
+  <script src="modules/dr-fields.js"></script>
+  <script src="modules/dr-merge-core.js"></script>
   <script src="modules/dr-import.js"></script>
+  <script src="modules/dr-export.js"></script>
   <script src="modules/bulk-import.js"></script>
   <script src="modules/folder-monitor.js"></script>
   <script src="modules/doc-viewer.js"></script>

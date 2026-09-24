@@ -40,6 +40,9 @@ const fs = require('fs');
 const path = require('path');
 const ExcelJS = require('exceljs');
 const DR = require(path.join(__dirname, '..', 'modules', 'dr-fields.js'));
+// Logika scalania/walidacji/DT-1 żyje teraz w jednym miejscu — patrz ten plik dla
+// uzasadnień poszczególnych reguł, jeśli komentarz obok wygląda na skrót.
+const Core = require(path.join(__dirname, '..', 'modules', 'dr-merge-core.js'));
 
 const G = s => `\x1b[32m${s}\x1b[0m`, R = s => `\x1b[31m${s}\x1b[0m`,
       Y = s => `\x1b[33m${s}\x1b[0m`, B = s => `\x1b[1m${s}\x1b[0m`, D = s => `\x1b[2m${s}\x1b[0m`;
@@ -178,15 +181,8 @@ if (!fs.existsSync(path.dirname(cel))) {
   process.exit(2);
 }
 
-const ZRODLA = {
-  aztec:       { etykieta: 'Aztec (pewne)',     kolor: 'FFC6EFCE', ranga: 4 },
-  cepik:       { etykieta: 'CEPiK (urzędowe)',  kolor: 'FFBDD7EE', ranga: 3 },
-  zestawienie: { etykieta: 'zestawienie (ręcz.)', kolor: 'FFD9E1F2', ranga: 2 },
-  ocr:         { etykieta: 'OCR (do sprawdz.)', kolor: 'FFFFE699', ranga: 1 },
-  folder:      { etykieta: 'nazwa pliku',       kolor: 'FFE7E6E6', ranga: 0 },
-};
-const zrodloPola = (rek, klucz) =>
-  (rek._zrodla && rek._zrodla[klucz]) || rek._zrodlo || ZRODLO_DOMYSLNE || null;
+const ZRODLA = Core.ZRODLA;
+const zrodloPola = (rek, klucz) => Core.zrodloPola(rek, klucz, ZRODLO_DOMYSLNE);
 
 /**
  * Numer rejestracyjny z nazwy pliku — TYLKO gdy wygląda jak polska tablica.
@@ -197,17 +193,7 @@ const zrodloPola = (rek, klucz) =>
  * cyfrę i mieścić się w 4–8 znakach. Rekord rozpoznany tą drogą dostaje źródło `folder`
  * — najniższą rangę w scalaniu — więc przegrywa z każdym innym źródłem tego samego pola.
  */
-const LITERY_WOJ = 'BCDEFGKLNOPRSTWZ';
-function nrZNazwyPliku(nazwa) {
-  const baza = path.basename(String(nazwa)).replace(/\.[a-z0-9]+$/i, '').toUpperCase();
-  for (const kandydat of baza.split(/[^A-Z0-9]+/)) {
-    if (kandydat.length < 4 || kandydat.length > 8) continue;
-    if (!LITERY_WOJ.includes(kandydat[0])) continue;
-    if (!/[0-9]/.test(kandydat) || !/^[A-Z]{1,3}[A-Z0-9]{3,7}$/.test(kandydat)) continue;
-    return kandydat;
-  }
-  return null;
-}
+const nrZNazwyPliku = Core.nrZNazwyPliku;
 
 /**
  * Numer rejestracyjny CZYTANY WPROST Z TREŚCI OCR — w przeciwieństwie do wyżej,
@@ -225,10 +211,7 @@ function nrZNazwyPliku(nazwa) {
  * Rekord z numerem POZA tym kształtem traktujemy tak samo, jak brak numeru —
  * nie zgadujemy, czy to literówka, czy śmieć; po prostu nie wchodzi do scalania.
  */
-function wygladaJakTablica(nr) {
-  const n = String(nr).toUpperCase().replace(/[\s-]/g, '');
-  return n.length >= 4 && n.length <= 8 && /^[A-Z]{1,3}[A-Z0-9]{2,7}$/.test(n) && /[0-9]/.test(n);
-}
+const wygladaJakTablica = Core.wygladaJakTablica;
 
 /** Checkpoint OCR kluczowany ścieżką pliku -> tablica rekordów. */
 function zCheckpointu(wpisy, sciezka) {
@@ -281,199 +264,18 @@ function wczytaj(sciezka) {
   process.exit(2);
 }
 
-// Numer rejestracyjny bywa zapisany ze spacjami i małymi literami — do dopasowania
-// normalizujemy, ale W ARKUSZU zostaje wartość ze źródła o najwyższej randze.
-const kluczScalania = (r) => String(r.nrRej ?? '').toUpperCase().replace(/[\s-]/g, '');
 
-/**
- * Wartosc pasuje do typu pola — inaczej NIE trafia do arkusza.
- *
- * PO CO. Pierwsze scalenie danych z OCR ujawnilo wartosci wlozone w niewlasciwe pola:
- *
- *     F.1 (maksymalna masa, kg)  ->  "2023.05.11"      data zamiast kilogramow
- *     F.3 (masa zespolu, kg)     ->  "m.p."            skrot z formularza
- *     J   (kategoria)            ->  "m.p."
- *
- * Model jezykowy czytajacy skan potrafi przypisac wartosc do sasiedniego pola. Arkusz,
- * ktory to przyjmuje, wyglada na kompletny i jest fałszywy — a przy DMC i liczbie osi
- * przeklada sie wprost na kwote podatku. Odrzucenie zostawia pole PUSTE, co jest widoczne
- * w arkuszu Pokrycie; przyjecie smiecia nie jest widoczne nigdzie.
- *
- * Zakresy pochodza z katalogu (`modules/dr-fields.js`), zeby nie powstala kolejna kopia.
- */
-function wartoscPasuje(pole, v) {
-  const t = String(v).trim();
-  if (!t) return { ok: false, powod: 'puste' };
+// Walidacja typu/zakresu/domeny i odrzucanie śmieci (data w polu liczbowym, nazwa
+// modelu AI, sklejone etykiety, fragmenty promptu, domeny zamknięte itd.) — pełne
+// uzasadnienie każdej reguły jest teraz w `modules/dr-merge-core.js`, jedynym miejscu
+// tej logiki.
+const wartoscPasuje = Core.wartoscPasuje;
 
-  if (pole.typ === 'liczba') {
-    // Data w polu liczbowym to najczestszy blad OCR — rozpoznajemy ja ZANIM sprobujemy
-    // sparsowac, bo „2023.05.11" po usunieciu kropek daje wiarygodnie wygladajace 20230511.
-    if (/\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}|\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4}/.test(t)) {
-      return { ok: false, powod: 'data w polu liczbowym' };
-    }
-    const n = Number(t.replace(/\s/g, '').replace(/[^\d.,-]/g, '').replace(',', '.'));
-    if (!Number.isFinite(n)) return { ok: false, powod: 'nie jest liczba' };
-    if (pole.zakres && (n < pole.zakres[0] || n > pole.zakres[1])) {
-      return { ok: false, powod: `poza zakresem ${pole.zakres[0]}–${pole.zakres[1]}` };
-    }
-    return { ok: true, wartosc: n };
-  }
-
-  if (pole.typ === 'data') {
-    if (!/\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}|\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4}/.test(t)) {
-      return { ok: false, powod: 'nie wyglada na date' };
-    }
-    return { ok: true, wartosc: t };
-  }
-
-  // Skroty z formularzy („m.p." = miejsce puste, „---", „b/d") niosa informacje „brak",
-  // a nie wartosc. Wpuszczone do arkusza udaja dane.
-  if (/^(m\.?\s*p\.?|---+|-|b\/?d|brak|n\/?d|nie dotyczy)$/i.test(t)) {
-    return { ok: false, powod: 'oznaczenie braku danych' };
-  }
-
-  // Nazwa MODELU AI zamiast wartosci pola. Znaleziono na pelnym zbiorze: gdy model
-  // jezykowy nie odczytal np. D.3 (model pojazdu), gdzies w checkpoint DALEJ ladowala
-  // wartosc typu "cf-workers-ai-llama-3.2-11b" — metadane "ktory model czytal skan",
-  // nie dana pojazdu. 30/100 wierszy w "Spoza zestawienia" mialo to w polu Model.
-  // Sprawdzamy KAZDE pole tekstowe, nie tylko `model` — kontaminacja moze trafic gdziekolwiek.
-  if (/^(cf-workers-ai|@cf\/|llama[-\s]?\d|groq|gpt-\d|claude-\d)/i.test(t)) {
-    return { ok: false, powod: 'nazwa modelu AI zamiast wartosci' };
-  }
-
-  // ETYKIETA=WARTOSC sklejone w jeden string. Istniejaca regula nizej lapala TYLKO kod
-  // rubryki w NAWIASIE ("Zamieszenie inne - (V.9) ..."), nie ten wzorzec — znaleziony
-  // osobno na pelnym zbiorze: "D.1=KIA", "D.2=C.2", "RODZAJ POJAZDU = SAMOCHOD". Model
-  // przepisal etykiete razem z wartoscia zamiast samej wartosci. Nie probujemy odzyskac
-  // czesci po "=" — to byloby cichym zgadywaniem, dokladnie to, czego ten plik unika
-  // wszedzie indziej (patrz komentarz przy `konflikty` wyzej).
-  if (/[A-ZŁŚĆŻŹŃÓĘĄ.\d\s]{2,40}=/i.test(t)) {
-    return { ok: false, powod: 'etykieta=wartosc sklejone (zawiera znak =)' };
-  }
-
-  // Nazwa FOLDERU zamiast marki pojazdu. "archiwum" to najczestszy artefakt — pliki
-  // przeniesione do podfolderu `archiwum/` w strukturze projektu, ktorego nazwa trafila
-  // do pola marka zamiast prawdziwej marki auta. 22/100 w "Spoza zestawienia" mialo to.
-  if (pole.klucz === 'marka' && /^(archiwum|dokumentacja|skany?|kopia|stary|nowy|backup)$/i.test(t)) {
-    return { ok: false, powod: 'nazwa folderu zamiast marki pojazdu' };
-  }
-
-  // FRAGMENT INSTRUKCJI Z PROMPTU zamiast wartosci — model odbil czesc WLASNEGO polecenia
-  // (worker/index.js DR_POLA_OCR), nie dane z dokumentu. Rozne od "etykieta=wartosc"
-  // wyzej: tu nie ma znaku "=", a fragment bywa KROTSZY niz limit 60 znakow, wiec
-  // przechodzil. Znalezione na pelnym zbiorze: `przeznaczenie` dla dwoch pojazdow mialo
-  // „RODZAJ POJAZDU / PRZEZNACZENIE z sekcji bezowej, np SAMOCHOD" (59 znakow — obcięty
-  // fragment prawdziwej instrukcji, ktora jest dluzsza). To pole DT-1: decyduje o
-  // zwolnieniu (pojazd specjalny), wiec smiec tutaj nie jest kosmetyczny.
-  const FRAGMENTY_PROMPTU = [
-    'z sekcji bezowej', 'zoltej tabeli', 'adnotacjach urzedowych', 'puste jesli',
-    'nie zgaduj', 'skonczony zbior', 'krotki kod techniczny', 'dokladnie 17 znakow',
-  ];
-  const tNorm = t.toLowerCase();
-  if (FRAGMENTY_PROMPTU.some(f => tNorm.includes(f))) {
-    return { ok: false, powod: 'fragment instrukcji promptu zamiast wartosci' };
-  }
-
-  // --- POLA TEKSTOWE TEZ WYMAGAJA KONTROLI ------------------------------------------
-  // Do 21.08 kazda niepusta wartosc tekstowa wchodzila do arkusza. Pierwsze scalenie na
-  // pelnym zbiorze pokazalo, co przez to przechodzi:
-  //
-  //     przeznaczenie = „2 3 MAR 2004"
-  //     przeznaczenie = „Zamieszenie inne - (V.9) Pozion przys. Spalin - Euro VI D-4"
-  //
-  // Pierwsze to data z sasiedniej rubryki, drugie to sklejka ETYKIET z formularza, nie
-  // wartosc. Oba wygladaja jak dane i oba trafialyby do deklaracji DT-1.
-  //
-  // Pola dlugie z natury (nazwiska, adresy, VIN, nr homologacji) sa z tych regul wylaczone.
-  const DLUGIE = new Set(['posiadacz', 'wlasciciel', 'adresWlasciciela', 'nrHomolog', 'typ', 'okresWaznosci']);
-  if (!DLUGIE.has(pole.klucz)) {
-    if (/\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}|\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4}/.test(t)) {
-      return { ok: false, powod: 'data w polu tekstowym' };
-    }
-    // „2 3 MAR 2004" — dzien i rok wokol skrotu miesiaca, w dowolnym rozstrzeleniu.
-    if (/\b(STY|LUT|MAR|KWI|MAJ|CZE|LIP|SIE|WRZ|PAZ|PAŹ|LIS|GRU|JAN|FEB|APR|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b[\s.]*\d{4}/i.test(t)) {
-      return { ok: false, powod: 'data slowna w polu tekstowym' };
-    }
-    // Odwolanie do kodu rubryki w TRESCI wartosci znaczy, ze model przepisal etykiete.
-    if (/\((?:[A-Z]\.?\d(?:\.\d)?)\)/.test(t)) {
-      return { ok: false, powod: 'etykieta rubryki zamiast wartosci' };
-    }
-    if (t.length > 60) return { ok: false, powod: 'tekst dluzszy niz 60 znakow' };
-  }
-
-  // --- DZIEDZINA ZAMKNIETA ----------------------------------------------------------
-  // Niektore pola maja skonczony zbior dopuszczalnych wartosci (kategoria homologacyjna,
-  // rodzaj zawieszenia). Reguly ogolne ich nie chronia: „SIA MTOILET" w polu J jest
-  // krotkie, nie jest data i nie zawiera kodu rubryki — a to nazwa spolki z sasiedniej
-  // rubryki, ktora w arkuszu wygladala jak kategoria pojazdu.
-  if (pole.domena) {
-    const n = t.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    // `d.includes(n)` (domena zawiera nasz fragment) jest bezpieczne tylko przy fragmencie
-    // dlugim na tyle, zeby nie trafic przypadkiem. Znalezione na pelnym zbiorze: pojedyncza
-    // litera „R" (smiec z OCR, prawdopodobnie urwany kod paliwa/homologacji) przechodzila
-    // test zawieszenia, bo „ROWNOWAZNE" zawiera literke R — smiec dlugosci 1 wygladal w
-    // arkuszu jak prawdziwa odpowiedz. Kierunek `n.includes(d)` (nasz tekst zawiera CALE
-    // slowo domeny) nie ma tego problemu — domena ma z gory znane, wystarczajaco dlugie slowa.
-    const trafienie = pole.domenaLuzna
-      ? pole.domena.find(d => n.includes(d) || (n.length >= 4 && d.includes(n)))
-      : pole.domena.find(d => d === n);
-    if (!trafienie) {
-      // Pola bez kodu z dyrektywy maja kod „—", wiec komunikat nazywa je po nazwie.
-      return { ok: false, powod: `spoza dopuszczalnych wartosci pola ${pole.kod === '—' ? pole.nazwa.toLowerCase() : pole.kod}` };
-    }
-    // Zapis normalizujemy do postaci z katalogu tylko przy dziedzinie SCISLEJ; przy luznej
-    // zostawiamy tekst zrodla, bo niesie wiecej niz sam symbol.
-    return { ok: true, wartosc: pole.domenaLuzna ? t : trafienie };
-  }
-  return { ok: true, wartosc: t };
-}
-
-const konflikty = [];
-const odrzucone = [];
-const scalone = new Map();
-
-for (const sciezka of wejscia) {
-  for (const rek of wczytaj(sciezka)) {
-    const k = kluczScalania(rek);
-    if (!k) continue;                       // bez numeru nie ma po czym scalać
-    if (!scalone.has(k)) scalone.set(k, { _zrodla: {}, _plik: rek._plik, _uzyte: new Set(), _zNazwy: false });
-    const cel = scalone.get(k);
-    if (rek._zrodlaNrZNazwy) cel._zNazwy = true;
-    if (!cel._plik && rek._plik) cel._plik = rek._plik;
-
-    for (const p of DR.POLA) {
-      const surowa = rek[p.klucz];
-      if (surowa == null || surowa === '') continue;
-      const sprawdz = wartoscPasuje(p, surowa);
-      if (!sprawdz.ok) {
-        odrzucone.push({ nrRej: rek.nrRej || k, kod: p.kod, pole: p.nazwa, dt1: p.dt1,
-          wartosc: String(surowa).slice(0, 40), powod: sprawdz.powod,
-          zrodlo: zrodloPola(rek, p.klucz) || 'folder' });
-        continue;
-      }
-      const v = sprawdz.wartosc;
-      const z = zrodloPola(rek, p.klucz) || 'folder';
-      const rangaNowa = ZRODLA[z]?.ranga ?? 0;
-      const zStare = cel._zrodla[p.klucz];
-      const rangaStara = zStare ? (ZRODLA[zStare]?.ranga ?? 0) : -1;
-
-      // Porównanie zachowawcze: różnica w zapisie („18 000" vs „18000", wielkość liter)
-      // nie jest konfliktem. Różnica wartości — jest, i musi być widoczna.
-      const norm = (x) => String(x).trim().toUpperCase().replace(/\s+/g, '').replace(',', '.');
-      if (zStare && norm(cel[p.klucz]) !== norm(v)) {
-        konflikty.push({
-          nrRej: cel.nrRej || k, kod: p.kod, pole: p.nazwa, dt1: p.dt1,
-          a: cel[p.klucz], zrodloA: zStare, b: v, zrodloB: z,
-          wybrano: rangaNowa > rangaStara ? z : zStare,
-        });
-      }
-      cel._uzyte.add(z);
-      if (rangaNowa > rangaStara) { cel[p.klucz] = v; cel._zrodla[p.klucz] = z; }
-    }
-  }
-}
-
-const rekordy = [...scalone.values()];
+// Wczytanie plików zostaje tu (I/O Node-owe: fs, ścieżki, kształty checkpointów) —
+// scalanie/walidacja/konflikty przeszły do `dr-merge-core.js`, patrz tam.
+const wszystkieRekordy = wejscia.flatMap(wczytaj);
+const { rekordy, konflikty, odrzucone, spozaZestawienia } =
+  Core.scalRekordy(wszystkieRekordy, { zrodloDomyslne: ZRODLO_DOMYSLNE });
 
 /**
  * Pojazdy, o ktorych wie WYLACZNIE OCR albo nazwa pliku.
@@ -486,11 +288,9 @@ const rekordy = [...scalone.values()];
  * Wierszy NIE USUWAMY: czesc z nich to moga byc pojazdy faktycznie nowe, jeszcze
  * nieobecne w zestawieniu. Ale musza byc WYMIENIONE Z NAZWY, zeby dalo sie je obejrzec,
  * zamiast rozplynac sie w 916 wierszach.
+ *
+ * (liczone teraz przez `Core.scalRekordy` — patrz destrukturyzacja wyżej)
  */
-const spozaZestawienia = rekordy.filter(r => {
-  const uzyte = [...(r._uzyte || [])];
-  return uzyte.length > 0 && uzyte.every(z => (ZRODLA[z]?.ranga ?? 0) <= 1);
-});
 
 /**
  * Skoroszyt PREZENTACYJNY — dla zarządu i do wczytania przez inny program.
@@ -822,56 +622,11 @@ async function zapiszDlaZarzadu(cel, rekordy, dt1Wiersze, konflikty, odrzucone, 
   new Function('window', fs.readFileSync(path.join(__dirname, '..', 'modules', 'tax-engine.js'), 'utf8'))(shim.window);
   const TaxEngine = shim.window.TaxEngine;
 
-  const dt1Wiersze = rekordy.map(r => {
-    const v = {
-      dmc: r.dmcKg ?? null, dmcMax: r.dmcKg2 ?? null, dmcZespolu: r.dmcZespolu ?? 0,
-      typ: r.przeznaczenie || r.typ || '', przeznaczenie: r.przeznaczenie || '',
-      osie: r.liczbaOsi, miejsca: r.miejscaSied, rok: r.rokProd,
-    };
-    const maDmc = r.dmcKg != null || r.dmcKg2 != null;
-    const tonaz = ((r.dmcZespolu || 0) > 0 ? r.dmcZespolu : (r.dmcKg ?? r.dmcKg2 ?? 0)) / 1000;
-    const specjalny = /specjaln/i.test(v.typ) || /specjaln/i.test(v.przeznaczenie);
-    const cat = maDmc ? TaxEngine.getCat(v) : null;
-
-    // Czego brakuje — pytamy o to, co silnik FAKTYCZNIE czyta przy tym tonazu.
-    const braki = [];
-    if (!maDmc) braki.push('F.1 DMC');
-    if (!r.przeznaczenie && !r.typ) braki.push('rodzaj pojazdu');
-    if (maDmc && !specjalny && tonaz >= 12) {
-      if (r.liczbaOsi == null) braki.push('L liczba osi');
-      if (!r.zawieszenie) braki.push('zawieszenie');
-    }
-
-    // CICHY DOMYSLNY WYBOR — `TaxEngine.getCat()` ma `parseInt(v.osie) || 2` (linie 88 i 199).
-    // Brak liczby osi NIE jest bledem: po cichu staje sie dwojka. Dla pojazdu od 12 t daje
-    // to D8 zamiast D9/D10, czyli INNA STAWKE — a wynik wyglada tak samo wiarygodnie.
-    // Zamiast wypisac jedna kategorie i udawac, ze jest ustalona, pokazujemy WSZYSTKIE,
-    // ktore wychodza przy prawdopodobnych liczbach osi. Kolumna z trzema kategoriami
-    // krzyczy „to nie jest ustalone" mocniej niz przypis w innym arkuszu.
-    let katWarianty = '';
-    if (maDmc && !specjalny && tonaz >= 12 && r.liczbaOsi == null) {
-      const mozliwe = [...new Set([1, 2, 3, 4]
-        .map(n => TaxEngine.getCat({ ...v, osie: n }))
-        .filter(Boolean))];
-      if (mozliwe.length > 1) katWarianty = mozliwe.join(' / ');
-    }
-
-    let status;
-    if (specjalny) status = 'zwolniony (specjalny)';
-    else if (!maDmc) status = 'NIE DA SIE USTALIC';
-    else if (cat) status = braki.length ? `${cat} — niepewna` : cat;
-    else status = 'ponizej progu / brak podatku';
-
-    return {
-      nrRej: r.nrRej, marka: r.marka || '', model: r.model || '',
-      rodzaj: r.przeznaczenie || r.typ || '', dmc: r.dmcKg ?? null,
-      dmcZesp: r.dmcZespolu ?? null, osie: r.liczbaOsi ?? null,
-      zawieszenie: r.zawieszenie || '', kat: cat || '', status,
-      katWarianty, braki: braki.join(', '), _wymaga12t: maDmc && !specjalny && tonaz >= 12,
-      _katNiepewna: katWarianty !== '',
-      _podlega: !!cat, _niepewny: braki.length > 0 && !specjalny,
-    };
-  });
+  // Budowa wierszy DT-1 (kategoria, braki, status) przeszła do `dr-merge-core.js`
+  // (`budujDt1Wiersze`) — `TaxEngine` jest wstrzykiwany, więc CLI i eksport z UI
+  // czytają te same progi podatkowe z jednego miejsca (`modules/tax-engine.js`),
+  // bez kopii logiki tutaj.
+  const dt1Wiersze = Core.budujDt1Wiersze(rekordy, TaxEngine);
 
   const wd = wb.addWorksheet('DT-1');
   wd.columns = [
