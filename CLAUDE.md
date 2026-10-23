@@ -2129,6 +2129,8 @@ npx sg run -p 'el.innerHTML = $X' modules/*.js
 | `/akt-prawny <czego szukasz>` | **Potrzebujesz treści przepisu.** ISAP **odbija automaty** (302 sam na siebie w nieskończoność) — działają `dziennikustaw.gov.pl` / `monitorpolski.gov.pl` + API ELI do sprawdzenia, czy akt **obowiązuje**. Zawiera dwie pułapki wyciągania tabel, obie zmierzone: niekonsekwentny separator dziesiętny i konieczność weryfikacji numeracji Lp |
 | `/ocr-diagnoza <pole albo plik>` | **Pole DR się nie wyciąga.** Najpierw pomiar pokrycia, potem surowe boxy (`tools/dr-ocr-boxes.js`) — bo „OCR nie odczytał" i „parser nie dopasował" wyglądają identycznie, a wymagają innych napraw. Strojenie lokalne (`ocr-service/stroj_lokalnie.py`) skraca pętlę z ~14 min do ~10 s |
 
+| `/porzadek-danych [etap]` | **Porządkowanie danych floty i CFM w pętli** (`/loop /porzadek-danych`). Jeden przebieg = jeden krok harmonogramu E0–E6 (inwentaryzacja → klucz VIN → przypisanie do modułów → jakość → struktura → raport). Stan w `~/Documents/taxorder-backupy/porzadek/STAN.md`. Niczego nie zapisuje na produkcję — produkuje propozycje |
+
 Pozostałe: `/audyt`, `/bezpieczenstwo`, `/migracja`, `/modul`, `/przed-mergem`,
 `/status`, `/wdroz`.
 
