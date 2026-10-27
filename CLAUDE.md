@@ -2132,6 +2132,17 @@ npx sg run -p 'el.innerHTML = $X' modules/*.js
 Pozostałe: `/audyt`, `/bezpieczenstwo`, `/migracja`, `/modul`, `/przed-mergem`,
 `/status`, `/wdroz`.
 
+### Duże pliki — NIE czytaj w całości
+`worker/index.js` (830 KB ≈ 250 tys. tokenów) i `app.js` (615 KB) — jedno przeczytanie całego pliku
+zjada więcej limitu niż reszta sesji. Zamiast tego:
+```bash
+node tools/codemap.js handleVehicles     # → worker/index.js:562-678
+sed -n '562,678p' worker/index.js        # czytaj tylko ten zakres
+node tools/codemap.js --top 25           # największe funkcje
+```
+Do szukania po treści — `grep -n`/Grep z `-C`, nie Read całego pliku. Zakresy liczone na żywo
+(numery linii w dokumentacji starzeją się przy każdym commicie).
+
 ### Audyt własny (tools/autotest/)
 ```bash
 npm run audit:all       # syntax + XSS + i18n + SW cache + WSZYSTKIE bramki jednostkowe

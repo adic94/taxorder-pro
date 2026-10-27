@@ -148,6 +148,9 @@ jobs:
       - name: Straznik wersji ZXing — jedna wersja, ta sama w testach
         run: node tests/unit/zxing-version-test.js
 
+      - name: Straznik codemap — zakresy funkcji w duzych plikach
+        run: node tests/unit/codemap-test.js
+
       # index.html laduje 9 bibliotek z trzech obcych hostow. Bez `integrity` przegladarka
       # wykona DOWOLNA tresc, ktora ten host odda — a skrypt dziala w origin aplikacji,
       # gdzie w localStorage lezy token sesji. SRI to jedyne zabezpieczenie na tej sciezce:
