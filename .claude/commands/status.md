@@ -17,9 +17,9 @@ git status --short
 git stash list
 ```
 
-**2. Handoff z CLAUDE.md**
-Przeczytaj sekcję `## HANDOFF — STAN PROJEKTU` z `CLAUDE.md`.
-Wypisz W TOKU i OTWARTE tematy.
+**2. Handoff**
+Przeczytaj `docs/handoff/STAN.md` (stan bieżący) oraz sekcję `## HANDOFF` w `CLAUDE.md` (skrót + lista „Czego NIE robić”).
+Wypisz W TOKU i OTWARTE tematy. `docs/handoff/ARCHIWUM.md` czytaj tylko, gdy temat tego wymaga.
 
 **3. Memory**
 Przeczytaj `C:\Users\acichocki\.claude\projects\c--Users-acichocki-Desktop-Program-flotowy-taxorder-pro\memory\MEMORY.md`.
