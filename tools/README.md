@@ -126,3 +126,9 @@ node tools/aztec-compare.js --selftest              # bez zdjęcia: kontrola wie
 
 `--selftest` generuje własny kod Aztec o znanym ładunku i wykrywa zniekształcenie
 bajtów `0x80`–`0x9F` przez warstwę tekstową (CP1252). Kod wyjścia 1 przy rozjeździe.
+
+## Praca z dużymi plikami
+
+| Skrypt | Co robi |
+|--------|---------|
+| `codemap.js` | **Zakres linii funkcji w `worker/index.js` (830 KB), `app.js` (615 KB) i `modules/*.js` — liczony na żywo.** `node tools/codemap.js handleVehicles` → `worker/index.js:562-678`, potem `sed -n '562,678p' worker/index.js` zamiast czytać cały plik (~250 tys. tokenów). `--top 25` pokazuje największe funkcje. Zakresów celowo NIE trzymamy w dokumentacji — numery linii starzeją się przy każdym commicie. Pilnuje go `tests/unit/codemap-test.js` |
