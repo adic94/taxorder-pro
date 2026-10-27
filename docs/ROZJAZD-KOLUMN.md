@@ -161,7 +161,7 @@ teraz też naprawione. Zostaje wyłącznie `alert_events`, świadomie.
 `company_packages.active` (14018) — kolumna istnieje wyłącznie w `schema_v48`, a zapis
 `PUT /api/access-control/config` wstawia `updated_by`, które istnieje wyłącznie w `v33`.
 Nie do naprawy „przy okazji": to decyzja o włączeniu licencjonowania modułów. Pełny
-opis i kolejność kroków — CLAUDE.md, sekcja „Otwarte / znane długi".
+opis i kolejność kroków — `docs/claude/HANDOFF-HISTORIA.md`, sekcja „Otwarte / znane długi".
 
 ## F. Dlaczego nie ruszamy 27 niemych `.catch()` przy zapisach
 
@@ -180,4 +180,4 @@ Innymi słowy: ryzyko z niemego `catch` przesunęło się z „ukrywa błąd w z
 „ukrywa awarię bazy w czasie wykonania" — a to drugie jest przy D1 rzadkie i zwykle
 świadomie tolerowane (telemetria, liczniki użycia). Masowa zamiana 27 miejsc byłaby
 zmianą zachowania bez znalezionego defektu, czyli dokładnie tym, przed czym ostrzega
-sekcja WERYFIKACJA w CLAUDE.md.
+`docs/claude/WERYFIKACJA.md`.
