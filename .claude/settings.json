@@ -1,0 +1,11 @@
+{
+  "model": "sonnet",
+  "permissions": {
+    "deny": [
+      "Read(./fontkit.umd.min.js)",
+      "Read(./pdf-lib.min.js)",
+      "Read(./package-lock.json)",
+      "Read(./node_modules/**)"
+    ]
+  }
+}

@@ -17,9 +17,9 @@ git status --short
 git stash list
 ```
 
-**2. Handoff z CLAUDE.md**
-Przeczytaj sekcję `## HANDOFF — STAN PROJEKTU` z `CLAUDE.md`.
-Wypisz W TOKU i OTWARTE tematy.
+**2. Stan projektu**
+Przeczytaj sekcję `## STAN PROJEKTU — skrót` z `CLAUDE.md`.
+Szczegóły W TOKU i OTWARTE: `grep -n -A20 "^### W toku\|^### Otwarte" docs/claude/HANDOFF-HISTORIA.md` — NIE czytaj tego pliku w całości (~140 KB).
 
 **3. Memory**
 Przeczytaj `C:\Users\acichocki\.claude\projects\c--Users-acichocki-Desktop-Program-flotowy-taxorder-pro\memory\MEMORY.md`.
@@ -48,10 +48,10 @@ CF Pages SPA + Worker (D1 SQLite, R2, KV) | schema v44 | Node portable C:\Users\
 [git status --short — jeśli czyste: "drzewo czyste"]
 
 ## W toku
-[z HANDOFF sekcji CLAUDE.md]
+[z CLAUDE.md → STAN PROJEKTU + docs/claude/HANDOFF-HISTORIA.md]
 
 ## Otwarte długi
-[z HANDOFF sekcji CLAUDE.md]
+[z CLAUDE.md → STAN PROJEKTU + docs/claude/HANDOFF-HISTORIA.md]
 
 ## Kluczowe pliki
 app.js ~9700 ln | worker/index.js ~11500 ln | modules/vehicle-detail.js ~3700 ln

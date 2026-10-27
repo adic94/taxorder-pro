@@ -132,7 +132,7 @@ celowanego w cudzą sesję **nie da się później zmienić** — cała zmienna 
   silnik cicho przyjmuje 2;
 - **nic z tego kanału nie idzie na produkcję bez potwierdzenia właściciela** — żadnego
   `wrangler deploy`, scalania PR-ów ani pushu do `main`;
-- trwały stan idzie przez **sekcję HANDOFF w CLAUDE.md**, nie przez kanał. Kanał służy
+- trwały stan idzie przez **`docs/claude/HANDOFF-HISTORIA.md` (skrót w CLAUDE.md → STAN PROJEKTU)**, nie przez kanał. Kanał służy
   do rzeczy pilnych i do pytań; HANDOFF do stanu, który ma przetrwać koniec obu sesji.
 
 ---
