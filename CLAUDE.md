@@ -2045,6 +2045,8 @@ z zaokrągleniem w górę.
 Naprawione przez zejście z nocnego E2E na **tygodniowy** (poniedziałki) — harmonogramy
 schodzą do 412 min (21%), na PR-y zostaje 56 przebiegów zamiast 30.
 
+**Aktualizacja (27.10): kolejne −90 min/mies.** `health-check` zszedł z co 4 h na **co 6 h** (180 → 120 min; świadoma zmiana wcześniejszej decyzji „nietknięty” — opóźnienie wykrycia awarii 4 h → 6 h, na życzenie właściciela), a job `stats` w `nightly-report.yml` stał się krokiem `syntax-check` (każdy job jest zaokrąglany do pełnej minuty; −30 min). Harmonogramy: ~322 min (16%).
+
 > **Dodając cokolwiek do `schedule:`, policz najpierw koszt miesięczny.** Cron co 4 h
 > to 180 przebiegów, a każdy job kosztuje minimum minutę, choćby trwał 5 sekund.
 > `health-check` zostawiono świadomie nietknięty: to jedyne, co pilnuje działającej
