@@ -104,6 +104,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 10   # `git log -10` w kroku statystyk
 
       - uses: actions/setup-node@v4
         with:
@@ -123,6 +125,24 @@ jobs:
           else
             echo "✅ Wszystkie pliki JS mają poprawną składnię"
           fi
+
+      # Dawny osobny job `stats` (needs: syntax-check) — czysto informacyjny, więc nie ma po co
+      # płacić za osobny job: GitHub zaokrągla KAŻDY job do pełnej minuty.
+      - name: Wygeneruj statystyki
+        run: |
+          echo "## 📊 Statystyki TaxOrder Pro — $(date -u '+%Y-%m-%d')"
+          echo ""
+          echo "### Rozmiary plików kluczowych"
+          wc -l worker/index.js app.js index.html modules/*.js | sort -rn | head -20
+          echo ""
+          echo "### Liczba modułów"
+          ls modules/*.js | wc -l
+          echo ""
+          echo "### Schematy D1"
+          ls worker/schema_v*.sql
+          echo ""
+          echo "### Ostatnie commity"
+          git log --oneline -10
 
   # ─── Job 3: Security monitor — nullable company_id (§9 WERYFIKACJA_v44) ─────
   security-nullcheck:
@@ -181,28 +201,3 @@ jobs:
           fi
 
           echo "✅ Wzorzec nieosiągalny — 0 aktywnych użytkowników z company_id NULL"
-
-  # ─── Job 4: Statystyki repozytorium ─────────────────────────────────────────
-  stats:
-    name: Statystyki projektu
-    runs-on: ubuntu-latest
-    needs: [syntax-check]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Wygeneruj statystyki
-        run: |
-          echo "## 📊 Statystyki TaxOrder Pro — $(date -u '+%Y-%m-%d')"
-          echo ""
-          echo "### Rozmiary plików kluczowych"
-          wc -l worker/index.js app.js index.html modules/*.js | sort -rn | head -20
-          echo ""
-          echo "### Liczba modułów"
-          ls modules/*.js | wc -l
-          echo ""
-          echo "### Schematy D1"
-          ls worker/schema_v*.sql
-          echo ""
-          echo "### Ostatnie commity"
-          git log --oneline -10
